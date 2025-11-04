@@ -1,0 +1,138 @@
+import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
+
+const Me = () => {
+  const navigate = useNavigate()
+
+  const menuGroups = [
+    {
+      id: 1,
+      items: [{ 
+        id: 11, 
+        name: '服务', 
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"/></svg>, 
+        path: '/services' 
+      }],
+    },
+    {
+      id: 2,
+      items: [{ 
+        id: 21, 
+        name: '收藏', 
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>, 
+        path: '' 
+      }],
+    },
+    {
+      id: 3,
+      items: [{ 
+        id: 31, 
+        name: '设置', 
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>, 
+        path: '/settings' 
+      }],
+    },
+  ]
+
+  return (
+    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+      {/* 顶部 */}
+      <div className="glass-effect">
+        <StatusBar />
+        <div className="px-5 py-4 flex items-center justify-between">
+          <button onClick={() => navigate('/')} className="text-gray-700">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-lg font-semibold text-gray-900">我</h1>
+          <div className="w-6"></div>
+        </div>
+      </div>
+
+      {/* 个人信息卡片 */}
+      <div className="px-3 pt-3 mb-3">
+        <div className="glass-card rounded-2xl overflow-hidden">
+          <div 
+            onClick={() => navigate('/profile')}
+            className="flex items-center px-5 py-5 cursor-pointer active:opacity-70 transition-opacity"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-gray-200 flex items-center justify-center shadow-xl text-gray-400">
+              <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <div className="ml-4 flex-1">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                微信用户
+              </h2>
+              <p className="text-sm text-gray-500">微信号: wxid_123456</p>
+            </div>
+            <span className="text-gray-400 text-2xl">›</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 菜单列表 */}
+      <div className="flex-1 overflow-y-auto px-3">
+        {menuGroups.map((group) => (
+          <div key={group.id} className="mb-3">
+            <div className="glass-card rounded-2xl overflow-hidden">
+              {group.items.map((item, index) => (
+                <div key={item.id}>
+                  <div 
+                    onClick={() => item.path && navigate(item.path)}
+                    className="flex items-center px-4 py-4 cursor-pointer active:opacity-70 transition-opacity"
+                  >
+                    <div className="w-10 h-10 rounded-xl glass-card flex items-center justify-center shadow-lg text-gray-600">
+                      {item.icon}
+                    </div>
+                    <span className="ml-4 flex-1 text-gray-900 font-medium">
+                      {item.name}
+                    </span>
+                    <span className="text-gray-400 text-xl">›</span>
+                  </div>
+                  {index < group.items.length - 1 && (
+                    <div className="ml-16 border-b border-gray-100" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 底部导航栏 */}
+      <div className="glass-effect border-t border-gray-200">
+        <div className="grid grid-cols-4 h-16">
+          <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500">
+            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+            <span className="text-xs">微信</span>
+          </button>
+          <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500">
+            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
+            </svg>
+            <span className="text-xs">通讯录</span>
+          </button>
+          <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500">
+            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <span className="text-xs">发现</span>
+          </button>
+          <button className="flex flex-col items-center justify-center text-green-600">
+            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            <span className="text-xs">我</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Me
