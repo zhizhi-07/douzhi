@@ -17,7 +17,7 @@ export interface ApiConfig {
 const jiubanApiConfig: ApiConfig = {
   id: 'default-jiuban',
   name: '九班AI (Gemini 2.5 Pro)',
-  baseUrl: 'https://gy.jiubanai.com',
+  baseUrl: 'https://gy.jiubanai.com/v1',
   apiKey: 'sk-NqOuYUHhjx8qWOjZCdA34XTMvJ7PXsxoHRQLNQDg3xyMYfJk',
   model: 'gemini-2.5-pro',
   provider: 'openai',
@@ -78,10 +78,15 @@ export const apiService = {
       const saved = localStorage.getItem(STORAGE_KEYS.API_CONFIGS)
       if (saved) {
         const configs = JSON.parse(saved)
-        // 过滤掉内置配置，然后添加最新的内置配置
-        const userConfigs = configs.filter((c: ApiConfig) => !c.isBuiltIn)
-        return [...BUILT_IN_CONFIGS, ...userConfigs]
+        // 如果本地没有保存任何配置，返回内置配置
+        if (configs.length === 0) {
+          return BUILT_IN_CONFIGS
+        }
+        // 返回本地保存的所有配置（包括已编辑的内置配置）
+        return configs
       }
+      // 首次使用，返回并保存内置配置
+      localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(BUILT_IN_CONFIGS))
       return BUILT_IN_CONFIGS
     } catch (error) {
       console.error('读取API配置失败:', error)
@@ -139,12 +144,6 @@ export const apiService = {
     
     if (index === -1) return null
     
-    // 防止修改内置配置
-    if (configs[index].isBuiltIn) {
-      alert('内置API配置无法修改')
-      return null
-    }
-    
     configs[index] = { ...configs[index], ...updates }
     localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(configs))
     
@@ -159,20 +158,15 @@ export const apiService = {
   // 删除API配置
   delete: (id: string): void => {
     const configs = apiService.getAll()
-    const config = configs.find(c => c.id === id)
-    
-    // 防止删除内置API
-    if (config?.isBuiltIn) {
-      alert('内置API配置无法删除')
-      return
-    }
-    
     const filtered = configs.filter(c => c.id !== id)
     localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(filtered))
     
-    // 如果删除的是当前API，切换到默认API
+    // 如果删除的是当前API，切换到第一个可用API
     if (apiService.getCurrentId() === id) {
-      apiService.setCurrentId('default-jiuban')
+      const remaining = apiService.getAll()
+      if (remaining.length > 0) {
+        apiService.setCurrentId(remaining[0].id)
+      }
     }
   },
 

@@ -10,7 +10,9 @@ export const useAddMenu = (
   onOpenTransfer?: () => void,
   onOpenVoice?: () => void,
   onOpenLocation?: () => void,
-  onOpenPhoto?: () => void
+  onOpenPhoto?: () => void,
+  onOpenCoupleSpace?: () => void,
+  onOpenIntimatePay?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -56,17 +58,21 @@ export const useAddMenu = (
    * 亲密付
    */
   const handleSelectIntimatePay = useCallback(() => {
-    console.log('亲密付')
-    // TODO: 实现亲密付功能
-  }, [])
+    setShowAddMenu(false)
+    if (onOpenIntimatePay) {
+      onOpenIntimatePay()
+    }
+  }, [onOpenIntimatePay])
   
   /**
    * 情侣空间
    */
   const handleSelectCoupleSpace = useCallback(() => {
-    console.log('情侣空间')
-    // TODO: 实现情侣空间功能
-  }, [])
+    setShowAddMenu(false)
+    if (onOpenCoupleSpace) {
+      onOpenCoupleSpace()
+    }
+  }, [onOpenCoupleSpace])
   
   /**
    * 发送位置

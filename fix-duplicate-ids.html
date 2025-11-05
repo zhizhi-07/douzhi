@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>修复重复消息ID</title>
+</head>
+<body>
+    <h1>修复重复消息ID</h1>
+    <button onclick="fixDuplicateIds()">修复所有聊天的重复ID</button>
+    <button onclick="clearChat()">清除当前聊天记录</button>
+    <pre id="log"></pre>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function fixDuplicateIds() {
+            log.textContent = '开始修复...\n';
+            let fixed = 0;
+            
+            // 遍历所有 localStorage 的 key
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                
+                // 只处理聊天消息
+                if (key && key.startsWith('chat_messages_')) {
+                    const data = localStorage.getItem(key);
+                    if (!data) continue;
+                    
+                    try {
+                        let messages = JSON.parse(data);
+                        const idMap = new Map();
+                        let hasDuplicate = false;
+                        
+                        // 检查并修复重复ID
+                        messages = messages.map((msg, index) => {
+                            if (idMap.has(msg.id)) {
+                                hasDuplicate = true;
+                                // 重新生成ID：原ID + 索引
+                                const newId = msg.id + index + 1000;
+                                log.textContent += `修复 ${key}: ${msg.id} -> ${newId}\n`;
+                                idMap.set(newId, true);
+                                return { ...msg, id: newId };
+                            } else {
+                                idMap.set(msg.id, true);
+                                return msg;
+                            }
+                        });
+                        
+                        if (hasDuplicate) {
+                            localStorage.setItem(key, JSON.stringify(messages));
+                            fixed++;
+                            log.textContent += `✅ 已修复 ${key}\n`;
+                        }
+                    } catch (e) {
+                        log.textContent += `❌ 处理 ${key} 失败: ${e.message}\n`;
+                    }
+                }
+            }
+            
+            log.textContent += `\n完成！修复了 ${fixed} 个聊天\n`;
+            alert('修复完成！请刷新页面');
+        }
+        
+        function clearChat() {
+            const chatId = prompt('输入聊天ID（例如：zhizhi-001）');
+            if (!chatId) return;
+            
+            const key = `chat_messages_${chatId}`;
+            localStorage.removeItem(key);
+            log.textContent = `已清除 ${key}\n`;
+            alert('清除完成！请刷新页面');
+        }
+    </script>
+</body>
+</html>

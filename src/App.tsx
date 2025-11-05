@@ -10,10 +10,23 @@ import ApiList from './pages/ApiList'
 import AddApi from './pages/AddApi'
 import EditApi from './pages/EditApi'
 import ChatDetail from './pages/ChatDetail'
+import CoupleSpace from './pages/CoupleSpace'
+import CoupleAlbum from './pages/CoupleAlbum'
+import CoupleAnniversary from './pages/CoupleAnniversary'
+import CoupleMessageBoard from './pages/CoupleMessageBoard'
+import Wallet from './pages/Wallet'
+import WalletTransactions from './pages/WalletTransactions'
+import WalletCards from './pages/WalletCards'
+import IntimatePayDetail from './pages/IntimatePayDetail'
+import BackgroundChatNotificationManager from './components/BackgroundChatNotificationManager'
+import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 
 function App() {
   return (
-    <Routes>
+    <>
+      <BackgroundChatNotificationManager />
+      <GlobalMessageMonitor />
+      <Routes>
       <Route path="/" element={<Desktop />} />
       <Route path="/wechat" element={<ChatList />} />
       <Route path="/contacts" element={<Contacts />} />
@@ -25,7 +38,16 @@ function App() {
       <Route path="/add-api" element={<AddApi />} />
       <Route path="/edit-api/:id" element={<EditApi />} />
       <Route path="/chat/:id" element={<ChatDetail />} />
+      <Route path="/couple-space" element={<CoupleSpace />} />
+      <Route path="/couple-album" element={<CoupleAlbum />} />
+      <Route path="/couple-anniversary" element={<CoupleAnniversary />} />
+      <Route path="/couple-message-board" element={<CoupleMessageBoard />} />
+      <Route path="/wallet" element={<Wallet />} />
+      <Route path="/wallet/transactions" element={<WalletTransactions />} />
+      <Route path="/wallet/cards" element={<WalletCards />} />
+      <Route path="/wallet/intimate-pay/:characterId" element={<IntimatePayDetail />} />
     </Routes>
+    </>
   )
 }
 

@@ -68,8 +68,48 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         }
       }
       
-      // 过滤系统消息
+      // 视频通话记录转换为AI可读格式
+      if (msg.messageType === 'video-call-record' && msg.videoCallRecord) {
+        const duration = msg.videoCallRecord.duration
+        const durationText = `${Math.floor(duration / 60)}分${duration % 60}秒`
+        
+        // 提取通话对话内容
+        const conversations = msg.videoCallRecord.messages
+          .filter(m => m.type !== 'narrator') // 过滤掉旁白
+          .map(m => {
+            const speaker = m.type === 'user' ? '用户' : '你'
+            return `${speaker}: ${m.content}`
+          })
+          .join('\n')
+        
+        const callInfo = `[视频通话记录 - 时长${durationText}]\n通话内容:\n${conversations}`
+        
+        return {
+          role: 'system' as const,
+          content: callInfo
+        }
+      }
+      
+      // 系统消息转换为AI可读格式（保留重要通知）
       if (msg.type === 'system') {
+        // 如果是亲密付通知或其他重要系统消息，让AI看到
+        if (msg.content.includes('亲密付') || msg.content.includes('情侣空间')) {
+          // 格式化亲密付通知，确保AI能理解
+          let formattedContent = msg.content
+          
+          // 解析亲密付使用通知
+          if (msg.content.includes('的亲密付被使用了')) {
+            const lines = msg.content.split('\n')
+            formattedContent = `【重要通知】${lines.join('，')}`
+          }
+          
+          console.log('🔍 AI将看到系统通知:', formattedContent)
+          return {
+            role: 'system' as const,
+            content: formattedContent
+          }
+        }
+        // 其他系统消息过滤掉
         return null
       }
       
@@ -119,10 +159,21 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         }
       }
       
-      // 普通文本消息
+      // 普通文本消息（包含引用信息）
+      let textContent = msg.content
+      if (msg.quotedMessage && msg.quotedMessage.content) {
+        // 简化引用内容显示
+        let quotedContent = msg.quotedMessage.content
+        // 如果引用内容太长，截取前50字
+        if (quotedContent.length > 50) {
+          quotedContent = quotedContent.substring(0, 50) + '...'
+        }
+        const quotedPrefix = `[引用了${msg.quotedMessage.senderName}的消息: "${quotedContent}"] `
+        textContent = quotedPrefix + textContent
+      }
       return {
         role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-        content: msg.content
+        content: textContent
       }
     })
     .filter((msg): msg is Exclude<typeof msg, null> => msg !== null) as ChatMessage[]
@@ -159,9 +210,59 @@ export const saveChatMessages = (chatId: string, messages: Message[]): void => {
   try {
     const key = `${MESSAGE_CONFIG.STORAGE_KEY_PREFIX}${chatId}`
     localStorage.setItem(key, JSON.stringify(messages))
+    
+    // 触发消息保存事件，供全局监听器检测
+    window.dispatchEvent(new CustomEvent('chat-message-saved', {
+      detail: { chatId, messageCount: messages.length }
+    }))
   } catch (error) {
     console.error('保存消息失败:', error)
     // 可以在这里添加错误上报或用户提示
+  }
+}
+
+/**
+ * 向指定角色的聊天记录添加通知消息
+ */
+export const addNotificationToChat = (characterId: string, content: string): void => {
+  try {
+    const key = `${MESSAGE_CONFIG.STORAGE_KEY_PREFIX}${characterId}`
+    const saved = localStorage.getItem(key)
+    const messages: Message[] = saved ? JSON.parse(saved) : []
+    
+    // 创建通知消息
+    const notificationMsg: Message = {
+      id: Date.now(),
+      type: 'system',
+      content,
+      time: new Date().toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      timestamp: Date.now(),
+      messageType: 'system'
+    }
+    
+    messages.push(notificationMsg)
+    localStorage.setItem(key, JSON.stringify(messages))
+    
+    // 触发消息保存事件
+    window.dispatchEvent(new CustomEvent('chat-message-saved', {
+      detail: { chatId: characterId, messageCount: messages.length }
+    }))
+    
+    // 触发新通知事件（用于实时更新聊天页面）
+    window.dispatchEvent(new CustomEvent('chat-notification-received', {
+      detail: { 
+        chatId: characterId, 
+        message: notificationMsg,
+        isIntimatePay: content.includes('亲密付')
+      }
+    }))
+    
+    console.log(`📬 已向 ${characterId} 的聊天添加通知:`, content)
+  } catch (error) {
+    console.error('添加通知消息失败:', error)
   }
 }
 

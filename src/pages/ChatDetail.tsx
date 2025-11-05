@@ -3,7 +3,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import AddMenu from '../components/AddMenu'
 import MessageMenu from '../components/MessageMenu.floating'
@@ -15,26 +15,49 @@ import LocationSender from '../components/LocationSender'
 import LocationCard from '../components/LocationCard'
 import PhotoSender from '../components/PhotoSender'
 import FlipPhotoCard from '../components/FlipPhotoCard'
+import VideoCallScreen from '../components/VideoCallScreen'
+import IncomingCallScreen from '../components/IncomingCallScreen'
+import CoupleSpaceInviteCard from '../components/CoupleSpaceInviteCard'
+import CoupleSpaceQuickMenu from '../components/CoupleSpaceQuickMenu'
+import CoupleSpaceInputModal from '../components/CoupleSpaceInputModal'
 import Avatar from '../components/Avatar'
 import type { Message } from '../types/chat'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay } from './ChatDetail/hooks'
+import ChatModals from './ChatDetail/components/ChatModals'
+import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
+import IntimatePayInviteCard from '../components/IntimatePayInviteCard'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   
   const chatState = useChatState(id || '')
-  const chatAI = useChatAI(chatState.character, chatState.messages, chatState.setMessages, chatState.setError)
-  const transfer = useTransfer(chatState.setMessages)
+  const videoCall = useVideoCall(chatState.character, chatState.messages, chatState.setMessages)
+  const chatAI = useChatAI(chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall)
+  const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知')
   const voice = useVoice(chatState.setMessages)
-  const location = useLocationMsg(chatState.setMessages)
+  const locationMsg = useLocationMsg(chatState.setMessages)
   const photo = usePhoto(chatState.setMessages)
+  const intimatePay = useIntimatePay(chatState.setMessages)
+  
+  // 通知和未读消息管理
+  useChatNotifications({
+    chatId: id,
+    character: chatState.character ?? undefined,
+    messages: chatState.messages
+  })
+  
+  const coupleSpace = useCoupleSpace(id, chatState.character, chatState.setMessages)
+  const modals = useModals()
+  
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
     () => transfer.setShowTransferSender(true),
     () => voice.setShowVoiceSender(true),
-    () => location.setShowLocationSender(true),
-    () => photo.setShowPhotoSender(true)
+    () => locationMsg.setShowLocationSender(true),
+    () => photo.setShowPhotoSender(true),
+    coupleSpace.openMenu,
+    () => intimatePay.setShowIntimatePaySender(true)
   )
   const messageMenu = useMessageMenu(chatState.setMessages)
   const longPress = useLongPress((msg, position) => {
@@ -43,8 +66,50 @@ const ChatDetail = () => {
     messageMenu.setShowMessageMenu(true)
   })
   
-  const [viewingRecalledMessage, setViewingRecalledMessage] = useState<Message | null>(null)
-  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null)
+  
+  
+  // 检测未接来电（用户返回聊天页面时）
+  useEffect(() => {
+    if (!id || !chatState.character) return
+    
+    const missedCallKey = `missed_call_${id}`
+    const missedCallData = sessionStorage.getItem(missedCallKey)
+    
+    if (missedCallData) {
+      try {
+        const missedCall = JSON.parse(missedCallData)
+        const timeDiff = Date.now() - missedCall.timestamp
+        
+        // 如果未接来电在1分钟内，重新触发来电界面
+        if (timeDiff < 60000) {
+          console.log('📞 检测到未接来电，重新显示来电界面')
+          // 清除未接来电记录
+          sessionStorage.removeItem(missedCallKey)
+          
+          // 触发来电界面
+          setTimeout(() => {
+            videoCall.receiveIncomingCall()
+          }, 500)
+        } else {
+          // 超过1分钟，清除记录并添加未接来电提示
+          sessionStorage.removeItem(missedCallKey)
+          
+          const missedCallMsg: Message = {
+            id: Date.now(),
+            type: 'system',
+            content: `未接来电：${chatState.character.nickname || chatState.character.realName}`,
+            time: new Date(missedCall.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: missedCall.timestamp,
+            messageType: 'system'
+          }
+          chatState.setMessages(prev => [...prev, missedCallMsg])
+        }
+      } catch (e) {
+        console.error('处理未接来电失败:', e)
+        sessionStorage.removeItem(missedCallKey)
+      }
+    }
+  }, [id, chatState.character, videoCall, chatState.setMessages])
   
   const handleRecallMessage = (message: Message) => {
     const isUserMessage = message.type === 'sent'
@@ -134,9 +199,29 @@ const ChatDetail = () => {
                 <div key={message.id} className="flex justify-center my-2">
                   <div 
                     className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
-                    onClick={() => setViewingRecalledMessage(message)}
+                    onClick={() => modals.setViewingRecalledMessage(message)}
                   >
                     {message.content}
+                  </div>
+                </div>
+              )
+            }
+            
+            // 视频通话记录
+            if (message.messageType === 'video-call-record' && message.videoCallRecord) {
+              return (
+                <div key={message.id} className="flex justify-center my-2">
+                  <div 
+                    className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
+                    onClick={() => modals.setViewingCallRecord(message)}
+                  >
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                        <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      </svg>
+                      <span>{message.content}</span>
+                    </div>
                   </div>
                 </div>
               )
@@ -167,8 +252,49 @@ const ChatDetail = () => {
                 </div>
               </div>
               
-              <div className={'flex flex-col max-w-[70%] ' + (message.type === 'sent' ? 'items-end' : 'items-start')}>
-                {message.messageType === 'transfer' ? (
+              <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+                {/* 引用消息（显示在所有消息类型上方） */}
+                {message.quotedMessage && (
+                  <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
+                    message.type === 'sent' 
+                      ? 'bg-green-600/30' 
+                      : 'bg-gray-200'
+                  )}>
+                    <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-white' : 'text-blue-500')}>
+                      {message.quotedMessage.senderName}
+                    </div>
+                    <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-white' : 'text-gray-600')}>
+                      {message.quotedMessage.content}
+                    </div>
+                  </div>
+                )}
+                
+                {message.coupleSpaceInvite ? (
+                  <CoupleSpaceInviteCard
+                    senderName={message.coupleSpaceInvite.senderName}
+                    senderAvatar={message.coupleSpaceInvite.senderAvatar}
+                    status={message.coupleSpaceInvite.status}
+                    isReceived={message.type === 'received'}
+                    onAccept={() => coupleSpace.acceptInvite(message.id)}
+                    onReject={() => coupleSpace.rejectInvite(message.id)}
+                  />
+                ) : message.messageType === 'intimatePay' && message.intimatePay ? (
+                  <IntimatePayInviteCard
+                    monthlyLimit={message.intimatePay.monthlyLimit}
+                    status={message.intimatePay.status}
+                    characterId={chatState.character?.id || ''}
+                    characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                    isSent={message.type === 'sent'}
+                    messageId={message.id}
+                    onUpdateStatus={(newStatus) => {
+                      chatState.setMessages(prev => prev.map(msg =>
+                        msg.id === message.id && msg.intimatePay
+                          ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
+                          : msg
+                      ))
+                    }}
+                  />
+                ) : message.messageType === 'transfer' ? (
                   <TransferCard
                     message={message}
                     onReceive={transfer.handleReceiveTransfer}
@@ -202,16 +328,6 @@ const ChatDetail = () => {
                     onMouseUp={longPress.handleLongPressEnd}
                     onMouseLeave={longPress.handleLongPressEnd}
                   >
-                    {message.quotedMessage && (
-                      <div className="mb-2 px-2.5 py-1.5 rounded bg-black/10">
-                        <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-white' : 'text-blue-500')}>
-                          {message.quotedMessage.senderName}
-                        </div>
-                        <div className="text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap">
-                          {message.quotedMessage.content}
-                        </div>
-                      </div>
-                    )}
                     <div className="whitespace-pre-wrap">{message.content}</div>
                   </div>
                 )}
@@ -244,20 +360,21 @@ const ChatDetail = () => {
         <div ref={chatAI.messagesEndRef} />
       </div>
       
-      <div className="glass-effect border-t border-gray-200">
-        {quotedMessage && (
+      {/* 底部输入栏 - 玻璃效果 */}
+      <div className="glass-effect border-t border-gray-200/50">
+        {modals.quotedMessage && (
           <div className="px-3 pt-2 pb-1">
             <div className="bg-gray-100 rounded-xl p-2 flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-gray-700 mb-0.5">
-                  {quotedMessage.type === 'sent' ? '我' : character.realName}
+                  {modals.quotedMessage.type === 'sent' ? '我' : character.realName}
                 </div>
                 <div className="text-xs text-gray-600 truncate">
-                  {quotedMessage.content || quotedMessage.voiceText || quotedMessage.photoDescription || quotedMessage.location?.name || '特殊消息'}
+                  {modals.quotedMessage.content || modals.quotedMessage.voiceText || modals.quotedMessage.photoDescription || modals.quotedMessage.location?.name || '特殊消息'}
                 </div>
               </div>
               <button
-                onClick={() => setQuotedMessage(null)}
+                onClick={() => modals.setQuotedMessage(null)}
                 className="text-gray-400 hover:text-gray-600 text-lg"
               >
                 ✕
@@ -265,49 +382,62 @@ const ChatDetail = () => {
             </div>
           </div>
         )}
-        <div className="px-4 py-3 flex items-center gap-2">
+        <div className="px-3 py-3 flex items-center gap-2">
           <button 
             onClick={() => addMenu.setShowAddMenu(true)}
-            className="text-gray-600"
+            className="w-10 h-10 flex items-center justify-center ios-button text-gray-700"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <input
-            type="text"
-            value={chatState.inputValue}
-            onChange={(e) => chatState.setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && (chatState.inputValue.trim() ? chatAI.handleSend(chatState.inputValue, chatState.setInputValue, quotedMessage, () => setQuotedMessage(null)) : chatAI.handleAIReply())}
-            placeholder="发送消息..."
-            className="flex-1 px-4 py-2 rounded-lg bg-white border border-gray-200 focus:outline-none focus:border-green-500"
-            disabled={chatAI.isAiTyping}
-          />
-          <button className="text-gray-600">
+          <div className="flex-1 flex items-center bg-white/90 rounded-full px-4 py-2 shadow-inner">
+            <input
+              type="text"
+              value={chatState.inputValue}
+              onChange={(e) => chatState.setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && (chatState.inputValue.trim() ? chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null)) : chatAI.handleAIReply())}
+              placeholder="发送消息"
+              className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+              disabled={chatAI.isAiTyping}
+            />
+          </div>
+          <button className="w-10 h-10 flex items-center justify-center ios-button text-gray-700">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
-          <button 
-            onClick={chatState.inputValue.trim() ? () => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, quotedMessage, () => setQuotedMessage(null)) : chatAI.handleAIReply}
-            disabled={chatAI.isAiTyping}
-            className={'w-10 h-10 flex items-center justify-center rounded-full transition-colors ' + (
-              !chatState.inputValue.trim() || chatAI.isAiTyping
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 text-gray-600'
-            ) + (chatAI.isAiTyping ? ' opacity-50' : '')}
-          >
-            {chatAI.isAiTyping ? (
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
+          {chatState.inputValue.trim() ? (
+            <button
+              onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, quotedMessage, () => setQuotedMessage(null))}
+              disabled={chatAI.isAiTyping}
+              className="w-10 h-10 flex items-center justify-center ios-button bg-green-500 text-white rounded-full shadow-lg disabled:opacity-50 transition-all duration-200"
+            >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
-            )}
-          </button>
+            </button>
+          ) : (
+            <button 
+              onClick={chatAI.handleAIReply}
+              disabled={chatAI.isAiTyping}
+              className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 transition-all duration-200"
+            >
+              {chatAI.isAiTyping ? (
+                <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
+        <div className="flex justify-center pb-2">
+          <div className="w-32 h-1 bg-gray-900 rounded-full opacity-40"></div>
         </div>
       </div>
 
@@ -318,11 +448,11 @@ const ChatDetail = () => {
         onSelectImage={addMenu.handlers.handleSelectImage}
         onSelectCamera={addMenu.handlers.handleSelectCamera}
         onSelectTransfer={addMenu.handlers.handleSelectTransfer}
-        onSelectIntimatePay={addMenu.handlers.handleSelectCoupleSpace}
+        onSelectIntimatePay={addMenu.handlers.handleSelectIntimatePay}
         onSelectCoupleSpaceInvite={addMenu.handlers.handleSelectCoupleSpace}
         onSelectLocation={addMenu.handlers.handleSelectLocation}
         onSelectVoice={addMenu.handlers.handleSelectVoice}
-        onSelectVideoCall={addMenu.handlers.handleSelectRecall}
+        onSelectVideoCall={() => videoCall.startCall()}
         onSelectMusicInvite={addMenu.handlers.handleSelectRecall}
       />
 
@@ -337,7 +467,7 @@ const ChatDetail = () => {
         onCopy={messageMenu.handlers.handleCopyMessage}
         onDelete={messageMenu.handlers.handleDeleteMessage}
         onRecall={() => messageMenu.handlers.handleRecallMessage(handleRecallMessage)}
-        onQuote={() => messageMenu.handlers.handleQuoteMessage(setQuotedMessage)}
+        onQuote={() => messageMenu.handlers.handleQuoteMessage(modals.setQuotedMessage)}
         onEdit={messageMenu.handlers.handleEditMessage}
         onBatchDelete={messageMenu.handlers.handleBatchDelete}
       />
@@ -346,6 +476,8 @@ const ChatDetail = () => {
         show={transfer.showTransferSender}
         onClose={() => transfer.setShowTransferSender(false)}
         onSend={transfer.handleSendTransfer}
+        characterId={chatState.character?.id}
+        characterName={chatState.character?.nickname || chatState.character?.realName}
       />
 
       <VoiceSender
@@ -355,9 +487,9 @@ const ChatDetail = () => {
       />
 
       <LocationSender
-        show={location.showLocationSender}
-        onClose={() => location.setShowLocationSender(false)}
-        onSend={location.handleSendLocation}
+        show={locationMsg.showLocationSender}
+        onClose={() => locationMsg.setShowLocationSender(false)}
+        onSend={locationMsg.handleSendLocation}
       />
 
       <PhotoSender
@@ -366,35 +498,69 @@ const ChatDetail = () => {
         onSend={photo.handleSendPhoto}
       />
 
-      {viewingRecalledMessage && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setViewingRecalledMessage(null)}
-        >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl p-6 m-4 max-w-md w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-lg font-semibold text-gray-900 mb-4">撤回的消息</div>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="text-sm text-gray-900 whitespace-pre-wrap break-words">
-                {viewingRecalledMessage.recalledContent}
-              </div>
-            </div>
-            {viewingRecalledMessage.recallReason && (
-              <div className="text-xs text-gray-500 mb-4">
-                撤回理由：{viewingRecalledMessage.recallReason}
-              </div>
-            )}
-            <button
-              className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200 transition-colors"
-              onClick={() => setViewingRecalledMessage(null)}
-            >
-              关闭
-            </button>
-          </div>
-        </div>
-      )}
+      <IntimatePaySender
+        show={intimatePay.showIntimatePaySender}
+        onClose={() => intimatePay.setShowIntimatePaySender(false)}
+        onSend={intimatePay.handleSendIntimatePay}
+        characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+      />
+
+      <IncomingCallScreen
+        show={videoCall.showIncomingCall}
+        character={{
+          name: character.nickname || character.realName,
+          avatar: character.avatar
+        }}
+        isVideoCall={true}
+        onAccept={videoCall.acceptCall}
+        onReject={videoCall.rejectCall}
+      />
+
+      <VideoCallScreen
+        show={videoCall.isCallActive}
+        character={{
+          name: character.nickname || character.realName,
+          avatar: character.avatar,
+          realName: character.realName
+        }}
+        onEnd={videoCall.endCall}
+        onSendMessage={videoCall.sendMessage}
+        onRequestAIReply={videoCall.requestAIReply}
+        messages={videoCall.callMessages}
+        isAITyping={videoCall.isAITyping}
+      />
+
+      <CoupleSpaceQuickMenu
+        isOpen={coupleSpace.showMenu}
+        onClose={() => coupleSpace.setShowMenu(false)}
+        onSelectPhoto={() => {
+          coupleSpace.setInputType('photo')
+          coupleSpace.setShowInput(true)
+        }}
+        onSelectMessage={() => {
+          coupleSpace.setInputType('message')
+          coupleSpace.setShowInput(true)
+        }}
+        onSelectAnniversary={() => coupleSpace.navigate('/couple-anniversary')}
+      />
+
+      <CoupleSpaceInputModal
+        isOpen={coupleSpace.showInput}
+        type={coupleSpace.inputType}
+        onClose={() => {
+          coupleSpace.setShowInput(false)
+          coupleSpace.setInputType(null)
+        }}
+        onSubmit={coupleSpace.submitContent}
+      />
+
+      <ChatModals
+        character={character}
+        viewingRecalledMessage={modals.viewingRecalledMessage}
+        onCloseRecalledMessage={() => modals.setViewingRecalledMessage(null)}
+        viewingCallRecord={modals.viewingCallRecord}
+        onCloseCallRecord={() => modals.setViewingCallRecord(null)}
+      />
     </div>
   )
 }

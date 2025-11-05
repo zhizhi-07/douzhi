@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>API测试工具</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      max-width: 800px; 
+      margin: 50px auto; 
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .api-item {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .api-name { font-weight: bold; color: #333; }
+    .status { 
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+    .status.testing { background: #ffc107; color: white; }
+    .status.success { background: #4caf50; color: white; }
+    .status.failed { background: #f44336; color: white; }
+    button {
+      background: #2196f3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1976d2; }
+    .result { 
+      margin-top: 10px; 
+      padding: 10px; 
+      background: #f5f5f5; 
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>API配置测试工具</h1>
+  <p>点击"测试所有API"按钮，检查哪个API可用</p>
+  <button onclick="testAllAPIs()">测试所有API</button>
+  <div id="results"></div>
+
+  <script>
+    const apis = [
+      {
+        name: '九班AI (Gemini 2.5 Pro)',
+        baseUrl: 'https://gy.jiubanai.com/v1',
+        apiKey: 'sk-NqOuYUHhjx8qWOjZCdA34XTMvJ7PXsxoHRQLNQDg3xyMYfJk',
+        model: 'gemini-2.5-pro',
+        provider: 'openai'
+      },
+      {
+        name: 'HiAPI (Gemini 2.5 Pro)',
+        baseUrl: 'https://hiapi.online/v1',
+        apiKey: 'sk-D3TeNLaMBIYW9QN4AguxWucHo4zTWRhcr4V1EZ3OaVTPSjSB',
+        model: 'gemini-2.5-pro',
+        provider: 'openai'
+      },
+      {
+        name: 'Gemini 反代（备用）',
+        baseUrl: 'https://zhizhi-ai.netlify.app/.netlify/functions/gemini-proxy',
+        apiKey: 'not-needed',
+        model: 'gemini-2.5-pro',
+        provider: 'google'
+      },
+      {
+        name: '硅基流动（备用）',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        apiKey: 'sk-dfyuqxuizfdxqjlbovnaeebcvptbqzzvqcdahtggzrovktmo',
+        model: 'deepseek-ai/DeepSeek-V3',
+        provider: 'siliconflow'
+      }
+    ];
+
+    async function testAPI(api) {
+      const resultDiv = document.getElementById(`result-${api.name.replace(/\s+/g, '-')}`);
+      const statusSpan = document.getElementById(`status-${api.name.replace(/\s+/g, '-')}`);
+      
+      statusSpan.textContent = '测试中...';
+      statusSpan.className = 'status testing';
+      resultDiv.textContent = '正在连接...';
+
+      try {
+        const url = api.provider === 'google' 
+          ? api.baseUrl 
+          : `${api.baseUrl}/chat/completions`;
+
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (api.provider !== 'google' || api.apiKey !== 'not-needed') {
+          headers['Authorization'] = `Bearer ${api.apiKey}`;
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: api.model,
+            messages: [{ role: 'user', content: '你好' }],
+            temperature: 0.7,
+            max_tokens: 100
+          })
+        });
+
+        const data = await response.json();
+        console.log(`${api.name} 响应:`, data);
+
+        // 检查是否成功
+        let success = false;
+        let content = '';
+
+        if (data.choices?.[0]?.message?.content) {
+          content = data.choices[0].message.content;
+          success = true;
+        } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          content = data.candidates[0].content.parts[0].text;
+          success = true;
+        }
+
+        if (success && content) {
+          statusSpan.textContent = '✓ 可用';
+          statusSpan.className = 'status success';
+          resultDiv.innerHTML = `<strong>成功！</strong><br>响应: ${content.substring(0, 100)}...`;
+        } else if (data.choices && data.choices.length === 0) {
+          statusSpan.textContent = '✗ 失败';
+          statusSpan.className = 'status failed';
+          resultDiv.innerHTML = '<strong>失败：</strong>API返回空内容（可能是密钥无效或配额用尽）';
+        } else {
+          statusSpan.textContent = '✗ 失败';
+          statusSpan.className = 'status failed';
+          resultDiv.innerHTML = `<strong>失败：</strong>响应格式异常<br><pre>${JSON.stringify(data, null, 2).substring(0, 300)}</pre>`;
+        }
+      } catch (error) {
+        statusSpan.textContent = '✗ 失败';
+        statusSpan.className = 'status failed';
+        resultDiv.innerHTML = `<strong>错误：</strong>${error.message}`;
+      }
+    }
+
+    function testAllAPIs() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      apis.forEach(api => {
+        const apiDiv = document.createElement('div');
+        apiDiv.className = 'api-item';
+        apiDiv.innerHTML = `
+          <div class="api-name">
+            ${api.name}
+            <span id="status-${api.name.replace(/\s+/g, '-')}" class="status">等待测试</span>
+          </div>
+          <div class="result" id="result-${api.name.replace(/\s+/g, '-')}">点击"测试所有API"开始</div>
+        `;
+        resultsDiv.appendChild(apiDiv);
+      });
+
+      // 依次测试
+      apis.forEach((api, index) => {
+        setTimeout(() => testAPI(api), index * 1000);
+      });
+    }
+  </script>
+</body>
+</html>

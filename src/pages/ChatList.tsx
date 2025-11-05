@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
+import { loadChatMessages } from '../utils/messageUtils'
 
 interface Chat {
   id: string
@@ -21,21 +22,126 @@ const ChatList = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
 
-  // 加载聊天列表
-  useEffect(() => {
-    const savedChats = localStorage.getItem(CHAT_LIST_KEY)
-    if (savedChats) {
-      setChats(JSON.parse(savedChats))
-    }
-    loadCharacters()
+  // 更新聊天列表的最新消息和头像（保留 unread 字段）
+  const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
+    return chatList.map(chat => {
+      // 获取角色最新信息（包括头像）
+      const character = characterService.getById(chat.characterId)
+      
+      const messages = loadChatMessages(chat.characterId)
+      if (messages.length === 0) {
+        return {
+          ...chat,
+          avatar: character?.avatar || chat.avatar,
+          name: character ? (character.nickname || character.realName) : chat.name
+          // 保留 unread 字段
+        }
+      }
+
+      // 找到最后一条非系统消息
+      const lastMessage = [...messages].reverse().find(msg => {
+        if (msg.type === 'system') {
+          // 视频通话记录显示在列表
+          if (msg.messageType === 'video-call-record') {
+            return true
+          }
+          return false
+        }
+        return true
+      })
+
+      if (!lastMessage) {
+        return {
+          ...chat,
+          avatar: character?.avatar || chat.avatar,
+          name: character ? (character.nickname || character.realName) : chat.name
+          // 保留 unread 字段
+        }
+      }
+
+      // 格式化最后一条消息
+      let lastMessageText = '开始聊天吧'
+      if (lastMessage.messageType === 'transfer' && lastMessage.transfer) {
+        lastMessageText = `[转账] ¥${lastMessage.transfer.amount}`
+      } else if (lastMessage.messageType === 'voice') {
+        lastMessageText = '[语音]'
+      } else if (lastMessage.messageType === 'location') {
+        lastMessageText = '[位置]'
+      } else if (lastMessage.messageType === 'photo') {
+        lastMessageText = '[照片]'
+      } else if (lastMessage.messageType === 'video-call-record') {
+        lastMessageText = '[视频通话]'
+      } else if (lastMessage.content) {
+        lastMessageText = lastMessage.content
+      }
+
+      return {
+        ...chat,
+        avatar: character?.avatar || chat.avatar,
+        name: character ? (character.nickname || character.realName) : chat.name,
+        lastMessage: lastMessageText,
+        time: lastMessage.time
+        // 保留 unread 字段（通过解构自动保留）
+      }
+    })
   }, [])
 
-  // 保存聊天列表
-  useEffect(() => {
-    if (chats.length > 0) {
-      localStorage.setItem(CHAT_LIST_KEY, JSON.stringify(chats))
+  // 统一的聊天列表刷新函数
+  const refreshChatList = useCallback(() => {
+    const savedChats = localStorage.getItem(CHAT_LIST_KEY)
+    if (savedChats) {
+      const chatList = JSON.parse(savedChats)
+      const updatedChats = updateChatsWithLatestMessages(chatList)
+      setChats(updatedChats)
     }
-  }, [chats])
+  }, [updateChatsWithLatestMessages])
+
+  // 加载聊天列表
+  useEffect(() => {
+    refreshChatList()
+    loadCharacters()
+  }, [refreshChatList])
+
+  // 监听storage事件（跨标签页）和自定义事件（同页面），实时更新未读数
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'chatList') {
+        refreshChatList()
+      }
+    }
+    
+    const handleCustomStorageChange = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.key === 'chatList') {
+        refreshChatList()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('local-storage-change', handleCustomStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('local-storage-change', handleCustomStorageChange)
+    }
+  }, [refreshChatList])
+
+  // 监听页面可见性，当返回页面时更新消息
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshChatList()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshChatList])
+
+  // 注意：不要自动保存 chats 到 localStorage
+  // 因为 unread 字段由 unreadMessages.ts 管理
+  // 只在添加/删除聊天时手动保存
 
   const loadCharacters = () => {
     const allCharacters = characterService.getAll()

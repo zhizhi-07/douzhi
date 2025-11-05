@@ -116,25 +116,21 @@ const ApiList = () => {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 ml-2">
-                      {!api.isBuiltIn && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/edit-api/${api.id}`)
-                            }}
-                            className="px-3 py-1 text-xs text-blue-600"
-                          >
-                            编辑
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteApi(api.id, e)}
-                            className="px-3 py-1 text-xs text-red-500"
-                          >
-                            删除
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/edit-api/${api.id}`)
+                        }}
+                        className="px-3 py-1 text-xs text-blue-600"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteApi(api.id, e)}
+                        className="px-3 py-1 text-xs text-red-500"
+                      >
+                        删除
+                      </button>
                     </div>
                   </div>
                 </div>

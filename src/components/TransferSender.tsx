@@ -3,22 +3,39 @@
  */
 
 import { useState, useEffect } from 'react'
+import { getIntimatePayRelations, type IntimatePayRelation } from '../utils/walletUtils'
 
 interface TransferSenderProps {
   show: boolean
   onClose: () => void
-  onSend: (amount: number, message: string) => void
+  onSend: (amount: number, message: string, useIntimatePay?: boolean, intimatePayCharacterName?: string) => void
+  characterId?: string
+  characterName?: string
 }
 
-const TransferSender = ({ show, onClose, onSend }: TransferSenderProps) => {
+const TransferSender = ({ show, onClose, onSend, characterId, characterName }: TransferSenderProps) => {
   const [amount, setAmount] = useState('')
   const [message, setMessage] = useState('')
+  const [useIntimatePay, setUseIntimatePay] = useState(false)
+  const [availableIntimatePayList, setAvailableIntimatePayList] = useState<IntimatePayRelation[]>([])
+  const [selectedIntimatePayIndex, setSelectedIntimatePayIndex] = useState(0)
   
-  // 每次打开弹窗时重置表单
+  // 每次打开弹窗时重置表单并检查亲密付
   useEffect(() => {
     if (show) {
       setAmount('')
       setMessage('')
+      setUseIntimatePay(false)
+      
+      // 检查所有可用的亲密付（任何人给用户开通的）
+      const relations = getIntimatePayRelations()
+      const availableRelations = relations.filter(r => 
+        r.type === 'character_to_user' && 
+        r.monthlyLimit - r.usedAmount > 0
+      )
+      
+      setAvailableIntimatePayList(availableRelations)
+      setSelectedIntimatePayIndex(0)
     }
   }, [show])
 
@@ -43,11 +60,18 @@ const TransferSender = ({ show, onClose, onSend }: TransferSenderProps) => {
     }
     
     const finalMessage = message.trim()
-    onSend(amountNum, finalMessage)
+    const selectedIntimatePay = useIntimatePay && availableIntimatePayList[selectedIntimatePayIndex]
+    onSend(
+      amountNum, 
+      finalMessage, 
+      useIntimatePay, 
+      selectedIntimatePay ? selectedIntimatePay.characterName : undefined
+    )
     
     // 重置表单
     setAmount('')
     setMessage('')
+    setUseIntimatePay(false)
   }
 
   const handleClose = () => {
@@ -98,6 +122,46 @@ const TransferSender = ({ show, onClose, onSend }: TransferSenderProps) => {
               maxLength={20}
             />
           </div>
+          
+          {availableIntimatePayList.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-3 bg-pink-50 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="useIntimatePay"
+                  checked={useIntimatePay}
+                  onChange={(e) => setUseIntimatePay(e.target.checked)}
+                  className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                />
+                <label htmlFor="useIntimatePay" className="text-sm text-gray-700 cursor-pointer">
+                  使用亲密付
+                </label>
+              </div>
+              
+              {useIntimatePay && availableIntimatePayList.length > 1 && (
+                <select
+                  value={selectedIntimatePayIndex}
+                  onChange={(e) => setSelectedIntimatePayIndex(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-pink-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  {availableIntimatePayList.map((relation, index) => (
+                    <option key={relation.id} value={index}>
+                      {relation.characterName} 的亲密付 (剩余: ¥{(relation.monthlyLimit - relation.usedAmount).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              )}
+              
+              {useIntimatePay && availableIntimatePayList.length === 1 && (
+                <div className="px-4 py-2 bg-white border border-pink-200 rounded-xl text-sm text-gray-700">
+                  使用 <span className="font-medium text-pink-600">{availableIntimatePayList[0].characterName}</span> 的亲密付
+                  <span className="text-xs text-gray-500 ml-2">
+                    (剩余: ¥{(availableIntimatePayList[0].monthlyLimit - availableIntimatePayList[0].usedAmount).toFixed(2)})
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="flex gap-3 pt-2">
             <button 
