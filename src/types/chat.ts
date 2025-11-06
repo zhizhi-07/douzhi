@@ -4,11 +4,14 @@
 
 export interface Message {
   id: number
-  type: 'received' | 'sent' | 'system'
-  content: string
+  type: 'sent' | 'received' | 'system'
+  content?: string
+  aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'transfer' | 'system' | 'voice' | 'location' | 'photo' | 'video-call-record' | 'intimatePay'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji'
+  blocked?: boolean  // 是否被拉黑（AI消息显示警告图标）
+  blockedByReceiver?: boolean  // 用户被AI拉黑（用户消息显示警告图标和拒收提示）
   transfer?: {
     amount: number
     message: string
@@ -50,6 +53,22 @@ export interface Message {
     monthlyLimit: number
     status: 'pending' | 'accepted' | 'rejected'
     characterName: string
+  }
+  forwardedChat?: {           // 转发的聊天记录
+    title: string             // 标题
+    messages: Array<{
+      senderName: string
+      content: string
+      messageType?: string
+      time?: string
+    }>
+    messageCount: number      // 消息数量
+  }
+  emoji?: {                   // 表情包
+    id: number
+    url: string
+    name: string
+    description: string
   }
 }
 

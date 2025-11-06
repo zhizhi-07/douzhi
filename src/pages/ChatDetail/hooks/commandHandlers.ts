@@ -12,6 +12,8 @@ import {
 } from '../../../utils/coupleSpaceUtils'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
 import { createIntimatePayRelation } from '../../../utils/walletUtils'
+import { blacklistManager } from '../../../utils/blacklistManager'
+import { getEmojis } from '../../../utils/emojiStorage'
 
 /**
  * 指令处理器接口
@@ -32,7 +34,8 @@ export interface CommandContext {
   messages: Message[]
   setMessages: (fn: (prev: Message[]) => Message[]) => void
   character: Character | null
-  onVideoCallRequest?: () => void
+  onVideoCallRequest?: (openingLines?: string | null) => void
+  onEndCall?: () => void
 }
 
 /**
@@ -203,8 +206,20 @@ export const rejectTransferHandler: CommandHandler = {
  */
 export const videoCallHandler: CommandHandler = {
   pattern: /[\[【]视频通话[\]】]/,
-  handler: async (match, content, { onVideoCallRequest }) => {
+  handler: async (match, content, { onVideoCallRequest, character }) => {
     console.log('📞 视频通话指令处理:', { content, match: match[0] })
+    
+    // 触发全局视频通话事件（用于不在聊天页面时的弹窗）
+    if (character) {
+      window.dispatchEvent(new CustomEvent('incoming-video-call', {
+        detail: {
+          chatId: character.id,
+          characterName: character.nickname || character.realName,
+          avatar: character.avatar
+        }
+      }))
+      console.log('📡 已触发全局视频通话事件')
+    }
     
     if (onVideoCallRequest) {
       onVideoCallRequest()
@@ -219,6 +234,30 @@ export const videoCallHandler: CommandHandler = {
       handled: true, 
       remainingText,
       skipTextMessage: shouldSkip
+    }
+  }
+}
+
+/**
+ * 挂断电话指令处理器
+ */
+export const endCallHandler: CommandHandler = {
+  pattern: /[\[【]挂断电话[\]】]/,
+  handler: async (match, content, { onEndCall }) => {
+    console.log('📴 挂断电话指令处理:', { content, match: match[0] })
+    
+    if (onEndCall) {
+      onEndCall()
+    }
+
+    const remainingText = content.replace(match[0], '').trim()
+    
+    console.log('📴 挂断电话处理结果:', { remainingText })
+    
+    return { 
+      handled: true, 
+      remainingText: '',  // 清空剩余文本，因为挂断后不需要显示
+      skipTextMessage: true  // 跳过文本消息
     }
   }
 }
@@ -239,12 +278,14 @@ export const voiceHandler: CommandHandler = {
 
     const remainingText = content.replace(match[0], '').trim()
     
-    // 如果只有语音指令，不发送文本消息
-    if (!remainingText) {
-      return { handled: true, skipTextMessage: true }
-    }
+    console.log('🎤 语音指令处理:', { voiceText, remainingText, hasRemaining: !!remainingText })
     
-    return { handled: true, remainingText }
+    // 返回结果，标记跳过纯语音指令的文本消息
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText // 如果没有剩余文本，跳过文本消息
+    }
   }
 }
 
@@ -299,26 +340,96 @@ export const photoHandler: CommandHandler = {
 }
 
 /**
- * 撤回指令处理器
+ * 表情包指令处理器
+ * 格式：[表情:描述] 或 [表情包:描述]
+ * AI根据描述查找匹配的表情包发送
+ */
+export const emojiHandler: CommandHandler = {
+  pattern: /[\[【]表情(?:包)?[:\：](.+?)[\]】]/,
+  handler: async (match, content, { setMessages }) => {
+    const emojiDesc = match[1].trim()
+    
+    // 从存储中查找匹配的表情包
+    const emojis = await getEmojis()
+    
+    // 查找描述匹配的表情包（模糊匹配）
+    const matchedEmoji = emojis.find(emoji => 
+      emoji.description.includes(emojiDesc) || emojiDesc.includes(emoji.description)
+    )
+    
+    if (matchedEmoji) {
+      // 找到匹配的表情包，发送表情包消息
+      const emojiMsg = createMessageObj('emoji', {
+        content: `[表情包]`,
+        emoji: {
+          id: matchedEmoji.id,
+          url: matchedEmoji.url,
+          name: matchedEmoji.name,
+          description: matchedEmoji.description
+        }
+      })
+      
+      await addMessage(emojiMsg, setMessages)
+      console.log(`✅ AI发送表情包: ${matchedEmoji.description}`)
+    } else {
+      console.log(`⚠️ 未找到匹配"${emojiDesc}"的表情包`)
+      // 如果找不到匹配的表情包，转为普通文本
+      return {
+        handled: false
+      }
+    }
+
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * 撤回消息指令处理器
+ * 格式：[撤回消息:要撤回的内容:理由]
+ * 兼容：[我撤回了消息："内容"]（错误格式，自动提取）
  */
 export const recallHandler: CommandHandler = {
-  pattern: /[\[【]撤回消息[:\：](.+?)[\]】]/,
-  handler: async (match, _content, { setMessages, character }) => {
-    const reason = match[1]
+  pattern: /[\[【](?:我)?撤回(?:了)?(?:一条)?消息[:\：][""]?(.+?)[""]?(?:[:\：](.+?))?[\]】]/,
+  handler: async (match, content, { setMessages, character }) => {
+    const messageToRecall = match[1].trim()
+    const reason = (match[2] || '').trim()
 
     setMessages(prev => {
-      const lastAIMessage = [...prev].reverse().find(
-        msg => msg.type === 'received' && ['text', 'voice', 'location', 'photo'].includes(msg.messageType || 'text')
-      )
+      const now = Date.now()
+      const twoMinutesAgo = now - 2 * 60 * 1000 // 2分钟前
+      
+      // 查找2分钟内包含指定内容的AI消息（从后往前找，找最近的）
+      const targetMessage = [...prev].reverse().find(msg => {
+        if (msg.type !== 'received') return false
+        
+        // 检查时间（如果有timestamp）
+        if (msg.timestamp && msg.timestamp < twoMinutesAgo) {
+          return false // 超过2分钟，不能撤回
+        }
+        
+        const msgContent = msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || msg.emoji?.description || ''
+        return msgContent.includes(messageToRecall)
+      })
 
-      if (!lastAIMessage) return prev
+      if (!targetMessage) {
+        console.log(`⚠️ 未找到2分钟内包含"${messageToRecall}"的消息`)
+        return prev
+      }
+      
+      console.log(`✅ 找到要撤回的消息: "${targetMessage.content}"，理由: ${reason}`)
+
 
       return prev.map(msg =>
-        msg.id === lastAIMessage.id
+        msg.id === targetMessage.id
           ? {
               ...msg,
               isRecalled: true,
-              recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '特殊消息',
+              recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || msg.emoji?.description || '特殊消息',
               recallReason: reason,
               originalType: 'received' as const,
               content: (character?.realName || '对方') + '撤回了一条消息',
@@ -329,9 +440,13 @@ export const recallHandler: CommandHandler = {
       )
     })
 
+    // 处理剩余文本
+    const remainingText = content.replace(match[0], '').trim()
+    
     return { 
       handled: true,
-      skipTextMessage: true
+      remainingText,
+      skipTextMessage: !remainingText
     }
   }
 }
@@ -639,6 +754,8 @@ export const quoteHandler: CommandHandler = {
         quoted = [...currentMessages].reverse().find(m => m.messageType === 'photo')
       } else if (lowerRef.includes('位置')) {
         quoted = [...currentMessages].reverse().find(m => m.messageType === 'location')
+      } else if (lowerRef.includes('表情')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'emoji')
       } else if (lowerRef.includes('转账')) {
         quoted = [...currentMessages].reverse().find(m => m.messageType === 'transfer')
       } else if (lowerRef.includes('用户') || lowerRef.includes('你问') || lowerRef.includes('你说') || lowerRef.includes('你发')) {
@@ -648,7 +765,7 @@ export const quoteHandler: CommandHandler = {
       } else {
         // 模糊搜索消息内容
         quoted = [...currentMessages].reverse().find(m => {
-          const msgContent = (m.content || m.voiceText || m.photoDescription || '').toLowerCase()
+          const msgContent = (m.content || m.voiceText || m.photoDescription || m.emoji?.description || '').toLowerCase()
           return msgContent.includes(lowerRef)
         })
       }
@@ -657,7 +774,7 @@ export const quoteHandler: CommandHandler = {
     if (quoted) {
       quotedMsg = {
         id: quoted.id,
-        content: quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || '特殊消息',
+        content: quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息',
         senderName: quoted.type === 'sent' ? '我' : (character?.realName || 'AI'),
         type: quoted.type === 'system' ? 'sent' : quoted.type
       }
@@ -801,6 +918,69 @@ export const rejectIntimatePayHandler: CommandHandler = {
 }
 
 /**
+ * 拉黑用户指令处理器
+ */
+export const blockUserHandler: CommandHandler = {
+  pattern: /[\[【]拉黑用户[\]】]/,
+  handler: async (match, content, { setMessages, character }) => {
+    if (!character) return { handled: false }
+    
+    // AI拉黑用户（character拉黑user）
+    blacklistManager.blockUser(`character_${character.id}`, 'user')
+    console.log(`🚫 ${character.nickname || character.realName} 拉黑了用户`)
+    
+    // 注意：不需要修改现有消息
+    // 用户发送新消息时会自动检测拉黑状态并标记（见 useChatAI.ts）
+    
+    // 添加系统消息
+    const systemMsg = createMessageObj('system', {
+      content: `${character.nickname || character.realName} 拉黑了你`,
+      type: 'system'
+    })
+    await addMessage(systemMsg, setMessages)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * 解除拉黑指令处理器
+ */
+export const unblockUserHandler: CommandHandler = {
+  pattern: /[\[【]解除拉黑[\]】]/,
+  handler: async (match, content, { setMessages, character }) => {
+    if (!character) return { handled: false }
+    
+    // AI解除拉黑
+    blacklistManager.unblockUser(`character_${character.id}`, 'user')
+    console.log(`✅ ${character.nickname || character.realName} 解除了对用户的拉黑`)
+    
+    // 注意：不需要修改现有消息
+    // 历史消息保持原样（显示真实的拉黑状态）
+    // 解除拉黑后的新消息会自动不显示感叹号
+    
+    // 添加系统消息
+    const systemMsg = createMessageObj('system', {
+      content: `${character.nickname || character.realName} 解除了对你的拉黑`,
+      type: 'system'
+    })
+    await addMessage(systemMsg, setMessages)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -811,10 +991,14 @@ export const commandHandlers: CommandHandler[] = [
   acceptIntimatePayHandler,
   rejectIntimatePayHandler,
   videoCallHandler,
+  endCallHandler,
   voiceHandler,
   locationHandler,
   photoHandler,
+  emojiHandler,  // 表情包处理器
   recallHandler,
+  blockUserHandler,
+  unblockUserHandler,
   coupleSpaceInviteHandler,
   coupleSpaceAcceptHandler,
   coupleSpaceRejectHandler,

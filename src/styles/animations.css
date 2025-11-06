@@ -1,0 +1,827 @@
+/**
+ * 全局动画样式
+ * 参考微信、Telegram等流行应用的动画效果
+ */
+
+/* ========== 消息动画 ========== */
+
+/* 消息进入动画 */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes messageSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes messageSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.message-enter {
+  animation: messageSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-enter-left {
+  animation: messageSlideInLeft 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-enter-right {
+  animation: messageSlideInRight 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 页面切换动画 ========== */
+
+/* 页面淡入 */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 页面从右侧滑入 */
+@keyframes pageSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 页面从左侧滑入 */
+@keyframes pageSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.page-fade-in {
+  animation: pageFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.page-slide-in-right {
+  animation: pageSlideInRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.page-slide-in-left {
+  animation: pageSlideInLeft 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ========== 按钮反馈动画 ========== */
+
+/* 按钮点击缩放 - 移动端优化 */
+.btn-press {
+  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn-press:active {
+  transform: scale(0.92);
+}
+
+/* 移动端快速反馈 */
+.btn-press-fast {
+  transition: transform 0.05s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-press-fast:active {
+  transform: scale(0.9);
+}
+
+/* 按钮点击波纹效果 - 增强版 */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-ripple:active::after {
+  width: 300px;
+  height: 300px;
+  transition: 0s;
+}
+
+/* 触摸反馈 - 按下高亮 */
+.touch-feedback {
+  transition: background-color 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-feedback:active {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ========== 卡片动画 ========== */
+
+/* 卡片悬浮效果 */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+}
+
+.card-hover:active {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* 卡片进入动画 */
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-enter {
+  animation: cardSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 加载动画 ========== */
+
+/* 点点点加载 */
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.dot-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dotPulse 1.4s infinite ease-in-out both;
+}
+
+.dot-pulse:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot-pulse:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* 旋转加载 */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* 脉冲加载 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ========== 模态框动画 ========== */
+
+/* 模态框背景淡入 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 模态框内容弹出 */
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-backdrop-enter {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content-enter {
+  animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 列表动画 ========== */
+
+/* 列表项进入（错开动画）*/
+@keyframes listItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.list-item-enter {
+  animation: listItemSlideIn 0.3s ease-out;
+}
+
+.list-item-enter:nth-child(1) { animation-delay: 0s; }
+.list-item-enter:nth-child(2) { animation-delay: 0.05s; }
+.list-item-enter:nth-child(3) { animation-delay: 0.1s; }
+.list-item-enter:nth-child(4) { animation-delay: 0.15s; }
+.list-item-enter:nth-child(5) { animation-delay: 0.2s; }
+.list-item-enter:nth-child(6) { animation-delay: 0.25s; }
+.list-item-enter:nth-child(7) { animation-delay: 0.3s; }
+.list-item-enter:nth-child(8) { animation-delay: 0.35s; }
+
+/* ========== 通知动画 ========== */
+
+/* 顶部通知滑入 */
+@keyframes notificationSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 底部通知滑入 */
+@keyframes notificationSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-slide-down {
+  animation: notificationSlideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.notification-slide-up {
+  animation: notificationSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 摇晃动画 ========== */
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-10px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(10px);
+  }
+}
+
+.shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* ========== 弹跳动画 ========== */
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-20px);
+  }
+  60% {
+    transform: translateY(-10px);
+  }
+}
+
+.bounce {
+  animation: bounce 1s ease-in-out;
+}
+
+/* ========== 放大缩小动画 ========== */
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scale-out {
+  animation: scaleOut 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 打字动画 ========== */
+
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.typing-indicator span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ========== 滑动切换动画 ========== */
+
+.swipe-transition {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ========== 平滑滚动 ========== */
+
+.smooth-scroll {
+  /* 移除全局scroll-behavior，避免初始加载时的动画 */
+  /* scroll-behavior: smooth; */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 只在需要时启用平滑滚动 */
+.smooth-scroll.enable-smooth {
+  scroll-behavior: smooth;
+}
+
+/* ========== 优化的过渡效果 ========== */
+
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-bounce {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.transition-fast {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== 悬浮高亮 ========== */
+
+.hover-lift {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ========== 渐变动画 ========== */
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-animated {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+/* ========== 心跳动画 ========== */
+
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  10%, 30% {
+    transform: scale(1.1);
+  }
+  20%, 40% {
+    transform: scale(1);
+  }
+}
+
+.heartbeat {
+  animation: heartbeat 1.3s ease-in-out infinite;
+}
+
+/* ========== 闪烁动画 ========== */
+
+@keyframes blink {
+  0%, 50%, 100% {
+    opacity: 1;
+  }
+  25%, 75% {
+    opacity: 0;
+  }
+}
+
+.blink {
+  animation: blink 1s linear infinite;
+}
+
+/* ========== 移动端手势动画 ========== */
+
+/* 滑动删除动画 */
+@keyframes swipeOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+.swipe-out {
+  animation: swipeOut 0.3s ease-out forwards;
+}
+
+/* 长按震动反馈 */
+@keyframes longPressVibrate {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+.long-press-feedback {
+  animation: longPressVibrate 0.1s ease-in-out;
+}
+
+/* 下拉刷新动画 */
+@keyframes pullDownRefresh {
+  0% {
+    transform: translateY(-40px) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) rotate(180deg);
+    opacity: 1;
+  }
+}
+
+.pull-down-refresh {
+  animation: pullDownRefresh 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pull-refresh-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.pull-refresh-icon {
+  animation: pull-refresh-spin 1s linear infinite;
+}
+
+/* 上拉加载更多 */
+@keyframes pullUpLoading {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.pull-up-loading {
+  animation: pullUpLoading 1s ease-in-out infinite;
+}
+
+/* ========== 触摸滑动动画 ========== */
+
+/* 左滑显示操作按钮 */
+.swipe-left {
+  transform: translateX(-80px);
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 右滑返回 */
+.swipe-right {
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 滑动阻尼效果 */
+.swipe-resistance {
+  transition: transform 0.1s ease-out;
+}
+
+/* ========== 移动端优化的过渡 ========== */
+
+/* 快速触摸反馈 */
+.touch-transition {
+  transition: all 0.05s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 平滑滑动 */
+.smooth-slide {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+/* ========== 键盘弹出动画 ========== */
+
+@keyframes keyboardPushUp {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-300px);
+  }
+}
+
+.keyboard-push-up {
+  animation: keyboardPushUp 0.25s ease-out;
+}
+
+/* ========== 消息列表滚动优化 ========== */
+
+.scroll-snap {
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-snap-item {
+  scroll-snap-align: start;
+}
+
+/* ========== 触摸拖拽动画 ========== */
+
+@keyframes dragStart {
+  from {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  to {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.drag-start {
+  animation: dragStart 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ========== 触摸涟漪效果 ========== */
+
+@keyframes touchRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.touch-ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.touch-ripple-effect::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+}
+
+.touch-ripple-effect:active::before {
+  animation: touchRipple 0.6s ease-out;
+}
+
+/* ========== iOS风格弹簧动画 ========== */
+
+@keyframes iosSpring {
+  0% {
+    transform: scale(0.95);
+  }
+  40% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.ios-spring {
+  animation: iosSpring 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 消息气泡按压动画 ========== */
+
+.message-press {
+  transition: transform 0.05s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.05s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.message-press:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ========== 输入框聚焦动画 ========== */
+
+@keyframes inputFocus {
+  from {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  to {
+    transform: scale(1.01);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.input-focus-animate {
+  animation: inputFocus 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 底部菜单弹出 ========== */
+
+@keyframes bottomSheetSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.bottom-sheet-enter {
+  animation: bottomSheetSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== 图片加载骨架屏 ========== */
+
+@keyframes skeletonLoading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0px,
+    #f8f8f8 40px,
+    #f0f0f0 80px
+  );
+  background-size: 200px 100%;
+  animation: skeletonLoading 1.5s ease-in-out infinite;
+}

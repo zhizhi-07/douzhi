@@ -21,6 +21,7 @@ interface VideoCallScreenProps {
   onEnd: () => void
   onSendMessage: (message: string) => void
   onRequestAIReply: () => void
+  onAddNarratorMessage: (content: string) => void
   messages: CallMessage[]
   isAITyping: boolean
 }
@@ -31,12 +32,13 @@ const VideoCallScreen = ({
   onEnd,
   onSendMessage,
   onRequestAIReply,
+  onAddNarratorMessage,
   messages,
   isAITyping
 }: VideoCallScreenProps) => {
   const [duration, setDuration] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
-  const [isSpeaker, setIsSpeaker] = useState(false)
+  const [isCameraOff, setIsCameraOff] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -233,13 +235,27 @@ const VideoCallScreen = ({
             <div className="flex justify-center items-center gap-8">
               {/* 静音 */}
               <button
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={() => {
+                  const newMuted = !isMuted
+                  setIsMuted(newMuted)
+                  const message = newMuted ? '你静音了' : '你取消静音了'
+                  console.log('🎙️ 用户切换静音:', message)
+                  onAddNarratorMessage(message)
+                }}
                 className={'w-16 h-16 rounded-full flex items-center justify-center transition-all ' + (isMuted ? 'bg-red-500 shadow-2xl' : 'bg-white/20 backdrop-blur-md')}
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                </svg>
+                {isMuted ? (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    <line x1="2" y1="2" x2="22" y2="22" stroke="white" strokeWidth="2"/>
+                  </svg>
+                ) : (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                  </svg>
+                )}
               </button>
 
               {/* 挂断 */}
@@ -252,14 +268,29 @@ const VideoCallScreen = ({
                 </svg>
               </button>
 
-              {/* 免提 */}
+              {/* 摄像头 */}
               <button
-                onClick={() => setIsSpeaker(!isSpeaker)}
-                className={'w-16 h-16 rounded-full flex items-center justify-center transition-all ' + (isSpeaker ? 'bg-green-500 shadow-2xl' : 'bg-white/20 backdrop-blur-md')}
+                onClick={() => {
+                  const newCameraOff = !isCameraOff
+                  setIsCameraOff(newCameraOff)
+                  const message = newCameraOff ? '你关闭了摄像头' : '你打开了摄像头'
+                  console.log('📹 用户切换摄像头:', message)
+                  onAddNarratorMessage(message)
+                }}
+                className={'w-16 h-16 rounded-full flex items-center justify-center transition-all ' + (isCameraOff ? 'bg-red-500 shadow-2xl' : 'bg-white/20 backdrop-blur-md')}
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-                </svg>
+                {isCameraOff ? (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                    <rect x="2" y="5" width="16" height="14" rx="2" stroke="white" strokeWidth="2" fill="none"/>
+                    <path d="M18 10l4-2v8l-4-2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                    <line x1="2" y1="2" x2="22" y2="22" stroke="white" strokeWidth="2.5"/>
+                  </svg>
+                ) : (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                    <rect x="2" y="5" width="16" height="14" rx="2" stroke="white" strokeWidth="2" fill="none"/>
+                    <path d="M18 10l4-2v8l-4-2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  </svg>
+                )}
               </button>
             </div>
           </div>

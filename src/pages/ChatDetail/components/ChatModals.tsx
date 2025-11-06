@@ -59,12 +59,13 @@ const ChatModals = ({
           onClick={onCloseCallRecord}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl p-6 m-4 max-w-md w-full"
+            className="bg-white rounded-2xl shadow-2xl p-6 m-4 max-w-md w-full max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-lg font-semibold text-gray-900 mb-4">通话详情</div>
             
-            <div className="space-y-3 mb-4">
+            {/* 通话统计信息 */}
+            <div className="space-y-3 mb-4 pb-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">通话对象</span>
                 <span className="text-sm font-medium text-gray-900">
@@ -78,8 +79,53 @@ const ChatModals = ({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">通话时长</span>
                 <span className="text-sm font-medium text-gray-900">
-                  {viewingCallRecord.videoCallRecord.duration}秒
+                  {Math.floor(viewingCallRecord.videoCallRecord.duration / 60)}分{viewingCallRecord.videoCallRecord.duration % 60}秒
                 </span>
+              </div>
+            </div>
+
+            {/* 聊天记录 */}
+            <div className="flex-1 overflow-y-auto mb-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">聊天记录</div>
+              <div className="space-y-2">
+                {viewingCallRecord.videoCallRecord.messages.map((msg) => {
+                  if (msg.type === 'narrator') {
+                    // 旁白消息（画面描述）
+                    return (
+                      <div key={msg.id} className="text-center">
+                        <div className="text-xs text-gray-400 italic">
+                          {msg.content}
+                        </div>
+                      </div>
+                    )
+                  } else {
+                    // 普通对话消息
+                    const isUser = msg.type === 'user'
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className="flex flex-col max-w-[75%]">
+                          <div className={`text-xs text-gray-500 mb-1 ${isUser ? 'text-right' : 'text-left'}`}>
+                            {isUser ? '我' : (character.nickname || character.realName)} · {msg.time}
+                          </div>
+                          <div
+                            className={`px-3 py-2 rounded-lg ${
+                              isUser
+                                ? 'bg-green-500 text-white rounded-tr-none'
+                                : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                            }`}
+                          >
+                            <div className="text-sm whitespace-pre-wrap break-words">
+                              {msg.content}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+                })}
               </div>
             </div>
 

@@ -55,7 +55,7 @@ const CoupleAlbum = () => {
         <StatusBar />
         <div className="flex items-center justify-between px-5 py-4">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/couple-space')}
             className="text-blue-500 ios-button"
           >
             返回

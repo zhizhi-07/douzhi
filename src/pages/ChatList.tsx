@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
-import { loadChatMessages } from '../utils/messageUtils'
+import { loadMessages } from '../utils/simpleMessageManager'
+import { getUnreadCount } from '../utils/simpleNotificationManager'
 
 interface Chat {
   id: string
@@ -22,19 +23,22 @@ const ChatList = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
 
-  // 更新聊天列表的最新消息和头像（保留 unread 字段）
+  // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
     return chatList.map(chat => {
       // 获取角色最新信息（包括头像）
       const character = characterService.getById(chat.characterId)
       
-      const messages = loadChatMessages(chat.characterId)
+      // 读取未读数
+      const unread = getUnreadCount(chat.characterId)
+      
+      const messages = loadMessages(chat.characterId)
       if (messages.length === 0) {
         return {
           ...chat,
           avatar: character?.avatar || chat.avatar,
-          name: character ? (character.nickname || character.realName) : chat.name
-          // 保留 unread 字段
+          name: character ? (character.nickname || character.realName) : chat.name,
+          unread
         }
       }
 
@@ -80,8 +84,8 @@ const ChatList = () => {
         avatar: character?.avatar || chat.avatar,
         name: character ? (character.nickname || character.realName) : chat.name,
         lastMessage: lastMessageText,
-        time: lastMessage.time
-        // 保留 unread 字段（通过解构自动保留）
+        time: lastMessage.time,
+        unread
       }
     })
   }, [])
@@ -102,26 +106,18 @@ const ChatList = () => {
     loadCharacters()
   }, [refreshChatList])
 
-  // 监听storage事件（跨标签页）和自定义事件（同页面），实时更新未读数
+  // 监听未读数更新事件
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'chatList') {
-        refreshChatList()
-      }
-    }
-    
-    const handleCustomStorageChange = (e: Event) => {
-      const customEvent = e as CustomEvent
-      if (customEvent.detail?.key === 'chatList') {
-        refreshChatList()
-      }
+    const handleUnreadUpdate = () => {
+      refreshChatList()
     }
 
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('local-storage-change', handleCustomStorageChange)
+    window.addEventListener('unread-updated', handleUnreadUpdate)
+    window.addEventListener('new-message', handleUnreadUpdate)
+    
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('local-storage-change', handleCustomStorageChange)
+      window.removeEventListener('unread-updated', handleUnreadUpdate)
+      window.removeEventListener('new-message', handleUnreadUpdate)
     }
   }, [refreshChatList])
 
@@ -238,9 +234,9 @@ const ChatList = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500 truncate flex-1">{chat.lastMessage}</p>
-                  {chat.unread && chat.unread > 0 && (
+                  {(chat.unread ?? 0) > 0 && (
                     <span className="ml-2 px-2 min-w-[20px] h-5 rounded-full text-xs text-white flex items-center justify-center bg-red-500 shadow-md">
-                      {chat.unread > 99 ? '99+' : chat.unread}
+                      {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
                     </span>
                   )}
                 </div>

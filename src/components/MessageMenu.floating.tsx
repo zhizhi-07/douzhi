@@ -154,16 +154,16 @@ const MessageMenu = ({
             删除
           </button>
 
-          {/* 批量删除 */}
+          {/* 多选 */}
           <button
             onClick={() => {
               onBatchDelete()
               onClose()
             }}
-            className="w-full px-4 py-2.5 hover:bg-black/5 text-left text-sm text-red-600 transition-all"
+            className="w-full px-4 py-2.5 hover:bg-black/5 text-left text-sm text-gray-900 transition-all"
             style={{ border: 'none', background: 'transparent' }}
           >
-            批量删除
+            多选
           </button>
         </div>
       </div>

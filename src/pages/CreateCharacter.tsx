@@ -47,7 +47,7 @@ const CreateCharacter = () => {
         <StatusBar />
         <div className="px-5 py-4 flex items-center justify-between">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/contacts')}
             className="text-gray-700"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>朋友圈功能测试</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background: #1aad19;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #179b16;
+    }
+    .danger {
+      background: #e64340;
+    }
+    .danger:hover {
+      background: #ce3c39;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>朋友圈功能测试</h1>
+  
+  <div class="card">
+    <h2>1. 初始化测试数据</h2>
+    <button onclick="initTestData()">创建测试朋友圈</button>
+    <button onclick="clearData()" class="danger">清空所有数据</button>
+  </div>
+  
+  <div class="card">
+    <h2>2. 查看数据</h2>
+    <button onclick="viewData()">查看朋友圈数据</button>
+    <pre id="dataDisplay"></pre>
+  </div>
+  
+  <div class="card">
+    <h2>3. 功能测试</h2>
+    <button onclick="testLike()">测试点赞</button>
+    <button onclick="testComment()">测试评论</button>
+    <button onclick="testDelete()">测试删除</button>
+  </div>
+  
+  <div class="card">
+    <h2>4. 访问页面</h2>
+    <a href="http://localhost:5173/moments" target="_blank">
+      <button>打开朋友圈页面</button>
+    </a>
+    <a href="http://localhost:5173/publish-moment" target="_blank">
+      <button>打开发布页面</button>
+    </a>
+  </div>
+
+  <script>
+    function initTestData() {
+      const testMoments = [
+        {
+          id: Date.now().toString(),
+          userId: 'user',
+          userName: '我',
+          userAvatar: '👤',
+          content: '今天天气真好☀️',
+          images: [],
+          likes: [],
+          comments: [],
+          createdAt: Date.now()
+        },
+        {
+          id: (Date.now() - 1000).toString(),
+          userId: 'ai1',
+          userName: '小雪',
+          userAvatar: '❄️',
+          content: '刚吃了好吃的火锅🍲',
+          images: [],
+          likes: [],
+          comments: [],
+          location: '海底捞火锅',
+          createdAt: Date.now() - 1000
+        }
+      ]
+      
+      localStorage.setItem('moments', JSON.stringify(testMoments))
+      alert('✅ 测试数据已创建！')
+      viewData()
+    }
+    
+    function clearData() {
+      if (confirm('确定要清空所有朋友圈数据吗？')) {
+        localStorage.removeItem('moments')
+        alert('✅ 数据已清空')
+        viewData()
+      }
+    }
+    
+    function viewData() {
+      const moments = JSON.parse(localStorage.getItem('moments') || '[]')
+      document.getElementById('dataDisplay').textContent = 
+        JSON.stringify(moments, null, 2)
+    }
+    
+    function testLike() {
+      const moments = JSON.parse(localStorage.getItem('moments') || '[]')
+      if (moments.length === 0) {
+        alert('❌ 没有朋友圈数据，请先初始化')
+        return
+      }
+      
+      const firstMoment = moments[0]
+      firstMoment.likes.push({
+        id: Date.now().toString(),
+        userId: 'user',
+        userName: '我',
+        userAvatar: '👤'
+      })
+      
+      localStorage.setItem('moments', JSON.stringify(moments))
+      alert('✅ 点赞成功！')
+      viewData()
+    }
+    
+    function testComment() {
+      const moments = JSON.parse(localStorage.getItem('moments') || '[]')
+      if (moments.length === 0) {
+        alert('❌ 没有朋友圈数据，请先初始化')
+        return
+      }
+      
+      const firstMoment = moments[0]
+      firstMoment.comments.push({
+        id: Date.now().toString(),
+        userId: 'user',
+        userName: '我',
+        userAvatar: '👤',
+        content: '测试评论',
+        createdAt: Date.now()
+      })
+      
+      localStorage.setItem('moments', JSON.stringify(moments))
+      alert('✅ 评论成功！')
+      viewData()
+    }
+    
+    function testDelete() {
+      const moments = JSON.parse(localStorage.getItem('moments') || '[]')
+      if (moments.length === 0) {
+        alert('❌ 没有朋友圈数据')
+        return
+      }
+      
+      moments.shift()
+      localStorage.setItem('moments', JSON.stringify(moments))
+      alert('✅ 删除成功！')
+      viewData()
+    }
+    
+    // 页面加载时显示数据
+    window.onload = viewData
+  </script>
+</body>
+</html>

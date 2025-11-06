@@ -66,7 +66,7 @@ const CoupleMessageBoard = () => {
         <StatusBar />
         <div className="flex items-center justify-between px-5 py-4">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/couple-space')}
             className="text-gray-700"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

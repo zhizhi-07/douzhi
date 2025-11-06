@@ -8,9 +8,29 @@ import type { Message, ChatMessage } from '../types/chat'
  * 配置常量
  */
 export const MESSAGE_CONFIG = {
-  MAX_HISTORY_COUNT: 20, // 发送给AI的最大历史消息数（增加到20条）
-  STORAGE_KEY_PREFIX: 'chat_messages_'
+  MAX_HISTORY_COUNT: 20, // 默认的最大历史消息数
+  STORAGE_KEY_PREFIX: 'chat_messages_',
+  SETTINGS_KEY_PREFIX: 'chat_settings_'
 } as const
+
+/**
+ * 获取指定聊天的消息条数设置
+ */
+export const getMessageLimitSetting = (chatId: string): number => {
+  const settingsKey = `${MESSAGE_CONFIG.SETTINGS_KEY_PREFIX}${chatId}`
+  const saved = localStorage.getItem(settingsKey)
+  
+  if (saved) {
+    try {
+      const settings = JSON.parse(saved)
+      return settings.messageLimit ?? MESSAGE_CONFIG.MAX_HISTORY_COUNT
+    } catch {
+      return MESSAGE_CONFIG.MAX_HISTORY_COUNT
+    }
+  }
+  
+  return MESSAGE_CONFIG.MAX_HISTORY_COUNT
+}
 
 /**
  * 创建新消息
@@ -73,10 +93,12 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         const duration = msg.videoCallRecord.duration
         const durationText = `${Math.floor(duration / 60)}分${duration % 60}秒`
         
-        // 提取通话对话内容
+        // 提取通话对话内容（包括旁白）
         const conversations = msg.videoCallRecord.messages
-          .filter(m => m.type !== 'narrator') // 过滤掉旁白
           .map(m => {
+            if (m.type === 'narrator') {
+              return `[画面: ${m.content}]` // 保留旁白（画面描述）
+            }
             const speaker = m.type === 'user' ? '用户' : '你'
             return `${speaker}: ${m.content}`
           })
@@ -84,31 +106,97 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         
         const callInfo = `[视频通话记录 - 时长${durationText}]\n通话内容:\n${conversations}`
         
+        console.log('📞 [messageUtils] 视频通话记录已转换为AI可读格式', {
+          时长: durationText,
+          消息数: msg.videoCallRecord.messages.length,
+          对话行数: conversations.split('\n').length
+        })
+        console.log('转换后的内容：', callInfo)
+        
         return {
           role: 'system' as const,
           content: callInfo
         }
       }
       
+      // 转发的聊天记录转换为AI可读格式
+      if (msg.messageType === 'forwarded-chat' && msg.forwardedChat) {
+        const title = msg.forwardedChat.title
+        const messageCount = msg.forwardedChat.messageCount
+        
+        // 提取聊天记录内容
+        const chatContent = msg.forwardedChat.messages
+          .map(m => {
+            // 处理特殊消息类型
+            let content = m.content
+            if (m.messageType === 'photo') content = '[图片]'
+            else if (m.messageType === 'voice') content = '[语音]'
+            else if (m.messageType === 'location') content = '[位置]'
+            else if (m.messageType === 'transfer') content = '[转账]'
+            else if (m.messageType === 'video-call-record') content = '[视频通话]'
+            else if (m.messageType === 'emoji') content = '[表情包]'
+            
+            return `${m.senderName}: ${content}`
+          })
+          .join('\n')
+        
+        const forwardedInfo = msg.type === 'sent'
+          ? `[用户转发了聊天记录]\n标题: ${title}\n共${messageCount}条消息\n聊天内容:\n${chatContent}`
+          : `[对方转发了聊天记录]\n标题: ${title}\n共${messageCount}条消息\n聊天内容:\n${chatContent}`
+        
+        console.log('💬 [messageUtils] 转发记录已转换为AI可读格式', {
+          标题: title,
+          消息数: messageCount
+        })
+        console.log('转换后的内容：', forwardedInfo)
+        
+        return {
+          role: msg.type === 'sent' ? ('user' as const) : ('assistant' as const),
+          content: forwardedInfo
+        }
+      }
+      
       // 系统消息转换为AI可读格式（保留重要通知）
       if (msg.type === 'system') {
-        // 如果是亲密付通知或其他重要系统消息，让AI看到
-        if (msg.content.includes('亲密付') || msg.content.includes('情侣空间')) {
-          // 格式化亲密付通知，确保AI能理解
-          let formattedContent = msg.content
+        console.log('🔍 检查系统消息:', msg.content)
+        
+        // 重要系统消息列表（这些消息需要让AI看到）
+        const importantKeywords = [
+          '亲密付',
+          '情侣空间',
+          '拒绝了',
+          '视频通话',
+          '拉黑',
+          '解除拉黑',
+          '拨打',
+          '未接通',
+          '取消了'
+        ]
+        
+        // 使用 aiReadableContent（如果有）或 content 来检查
+        const checkContent = msg.aiReadableContent || msg.content || ''
+        const isImportant = importantKeywords.some(keyword => checkContent.includes(keyword))
+        
+        console.log('  - 是否重要:', isImportant)
+        
+        if (isImportant) {
+          // 优先使用 aiReadableContent，如果没有则使用 content
+          let formattedContent = msg.aiReadableContent || msg.content || ''
           
-          // 解析亲密付使用通知
-          if (msg.content.includes('的亲密付被使用了')) {
-            const lines = msg.content.split('\n')
+          // 格式化亲密付使用通知
+          if (formattedContent.includes('的亲密付被使用了')) {
+            const lines = formattedContent.split('\n')
             formattedContent = `【重要通知】${lines.join('，')}`
           }
           
-          console.log('🔍 AI将看到系统通知:', formattedContent)
+          console.log('  ✅ AI将看到系统通知:', formattedContent)
           return {
             role: 'system' as const,
             content: formattedContent
           }
         }
+        
+        console.log('  ❌ 系统消息被过滤')
         // 其他系统消息过滤掉
         return null
       }
@@ -159,6 +247,17 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         }
       }
       
+      // 表情包消息转换为AI可读格式
+      if (msg.messageType === 'emoji' && msg.emoji) {
+        const emojiInfo = msg.type === 'sent'
+          ? `[用户发了表情包: ${msg.emoji.description}]`
+          : `[你发了表情包: ${msg.emoji.description}]`
+        return {
+          role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
+          content: emojiInfo
+        }
+      }
+      
       // 普通文本消息（包含引用信息）
       let textContent = msg.content
       if (msg.quotedMessage && msg.quotedMessage.content) {
@@ -181,12 +280,32 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
 
 /**
  * 获取最近的消息
+ * @param messages 消息列表
+ * @param chatId 聊天ID，用于读取用户设置的消息条数
+ * @param count 手动指定的消息条数（优先级更高）
  */
 export const getRecentMessages = (
   messages: Message[],
-  count: number = MESSAGE_CONFIG.MAX_HISTORY_COUNT
+  chatId?: string,
+  count?: number
 ): Message[] => {
-  return messages.slice(-count)
+  // 优先使用手动指定的count，否则从设置中读取，最后使用默认值
+  let limit = count
+  
+  if (limit === undefined && chatId) {
+    limit = getMessageLimitSetting(chatId)
+  }
+  
+  if (limit === undefined) {
+    limit = MESSAGE_CONFIG.MAX_HISTORY_COUNT
+  }
+  
+  // 0 表示全部消息
+  if (limit === 0) {
+    return messages
+  }
+  
+  return messages.slice(-limit)
 }
 
 /**
@@ -210,11 +329,13 @@ export const saveChatMessages = (chatId: string, messages: Message[]): void => {
   try {
     const key = `${MESSAGE_CONFIG.STORAGE_KEY_PREFIX}${chatId}`
     localStorage.setItem(key, JSON.stringify(messages))
+    console.log(`💾 [messageUtils] 保存消息: chatId=${chatId}, count=${messages.length}`)
     
     // 触发消息保存事件，供全局监听器检测
     window.dispatchEvent(new CustomEvent('chat-message-saved', {
       detail: { chatId, messageCount: messages.length }
     }))
+    console.log(`📡 [messageUtils] 触发 chat-message-saved 事件`)
   } catch (error) {
     console.error('保存消息失败:', error)
     // 可以在这里添加错误上报或用户提示
@@ -268,9 +389,39 @@ export const addNotificationToChat = (characterId: string, content: string): voi
 
 /**
  * 解析AI回复，支持多条消息（按换行分隔）
+ * 特殊处理：[视频通话]指令会把它和后面的开场白合并成一条
  */
 export const parseAIMessages = (aiReply: string): string[] => {
-  // 按换行符分隔消息
+  // 检测视频通话指令
+  const videoCallMatch = aiReply.match(/[\[【]视频通话[\]】]/)
+  
+  if (videoCallMatch) {
+    // 找到[视频通话]的位置
+    const parts = aiReply.split(videoCallMatch[0])
+    const beforeCall = parts[0]?.trim() || ''
+    const afterCall = parts[1]?.trim() || ''
+    
+    const messages: string[] = []
+    
+    // [视频通话]前面的内容按正常方式分割（这些是普通消息）
+    if (beforeCall) {
+      const beforeMessages = beforeCall
+        .split('\n')
+        .map(msg => msg.trim())
+        .filter(msg => msg.length > 0)
+      messages.push(...beforeMessages)
+    }
+    
+    // [视频通话] + 开场白合并成一条特殊消息
+    const videoCallMessage = [videoCallMatch[0], afterCall]
+      .filter(p => p)
+      .join('\n')
+    messages.push(videoCallMessage)
+    
+    return messages
+  }
+  
+  // 正常按换行符分隔消息
   return aiReply
     .split('\n')
     .map(msg => msg.trim())

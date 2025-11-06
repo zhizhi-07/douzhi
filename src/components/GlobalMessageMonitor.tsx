@@ -8,19 +8,38 @@ import { characterService } from '../services/characterService'
 import { loadChatMessages } from '../utils/messageUtils'
 import { incrementUnread } from '../utils/unreadMessages'
 
+const NOTIFIED_MESSAGES_KEY = 'notified_message_ids'
+
 const GlobalMessageMonitor = () => {
-  // 记录每个聊天的最后消息ID
+  // 记录每个聊天的最后消息ID（持久化）
   const lastMessageIdsRef = useRef<Record<string, number>>({})
   
   useEffect(() => {
+    // 从 localStorage 加载已通知的消息ID
+    try {
+      const saved = localStorage.getItem(NOTIFIED_MESSAGES_KEY)
+      if (saved) {
+        lastMessageIdsRef.current = JSON.parse(saved)
+      }
+    } catch (e) {
+      console.error('加载已通知消息记录失败:', e)
+    }
+    
     // 初始化：记录所有现有消息的最后ID
     const allCharacters = characterService.getAll()
     allCharacters.forEach(character => {
       const messages = loadChatMessages(character.id)
       if (messages.length > 0) {
-        lastMessageIdsRef.current[character.id] = messages[messages.length - 1].id
+        const lastId = messages[messages.length - 1].id
+        // 如果没有记录，或者消息比记录的新，更新记录
+        if (!lastMessageIdsRef.current[character.id] || lastId > lastMessageIdsRef.current[character.id]) {
+          lastMessageIdsRef.current[character.id] = lastId
+        }
       }
     })
+    
+    // 保存初始化后的记录
+    localStorage.setItem(NOTIFIED_MESSAGES_KEY, JSON.stringify(lastMessageIdsRef.current))
     console.log('🔍 全局消息监听器已初始化')
     
     // 监听消息保存事件（立即响应）
@@ -40,6 +59,9 @@ const GlobalMessageMonitor = () => {
         
         // 更新记录
         lastMessageIdsRef.current[chatId] = lastMessage.id
+        
+        // 保存到 localStorage
+        localStorage.setItem(NOTIFIED_MESSAGES_KEY, JSON.stringify(lastMessageIdsRef.current))
         
         // 如果用户不在这个聊天窗口
         const currentPath = window.location.pathname
