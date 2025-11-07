@@ -9,6 +9,7 @@ import { getCoupleSpaceContentSummary } from './coupleSpaceContentUtils'
 import { getUserInfo } from './userUtils'
 import { getIntimatePayRelations } from './walletUtils'
 import { getEmojis } from './emojiStorage'
+import { loadMoments } from './momentsManager'
 
 /**
  * API错误类型
@@ -146,7 +147,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   
   // 获取用户信息
   const userInfo = getUserInfo()
-  const userNickname = userInfo.nickname || userName
+  const userNickname = userInfo.nickname || userInfo.realName || userName
   const userSignature = userInfo.signature
   
   // 获取情侣空间信息
@@ -202,6 +203,7 @@ ${character.world ? `你生活在${character.world}。` : ''}
 
 对方信息：
 - 昵称：${userNickname}
+- 真实姓名：${userInfo.realName}
 ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签名'}
 - 情侣空间：${coupleSpaceStatus}${intimatePayInfo}
 
@@ -287,6 +289,11 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 好了不聊了，我挂了
 [挂断电话]
 
+想修改自己的网名或个性签名？
+[网名:新的网名] - 修改你的网名，比如[网名:小可爱]
+[个性签名:新的签名] - 修改你的个性签名，比如[个性签名:今天心情不错~]
+⚠️ 这是修改你自己的信息！不要频繁改，只在真的想换的时候用
+
 对方让你很生气/受伤？可以拉黑对方：
 [拉黑用户] - 拉黑对方，对方的消息会被拒收
 [解除拉黑] - 原谅对方了，解除拉黑
@@ -303,7 +310,7 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 - 想在情侣空间留言板发留言？用[留言:留言内容]
 - 想添加纪念日？用[纪念日:日期:标题]，比如[纪念日:11月5日:捡猫日]
 
-这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildEmojiListPrompt()}
+这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ══════════════════════════════════
 
@@ -326,8 +333,7 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 ══════════════════════════════════
 
-情侣空间状态：你和用户还没有建立情侣空间
-你可以主动发送邀请：[情侣空间邀请]`
+情侣空间：你还没有开通情侣空间，发送邀请：[情侣空间邀请]`
   }
   
   // 情况2：有待处理的邀请
@@ -336,7 +342,7 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 ══════════════════════════════════
 
-情侣空间状态：你已向用户发送邀请，等待对方接受`
+情侣空间：你已向用户发送邀请，等待对方接受`
   }
   
   // 情况3：已被拒绝
@@ -345,31 +351,25 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 ══════════════════════════════════
 
-情侣空间状态：用户拒绝了你的邀请`
+情侣空间：用户拒绝了你的邀请`
   }
   
   // 情况4：活跃的情侣空间
   if (relation.status === 'active' && relation.characterId === character.id) {
-    const privacy = getCoupleSpacePrivacy()
-    const privacyText = privacy === 'public' ? '公开' : '私密'
-    
     // 获取情侣空间内容摘要
     const summary = getCoupleSpaceContentSummary(character.id)
-    
-    if (!summary) {
-      return `
-
-══════════════════════════════════
-
-💑 你和用户的情侣空间（${privacyText}模式）
-可以用[相册:描述]分享照片，用[留言:内容]发留言。`
-    }
     
     return `
 
 ══════════════════════════════════
 
-💑 你和用户的情侣空间（${privacyText}模式）${summary}`
+💑 你已经开启了情侣空间
+
+你可以使用以下功能：
+- [相册:描述] 分享照片到相册
+- [留言:内容] 发送留言到留言板
+- [纪念日:日期:标题] 添加纪念日，比如[纪念日:2024-01-01:在一起100天]
+- [解除情侣空间] 解除关系（内容会保留）${summary}`
   }
   
   return ''
@@ -595,4 +595,112 @@ ${isAIInitiated ? `
 基于上面的通话内容，继续自然地回应${userName}。
 你的表情、动作、语气都由此刻的情绪决定。
 每条消息用换行分开。`
+}
+
+/**
+ * 构建朋友圈列表提示词
+ */
+const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
+  // 获取聊天设置
+  const settingsKey = `chat_settings_${characterId}`
+  const saved = localStorage.getItem(settingsKey)
+  let momentsVisibleCount = 10 // 默认10条
+  
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      momentsVisibleCount = data.momentsVisibleCount ?? 10
+    } catch (e) {
+      console.error('解析聊天设置失败:', e)
+    }
+  }
+  
+  // 如果设置为0，表示不可见
+  if (momentsVisibleCount === 0) {
+    return ''
+  }
+  
+  // 获取朋友圈列表
+  const moments = loadMoments()
+  const visibleMoments = moments.slice(0, momentsVisibleCount)
+  
+  if (visibleMoments.length === 0) {
+    return ''
+  }
+  
+  // 格式化朋友圈列表
+  const momentsList = visibleMoments.map((m, index) => {
+    const number = String(index + 1).padStart(2, '0')
+    const likesText = m.likes.length > 0 
+      ? `\n  点赞：${m.likes.map(l => l.userName).join('、')}` 
+      : ''
+    const commentsText = m.comments.length > 0
+      ? `\n  评论：${m.comments.map(c => `${c.userName}: ${c.content}`).join(' | ')}`
+      : ''
+    
+    return `${number}. ${m.content}${likesText}${commentsText}`
+  }).join('\n\n')
+  
+  return `
+
+══════════════════════════════════
+
+📱 用户的朋友圈（最近${momentsVisibleCount}条）：
+
+${momentsList}
+
+你可以在聊天中评论或点赞朋友圈：
+- 评论：评论01 你的评论内容
+- 点赞：点赞02
+- 回复评论：评论01回复张三 你的回复内容
+
+例如：
+评论01 哈哈笑死我了
+点赞03
+评论02回复李四 我也这么觉得
+
+自然地在聊天中使用，不要刻意。`
+}
+
+/**
+ * 构建AI发朋友圈指令提示词
+ */
+const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> => {
+  // 获取聊天设置
+  const settingsKey = `chat_settings_${characterId}`
+  const saved = localStorage.getItem(settingsKey)
+  let aiCanPostMoments = false
+  
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      aiCanPostMoments = data.aiCanPostMoments ?? false
+    } catch (e) {
+      console.error('解析聊天设置失败:', e)
+    }
+  }
+  
+  // 如果没有开启AI发朋友圈功能，返回空字符串
+  if (!aiCanPostMoments) {
+    return ''
+  }
+  
+  return `
+
+══════════════════════════════════
+
+✨ 你也可以发朋友圈：
+
+想发朋友圈？用这个格式：
+朋友圈：你想发的内容
+
+例如：
+朋友圈：今天心情不错
+朋友圈：刚吃了超好吃的火锅🔥
+
+⚠️ 注意：
+- 朋友圈发出后，其他人（可能是你的朋友、用户认识的人）会看到
+- 他们可能会点赞或评论你的朋友圈
+- 不要频繁发朋友圈，看心情和情况决定
+- 发朋友圈的内容要符合你的性格和当下的心情`
 }

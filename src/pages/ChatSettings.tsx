@@ -17,6 +17,8 @@ import BubbleSettings from './ChatSettings/BubbleSettings'
 
 interface ChatSettingsData {
   messageLimit: number  // 读取的消息条数
+  momentsVisibleCount: number  // AI可见的朋友圈条数
+  aiCanPostMoments: boolean  // AI是否可以主动发朋友圈
 }
 
 const ChatSettings = () => {
@@ -27,10 +29,17 @@ const ChatSettings = () => {
   const getSettings = (): ChatSettingsData => {
     const saved = localStorage.getItem(`chat_settings_${id}`)
     if (saved) {
-      return JSON.parse(saved)
+      const data = JSON.parse(saved)
+      return {
+        messageLimit: data.messageLimit ?? 50,
+        momentsVisibleCount: data.momentsVisibleCount ?? 10,  // 默认10条
+        aiCanPostMoments: data.aiCanPostMoments ?? false  // 默认关闭
+      }
     }
     return {
-      messageLimit: 50  // 默认50条
+      messageLimit: 50,  // 默认50条
+      momentsVisibleCount: 10,  // 默认10条朋友圈
+      aiCanPostMoments: false  // 默认AI不能发朋友圈
     }
   }
   
@@ -115,7 +124,7 @@ const ChatSettings = () => {
   }
   
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 page-enter">
       {/* 头部 */}
       <div className="glass-effect border-b border-gray-200/30">
         <StatusBar />
@@ -302,6 +311,122 @@ const ChatSettings = () => {
               ))}
             </div>
           </div>
+        </div>
+        
+        {/* AI主动发朋友圈 */}
+        <div className="glass-effect rounded-3xl p-6 border border-white/50 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-gray-900">
+                AI主动发朋友圈
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                开启后AI可以在聊天中发布朋友圈
+              </p>
+            </div>
+            <button
+              onClick={() => saveSettings({ ...settings, aiCanPostMoments: !settings.aiCanPostMoments })}
+              className={`relative w-14 h-7 rounded-full transition-all ${
+                settings.aiCanPostMoments ? 'bg-purple-400' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${
+                  settings.aiCanPostMoments ? 'translate-x-7' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          {settings.aiCanPostMoments && (
+            <div className="mt-4 p-3 bg-purple-50 rounded-xl border border-purple-200">
+              <div className="flex items-start gap-2 text-purple-600 text-xs">
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <span>AI发送朋友圈后，其他AI角色可能会根据内容进行互动</span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* 朋友圈可见条数 */}
+        <div className="glass-effect rounded-3xl p-6 border border-white/50 shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">
+                朋友圈可见条数
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                AI可以看到用户发布的朋友圈数量
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-purple-400">
+                {settings.momentsVisibleCount === 0 ? '无' : settings.momentsVisibleCount}
+              </div>
+              <div className="text-xs text-gray-500">
+                {settings.momentsVisibleCount === 0 ? '不可见' : `最近${settings.momentsVisibleCount}条`}
+              </div>
+            </div>
+          </div>
+          
+          {/* 滑块 */}
+          <div className="space-y-4">
+            <input
+              type="range"
+              min="0"
+              max="50"
+              step="5"
+              value={settings.momentsVisibleCount}
+              onChange={(e) => saveSettings({ ...settings, momentsVisibleCount: parseInt(e.target.value) })}
+              className="w-full h-2 bg-gray-200/60 rounded-full appearance-none cursor-pointer slider"
+              style={{
+                background: `linear-gradient(to right, 
+                  rgb(216 180 254) 0%, 
+                  rgb(216 180 254) ${(settings.momentsVisibleCount / 50) * 100}%, 
+                  rgb(229 231 235 / 0.6) ${(settings.momentsVisibleCount / 50) * 100}%, 
+                  rgb(229 231 235 / 0.6) 100%)`
+              }}
+            />
+            
+            {/* 刻度标签 */}
+            <div className="flex justify-between text-xs text-gray-500 px-1">
+              <span>0</span>
+              <span>10</span>
+              <span>20</span>
+              <span>30</span>
+              <span>40</span>
+              <span>50</span>
+            </div>
+            
+            {/* 快捷按钮 */}
+            <div className="flex gap-2 pt-2">
+              {[0, 10, 20, 50].map(num => (
+                <button
+                  key={num}
+                  onClick={() => saveSettings({ ...settings, momentsVisibleCount: num })}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                    settings.momentsVisibleCount === num
+                      ? 'bg-purple-200 text-purple-900 shadow-lg'
+                      : 'bg-white/60 text-gray-700 hover:bg-white/80'
+                  }`}
+                >
+                  {num === 0 ? '不可见' : `${num}条`}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {settings.momentsVisibleCount > 0 && (
+            <div className="mt-4 p-3 bg-purple-50 rounded-xl border border-purple-200">
+              <div className="flex items-start gap-2 text-purple-600 text-xs">
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <span>朋友圈内容将加入对话上下文，会额外消耗 Token</span>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* 清空聊天记录 */}

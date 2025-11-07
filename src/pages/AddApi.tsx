@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import StatusBar from '../components/StatusBar'
 import { apiService } from '../services/apiService'
+import { fetchModels } from '../utils/api'
 
 const AddApi = () => {
   const navigate = useNavigate()
@@ -15,6 +16,11 @@ const AddApi = () => {
     temperature: 0.7,
     maxTokens: 8000
   })
+
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [showModelList, setShowModelList] = useState(false)
+  const [fetchResult, setFetchResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const providers = [
     { value: 'google', label: 'Google Gemini', example: 'https://generativelanguage.googleapis.com/v1beta' },
@@ -30,6 +36,45 @@ const AddApi = () => {
       provider: provider as any,
       baseUrl: provider === 'custom' ? '' : (selectedProvider?.example || '')
     })
+    setAvailableModels([])
+    setShowModelList(false)
+  }
+
+  const handleFetchModels = async () => {
+    if (!formData.baseUrl || !formData.apiKey) {
+      alert('请先填写API地址和密钥')
+      return
+    }
+
+    if (fetchingModels) {
+      return
+    }
+
+    setFetchingModels(true)
+    setFetchResult(null)
+
+    try {
+      const models = await fetchModels(formData)
+      if (models.length === 0) {
+        setFetchResult({ success: false, message: '未找到可用模型，请手动输入' })
+      } else {
+        setAvailableModels(models)
+        setShowModelList(true)
+        if (!formData.model && models.length > 0) {
+          setFormData({ ...formData, model: models[0] })
+        }
+        setFetchResult({ success: true, message: `成功拉取 ${models.length} 个模型` })
+      }
+    } catch (error: any) {
+      setFetchResult({ success: false, message: error.message || '拉取模型失败' })
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  const handleSelectModel = (model: string) => {
+    setFormData({ ...formData, model })
+    setShowModelList(false)
   }
 
   const handleSave = () => {
@@ -147,19 +192,60 @@ const AddApi = () => {
 
         {/* 模型名称 */}
         <div className="mb-3">
-          <div className="px-4 py-2">
+          <div className="px-4 py-2 flex items-center justify-between">
             <span className="text-sm text-gray-600 font-medium">模型名称</span>
+            <button
+              onClick={handleFetchModels}
+              disabled={fetchingModels}
+              className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {fetchingModels ? '拉取中...' : '拉取模型'}
+            </button>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 shadow-sm">
             <input
               type="text"
               value={formData.model}
               onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              placeholder="例如: gpt-3.5-turbo"
+              placeholder="选择或输入模型名称"
               className="w-full bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
             />
           </div>
         </div>
+
+        {/* 模型列表 */}
+        {showModelList && availableModels.length > 0 && (
+          <div className="mb-3">
+            <div className="px-4 py-2">
+              <span className="text-sm text-gray-600 font-medium">选择模型</span>
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-200/50 shadow-sm max-h-60 overflow-y-auto">
+              {availableModels.map((model, index) => (
+                <button
+                  key={model}
+                  onClick={() => handleSelectModel(model)}
+                  className={'w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors ' + (index < availableModels.length - 1 ? 'border-b border-gray-100' : '')}
+                >
+                  <span className={'text-sm ' + (formData.model === model ? 'text-blue-500 font-medium' : 'text-gray-900')}>
+                    {model}
+                  </span>
+                  {formData.model === model && (
+                    <span className="text-blue-500 text-xl">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 拉取结果提示 */}
+        {fetchResult && (
+          <div className={'mb-3 rounded-xl p-3 border ' + (fetchResult.success ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500')}>
+            <p className={'text-sm ' + (fetchResult.success ? 'text-green-600' : 'text-red-600')}>
+              {fetchResult.message}
+            </p>
+          </div>
+        )}
 
         {/* 高级设置 */}
         <div className="mb-3">

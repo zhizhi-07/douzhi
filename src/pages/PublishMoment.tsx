@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { publishMoment } from '../utils/momentsManager'
 import { triggerAIMomentsInteraction } from '../utils/momentsAI'
+import { getUserInfo } from '../utils/userUtils'
 import type { MomentImage } from '../types/moments'
 
 export default function PublishMoment() {
@@ -17,11 +18,12 @@ export default function PublishMoment() {
   const [showLocationInput, setShowLocationInput] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // 当前用户（临时hardcode）
+  // 获取当前用户信息
+  const userInfo = getUserInfo()
   const currentUser = {
     id: 'user',
-    name: '我',
-    avatar: '👤'
+    name: userInfo.nickname || userInfo.realName,
+    avatar: userInfo.avatar || undefined
   }
   
   // 处理图片选择

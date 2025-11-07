@@ -89,30 +89,41 @@ export const useVideoCall = (
     setTimeout(() => {
       addNarratorMessage('视频通话已接通...')
       
-      // 如果有开场白，解析并显示
+      // 如果有开场白，逐句解析并显示
       if (openingLinesRef.current) {
-        console.log('🎤 解析并显示AI的开场白:', openingLinesRef.current)
+        console.log('🎤 解析并逐句显示AI的开场白:', openingLinesRef.current)
         
-        setTimeout(() => {
+        setTimeout(async () => {
           const lines = openingLinesRef.current!.split('\n').filter(l => l.trim())
           
-          for (const line of lines) {
-            // 检测画面描述 [画面:...] 或 【画面：...】
-            const narratorMatch = line.match(/[\[【]画面[:\：](.+?)[\]】]/)
-            if (narratorMatch) {
-              addNarratorMessage(narratorMatch[1].trim())
-              continue
+          // 逐句显示，每句之间延迟
+          for (let i = 0; i < lines.length; i++) {
+            let line = lines[i]
+            
+            // 提取所有画面描述标签 [画面:...] 或 【画面：...】
+            const narratorMatches = line.matchAll(/[\[【]画面[:\：](.+?)[\]】]/g)
+            
+            for (const match of narratorMatches) {
+              addNarratorMessage(match[1].trim())
+              // 从原文本中移除标签
+              line = line.replace(match[0], '')
             }
 
-            // 普通对话
-            if (line.trim()) {
-              addAIMessage(line.trim())
+            // 剩余文本作为普通对话
+            const remainingText = line.trim()
+            if (remainingText) {
+              addAIMessage(remainingText)
+            }
+            
+            // 等待一段时间再显示下一句（最后一句不等待）
+            if (i < lines.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800))
             }
           }
           
           // 清空开场白引用
           openingLinesRef.current = null
-          console.log('✅ 开场白已显示完毕')
+          console.log('✅ 开场白已全部显示完毕')
         }, 300)
       }
     }, 500)
@@ -253,7 +264,11 @@ export const useVideoCall = (
         console.log('📊 [useVideoCall] 更新React状态:', prev.length, '->', newMessages.length)
         return newMessages
       })
-    } else if (callMessages.length > 0) {
+    } else {
+      // 接通后的通话记录（即使没有消息也要保存）
+      // 过滤掉narrator消息（画面描述），只保存对话内容
+      const dialogMessages = callMessages.filter(msg => msg.type !== 'narrator')
+      
       // 正常通话记录
       const recordMessage: Message = {
         id: Date.now(),
@@ -267,13 +282,14 @@ export const useVideoCall = (
         messageType: 'video-call-record',
         videoCallRecord: {
           duration,
-          messages: callMessages
+          messages: dialogMessages
         }
       }
       
       console.log('💾 [useVideoCall] 保存通话记录到localStorage', {
         duration: `${Math.floor(duration / 60)}分${duration % 60}秒`,
-        messageCount: callMessages.length,
+        原始消息数: callMessages.length,
+        对话消息数: dialogMessages.length,
         chatId,
         recordMessageId: recordMessage.id
       })

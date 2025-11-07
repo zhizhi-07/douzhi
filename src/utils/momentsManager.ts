@@ -29,16 +29,50 @@ export function loadMoments(): Moment[] {
 export function saveMoments(moments: Moment[]): void {
   try {
     // 只保存最近的朋友圈
-    const momentsToSave = moments.slice(0, MAX_MOMENTS)
+    let momentsToSave = moments.slice(0, MAX_MOMENTS)
     
     // 压缩数据
-    const compressed = momentsToSave.map(moment => ({
+    let compressed = momentsToSave.map(moment => ({
       ...moment,
       comments: moment.comments.slice(-50),  // 最多50条评论
       likes: moment.likes.slice(-100)  // 最多100个点赞
     }))
     
-    localStorage.setItem(MOMENTS_KEY, JSON.stringify(compressed))
+    try {
+      localStorage.setItem(MOMENTS_KEY, JSON.stringify(compressed))
+    } catch (quotaError) {
+      // 如果空间不足，尝试更激进的清理
+      if (quotaError instanceof Error && quotaError.name === 'QuotaExceededError') {
+        console.warn('⚠️ localStorage空间不足，开始清理旧数据...')
+        
+        // 第一次清理：只保留最近50条
+        momentsToSave = moments.slice(0, 50)
+        compressed = momentsToSave.map(moment => ({
+          ...moment,
+          comments: moment.comments.slice(-30),  // 最多30条评论
+          likes: moment.likes.slice(-50)  // 最多50个点赞
+        }))
+        
+        try {
+          localStorage.setItem(MOMENTS_KEY, JSON.stringify(compressed))
+          console.log('✅ 清理后保存成功，保留了50条朋友圈')
+        } catch (secondError) {
+          // 第二次清理：只保留最近20条
+          console.warn('⚠️ 仍然空间不足，进行更激进的清理...')
+          momentsToSave = moments.slice(0, 20)
+          compressed = momentsToSave.map(moment => ({
+            ...moment,
+            comments: moment.comments.slice(-10),  // 最多10条评论
+            likes: moment.likes.slice(-20)  // 最多20个点赞
+          }))
+          
+          localStorage.setItem(MOMENTS_KEY, JSON.stringify(compressed))
+          console.log('✅ 激进清理后保存成功，保留了20条朋友圈')
+        }
+      } else {
+        throw quotaError
+      }
+    }
   } catch (error) {
     console.error('保存朋友圈失败:', error)
   }

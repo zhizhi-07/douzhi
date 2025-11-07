@@ -53,7 +53,11 @@ export async function setItem(key: string, value: any): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = store.put(value, key)
       
-      request.onsuccess = () => resolve()
+      request.onsuccess = () => {
+        // 等待事务完成，确保数据已写入磁盘
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(new Error('事务失败'))
+      }
       request.onerror = () => reject(new Error('保存数据失败'))
     })
   } catch (error) {

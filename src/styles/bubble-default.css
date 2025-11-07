@@ -1,0 +1,20 @@
+/* 默认气泡样式 - 当用户没有自定义CSS时使用 */
+.message-container.sent .message-bubble {
+    background: #95EC69;
+    color: #FFFFFF;
+    border-radius: 16px;
+    box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.08);
+}
+
+.message-container.received .message-bubble {
+    background: #FFFFFF;
+    color: #1F2937;
+    border-radius: 16px;
+    box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* 如果用户CSS设置了transparent，仍然保持最基础的可读性 */
+.message-bubble {
+    min-height: 20px;
+    display: inline-block;
+}

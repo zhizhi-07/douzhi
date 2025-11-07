@@ -6,9 +6,9 @@ import { useState } from 'react'
 
 interface CoupleSpaceInputModalProps {
   isOpen: boolean
-  type: 'photo' | 'message' | null
+  type: 'photo' | 'message' | 'anniversary' | null
   onClose: () => void
-  onSubmit: (content: string) => void
+  onSubmit: (content: string, data?: { date?: string, title?: string }) => void
 }
 
 const CoupleSpaceInputModal = ({
@@ -18,6 +18,8 @@ const CoupleSpaceInputModal = ({
   onSubmit
 }: CoupleSpaceInputModalProps) => {
   const [content, setContent] = useState('')
+  const [date, setDate] = useState('')
+  const [title, setTitle] = useState('')
 
   if (!isOpen || !type) return null
 
@@ -42,16 +44,36 @@ const CoupleSpaceInputModal = ({
         </svg>
       ),
       hint: '留言将显示在留言板中'
+    },
+    anniversary: {
+      title: '添加纪念日',
+      placeholder: '备注（可选）...\n例如：第一次见面的日子',
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      hint: '纪念日将显示在纪念日页面'
     }
   }
 
   const handleSubmit = () => {
-    if (!content.trim()) {
-      alert('请输入内容')
-      return
+    if (type === 'anniversary') {
+      if (!date || !title.trim()) {
+        alert('请填写日期和标题')
+        return
+      }
+      onSubmit(content.trim(), { date, title: title.trim() })
+    } else {
+      if (!content.trim()) {
+        alert('请输入内容')
+        return
+      }
+      onSubmit(content.trim())
     }
-    onSubmit(content.trim())
     setContent('')
+    setDate('')
+    setTitle('')
     onClose()
   }
 
@@ -70,16 +92,55 @@ const CoupleSpaceInputModal = ({
           <h3 className="text-xl font-bold text-gray-900">{currentConfig.title}</h3>
         </div>
         
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={currentConfig.placeholder}
-          className="w-full px-4 py-3 border border-gray-300 rounded-2xl resize-none text-sm focus:outline-none focus:border-pink-400 transition-colors"
-          rows={4}
-          autoFocus
-        />
-        
-        <p className="text-xs text-gray-500 mt-2 mb-4">{currentConfig.hint}</p>
+        {type === 'anniversary' ? (
+          <>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">日期</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">标题</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="例如：在一起100天"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">备注（可选）</label>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder={currentConfig.placeholder}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl resize-none text-sm"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">{currentConfig.hint}</p>
+          </>
+        ) : (
+          <>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={currentConfig.placeholder}
+              className="w-full px-4 py-3 border border-gray-300 rounded-2xl resize-none text-sm"
+              rows={4}
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mt-2 mb-4">{currentConfig.hint}</p>
+          </>
+        )}
 
         <div className="flex gap-3">
           <button

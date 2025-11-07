@@ -11,7 +11,8 @@ import {
   rejectCoupleSpaceInvite, 
   createCoupleSpaceInvite 
 } from '../../../utils/coupleSpaceUtils'
-import { addCouplePhoto, addCoupleMessage } from '../../../utils/coupleSpaceContentUtils'
+import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
+import { addMessage as saveMessage } from '../../../utils/simpleMessageManager'
 
 export const useCoupleSpace = (
   chatId: string | undefined,
@@ -21,7 +22,7 @@ export const useCoupleSpace = (
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
   const [showInput, setShowInput] = useState(false)
-  const [inputType, setInputType] = useState<'photo' | 'message' | null>(null)
+  const [inputType, setInputType] = useState<'photo' | 'message' | 'anniversary' | null>(null)
 
   // 打开快捷菜单
   const openMenu = () => {
@@ -116,8 +117,8 @@ export const useCoupleSpace = (
   }
 
   // 提交内容
-  const submitContent = (content: string) => {
-    if (!chatId) return
+  const submitContent = (content: string, data?: { date?: string, title?: string }) => {
+    if (!chatId || !character) return
 
     if (inputType === 'photo') {
       addCouplePhoto(chatId, '我', content)
@@ -129,17 +130,33 @@ export const useCoupleSpace = (
         timestamp: Date.now(),
         messageType: 'system'
       }
+      saveMessage(chatId, systemMsg)
       setMessages(prev => [...prev, systemMsg])
     } else if (inputType === 'message') {
       addCoupleMessage(chatId, '我', content)
       const systemMsg: Message = {
         id: Date.now(),
         type: 'system',
-        content: `你在情侣空间留言板留言了${content}`,
+        content: `你在情侣空间留言板留言：${content}`,
+        aiReadableContent: `用户在情侣空间留言板留言：${content}`,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now(),
         messageType: 'system'
       }
+      saveMessage(chatId, systemMsg)
+      setMessages(prev => [...prev, systemMsg])
+    } else if (inputType === 'anniversary' && data?.date && data?.title) {
+      addCoupleAnniversary(chatId, character.nickname || character.realName, data.date, data.title, content || undefined)
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `你添加了纪念日：${data.title}（${data.date}）`,
+        aiReadableContent: `用户添加了一个纪念日：${data.title}，日期是${data.date}${content ? `，备注：${content}` : ''}`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+      saveMessage(chatId, systemMsg)
       setMessages(prev => [...prev, systemMsg])
     }
   }

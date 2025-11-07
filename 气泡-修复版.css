@@ -1,0 +1,87 @@
+/* 公共气泡样式（用户 + AI） */
+.message-container .message-bubble {
+    /* 渐变背景（用户绿色，AI白色） */
+    background: linear-gradient(135deg, rgba(149, 236, 105, 0.95), rgba(120, 220, 80, 0.95)) !important;
+    border-radius: 20px !important;
+    position: relative !important;
+    overflow: visible !important;  /* 改为visible让伪元素可见 */
+    animation: bubble-float 6s ease-in-out infinite !important;
+    padding: 12px 16px !important;
+
+    box-shadow: inset 3px 3px 8px rgba(255, 255, 255, 0.7),
+                inset -3px -3px 8px rgba(0, 0, 0, 0.08),
+                0 8px 20px rgba(0,0,0,0.25) !important;
+
+    color: #222222 !important;
+    text-shadow: 0 0 4px rgba(255,255,255,0.8) !important;
+    cursor: pointer !important;
+}
+
+/* AI消息用白色背景 */
+.message-container.received .message-bubble {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(245, 245, 250, 0.95)) !important;
+}
+
+/* 上方高光 */
+.message-container .message-bubble::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 5% !important;
+    left: 10% !important;
+    width: 60% !important;
+    height: 30% !important;
+    background: radial-gradient(ellipse at top left, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 70%) !important;
+    border-radius: 50% !important;
+    animation: bubble-glow 3s ease-in-out infinite !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
+
+/* 下方反光 */
+.message-container .message-bubble::before {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 8% !important;
+    left: 20% !important;
+    width: 60% !important;
+    height: 15% !important;
+    background: radial-gradient(ellipse at bottom, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 80%) !important;
+    border-radius: 50% !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
+
+/* 消息容器 */
+.message-container {
+    margin-bottom: 10px !important;
+}
+
+/* 呼吸高光动画 */
+@keyframes bubble-glow {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.05);
+    }
+}
+
+/* 水滴漂浮动画 */
+@keyframes bubble-float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+/* 深色模式字体优化 */
+@media (prefers-color-scheme: dark) {
+    .message-container .message-bubble {
+        color: #f5f5f5 !important;
+        text-shadow: 0 0 4px rgba(0,0,0,0.8) !important;
+    }
+}

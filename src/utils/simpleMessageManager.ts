@@ -14,7 +14,24 @@ export function loadMessages(chatId: string): Message[] {
   try {
     const key = MESSAGE_KEY_PREFIX + chatId
     const data = localStorage.getItem(key)
-    return data ? JSON.parse(data) : []
+    const messages = data ? JSON.parse(data) : []
+    
+    // 统计表情包消息
+    const emojiMessages = messages.filter((m: Message) => m.messageType === 'emoji')
+    if (emojiMessages.length > 0) {
+      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}, 表情包消息=${emojiMessages.length}`)
+      console.log('🎭 表情包消息详情:', emojiMessages.map((m: Message) => ({
+        id: m.id,
+        type: m.type,
+        messageType: m.messageType,
+        hasEmoji: !!m.emoji,
+        emoji: m.emoji
+      })))
+    } else {
+      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}, 无表情包消息`)
+    }
+    
+    return messages
   } catch (error) {
     console.error('加载消息失败:', error)
     return []

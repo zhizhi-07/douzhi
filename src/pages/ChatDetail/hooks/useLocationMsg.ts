@@ -3,11 +3,14 @@
  * 负责：位置发送逻辑
  */
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
+import { addMessage } from '../../../utils/simpleMessageManager'
+import { blacklistManager } from '../../../utils/blacklistManager'
 
 export const useLocationMsg = (
-  setMessages: (fn: (prev: Message[]) => Message[]) => void
+  setMessages: (fn: (prev: Message[]) => Message[]) => void,
+  chatId: string
 ) => {
   const [showLocationSender, setShowLocationSender] = useState(false)
 
@@ -16,6 +19,8 @@ export const useLocationMsg = (
    */
   const handleSendLocation = useCallback((name: string, address: string) => {
     if (!name.trim()) return
+    
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
 
     const locationMsg: Message = {
       id: Date.now(),
@@ -27,6 +32,7 @@ export const useLocationMsg = (
       }),
       timestamp: Date.now(),
       messageType: 'location',
+      blockedByReceiver: isUserBlocked,
       location: {
         name: name.trim(),
         address: address.trim() || '位置详情'

@@ -46,6 +46,34 @@ const MessageItem = ({
   onAcceptCoupleSpace,
   onRejectCoupleSpace
 }: MessageItemProps) => {
+  // 过滤特殊标签的函数
+  const filterSpecialTags = (content: string): string => {
+    let filtered = content
+    // 移除视频通话标签
+    filtered = filtered.replace(/[\[【]视频通话[\]】]/g, '')
+    // 移除画面描述
+    filtered = filtered.replace(/[\[【]画面[:\：][^\]】]+[\]】]/g, '')
+    // 移除相册标签
+    filtered = filtered.replace(/[\[【]相册[:\：][^\]】]+[\]】]/g, '')
+    // 移除纪念日标签
+    filtered = filtered.replace(/[\[【]纪念日[:\：][^\]】]+[\]】]/g, '')
+    // 移除留言标签
+    filtered = filtered.replace(/[\[【]留言[:\：][^\]】]+[\]】]/g, '')
+    return filtered.trim()
+  }
+
+  // 如果是普通文本消息，检查过滤后是否为空
+  if (message.type !== 'system' && 
+      !message.coupleSpaceInvite && 
+      !message.messageType &&
+      message.content) {
+    const filteredContent = filterSpecialTags(message.content)
+    // 如果过滤后内容为空，不显示这条消息
+    if (!filteredContent) {
+      return null
+    }
+  }
+
   // 系统消息
   if (message.type === 'system') {
     // 撤回消息
@@ -181,7 +209,7 @@ const MessageItem = ({
             onMouseUp={onLongPressEnd}
             onMouseLeave={onLongPressEnd}
           >
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="whitespace-pre-wrap">{filterSpecialTags(message.content || '')}</div>
           </div>
         )}
       </div>

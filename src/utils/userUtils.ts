@@ -5,8 +5,10 @@
 const USER_INFO_KEY = 'user_info'
 
 export interface UserInfo {
-  nickname: string
-  signature?: string
+  nickname: string  // 网名/昵称
+  realName: string  // 真实姓名（必填）
+  signature?: string  // 个性签名
+  avatar?: string  // 头像（图片base64或URL）
 }
 
 /**
@@ -24,7 +26,8 @@ export const getUserInfo = (): UserInfo => {
   
   // 默认用户信息
   return {
-    nickname: '用户',
+    nickname: '',  // 默认为空，会自动使用realName
+    realName: '用户',
     signature: undefined
   }
 }

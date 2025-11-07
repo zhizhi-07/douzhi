@@ -245,29 +245,42 @@ export const getCoupleSpaceContentSummary = (characterId: string): string => {
     return ''
   }
   
-  let summary = '\n\n## 情侣空间内容\n'
+  let summary = '\n\n## 情侣空间记录\n'
   
-  // 最近的3张照片
+  // 所有相册照片（按时间倒序）
   if (photos.length > 0) {
-    summary += '📸 相册（最近）：\n'
-    photos.slice(0, 3).forEach(photo => {
-      const date = new Date(photo.timestamp).toLocaleDateString('zh-CN')
-      summary += `  - ${date} ${photo.uploaderName || photo.characterName}：${photo.description}\n`
+    summary += '\n📸 相册：\n'
+    photos.forEach(photo => {
+      const datetime = new Date(photo.timestamp).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      summary += `  - ${datetime} ${photo.uploaderName || photo.characterName} 分享了照片：${photo.description}\n`
     })
   }
   
-  // 最近的3条留言
+  // 所有留言（按时间倒序）
   if (messages.length > 0) {
-    summary += '💌 留言板（最近）：\n'
-    messages.slice(0, 3).forEach(msg => {
-      const date = new Date(msg.timestamp).toLocaleDateString('zh-CN')
-      summary += `  - ${date} ${msg.characterName}：${msg.content}\n`
+    summary += '\n💌 留言板：\n'
+    messages.forEach(msg => {
+      const datetime = new Date(msg.timestamp).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const author = msg.characterName === '我' ? '用户' : msg.characterName
+      summary += `  - ${datetime} ${author} 留言：${msg.content}\n`
     })
   }
   
   // 所有纪念日
   if (anniversaries.length > 0) {
-    summary += '🎂 纪念日：\n'
+    summary += '\n🎂 纪念日：\n'
     anniversaries.forEach(ann => {
       const daysUntil = getDaysUntil(ann.date)
       const statusText = daysUntil < 0 ? `已过${Math.abs(daysUntil)}天` : daysUntil === 0 ? '就是今天' : `还有${daysUntil}天`

@@ -825,3 +825,264 @@
   background-size: 200px 100%;
   animation: skeletonLoading 1.5s ease-in-out infinite;
 }
+
+/* ========== 全局流畅动画增强 ========== */
+
+/* 所有可点击元素的统一触摸反馈 */
+button, a, [role="button"], input[type="submit"], input[type="button"] {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+button:active, a:active, [role="button"]:active {
+  transform: scale(0.96);
+}
+
+/* 输入框聚焦动画 - 禁用，保持扁平 */
+input:not([type="color"]):not([type="file"]), 
+textarea, 
+select {
+  transition: none;
+}
+
+/* 卡片通用动画 */
+.glass-effect {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-effect:active {
+  transform: scale(0.98);
+}
+
+/* 列表项滑入动画 */
+@keyframes listFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 悬浮提示动画 */
+@keyframes tooltipSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 微妙的背景脉动 */
+@keyframes subtlePulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 图标跳动提示 */
+@keyframes iconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* 通知徽章动画 */
+@keyframes badgePop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pop {
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 下拉菜单展开 */
+@keyframes dropdownExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scaleY(0.8);
+    transform-origin: top;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+.dropdown-expand {
+  animation: dropdownExpand 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 折叠/展开动画 */
+@keyframes expandHeight {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+  }
+}
+
+.expand-animate {
+  animation: expandHeight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 页面整体进入动画 */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 底部导航栏图标激活 */
+@keyframes navIconActive {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.nav-icon-active {
+  animation: navIconActive 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 消息撤回动画 */
+@keyframes messageRevoke {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.message-revoke {
+  animation: messageRevoke 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* 表情选择器弹出 */
+@keyframes emojiPanelSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.emoji-panel-enter {
+  animation: emojiPanelSlide 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 加载占位符闪烁 */
+@keyframes placeholderShimmer {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+.placeholder-shimmer {
+  animation: placeholderShimmer 1.5s ease-in-out infinite;
+}
+
+/* 侧滑菜单 */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInFromLeft 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 移动端优化：减少不必要的动画 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

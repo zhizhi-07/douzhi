@@ -20,27 +20,57 @@ const STORAGE_KEY = 'custom_emojis'
 let emojiCache: Emoji[] | null = null
 
 /**
+ * 清除缓存，强制下次从存储重新读取
+ */
+export function clearCache(): void {
+  emojiCache = null
+  console.log('🗑️ 表情包缓存已清除')
+}
+
+/**
  * 获取所有表情包
  */
 export async function getEmojis(): Promise<Emoji[]> {
   try {
     // 如果有缓存，直接返回
     if (emojiCache !== null) {
+      console.log('从缓存读取表情包:', emojiCache.length, '个')
       return emojiCache
     }
 
     // 尝试从IndexedDB读取
     if (IDB.isIndexedDBAvailable()) {
       const data = await IDB.getItem<Emoji[]>(STORAGE_KEY)
-      emojiCache = data || []
-      return emojiCache
+      if (data && Array.isArray(data) && data.length > 0) {
+        emojiCache = data
+        console.log('从IndexedDB读取表情包:', data.length, '个')
+        return emojiCache
+      }
+      console.log('IndexedDB中没有表情包数据，尝试从localStorage读取')
     }
 
-    // 降级到localStorage
-    const data = localStorage.getItem(STORAGE_KEY)
-    const result = data ? JSON.parse(data) : []
-    emojiCache = result
-    return result
+    // 降级到localStorage（或作为备份）
+    const lsData = localStorage.getItem(STORAGE_KEY)
+    if (lsData) {
+      const result = JSON.parse(lsData)
+      if (Array.isArray(result) && result.length > 0) {
+        console.log('从localStorage读取表情包:', result.length, '个')
+        emojiCache = result
+        
+        // 如果IndexedDB可用，将localStorage数据同步到IndexedDB
+        if (IDB.isIndexedDBAvailable()) {
+          IDB.setItem(STORAGE_KEY, result).catch(err => {
+            console.warn('同步到IndexedDB失败:', err)
+          })
+        }
+        
+        return result
+      }
+    }
+
+    console.log('没有找到任何表情包数据')
+    emojiCache = []
+    return []
   } catch (error) {
     console.error('读取表情包失败:', error)
     return []
@@ -52,17 +82,30 @@ export async function getEmojis(): Promise<Emoji[]> {
  */
 export async function saveEmojis(emojis: Emoji[]): Promise<boolean> {
   try {
-    // 更新缓存
-    emojiCache = emojis
-
     // 尝试使用IndexedDB保存
     if (IDB.isIndexedDBAvailable()) {
       await IDB.setItem(STORAGE_KEY, emojis)
+      console.log('表情包已保存到IndexedDB:', emojis.length, '个')
+      
+      // IndexedDB保存成功后，同时保存到localStorage作为备份
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(emojis))
+      } catch (lsError) {
+        console.warn('localStorage备份失败:', lsError)
+        // localStorage失败不影响IndexedDB的成功
+      }
+      
+      // 更新缓存（在保存成功后）
+      emojiCache = emojis
       return true
     }
 
     // 降级到localStorage
     localStorage.setItem(STORAGE_KEY, JSON.stringify(emojis))
+    console.log('表情包已保存到localStorage:', emojis.length, '个')
+    
+    // 更新缓存
+    emojiCache = emojis
     return true
   } catch (error) {
     console.error('保存表情包失败:', error)
@@ -207,16 +250,19 @@ export async function importEmojis(
  */
 export async function clearAllEmojis(): Promise<boolean> {
   try {
-    // 清除缓存
-    emojiCache = null
-
     // 尝试从IndexedDB删除
     if (IDB.isIndexedDBAvailable()) {
       await IDB.removeItem(STORAGE_KEY)
+      console.log('已清空IndexedDB中的表情包')
     }
 
     // 同时清除localStorage（兼容性处理）
     localStorage.removeItem(STORAGE_KEY)
+    console.log('已清空localStorage中的表情包')
+    
+    // 清除缓存（设为null而不是空数组，下次会重新加载）
+    emojiCache = null
+    
     return true
   } catch (error) {
     console.error('清空表情包失败:', error)

@@ -1,0 +1,141 @@
+import React from 'react'
+import { Message } from '../../../types/chat'
+import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
+import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
+import ForwardedChatCard from '../../../components/ForwardedChatCard'
+import TransferCard from '../../../components/TransferCard'
+import VoiceCard from '../../../components/VoiceCard'
+import LocationCard from '../../../components/LocationCard'
+import FlipPhotoCard from '../../../components/FlipPhotoCard'
+
+interface SpecialMessageRendererProps {
+  message: Message
+  characterId: string
+  characterName: string
+  onAcceptInvite: (messageId: number) => void
+  onRejectInvite: (messageId: number) => void
+  onUpdateIntimatePayStatus: (messageId: number, newStatus: 'pending' | 'accepted' | 'rejected') => void
+  onViewForwardedChat: (message: Message) => void
+  onReceiveTransfer: (messageId: number) => void
+  onRejectTransfer: (messageId: number) => void
+  onPlayVoice: (messageId: number, duration: number) => void
+  onToggleVoiceText: (messageId: number) => void
+  playingVoiceId: number | null
+  showVoiceTextMap: Record<number, boolean>
+}
+
+/**
+ * 特殊消息类型渲染器
+ * 包括：情侣空间、亲密付、转发、表情包、转账、语音、位置、照片
+ */
+export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
+  message,
+  characterId,
+  characterName,
+  onAcceptInvite,
+  onRejectInvite,
+  onUpdateIntimatePayStatus,
+  onViewForwardedChat,
+  onReceiveTransfer,
+  onRejectTransfer,
+  onPlayVoice,
+  onToggleVoiceText,
+  playingVoiceId,
+  showVoiceTextMap
+}) => {
+  // 情侣空间邀请
+  if (message.coupleSpaceInvite) {
+    return (
+      <CoupleSpaceInviteCard
+        senderName={message.coupleSpaceInvite.senderName}
+        senderAvatar={message.coupleSpaceInvite.senderAvatar}
+        status={message.coupleSpaceInvite.status}
+        isReceived={message.type === 'received'}
+        onAccept={() => onAcceptInvite(message.id)}
+        onReject={() => onRejectInvite(message.id)}
+      />
+    )
+  }
+
+  // 亲密付
+  if (message.messageType === 'intimatePay' && message.intimatePay) {
+    return (
+      <IntimatePayInviteCard
+        monthlyLimit={message.intimatePay.monthlyLimit}
+        status={message.intimatePay.status}
+        characterId={characterId}
+        characterName={characterName}
+        isSent={message.type === 'sent'}
+        messageId={message.id}
+        onUpdateStatus={(newStatus) => onUpdateIntimatePayStatus(message.id, newStatus)}
+      />
+    )
+  }
+
+  // 转发聊天
+  if (message.messageType === 'forwarded-chat' && message.forwardedChat) {
+    return (
+      <ForwardedChatCard
+        title={message.forwardedChat.title}
+        messages={message.forwardedChat.messages}
+        messageCount={message.forwardedChat.messageCount}
+        onView={() => onViewForwardedChat(message)}
+        isSent={message.type === 'sent'}
+      />
+    )
+  }
+
+  // 表情包
+  if (message.messageType === 'emoji' && message.emoji) {
+    return (
+      <div className="w-32 h-32 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform">
+        <img
+          src={message.emoji.url}
+          alt={message.emoji.description}
+          className="w-full h-full object-cover"
+        />
+      </div>
+    )
+  }
+
+  // 转账
+  if (message.messageType === 'transfer') {
+    return (
+      <TransferCard
+        message={message}
+        onReceive={onReceiveTransfer}
+        onReject={onRejectTransfer}
+      />
+    )
+  }
+
+  // 语音消息
+  if (message.messageType === 'voice') {
+    return (
+      <VoiceCard
+        message={message}
+        isPlaying={playingVoiceId === message.id}
+        showText={showVoiceTextMap[message.id]}
+        onPlay={onPlayVoice}
+        onToggleText={onToggleVoiceText}
+      />
+    )
+  }
+
+  // 位置
+  if (message.messageType === 'location') {
+    return <LocationCard message={message} />
+  }
+
+  // 照片
+  if (message.messageType === 'photo') {
+    return (
+      <FlipPhotoCard 
+        description={message.photoDescription || '照片'}
+        messageId={message.id}
+      />
+    )
+  }
+
+  return null
+}

@@ -1,8 +1,30 @@
 import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
+import { getUserInfo, type UserInfo } from '../utils/userUtils'
 
 const Me = () => {
   const navigate = useNavigate()
+  const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
+
+  // 监听storage变化，实时更新用户信息
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setUserInfo(getUserInfo())
+    }
+    window.addEventListener('storage', handleStorageChange)
+    
+    // 页面获得焦点时也更新
+    const handleFocus = () => {
+      setUserInfo(getUserInfo())
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
 
   const menuGroups = [
     {
@@ -54,21 +76,31 @@ const Me = () => {
       <div className="px-3 pt-3 mb-3">
         <div className="glass-card rounded-2xl overflow-hidden">
           <div 
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/user-profile')}
             className="flex items-center px-5 py-5 cursor-pointer active:opacity-70 transition-opacity"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gray-200 flex items-center justify-center shadow-xl text-gray-400">
-              <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+            {/* 头像 */}
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center shadow-xl overflow-hidden">
+              {userInfo.avatar ? (
+                <img src={userInfo.avatar} alt="头像" className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              )}
             </div>
-            <div className="ml-4 flex-1">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                微信用户
+            
+            {/* 用户信息 */}
+            <div className="ml-4 flex-1 min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 mb-0.5 truncate">
+                {userInfo.nickname || userInfo.realName}
               </h2>
-              <p className="text-sm text-gray-500">微信号: wxid_123456</p>
+              <p className="text-sm text-gray-500 truncate">
+                {userInfo.signature || '这个人很懒，什么都没留下'}
+              </p>
             </div>
-            <span className="text-gray-400 text-2xl">›</span>
+            
+            <span className="text-gray-400 text-2xl ml-2">›</span>
           </div>
         </div>
       </div>

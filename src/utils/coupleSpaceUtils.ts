@@ -130,7 +130,30 @@ export const rejectCoupleSpaceInvite = (characterId: string): boolean => {
 }
 
 /**
- * 结束情侣空间关系（清理所有数据）
+ * 取消情侣空间邀请（发送者主动取消）
+ */
+export const cancelCoupleSpaceInvite = (): boolean => {
+  const relation = getCoupleSpaceRelation()
+  
+  if (!relation) {
+    console.log('没有找到邀请')
+    return false
+  }
+
+  if (relation.status !== 'pending') {
+    console.log('邀请状态不是pending，无法取消')
+    return false
+  }
+
+  // 清除邀请
+  localStorage.removeItem(STORAGE_KEY)
+  
+  console.log('✅ 已取消情侣空间邀请')
+  return true
+}
+
+/**
+ * 结束情侣空间关系（只清除关系，保留内容数据供下次绑定使用）
  */
 export const endCoupleSpaceRelation = (): boolean => {
   const relation = getCoupleSpaceRelation()
@@ -140,13 +163,25 @@ export const endCoupleSpaceRelation = (): boolean => {
     return false
   }
 
+  // 只清除关系状态，保留照片、留言、纪念日等内容
+  localStorage.removeItem('couple_space_relation')
+
+  console.log('✅ 情侣空间关系已解除，内容数据已保留')
+  return true
+}
+
+/**
+ * 彻底清空情侣空间（包括所有内容数据）
+ */
+export const clearAllCoupleSpaceData = (): boolean => {
   // 清理所有情侣空间相关数据
   localStorage.removeItem('couple_space_relation')
   localStorage.removeItem('couple_photos')
   localStorage.removeItem('couple_messages')
   localStorage.removeItem('couple_anniversaries')
+  localStorage.removeItem('couple_space_privacy')
 
-  console.log('✅ 情侣空间已结束，所有数据已清理')
+  console.log('✅ 情侣空间所有数据已清空')
   return true
 }
 

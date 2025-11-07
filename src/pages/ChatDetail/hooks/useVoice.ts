@@ -5,9 +5,12 @@
 
 import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
+import { addMessage } from '../../../utils/simpleMessageManager'
+import { blacklistManager } from '../../../utils/blacklistManager'
 
 export const useVoice = (
-  setMessages: (fn: (prev: Message[]) => Message[]) => void
+  setMessages: (fn: (prev: Message[]) => Message[]) => void,
+  chatId: string
 ) => {
   const [showVoiceSender, setShowVoiceSender] = useState(false)
   const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null)
@@ -18,6 +21,8 @@ export const useVoice = (
    */
   const handleSendVoice = useCallback((voiceText: string) => {
     if (!voiceText.trim()) return
+    
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
 
     const voiceMsg: Message = {
       id: Date.now(),
@@ -29,6 +34,7 @@ export const useVoice = (
       }),
       timestamp: Date.now(),
       messageType: 'voice',
+      blockedByReceiver: isUserBlocked,
       voiceText: voiceText.trim()
     }
 

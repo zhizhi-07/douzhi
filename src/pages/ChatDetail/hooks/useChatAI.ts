@@ -18,10 +18,15 @@ import {
   parseAIMessages
 } from '../../../utils/messageUtils'
 import { loadMessages, addMessage } from '../../../utils/simpleMessageManager'
+import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
 import { commandHandlers } from './commandHandlers'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { buildBlacklistPrompt, buildAIBlockedUserPrompt } from '../../../utils/prompts'
+import { parseMomentsInteractions, executeMomentsInteractions } from '../../../utils/momentsInteractionParser'
+import { parseAIMomentsPost, executeAIMomentsPost } from '../../../utils/aiMomentsPostParser'
+import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
+import { loadMoments } from '../../../utils/momentsManager'
 
 export const useChatAI = (
   chatId: string,
@@ -29,7 +34,8 @@ export const useChatAI = (
   messages: Message[],
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
   setError: (error: string | null) => void,
-  onVideoCallRequest?: () => void
+  onVideoCallRequest?: () => void,
+  refreshCharacter?: () => void
 ) => {
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -132,9 +138,11 @@ export const useChatAI = (
 
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', chatId)
+      console.log(`🔍 [拉黑检查] 用户拉黑了AI: ${isBlocked}, chatId=${chatId}`)
       
       // 检查AI是否拉黑了用户
       const hasAIBlockedUser = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
+      console.log(`🔍 [拉黑检查] AI拉黑了用户: ${hasAIBlockedUser}`)
       
       let systemPrompt = await buildSystemPrompt(character)
       
@@ -197,7 +205,113 @@ export const useChatAI = (
       
       Logger.log('收到AI回复', aiReply)
       
-      const aiMessagesList = parseAIMessages(aiReply)
+      // AI基本信息
+      const aiName = character?.realName || 'AI'
+      const aiId = character?.id || chatId
+      const aiAvatar = character?.avatar || '🤖'
+      
+      // 先解析AI发朋友圈指令
+      const { post: aiMomentsPost, cleanedMessage: messageAfterMomentsPost } = parseAIMomentsPost(
+        aiReply,
+        aiName,
+        aiId,
+        aiAvatar
+      )
+      
+      // 如果AI发布了朋友圈，执行发布操作
+      if (aiMomentsPost) {
+        console.log('📱 [AI发朋友圈] 检测到AI发朋友圈指令:', aiMomentsPost)
+        const success = executeAIMomentsPost(aiMomentsPost)
+        
+        if (success) {
+          // 创建系统消息
+          const systemContent = `${aiName}发布了朋友圈："${aiMomentsPost.content}"`
+          const systemMessage: Message = {
+            ...createMessage(systemContent, 'system'),
+            aiReadableContent: `[系统通知：你发布了朋友圈"${aiMomentsPost.content}"，其他人可能会看到并互动]`
+          }
+          
+          // 延迟300ms后添加系统消息
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          // 保存到localStorage
+          addMessage(chatId, systemMessage)
+          console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
+          
+          // 更新React状态
+          setMessages(prev => [...prev, systemMessage])
+          
+          // 调用朋友圈导演系统，让其他AI根据内容进行互动
+          // 获取刚发布的朋友圈对象
+          const moments = loadMoments()
+          const justPostedMoment = moments.find(m => m.userId === aiId && m.content === aiMomentsPost.content)
+          
+          if (justPostedMoment) {
+            console.log('🎬 [AI发朋友圈] 触发导演系统，准备编排其他AI互动...')
+            // 异步调用导演系统，不阻塞当前流程
+            triggerAIMomentsInteraction(justPostedMoment).catch(error => {
+              console.error('❌ [AI发朋友圈] 导演系统调用失败:', error)
+            })
+          }
+        }
+      }
+      
+      // 再解析朋友圈互动指令
+      const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterMomentsPost, aiName, aiId)
+      
+      // 如果有朋友圈互动指令，执行它们
+      if (interactions.length > 0) {
+        console.log('📱 检测到朋友圈互动指令:', interactions)
+        const interactionResults = executeMomentsInteractions(interactions)
+        console.log('✅ 朋友圈互动执行结果:', interactionResults)
+        
+        // 为每个成功的互动创建系统消息
+        for (const result of interactionResults) {
+          if (result.success) {
+            let systemContent = ''
+            let notificationMessage = ''
+            
+            if (result.type === 'like') {
+              systemContent = `${result.aiName}点赞了你的朋友圈`
+              notificationMessage = `点赞了你的朋友圈："${result.momentContent}"`
+            } else if (result.type === 'comment') {
+              systemContent = `${result.aiName}在你的朋友圈评论了"${result.commentContent}"`
+              notificationMessage = `评论了你的朋友圈："${result.commentContent}"`
+            } else if (result.type === 'reply') {
+              systemContent = `${result.aiName}在你的朋友圈回复${result.replyTo}"${result.commentContent}"`
+              notificationMessage = `回复了${result.replyTo}："${result.commentContent}"`
+            }
+            
+            // 创建系统消息
+            const systemMessage: Message = {
+              ...createMessage(systemContent, 'system'),
+              aiReadableContent: `[系统通知：${systemContent}，这是朋友圈互动通知，用户会看到灰色小字提示]`
+            }
+            
+            // 延迟300ms后添加系统消息
+            await new Promise(resolve => setTimeout(resolve, 300))
+            
+            // 保存到localStorage
+            addMessage(chatId, systemMessage)
+            console.log(`💾 [朋友圈互动] 系统消息已保存: ${systemContent}`)
+            
+            // 更新React状态
+            setMessages(prev => [...prev, systemMessage])
+            
+            // 显示通知弹窗
+            showNotification(
+              chatId,
+              result.aiName,
+              notificationMessage,
+              character?.avatar || '🤖'
+            )
+            console.log(`🔔 [朋友圈互动] 通知已显示: ${notificationMessage}`)
+          }
+        }
+      }
+      
+      // 使用清理后的消息内容继续处理
+      const aiMessagesList = parseAIMessages(cleanedMessage)
       console.log('📝 AI消息拆分结果:', aiMessagesList)
       
       // 使用指令处理器处理每条消息
@@ -224,11 +338,20 @@ export const useChatAI = (
           for (const handler of commandHandlers) {
             const match = messageContent.match(handler.pattern)
             if (match) {
+              console.log(`🎯 [commandHandler] 处理指令，isBlocked=${isBlocked}`, {
+                pattern: handler.pattern.toString(),
+                match: match[0],
+                isBlocked
+              })
+              
               const result = await handler.handler(match, messageContent, {
                 messages,
                 setMessages,
                 character,
-                onVideoCallRequest
+                chatId,  // 🔥 传入chatId，确保消息能保存到localStorage
+                isBlocked,  // 🔥 传入拉黑状态，确保特殊消息也能显示感叹号
+                onVideoCallRequest,
+                refreshCharacter  // 🔥 传入refreshCharacter，让AI改名后立即更新界面
               })
 
               if (result.handled) {

@@ -69,7 +69,21 @@ const siliconflowApiConfig: ApiConfig = {
   isBuiltIn: true
 }
 
-const BUILT_IN_CONFIGS = [jiubanApiConfig, hiApiConfig, geminiProxyConfig, siliconflowApiConfig]
+// 内置API配置 - 小许API（满血版）
+const xiaoxuApiConfig: ApiConfig = {
+  id: 'default-xiaoxu',
+  name: '小许API (Gemini 2.5 Pro 满血版)',
+  baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
+  apiKey: 'sk-Er01efzo3v3670tvF17KFTEu37mWnYAfzLSq4uDbqEZRXqJA',
+  model: 'gemini-2.5-pro',
+  provider: 'custom',
+  temperature: 0.7,
+  maxTokens: 8000,
+  createdAt: new Date().toISOString(),
+  isBuiltIn: true
+}
+
+const BUILT_IN_CONFIGS = [xiaoxuApiConfig, jiubanApiConfig, hiApiConfig, geminiProxyConfig, siliconflowApiConfig]
 
 export const apiService = {
   // 获取所有API配置
@@ -97,7 +111,7 @@ export const apiService = {
   // 获取当前API配置ID
   getCurrentId: (): string => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_API_ID)
-    return saved || 'default-jiuban'
+    return saved || 'default-xiaoxu'
   },
 
   // 设置当前API配置

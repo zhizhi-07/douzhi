@@ -172,7 +172,7 @@ const ChatList = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div className="h-screen flex flex-col bg-[#f5f7fa] page-enter">
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />
@@ -215,11 +215,12 @@ const ChatList = () => {
             <p className="text-sm">点击右上角 + 添加角色开始聊天</p>
           </div>
         ) : (
-          chats.map((chat) => (
+          chats.map((chat, index) => (
             <div
               key={chat.id}
               onClick={() => navigate(`/chat/${chat.id}`)}
-              className="flex items-center px-5 py-4 glass-card mb-2 mx-3 rounded-2xl cursor-pointer active:scale-[0.98] transition-transform"
+              className="flex items-center px-5 py-4 glass-card mb-2 mx-3 rounded-2xl cursor-pointer active:scale-[0.98] transition-transform list-item-enter"
+              style={{ animationDelay: `${index * 0.05}s` }}
             >
               {/* 头像 */}
               <div className="w-14 h-14 rounded-2xl bg-gray-200 flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden">
@@ -235,7 +236,7 @@ const ChatList = () => {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500 truncate flex-1">{chat.lastMessage}</p>
                   {(chat.unread ?? 0) > 0 && (
-                    <span className="ml-2 px-2 min-w-[20px] h-5 rounded-full text-xs text-white flex items-center justify-center bg-red-500 shadow-md">
+                    <span className="ml-2 px-2 min-w-[20px] h-5 rounded-full text-xs text-white flex items-center justify-center bg-red-500 shadow-md badge-pop">
                       {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
                     </span>
                   )}

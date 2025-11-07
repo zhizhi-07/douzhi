@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
 import { createSystemMessage, addNotificationToChat } from '../../../utils/messageUtils'
 import { sendTransfer, receiveTransfer, getIntimatePayRelations, useIntimatePay as deductIntimatePayAmount } from '../../../utils/walletUtils'
+import { blacklistManager } from '../../../utils/blacklistManager'
 
 export const useTransfer = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
@@ -23,6 +24,9 @@ export const useTransfer = (
     useIntimatePay?: boolean, 
     intimatePayCharacterName?: string
   ) => {
+    // 检查AI是否拉黑了用户
+    const isUserBlocked = blacklistManager.isBlockedByMe(characterName, 'user')
+
     // 如果使用亲密付，扣除亲密付额度
     if (useIntimatePay && intimatePayCharacterName) {
       const success = deductIntimatePayAmount(intimatePayCharacterName, amount)
@@ -80,6 +84,7 @@ export const useTransfer = (
       }),
       timestamp: Date.now(),
       messageType: 'transfer',
+      blockedByReceiver: isUserBlocked,  // 🔥 添加拉黑标记
       transfer: {
         amount,
         message,

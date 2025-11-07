@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -23,14 +23,22 @@ import IntimatePayDetail from './pages/IntimatePayDetail'
 import Moments from './pages/Moments'
 import PublishMoment from './pages/PublishMoment'
 import EmojiManagement from './pages/EmojiManagement'
+import UserProfile from './pages/UserProfile'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import { autoMigrate } from './utils/migrateStorage'
 
 function App() {
+  const location = useLocation()
+  
   // 应用启动时自动迁移数据
   useEffect(() => {
     autoMigrate()
   }, [])
+  
+  // 路由切换时滚动到顶部
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
   return (
     <>
@@ -43,6 +51,7 @@ function App() {
       <Route path="/moments" element={<Moments />} />
       <Route path="/publish-moment" element={<PublishMoment />} />
       <Route path="/me" element={<Me />} />
+      <Route path="/user-profile" element={<UserProfile />} />
       <Route path="/create-character" element={<CreateCharacter />} />
       <Route path="/character/:id" element={<CharacterDetail />} />
       <Route path="/api-list" element={<ApiList />} />

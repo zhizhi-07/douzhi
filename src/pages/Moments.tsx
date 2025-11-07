@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
+import { getUserInfo } from '../utils/userUtils'
 import type { Moment } from '../types/moments'
 
 export default function Moments() {
@@ -18,10 +19,12 @@ export default function Moments() {
     return localStorage.getItem('moments_cover_image') || ''
   })
   
+  // 获取当前用户信息
+  const userInfo = getUserInfo()
   const currentUser = {
     id: 'user',
-    name: '我',
-    avatar: '👤'
+    name: userInfo.nickname || userInfo.realName,
+    avatar: userInfo.avatar
   }
   
   useEffect(() => {
@@ -175,8 +178,14 @@ export default function Moments() {
                 {currentUser.name}
               </h2>
             </div>
-            <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-2xl overflow-hidden border-4 border-white/50 text-3xl">
-              {currentUser.avatar}
+            <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-2xl overflow-hidden border-4 border-white/50">
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt="用户头像" className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              )}
             </div>
           </div>
         </div>
@@ -194,8 +203,12 @@ export default function Moments() {
               <div key={moment.id} className="bg-white border-b border-gray-100 p-4 hover:bg-gray-50/50 transition-colors">
                 <div className="flex items-start gap-3">
                   {/* 用户头像 */}
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden text-lg">
-                    {moment.userAvatar}
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                    {moment.userAvatar && moment.userAvatar.startsWith('data:') ? (
+                      <img src={moment.userAvatar} alt={moment.userName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-lg">{moment.userAvatar || '👤'}</div>
+                    )}
                   </div>
                   
                   <div className="flex-1">

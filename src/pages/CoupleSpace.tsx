@@ -5,20 +5,18 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
-import { characterService } from '../services/characterService'
-import {
-  getCoupleSpaceRelation,
-  createCoupleSpaceInvite,
-  endCoupleSpaceRelation,
-  getCoupleSpacePrivacy,
-  setCoupleSpacePrivacy,
-  type CoupleSpaceRelation
+import { 
+  getCoupleSpaceRelation, 
+  cancelCoupleSpaceInvite, 
+  endCoupleSpaceRelation, 
+  getCoupleSpacePrivacy, 
+  setCoupleSpacePrivacy, 
+  type CoupleSpaceRelation 
 } from '../utils/coupleSpaceUtils'
 
 const CoupleSpace = () => {
   const navigate = useNavigate()
   const [relation, setRelation] = useState<CoupleSpaceRelation | null>(null)
-  const [showInviteModal, setShowInviteModal] = useState(false)
   const [privacyMode, setPrivacyMode] = useState<'public' | 'private'>('public')
 
   useEffect(() => {
@@ -54,39 +52,36 @@ const CoupleSpace = () => {
     setPrivacyMode(newMode)
   }
 
-  const handleInvite = (characterId: string) => {
-    const character = characterService.getById(characterId)
-    if (!character) return
-
-    const invitation = createCoupleSpaceInvite(
-      'current_user',
-      character.id,
-      character.nickname || character.realName,
-      character.avatar
-    )
-
-    if (!invitation) {
-      alert('创建邀请失败，请先结束当前的情侣空间')
-      return
-    }
-
-    // 跳转到聊天并发送邀请卡片
-    navigate(`/chat/${characterId}`, {
-      state: { sendCoupleSpaceInvite: true }
-    })
-  }
-
   const handleEndRelation = () => {
-    if (confirm('确定要结束情侣空间吗？所有数据将被清除！')) {
+    if (confirm('确定要解除情侣空间关系吗？\n\n注意：照片、留言、纪念日等内容会保留，下次重新绑定后可以恢复。')) {
       const success = endCoupleSpaceRelation()
       if (success) {
-        alert('已结束情侣空间')
+        // 通知AI（在聊天记录中添加系统消息）
+        if (relation?.characterId) {
+          const chatId = relation.characterId
+          const systemMsg = {
+            id: Date.now(),
+            type: 'system' as const,
+            content: '你解除了情侣空间关系',
+            aiReadableContent: '用户解除了和你的情侣空间关系，但之前的照片、留言、纪念日等内容都保留着，等待下次重新绑定',
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now(),
+            messageType: 'system' as const
+          }
+          
+          // 保存到localStorage
+          const messagesKey = `chat_messages_${chatId}`
+          const savedMessages = localStorage.getItem(messagesKey)
+          const messages = savedMessages ? JSON.parse(savedMessages) : []
+          messages.push(systemMsg)
+          localStorage.setItem(messagesKey, JSON.stringify(messages))
+        }
+        
+        alert('已解除情侣空间关系\n内容数据已保留')
         loadRelation()
       }
     }
   }
-
-  const characters = characterService.getAll()
 
   return (
     <div className="h-screen flex flex-col bg-[#f5f7fa]">
@@ -113,64 +108,20 @@ const CoupleSpace = () => {
       <div className="flex-1 overflow-y-auto px-4 pt-6">
         {!relation || relation.status === 'ended' || relation.status === 'rejected' ? (
           /* 未建立情侣空间 */
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="w-full max-w-md">
-              <div className="bg-white rounded-3xl p-8 text-center space-y-6 shadow-xl">
-                <div className="w-24 h-24 mx-auto rounded-full bg-pink-100 flex items-center justify-center">
-                  <svg className="w-12 h-12 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                </div>
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+            <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </div>
 
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">开启情侣空间</h2>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    邀请你的TA加入专属情侣空间
-                    <br />
-                    共同记录美好时光
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setShowInviteModal(true)}
-                  className="w-full py-4 rounded-2xl bg-pink-500 text-white font-semibold shadow-lg hover:bg-pink-600 active:scale-95 transition-all"
-                >
-                  发送邀请
-                </button>
-              </div>
-
-              {/* 说明卡片 */}
-              <div className="mt-6 bg-white rounded-2xl p-6 space-y-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-pink-500 text-sm font-bold">1</span>
-                  </div>
-                  <div>
-                    <h3 className="text-gray-900 font-medium mb-1">选择你的TA</h3>
-                    <p className="text-gray-600 text-sm">从角色列表中选择一位进行邀请</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-pink-500 text-sm font-bold">2</span>
-                  </div>
-                  <div>
-                    <h3 className="text-gray-900 font-medium mb-1">等待对方同意</h3>
-                    <p className="text-gray-600 text-sm">对方可以选择接受或拒绝邀请</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-pink-500 text-sm font-bold">3</span>
-                  </div>
-                  <div>
-                    <h3 className="text-gray-900 font-medium mb-1">开启专属空间</h3>
-                    <p className="text-gray-600 text-sm">建立后可共享照片、记录纪念日等</p>
-                  </div>
-                </div>
-              </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">没有情侣空间</h2>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                在聊天页面向对方发起情侣空间邀请
+                <br />
+                对方接受后即可使用
+              </p>
             </div>
           </div>
         ) : relation.status === 'pending' ? (
@@ -192,6 +143,18 @@ const CoupleSpace = () => {
                     请耐心等待对方回应
                   </p>
                 </div>
+
+                <button
+                  onClick={() => {
+                    if (confirm('确定要取消邀请吗？')) {
+                      cancelCoupleSpaceInvite()
+                      loadRelation()
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 active:scale-95 transition-all"
+                >
+                  取消邀请
+                </button>
               </div>
             </div>
           </div>
@@ -333,48 +296,6 @@ const CoupleSpace = () => {
         )}
       </div>
 
-      {/* 邀请角色列表弹窗 */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowInviteModal(false)}
-          />
-          <div className="relative w-full max-h-[70vh] bg-white rounded-t-3xl overflow-hidden">
-            <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 text-center">选择邀请对象</h3>
-            </div>
-            <div className="overflow-y-auto p-4 space-y-2">
-              {characters.map(character => (
-                <div
-                  key={character.id}
-                  onClick={() => {
-                    handleInvite(character.id)
-                    setShowInviteModal(false)
-                  }}
-                  className="flex items-center space-x-3 p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 transition-all cursor-pointer"
-                >
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-400 flex-shrink-0">
-                    {character.avatar ? (
-                      <img src={character.avatar} alt={character.realName} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white text-lg font-bold">
-                        {character.realName[0]}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">{character.nickname || character.realName}</h4>
-                    {character.signature && (
-                      <p className="text-sm text-gray-600 line-clamp-1 mt-0.5">{character.signature}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

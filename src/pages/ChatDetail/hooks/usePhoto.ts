@@ -3,11 +3,14 @@
  * 负责：拍照发送逻辑
  */
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
+import { addMessage } from '../../../utils/simpleMessageManager'
+import { blacklistManager } from '../../../utils/blacklistManager'
 
 export const usePhoto = (
-  setMessages: (fn: (prev: Message[]) => Message[]) => void
+  setMessages: (fn: (prev: Message[]) => Message[]) => void,
+  chatId: string
 ) => {
   const [showPhotoSender, setShowPhotoSender] = useState(false)
 
@@ -16,6 +19,8 @@ export const usePhoto = (
    */
   const handleSendPhoto = useCallback((description: string) => {
     if (!description.trim()) return
+    
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
 
     const photoMsg: Message = {
       id: Date.now(),
@@ -27,6 +32,7 @@ export const usePhoto = (
       }),
       timestamp: Date.now(),
       messageType: 'photo',
+      blockedByReceiver: isUserBlocked,
       photoDescription: description.trim()
     }
 

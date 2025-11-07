@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { getEmojis, incrementUseCount, addEmoji, importEmojis } from '../utils/emojiStorage'
+import { getEmojis, incrementUseCount, addEmoji, importEmojis, clearCache } from '../utils/emojiStorage'
 import type { Emoji } from '../utils/emojiStorage'
 
 interface EmojiPanelProps {
@@ -24,13 +24,19 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
 
   useEffect(() => {
     if (show) {
-      loadEmojis()
+      // 每次打开都强制重新加载
+      loadEmojis(true)
     }
   }, [show])
 
-  const loadEmojis = async () => {
+  const loadEmojis = async (forceReload = false) => {
+    if (forceReload) {
+      // 清除缓存，强制从存储读取
+      clearCache()
+    }
     const loaded = await getEmojis()
     setEmojis(loaded)
+    console.log('📦 表情包加载完成，共', loaded.length, '个')
   }
 
   const handleSelectEmoji = async (emoji: Emoji) => {
@@ -78,19 +84,29 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     }
 
     try {
-      await addEmoji({
+      const newEmoji = await addEmoji({
         url: pendingEmojiData.url,
         name: pendingEmojiData.name,
         description: emojiDescription.trim()
       })
+      console.log('✅ 表情包添加成功:', newEmoji)
+      
+      // 重新加载表情包列表
       await loadEmojis()
+      
+      // 验证是否真的保存了
+      const allEmojis = await getEmojis()
+      console.log('📦 当前所有表情包数量:', allEmojis.length)
       
       // 清理状态
       setShowDescDialog(false)
       setPendingEmojiData(null)
       setEmojiDescription('')
       if (imageInputRef.current) imageInputRef.current.value = ''
+      
+      alert(`✅ 表情包添加成功！\n当前共有 ${allEmojis.length} 个表情包`)
     } catch (error) {
+      console.error('❌ 添加表情包失败:', error)
       alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
   }

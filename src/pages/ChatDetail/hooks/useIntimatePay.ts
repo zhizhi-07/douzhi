@@ -2,11 +2,14 @@
  * 亲密付功能Hook
  */
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
+import { createIntimatePayRelation } from '../../../utils/walletUtils'
+import { blacklistManager } from '../../../utils/blacklistManager'
 
 export const useIntimatePay = (
-  setMessages: (fn: (prev: Message[]) => Message[]) => void
+  setMessages: (fn: (prev: Message[]) => Message[]) => void,
+  chatId: string
 ) => {
   const [showIntimatePaySender, setShowIntimatePaySender] = useState(false)
 
@@ -14,6 +17,8 @@ export const useIntimatePay = (
    * 开通亲密付（发送请求给AI）
    */
   const handleSendIntimatePay = useCallback((monthlyLimit: number, characterName: string) => {
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
+    
     const msg: Message = {
       id: Date.now(),
       type: 'sent',
@@ -24,6 +29,7 @@ export const useIntimatePay = (
       }),
       timestamp: Date.now(),
       messageType: 'intimatePay',
+      blockedByReceiver: isUserBlocked,
       intimatePay: {
         monthlyLimit,
         status: 'pending',

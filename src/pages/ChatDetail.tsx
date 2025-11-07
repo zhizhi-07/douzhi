@@ -9,31 +9,27 @@ import { getChatWallpaper, getWallpaperStyle } from '../utils/wallpaperManager'
 import AddMenu from '../components/AddMenu'
 import MessageMenu from '../components/MessageMenu.floating'
 import TransferSender from '../components/TransferSender'
-import TransferCard from '../components/TransferCard'
 import VoiceSender from '../components/VoiceSender'
-import VoiceCard from '../components/VoiceCard'
 import LocationSender from '../components/LocationSender'
-import LocationCard from '../components/LocationCard'
 import PhotoSender from '../components/PhotoSender'
-import FlipPhotoCard from '../components/FlipPhotoCard'
 import VideoCallScreen from '../components/VideoCallScreen'
 import IncomingCallScreen from '../components/IncomingCallScreen'
-import CoupleSpaceInviteCard from '../components/CoupleSpaceInviteCard'
 import CoupleSpaceQuickMenu from '../components/CoupleSpaceQuickMenu'
 import CoupleSpaceInputModal from '../components/CoupleSpaceInputModal'
 import Avatar from '../components/Avatar'
 import ForwardModal from '../components/ForwardModal'
-import ForwardedChatCard from '../components/ForwardedChatCard'
 import ForwardedChatViewer from '../components/ForwardedChatViewer'
 import EmojiPanel from '../components/EmojiPanel'
 import type { Message } from '../types/chat'
 import { addMessage } from '../utils/simpleMessageManager'
 import type { Emoji } from '../utils/emojiStorage'
+import { blacklistManager } from '../utils/blacklistManager'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
-import IntimatePayInviteCard from '../components/IntimatePayInviteCard'
 import { useChatBubbles } from '../hooks/useChatBubbles'
+import { MessageBubble } from './ChatDetail/components/MessageBubble'
+import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -60,12 +56,12 @@ const ChatDetail = () => {
   
   const chatState = useChatState(id || '')
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
-  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall)
+  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter)
   const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知')
-  const voice = useVoice(chatState.setMessages)
-  const locationMsg = useLocationMsg(chatState.setMessages)
-  const photo = usePhoto(chatState.setMessages)
-  const intimatePay = useIntimatePay(chatState.setMessages)
+  const voice = useVoice(chatState.setMessages, id || '')
+  const locationMsg = useLocationMsg(chatState.setMessages, id || '')
+  const photo = usePhoto(chatState.setMessages, id || '')
+  const intimatePay = useIntimatePay(chatState.setMessages, id || '')
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -83,6 +79,9 @@ const ChatDetail = () => {
   
   // 发送表情包
   const handleEmojiSend = useCallback((emoji: Emoji) => {
+    // 检查AI是否拉黑了用户
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${id}`, 'user')
+    
     const emojiMessage: Message = {
       id: Date.now(),
       type: 'sent',
@@ -90,6 +89,7 @@ const ChatDetail = () => {
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
       messageType: 'emoji',
+      blockedByReceiver: isUserBlocked,  // 🔥 添加拉黑标记
       emoji: {
         id: emoji.id,
         url: emoji.url,
@@ -104,7 +104,7 @@ const ChatDetail = () => {
     // 更新React状态
     chatState.setMessages(prev => [...prev, emojiMessage])
     
-    console.log('📤 发送表情包:', emoji.name)
+    console.log('📤 发送表情包:', emoji.name, isUserBlocked ? '(被AI拉黑)' : '')
   }, [id, chatState])
   
   const addMenu = useAddMenu(
@@ -341,7 +341,7 @@ const ChatDetail = () => {
           if (message.type === 'system') {
             if (message.isRecalled && message.recalledContent) {
               return (
-                <div key={message.id} className="flex justify-center my-2">
+                <div key={message.id} className="flex justify-center my-1">
                   <div 
                     className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
                     onClick={() => modals.setViewingRecalledMessage(message)}
@@ -355,7 +355,7 @@ const ChatDetail = () => {
             // 视频通话记录
             if (message.messageType === 'video-call-record' && message.videoCallRecord) {
               return (
-                <div key={message.id} className="flex justify-center my-2">
+                <div key={message.id} className="flex justify-center my-1">
                   <div 
                     className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
                     onClick={() => modals.setViewingCallRecord(message)}
@@ -373,7 +373,7 @@ const ChatDetail = () => {
             }
             
             return (
-              <div key={message.id} className="flex justify-center my-2">
+              <div key={message.id} className="flex justify-center my-1">
                 <div className="text-xs text-gray-400 px-4 py-1">
                   {message.content}
                 </div>
@@ -385,9 +385,9 @@ const ChatDetail = () => {
           const isSelected = multiSelect.selectedMessageIds.has(message.id)
           
           return (
-            <div key={message.id} className="flex flex-col gap-1">
+            <div key={message.id} className="flex flex-col gap-0.5">
             <div
-              className={'message-container flex items-start gap-2 my-2 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
+              className={'message-container flex items-start gap-1.5 my-1 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
             >
               {/* 多选模式下的复选框 */}
               {multiSelect.isMultiSelectMode && (
@@ -411,15 +411,12 @@ const ChatDetail = () => {
                 </div>
               )}
               
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <Avatar 
                   type={message.type}
                   avatar={character.avatar}
                   name={character.realName}
                 />
-                <div className="text-xs text-gray-400">
-                  {message.time}
-                </div>
               </div>
               
               <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
@@ -440,7 +437,14 @@ const ChatDetail = () => {
                 )}
                 
                 {/* 消息内容和拉黑标记的容器 */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-end gap-2">
+                
+                {/* 时间戳 - 用户消息在左边，AI消息在右边 */}
+                {message.type === 'sent' && (
+                  <div className="text-xs text-gray-400 pb-0.5">
+                    {message.time}
+                  </div>
+                )}
                 
                 {/* 用户被AI拉黑的警告图标（左侧） */}
                 {message.blockedByReceiver && message.type === 'sent' && (
@@ -449,108 +453,55 @@ const ChatDetail = () => {
                   </div>
                 )}
                 
-                {message.coupleSpaceInvite ? (
-                  <div className="message-bubble">
-                    <CoupleSpaceInviteCard
-                      senderName={message.coupleSpaceInvite.senderName}
-                      senderAvatar={message.coupleSpaceInvite.senderAvatar}
-                      status={message.coupleSpaceInvite.status}
-                      isReceived={message.type === 'received'}
-                      onAccept={() => coupleSpace.acceptInvite(message.id)}
-                      onReject={() => coupleSpace.rejectInvite(message.id)}
-                    />
-                  </div>
-                ) : message.messageType === 'intimatePay' && message.intimatePay ? (
-                  <div className="message-bubble">
-                    <IntimatePayInviteCard
-                      monthlyLimit={message.intimatePay.monthlyLimit}
-                      status={message.intimatePay.status}
-                      characterId={chatState.character?.id || ''}
-                      characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                      isSent={message.type === 'sent'}
-                      messageId={message.id}
-                      onUpdateStatus={(newStatus) => {
-                        chatState.setMessages(prev => prev.map(msg =>
-                          msg.id === message.id && msg.intimatePay
-                            ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
-                            : msg
-                        ))
-                      }}
-                    />
-                  </div>
-                ) : message.messageType === 'forwarded-chat' && message.forwardedChat ? (
-                  <div className="message-bubble">
-                    <ForwardedChatCard
-                      title={message.forwardedChat.title}
-                      messages={message.forwardedChat.messages}
-                      messageCount={message.forwardedChat.messageCount}
-                      onView={() => setViewingForwardedChat(message)}
-                      isSent={message.type === 'sent'}
-                    />
-                  </div>
-                ) : message.messageType === 'emoji' && message.emoji ? (
-                  <div className="message-bubble w-32 h-32 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform">
-                    <img
-                      src={message.emoji.url}
-                      alt={message.emoji.description}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : message.messageType === 'transfer' ? (
-                  <div className="message-bubble">
-                    <TransferCard
-                      message={message}
-                      onReceive={transfer.handleReceiveTransfer}
-                      onReject={transfer.handleRejectTransfer}
-                    />
-                  </div>
-                ) : message.messageType === 'voice' ? (
-                  <div className="message-bubble">
-                    <VoiceCard
-                      message={message}
-                      isPlaying={voice.playingVoiceId === message.id}
-                      showText={voice.showVoiceTextMap[message.id]}
-                      onPlay={voice.handlePlayVoice}
-                      onToggleText={voice.handleToggleVoiceText}
-                    />
-                  </div>
-                ) : message.messageType === 'location' ? (
-                  <div className="message-bubble">
-                    <LocationCard message={message} />
-                  </div>
-                ) : message.messageType === 'photo' ? (
-                  <div className="message-bubble">
-                    <FlipPhotoCard 
-                      description={message.photoDescription || '照片'}
-                      messageId={message.id}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className={'message-bubble px-3 py-2 rounded-lg break-words cursor-pointer message-press ' + (
-                      message.type === 'sent'
-                        ? 'rounded-tr-none'
-                        : 'rounded-tl-none'
-                    )}
-                    style={{
-                      backgroundColor: message.type === 'sent' ? '#95EC69' : '#FFFFFF',
-                      color: message.type === 'sent' ? '#FFFFFF' : '#1F2937',
-                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                {/* 消息内容：特殊消息或文本气泡 */}
+                {message.coupleSpaceInvite || 
+                 message.messageType === 'intimatePay' || 
+                 message.messageType === 'forwarded-chat' || 
+                 message.messageType === 'emoji' || 
+                 message.messageType === 'transfer' || 
+                 message.messageType === 'voice' || 
+                 message.messageType === 'location' || 
+                 message.messageType === 'photo' ? (
+                  <SpecialMessageRenderer
+                    message={message}
+                    characterId={chatState.character?.id || ''}
+                    characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                    onAcceptInvite={coupleSpace.acceptInvite}
+                    onRejectInvite={coupleSpace.rejectInvite}
+                    onUpdateIntimatePayStatus={(messageId, newStatus) => {
+                      chatState.setMessages(prev => prev.map(msg =>
+                        msg.id === messageId && msg.intimatePay
+                          ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' } }
+                          : msg
+                      ))
                     }}
-                    onTouchStart={(e) => longPress.handleLongPressStart(message, e)}
-                    onTouchEnd={longPress.handleLongPressEnd}
-                    onMouseDown={(e) => longPress.handleLongPressStart(message, e)}
-                    onMouseUp={longPress.handleLongPressEnd}
-                    onMouseLeave={longPress.handleLongPressEnd}
-                  >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                  </div>
+                    onViewForwardedChat={setViewingForwardedChat}
+                    onReceiveTransfer={transfer.handleReceiveTransfer}
+                    onRejectTransfer={transfer.handleRejectTransfer}
+                    onPlayVoice={voice.handlePlayVoice}
+                    onToggleVoiceText={voice.handleToggleVoiceText}
+                    playingVoiceId={voice.playingVoiceId}
+                    showVoiceTextMap={voice.showVoiceTextMap}
+                  />
+                ) : (
+                  <MessageBubble
+                    message={message}
+                    onLongPressStart={longPress.handleLongPressStart}
+                    onLongPressEnd={longPress.handleLongPressEnd}
+                  />
                 )}
                 
                 {/* AI被拉黑的警告图标 - 和消息在同一行 */}
                 {message.blocked && message.type === 'received' && (
                   <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
                     <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                )}
+                
+                {/* 时间戳 - AI消息在右边 */}
+                {message.type === 'received' && (
+                  <div className="text-xs text-gray-400 pb-0.5">
+                    {message.time}
                   </div>
                 )}
                 
@@ -572,7 +523,7 @@ const ChatDetail = () => {
         })}
         
         {chatAI.isAiTyping && (
-          <div className="flex items-start gap-2 my-2 message-enter message-enter-left">
+          <div className="flex items-start gap-1.5 my-1 message-enter message-enter-left">
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <Avatar 
                 type="received"
@@ -582,7 +533,7 @@ const ChatDetail = () => {
             </div>
             
             <div className="flex flex-col items-start">
-              <div className="bg-white px-4 py-3 rounded-lg rounded-tl-none shadow-sm typing-indicator">
+              <div className="bg-white px-3 py-2 rounded-lg rounded-tl-none shadow-sm typing-indicator text-sm">
                 <div className="flex gap-1">
                   <span className="dot-pulse"></span>
                   <span className="dot-pulse"></span>
@@ -642,7 +593,7 @@ const ChatDetail = () => {
       
       {/* 底部输入栏 - 毛玻璃效果 */}
       {!multiSelect.isMultiSelectMode && (
-      <div className="backdrop-blur-sm bg-white/20 border-t border-white/10">
+      <div className="bg-[#f5f7fa] border-t border-gray-200/50">
         {modals.quotedMessage && (
           <div className="px-3 pt-2 pb-1">
             <div className="bg-gray-100 rounded-xl p-2 flex items-start gap-2">
@@ -672,15 +623,14 @@ const ChatDetail = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <div className="flex-1 flex items-center bg-white/90 rounded-full px-4 py-2 shadow-inner touch-transition focus-within:shadow-md focus-within:bg-white focus-within:scale-[1.01]">
+          <div className="flex-1 flex items-center bg-white rounded-full px-4 py-2 shadow-sm touch-transition focus-within:shadow-md focus-within:scale-[1.01]">
             <input
               type="text"
               value={chatState.inputValue}
               onChange={(e) => chatState.setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (chatState.inputValue.trim() ? chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null)) : chatAI.handleAIReply())}
+              onKeyPress={(e) => e.key === 'Enter' && !chatAI.isAiTyping && (chatState.inputValue.trim() ? chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null)) : chatAI.handleAIReply())}
               placeholder="发送消息"
               className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
-              disabled={chatAI.isAiTyping}
             />
           </div>
           <button 
@@ -834,7 +784,10 @@ const ChatDetail = () => {
           coupleSpace.setInputType('message')
           coupleSpace.setShowInput(true)
         }}
-        onSelectAnniversary={() => coupleSpace.navigate('/couple-anniversary')}
+        onSelectAnniversary={() => {
+          coupleSpace.setInputType('anniversary')
+          coupleSpace.setShowInput(true)
+        }}
       />
 
       <CoupleSpaceInputModal

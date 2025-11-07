@@ -95,70 +95,50 @@ const CoupleAnniversaryPage = () => {
       <div className="flex-1 overflow-y-auto px-4 pt-6">
         {anniversaries.length === 0 ? (
           /* 空状态 */
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="w-full max-w-md">
-              <div className="bg-white rounded-3xl p-8 text-center space-y-6 shadow-xl">
-                <div className="w-24 h-24 mx-auto rounded-full bg-pink-100 flex items-center justify-center">
-                  <svg className="w-12 h-12 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+            <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
 
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">暂无纪念日</h2>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    点击右上角添加按钮
-                    <br />
-                    记录你们的重要时刻
-                  </p>
-                </div>
-              </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">暂无纪念日</h2>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                点击右上角添加按钮
+                <br />
+                记录你们的重要时刻
+              </p>
             </div>
           </div>
         ) : (
-          /* 纪念日列表 */
-          <div className="space-y-4 pb-6">
-            {anniversaries.map(anniversary => {
+          /* 纪念日网格 */
+          <div className="grid grid-cols-2 gap-4 pb-6">
+            {anniversaries.map((anniversary) => {
               const daysUntil = getDaysUntil(anniversary.date)
-              const isPast = daysUntil < 0
-              const isToday = daysUntil === 0
               
               return (
-                <div key={anniversary.id} className="bg-white rounded-2xl p-5 shadow-md">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">
-                        {anniversary.title}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {formatAnniversaryDate(anniversary.date)}
-                      </p>
-                    </div>
-                    
-                    {/* 天数倒计时 */}
-                    <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                      isToday ? 'bg-pink-100 text-pink-600' :
-                      isPast ? 'bg-gray-100 text-gray-500' :
-                      'bg-blue-100 text-blue-600'
-                    }`}>
-                      {isToday ? '今天' : 
-                       isPast ? `已过${Math.abs(daysUntil)}天` : 
-                       `还有${daysUntil}天`}
+                <div 
+                  key={anniversary.id} 
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm"
+                  onClick={() => handleDelete(anniversary.id)}
+                >
+                  {/* 白色标题栏 */}
+                  <div className="bg-white text-gray-900 text-center py-3 px-2 text-sm font-medium border-b border-gray-100">
+                    {anniversary.title}
+                  </div>
+                  
+                  {/* 天数大数字 */}
+                  <div className="bg-white py-8 text-center">
+                    <div className="text-5xl font-bold text-gray-900">
+                      {Math.abs(daysUntil)}
                     </div>
                   </div>
                   
-                  {anniversary.description && (
-                    <p className="text-sm text-gray-700 mb-3 leading-relaxed">
-                      {anniversary.description}
-                    </p>
-                  )}
-                  
-                  <button
-                    onClick={() => handleDelete(anniversary.id)}
-                    className="text-xs text-red-400 hover:text-red-600"
-                  >
-                    删除
-                  </button>
+                  {/* 灰色日期栏 */}
+                  <div className="bg-gray-200 text-gray-700 text-center py-2 text-xs">
+                    {anniversary.date}
+                  </div>
                 </div>
               )
             })}

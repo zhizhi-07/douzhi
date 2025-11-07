@@ -9,6 +9,7 @@ export interface Character {
   world: string
   avatar?: string
   createdAt: string
+  momentsVisibleCount?: number  // AI可见的朋友圈条数，默认10条
 }
 
 const STORAGE_KEY = 'characters'
