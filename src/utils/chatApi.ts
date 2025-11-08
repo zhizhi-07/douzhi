@@ -459,7 +459,7 @@ const callAIApiInternal = async (
   
   // 超时控制
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 60000) // 60秒超时
+  const timeoutId = setTimeout(() => controller.abort(), 120000) // 120秒超时，应对慢速API
 
   try {
     // 根据 provider 构建不同的请求

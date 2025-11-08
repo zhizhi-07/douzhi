@@ -8,6 +8,7 @@ import type { Moment } from '../../types/moments'
 import { likeMoment, commentMoment } from '../momentsManager'
 import { showNotification, incrementUnread } from '../simpleNotificationManager'
 import { recordAIInteraction } from '../aiInteractionMemory'
+import { addMessage } from '../simpleMessageManager'
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
 let messageIdCounter = 0
@@ -120,13 +121,8 @@ export function executeDMAction(
   console.log(`   角色对象:`, character)
   
   const avatar = character?.avatar || '🤖'
-  const messagesKey = `chat_messages_${action.characterId}`
   
-  console.log(`📂 读取消息key: ${messagesKey}`)
-  const savedMessages = localStorage.getItem(messagesKey)
-  const messages = savedMessages ? JSON.parse(savedMessages) : []
-  console.log(`📚 当前消息数: ${messages.length}`)
-  console.log(`📝 最近3条消息:`, messages.slice(-3))
+  console.log(`💬 准备发送私聊消息到角色 ${action.characterId}`)
   
   const now = Date.now()
   const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
@@ -139,12 +135,10 @@ export function executeDMAction(
     messageType: 'text' as const
   }
   
-  messages.push(dmMsg)
-  
   try {
-    localStorage.setItem(messagesKey, JSON.stringify(messages))
-    console.log(`💾 私聊消息已保存到localStorage: ${messagesKey}`)
-    console.log(`📝 保存后消息数: ${messages.length}`)
+    // 🔥 使用 addMessage 保存到 IndexedDB（而不是 localStorage）
+    addMessage(action.characterId, dmMsg)
+    console.log(`💾 私聊消息已保存到IndexedDB: chatId=${action.characterId}, messageId=${dmMsg.id}`)
     console.log(`💬 消息内容:`, dmMsg)
   } catch (error) {
     console.error('❌ 保存私聊消息失败:', error)

@@ -2,19 +2,8 @@
  * 系统音效管理器
  */
 
-// 音效URL映射
-const SOUND_URLS: Record<string, string> = {
-  tap: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-  click: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-  pop: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3',
-  swoosh: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
-  send1: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  send2: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3',
-  notify1: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3',
-  notify2: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3',
-  call1: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  call2: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
-}
+// 内置默认音效
+const DEFAULT_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3' // 柔和
 
 let currentAudio: HTMLAudioElement | null = null
 
@@ -42,16 +31,16 @@ export const playSystemSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
   
-  const soundType = localStorage.getItem('system_sound_type') || 'tap'
-  const url = SOUND_URLS[soundType]
-  if (!url) return
+  // 优先使用自定义音效，否则使用默认柔和音效
+  const customSound = localStorage.getItem('custom_sound')
+  const url = customSound || DEFAULT_SOUND_URL
   
   if (currentAudio) {
     currentAudio.pause()
     currentAudio.currentTime = 0
   }
   
-  currentAudio = playSound(url)
+  currentAudio = playSound(url, 0.3)
 }
 
 /**
@@ -61,17 +50,15 @@ export const playMessageSendSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
   
-  const customSound = localStorage.getItem('custom_sound')
-  if (customSound) {
-    playSound(customSound, 0.4)
-    return
+  const customSound = localStorage.getItem('custom_send_sound')
+  const url = customSound || DEFAULT_SOUND_URL
+  
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
   }
   
-  const soundType = localStorage.getItem('message_send_sound') || 'send1'
-  const url = SOUND_URLS[soundType]
-  if (url) {
-    playSound(url, 0.4)
-  }
+  currentAudio = playSound(url, 0.4)
 }
 
 /**
@@ -81,25 +68,33 @@ export const playMessageNotifySound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
   
-  const soundType = localStorage.getItem('message_notify_sound') || 'notify1'
-  const url = SOUND_URLS[soundType]
-  if (url) {
-    playSound(url, 0.5)
+  const customSound = localStorage.getItem('custom_notify_sound')
+  const url = customSound || DEFAULT_SOUND_URL
+  
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
   }
+  
+  currentAudio = playSound(url, 0.5)
 }
 
 /**
- * 播放视频通话音效
+ * 播放电话音效
  */
-export const playVideoCallSound = () => {
+export const playCallSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
   
-  const soundType = localStorage.getItem('video_call_sound') || 'call1'
-  const url = SOUND_URLS[soundType]
-  if (url) {
-    playSound(url, 0.5)
+  const customSound = localStorage.getItem('custom_call_sound')
+  const url = customSound || DEFAULT_SOUND_URL
+  
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
   }
+  
+  currentAudio = playSound(url, 0.5)
 }
 
 /**

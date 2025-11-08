@@ -162,14 +162,23 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  */
 export function addMessage(chatId: string, message: Message): void {
   const messages = loadMessages(chatId)
-  messages.push(message)
-  saveMessages(chatId, messages)
+  
+  // 🔥 检查消息是否已存在（避免重复添加）
+  const exists = messages.some(m => m.id === message.id)
+  if (exists) {
+    console.warn(`⚠️ [addMessage] 消息已存在，跳过添加: id=${message.id}`)
+    return
+  }
+  
+  // 创建新数组，避免修改原数组
+  const newMessages = [...messages, message]
+  saveMessages(chatId, newMessages)
   
   // 触发事件通知
   window.dispatchEvent(new CustomEvent('new-message', {
     detail: { chatId, message }
   }))
-  console.log(`📡 触发new-message事件: chatId=${chatId}`)
+  console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
 }
 
 /**

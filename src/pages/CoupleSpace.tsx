@@ -13,6 +13,7 @@ import {
   setCoupleSpacePrivacy, 
   type CoupleSpaceRelation 
 } from '../utils/coupleSpaceUtils'
+import { addMessage } from '../utils/simpleMessageManager'
 
 const CoupleSpace = () => {
   const navigate = useNavigate()
@@ -69,12 +70,8 @@ const CoupleSpace = () => {
             messageType: 'system' as const
           }
           
-          // 保存到localStorage
-          const messagesKey = `chat_messages_${chatId}`
-          const savedMessages = localStorage.getItem(messagesKey)
-          const messages = savedMessages ? JSON.parse(savedMessages) : []
-          messages.push(systemMsg)
-          localStorage.setItem(messagesKey, JSON.stringify(messages))
+          // 🔥 使用 addMessage 保存到 IndexedDB（而不是 localStorage）
+          addMessage(chatId, systemMsg)
         }
         
         alert('已解除情侣空间关系\n内容数据已保留')

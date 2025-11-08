@@ -37,7 +37,44 @@ export const getCoupleSpaceRelation = (): CoupleSpaceRelation | null => {
  */
 const saveCoupleSpaceRelation = (relation: CoupleSpaceRelation | null): void => {
   if (relation) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(relation))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(relation))
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.warn('⚠️ localStorage 配额已满，尝试清理旧数据...')
+        
+        // 紧急清理：删除所有消息相关的旧数据
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith('chat_messages_') || key.startsWith('group_messages_') || key.startsWith('chat_settings_'))) {
+            keysToRemove.push(key)
+          }
+        }
+        
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key)
+            console.log(`  🗑️ 紧急清理: ${key}`)
+          } catch (err) {
+            console.error(`清理失败: ${key}`, err)
+          }
+        })
+        
+        console.log(`🧹 紧急清理完成，删除了 ${keysToRemove.length} 个旧消息键`)
+        
+        // 重试保存
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(relation))
+          console.log('✅ 重试保存成功')
+        } catch (retryError) {
+          console.error('❌ 重试保存仍然失败:', retryError)
+          throw new Error('localStorage 空间不足，请手动清理浏览器缓存')
+        }
+      } else {
+        throw e
+      }
+    }
   } else {
     localStorage.removeItem(STORAGE_KEY)
   }

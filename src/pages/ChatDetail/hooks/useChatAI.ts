@@ -17,7 +17,7 @@ import {
   parseAIMessages,
   convertToApiMessages
 } from '../../../utils/messageUtils'
-import { loadMessages } from '../../../utils/simpleMessageManager'
+import { loadMessages, addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
 import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
 import { commandHandlers } from './commandHandlers'
@@ -87,10 +87,21 @@ export const useChatAI = (
         } : undefined
       }
       
-      console.log('📤 发送消息:', inputValue.substring(0, 20), isUserBlocked ? '(被AI拉黑)' : '')
+      console.log('📤 [handleSend] 发送消息:', {
+        content: inputValue.substring(0, 20),
+        messageId: userMessage.id,
+        blocked: isUserBlocked
+      })
       
-      // 更新React状态（setMessages会自动保存到IndexedDB）
-      setMessages(prev => [...prev, userMessage])
+      // 🔥 直接保存到IndexedDB
+      saveMessageToStorage(chatId, userMessage)
+      console.log(`💾 [handleSend] 用户消息已保存到存储, id=${userMessage.id}`)
+      
+      // 更新React状态（更新UI）
+      setMessages(prev => {
+        console.log(`📱 [handleSend] 更新React状态, 当前消息数=${prev.length}, 新消息id=${userMessage.id}`)
+        return [...prev, userMessage]
+      })
       setInputValue('')
       if (clearQuote) clearQuote()
       
@@ -107,7 +118,7 @@ export const useChatAI = (
       console.error('发送消息失败:', error)
       setIsSending(false)
     }
-  }, [isAiTyping, isSending, character, setMessages, scrollToBottom])
+  }, [isAiTyping, isSending, character, chatId, setMessages, scrollToBottom])
   
   // 清理定时器
   useEffect(() => {
@@ -400,9 +411,18 @@ export const useChatAI = (
           
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 更新React状态（setMessages会自动保存）
-          setMessages(prev => [...prev, aiMessage])
-          console.log(`💾 [useChatAI] AI消息已保存`)
+          console.log(`💬 [useChatAI] 准备保存AI消息, id=${aiMessage.id}, content="${messageContent.substring(0, 20)}"`)
+          
+          // 🔥 直接保存消息到IndexedDB（不依赖React状态，确保即使组件卸载也能保存）
+          // addMessage会触发new-message事件，用于通知和未读标记
+          saveMessageToStorage(chatId, aiMessage)
+          console.log(`💾 [useChatAI] AI消息已保存到存储, id=${aiMessage.id}`)
+          
+          // 同时更新React状态（如果组件还挂载，更新UI）
+          setMessages(prev => {
+            console.log(`📱 [useChatAI] 更新React状态, 当前消息数=${prev.length}, 新AI消息id=${aiMessage.id}`)
+            return [...prev, aiMessage]
+          })
           
           // 播放消息通知音效
           playMessageNotifySound()

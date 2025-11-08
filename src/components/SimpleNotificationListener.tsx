@@ -117,7 +117,10 @@ export default function SimpleNotificationListener() {
 
   const handleClick = () => {
     if (!notification) return
-    navigate(`/chat/${notification.chatId}`)
+    // 🔥 添加微小延迟，确保消息已保存到缓存后再跳转
+    setTimeout(() => {
+      navigate(`/chat/${notification.chatId}`)
+    }, 50)
   }
 
   // 视频通话处理

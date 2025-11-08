@@ -1,4 +1,7 @@
 // 角色数据管理服务
+// 🔥 现在使用 IndexedDB 存储，解决 localStorage 配额限制
+
+import * as CharacterManager from '../utils/characterManager'
 
 export interface Character {
   id: string
@@ -13,7 +16,7 @@ export interface Character {
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
 }
 
-const STORAGE_KEY = 'characters'
+const STORAGE_KEY = 'characters' // 仅用于迁移旧数据
 
 // 默认角色 - 汁汁
 const DEFAULT_CHARACTER: Character = {
@@ -74,40 +77,85 @@ const DEFAULT_CHARACTER: Character = {
   createdAt: '2024-01-01T00:00:00.000Z'
 }
 
-export const characterService = {
-  // 获取所有角色
-  getAll: (): Character[] => {
+// 内存缓存
+let charactersCache: Character[] | null = null
+let isInitialized = false // 标记是否已初始化
+
+// 初始化：从 IndexedDB 加载到缓存
+CharacterManager.getAllCharacters().then(characters => {
+  if (characters.length === 0) {
+    // 如果 IndexedDB 是空的，尝试从 localStorage 迁移
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
-        const characters = JSON.parse(saved)
-        // 查找汁汁
-        const zhizhiIndex = characters.findIndex((c: Character) => c.id === 'zhizhi-001')
+        const localCharacters = JSON.parse(saved)
+        console.log(`📦 从 localStorage 迁移 ${localCharacters.length} 个角色到 IndexedDB`)
+        CharacterManager.saveAllCharacters(localCharacters)
+        charactersCache = localCharacters
         
-        if (zhizhiIndex !== -1) {
-          // 更新汁汁的人设（保持其他数据不变）
-          characters[zhizhiIndex] = {
-            ...characters[zhizhiIndex],
+        // 迁移后清理 localStorage
+        localStorage.removeItem(STORAGE_KEY)
+      } else {
+        // 完全新用户，添加默认角色
+        charactersCache = [DEFAULT_CHARACTER]
+        CharacterManager.saveAllCharacters(charactersCache)
+      }
+    } catch (e) {
+      console.error('迁移失败:', e)
+      charactersCache = [DEFAULT_CHARACTER]
+    }
+  } else {
+    charactersCache = characters
+    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色`)
+  }
+  isInitialized = true // 标记初始化完成
+})
+
+export const characterService = {
+  // 获取所有角色（同步，使用缓存）
+  getAll: (): Character[] => {
+    // 使用缓存（启动时已加载）
+    if (charactersCache) {
+      // ✅ 只在初始化时检查并更新汁汁，避免每次调用都保存
+      if (isInitialized) {
+        // 初始化后直接返回缓存，不再检查和保存
+        return charactersCache
+      }
+      
+      // 初始化阶段：确保汁汁存在且是最新的
+      let needSave = false
+      const zhizhiIndex = charactersCache.findIndex((c: Character) => c.id === 'zhizhi-001')
+      
+      if (zhizhiIndex !== -1) {
+        // 检查是否需要更新汁汁的人设
+        const zhizhi = charactersCache[zhizhiIndex]
+        if (zhizhi.personality !== DEFAULT_CHARACTER.personality || 
+            zhizhi.signature !== DEFAULT_CHARACTER.signature) {
+          charactersCache[zhizhiIndex] = {
+            ...zhizhi,
             personality: DEFAULT_CHARACTER.personality,
             signature: DEFAULT_CHARACTER.signature
           }
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
-        } else {
-          // 汁汁不存在，添加到最前面
-          characters.unshift(DEFAULT_CHARACTER)
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
+          needSave = true
         }
-        
-        return characters
       } else {
-        // 首次加载，添加汁汁
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([DEFAULT_CHARACTER]))
-        return [DEFAULT_CHARACTER]
+        // 汁汁不存在，添加
+        charactersCache.unshift(DEFAULT_CHARACTER)
+        needSave = true
       }
-    } catch (error) {
-      console.error('读取角色列表失败:', error)
-      return [DEFAULT_CHARACTER]
+      
+      // 只在真正修改时才保存
+      if (needSave) {
+        CharacterManager.saveAllCharacters(charactersCache).catch(e => 
+          console.error('保存角色失败:', e)
+        )
+      }
+      
+      return charactersCache
     }
+    
+    // 缓存还没加载完（极少情况），返回默认
+    return [DEFAULT_CHARACTER]
   },
 
   // 保存角色
@@ -118,31 +166,43 @@ export const characterService = {
       createdAt: new Date().toISOString()
     }
     
-    const characters = characterService.getAll()
-    characters.push(newCharacter)
+    if (!charactersCache) charactersCache = []
+    charactersCache.push(newCharacter)
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
+    // 后台异步保存到 IndexedDB
+    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
+      console.error('保存角色失败:', e)
+    )
+    
     return newCharacter
   },
 
   // 删除角色
   delete: (id: string): void => {
-    const characters = characterService.getAll()
-    const filtered = characters.filter(c => c.id !== id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+    if (!charactersCache) return
+    charactersCache = charactersCache.filter(c => c.id !== id)
+    
+    // 后台异步保存
+    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
+      console.error('删除角色失败:', e)
+    )
   },
 
   // 更新角色
   update: (id: string, updates: Partial<Character>): Character | null => {
-    const characters = characterService.getAll()
-    const index = characters.findIndex(c => c.id === id)
+    if (!charactersCache) return null
+    const index = charactersCache.findIndex(c => c.id === id)
     
     if (index === -1) return null
     
-    characters[index] = { ...characters[index], ...updates }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
+    charactersCache[index] = { ...charactersCache[index], ...updates }
     
-    return characters[index]
+    // 后台异步保存
+    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
+      console.error('更新角色失败:', e)
+    )
+    
+    return charactersCache[index]
   },
 
   // 根据ID获取角色

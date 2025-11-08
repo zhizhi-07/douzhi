@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
+import { cleanupOldMessages } from './utils/cleanupLocalStorage'
+import { playSystemSound } from './utils/soundManager'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -51,9 +53,14 @@ function App() {
       console.log('🚀 开始后台迁移数据到IndexedDB...')
       migrateAllData().then(() => {
         console.log('✅ 数据迁移完成')
+        // 迁移后清理 localStorage 中的旧消息数据
+        cleanupOldMessages()
       }).catch(err => {
         console.error('❌ 迁移失败:', err)
       })
+    } else {
+      // 即使不需要迁移，也清理一次旧数据
+      cleanupOldMessages()
     }
   }, [])
   
@@ -95,6 +102,36 @@ function App() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  // 🎵 全局点击音效
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      // 获取点击的元素
+      const target = e.target as HTMLElement
+      
+      // 只对可交互元素播放音效
+      const isClickable = 
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'A' ||
+        target.closest('button') ||
+        target.closest('a') ||
+        target.classList.contains('clickable') ||
+        target.onclick !== null ||
+        target.style.cursor === 'pointer' ||
+        window.getComputedStyle(target).cursor === 'pointer'
+      
+      if (isClickable) {
+        playSystemSound()
+      }
+    }
+
+    // 添加全局点击监听
+    document.addEventListener('click', handleClick)
+    
+    return () => {
+      document.removeEventListener('click', handleClick)
+    }
+  }, [])
 
   return (
     <>

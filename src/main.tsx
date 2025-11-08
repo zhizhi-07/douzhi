@@ -6,6 +6,8 @@ import { MusicPlayerProvider } from './context/MusicPlayerContext'
 import './index.css'
 import './styles/animations.css'
 import './styles/bubble-default.css'
+// 🔥 立即加载清理工具
+import './utils/cleanupLocalStorage'
 
 // 生产环境移除StrictMode以避免重复渲染
 const root = ReactDOM.createRoot(document.getElementById('root')!)

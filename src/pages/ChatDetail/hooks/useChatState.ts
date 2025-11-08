@@ -6,8 +6,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
-import { clearUnread } from '../../../utils/unreadMessages'
+import { loadMessages } from '../../../utils/simpleMessageManager'
+import { clearUnread } from '../../../utils/simpleNotificationManager'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
@@ -22,13 +22,14 @@ export const useChatState = (chatId: string) => {
     setMessagesState(fn)
   }, [])
   
-  // 监听消息变化，自动保存
-  useEffect(() => {
-    if (messages.length > 0 && chatId) {
-      console.log(`💾 [useChatState] 监听到消息变化，保存: chatId=${chatId}, count=${messages.length}`)
-      saveMessages(chatId, messages)
-    }
-  }, [messages, chatId])
+  // 🔥 禁用自动保存，改为手动控制保存
+  // 原因：避免重复保存导致的问题，现在由各个Hook手动调用saveMessages
+  // useEffect(() => {
+  //   if (messages.length > 0 && chatId) {
+  //     console.log(`💾 [useChatState] 监听到消息变化，保存: chatId=${chatId}, count=${messages.length}`)
+  //     saveMessages(chatId, messages)
+  //   }
+  // }, [messages, chatId])
   
   // 输入框
   const [inputValue, setInputValue] = useState('')

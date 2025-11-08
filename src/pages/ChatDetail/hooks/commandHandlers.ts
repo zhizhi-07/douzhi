@@ -17,6 +17,7 @@ import {
   endCoupleSpaceRelation
 } from '../../../utils/coupleSpaceUtils'
 import { getEmojis } from '../../../utils/emojiStorage'
+import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
 
 /**
  * 指令处理器接口
@@ -62,7 +63,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 /**
  * 辅助函数：添加消息
- * CRITICAL: 必须同时保存到localStorage，否则刷新后消息会消失！
+ * CRITICAL: 必须同时保存到IndexedDB，否则组件卸载时消息会消失！
  */
 const addMessage = async (
   message: Message,
@@ -71,14 +72,20 @@ const addMessage = async (
 ) => {
   await delay(300)
   
-  // 更新React状态（setMessages 会自动保存到 IndexedDB）
-  setMessages(prev => [...prev, message])
+  if (chatId) {
+    // 🔥 直接保存到IndexedDB（不依赖React状态，确保即使组件卸载也能保存）
+    // addMessage会触发new-message事件
+    saveMessageToStorage(chatId, message)
+    console.log('💾 [addMessage] 消息已保存到存储:', {
+      chatId,
+      messageId: message.id,
+      messageType: message.messageType
+    })
+  }
   
-  console.log(' [addMessage] 消息已添加:', {
-    chatId,
-    messageId: message.id,
-    messageType: message.messageType
-  })
+  // 同时更新React状态（如果组件还挂载，更新UI）
+  setMessages(prev => [...prev, message])
+  console.log('📱 [addMessage] React状态已更新')
 }
 
 /**
@@ -652,7 +659,7 @@ export const coupleSpaceInviteHandler: CommandHandler = {
  */
 export const coupleSpacePhotoHandler: CommandHandler = {
   pattern: /[\[【]相册[:\：]\s*(.+?)[\]】]/,
-  handler: async (match, content, { character, setMessages }) => {
+  handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
     
     // 检查是否有活跃的情侣空间
@@ -689,7 +696,7 @@ export const coupleSpacePhotoHandler: CommandHandler = {
  */
 export const coupleSpaceMessageHandler: CommandHandler = {
   pattern: /[\[【]留言[:\：]\s*(.+?)[\]】]/,
-  handler: async (match, content, { character, setMessages }) => {
+  handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
     
     // 检查是否有活跃的情侣空间
@@ -726,7 +733,7 @@ export const coupleSpaceMessageHandler: CommandHandler = {
  */
 export const coupleSpaceAnniversaryHandler: CommandHandler = {
   pattern: /[\[【]纪念日[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
-  handler: async (match, content, { character, setMessages }) => {
+  handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
     
     // 检查是否有活跃的情侣空间
