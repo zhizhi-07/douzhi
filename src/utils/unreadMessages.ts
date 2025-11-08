@@ -89,8 +89,12 @@ export function getUnreadCount(chatId: string): number {
  */
 function updateChatListUnread(chatId: string, count: number) {
   try {
-    const chatListStr = localStorage.getItem('chatList')
-    if (!chatListStr) return
+    const CHAT_LIST_KEY = 'chat_list' // 使用正确的key
+    const chatListStr = localStorage.getItem(CHAT_LIST_KEY)
+    if (!chatListStr) {
+      console.log(`⚠️ 未找到聊天列表: key=${CHAT_LIST_KEY}`)
+      return
+    }
     
     const chatList = JSON.parse(chatListStr)
     
@@ -98,13 +102,16 @@ function updateChatListUnread(chatId: string, count: number) {
     
     if (chatIndex >= 0) {
       chatList[chatIndex].unread = count > 0 ? count : undefined
-      localStorage.setItem('chatList', JSON.stringify(chatList))
+      localStorage.setItem(CHAT_LIST_KEY, JSON.stringify(chatList))
       
-      // 只触发自定义事件（同页面内）
-      // StorageEvent只在跨标签页时自动触发，不需要手动dispatch
-      window.dispatchEvent(new CustomEvent('local-storage-change', {
-        detail: { key: 'chatList' }
+      console.log(`✅ 更新聊天列表未读数: chatId=${chatId}, count=${count}`)
+      
+      // 触发未读更新事件
+      window.dispatchEvent(new CustomEvent('unread-updated', {
+        detail: { chatId, count }
       }))
+    } else {
+      console.log(`⚠️ 在聊天列表中未找到chatId: ${chatId}`)
     }
   } catch (e) {
     console.error('更新聊天列表未读数失败:', e)

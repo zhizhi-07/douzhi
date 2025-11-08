@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
 import { loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
-import { clearUnread } from '../../../utils/simpleNotificationManager'
+import { clearUnread } from '../../../utils/unreadMessages'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
@@ -16,17 +16,19 @@ export const useChatState = (chatId: string) => {
   // 消息列表（React状态）
   const [messages, setMessagesState] = useState<Message[]>([])
   
-  // 包装setMessages：更新React状态 + 保存到IndexedDB
+  // 包装setMessages：仅更新React状态
   const setMessages = useCallback((fn: ((prev: Message[]) => Message[]) | Message[]) => {
-    setMessagesState(prev => {
-      const newMessages = typeof fn === 'function' ? fn(prev) : fn
-      // 异步保存到IndexedDB
-      if (chatId && newMessages.length > 0) {
-        saveMessages(chatId, newMessages)
-      }
-      return newMessages
-    })
-  }, [chatId])
+    console.log(`📞 [useChatState] setMessages 被调用`)
+    setMessagesState(fn)
+  }, [])
+  
+  // 监听消息变化，自动保存
+  useEffect(() => {
+    if (messages.length > 0 && chatId) {
+      console.log(`💾 [useChatState] 监听到消息变化，保存: chatId=${chatId}, count=${messages.length}`)
+      saveMessages(chatId, messages)
+    }
+  }, [messages, chatId])
   
   // 输入框
   const [inputValue, setInputValue] = useState('')

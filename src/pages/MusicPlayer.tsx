@@ -23,69 +23,87 @@ const MusicPlayer = () => {
   const [showPlaylist, setShowPlaylist] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [showLyrics, setShowLyrics] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
   const [rotation, setRotation] = useState(0)
+  const [listeningTogether, setListeningTogether] = useState<any>(null)
+  const [listeningDuration, setListeningDuration] = useState('')
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0)
   const [customBackground, setCustomBackground] = useState<string>(() => {
     return localStorage.getItem('music_background') || ''
   })
   const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
-  const [characters, setCharacters] = useState<any[]>([])
-  const [showNoSongTip, setShowNoSongTip] = useState(false)
   
-  // 加载角色列表
+  // 检查一起听状态和计算时长
   useEffect(() => {
-    const loadedCharacters = characterService.getAll()
-    setCharacters(loadedCharacters)
-  }, [])
-  
-  // 检查URL参数，如果是从聊天页面跳转来邀请一起听的
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('invite') === 'true' && (!currentSong || currentSong.id === 0)) {
-      // 显示提示，引导用户先搜索歌曲
-      setShowNoSongTip(true)
-      setTimeout(() => setShowNoSongTip(false), 3000)
-    }
-  }, [])
-  
-  // 邀请角色听歌 - 发送邀请卡片到聊天
-  const inviteCharacter = (character: any) => {
-    if (!currentSong || currentSong.id === 0) {
-      alert('请先播放一首歌曲')
-      return
+    const loadListeningState = () => {
+      const listeningData = localStorage.getItem('listening_together')
+      if (listeningData) {
+        const data = JSON.parse(listeningData)
+        const character = characterService.getById(data.characterId)
+        setListeningTogether({ ...data, character })
+      }
     }
     
-    // 构建邀请卡片消息
-    const inviteMessage = {
-      id: Date.now(),
-      type: 'sent' as const,
-      messageType: 'musicInvite' as const,
-      content: `[一起听邀请]我想和你一起听《${currentSong.title}》`,
-      time: new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      musicInvite: {
-        songTitle: currentSong.title,
-        songArtist: currentSong.artist,
-        songCover: currentSong.cover,
-        inviterName: '我',
-        status: 'pending' as const
-      },
-      timestamp: Date.now()
+    loadListeningState()
+    
+    // 每秒更新一起听时长
+    const updateDuration = () => {
+      const listeningData = localStorage.getItem('listening_together')
+      if (listeningData) {
+        const data = JSON.parse(listeningData)
+        const startTime = data.startTime || Date.now()
+        const elapsed = Math.floor((Date.now() - startTime) / 1000)
+        
+        const hours = Math.floor(elapsed / 3600)
+        const minutes = Math.floor((elapsed % 3600) / 60)
+        const seconds = elapsed % 60
+        
+        if (hours > 0) {
+          setListeningDuration(`${hours}小时${minutes}分钟`)
+        } else if (minutes > 0) {
+          setListeningDuration(`${minutes}分${seconds}秒`)
+        } else {
+          setListeningDuration(`${seconds}秒`)
+        }
+      }
     }
     
-    // 保存到该角色的聊天记录
-    const storageKey = `chat_${character.id}`
-    const existingMessages = JSON.parse(localStorage.getItem(storageKey) || '[]')
-    localStorage.setItem(storageKey, JSON.stringify([...existingMessages, inviteMessage]))
+    updateDuration()
+    const durationTimer = setInterval(updateDuration, 1000)
     
-    setShowInviteModal(false)
+    // 监听切歌事件
+    const handleChangeSong = async (e: Event) => {
+      const { songTitle, songArtist } = (e as CustomEvent).detail
+      console.log('🎵 收到切歌请求:', songTitle, songArtist)
+      
+      // 更新一起听状态
+      loadListeningState()
+      
+      // 查找本地音乐库中是否有这首歌
+      const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
+      const foundSong = customSongs.find((song: any) => 
+        song.title === songTitle && song.artist === songArtist
+      )
+      
+      if (foundSong) {
+        // 如果找到了，直接播放
+        const index = customSongs.indexOf(foundSong)
+        musicPlayer.setCurrentSong(foundSong, index)
+        musicPlayer.play()
+        console.log('✅ 已切换到:', songTitle)
+      } else {
+        // 没找到，跳转到音乐搜索并自动搜索
+        console.log('⚠️ 本地未找到歌曲，跳转到搜索:', songTitle)
+        navigate(`/music-search?q=${encodeURIComponent(songTitle + ' ' + songArtist)}`)
+      }
+    }
     
-    // 跳转到聊天页面
-    navigate(`/chat/${character.id}`)
-  }
+    window.addEventListener('change-song', handleChangeSong)
+    
+    return () => {
+      clearInterval(durationTimer)
+      window.removeEventListener('change-song', handleChangeSong)
+    }
+  }, [musicPlayer, navigate])
 
   // 处理背景上传
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,12 +256,6 @@ const MusicPlayer = () => {
       <div className="h-screen flex flex-col relative overflow-hidden bg-white">
         <StatusBar />
       
-      {/* 提示：先搜索歌曲 */}
-      {showNoSongTip && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white px-4 py-2 rounded-lg text-sm">
-          💡 先搜索并播放一首歌曲，然后点击"邀请一起听"
-        </div>
-      )}
       
       {/* 背景层 */}
       <div className="absolute inset-0 top-[44px]">
@@ -336,9 +348,30 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-4 overflow-y-auto">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-8 overflow-y-auto">
+        {/* 一起听头像显示 - 在唱片上方 */}
+        {listeningTogether && (
+          <div className="flex flex-col items-center mb-6">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden">
+                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
+                  我
+                </div>
+              </div>
+              <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-6">
+                <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
+                  {listeningTogether.character?.avatar || listeningTogether.character?.realName?.[0] || 'AI'}
+                </div>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600">
+              一起听了 <span className="font-medium text-gray-900">{listeningDuration}</span>
+            </div>
+          </div>
+        )}
+        
         {/* 唱片封面和歌词容器 */}
-        <div className="relative mb-8 mt-12 w-48 h-48 flex items-center justify-center">
+        <div className="relative mb-6 w-48 h-48 flex items-center justify-center">
           {/* 唱片盘 */}
           <div 
             className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
@@ -402,32 +435,6 @@ const MusicPlayer = () => {
               </svg>
             </button>
           </div>
-          
-          {/* 邀请好友按钮 */}
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <button 
-              onClick={() => {
-                if (!currentSong || currentSong.id === 0) {
-                  alert('请先搜索并播放一首歌曲')
-                  navigate('/music-search')
-                } else {
-                  setShowInviteModal(true)
-                }
-              }} 
-              className="flex items-center gap-1 bg-red-500 text-white rounded-full px-4 py-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-sm font-medium">邀请一起听</span>
-            </button>
-            
-            <button onClick={() => navigate('/music-together-chat')} className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-red-500 rounded-full shadow-md" title="一起听聊天">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </button>
-          </div>
         </div>
 
         {/* 进度条 */}
@@ -475,43 +482,6 @@ const MusicPlayer = () => {
         </div>
       </div>
 
-      {/* 邀请角色听歌弹窗 */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setShowInviteModal(false)}>
-          <div className="w-full bg-white rounded-t-3xl p-6 max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-900">邀请一起听歌</h2>
-              <button onClick={() => setShowInviteModal(false)} className="text-gray-400 text-2xl w-8 h-8 flex items-center justify-center">×</button>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(70vh-80px)]">
-              <div className="space-y-3">
-                {characters.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-gray-400">
-                    <p className="text-sm">暂无可邀请的角色</p>
-                    <button onClick={() => navigate('/create-character')} className="mt-4 text-red-500 text-sm">去创建角色</button>
-                  </div>
-                ) : (
-                  characters.map((character) => (
-                    <div
-                      key={character.id}
-                      onClick={() => inviteCharacter(character)}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xl">
-                        {character.avatar || character.realName[0]}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-gray-900 font-medium">{character.realName}</div>
-                        <div className="text-sm text-gray-500">点击邀请</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         .slider::-webkit-slider-thumb {

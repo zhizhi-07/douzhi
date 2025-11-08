@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
 import { searchOnlineMusic, getSongUrl, getLyric, OnlineSong } from '../services/musicApi'
@@ -18,20 +18,31 @@ interface LocalSong {
 const MusicSearch = () => {
   const navigate = useNavigate()
   const musicPlayer = useMusicPlayer()
+  const [searchParams] = useSearchParams()
   
   const [searchQuery, setSearchQuery] = useState('')
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [localResults, setLocalResults] = useState<LocalSong[]>([])
   const [onlineResults, setOnlineResults] = useState<OnlineSong[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [activeTab, setActiveTab] = useState<'local' | 'online'>('local')
+  const [activeTab, setActiveTab] = useState<'local' | 'online'>('online')
   const [showHistory, setShowHistory] = useState(true)
 
-  // 加载搜索历史
+  // 加载搜索历史和URL参数
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem('musicSearchHistory') || '[]')
     setSearchHistory(history)
-  }, [])
+    
+    // 检查URL参数，如果有q参数则自动搜索
+    const query = searchParams.get('q')
+    if (query) {
+      setSearchQuery(query)
+      setActiveTab('online')
+      setShowHistory(false)
+      handleSearch(query)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // 保存搜索历史
   const saveSearchHistory = (query: string) => {
@@ -78,14 +89,15 @@ const MusicSearch = () => {
   }
 
   // 执行搜索
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
+  const handleSearch = async (query?: string) => {
+    const searchText = query || searchQuery
+    if (!searchText.trim()) return
     
     setShowHistory(false)
-    saveSearchHistory(searchQuery)
+    saveSearchHistory(searchText)
     
-    searchLocal(searchQuery)
-    await searchOnline(searchQuery)
+    searchLocal(searchText)
+    await searchOnline(searchText)
   }
 
   // 播放本地歌曲
@@ -229,7 +241,7 @@ const MusicSearch = () => {
             )}
           </div>
           
-          <button onClick={handleSearch} className="text-red-500 font-medium px-2 py-2 flex-shrink-0 whitespace-nowrap">
+          <button onClick={() => handleSearch()} className="text-red-500 font-medium px-2 py-2 flex-shrink-0 whitespace-nowrap">
             搜索
           </button>
         </div>

@@ -7,46 +7,98 @@ const SOUND_URLS: Record<string, string> = {
   tap: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
   click: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
   pop: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3',
-  swoosh: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3'
+  swoosh: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
+  send1: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+  send2: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3',
+  notify1: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3',
+  notify2: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3',
+  call1: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+  call2: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'
 }
 
 let currentAudio: HTMLAudioElement | null = null
 
 /**
- * 播放系统音效
+ * 播放音效的通用函数
+ */
+const playSound = (url: string, volume: number = 0.3) => {
+  try {
+    const audio = new Audio(url)
+    audio.volume = volume
+    audio.play().catch(err => {
+      console.log('音效播放失败:', err)
+    })
+    return audio
+  } catch (err) {
+    console.error('创建音频失败:', err)
+    return null
+  }
+}
+
+/**
+ * 播放系统音效（点击音效）
  */
 export const playSystemSound = () => {
-  // 检查是否启用音效
   const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') {
-    return
-  }
+  if (enabled === 'false') return
   
-  // 获取当前音效类型
   const soundType = localStorage.getItem('system_sound_type') || 'tap'
   const url = SOUND_URLS[soundType]
+  if (!url) return
   
-  if (!url) {
-    return
-  }
-  
-  // 停止之前的音效
   if (currentAudio) {
     currentAudio.pause()
     currentAudio.currentTime = 0
   }
   
-  // 播放新音效
-  try {
-    const audio = new Audio(url)
-    audio.volume = 0.3
-    audio.play().catch(err => {
-      // 静默处理播放失败（可能是用户未交互导致的浏览器限制）
-      console.log('音效播放失败:', err)
-    })
-    currentAudio = audio
-  } catch (err) {
-    console.error('创建音频失败:', err)
+  currentAudio = playSound(url)
+}
+
+/**
+ * 播放消息发送音效
+ */
+export const playMessageSendSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+  
+  const customSound = localStorage.getItem('custom_sound')
+  if (customSound) {
+    playSound(customSound, 0.4)
+    return
+  }
+  
+  const soundType = localStorage.getItem('message_send_sound') || 'send1'
+  const url = SOUND_URLS[soundType]
+  if (url) {
+    playSound(url, 0.4)
+  }
+}
+
+/**
+ * 播放消息通知音效
+ */
+export const playMessageNotifySound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+  
+  const soundType = localStorage.getItem('message_notify_sound') || 'notify1'
+  const url = SOUND_URLS[soundType]
+  if (url) {
+    playSound(url, 0.5)
+  }
+}
+
+/**
+ * 播放视频通话音效
+ */
+export const playVideoCallSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+  
+  const soundType = localStorage.getItem('video_call_sound') || 'call1'
+  const url = SOUND_URLS[soundType]
+  if (url) {
+    playSound(url, 0.5)
   }
 }
 

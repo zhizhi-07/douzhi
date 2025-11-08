@@ -10,6 +10,7 @@ export interface Character {
   avatar?: string
   createdAt: string
   momentsVisibleCount?: number  // AI可见的朋友圈条数，默认10条
+  currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
 }
 
 const STORAGE_KEY = 'characters'

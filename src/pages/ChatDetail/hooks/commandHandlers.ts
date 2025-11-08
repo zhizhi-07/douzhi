@@ -6,7 +6,6 @@
 import type { Message } from '../../../types/chat'
 import { createMessage } from '../../../utils/messageUtils'
 import { characterService } from '../../../services/characterService'
-import { saveMessages } from '../../../utils/simpleMessageManager'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
 import { createIntimatePayRelation } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
@@ -17,6 +16,7 @@ import {
   createCoupleSpaceInvite,
   endCoupleSpaceRelation
 } from '../../../utils/coupleSpaceUtils'
+import { getEmojis } from '../../../utils/emojiStorage'
 
 /**
  * 指令处理器接口
@@ -71,24 +71,13 @@ const addMessage = async (
 ) => {
   await delay(300)
   
-  // 更新React状态
-  setMessages(prev => {
-    const newMessages = [...prev, message]
-    
-    // 🔥 关键：保存到localStorage
-    if (chatId) {
-      saveMessages(chatId, newMessages)
-      console.log('💾 [addMessage] 已保存消息到localStorage:', {
-        chatId,
-        messageId: message.id,
-        messageType: message.messageType,
-        totalMessages: newMessages.length
-      })
-    } else {
-      console.error('❌ [addMessage] 缺少chatId，消息未保存！')
-    }
-    
-    return newMessages
+  // 更新React状态（setMessages 会自动保存到 IndexedDB）
+  setMessages(prev => [...prev, message])
+  
+  console.log(' [addMessage] 消息已添加:', {
+    chatId,
+    messageId: message.id,
+    messageType: message.messageType
   })
 }
 
@@ -1154,6 +1143,38 @@ export const changeSignatureHandler: CommandHandler = {
 }
 
 /**
+ * 状态管理处理器
+ */
+export const statusHandler: CommandHandler = {
+  pattern: /[\[【]状态[:\：](.+?)[\]】]/,
+  handler: async (match, content, { character, refreshCharacter }) => {
+    if (!character) {
+      console.warn('⚠️ 更新状态失败: 没有character信息')
+      return { handled: false }
+    }
+    
+    const newActivity = match[1].trim()
+    
+    console.log(`🎭 AI更新状态: ${newActivity}`)
+    
+    // 更新角色状态
+    characterService.update(character.id, { currentActivity: newActivity })
+    
+    // 🔥 立即刷新界面上的character
+    if (refreshCharacter) {
+      refreshCharacter()
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 一起听：AI发送邀请
  */
 export const musicInviteHandler: CommandHandler = {
@@ -1194,8 +1215,8 @@ export const musicInviteHandler: CommandHandler = {
  * 一起听：AI接受邀请（自然语言识别）
  */
 export const musicAcceptHandler: CommandHandler = {
-  pattern: /^(好啊|走起|来吧|可以|行|好的|好|走|听听|一起听吧|冲|安排|好滴)[！!。，,、\s]*$/,
-  handler: async (match, content, { setMessages, character, messages }) => {
+  pattern: /(好啊|走起|来吧|可以呀|行呀|好的|好嘛|好呀|走吧|听听|一起听吧|冲|安排|好滋|没问题|同意|接受)/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
     const pendingMusicInvite = messages.slice().reverse().find(msg => 
       msg.type === 'sent' && 
@@ -1214,6 +1235,17 @@ export const musicAcceptHandler: CommandHandler = {
         : msg
     ))
     
+    // 保存一起听状态到localStorage
+    const inviteData = (pendingMusicInvite as any).musicInvite
+    if (inviteData && chatId) {
+      localStorage.setItem('listening_together', JSON.stringify({
+        characterId: chatId,
+        songTitle: inviteData.songTitle,
+        songArtist: inviteData.songArtist,
+        startTime: Date.now()
+      }))
+    }
+    
     // 添加系统提示
     const systemMsg: Message = {
       id: Date.now() + Math.random(),
@@ -1225,10 +1257,19 @@ export const musicAcceptHandler: CommandHandler = {
     
     setMessages(prev => [...prev, systemMsg])
     
+    // 触发播放器切歌
+    window.dispatchEvent(new CustomEvent('change-song', {
+      detail: { 
+        songTitle: inviteData.songTitle, 
+        songArtist: inviteData.songArtist 
+      }
+    }))
+    
+    const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
-      remainingText: '',
-      skipTextMessage: true
+      remainingText,
+      skipTextMessage: !remainingText
     }
   }
 }
@@ -1266,6 +1307,63 @@ export const musicRejectHandler: CommandHandler = {
 }
 
 /**
+ * 一起听：AI切歌
+ */
+export const changeSongHandler: CommandHandler = {
+  pattern: /[\[【]切歌[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const songTitle = match[1].trim()
+    const songArtist = match[2].trim()
+    
+    // 检查是否正在一起听
+    const listeningData = localStorage.getItem('listening_together')
+    if (!listeningData) {
+      return { handled: false }
+    }
+    
+    try {
+      const data = JSON.parse(listeningData)
+      if (data.characterId !== chatId) {
+        return { handled: false }
+      }
+      
+      // 更新一起听状态
+      localStorage.setItem('listening_together', JSON.stringify({
+        ...data,
+        songTitle,
+        songArtist,
+        changedAt: Date.now()
+      }))
+      
+      // 触发播放器更新事件
+      window.dispatchEvent(new CustomEvent('change-song', {
+        detail: { songTitle, songArtist }
+      }))
+      
+      // 发送系统消息
+      const systemMsg: Message = {
+        id: Date.now() + Math.random(),
+        type: 'system',
+        content: `${character?.nickname || character?.realName}切换歌曲为《${songTitle}》- ${songArtist}`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      }
+      
+      setMessages(prev => [...prev, systemMsg])
+      
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    } catch (e) {
+      return { handled: false }
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -1286,12 +1384,14 @@ export const commandHandlers: CommandHandler[] = [
   unblockUserHandler,
   changeNicknameHandler,
   changeSignatureHandler,
+  statusHandler,  // AI更新状态
   coupleSpaceInviteHandler,
   coupleSpaceAcceptHandler,
   coupleSpaceRejectHandler,
   musicInviteHandler,  // AI发送一起听邀请
   musicAcceptHandler,  // AI接受一起听
   musicRejectHandler,  // AI拒绝一起听
+  changeSongHandler,  // AI切歌
   coupleSpacePhotoHandler,
   coupleSpaceMessageHandler,
   coupleSpaceAnniversaryHandler,

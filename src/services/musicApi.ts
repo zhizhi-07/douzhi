@@ -55,9 +55,12 @@ export async function searchOnlineMusic(keyword: string, limit: number = 50): Pr
     } else {
       // 生产环境：使用Cloudflare Worker
       console.log('🌐 使用Cloudflare Worker')
-      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/api/music/search`
+      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/search/get/web`
       params = new URLSearchParams({
-        keyword: keyword
+        s: keyword,
+        type: '1',
+        offset: '0',
+        limit: limit.toString()
       })
     }
 
@@ -66,10 +69,12 @@ export async function searchOnlineMusic(keyword: string, limit: number = 50): Pr
     })
 
     if (!response.ok) {
+      console.error('❌ Worker请求失败:', response.status, response.statusText)
       throw new Error('网易云API请求失败')
     }
 
     const data = await response.json()
+    console.log('📦 Worker返回数据:', data)
     
     if (data.result && data.result.songs) {
       console.log('✅ 网易云搜索成功，找到', data.result.songs.length, '首')
@@ -122,9 +127,11 @@ export async function getSongUrl(id: number): Promise<string | null> {
       })
     } else {
       // 生产环境：使用Cloudflare Worker
-      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/api/music/url`
+      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/song/enhance/player/url`
       params = new URLSearchParams({
-        id: id.toString()
+        id: id.toString(),
+        ids: `[${id}]`,
+        br: '320000'
       })
     }
 
@@ -169,9 +176,11 @@ export async function getLyric(id: number): Promise<string | null> {
       })
     } else {
       // 生产环境：使用Cloudflare Worker
-      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/api/music/lyric`
+      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/song/lyric`
       params = new URLSearchParams({
-        id: id.toString()
+        id: id.toString(),
+        lv: '-1',
+        tv: '-1'
       })
     }
 

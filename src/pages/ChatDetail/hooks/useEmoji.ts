@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { Message } from '../../../types/chat'
-import { addMessage } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import type { Emoji } from '../../../utils/emojiStorage'
 
@@ -30,7 +29,7 @@ export const useEmoji = (
       }
     }
     
-    addMessage(chatId, emojiMessage)
+    // 只使用 setMessages，它会自动保存到 IndexedDB
     setMessages(prev => [...prev, emojiMessage])
     
     console.log('📤 发送表情包:', emoji.name, isUserBlocked ? '(被AI拉黑)' : '')

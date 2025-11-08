@@ -148,6 +148,7 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     })
     
     // 🔥 触发消息保存事件，用于通知和未读标记
+    console.log(`🔔 [saveMessages] 触发 chat-message-saved 事件: chatId=${chatId}`)
     window.dispatchEvent(new CustomEvent('chat-message-saved', {
       detail: { chatId }
     }))
@@ -203,6 +204,22 @@ export function updateMessage(chatId: string, updatedMessage: Message): void {
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
 let messageIdCounter = 0
+
+/**
+ * 清空聊天记录
+ */
+export async function clearMessages(chatId: string): Promise<void> {
+  try {
+    // 清空缓存
+    messageCache.delete(chatId)
+    // 删除IndexedDB中的数据
+    await IDB.removeItem(IDB.STORES.MESSAGES, chatId)
+    console.log(`🗑️ 已清空聊天记录: chatId=${chatId}`)
+  } catch (error) {
+    console.error('清空聊天记录失败:', error)
+    throw error
+  }
+}
 
 /**
  * 创建文本消息

@@ -29,7 +29,6 @@ import EmojiManagement from './pages/EmojiManagement'
 import UserProfile from './pages/UserProfile'
 import MusicPlayer from './pages/MusicPlayer'
 import MusicSearch from './pages/MusicSearch'
-import MusicTogetherChat from './pages/MusicTogetherChat'
 import UploadSong from './pages/UploadSong'
 import Customize from './pages/Customize'
 import StatusBarCustomize from './pages/StatusBarCustomize'
@@ -37,6 +36,8 @@ import FontCustomizer from './pages/FontCustomizer'
 import BackgroundCustomizer from './pages/BackgroundCustomizer'
 import SoundCustomizer from './pages/SoundCustomizer'
 import IconCustomizer from './pages/IconCustomizer'
+import GroupChatDetail from './pages/GroupChatDetail'
+import GroupChatSettings from './pages/GroupChatSettings'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 
@@ -115,6 +116,8 @@ function App() {
       <Routes>
       <Route path="/" element={<Desktop />} />
       <Route path="/wechat" element={<ChatList />} />
+      <Route path="/group/:id" element={<GroupChatDetail />} />
+      <Route path="/group/:id/settings" element={<GroupChatSettings />} />
       <Route path="/contacts" element={<Contacts />} />
       <Route path="/discover" element={<Discover />} />
       <Route path="/moments" element={<Moments />} />
@@ -139,7 +142,6 @@ function App() {
       <Route path="/emoji-management" element={<EmojiManagement />} />
       <Route path="/music-player" element={<MusicPlayer />} />
       <Route path="/music-search" element={<MusicSearch />} />
-      <Route path="/music-together-chat" element={<MusicTogetherChat />} />
       <Route path="/upload-song" element={<UploadSong />} />
       <Route path="/customize" element={<Customize />} />
       <Route path="/statusbar-customize" element={<StatusBarCustomize />} />

@@ -313,14 +313,66 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 音乐功能：
 - 想邀请对方一起听歌？用[一起听:歌名:歌手]，比如[一起听:告白气球:周杰伦]
 - 收到用户的一起听邀请？直接说"好啊"/"走起"表示接受，或说"不想听"/"下次吧"表示拒绝
+- 想切换歌曲？用[切歌:歌名:歌手]，比如[切歌:晴天:周杰伦]，会自动搜索并播放
 
-这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
+这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ══════════════════════════════════
 
 基于上面的对话历史，自然地回复${userName}。
 你的回复长短、语气、情绪都由你此刻的状态和心情决定。
 多条消息就用换行分开，每条单独一行。`
+}
+
+/**
+ * 构建一起听音乐上下文
+ */
+const buildListeningTogetherContext = async (character: Character): Promise<string> => {
+  const listeningData = localStorage.getItem('listening_together')
+  if (!listeningData) return ''
+  
+  try {
+    const data = JSON.parse(listeningData)
+    if (data.characterId !== character.id) return ''
+    
+    const userName = localStorage.getItem('userName') || '用户'
+    
+    // 计算一起听了多久
+    const startTime = data.startTime || Date.now()
+    const elapsed = Math.floor((Date.now() - startTime) / 1000)
+    const hours = Math.floor(elapsed / 3600)
+    const minutes = Math.floor((elapsed % 3600) / 60)
+    const seconds = elapsed % 60
+    
+    let durationText = ''
+    if (hours > 0) {
+      durationText = `${hours}小时${minutes}分钟`
+    } else if (minutes > 0) {
+      durationText = `${minutes}分${seconds}秒`
+    } else {
+      durationText = `${seconds}秒`
+    }
+    
+    return `
+
+🎵 当前状态：你正在和${userName}一起听歌
+━━━━━━━━━━━━━━━━━━━━
+正在播放：《${data.songTitle}》
+演唱者：${data.songArtist}
+已经一起听了：${durationText}
+━━━━━━━━━━━━━━━━━━━━
+
+⚠️ 重要提示：
+- 你能真实地听到这首歌，可以根据歌词内容、旋律风格、情感氛围等进行评论
+- 你可以分享对这首歌的感受，讨论歌词含义，或聊聊相关的回忆
+- 如果想换歌，用[切歌:歌名:歌手]，系统会自动搜索并播放
+- 不要假装听不到或说"我听不到"，你是真的在和对方一起听
+- 可以自然地讨论歌曲、哼唱几句、或表达对音乐的感受
+- 时间流逝是真实的，你们已经一起听了${durationText}，可以自然地提及这段共同的时光
+`
+  } catch (e) {
+    return ''
+  }
 }
 
 /**

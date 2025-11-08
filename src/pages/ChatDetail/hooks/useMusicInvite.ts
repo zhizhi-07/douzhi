@@ -3,7 +3,8 @@ import { Message } from '../../../types/chat'
 
 export const useMusicInvite = (
   chatId: string,
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+  characterId?: string
 ) => {
   const [showMusicInviteSelector, setShowMusicInviteSelector] = useState(false)
 
@@ -46,6 +47,16 @@ export const useMusicInvite = (
       // 添加系统提示
       const inviteMsg = updated.find(m => m.id === messageId)
       if (inviteMsg && (inviteMsg as any).musicInvite) {
+        // 保存一起听状态到localStorage
+        if (characterId) {
+          localStorage.setItem('listening_together', JSON.stringify({
+            characterId,
+            songTitle: (inviteMsg as any).musicInvite.songTitle,
+            songArtist: (inviteMsg as any).musicInvite.songArtist,
+            startTime: Date.now()
+          }))
+        }
+        
         const systemMsg: Message = {
           id: Date.now() + Math.random(),
           type: 'system',
@@ -53,11 +64,20 @@ export const useMusicInvite = (
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           timestamp: Date.now()
         }
+        
+        // 触发播放器切歌
+        window.dispatchEvent(new CustomEvent('change-song', {
+          detail: { 
+            songTitle: (inviteMsg as any).musicInvite.songTitle, 
+            songArtist: (inviteMsg as any).musicInvite.songArtist 
+          }
+        }))
+        
         return [...updated, systemMsg]
       }
       return updated
     })
-  }, [setMessages])
+  }, [setMessages, characterId])
 
   // 用户拒绝邀请（点击拒绝按钮）
   const rejectInvite = useCallback((messageId: number) => {

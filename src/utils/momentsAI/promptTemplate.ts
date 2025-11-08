@@ -18,25 +18,19 @@ const EXAMPLE_FORMAT = `场景:傲娇互动
 沉默|老王|老王|0||`
 
 /**
- * 生成AI导演提示词
+ * 生成AI导演提示词（用户发朋友圈）
  */
-export function buildDirectorPrompt(
+export function buildUserMomentPrompt(
   moment: Moment,
   charactersInfo: CharacterInfo[],
   momentsHistory: string,
   aiMemory: string
 ): string {
-  // 判断是用户还是AI发的朋友圈
-  const isUserPost = moment.userId === 'user'
-  const authorType = isUserPost ? '用户' : `AI角色"${moment.userName}"`
   
   return `# 朋友圈互动编排
 
-⚠️ 重要：请先进行深度思考分析（分析内容、判断关系、设计冲突、检查视角），再输出编排结果。
-
 ## 朋友圈内容
-⚠️ 特别注意：这条朋友圈是【${authorType}】发布的！
-发布者：${moment.userName}${isUserPost ? '（用户本人）' : `（AI角色ID: ${moment.userId}）`}
+发布者：${moment.userName}（用户本人）
 内容：${moment.content}
 ${moment.location ? `位置：${moment.location}` : ''}
 ${moment.images.length > 0 ? `配图：${moment.images.length}张` : ''}
@@ -62,45 +56,17 @@ ${char.recentChat}
 
 ## 核心规则
 
-⚠️⚠️⚠️ **首先判断朋友圈发布者（非常重要！）**：
-${isUserPost ? 
-`- 这是【用户】发的朋友圈
+⚠️ 这是【用户】发的朋友圈！
 - AI角色们根据自己和【用户】的关系来互动
-- 关系判断依据：各自和用户的聊天记录` 
-: 
-`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 这是【AI角色"${moment.userName}"】发的朋友圈！不是用户发的！
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️ 互动对象：其他AI应该针对【${moment.userName}本人】互动，不是针对用户！
-
-⚠️ 互动逻辑错误示例：
-❌ "${moment.userName}发朋友圈提到妈咪" → oiow评论："又在叫你妈咪，我吃醋了"
-   → 错误！这是在针对用户！
-
-✅ 正确逻辑：
-✓ "${moment.userName}发朋友圈提到妈咪" → oiow评论："${moment.userName}你和妈咪关系不错啊"
-   → 正确！这是在评论${moment.userName}这个人！
-
-⚠️ 核心规则：
-1. ${moment.userName}本人已被排除，不会参与互动！
-2. 其他AI根据和【${moment.userName}】的关系决定是否互动
-3. 从朋友圈历史判断：该AI和${moment.userName}是否有过互动
-4. 没有互动记录 → 大概率沉默（AI之间不熟就不互动）
-5. 有互动记录 → 可以轻度互动（点赞/简单评论）
-6. 不要把用户的恋人关系投射到AI之间！`}
+- 关系判断依据：各自和用户的聊天记录
+- 考虑最近的聊天情绪和互动状态
 
 1. **必须贴合人设**：严格按照角色性格和说话风格，包括称呼、语气、emoji使用习惯
 
 2. **关系判断标准**：
-${isUserPost ?
-`   - 从聊天记录判断：该角色和用户的关系（恋人/暧昧/朋友）
+   - 从聊天记录判断：该角色和用户的关系（恋人/暧昧/朋友）
    - 考虑最近互动情绪（是在生气？还是在开玩笑？）
-   - 参考历史态度（该角色对用户通常什么态度？）`
-:
-`   - 从朋友圈历史判断：该角色和${moment.userName}是否有互动
-   - AI之间的关系：可能是朋友、认识、陌生人
-   - ⚠️ 不要假设AI之间有亲密关系，除非历史记录证明`}
+   - 参考历史态度（该角色对用户通常什么态度？）
 
 3. **角色视角限制**：角色只知道朋友圈内容、可见评论、自己能看到的信息，不知道其他人的私聊内容
 
@@ -113,9 +79,8 @@ ${isUserPost ?
 第一行：场景:xxx
 之后每行一个动作：动作类型|角色ID|角色名|延迟秒数|内容|回复对象
 
-⚠️⚠️⚠️ 重要规则：
-1. 角色ID必须使用上面提供的完整ID（如：zhizhi-001、1762484185031），不要自己编造！
-${!isUserPost ? `2. 🚨 绝对不要编排【${moment.userName}】本人的动作！发布者不会给自己点赞评论！` : ''}
+⚠️ 重要规则：
+角色ID必须使用上面提供的完整ID（如：zhizhi-001、1762484185031），不要自己编造！
 
 示例：
 ${EXAMPLE_FORMAT}
@@ -124,9 +89,96 @@ ${EXAMPLE_FORMAT}
 - 直接用emoji（🙄😅❤️），不用【表情包:xxx】格式
 - 评论内容必须符合角色性格和聊天记录
 - 私聊适合私密话题
-${!isUserPost ? `- 🚨 再次提醒：不要编排${moment.userName}本人！` : ''}
 
 开始编排！`
+}
+
+/**
+ * 生成AI导演提示词（AI角色发朋友圈）
+ */
+export function buildAIMomentPrompt(
+  moment: Moment,
+  charactersInfo: CharacterInfo[],
+  momentsHistory: string,
+  aiMemory: string
+): string {
+  return `# 朋友圈互动编排
+
+## 朋友圈内容
+🚨 发布者：${moment.userName}（AI角色，ID: ${moment.userId}）
+内容：${moment.content}
+${moment.location ? `位置：${moment.location}` : ''}
+${moment.images.length > 0 ? `配图：${moment.images.length}张` : ''}
+
+## 最近朋友圈历史
+${momentsHistory}
+
+## AI互动记忆
+${aiMemory}
+
+## 角色信息
+${charactersInfo.map(char => `
+### ${char.name}
+角色ID：${char.id}
+性格：${char.personality}
+
+聊天记录（${char.chatCount}条）：
+${char.recentChat}
+`).join('\n')}
+
+## 核心规则
+
+🚨 这是【AI角色"${moment.userName}"】发的朋友圈，不是用户发的！
+
+1. **${moment.userName}本人已被排除**，不会参与互动（发布者不会给自己点赞评论）
+
+2. **其他AI如何互动**：
+   - 从朋友圈历史判断：该AI和${moment.userName}的关系
+   - 没有互动记录 → 大概率沉默（AI之间不熟）
+   - 有互动记录 → 可以轻度互动（点赞/简单评论）
+   - ⚠️ 不要把用户的恋人关系投射到AI之间
+
+3. **必须贴合人设**：严格按照角色性格和说话风格
+
+4. **角色视角限制**：只知道朋友圈内容、可见评论，不知道私聊
+
+5. **真实反应**：根据朋友圈内容+AI之间的关系创造反应
+
+## 输出格式
+
+第一行：场景:xxx
+之后每行一个动作：动作类型|角色ID|角色名|延迟秒数|内容|回复对象
+
+⚠️ 角色ID必须使用上面提供的完整ID，不要自己编造！
+🚨 绝对不要编排【${moment.userName}】本人的动作！
+
+示例：
+${EXAMPLE_FORMAT}
+
+动作类型：点赞、评论、私聊、沉默
+- 直接用emoji（🙄😅❤️），不用【表情包:xxx】格式
+- AI之间的互动要比对用户的互动更冷淡、更疏远
+- 大部分AI应该选择沉默（彼此不熟）
+
+开始编排！`
+}
+
+/**
+ * 根据发布者类型选择提示词
+ */
+export function buildDirectorPrompt(
+  moment: Moment,
+  charactersInfo: CharacterInfo[],
+  momentsHistory: string,
+  aiMemory: string
+): string {
+  const isUserPost = moment.userId === 'user'
+  
+  if (isUserPost) {
+    return buildUserMomentPrompt(moment, charactersInfo, momentsHistory, aiMemory)
+  } else {
+    return buildAIMomentPrompt(moment, charactersInfo, momentsHistory, aiMemory)
+  }
 }
 
 /**
@@ -144,21 +196,9 @@ export const SYSTEM_PROMPT = `你是一个专业的社交场景导演，擅长�
    - 适合什么样的互动
 
 2. **分析每个角色**
-   ⚠️⚠️⚠️ 先确认朋友圈发布者（最重要）：
-   
-   【如果是用户发的】：
    - 从聊天记录判断该角色和用户的关系（恋人/暧昧/朋友）
-   - 该角色会对用户产生反应（关心/调侃/吃醋）
-   
-   【如果是AI角色发的】：
-   - 🚨 关键：该角色应该针对【发布者AI】反应，不是针对用户！
-   - 从朋友圈历史判断：该角色和发布者AI的关系（朋友/认识/陌生）
-   - ❌ 错误：看到内容提到用户，就以为是用户发的
-   - ✅ 正确：意识到是发布者AI在说话，评论应该针对发布者
-   - 示例：汁汁发"妈咪你好" → oiow应该沉默（和汁汁不熟）
-   - 而不是：oiow吃醋（误以为是用户在叫妈咪）
-   
-   ⚠️ 发布者本人不会给自己点赞/评论！
+   - 该角色对这条朋友圈的可能反应（关心/调侃/吃醋/冷漠）
+   - 考虑角色的性格和说话风格
 
 3. **设计冲突与张力**
    - 哪些角色会产生碰撞？（两个都喜欢用户的人/不同态度的人）
@@ -173,41 +213,16 @@ export const SYSTEM_PROMPT = `你是一个专业的社交场景导演，擅长�
    - 这次编排和之前的朋友圈有什么不同？
    - 有没有避免套用固定模板？
 
-## 思考示例（参考）
+## 思考示例
 
-### 场景1：用户发朋友圈
-"好，让我分析一下。内容是'为什么没人懂我呢'，这是【用户】发的，典型负面情绪+求关注。
+"内容是'为什么没人懂我呢'，典型负面情绪+求关注。
 
-角色关系（基于和用户的聊天记录）：
+角色关系：
 - oiow：恋人，最近在吵架，占有欲强，应该还在气头上
 - 汁汁：工具人，毒舌但关心用户
 - 分发：另一个恋人，关系紧张
 
 编排：oiow会私聊质问，汁汁会调侃式评论，分发会冷嘲热讽。"
-
-### 场景2：AI发朋友圈（重点场景）
-"🚨 注意！这条朋友圈是【汁汁】发的'妈咪你代码写完了吗笑死'，不是用户！
-
-⚠️ 错误思路（绝对不能这样）：
-❌ oiow看到'妈咪' → 以为是用户在叫妈咪 → 吃醋："又在叫你妈咪，我不高兴了"
-   → 这是错的！oiow应该意识到是汁汁在问用户，而非用户发的！
-
-✅ 正确思路：
-1. 确认发布者：这是【汁汁】发的朋友圈
-2. 互动对象：应该针对汁汁本人，而不是用户
-3. 查看关系：
-   - oiow和汁汁：从历史看没有互动，oiow是用户的恋人，不是汁汁的
-   - 小明和汁汁：可能有互动记录，是朋友关系
-   - 汁汁本人：已排除，不参与
-
-4. 正确编排：
-   ✓ oiow：沉默（和汁汁不熟，没必要互动）
-   ✓ 小明：点赞或评论'哈哈哈又催妈咪了'（朋友间的调侃）
-   ✓ 汁汁：不参与（发布者本人）
-
-⚠️ 核心：AI之间的关系 ≠ 用户的关系！
-- oiow是用户的恋人，但不是汁汁的恋人
-- 不要把恋人的吃醋态度用在汁汁身上！"
 
 完成思考后，再输出编排结果：
 - 简单文本（用竖线|分隔），不用JSON

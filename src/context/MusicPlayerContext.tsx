@@ -61,10 +61,93 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
       })
     }
 
+    // 监听全局切歌事件
+    const handleChangeSong = async (e: Event) => {
+      const { songTitle, songArtist } = (e as CustomEvent).detail
+      console.log('🎵 [全局] 收到切歌请求:', songTitle, songArtist)
+      
+      // 查找本地音乐库中是否有这首歌
+      const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
+      const foundSong = customSongs.find((song: Song) => 
+        song.title === songTitle && song.artist === songArtist
+      )
+      
+      if (foundSong) {
+        // 找到了，直接播放
+        const index = customSongs.indexOf(foundSong)
+        setPlaylistState(customSongs)
+        setCurrentSong(foundSong, index)
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.play().then(() => {
+              setIsPlaying(true)
+              console.log('✅ 已切换到:', songTitle)
+            })
+          }
+        }, 100)
+      } else {
+        console.log('⚠️ 本地未找到歌曲，自动搜索:', songTitle, songArtist)
+        // 没找到，自动搜索并播放
+        try {
+          const { searchOnlineMusic, getSongUrl } = await import('../services/musicApi')
+          console.log('🔍 开始搜索:', `${songTitle} ${songArtist}`)
+          const results = await searchOnlineMusic(`${songTitle} ${songArtist}`)
+          console.log('🔍 搜索结果:', results)
+          
+          if (results && results.length > 0) {
+            const song = results[0]
+            console.log('📀 获取第一首歌曲:', song.name, song.artists)
+            const audioUrl = await getSongUrl(song.id)
+            console.log('🎵 获取播放链接:', audioUrl)
+            
+            const newSong: Song = {
+              id: song.id,
+              title: song.name,
+              artist: song.artists,
+              album: song.album || '',
+              duration: song.duration,
+              cover: song.cover,
+              audioUrl: audioUrl || undefined
+            }
+            
+            console.log('💾 保存到本地音乐库:', newSong)
+            // 添加到本地音乐库
+            customSongs.push(newSong)
+            localStorage.setItem('customSongs', JSON.stringify(customSongs))
+            
+            // 播放
+            console.log('🎶 准备播放...')
+            setPlaylistState(customSongs)
+            setCurrentSong(newSong, customSongs.length - 1)
+            setTimeout(() => {
+              if (audioRef.current && audioUrl) {
+                console.log('▶️ 开始播放:', audioUrl)
+                audioRef.current.play().then(() => {
+                  setIsPlaying(true)
+                  console.log('✅ 播放成功:', songTitle)
+                }).catch(err => {
+                  console.error('❌ 播放失败:', err)
+                })
+              } else {
+                console.error('❌ audioRef或audioUrl不存在', { audioRef: !!audioRef.current, audioUrl })
+              }
+            }, 100)
+          } else {
+            console.log('❌ 未找到歌曲，搜索结果为空')
+          }
+        } catch (error) {
+          console.error('❌ 搜索失败:', error)
+        }
+      }
+    }
+    
+    window.addEventListener('change-song', handleChangeSong)
+
     return () => {
       if (audioRef.current) {
         audioRef.current.pause()
       }
+      window.removeEventListener('change-song', handleChangeSong)
     }
   }, [])
 

@@ -69,7 +69,7 @@ const ChatDetail = () => {
   
   const coupleSpace = useCoupleSpace(id, chatState.character, chatState.setMessages)
   const modals = useModals()
-  const musicInvite = useMusicInvite(id || '', chatState.setMessages)
+  const musicInvite = useMusicInvite(id || '', chatState.setMessages, id)
   const emoji = useEmoji(id || '', chatState.setMessages)
   const forward = useForward(id || '', chatState.setMessages)
   
@@ -251,20 +251,27 @@ const ChatDetail = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-gray-900 transition-all duration-300">
-            {chatAI.isAiTyping ? (
-              <span className="flex items-center gap-2">
-                正在输入
-                <span className="typing-indicator flex gap-1">
-                  <span className="dot-pulse bg-gray-600"></span>
-                  <span className="dot-pulse bg-gray-600"></span>
-                  <span className="dot-pulse bg-gray-600"></span>
+          <div className="flex flex-col items-center">
+            <h1 className="text-lg font-semibold text-gray-900 transition-all duration-300">
+              {chatAI.isAiTyping ? (
+                <span className="flex items-center gap-2">
+                  正在输入
+                  <span className="typing-indicator flex gap-1">
+                    <span className="dot-pulse bg-gray-600"></span>
+                    <span className="dot-pulse bg-gray-600"></span>
+                    <span className="dot-pulse bg-gray-600"></span>
+                  </span>
                 </span>
-              </span>
-            ) : (
-              character.nickname || character.realName
+              ) : (
+                character.nickname || character.realName
+              )}
+            </h1>
+            {!chatAI.isAiTyping && (character as any).currentActivity && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {(character as any).currentActivity}
+              </p>
             )}
-          </h1>
+          </div>
           <button 
             onClick={() => navigate(`/chat/${id}/settings`)}
             className="text-gray-700 btn-press-fast touch-ripple-effect -mr-2 p-2 rounded-full"

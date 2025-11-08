@@ -4,6 +4,7 @@ import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
 import { loadMessages } from '../utils/simpleMessageManager'
 import { getUnreadCount } from '../utils/simpleNotificationManager'
+import { groupChatManager } from '../utils/groupChatManager'
 
 interface Chat {
   id: string
@@ -13,6 +14,7 @@ interface Chat {
   lastMessage: string
   time: string
   unread?: number
+  isGroup?: boolean
 }
 
 const CHAT_LIST_KEY = 'chat_list'
@@ -21,6 +23,10 @@ const ChatList = () => {
   const navigate = useNavigate()
   const [chats, setChats] = useState<Chat[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showGroupModal, setShowGroupModal] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [groupAvatar, setGroupAvatar] = useState('')
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
   const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
 
@@ -93,12 +99,54 @@ const ChatList = () => {
 
   // 统一的聊天列表刷新函数
   const refreshChatList = useCallback(() => {
+    // 加载单聊
     const savedChats = localStorage.getItem(CHAT_LIST_KEY)
+    let chatList: Chat[] = []
     if (savedChats) {
-      const chatList = JSON.parse(savedChats)
-      const updatedChats = updateChatsWithLatestMessages(chatList)
-      setChats(updatedChats)
+      chatList = JSON.parse(savedChats)
+      chatList = updateChatsWithLatestMessages(chatList)
     }
+    
+    // 加载群聊
+    const groups = groupChatManager.getAllGroups()
+    
+    // 去重群聊（基于ID）
+    const uniqueGroups = groups.filter((group, index, self) => 
+      index === self.findIndex(g => g.id === group.id)
+    )
+    
+    const groupChats: Chat[] = uniqueGroups.map(group => ({
+      id: group.id,
+      characterId: group.id,
+      name: group.name,
+      avatar: group.avatar || '',
+      lastMessage: group.lastMessage || '开始聊天吧',
+      time: group.lastMessageTime || '',
+      isGroup: true
+    }))
+    
+    // 合并并去重（基于ID）
+    const allChats = [...chatList, ...groupChats]
+    const uniqueChats = allChats.filter((chat, index, self) => 
+      index === self.findIndex(c => c.id === chat.id)
+    )
+    
+    // 按时间排序：最新的在最上面
+    uniqueChats.sort((a, b) => {
+      const timeA = a.time || ''
+      const timeB = b.time || ''
+      
+      // 如果时间格式是 HH:MM，转换为分钟数比较
+      const parseTime = (timeStr: string) => {
+        if (!timeStr) return 0
+        const [hours, minutes] = timeStr.split(':').map(Number)
+        return (hours || 0) * 60 + (minutes || 0)
+      }
+      
+      return parseTime(timeB) - parseTime(timeA)
+    })
+    
+    setChats(uniqueChats)
   }, [updateChatsWithLatestMessages])
 
   // 加载聊天列表
@@ -115,10 +163,12 @@ const ChatList = () => {
 
     window.addEventListener('unread-updated', handleUnreadUpdate)
     window.addEventListener('new-message', handleUnreadUpdate)
+    window.addEventListener('storage', handleUnreadUpdate)
     
     return () => {
       window.removeEventListener('unread-updated', handleUnreadUpdate)
       window.removeEventListener('new-message', handleUnreadUpdate)
+      window.removeEventListener('storage', handleUnreadUpdate)
     }
   }, [refreshChatList])
 
@@ -197,9 +247,15 @@ const ChatList = () => {
           </button>
           <h1 className="text-lg font-semibold text-gray-900">微信</h1>
           <div className="flex items-center gap-3">
-            <button className="text-gray-700">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <button 
+              onClick={() => {
+                loadCharacters()
+                setShowGroupModal(true)
+              }}
+              className="text-gray-700 active:scale-95 transition-transform"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
               </svg>
             </button>
             <button 
@@ -207,7 +263,7 @@ const ChatList = () => {
                 loadCharacters()
                 setShowAddModal(true)
               }}
-              className="text-gray-700"
+              className="text-gray-700 active:scale-95 transition-transform"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -231,13 +287,17 @@ const ChatList = () => {
           chats.map((chat, index) => (
             <div
               key={chat.id}
-              onClick={() => navigate(`/chat/${chat.id}`)}
+              onClick={() => navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)}
               className="flex items-center px-5 py-4 glass-card mb-2 mx-3 rounded-2xl cursor-pointer active:scale-[0.98] transition-transform list-item-enter"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               {/* 头像 */}
               <div className="w-14 h-14 rounded-2xl bg-gray-200 flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden">
-                <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                {chat.avatar ? (
+                  <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-2xl">{chat.isGroup ? '👥' : '👤'}</div>
+                )}
               </div>
 
               {/* 消息内容 */}
@@ -348,6 +408,140 @@ const ChatList = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 创建群聊弹窗 */}
+      {showGroupModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => {
+              setShowGroupModal(false)
+              setGroupName('')
+              setGroupAvatar('')
+              setSelectedMembers(new Set())
+            }}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
+            <div className="glass-card rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">创建群聊</h2>
+                <button
+                  onClick={() => {
+                    setShowGroupModal(false)
+                    setGroupName('')
+                    setGroupAvatar('')
+                    setSelectedMembers(new Set())
+                  }}
+                  className="text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* 群名称 */}
+              <div className="mb-4">
+                <label className="text-sm text-gray-600 mb-2 block">群名称</label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="请输入群名称"
+                  className="w-full px-3 py-2 bg-gray-100 rounded-lg focus:outline-none"
+                />
+              </div>
+
+              {/* 群头像 */}
+              <div className="mb-4">
+                <label className="text-sm text-gray-600 mb-2 block">群头像（可选）</label>
+                <input
+                  type="text"
+                  value={groupAvatar}
+                  onChange={(e) => setGroupAvatar(e.target.value)}
+                  placeholder="输入头像URL"
+                  className="w-full px-3 py-2 bg-gray-100 rounded-lg focus:outline-none"
+                />
+              </div>
+
+              {/* 选择成员 */}
+              <div className="mb-4">
+                <label className="text-sm text-gray-600 mb-2 block">选择成员 ({selectedMembers.size})</label>
+                <div className="space-y-2">
+                  {availableCharacters.map(char => {
+                    const isSelected = selectedMembers.has(char.id)
+                    return (
+                      <div
+                        key={char.id}
+                        onClick={() => {
+                          const newSet = new Set(selectedMembers)
+                          if (isSelected) {
+                            newSet.delete(char.id)
+                          } else {
+                            newSet.add(char.id)
+                          }
+                          setSelectedMembers(newSet)
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                          isSelected ? 'bg-green-50' : 'bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-lg bg-gray-200 overflow-hidden">
+                            {char.avatar && (
+                              <img src={char.avatar} alt="" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                          <span className="text-sm">{char.nickname || char.realName}</span>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                          isSelected ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                        }`}>
+                          {isSelected && (
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 创建按钮 */}
+              <button
+                onClick={() => {
+                  if (!groupName.trim()) {
+                    alert('请输入群名称')
+                    return
+                  }
+                  if (selectedMembers.size < 2) {
+                    alert('请至少选择2个成员')
+                    return
+                  }
+                  const group = groupChatManager.createGroup(groupName, ['user', ...Array.from(selectedMembers)])
+                  if (groupAvatar) {
+                    groupChatManager.updateGroup(group.id, { avatar: groupAvatar })
+                  }
+                  setShowGroupModal(false)
+                  setGroupName('')
+                  setGroupAvatar('')
+                  setSelectedMembers(new Set())
+                  refreshChatList()
+                  navigate(`/group/${group.id}`)
+                }}
+                disabled={!groupName.trim() || selectedMembers.size < 2}
+                className={`w-full py-3 rounded-lg font-medium transition-all ${
+                  groupName.trim() && selectedMembers.size >= 2
+                    ? 'bg-green-500 text-white active:scale-95'
+                    : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                创建群聊
+              </button>
             </div>
           </div>
         </>

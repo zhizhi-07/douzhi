@@ -15,18 +15,22 @@ const GlobalMessageMonitor = () => {
   const lastMessageIdsRef = useRef<Record<string, number>>({})
   
   useEffect(() => {
+    console.log('🚀 [GlobalMessageMonitor] ===== 开始初始化 =====')
+    
     // 从 localStorage 加载已通知的消息ID
     try {
       const saved = localStorage.getItem(NOTIFIED_MESSAGES_KEY)
       if (saved) {
         lastMessageIdsRef.current = JSON.parse(saved)
       }
+      console.log('📋 [GlobalMessageMonitor] 已加载通知记录:', Object.keys(lastMessageIdsRef.current).length, '个聊天')
     } catch (e) {
-      console.error('加载已通知消息记录失败:', e)
+      console.error('❌ [GlobalMessageMonitor] 加载已通知消息记录失败:', e)
     }
     
     // 初始化：记录所有现有消息的最后ID
     const allCharacters = characterService.getAll()
+    console.log('👥 [GlobalMessageMonitor] 找到', allCharacters.length, '个角色')
     allCharacters.forEach(character => {
       const messages = loadMessages(character.id)
       if (messages.length > 0) {
@@ -40,11 +44,13 @@ const GlobalMessageMonitor = () => {
     
     // 保存初始化后的记录
     localStorage.setItem(NOTIFIED_MESSAGES_KEY, JSON.stringify(lastMessageIdsRef.current))
-    console.log('🔍 全局消息监听器已初始化')
+    console.log('✅ [GlobalMessageMonitor] 全局消息监听器已初始化')
+    console.log('🎧 [GlobalMessageMonitor] 开始监听 chat-message-saved 事件')
     
     // 监听消息保存事件（立即响应）
     const handleMessageSaved = (event: CustomEvent) => {
       const { chatId } = event.detail
+      console.log(`🔔 [GlobalMessageMonitor] ===== 开始处理消息保存事件 =====`)
       console.log(`🔔 [GlobalMessageMonitor] 监听到消息保存事件: chatId=${chatId}`)
       
       const messages = loadMessages(chatId)
@@ -120,9 +126,11 @@ const GlobalMessageMonitor = () => {
       }
     }
     
+    console.log('➕ [GlobalMessageMonitor] 添加事件监听器: chat-message-saved')
     window.addEventListener('chat-message-saved', handleMessageSaved as EventListener)
     
     return () => {
+      console.log('➖ [GlobalMessageMonitor] 移除事件监听器: chat-message-saved')
       window.removeEventListener('chat-message-saved', handleMessageSaved as EventListener)
     }
   }, [])

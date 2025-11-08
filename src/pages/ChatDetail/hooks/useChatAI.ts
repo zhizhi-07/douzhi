@@ -27,6 +27,7 @@ import { parseMomentsInteractions, executeMomentsInteractions } from '../../../u
 import { parseAIMomentsPost, executeAIMomentsPost } from '../../../utils/aiMomentsPostParser'
 import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
 import { loadMoments } from '../../../utils/momentsManager'
+import { playMessageSendSound, playMessageNotifySound } from '../../../utils/soundManager'
 
 export const useChatAI = (
   chatId: string,
@@ -92,6 +93,9 @@ export const useChatAI = (
       setMessages(prev => [...prev, userMessage])
       setInputValue('')
       if (clearQuote) clearQuote()
+      
+      // 播放发送音效
+      playMessageSendSound()
       
       // 延迟滚动和重置发送状态
       sendTimeoutRef.current = setTimeout(() => {
@@ -400,6 +404,9 @@ export const useChatAI = (
           setMessages(prev => [...prev, aiMessage])
           console.log(`💾 [useChatAI] AI消息已保存`)
           
+          // 播放消息通知音效
+          playMessageNotifySound()
+          
           pendingQuotedMsg = undefined // 引用已使用，清除
           
         } else if (quotedMsg && !messageContent.trim()) {
@@ -429,14 +436,31 @@ export const useChatAI = (
    */
   const handleRegenerate = useCallback(() => {
     setMessages(prev => {
+      // 从后往前找到最后一条AI消息
       const lastAIIndex = [...prev].reverse().findIndex(msg => msg.type === 'received')
       if (lastAIIndex === -1) {
         setError('没有可重新生成的AI回复')
         return prev
       }
       
-      const actualIndex = prev.length - 1 - lastAIIndex
-      return prev.slice(0, actualIndex)
+      const actualLastAIIndex = prev.length - 1 - lastAIIndex
+      
+      // 从最后一条AI消息往前找，删除这一轮AI的所有消息
+      // 直到遇到用户消息或到达消息开头
+      let deleteFromIndex = actualLastAIIndex
+      for (let i = actualLastAIIndex - 1; i >= 0; i--) {
+        if (prev[i].type === 'sent') {
+          // 遇到用户消息，停止
+          break
+        }
+        if (prev[i].type === 'received') {
+          // 是AI消息，继续往前删除
+          deleteFromIndex = i
+        }
+      }
+      
+      console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${prev.length - 1} 的消息`)
+      return prev.slice(0, deleteFromIndex)
     })
     
     setTimeout(() => {

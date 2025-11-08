@@ -80,6 +80,7 @@ export interface Character {
   avatar?: string
   personality?: string  // 人设描述/性格
   world?: string        // 世界观
+  currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
 }
 
 export interface ApiSettings {

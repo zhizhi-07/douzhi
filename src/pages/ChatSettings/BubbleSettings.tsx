@@ -109,7 +109,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
   }
 
   return (
-    <div className="glass-effect rounded-3xl border border-white/50 shadow-xl overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden">
       {/* 标题栏（可点击折叠/展开） */}
       <div 
         className="p-4 cursor-pointer active:bg-gray-50 transition-colors flex items-center justify-between"
@@ -212,7 +212,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       {/* 应用按钮 */}
       <button
         onClick={saveBubbleColors}
-        className="w-full py-2.5 bg-pink-400 text-white rounded-xl active:scale-95 transition-all"
+        className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl active:scale-95 transition-all"
       >
         应用
       </button>
