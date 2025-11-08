@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { MusicIcon, HeartIcon, PlayIcon, PauseIcon, SkipForwardIcon } from './Icons'
 
 interface MusicPlayerCardProps {
@@ -19,10 +20,24 @@ const MusicPlayerCard: React.FC<MusicPlayerCardProps> = ({
   onNext,
   onClick
 }) => {
+  // 音乐背景
+  const [musicBg, setMusicBg] = useState(() => {
+    return localStorage.getItem('music_background') || ''
+  })
+  
+  // 监听背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => {
+      setMusicBg(localStorage.getItem('music_background') || '')
+    }
+    window.addEventListener('musicBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('musicBackgroundUpdate', handleBgUpdate)
+  }, [])
   if (!currentSong) {
     return (
       <div 
-        className="glass-card rounded-3xl p-4 shadow-lg border border-white/30 relative overflow-visible cursor-pointer mb-4 ios-button"
+        className="glass-card rounded-3xl p-4 shadow-lg border border-white/30 relative overflow-visible cursor-pointer mb-4 ios-button bg-cover bg-center"
+        style={musicBg ? { backgroundImage: `url(${musicBg})` } : {}}
         onClick={onClick}
       >
         <div className="flex items-center justify-center h-32 text-gray-400">
@@ -37,7 +52,8 @@ const MusicPlayerCard: React.FC<MusicPlayerCardProps> = ({
 
   return (
     <div 
-      className="glass-card rounded-3xl p-4 shadow-lg border border-white/30 relative overflow-visible cursor-pointer mb-4 ios-button"
+      className="glass-card rounded-3xl p-4 shadow-lg border border-white/30 relative overflow-visible cursor-pointer mb-4 ios-button bg-cover bg-center"
+      style={musicBg ? { backgroundImage: `url(${musicBg})` } : {}}
       onClick={onClick}
     >
       <div className="flex items-center gap-4">

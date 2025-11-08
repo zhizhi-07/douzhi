@@ -40,11 +40,11 @@ export const page1Apps: AppItem[] = [
     route: '/music-player' 
   },
   { 
-    id: 'settings', 
-    name: '系统设置', 
+    id: 'customize', 
+    name: '美化', 
     icon: SettingsIcon, 
     color: 'glass-card', 
-    route: '/settings' 
+    route: '/customize' 
   },
 ]
 

@@ -13,11 +13,11 @@ import {
 } from '../../../utils/chatApi'
 import {
   createMessage,
-  convertToApiMessages,
   getRecentMessages,
-  parseAIMessages
+  parseAIMessages,
+  convertToApiMessages
 } from '../../../utils/messageUtils'
-import { loadMessages, addMessage } from '../../../utils/simpleMessageManager'
+import { loadMessages } from '../../../utils/simpleMessageManager'
 import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
 import { commandHandlers } from './commandHandlers'
@@ -88,11 +88,7 @@ export const useChatAI = (
       
       console.log('📤 发送消息:', inputValue.substring(0, 20), isUserBlocked ? '(被AI拉黑)' : '')
       
-      // 立即保存到localStorage
-      addMessage(chatId, userMessage)
-      console.log(`💾 [useChatAI] 用户消息已保存`)
-      
-      // 更新React状态
+      // 更新React状态（setMessages会自动保存到IndexedDB）
       setMessages(prev => [...prev, userMessage])
       setInputValue('')
       if (clearQuote) clearQuote()
@@ -234,12 +230,9 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 保存到localStorage
-          addMessage(chatId, systemMessage)
-          console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
-          
-          // 更新React状态
+          // 更新React状态（setMessages会自动保存）
           setMessages(prev => [...prev, systemMessage])
+          console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
           
           // 调用朋友圈导演系统，让其他AI根据内容进行互动
           // 获取刚发布的朋友圈对象
@@ -291,12 +284,9 @@ export const useChatAI = (
             // 延迟300ms后添加系统消息
             await new Promise(resolve => setTimeout(resolve, 300))
             
-            // 保存到localStorage
-            addMessage(chatId, systemMessage)
-            console.log(`💾 [朋友圈互动] 系统消息已保存: ${systemContent}`)
-            
-            // 更新React状态
+            // 更新React状态（setMessages会自动保存）
             setMessages(prev => [...prev, systemMessage])
+            console.log(`💾 [朋友圈互动] 系统消息已保存: ${systemContent}`)
             
             // 显示通知弹窗
             showNotification(
@@ -406,12 +396,9 @@ export const useChatAI = (
           
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 立即保存到localStorage
-          addMessage(chatId, aiMessage)
-          console.log(`💾 [useChatAI] AI消息已保存`)
-          
-          // 更新React状态（用于UI显示）
+          // 更新React状态（setMessages会自动保存）
           setMessages(prev => [...prev, aiMessage])
+          console.log(`💾 [useChatAI] AI消息已保存`)
           
           pendingQuotedMsg = undefined // 引用已使用，清除
           

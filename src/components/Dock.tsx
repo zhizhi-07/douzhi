@@ -9,7 +9,16 @@ interface DockProps {
 const Dock: React.FC<DockProps> = ({ apps, onAppClick }) => {
   return (
     <div className="pb-6 px-4">
-      <div className="glass-effect rounded-3xl p-3 shadow-xl border border-white/30">
+      <div 
+        className="rounded-3xl p-3"
+        style={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.18)'
+        }}
+      >
         <div className="grid grid-cols-3 gap-3">
           {apps.map((app) => {
             const isImageIcon = typeof app.icon === 'string'

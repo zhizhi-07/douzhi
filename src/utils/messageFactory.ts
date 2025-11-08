@@ -5,6 +5,9 @@
 
 import type { Message } from '../types/chat'
 
+// 全局计数器，确保同一毫秒内生成的ID也是唯一的
+let messageIdCounter = 0
+
 /**
  * 基础消息配置
  */
@@ -25,17 +28,19 @@ interface SystemMessageConfig extends BaseMessageConfig {
  */
 export const createSystemMessage = (config: SystemMessageConfig | string): Message => {
   const content = typeof config === 'string' ? config : config.content
-  const messageConfig = typeof config === 'string' ? {} : config
+  const messageConfig: BaseMessageConfig = typeof config === 'string' ? {} : config
   
+  const now = messageConfig.timestamp || Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: messageConfig.timestamp || Date.now(),
+    id: uniqueId,
     type: messageConfig.type || 'system',
     content,
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: messageConfig.timestamp || Date.now(),
+    timestamp: now,
     messageType: 'system'
   }
 }
@@ -56,15 +61,17 @@ export const createTransferMessage = (
     ? `[使用${options.intimatePayCharacterName}的亲密付转账¥${amount.toFixed(2)}${message ? `，备注：${message}` : ''}]`
     : ''
 
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type,
     content,
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'transfer',
     transfer: {
       amount,
@@ -84,15 +91,17 @@ export const createIntimatePayMessage = (
   characterName: string,
   type: 'sent' | 'received'
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type,
     content: `[亲密付:${monthlyLimit}]`,
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'intimatePay',
     intimatePay: {
       monthlyLimit,
@@ -109,15 +118,17 @@ export const createVoiceMessage = (
   voiceText: string,
   type: 'sent' | 'received' = 'received'
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type,
     content: '',
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'voice',
     voiceText
   }
@@ -130,15 +141,17 @@ export const createLocationMessage = (
   location: { name: string; address: string; lat: number; lng: number },
   type: 'sent' | 'received' = 'received'
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type,
     content: '',
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'location',
     location
   }
@@ -151,15 +164,17 @@ export const createPhotoMessage = (
   description: string,
   type: 'sent' | 'received' = 'received'
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type,
     content: '',
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'photo',
     photoDescription: description
   }
@@ -172,15 +187,17 @@ export const createVideoCallRecordMessage = (
   duration: number,
   messages: any[]
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type: 'system',
     content: `视频通话 ${Math.floor(duration / 60)}分${duration % 60}秒`,
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit'
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'video-call-record',
     videoCallRecord: {
       duration,
@@ -196,15 +213,17 @@ export const createCoupleSpaceInviteMessage = (
   senderName: string,
   senderAvatar?: string
 ): Message => {
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: Date.now(),
+    id: uniqueId,
     type: 'received',
     content: '',
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'text',
     coupleSpaceInvite: {
       status: 'pending',

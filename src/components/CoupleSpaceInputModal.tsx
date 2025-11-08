@@ -81,15 +81,15 @@ const CoupleSpaceInputModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/50" />
       
       <div 
-        className="relative w-full max-w-sm glass-card rounded-3xl p-6 shadow-2xl border border-white/20"
+        className="relative w-full max-w-sm bg-white rounded-2xl p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="text-gray-700">{currentConfig.icon}</div>
-          <h3 className="text-xl font-bold text-gray-900">{currentConfig.title}</h3>
+          <div className="text-gray-600">{currentConfig.icon}</div>
+          <h3 className="text-lg font-semibold text-gray-900">{currentConfig.title}</h3>
         </div>
         
         {type === 'anniversary' ? (
@@ -142,16 +142,16 @@ const CoupleSpaceInputModal = ({
           </>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-3 rounded-2xl glass-card border border-white/30 text-gray-700 font-medium hover:scale-[0.98] active:scale-[0.95] transition-all"
+            className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors"
           >
             取消
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-pink-400 to-purple-400 text-white font-semibold hover:scale-[0.98] active:scale-[0.95] transition-all"
+            className="flex-1 py-2.5 rounded-xl bg-pink-500 text-white text-sm font-medium hover:bg-pink-600 active:bg-pink-700 transition-colors"
           >
             确定
           </button>

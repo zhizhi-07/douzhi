@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
+import DynamicIsland from './components/DynamicIsland'
+import { useMusicPlayer } from './context/MusicPlayerContext'
+import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -24,15 +27,67 @@ import Moments from './pages/Moments'
 import PublishMoment from './pages/PublishMoment'
 import EmojiManagement from './pages/EmojiManagement'
 import UserProfile from './pages/UserProfile'
+import MusicPlayer from './pages/MusicPlayer'
+import MusicSearch from './pages/MusicSearch'
+import MusicTogetherChat from './pages/MusicTogetherChat'
+import UploadSong from './pages/UploadSong'
+import Customize from './pages/Customize'
+import StatusBarCustomize from './pages/StatusBarCustomize'
+import FontCustomizer from './pages/FontCustomizer'
+import BackgroundCustomizer from './pages/BackgroundCustomizer'
+import SoundCustomizer from './pages/SoundCustomizer'
+import IconCustomizer from './pages/IconCustomizer'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
-import { autoMigrate } from './utils/migrateStorage'
+import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 
 function App() {
   const location = useLocation()
+  const musicPlayer = useMusicPlayer()
   
-  // 应用启动时自动迁移数据
+  // 🔥 后台静默迁移（不阻塞UI）
   useEffect(() => {
-    autoMigrate()
+    if (needsMigration()) {
+      console.log('🚀 开始后台迁移数据到IndexedDB...')
+      migrateAllData().then(() => {
+        console.log('✅ 数据迁移完成')
+      }).catch(err => {
+        console.error('❌ 迁移失败:', err)
+      })
+    }
+  }, [])
+  
+  // 🎨 加载自定义字体
+  useEffect(() => {
+    const customFont = localStorage.getItem('custom_font')
+    if (customFont) {
+      try {
+        const fontConfig = JSON.parse(customFont)
+        if (fontConfig.url) {
+          // 判断是CSS链接还是字体文件
+          if (fontConfig.url.includes('.css') || fontConfig.url.includes('fonts.googleapis.com')) {
+            const link = document.createElement('link')
+            link.rel = 'stylesheet'
+            link.href = fontConfig.url
+            document.head.appendChild(link)
+          } else {
+            const style = document.createElement('style')
+            style.textContent = `
+              @font-face {
+                font-family: '${fontConfig.name}';
+                src: url('${fontConfig.url}');
+              }
+            `
+            document.head.appendChild(style)
+          }
+          // 延迟应用字体，等待加载
+          setTimeout(() => {
+            document.body.style.fontFamily = fontConfig.family
+          }, 100)
+        }
+      } catch (err) {
+        console.error('❌ 加载字体失败:', err)
+      }
+    }
   }, [])
   
   // 路由切换时滚动到顶部
@@ -42,7 +97,21 @@ function App() {
 
   return (
     <>
+      {/* 全局灵动岛 */}
+      {musicPlayer.currentSong && musicPlayer.currentSong.id !== 0 && location.pathname !== '/music-player' && (
+        <DynamicIsland
+          isPlaying={musicPlayer.isPlaying}
+          currentSong={musicPlayer.currentSong}
+          onPlayPause={musicPlayer.togglePlay}
+          onNext={musicPlayer.next}
+          onPrevious={musicPlayer.previous}
+          currentTime={musicPlayer.currentTime}
+          duration={musicPlayer.duration || musicPlayer.currentSong.duration}
+        />
+      )}
+      
       <SimpleNotificationListener />
+      <GlobalMessageMonitor />
       <Routes>
       <Route path="/" element={<Desktop />} />
       <Route path="/wechat" element={<ChatList />} />
@@ -68,6 +137,16 @@ function App() {
       <Route path="/wallet/cards" element={<WalletCards />} />
       <Route path="/wallet/intimate-pay/:characterId" element={<IntimatePayDetail />} />
       <Route path="/emoji-management" element={<EmojiManagement />} />
+      <Route path="/music-player" element={<MusicPlayer />} />
+      <Route path="/music-search" element={<MusicSearch />} />
+      <Route path="/music-together-chat" element={<MusicTogetherChat />} />
+      <Route path="/upload-song" element={<UploadSong />} />
+      <Route path="/customize" element={<Customize />} />
+      <Route path="/statusbar-customize" element={<StatusBarCustomize />} />
+      <Route path="/font-customizer" element={<FontCustomizer />} />
+      <Route path="/background-customizer" element={<BackgroundCustomizer />} />
+      <Route path="/sound-customizer" element={<SoundCustomizer />} />
+      <Route path="/icon-customizer" element={<IconCustomizer />} />
     </Routes>
     </>
   )

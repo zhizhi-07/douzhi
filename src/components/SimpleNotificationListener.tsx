@@ -65,6 +65,22 @@ export default function SimpleNotificationListener() {
 
       console.log(`📬 新消息通知: ${character.nickname || character.realName}`)
     }
+    
+    // 🔥 监听后台消息事件（由 GlobalMessageMonitor 触发）
+    const handleBackgroundMessage = (event: CustomEvent) => {
+      const { title, message, chatId, avatar } = event.detail
+      
+      // 显示通知
+      setNotification({
+        title,
+        message,
+        chatId,
+        avatar
+      })
+      setShowNotification(true)
+      
+      console.log(`📬 后台消息通知: ${title}`)
+    }
 
     // 监听视频通话事件
     const handleIncomingVideoCall = (event: CustomEvent) => {
@@ -84,10 +100,12 @@ export default function SimpleNotificationListener() {
     }
 
     window.addEventListener('new-message', handleNewMessage as EventListener)
+    window.addEventListener('background-chat-message', handleBackgroundMessage as EventListener)
     window.addEventListener('incoming-video-call', handleIncomingVideoCall as EventListener)
 
     return () => {
       window.removeEventListener('new-message', handleNewMessage as EventListener)
+      window.removeEventListener('background-chat-message', handleBackgroundMessage as EventListener)
       window.removeEventListener('incoming-video-call', handleIncomingVideoCall as EventListener)
     }
   }, [])

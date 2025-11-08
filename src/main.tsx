@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { MusicPlayerProvider } from './context/MusicPlayerContext'
 import './index.css'
 import './styles/animations.css'
 import './styles/bubble-default.css'
@@ -12,6 +13,8 @@ const root = ReactDOM.createRoot(document.getElementById('root')!)
 // 临时移除StrictMode排查消息保存问题
 root.render(
   <BrowserRouter>
-    <App />
+    <MusicPlayerProvider>
+      <App />
+    </MusicPlayerProvider>
   </BrowserRouter>
 )

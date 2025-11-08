@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import statusIcons from '../assets/status-icons.webp'
-import { storageObserver } from '../utils/storageObserver'
 
 const StatusBar = () => {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -13,8 +12,12 @@ const StatusBar = () => {
   
   // 时间背景设置
   const [timeSettings, setTimeSettings] = useState(() => {
-    const saved = localStorage.getItem('time_settings')
-    return saved ? JSON.parse(saved) : { showBg: true, color: '#22c55e' }
+    const enabled = localStorage.getItem('time_background_enabled')
+    const color = localStorage.getItem('time_background_color')
+    return {
+      showBg: enabled !== 'false',
+      color: color || '#22c55e'
+    }
   })
 
   useEffect(() => {
@@ -25,19 +28,31 @@ const StatusBar = () => {
     return () => clearInterval(timer)
   }, [])
   
-  // 监听专注模式和时间设置变化 - 优化版
+  // 监听专注模式和时间设置变化
   useEffect(() => {
-    const unsubFocus = storageObserver.observe('focus_mode', (value) => {
-      setFocusMode(value ? JSON.parse(value) : null)
-    })
+    const handleFocusModeChange = () => {
+      const saved = localStorage.getItem('focus_mode')
+      setFocusMode(saved ? JSON.parse(saved) : null)
+      console.log('📡 StatusBar收到专注模式更新:', saved)
+    }
     
-    const unsubTime = storageObserver.observe('time_settings', (value) => {
-      setTimeSettings(value ? JSON.parse(value) : { showBg: true, color: '#22c55e' })
-    })
+    const handleTimeSettingChange = () => {
+      const enabled = localStorage.getItem('time_background_enabled')
+      const color = localStorage.getItem('time_background_color')
+      setTimeSettings({
+        showBg: enabled !== 'false',
+        color: color || '#22c55e'
+      })
+      console.log('📡 StatusBar收到时间设置更新')
+    }
+    
+    // 监听自定义事件
+    window.addEventListener('focusModeChanged', handleFocusModeChange)
+    window.addEventListener('timeSettingChanged', handleTimeSettingChange)
     
     return () => {
-      unsubFocus()
-      unsubTime()
+      window.removeEventListener('focusModeChanged', handleFocusModeChange)
+      window.removeEventListener('timeSettingChanged', handleTimeSettingChange)
     }
   }, [])
 

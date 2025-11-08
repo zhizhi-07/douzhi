@@ -3,6 +3,7 @@
  */
 
 import type { Message, ChatMessage } from '../types/chat'
+import { loadMessages, saveMessages } from './simpleMessageManager'
 
 /**
  * 配置常量
@@ -32,6 +33,9 @@ export const getMessageLimitSetting = (chatId: string): number => {
   return MESSAGE_CONFIG.MAX_HISTORY_COUNT
 }
 
+// 全局计数器，确保同一毫秒内生成的ID也是唯一的
+let messageIdCounter = 0
+
 /**
  * 创建新消息
  */
@@ -40,8 +44,10 @@ export const createMessage = (
   type: 'sent' | 'received' | 'system'
 ): Message => {
   const now = Date.now()
+  // 组合时间戳和计数器，确保ID唯一
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: now,
+    id: uniqueId,
     type,
     content,
     time: new Date().toLocaleTimeString('zh-CN', {
@@ -58,8 +64,10 @@ export const createMessage = (
  */
 export const createSystemMessage = (content: string): Message => {
   const now = Date.now()
+  // 使用计数器确保ID唯一
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   return {
-    id: now,
+    id: uniqueId,
     type: 'system',
     content,
     time: new Date().toLocaleTimeString('zh-CN', {
@@ -323,68 +331,48 @@ export const loadChatMessages = (chatId: string): Message[] => {
 }
 
 /**
- * 保存聊天消息
+ * 保存聊天消息（使用统一的存储管理器）
  */
-export const saveChatMessages = (chatId: string, messages: Message[]): void => {
-  try {
-    const key = `${MESSAGE_CONFIG.STORAGE_KEY_PREFIX}${chatId}`
-    localStorage.setItem(key, JSON.stringify(messages))
-    console.log(`💾 [messageUtils] 保存消息: chatId=${chatId}, count=${messages.length}`)
-    
-    // 触发消息保存事件，供全局监听器检测
-    window.dispatchEvent(new CustomEvent('chat-message-saved', {
-      detail: { chatId, messageCount: messages.length }
-    }))
-    console.log(`📡 [messageUtils] 触发 chat-message-saved 事件`)
-  } catch (error) {
-    console.error('保存消息失败:', error)
-    // 可以在这里添加错误上报或用户提示
-  }
+export const saveChatMessages = (chatId: string, msgs: Message[]): void => {
+  // 🔥 使用simpleMessageManager统一管理（已升级到IndexedDB）
+  saveMessages(chatId, msgs)
 }
 
 /**
  * 向指定角色的聊天记录添加通知消息
  */
 export const addNotificationToChat = (characterId: string, content: string): void => {
-  try {
-    const key = `${MESSAGE_CONFIG.STORAGE_KEY_PREFIX}${characterId}`
-    const saved = localStorage.getItem(key)
-    const messages: Message[] = saved ? JSON.parse(saved) : []
-    
-    // 创建通知消息
-    const notificationMsg: Message = {
-      id: Date.now(),
-      type: 'system',
-      content,
-      time: new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      timestamp: Date.now(),
-      messageType: 'system'
-    }
-    
-    messages.push(notificationMsg)
-    localStorage.setItem(key, JSON.stringify(messages))
-    
-    // 触发消息保存事件
-    window.dispatchEvent(new CustomEvent('chat-message-saved', {
-      detail: { chatId: characterId, messageCount: messages.length }
-    }))
-    
-    // 触发新通知事件（用于实时更新聊天页面）
-    window.dispatchEvent(new CustomEvent('chat-notification-received', {
-      detail: { 
-        chatId: characterId, 
-        message: notificationMsg,
-        isIntimatePay: content.includes('亲密付')
-      }
-    }))
-    
-    console.log(`📬 已向 ${characterId} 的聊天添加通知:`, content)
-  } catch (error) {
-    console.error('添加通知消息失败:', error)
+  // 🔥 使用simpleMessageManager统一管理
+  const messages = loadMessages(characterId)
+  
+  // 创建通知消息
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const notificationMsg: Message = {
+    id: uniqueId,
+    type: 'system',
+    content,
+    time: new Date().toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    timestamp: now,
+    messageType: 'system'
   }
+  
+  messages.push(notificationMsg)
+  saveMessages(characterId, messages)
+  
+  // 触发新通知事件（用于实时更新聊天页面）
+  window.dispatchEvent(new CustomEvent('chat-notification-received', {
+    detail: { 
+      chatId: characterId, 
+      message: notificationMsg,
+      isIntimatePay: content.includes('亲密付')
+    }
+  }))
+  
+  console.log(`📬 已向 ${characterId} 的聊天添加通知:`, content)
 }
 
 /**

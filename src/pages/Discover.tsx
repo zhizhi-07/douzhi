@@ -1,8 +1,17 @@
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 
 const Discover = () => {
   const navigate = useNavigate()
+  const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
+  
+  // 监听背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
+    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
+  }, [])
 
   const menuGroups = [
     {
@@ -87,7 +96,10 @@ const Discover = () => {
   ]
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div 
+      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center"
+      style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
+    >
         {/* 顶部：StatusBar + 导航栏一体化 */}
         <div className="glass-effect">
           <StatusBar />

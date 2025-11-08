@@ -5,8 +5,16 @@ import { characterService, Character } from '../services/characterService'
 
 const Contacts = () => {
   const navigate = useNavigate()
+  const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
   const [characters, setCharacters] = useState<Character[]>([])
-  
+
+  // 监听背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
+    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
+  }, [])
+
   // 从localStorage加载角色列表
   useEffect(() => {
     const loadCharacters = () => {
@@ -51,7 +59,9 @@ const Contacts = () => {
   ]
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div 
+      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center"
+      style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}>
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />

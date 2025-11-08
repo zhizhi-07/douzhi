@@ -44,7 +44,8 @@ export const useCoupleSpace = (
       'user',
       chatId,
       character.nickname || character.realName,
-      character.avatar
+      character.avatar,
+      'user'  // 用户发起的邀请
     )
 
     if (!inviteResult) {

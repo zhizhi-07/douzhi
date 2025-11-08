@@ -7,6 +7,7 @@ import TransferCard from '../../../components/TransferCard'
 import VoiceCard from '../../../components/VoiceCard'
 import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
+import MusicInviteCard from '../../../components/MusicInviteCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -22,6 +23,8 @@ interface SpecialMessageRendererProps {
   onToggleVoiceText: (messageId: number) => void
   playingVoiceId: number | null
   showVoiceTextMap: Record<number, boolean>
+  onAcceptMusicInvite?: (messageId: number) => void
+  onRejectMusicInvite?: (messageId: number) => void
 }
 
 /**
@@ -41,7 +44,9 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onPlayVoice,
   onToggleVoiceText,
   playingVoiceId,
-  showVoiceTextMap
+  showVoiceTextMap,
+  onAcceptMusicInvite,
+  onRejectMusicInvite
 }) => {
   // 情侣空间邀请
   if (message.coupleSpaceInvite) {
@@ -133,6 +138,22 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
       <FlipPhotoCard 
         description={message.photoDescription || '照片'}
         messageId={message.id}
+      />
+    )
+  }
+
+  // 一起听邀请
+  if ((message.messageType as any) === 'musicInvite' && (message as any).musicInvite) {
+    return (
+      <MusicInviteCard
+        songTitle={(message as any).musicInvite.songTitle}
+        songArtist={(message as any).musicInvite.songArtist}
+        songCover={(message as any).musicInvite.songCover}
+        inviterName={(message as any).musicInvite.inviterName}
+        status={(message as any).musicInvite.status}
+        isSent={message.type === 'sent'}
+        onAccept={() => onAcceptMusicInvite?.(message.id)}
+        onReject={() => onRejectMusicInvite?.(message.id)}
       />
     )
   }

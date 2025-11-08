@@ -106,8 +106,7 @@ export const useAddMenu = (
    * 一起听音乐
    */
   const handleSelectMusicInvite = useCallback(() => {
-    console.log('一起听音乐')
-    // TODO: 实现一起听功能
+    // 由ChatDetail处理
   }, [])
   
   return {

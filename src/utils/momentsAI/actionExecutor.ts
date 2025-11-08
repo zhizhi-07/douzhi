@@ -9,6 +9,9 @@ import { likeMoment, commentMoment } from '../momentsManager'
 import { showNotification, incrementUnread } from '../simpleNotificationManager'
 import { recordAIInteraction } from '../aiInteractionMemory'
 
+// 全局计数器，确保同一毫秒内生成的ID也是唯一的
+let messageIdCounter = 0
+
 /**
  * 执行点赞动作
  */
@@ -125,12 +128,14 @@ export function executeDMAction(
   console.log(`📚 当前消息数: ${messages.length}`)
   console.log(`📝 最近3条消息:`, messages.slice(-3))
   
+  const now = Date.now()
+  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
   const dmMsg = {
-    id: Date.now(),
+    id: uniqueId,
     type: 'received' as const,
     content: action.dmContent,
     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-    timestamp: Date.now(),
+    timestamp: now,
     messageType: 'text' as const
   }
   

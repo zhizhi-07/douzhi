@@ -6,6 +6,8 @@ import { getUserInfo, type UserInfo } from '../utils/userUtils'
 const Me = () => {
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
 
   // 监听storage变化，实时更新用户信息
   useEffect(() => {
@@ -24,6 +26,13 @@ const Me = () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('focus', handleFocus)
     }
+  }, [])
+  
+  // 监听背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
+    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
   }, [])
 
   const menuGroups = [
@@ -57,7 +66,10 @@ const Me = () => {
   ]
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div 
+      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center"
+      style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
+    >
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />

@@ -1,0 +1,202 @@
+/**
+ * IndexedDB 统一管理器
+ * 替代 localStorage，提供更大的存储空间（几百MB到GB）
+ */
+
+const DB_NAME = 'DouzhiDB'
+const DB_VERSION = 1
+
+// 所有数据存储的stores
+const STORES = {
+  MESSAGES: 'messages',        // 聊天消息
+  MOMENTS: 'moments',          // 朋友圈
+  CHARACTERS: 'characters',    // 角色数据
+  USER_INFO: 'userInfo',       // 用户信息
+  WALLET: 'wallet',            // 钱包数据
+  EMOJIS: 'emojis',           // 表情包
+  SETTINGS: 'settings',        // 各种设置（壁纸、未读等）
+  MISC: 'misc'                 // 其他杂项数据
+}
+
+let dbInstance: IDBDatabase | null = null
+
+/**
+ * 初始化数据库
+ */
+function initDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (dbInstance) {
+      resolve(dbInstance)
+      return
+    }
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+    request.onerror = () => {
+      console.error('❌ 打开IndexedDB失败')
+      reject(new Error('打开数据库失败'))
+    }
+
+    request.onsuccess = () => {
+      dbInstance = request.result
+      console.log('✅ IndexedDB已连接')
+      resolve(dbInstance)
+    }
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      
+      // 创建所有对象存储
+      Object.values(STORES).forEach(storeName => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName)
+          console.log(`📦 创建对象存储: ${storeName}`)
+        }
+      })
+    }
+  })
+}
+
+/**
+ * 保存数据到IndexedDB
+ */
+export async function setItem(store: string, key: string, value: any): Promise<void> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readwrite')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      const request = objectStore.put(value, key)
+      
+      request.onsuccess = () => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(new Error('事务失败'))
+      }
+      request.onerror = () => reject(new Error('保存数据失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB setItem error:', error)
+    throw error
+  }
+}
+
+/**
+ * 从IndexedDB读取数据
+ */
+export async function getItem<T>(store: string, key: string): Promise<T | null> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readonly')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      const request = objectStore.get(key)
+      
+      request.onsuccess = () => {
+        resolve(request.result || null)
+      }
+      request.onerror = () => reject(new Error('读取数据失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB getItem error:', error)
+    return null
+  }
+}
+
+/**
+ * 从IndexedDB删除数据
+ */
+export async function removeItem(store: string, key: string): Promise<void> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readwrite')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      const request = objectStore.delete(key)
+      
+      request.onsuccess = () => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(new Error('事务失败'))
+      }
+      request.onerror = () => reject(new Error('删除数据失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB removeItem error:', error)
+    throw error
+  }
+}
+
+/**
+ * 获取store中的所有键
+ */
+export async function getAllKeys(store: string): Promise<string[]> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readonly')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      const request = objectStore.getAllKeys()
+      
+      request.onsuccess = () => {
+        resolve(request.result as string[])
+      }
+      request.onerror = () => reject(new Error('获取所有键失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB getAllKeys error:', error)
+    return []
+  }
+}
+
+/**
+ * 清空整个store
+ */
+export async function clearStore(store: string): Promise<void> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readwrite')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      const request = objectStore.clear()
+      
+      request.onsuccess = () => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(new Error('事务失败'))
+      }
+      request.onerror = () => reject(new Error('清空store失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB clearStore error:', error)
+    throw error
+  }
+}
+
+/**
+ * 批量保存数据（性能优化）
+ */
+export async function setItems(store: string, items: { key: string; value: any }[]): Promise<void> {
+  try {
+    const db = await initDB()
+    const transaction = db.transaction([store], 'readwrite')
+    const objectStore = transaction.objectStore(store)
+    
+    return new Promise((resolve, reject) => {
+      items.forEach(({ key, value }) => {
+        objectStore.put(value, key)
+      })
+      
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(new Error('批量保存失败'))
+    })
+  } catch (error) {
+    console.error('IndexedDB setItems error:', error)
+    throw error
+  }
+}
+
+// 导出store常量
+export { STORES }

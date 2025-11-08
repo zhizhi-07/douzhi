@@ -20,11 +20,10 @@ import Avatar from '../components/Avatar'
 import ForwardModal from '../components/ForwardModal'
 import ForwardedChatViewer from '../components/ForwardedChatViewer'
 import EmojiPanel from '../components/EmojiPanel'
+import MusicInviteSelector from '../components/MusicInviteSelector'
 import type { Message } from '../types/chat'
 import { addMessage } from '../utils/simpleMessageManager'
-import type { Emoji } from '../utils/emojiStorage'
-import { blacklistManager } from '../utils/blacklistManager'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import { useChatBubbles } from '../hooks/useChatBubbles'
@@ -70,42 +69,9 @@ const ChatDetail = () => {
   
   const coupleSpace = useCoupleSpace(id, chatState.character, chatState.setMessages)
   const modals = useModals()
-  
-  // 转发记录查看
-  const [viewingForwardedChat, setViewingForwardedChat] = useState<Message | null>(null)
-  
-  // 表情包面板
-  const [showEmojiPanel, setShowEmojiPanel] = useState(false)
-  
-  // 发送表情包
-  const handleEmojiSend = useCallback((emoji: Emoji) => {
-    // 检查AI是否拉黑了用户
-    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${id}`, 'user')
-    
-    const emojiMessage: Message = {
-      id: Date.now(),
-      type: 'sent',
-      content: `[表情包:${emoji.id}]`,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-      messageType: 'emoji',
-      blockedByReceiver: isUserBlocked,  // 🔥 添加拉黑标记
-      emoji: {
-        id: emoji.id,
-        url: emoji.url,
-        name: emoji.name,
-        description: emoji.description
-      }
-    }
-    
-    // 保存到localStorage
-    addMessage(id || '', emojiMessage)
-    
-    // 更新React状态
-    chatState.setMessages(prev => [...prev, emojiMessage])
-    
-    console.log('📤 发送表情包:', emoji.name, isUserBlocked ? '(被AI拉黑)' : '')
-  }, [id, chatState])
+  const musicInvite = useMusicInvite(id || '', chatState.setMessages)
+  const emoji = useEmoji(id || '', chatState.setMessages)
+  const forward = useForward(id || '', chatState.setMessages)
   
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
@@ -123,35 +89,19 @@ const ChatDetail = () => {
   // 处理转发确认
   const handleForwardConfirm = useCallback((targetCharacterId: string) => {
     const selectedMessages = multiSelect.getSelectedMessages()
+    const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
     
-    // 创建转发消息
-    const forwardedMessage: Message = {
-      id: Date.now(),
-      type: 'sent',
-      content: '',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-      messageType: 'forwarded-chat',
-      forwardedChat: {
-        title: `${chatState.character?.nickname || chatState.character?.realName || '对方'}与我的聊天记录`,
-        messages: selectedMessages.map(msg => ({
-          senderName: msg.type === 'sent' ? '我' : (chatState.character?.nickname || chatState.character?.realName || '对方'),
-          content: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '[特殊消息]',
-          messageType: msg.messageType,
-          time: msg.time
-        })),
-        messageCount: selectedMessages.length
-      }
-    }
+    // 转换消息格式
+    const formattedMessages = selectedMessages.map(msg => ({
+      senderName: msg.type === 'sent' ? '我' : characterName,
+      content: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '[特殊消息]',
+      messageType: msg.messageType,
+      time: msg.time
+    }))
     
-    // 保存到目标聊天
-    addMessage(targetCharacterId, forwardedMessage)
-    
-    console.log('✅ 已转发到:', targetCharacterId)
-    
-    // 退出多选模式
+    forward.forwardMessages(targetCharacterId, formattedMessages as any)
     multiSelect.exitMultiSelectMode()
-  }, [multiSelect, chatState.character])
+  }, [multiSelect, chatState.character, forward])
   
   const messageMenu = useMessageMenu(id || '', chatState.setMessages, multiSelect.enterMultiSelectMode)
   const longPress = useLongPress((msg, position) => {
@@ -337,16 +287,59 @@ const ChatDetail = () => {
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll" 
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {chatState.messages.map((message) => {
+        {chatState.messages.filter(msg => !(msg as any).hideInUI).map((message, index) => {
+          // 获取过滤后的消息列表用于计算时间戳
+          const visibleMessages = chatState.messages.filter(msg => !(msg as any).hideInUI)
+          // 判断是否需要显示5分钟时间戳
+          const shouldShow5MinTimestamp = index === 0 || 
+            (message.timestamp - visibleMessages[index - 1].timestamp >= 5 * 60 * 1000)
+          
+          // 格式化5分钟时间戳
+          let timestamp5MinText = ''
+          if (shouldShow5MinTimestamp) {
+            const msgDate = new Date(message.timestamp)
+            const today = new Date()
+            
+            // 判断是否是今天
+            const isToday = msgDate.getDate() === today.getDate() &&
+                           msgDate.getMonth() === today.getMonth() &&
+                           msgDate.getFullYear() === today.getFullYear()
+            
+            if (isToday) {
+              // 今天只显示时间
+              timestamp5MinText = msgDate.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            } else {
+              // 昨天及以前显示日期+时间
+              timestamp5MinText = msgDate.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }
+          }
+          
           if (message.type === 'system') {
             if (message.isRecalled && message.recalledContent) {
               return (
-                <div key={message.id} className="flex justify-center my-1">
-                  <div 
-                    className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
-                    onClick={() => modals.setViewingRecalledMessage(message)}
-                  >
-                    {message.content}
+                <div key={message.id}>
+                  {shouldShow5MinTimestamp && (
+                    <div className="flex justify-center my-2">
+                      <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                        <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-center my-1">
+                    <div 
+                      className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
+                      onClick={() => modals.setViewingRecalledMessage(message)}
+                    >
+                      {message.content}
+                    </div>
                   </div>
                 </div>
               )
@@ -355,17 +348,26 @@ const ChatDetail = () => {
             // 视频通话记录
             if (message.messageType === 'video-call-record' && message.videoCallRecord) {
               return (
-                <div key={message.id} className="flex justify-center my-1">
-                  <div 
-                    className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
-                    onClick={() => modals.setViewingCallRecord(message)}
-                  >
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                        <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                      </svg>
-                      <span>{message.content}</span>
+                <div key={message.id}>
+                  {shouldShow5MinTimestamp && (
+                    <div className="flex justify-center my-2">
+                      <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                        <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-center my-1">
+                    <div 
+                      className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
+                      onClick={() => modals.setViewingCallRecord(message)}
+                    >
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                          <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                        </svg>
+                        <span>{message.content}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -373,9 +375,18 @@ const ChatDetail = () => {
             }
             
             return (
-              <div key={message.id} className="flex justify-center my-1">
-                <div className="text-xs text-gray-400 px-4 py-1">
-                  {message.content}
+              <div key={message.id}>
+                {shouldShow5MinTimestamp && (
+                  <div className="flex justify-center my-2">
+                    <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                      <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-center my-1">
+                  <div className="text-xs text-gray-400 px-4 py-1">
+                    {message.content}
+                  </div>
                 </div>
               </div>
             )
@@ -439,13 +450,6 @@ const ChatDetail = () => {
                 {/* 消息内容和拉黑标记的容器 */}
                 <div className="flex items-end gap-2">
                 
-                {/* 时间戳 - 用户消息在左边，AI消息在右边 */}
-                {message.type === 'sent' && (
-                  <div className="text-xs text-gray-400 pb-0.5">
-                    {message.time}
-                  </div>
-                )}
-                
                 {/* 用户被AI拉黑的警告图标（左侧） */}
                 {message.blockedByReceiver && message.type === 'sent' && (
                   <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
@@ -461,13 +465,16 @@ const ChatDetail = () => {
                  message.messageType === 'transfer' || 
                  message.messageType === 'voice' || 
                  message.messageType === 'location' || 
-                 message.messageType === 'photo' ? (
+                 message.messageType === 'photo' ||
+                 (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}
                     characterId={chatState.character?.id || ''}
                     characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
                     onAcceptInvite={coupleSpace.acceptInvite}
                     onRejectInvite={coupleSpace.rejectInvite}
+                    onAcceptMusicInvite={musicInvite.acceptInvite}
+                    onRejectMusicInvite={musicInvite.rejectInvite}
                     onUpdateIntimatePayStatus={(messageId, newStatus) => {
                       chatState.setMessages(prev => prev.map(msg =>
                         msg.id === messageId && msg.intimatePay
@@ -475,7 +482,7 @@ const ChatDetail = () => {
                           : msg
                       ))
                     }}
-                    onViewForwardedChat={setViewingForwardedChat}
+                    onViewForwardedChat={forward.setViewingForwardedChat}
                     onReceiveTransfer={transfer.handleReceiveTransfer}
                     onRejectTransfer={transfer.handleRejectTransfer}
                     onPlayVoice={voice.handlePlayVoice}
@@ -498,13 +505,13 @@ const ChatDetail = () => {
                   </div>
                 )}
                 
-                {/* 时间戳 - AI消息在右边 */}
-                {message.type === 'received' && (
-                  <div className="text-xs text-gray-400 pb-0.5">
+                </div>
+                
+                {/* 时间戳 - 显示在气泡下方居中 */}
+                <div className="flex justify-center mt-1">
+                  <div className="text-xs text-gray-400">
                     {message.time}
                   </div>
-                )}
-                
                 </div>
                 
               </div>
@@ -518,7 +525,7 @@ const ChatDetail = () => {
                 </div>
               </div>
             )}
-            </div>
+          </div>
           )
         })}
         
@@ -634,7 +641,7 @@ const ChatDetail = () => {
             />
           </div>
           <button 
-            onClick={() => setShowEmojiPanel(true)}
+            onClick={() => emoji.setShowEmojiPanel(true)}
             className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -688,15 +695,23 @@ const ChatDetail = () => {
         onSelectLocation={addMenu.handlers.handleSelectLocation}
         onSelectVoice={addMenu.handlers.handleSelectVoice}
         onSelectVideoCall={() => videoCall.startCall()}
-        onSelectMusicInvite={addMenu.handlers.handleSelectRecall}
+        onSelectMusicInvite={() => musicInvite.setShowMusicInviteSelector(true)}
       />
 
       {/* 表情包面板 */}
       <EmojiPanel
-        show={showEmojiPanel}
-        onClose={() => setShowEmojiPanel(false)}
-        onSelect={handleEmojiSend}
+        show={emoji.showEmojiPanel}
+        onClose={() => emoji.setShowEmojiPanel(false)}
+        onSelect={emoji.sendEmoji}
       />
+
+      {/* 音乐邀请选择器 */}
+      {musicInvite.showMusicInviteSelector && (
+        <MusicInviteSelector
+          onClose={() => musicInvite.setShowMusicInviteSelector(false)}
+          onSend={musicInvite.sendMusicInvite}
+        />
+      )}
 
       <MessageMenu
         isOpen={messageMenu.showMessageMenu}
@@ -816,12 +831,12 @@ const ChatDetail = () => {
       />
 
       {/* 查看转发记录弹窗 */}
-      {viewingForwardedChat && viewingForwardedChat.forwardedChat && (
+      {forward.viewingForwardedChat && forward.viewingForwardedChat.forwardedChat && (
         <ForwardedChatViewer
           isOpen={true}
-          onClose={() => setViewingForwardedChat(null)}
-          title={viewingForwardedChat.forwardedChat.title}
-          messages={viewingForwardedChat.forwardedChat.messages}
+          onClose={() => forward.setViewingForwardedChat(null)}
+          title={forward.viewingForwardedChat.forwardedChat.title}
+          messages={forward.viewingForwardedChat.forwardedChat.messages}
         />
       )}
     </div>

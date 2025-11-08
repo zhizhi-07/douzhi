@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react'
 import { characterService } from '../services/characterService'
-import { loadChatMessages } from '../utils/messageUtils'
+import { loadMessages } from '../utils/simpleMessageManager'
 import { incrementUnread } from '../utils/unreadMessages'
 
 const NOTIFIED_MESSAGES_KEY = 'notified_message_ids'
@@ -28,7 +28,7 @@ const GlobalMessageMonitor = () => {
     // 初始化：记录所有现有消息的最后ID
     const allCharacters = characterService.getAll()
     allCharacters.forEach(character => {
-      const messages = loadChatMessages(character.id)
+      const messages = loadMessages(character.id)
       if (messages.length > 0) {
         const lastId = messages[messages.length - 1].id
         // 如果没有记录，或者消息比记录的新，更新记录
@@ -45,17 +45,33 @@ const GlobalMessageMonitor = () => {
     // 监听消息保存事件（立即响应）
     const handleMessageSaved = (event: CustomEvent) => {
       const { chatId } = event.detail
-      const messages = loadChatMessages(chatId)
+      console.log(`🔔 [GlobalMessageMonitor] 监听到消息保存事件: chatId=${chatId}`)
       
-      if (messages.length === 0) return
+      const messages = loadMessages(chatId)
+      console.log(`📦 [GlobalMessageMonitor] 加载消息: chatId=${chatId}, 总数=${messages.length}`)
+      
+      if (messages.length === 0) {
+        console.log(`⚠️ [GlobalMessageMonitor] 消息为空，跳过`)
+        return
+      }
       
       const lastMessage = messages[messages.length - 1]
       const lastRecordedId = lastMessageIdsRef.current[chatId]
+      
+      console.log(`🔍 [GlobalMessageMonitor] 检查消息`, {
+        lastMessageId: lastMessage.id,
+        lastRecordedId,
+        messageType: lastMessage.type,
+        messageSubType: lastMessage.messageType,
+        isNew: lastMessage.id !== lastRecordedId
+      })
       
       // 如果是新消息且是AI发的
       if (lastMessage.type === 'received' && 
           lastMessage.messageType !== 'system' &&
           lastMessage.id !== lastRecordedId) {
+        
+        console.log(`✅ [GlobalMessageMonitor] 这是新的AI消息`)
         
         // 更新记录
         lastMessageIdsRef.current[chatId] = lastMessage.id
@@ -67,12 +83,22 @@ const GlobalMessageMonitor = () => {
         const currentPath = window.location.pathname
         const isInCurrentChat = currentPath === `/chat/${chatId}`
         
+        console.log(`🔍 [GlobalMessageMonitor] 用户位置检查`, {
+          currentPath,
+          chatPath: `/chat/${chatId}`,
+          isInCurrentChat
+        })
+        
         if (!isInCurrentChat) {
           const character = characterService.getById(chatId)
-          if (!character) return
+          if (!character) {
+            console.log(`❌ [GlobalMessageMonitor] 找不到角色: ${chatId}`)
+            return
+          }
           
           // 增加未读
           incrementUnread(chatId, 1)
+          console.log(`📬 [GlobalMessageMonitor] 增加未读数: chatId=${chatId}`)
           
           // 触发通知
           const messageContent = lastMessage.content || lastMessage.voiceText || '[消息]'
@@ -85,8 +111,12 @@ const GlobalMessageMonitor = () => {
             }
           }))
           
-          console.log(`📬 检测到${character.nickname || character.realName}的新消息，已触发通知`)
+          console.log(`🔔 [GlobalMessageMonitor] 已触发通知: ${character.nickname || character.realName} - ${messageContent}`)
+        } else {
+          console.log(`ℹ️ [GlobalMessageMonitor] 用户在聊天窗口中，不触发通知`)
         }
+      } else {
+        console.log(`⏭️ [GlobalMessageMonitor] 跳过消息（不是新的AI消息）`)
       }
     }
     

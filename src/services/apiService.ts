@@ -60,7 +60,7 @@ const siliconflowApiConfig: ApiConfig = {
   id: 'default-siliconflow',
   name: '硅基流动（备用）',
   baseUrl: 'https://api.siliconflow.cn/v1',
-  apiKey: 'sk-dfyuqxuizfdxqjlbovnaeebcvptbqzzvqcdahtggzrovktmo',
+  apiKey: 'sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm',
   model: 'deepseek-ai/DeepSeek-V3',
   provider: 'siliconflow',
   temperature: 0.7,
@@ -72,10 +72,10 @@ const siliconflowApiConfig: ApiConfig = {
 // 内置API配置 - 小许API（满血版）
 const xiaoxuApiConfig: ApiConfig = {
   id: 'default-xiaoxu',
-  name: '小许API (Gemini 2.5 Pro 满血版)',
+  name: '小许API (Gemini 2.5 Pro 满血250w上下文)',
   baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
   apiKey: 'sk-Er01efzo3v3670tvF17KFTEu37mWnYAfzLSq4uDbqEZRXqJA',
-  model: 'gemini-2.5-pro',
+  model: 'gemini-2.5-pro(满血250w上下文cli1)',
   provider: 'custom',
   temperature: 0.7,
   maxTokens: 8000,

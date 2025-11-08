@@ -22,6 +22,7 @@ const ChatList = () => {
   const [chats, setChats] = useState<Chat[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
+  const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
 
   // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
@@ -171,8 +172,20 @@ const ChatList = () => {
     loadCharacters() // 重新加载可用角色
   }
 
+  // 监听背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => {
+      setWechatBg(localStorage.getItem('wechat_background') || '')
+    }
+    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
+  }, [])
+
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa] page-enter">
+    <div 
+      className="h-screen flex flex-col bg-[#f5f7fa] page-enter bg-cover bg-center"
+      style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
+    >
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />

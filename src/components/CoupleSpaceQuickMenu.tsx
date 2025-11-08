@@ -55,15 +55,15 @@ const CoupleSpaceQuickMenu = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/50" />
       
       <div 
-        className="relative w-full max-w-xs glass-card rounded-3xl p-6 shadow-2xl border border-white/20"
+        className="relative w-full max-w-xs bg-white rounded-2xl p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">情侣空间</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">情侣空间</h3>
         
-        <div className="space-y-3">
+        <div className="space-y-2">
           {menuItems.map((item, index) => (
             <button
               key={index}
@@ -71,14 +71,14 @@ const CoupleSpaceQuickMenu = ({
                 item.onClick()
                 onClose()
               }}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl glass-card border border-white/30 hover:scale-[0.98] active:scale-[0.95] transition-all"
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 transition-colors"
             >
-              <div className="text-gray-700">{item.icon}</div>
+              <div className="text-gray-600">{item.icon}</div>
               <div className="flex-1 text-left">
-                <div className="text-base font-semibold text-gray-900">{item.label}</div>
-                <div className="text-xs text-gray-600 mt-0.5">{item.description}</div>
+                <div className="text-sm font-medium text-gray-900">{item.label}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
               </div>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -87,7 +87,7 @@ const CoupleSpaceQuickMenu = ({
 
         <button
           onClick={onClose}
-          className="w-full mt-4 py-3 rounded-2xl glass-card border border-white/30 text-gray-700 font-medium hover:scale-[0.98] active:scale-[0.95] transition-all"
+          className="w-full mt-3 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors"
         >
           取消
         </button>

@@ -6,15 +6,27 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { loadMessages } from '../../../utils/simpleMessageManager'
+import { loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
   const [character, setCharacter] = useState<Character | null>(null)
   
-  // 消息列表
-  const [messages, setMessages] = useState<Message[]>([])
+  // 消息列表（React状态）
+  const [messages, setMessagesState] = useState<Message[]>([])
+  
+  // 包装setMessages：更新React状态 + 保存到IndexedDB
+  const setMessages = useCallback((fn: ((prev: Message[]) => Message[]) | Message[]) => {
+    setMessagesState(prev => {
+      const newMessages = typeof fn === 'function' ? fn(prev) : fn
+      // 异步保存到IndexedDB
+      if (chatId && newMessages.length > 0) {
+        saveMessages(chatId, newMessages)
+      }
+      return newMessages
+    })
+  }, [chatId])
   
   // 输入框
   const [inputValue, setInputValue] = useState('')
@@ -50,7 +62,8 @@ export const useChatState = (chatId: string) => {
         timestamp: m.timestamp
       })))
     }
-    setMessages(savedMessages)
+    // 直接设置状态，不触发保存（因为是从IndexedDB加载的）
+    setMessagesState(savedMessages)
     
     // 清除未读数
     clearUnread(chatId)
@@ -91,12 +104,22 @@ export const useChatState = (chatId: string) => {
       refreshCharacter()  // 同时刷新角色信息
     }
     
+    // 🔥 监听异步加载完成事件
+    const handleMessagesLoaded = (e: CustomEvent) => {
+      if (e.detail.chatId === chatId) {
+        console.log('📥 [useChatState] 异步加载完成，刷新UI')
+        loadChatMessages()
+      }
+    }
+    
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
+    window.addEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     }
   }, [chatId, loadChatMessages, refreshCharacter])
   

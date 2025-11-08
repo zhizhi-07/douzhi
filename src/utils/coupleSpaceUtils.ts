@@ -9,6 +9,7 @@ export interface CoupleSpaceRelation {
   characterName: string
   characterAvatar?: string
   status: 'pending' | 'active' | 'rejected' | 'ended'
+  sender: 'user' | 'character'  // 谁发起的邀请
   createdAt: number
   acceptedAt?: number
   endedAt?: number
@@ -49,13 +50,21 @@ export const createCoupleSpaceInvite = (
   userId: string,
   characterId: string,
   characterName: string,
-  characterAvatar?: string
+  characterAvatar?: string,
+  sender: 'user' | 'character' = 'user'
 ): CoupleSpaceRelation | null => {
-  // 检查是否已有活跃的情侣空间
+  // 检查是否已有活跃的情侣空间（只有active状态才阻止）
   const existing = getCoupleSpaceRelation()
-  if (existing && (existing.status === 'pending' || existing.status === 'active')) {
+  if (existing && existing.status === 'active') {
     console.log('已存在活跃的情侣空间关系')
     return null
+  }
+  
+  // 如果有pending状态的邀请
+  if (existing && existing.status === 'pending') {
+    // 如果是同一方再次发送，覆盖旧邀请
+    // 如果是对方发送，也覆盖（用户可以反向发邀请）
+    console.log(`覆盖旧邀请（旧: ${existing.sender}, 新: ${sender}）`)
   }
 
   const relation: CoupleSpaceRelation = {
@@ -65,6 +74,7 @@ export const createCoupleSpaceInvite = (
     characterName,
     characterAvatar,
     status: 'pending',
+    sender,
     createdAt: Date.now()
   }
 
@@ -230,7 +240,10 @@ export const canSendCoupleSpaceInvite = (): boolean => {
   
   if (!relation) return true
   
-  if (relation.status === 'pending' || relation.status === 'active' || relation.status === 'rejected') {
+  // 只有active状态才阻止发送邀请
+  // pending状态：如果是对方发的，用户可以反向发邀请（会覆盖）
+  // rejected状态：可以重新发送
+  if (relation.status === 'active') {
     return false
   }
   

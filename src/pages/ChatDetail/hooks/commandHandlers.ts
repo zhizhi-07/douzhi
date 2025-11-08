@@ -614,7 +614,8 @@ export const coupleSpaceInviteHandler: CommandHandler = {
       'user',
       character.id,
       character.nickname || character.realName,
-      character.avatar
+      character.avatar,
+      'character'  // AI发起的邀请
     )
     
     if (!newRelation) {
@@ -1153,6 +1154,118 @@ export const changeSignatureHandler: CommandHandler = {
 }
 
 /**
+ * 一起听：AI发送邀请
+ */
+export const musicInviteHandler: CommandHandler = {
+  pattern: /[\[【]一起听[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId, isBlocked }) => {
+    const songTitle = match[1].trim()
+    const songArtist = match[2].trim()
+    
+    const musicInviteMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'received',
+      messageType: 'musicInvite' as any,
+      content: `${character?.nickname || character?.realName}想和你一起听《${songTitle}》`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      musicInvite: {
+        songTitle,
+        songArtist,
+        songCover: '',
+        inviterName: character?.nickname || character?.realName || 'AI',
+        status: 'pending'
+      },
+      blockedByReceiver: isBlocked
+    }
+    
+    setMessages(prev => [...prev, musicInviteMsg])
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * 一起听：AI接受邀请（自然语言识别）
+ */
+export const musicAcceptHandler: CommandHandler = {
+  pattern: /^(好啊|走起|来吧|可以|行|好的|好|走|听听|一起听吧|冲|安排|好滴)[！!。，,、\s]*$/,
+  handler: async (match, content, { setMessages, character, messages }) => {
+    // 检查是否有待处理的音乐邀请
+    const pendingMusicInvite = messages.slice().reverse().find(msg => 
+      msg.type === 'sent' && 
+      (msg as any).musicInvite && 
+      (msg as any).musicInvite.status === 'pending'
+    )
+    
+    if (!pendingMusicInvite) {
+      return { handled: false }
+    }
+    
+    // 更新邀请状态为已接受
+    setMessages(prev => prev.map(msg => 
+      msg.id === pendingMusicInvite.id
+        ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'accepted' } }
+        : msg
+    ))
+    
+    // 添加系统提示
+    const systemMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'system',
+      content: `${character?.nickname || character?.realName}已加入一起听`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
+    }
+    
+    setMessages(prev => [...prev, systemMsg])
+    
+    return {
+      handled: true,
+      remainingText: '',
+      skipTextMessage: true
+    }
+  }
+}
+
+/**
+ * 一起听：AI拒绝邀请（自然语言识别）
+ */
+export const musicRejectHandler: CommandHandler = {
+  pattern: /^(不想听|下次吧|不听|算了|不要|不行|不了|pass|拒绝)[！!。，,、\s]*$/,
+  handler: async (match, content, { setMessages, character, messages }) => {
+    // 检查是否有待处理的音乐邀请
+    const pendingMusicInvite = messages.slice().reverse().find(msg => 
+      msg.type === 'sent' && 
+      (msg as any).musicInvite && 
+      (msg as any).musicInvite.status === 'pending'
+    )
+    
+    if (!pendingMusicInvite) {
+      return { handled: false }
+    }
+    
+    // 更新邀请状态为已拒绝
+    setMessages(prev => prev.map(msg => 
+      msg.id === pendingMusicInvite.id
+        ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'rejected' } }
+        : msg
+    ))
+    
+    return {
+      handled: true,
+      remainingText: '',
+      skipTextMessage: true
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -1167,15 +1280,18 @@ export const commandHandlers: CommandHandler[] = [
   voiceHandler,
   locationHandler,
   photoHandler,
-  emojiHandler,  // 表情包处理器
+  emojiHandler,
   recallHandler,
   blockUserHandler,
   unblockUserHandler,
-  changeNicknameHandler,  // AI修改网名
-  changeSignatureHandler,  // AI修改个性签名
+  changeNicknameHandler,
+  changeSignatureHandler,
   coupleSpaceInviteHandler,
   coupleSpaceAcceptHandler,
   coupleSpaceRejectHandler,
+  musicInviteHandler,  // AI发送一起听邀请
+  musicAcceptHandler,  // AI接受一起听
+  musicRejectHandler,  // AI拒绝一起听
   coupleSpacePhotoHandler,
   coupleSpaceMessageHandler,
   coupleSpaceAnniversaryHandler,

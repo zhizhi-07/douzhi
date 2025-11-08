@@ -310,6 +310,10 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 - 想在情侣空间留言板发留言？用[留言:留言内容]
 - 想添加纪念日？用[纪念日:日期:标题]，比如[纪念日:11月5日:捡猫日]
 
+音乐功能：
+- 想邀请对方一起听歌？用[一起听:歌名:歌手]，比如[一起听:告白气球:周杰伦]
+- 收到用户的一起听邀请？直接说"好啊"/"走起"表示接受，或说"不想听"/"下次吧"表示拒绝
+
 这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ══════════════════════════════════
@@ -375,13 +379,32 @@ const buildCoupleSpaceContext = (character: Character): string => {
   return ''
 }
 
+// 请求节流：记录上次请求时间
+let lastRequestTime = 0
+const MIN_REQUEST_INTERVAL = 1000 // 最小请求间隔1秒
+
 /**
- * 调用AI API获取回复
+ * 延迟函数
  */
-export const callAIApi = async (
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * 调用AI API（内部函数，不包含重试逻辑）
+ */
+const callAIApiInternal = async (
   messages: ChatMessage[],
   settings: ApiSettings
 ): Promise<string> => {
+  // 请求节流：确保两次请求之间至少间隔1秒
+  const now = Date.now()
+  const timeSinceLastRequest = now - lastRequestTime
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
+    console.log(`⏱️ 请求节流：等待 ${waitTime}ms`)
+    await delay(waitTime)
+  }
+  lastRequestTime = Date.now()
+  
   // 超时控制
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 60000) // 60秒超时
@@ -420,8 +443,13 @@ export const callAIApi = async (
       // 区分不同的HTTP错误
       if (response.status === 401) {
         throw new ChatApiError('API密钥无效', 'INVALID_API_KEY', 401)
+      } else if (response.status === 403) {
+        throw new ChatApiError('API密钥无权限或已过期，请检查API密钥是否正确、是否有余额', 'FORBIDDEN', 403)
       } else if (response.status === 429) {
-        throw new ChatApiError('请求次数过多，请稍后重试', 'RATE_LIMIT', 429)
+        // 尝试从响应头获取重试时间
+        const retryAfter = response.headers.get('Retry-After')
+        const waitTime = retryAfter ? `${retryAfter}秒` : '几秒钟'
+        throw new ChatApiError(`请求过于频繁，${waitTime}后会自动重试`, 'RATE_LIMIT', 429)
       } else if (response.status >= 500) {
         throw new ChatApiError('API服务器错误', 'SERVER_ERROR', response.status)
       } else {
@@ -519,6 +547,45 @@ export const callAIApi = async (
     
     throw new ChatApiError('未知错误', 'UNKNOWN_ERROR')
   }
+}
+
+/**
+ * 调用AI API（带自动重试）
+ */
+export const callAIApi = async (
+  messages: ChatMessage[],
+  settings: ApiSettings
+): Promise<string> => {
+  const MAX_RETRIES = 3 // 最大重试次数
+  let lastError: ChatApiError | null = null
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await callAIApiInternal(messages, settings)
+    } catch (error) {
+      if (error instanceof ChatApiError) {
+        lastError = error
+        
+        // 只对 429 错误进行重试
+        if (error.statusCode === 429 && attempt < MAX_RETRIES - 1) {
+          // 指数退避：1秒、2秒、4秒
+          const waitTime = Math.pow(2, attempt) * 1000
+          console.log(`⚠️ 遇到频率限制，${waitTime/1000}秒后重试 (${attempt + 1}/${MAX_RETRIES})`)
+          await delay(waitTime)
+          continue // 重试
+        }
+        
+        // 其他错误或已达最大重试次数，直接抛出
+        throw error
+      }
+      
+      // 非 ChatApiError，直接抛出
+      throw error
+    }
+  }
+  
+  // 理论上不会到这里，但为了类型安全
+  throw lastError || new ChatApiError('未知错误', 'UNKNOWN_ERROR')
 }
 
 /**
@@ -621,8 +688,11 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   }
   
   // 获取朋友圈列表
-  const moments = loadMoments()
-  const visibleMoments = moments.slice(0, momentsVisibleCount)
+  const allMoments = loadMoments()
+  
+  // 🔥 只显示用户发的朋友圈（不包括AI自己发的）
+  const userMoments = allMoments.filter(m => m.userId === 'user')
+  const visibleMoments = userMoments.slice(0, momentsVisibleCount)
   
   if (visibleMoments.length === 0) {
     return ''
@@ -645,21 +715,16 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
 
 ══════════════════════════════════
 
-📱 用户的朋友圈（最近${momentsVisibleCount}条）：
+📱 用户的朋友圈（仅显示用户发的，最近${momentsVisibleCount}条）：
 
 ${momentsList}
 
-你可以在聊天中评论或点赞朋友圈：
+你可以在聊天中评论或点赞：
 - 评论：评论01 你的评论内容
 - 点赞：点赞02
 - 回复评论：评论01回复张三 你的回复内容
 
-例如：
-评论01 哈哈笑死我了
-点赞03
-评论02回复李四 我也这么觉得
-
-自然地在聊天中使用，不要刻意。`
+自然地使用，不要刻意。`
 }
 
 /**

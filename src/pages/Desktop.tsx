@@ -2,12 +2,15 @@ import { useNavigate } from 'react-router-dom'
 import React, { useState, useRef, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import MusicPlayerCard from '../components/MusicPlayerCard'
+import { useMusicPlayer } from '../context/MusicPlayerContext'
 import { page1Apps, page2Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
+import { getCustomIcon } from '../utils/iconManager'
 import '../css/character-card.css'
 
 const Desktop = () => {
   const navigate = useNavigate()
+  const musicPlayer = useMusicPlayer()
   const [currentPage, setCurrentPage] = useState(0)
   const [currentTime, setCurrentTime] = useState(new Date())
   const touchStartX = useRef(0)
@@ -15,6 +18,14 @@ const Desktop = () => {
   const touchStartY = useRef(0)
   const touchEndY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // 桌面背景
+  const [desktopBg, setDesktopBg] = useState(() => {
+    return localStorage.getItem('desktop_background') || null
+  })
+  
+  // 强制刷新图标
+  const [iconRefresh, setIconRefresh] = useState(0)
 
   // 更新时间
   useEffect(() => {
@@ -22,6 +33,15 @@ const Desktop = () => {
       setCurrentTime(new Date())
     }, 1000)
     return () => clearInterval(timer)
+  }, [])
+  
+  // 监听图标变化
+  useEffect(() => {
+    const handleIconChange = () => {
+      setIconRefresh(prev => prev + 1)
+    }
+    window.addEventListener('iconChanged', handleIconChange)
+    return () => window.removeEventListener('iconChanged', handleIconChange)
   }, [])
 
   const handleAppClick = (e: React.MouseEvent, app: AppItem) => {
@@ -64,7 +84,10 @@ const Desktop = () => {
   return (
     <div className="h-screen w-full relative overflow-hidden bg-[#f5f7fa]" style={{ touchAction: 'pan-y pinch-zoom' }}>
       {/* 背景 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-gray-100/30" />
+      <div 
+        className="desktop-background absolute inset-0 bg-gradient-to-b from-white/50 to-gray-100/30 bg-cover bg-center"
+        style={desktopBg ? { backgroundImage: `url(${desktopBg})` } : {}}
+      />
       
       {/* 内容容器 */}
       <div className="relative h-full flex flex-col">
@@ -103,9 +126,14 @@ const Desktop = () => {
 
               {/* 音乐播放器卡片 */}
               <MusicPlayerCard
-                isPlaying={false}
-                onTogglePlay={() => console.log('toggle play')}
-                onNext={() => console.log('next')}
+                currentSong={musicPlayer.currentSong ? {
+                  title: musicPlayer.currentSong.title,
+                  artist: musicPlayer.currentSong.artist,
+                  cover: musicPlayer.currentSong.cover
+                } : undefined}
+                isPlaying={musicPlayer.isPlaying}
+                onTogglePlay={() => musicPlayer.togglePlay()}
+                onNext={() => musicPlayer.next()}
                 onClick={() => navigate('/music-player')}
               />
 
@@ -114,14 +142,19 @@ const Desktop = () => {
                 {page1Apps.map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const isWechat = app.id === 'wechat-app'
+                  const customIcon = getCustomIcon(app.id)
                   
                   return (
                     <div
-                      key={app.id}
+                      key={`${app.id}-${iconRefresh}`}
                       onClick={(e) => handleAppClick(e, app)}
                       className={`flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform ${isWechat ? 'col-span-2 row-span-2' : ''}`}
                     >
-                      {isImageIcon ? (
+                      {customIcon ? (
+                        <div className={`${isWechat ? 'w-36 h-36' : 'w-14 h-14'} rounded-2xl overflow-hidden`}>
+                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : isImageIcon ? (
                         <div className={`${isWechat ? 'w-36 h-36' : 'w-14 h-14'} flex items-center justify-center`}>
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
@@ -145,13 +178,18 @@ const Desktop = () => {
               <div className="grid grid-cols-4 gap-4" style={{ gridAutoRows: '90px' }}>
                 {page2Apps.map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
+                  const customIcon = getCustomIcon(app.id)
                   return (
                     <div
-                      key={app.id}
+                      key={`${app.id}-${iconRefresh}`}
                       onClick={(e) => handleAppClick(e, app)}
                       className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                     >
-                      {isImageIcon ? (
+                      {customIcon ? (
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border border-white/30">
+                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : isImageIcon ? (
                         <div className="w-14 h-14">
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
@@ -188,17 +226,31 @@ const Desktop = () => {
 
         {/* Dock 栏 */}
         <div className="pb-6 px-4">
-          <div className="glass-effect rounded-3xl p-3 shadow-xl border border-white/30">
+          <div 
+            className="rounded-3xl p-3"
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.18)'
+            }}
+          >
             <div className="grid grid-cols-4 gap-3">
               {dockApps.map((app) => {
                 const isImageIcon = typeof app.icon === 'string'
+                const customIcon = getCustomIcon(app.id)
                 return (
                   <div
-                    key={app.id}
+                    key={`${app.id}-${iconRefresh}`}
                     onClick={(e) => handleAppClick(e, app)}
                     className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform"
                   >
-                    {isImageIcon ? (
+                    {customIcon ? (
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border border-white/30">
+                        <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : isImageIcon ? (
                       <div className="w-14 h-14">
                         <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                       </div>
