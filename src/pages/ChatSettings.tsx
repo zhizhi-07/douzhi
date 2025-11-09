@@ -173,6 +173,10 @@ const ChatSettings = () => {
 
   // 测试语音配置
   const handleTestVoice = async () => {
+    console.log('🔍 [聊天设置] 当前settings对象:', settings)
+    console.log('🔍 [聊天设置] 音色ID:', settings.voiceId)
+    console.log('🔍 [聊天设置] localStorage中的值:', localStorage.getItem(`chat_settings_${id}`))
+    
     if (!settings.voiceId) {
       alert('请先输入音色ID')
       return
@@ -184,6 +188,12 @@ const ChatSettings = () => {
       alert('⚠️ 请先配置语音账号：\n\n系统设置 → 语音设置 → 填写API Key和Group ID')
       return
     }
+
+    console.log('🎤 [聊天设置] 准备测试音色:', {
+      voiceId: settings.voiceId,
+      apiKey: voiceConfig.apiKey.substring(0, 10) + '...',
+      groupId: voiceConfig.groupId
+    })
 
     setTestingVoice(true)
     try {

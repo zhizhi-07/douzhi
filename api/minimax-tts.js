@@ -5,8 +5,6 @@
  */
 
 const https = require('https')
-const http = require('http')
-const { URL } = require('url')
 
 module.exports = async function handler(req, res) {
   // 设置CORS头
@@ -57,13 +55,19 @@ module.exports = async function handler(req, res) {
 
     // 使用Promise包装https请求
     const result = await new Promise((resolve, reject) => {
-      const urlObj = new URL(minimaxUrl)
-      const protocol = urlObj.protocol === 'https:' ? https : http
+      // 手动解析URL
+      const urlMatch = minimaxUrl.match(/^https?:\/\/([^\/]+)(.*)$/)
+      if (!urlMatch) {
+        return reject(new Error('Invalid URL'))
+      }
+      
+      const hostname = urlMatch[1]
+      const path = urlMatch[2] || '/'
 
       const options = {
-        hostname: urlObj.hostname,
-        port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
-        path: urlObj.pathname + urlObj.search,
+        hostname: hostname,
+        port: 443,
+        path: path,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +76,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const request = protocol.request(options, (response) => {
+      const request = https.request(options, (response) => {
         const chunks = []
         
         response.on('data', (chunk) => {

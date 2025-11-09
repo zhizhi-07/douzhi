@@ -310,12 +310,26 @@ export const voiceHandler: CommandHandler = {
     // 异步生成TTS音频
     try {
       // 读取角色的音色ID配置
-      const settings = localStorage.getItem(`chat_settings_${chatId}`)
-      const voiceId = settings ? JSON.parse(settings).voiceId : ''
+      console.log('🔍 [语音处理] 开始读取音色ID配置, chatId:', chatId)
+      const settingsKey = `chat_settings_${chatId}`
+      const settingsStr = localStorage.getItem(settingsKey)
+      console.log('🔍 [语音处理] localStorage key:', settingsKey)
+      console.log('🔍 [语音处理] localStorage value:', settingsStr)
+      
+      const settings = settingsStr ? JSON.parse(settingsStr) : null
+      const voiceId = settings?.voiceId || ''
+      
+      console.log('🔍 [语音处理] 解析后的settings:', settings)
+      console.log('🔍 [语音处理] 音色ID:', voiceId)
 
       if (voiceId) {
         console.log('🎤 使用音色ID生成语音:', voiceId)
         const ttsResult = await callMinimaxTTS(voiceText, undefined, undefined, voiceId)
+        
+        console.log('🎤 TTS结果:', {
+          audioUrl: ttsResult.audioUrl?.substring(0, 50),
+          duration: ttsResult.duration
+        })
         
         // 更新消息，添加音频URL
         if (chatId) {
@@ -333,12 +347,14 @@ export const voiceHandler: CommandHandler = {
             : m
         ))
         
-        console.log('✅ 语音生成成功')
+        console.log('✅ 语音生成成功，已更新消息')
       } else {
         console.warn('⚠️ 未配置音色ID，跳过TTS生成')
+        console.warn('⚠️ 请在聊天设置中配置音色ID')
       }
     } catch (error) {
       console.error('❌ 语音生成失败:', error)
+      console.error('❌ 错误详情:', error instanceof Error ? error.message : error)
       // 失败也不影响消息发送，只是没有音频
     }
 
