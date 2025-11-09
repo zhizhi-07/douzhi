@@ -1,6 +1,6 @@
 /**
- * 美化设置页面
- * 包含字体设置、状态栏美化等功能
+ * 系统设置页面
+ * 包含美化设置、数据管理等功能
  */
 
 import { useState } from 'react'
@@ -45,6 +45,12 @@ const Customize = () => {
       name: '图标设置',
       description: '自定义应用图标',
       route: '/icon-customizer'
+    },
+    {
+      id: 'data',
+      name: '数据管理',
+      description: '导出、导入、清除数据',
+      route: '/data-manager'
     }
   ]
 
@@ -66,7 +72,7 @@ const Customize = () => {
             </svg>
           </button>
           
-          <h1 className="text-base font-semibold text-gray-900">美化</h1>
+          <h1 className="text-base font-semibold text-gray-900">系统设置</h1>
           
           <div className="w-6"></div>
         </div>
@@ -75,7 +81,7 @@ const Customize = () => {
       {/* 设置列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-3">
-          {settingItems.map((item, index) => (
+          {settingItems.map((item) => (
             <div
               key={item.id}
               onClick={() => {
@@ -86,13 +92,10 @@ const Customize = () => {
               className="glass-card rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all backdrop-blur-md bg-white/80 border border-white/50"
             >
               <div className="flex items-center gap-4">
-                {/* 信息 */}
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
                   <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
                 </div>
-                
-                {/* 箭头 */}
                 <svg 
                   className="w-5 h-5 text-gray-400" 
                   fill="none" 
@@ -104,13 +107,6 @@ const Customize = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* 预留：后续添加的功能区域 */}
-        <div className="mt-6 p-4 glass-card rounded-2xl backdrop-blur-md bg-white/60 border border-white/50">
-          <p className="text-sm text-gray-600 text-center">
-            更多美化功能正在开发中...
-          </p>
         </div>
       </div>
 

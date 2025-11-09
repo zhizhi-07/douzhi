@@ -41,7 +41,7 @@ export const page1Apps: AppItem[] = [
   },
   { 
     id: 'customize', 
-    name: '美化', 
+    name: '系统设置', 
     icon: SettingsIcon, 
     color: 'glass-card', 
     route: '/customize' 
@@ -91,7 +91,7 @@ export const dockApps: AppItem[] = [
   },
   { 
     id: 'customize', 
-    name: '美化', 
+    name: '系统设置', 
     icon: SettingsIcon, 
     color: 'glass-card', 
     route: '/customize' 
