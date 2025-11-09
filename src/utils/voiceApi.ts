@@ -43,35 +43,64 @@ export async function callMinimaxTTS(
     throw new Error('未配置Group ID')
   }
 
-  // 使用Serverless代理避免CORS跨域问题
-  // 本地开发: /api/minimax-tts
-  // 生产环境: https://your-domain.vercel.app/api/minimax-tts
-  const proxyUrl = '/api/minimax-tts'
+  // 检测是否是本地开发环境
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  
   const baseUrl = config?.baseUrl || 'https://api.minimaxi.com/v1'
 
-  const requestBody = {
-    text: text,
-    apiKey: finalApiKey,
-    groupId: finalGroupId,
-    voiceId: finalVoiceId,
-    baseUrl: baseUrl
-  }
-
-  console.log('🎤 [MiniMax TTS] 通过代理调用语音合成API')
-  console.log('- Proxy URL:', proxyUrl)
+  console.log('🎤 [MiniMax TTS] 开始调用语音合成API')
+  console.log('- 环境:', isLocalDev ? '本地开发' : '生产环境')
   console.log('- Base URL:', baseUrl)
   console.log('- API Key前8位:', finalApiKey.substring(0, 8))
   console.log('- Group ID:', finalGroupId)
   console.log('- Voice ID:', finalVoiceId)
 
   try {
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    })
+    let response
+    
+    if (isLocalDev) {
+      // 本地开发：直接调用MiniMax API（需要CORS支持或浏览器插件）
+      console.log('⚡ [本地开发] 直接调用MiniMax API')
+      const url = `${baseUrl}/text_to_speech?GroupId=${finalGroupId}`
+      
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${finalApiKey}`
+        },
+        body: JSON.stringify({
+          text: text,
+          model: 'speech-01',
+          voice_id: finalVoiceId,
+          speed: 1.0,
+          vol: 1.0,
+          pitch: 0,
+          timber_weights: null,
+          audio_sample_rate: 32000,
+          bitrate: 128000,
+          format: 'mp3'
+        })
+      })
+    } else {
+      // 生产环境：通过Serverless代理
+      console.log('☁️ [生产环境] 通过Serverless代理')
+      const proxyUrl = '/api/minimax-tts'
+      
+      response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: text,
+          apiKey: finalApiKey,
+          groupId: finalGroupId,
+          voiceId: finalVoiceId,
+          baseUrl: baseUrl
+        })
+      })
+    }
 
     console.log('📡 [MiniMax TTS] API响应状态:', response.status)
     const contentType = response.headers.get('content-type') || ''
