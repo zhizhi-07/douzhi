@@ -8,6 +8,7 @@ import type { Message } from '../../types/chat'
 import { loadMoments } from '../momentsManager'
 import { loadMessages } from '../simpleMessageManager'
 import { getRecentAIInteractions } from '../aiInteractionMemory'
+import { extractNPCsFromPersonality, type NPCInfo } from '../npcExtractor'
 
 /**
  * 获取角色的最近聊天记录
@@ -91,4 +92,63 @@ export function formatMomentsHistory(): string {
  */
 export function formatAIMemory(): string {
   return getRecentAIInteractions(30)
+}
+
+/**
+ * 收集单个角色的NPC信息（用于AI发朋友圈时）
+ * @param characterId 角色ID
+ * @param characterName 角色名
+ * @param personality 人设
+ * @param world 世界观
+ * @returns NPC信息数组
+ */
+export async function collectCharacterNPCs(
+  characterId: string,
+  characterName: string,
+  personality: string,
+  world?: string
+): Promise<Array<NPCInfo & { ownerId: string, ownerName: string }>> {
+  const npcs = await extractNPCsFromPersonality(
+    characterId,
+    characterName,
+    personality,
+    world
+  )
+  
+  const npcList = npcs.map(npc => ({
+    ...npc,
+    ownerId: characterId,
+    ownerName: characterName
+  }))
+  
+  console.log(`📋 收集到 ${characterName} 的 ${npcList.length} 个NPC`)
+  return npcList
+}
+
+/**
+ * 格式化NPC信息供AI导演阅读
+ */
+export function formatNPCsInfo(npcs: Array<NPCInfo & { ownerName: string }>): string {
+  if (npcs.length === 0) {
+    return '（没有检测到NPC角色）'
+  }
+  
+  // 按所属角色分组
+  const grouped = npcs.reduce((acc, npc) => {
+    if (!acc[npc.ownerName]) {
+      acc[npc.ownerName] = []
+    }
+    acc[npc.ownerName].push(npc)
+    return acc
+  }, {} as Record<string, Array<NPCInfo & { ownerName: string }>>)
+  
+  const formatted = Object.entries(grouped).map(([ownerName, npcList]) => {
+    const npcText = npcList.map(npc => 
+      `  - ${npc.name}${npc.avatar ? ' ' + npc.avatar : ''}: ${npc.relationship}，${npc.personality}`
+    ).join('\n')
+    
+    return `${ownerName}的世界里的人物:\n${npcText}`
+  }).join('\n\n')
+  
+  return `## 虚拟NPC角色（可以参与互动）\n${formatted}`
 }

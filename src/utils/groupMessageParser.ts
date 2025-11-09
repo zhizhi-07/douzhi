@@ -51,6 +51,7 @@ export interface GroupChatScript {
     actorName: string
     content: string
     emojiIndex?: number  // 表情包编号（从1开始）
+    quotedMessageId?: string  // 引用的消息ID（可选）
   }>
 }
 
@@ -71,18 +72,57 @@ export function extractGroupChatScript(aiResponse: string): GroupChatScript | nu
       return null
     }
     
-    // 处理每个action，解析表情包指令
-    const processedActions = scriptData.actions.map((action: any) => {
-      // 检查是否是表情包指令：[表情:编号]
-      const emojiMatch = action.content.match(/^\[表情:(\d+)\]$/)
-      if (emojiMatch) {
-        return {
+    // 处理每个action，解析表情包指令（支持混合消息）
+    const processedActions: any[] = []
+    
+    scriptData.actions.forEach((action: any) => {
+      const content = action.content
+      
+      // 检查是否包含表情包指令：[表情:编号]
+      const emojiRegex = /\[表情:(\d+)\]/g
+      const parts: any[] = []
+      let lastIndex = 0
+      let match: RegExpExecArray | null
+      
+      while ((match = emojiRegex.exec(content)) !== null) {
+        // 添加表情包前的文字
+        if (match.index > lastIndex) {
+          const textPart = content.substring(lastIndex, match.index).trim()
+          if (textPart) {
+            parts.push({
+              actorName: action.actorName,
+              content: textPart
+            })
+          }
+        }
+        
+        // 添加表情包
+        parts.push({
           actorName: action.actorName,
-          content: action.content,
-          emojiIndex: parseInt(emojiMatch[1], 10)
+          content: match[0],
+          emojiIndex: parseInt(match[1], 10)
+        })
+        
+        lastIndex = emojiRegex.lastIndex
+      }
+      
+      // 添加剩余文字
+      if (lastIndex < content.length) {
+        const remainingText = content.substring(lastIndex).trim()
+        if (remainingText) {
+          parts.push({
+            actorName: action.actorName,
+            content: remainingText
+          })
         }
       }
-      return action
+      
+      // 如果没有表情包，直接添加原消息
+      if (parts.length === 0) {
+        parts.push(action)
+      }
+      
+      processedActions.push(...parts)
     })
     
     return {

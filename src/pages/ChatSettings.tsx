@@ -18,6 +18,17 @@ interface ChatSettingsData {
   messageLimit: number  // 读取的消息条数
   momentsVisibleCount: number  // AI可见的朋友圈条数
   aiCanPostMoments: boolean  // AI是否可以主动发朋友圈
+  autoMemorySummary: boolean  // 是否启用自动记忆总结
+  memorySummaryInterval: number  // 每N轮对话自动生成总结
+  groupChatSync: {
+    enabled: boolean  // 是否启用群聊消息同步
+    messageCount: number  // 同步消息条数
+  }
+  aiProactiveMessage: {
+    enabled: boolean  // 是否启用AI主动发消息
+    mode: 'fixed' | 'thinking'  // 模式：fixed=固定时间必发，thinking=AI思考是否发
+    interval: number  // 时间间隔（分钟）
+  }
 }
 
 const ChatSettings = () => {
@@ -31,14 +42,36 @@ const ChatSettings = () => {
       const data = JSON.parse(saved)
       return {
         messageLimit: data.messageLimit ?? 50,
-        momentsVisibleCount: data.momentsVisibleCount ?? 10,  // 默认10条
-        aiCanPostMoments: data.aiCanPostMoments ?? false  // 默认关闭
+        momentsVisibleCount: data.momentsVisibleCount ?? 10,
+        aiCanPostMoments: data.aiCanPostMoments ?? false,
+        autoMemorySummary: data.autoMemorySummary ?? false,
+        memorySummaryInterval: data.memorySummaryInterval ?? 30,
+        groupChatSync: data.groupChatSync ?? {
+          enabled: false,
+          messageCount: 20
+        },
+        aiProactiveMessage: data.aiProactiveMessage ?? {
+          enabled: false,
+          mode: 'thinking',
+          interval: 5
+        }
       }
     }
     return {
-      messageLimit: 50,  // 默认50条
-      momentsVisibleCount: 10,  // 默认10条朋友圈
-      aiCanPostMoments: false  // 默认AI不能发朋友圈
+      messageLimit: 50,
+      momentsVisibleCount: 10,
+      aiCanPostMoments: false,
+      autoMemorySummary: false,
+      memorySummaryInterval: 30,
+      groupChatSync: {
+        enabled: false,
+        messageCount: 20
+      },
+      aiProactiveMessage: {
+        enabled: false,
+        mode: 'thinking',
+        interval: 5
+      }
     }
   }
   
@@ -168,6 +201,303 @@ const ChatSettings = () => {
               />
             </button>
           </div>
+        </div>
+        
+        {/* AI 记忆 */}
+        <div className="bg-white rounded-2xl p-4 space-y-2">
+          <div className="text-sm font-medium text-gray-900 mb-3">AI 记忆</div>
+          
+          <button
+            onClick={() => navigate(`/chat/${id}/memory-viewer`)}
+            className="w-full flex items-center justify-between py-2 active:scale-[0.98] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl"></span>
+              <div className="text-left">
+                <div className="text-sm text-gray-900">查看记忆</div>
+                <div className="text-xs text-gray-400">查看 AI 记住的关于你的信息</div>
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => navigate(`/chat/${id}/memory-summary`)}
+            className="w-full flex items-center justify-between py-2 active:scale-[0.98] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl"></span>
+              <div className="text-left">
+                <div className="text-sm text-gray-900">记忆总结</div>
+                <div className="text-xs text-gray-400">AI 总结当前对话的重要信息</div>
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          {/* 自动总结设置 */}
+          <div className="border-t border-gray-100 pt-3 mt-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="text-sm text-gray-900">自动总结</div>
+                <div className="text-xs text-gray-400">每隔一定轮数自动生成记忆总结</div>
+              </div>
+              <button
+                onClick={() => {
+                  const newSettings = { ...settings, autoMemorySummary: !settings.autoMemorySummary }
+                  setSettings(newSettings)
+                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  setSaved(true)
+                  setTimeout(() => setSaved(false), 2000)
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  settings.autoMemorySummary ? 'bg-[#07c160]' : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
+                    settings.autoMemorySummary ? 'left-5.5' : 'left-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            {settings.autoMemorySummary && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">总结间隔</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={settings.memorySummaryInterval}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 30
+                      const newSettings = { ...settings, memorySummaryInterval: value }
+                      setSettings(newSettings)
+                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                    }}
+                    className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded-lg"
+                  />
+                  <span className="text-sm text-gray-600">轮对话</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* 群聊消息同步 */}
+        <div className="bg-white rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-medium text-gray-900">群聊消息同步</div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">同步群聊消息</div>
+              <div className="text-xs text-gray-400">让AI了解TA在群聊中的发言</div>
+            </div>
+            <button
+              onClick={() => {
+                const newSettings = { 
+                  ...settings, 
+                  groupChatSync: {
+                    ...settings.groupChatSync,
+                    enabled: !settings.groupChatSync.enabled
+                  }
+                }
+                setSettings(newSettings)
+                localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                setSaved(true)
+                setTimeout(() => setSaved(false), 2000)
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                settings.groupChatSync.enabled ? 'bg-gray-900' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
+                  settings.groupChatSync.enabled ? 'left-5.5' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          
+          {settings.groupChatSync.enabled && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-600">同步消息条数</span>
+                <span className="text-xs font-medium text-gray-900">{settings.groupChatSync.messageCount}条</span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="50"
+                step="5"
+                value={settings.groupChatSync.messageCount}
+                onChange={(e) => {
+                  const newCount = parseInt(e.target.value)
+                  const newSettings = { 
+                    ...settings, 
+                    groupChatSync: {
+                      ...settings.groupChatSync,
+                      messageCount: newCount
+                    }
+                  }
+                  setSettings(newSettings)
+                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>10条</span>
+                <span>50条</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                AI将读取TA在群聊中的最近{settings.groupChatSync.messageCount}条发言
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* AI主动发消息 */}
+        <div className="bg-white rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-medium text-gray-900">AI主动发消息</div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">启用主动发消息</div>
+              <div className="text-xs text-gray-400">AI会在你一段时间未回复时主动发消息</div>
+            </div>
+            <button
+              onClick={() => {
+                const newSettings = { 
+                  ...settings, 
+                  aiProactiveMessage: {
+                    ...settings.aiProactiveMessage,
+                    enabled: !settings.aiProactiveMessage.enabled
+                  }
+                }
+                setSettings(newSettings)
+                localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                setSaved(true)
+                setTimeout(() => setSaved(false), 2000)
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                settings.aiProactiveMessage.enabled ? 'bg-[#07c160]' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
+                  settings.aiProactiveMessage.enabled ? 'left-5.5' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          
+          {settings.aiProactiveMessage.enabled && (
+            <div className="pt-3 border-t border-gray-100 space-y-3">
+              {/* 模式选择 */}
+              <div>
+                <div className="text-xs text-gray-600 mb-2">发消息模式</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      const newSettings = {
+                        ...settings,
+                        aiProactiveMessage: {
+                          ...settings.aiProactiveMessage,
+                          mode: 'fixed' as const
+                        }
+                      }
+                      setSettings(newSettings)
+                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs transition-all ${
+                      settings.aiProactiveMessage.mode === 'fixed'
+                        ? 'bg-[#07c160] text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    固定时间
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newSettings = {
+                        ...settings,
+                        aiProactiveMessage: {
+                          ...settings.aiProactiveMessage,
+                          mode: 'thinking' as const
+                        }
+                      }
+                      setSettings(newSettings)
+                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs transition-all ${
+                      settings.aiProactiveMessage.mode === 'thinking'
+                        ? 'bg-[#07c160] text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    AI思考
+                  </button>
+                </div>
+              </div>
+              
+              {/* 时间间隔 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-600">
+                    {settings.aiProactiveMessage.mode === 'fixed' ? '固定间隔' : '思考间隔'}
+                  </span>
+                  <span className="text-xs font-medium text-gray-900">{settings.aiProactiveMessage.interval}分钟</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={settings.aiProactiveMessage.interval}
+                  onChange={(e) => {
+                    const newInterval = parseInt(e.target.value)
+                    const newSettings = { 
+                      ...settings, 
+                      aiProactiveMessage: {
+                        ...settings.aiProactiveMessage,
+                        interval: newInterval
+                      }
+                    }
+                    setSettings(newSettings)
+                    localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  }}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#07c160]"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>1分钟</span>
+                  <span>30分钟</span>
+                </div>
+              </div>
+              
+              {/* 说明文字 */}
+              <div className="p-3 bg-green-50 rounded-xl border border-green-200">
+                <div className="flex items-start gap-2 text-green-600 text-xs">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    {settings.aiProactiveMessage.mode === 'fixed' ? (
+                      <span>固定模式：{settings.aiProactiveMessage.interval}分钟后AI必定发送消息</span>
+                    ) : (
+                      <span>思考模式：{settings.aiProactiveMessage.interval}分钟后AI会思考是否需要发消息（使用副API）</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* 气泡设置 */}

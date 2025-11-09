@@ -100,7 +100,8 @@ export function buildAIMomentPrompt(
   moment: Moment,
   charactersInfo: CharacterInfo[],
   momentsHistory: string,
-  aiMemory: string
+  aiMemory: string,
+  publisherPersonality: string
 ): string {
   return `# 朋友圈互动编排
 
@@ -126,23 +127,43 @@ ${charactersInfo.map(char => `
 ${char.recentChat}
 `).join('\n')}
 
+## 发布者人设（${moment.userName}）
+
+${publisherPersonality}
+
+⚠️ 从上面的人设中，你可以看到${moment.userName}周围的人物（如朋友、同学、队友等）。
+这些人物可以参与互动（点赞、评论），使用格式：npc-${moment.userId}-人物名字
+
+例如：
+- 如果人设提到"江燃"，可以编排：评论|npc-${moment.userId}-江燃|江燃|5|神经病|
+- 如果人设提到"篮球队"，可以编排：点赞|npc-${moment.userId}-篮球队长|篮球队长|3||
+
 ## 核心规则
 
 🚨 这是【AI角色"${moment.userName}"】发的朋友圈，不是用户发的！
 
-1. **${moment.userName}本人已被排除**，不会参与互动（发布者不会给自己点赞评论）
-
-2. **其他AI如何互动**：
+1. **发布者互动规则**：
+   - ❌ ${moment.userName}不能给自己点赞
+   - ❌ ${moment.userName}不能评论自己的朋友圈（发新评论）
+   - ✅ ${moment.userName}可以回复别人的评论（这很正常！）
+   
+2. **人设中的NPC互动**：
+   - 从${moment.userName}的人设中提到的人物（如朋友、同学等）可以参与互动
+   - NPC的ID格式：npc-${moment.userId}-人物名字
+   - NPC的互动要符合人设中对该人物的描述
+   - ${moment.userName}可以回复NPC的评论（符合人设的互怼/回应）
+   
+3. **其他AI如何互动**：
    - 从朋友圈历史判断：该AI和${moment.userName}的关系
    - 没有互动记录 → 大概率沉默（AI之间不熟）
    - 有互动记录 → 可以轻度互动（点赞/简单评论）
    - ⚠️ 不要把用户的恋人关系投射到AI之间
 
-3. **必须贴合人设**：严格按照角色性格和说话风格
+4. **必须贴合人设**：严格按照角色性格和说话风格
 
-4. **角色视角限制**：只知道朋友圈内容、可见评论，不知道私聊
+5. **角色视角限制**：只知道朋友圈内容、可见评论，不知道私聊
 
-5. **真实反应**：根据朋友圈内容+AI之间的关系创造反应
+6. **真实反应**：根据朋友圈内容+关系创造反应
 
 ## 输出格式
 
@@ -150,15 +171,17 @@ ${char.recentChat}
 之后每行一个动作：动作类型|角色ID|角色名|延迟秒数|内容|回复对象
 
 ⚠️ 角色ID必须使用上面提供的完整ID，不要自己编造！
-🚨 绝对不要编排【${moment.userName}】本人的动作！
+✅ ${moment.userName}可以回复评论，格式：评论|${moment.userId}|${moment.userName}|延迟|回复内容|被回复者名字
 
-示例：
-${EXAMPLE_FORMAT}
+示例（包含发布者回复）：
+场景:NPC互动+发布者回应
+评论|npc-1762655989626-江燃|江燃|5|神经病|
+评论|1762655989626|唐秋水|8|@江燃 你才神经病|江燃
 
 动作类型：点赞、评论、私聊、沉默
 - 直接用emoji（🙄😅❤️），不用【表情包:xxx】格式
 - AI之间的互动要比对用户的互动更冷淡、更疏远
-- 大部分AI应该选择沉默（彼此不熟）
+- NPC和发布者的互动可以更真实、更有火药味
 
 开始编排！`
 }
@@ -170,14 +193,17 @@ export function buildDirectorPrompt(
   moment: Moment,
   charactersInfo: CharacterInfo[],
   momentsHistory: string,
-  aiMemory: string
+  aiMemory: string,
+  publisherPersonality?: string
 ): string {
   const isUserPost = moment.userId === 'user'
   
   if (isUserPost) {
+    // 用户发朋友圈：不包含发布者人设
     return buildUserMomentPrompt(moment, charactersInfo, momentsHistory, aiMemory)
   } else {
-    return buildAIMomentPrompt(moment, charactersInfo, momentsHistory, aiMemory)
+    // AI发朋友圈：包含发布者人设，AI导演自己判断NPC
+    return buildAIMomentPrompt(moment, charactersInfo, momentsHistory, aiMemory, publisherPersonality || '')
   }
 }
 

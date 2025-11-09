@@ -319,6 +319,14 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 
 ══════════════════════════════════
 
+⚠️ 重要原则：
+- 不要描述或假设${userName}做了什么、想了什么、去了哪里
+- 不要替${userName}编造任何没有在对话中明确出现过的行为、想法、经历
+- 只根据${userName}实际发送的消息内容来回应
+- 如果不知道${userName}的情况，可以直接问，而不是自己猜测或编造
+
+══════════════════════════════════
+
 基于上面的对话历史，自然地回复${userName}。
 你的回复长短、语气、情绪都由你此刻的状态和心情决定。
 多条消息就用换行分开，每条单独一行。`
@@ -742,9 +750,11 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   // 获取朋友圈列表
   const allMoments = loadMoments()
   
-  // 🔥 只显示用户发的朋友圈（不包括AI自己发的）
-  const userMoments = allMoments.filter(m => m.userId === 'user')
-  const visibleMoments = userMoments.slice(0, momentsVisibleCount)
+  // 显示用户发的朋友圈 + AI自己发的朋友圈
+  const visibleToAI = allMoments.filter(m => 
+    m.userId === 'user' || m.userId === characterId
+  )
+  const visibleMoments = visibleToAI.slice(0, momentsVisibleCount)
   
   if (visibleMoments.length === 0) {
     return ''
@@ -753,27 +763,27 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   // 格式化朋友圈列表
   const momentsList = visibleMoments.map((m, index) => {
     const number = String(index + 1).padStart(2, '0')
+    const author = m.userId === characterId ? '你' : m.userName
     const likesText = m.likes.length > 0 
       ? `\n  点赞：${m.likes.map(l => l.userName).join('、')}` 
       : ''
     const commentsText = m.comments.length > 0
-      ? `\n  评论：${m.comments.map(c => `${c.userName}: ${c.content}`).join(' | ')}`
+      ? `\n  评论：\n${m.comments.map(c => `    ${c.userName}: ${c.content}`).join('\n')}` 
       : ''
-    
-    return `${number}. ${m.content}${likesText}${commentsText}`
+    return `${number}. ${author}: ${m.content}${likesText}${commentsText}`
   }).join('\n\n')
   
   return `
 
 ══════════════════════════════════
 
-📱 用户的朋友圈（仅显示用户发的，最近${momentsVisibleCount}条）：
+📱 朋友圈（显示你和用户发的，最近${momentsVisibleCount}条）：
 
 ${momentsList}
 
 你可以在聊天中评论或点赞：
 - 评论：评论01 你的评论内容
-- 点赞：点赞02
+- 点赞：点赞01
 - 回复评论：评论01回复张三 你的回复内容
 
 自然地使用，不要刻意。`

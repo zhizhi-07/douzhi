@@ -24,6 +24,7 @@ import MusicInviteSelector from '../components/MusicInviteSelector'
 import type { Message } from '../types/chat'
 import { addMessage } from '../utils/simpleMessageManager'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
+import { useProactiveMessage } from './ChatDetail/hooks/useProactiveMessage'
 import ChatModals from './ChatDetail/components/ChatModals'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import { useChatBubbles } from '../hooks/useChatBubbles'
@@ -61,6 +62,15 @@ const ChatDetail = () => {
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
   const photo = usePhoto(chatState.setMessages, id || '')
   const intimatePay = useIntimatePay(chatState.setMessages, id || '')
+  
+  // AI主动发消息
+  useProactiveMessage({
+    chatId: id || '',
+    character: chatState.character,
+    messages: chatState.messages,
+    setMessages: chatState.setMessages,
+    isAiTyping: chatAI.isAiTyping
+  })
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -297,9 +307,19 @@ const ChatDetail = () => {
         {chatState.messages.filter(msg => !(msg as any).hideInUI).map((message, index) => {
           // 获取过滤后的消息列表用于计算时间戳
           const visibleMessages = chatState.messages.filter(msg => !(msg as any).hideInUI)
-          // 判断是否需要显示5分钟时间戳
-          const shouldShow5MinTimestamp = index === 0 || 
-            (message.timestamp - visibleMessages[index - 1].timestamp >= 5 * 60 * 1000)
+          // 判断是否需要显示5分钟时间戳（固定时间刻度）
+          const prevMsg = visibleMessages[index - 1]
+          let shouldShow5MinTimestamp = false
+          
+          if (index === 0) {
+            shouldShow5MinTimestamp = true
+          } else if (message.timestamp && prevMsg?.timestamp) {
+            // 计算当前消息和上一条消息所在的5分钟时间段（向下取整）
+            const current5MinSlot = Math.floor(message.timestamp / (5 * 60 * 1000))
+            const prev5MinSlot = Math.floor(prevMsg.timestamp / (5 * 60 * 1000))
+            // 如果跨越了5分钟时间段，显示时间戳
+            shouldShow5MinTimestamp = current5MinSlot !== prev5MinSlot
+          }
           
           // 格式化5分钟时间戳
           let timestamp5MinText = ''

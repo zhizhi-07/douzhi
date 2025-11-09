@@ -46,8 +46,21 @@ export async function aiDirectorArrangeScene(
   
   const charactersInfo = collectCharactersInfo(characters)
   
+  // 判断是用户还是AI发的朋友圈
+  const isUserPost = moment.userId === 'user'
+  let publisherPersonality = ''
+  
+  if (!isUserPost) {
+    // AI发朋友圈时，传递发布者的完整人设
+    const publisher = characterService.getById(moment.userId)
+    if (publisher) {
+      console.log(`👤 ${moment.userName} 发的朋友圈，传递其人设供AI导演参考`)
+      publisherPersonality = publisher.personality || ''
+    }
+  }
+  
   // 构建提示词
-  const prompt = buildDirectorPrompt(moment, charactersInfo, momentsHistory, aiMemory)
+  const prompt = buildDirectorPrompt(moment, charactersInfo, momentsHistory, aiMemory, publisherPersonality)
   
   console.log('\n' + '='.repeat(80))
   console.log('🎬 AI导演编排场景 - 完整输入')
@@ -134,14 +147,38 @@ export async function aiDirectorArrangeScene(
     if (scene) {
       console.log('🎬 场景编排完成:', scene)
       
-      // 过滤掉发布者本人的动作（双重保险）
+      // 只过滤发布者的点赞和直接评论，保留回复评论
       const publisherId = moment.userId
       const originalCount = scene.actions.length
-      scene.actions = scene.actions.filter(action => action.characterId !== publisherId)
+      scene.actions = scene.actions.filter(action => {
+        // 不是发布者，通过
+        if (action.characterId !== publisherId) return true
+        
+        // 是发布者，检查动作类型
+        if (action.action === 'like') {
+          // 过滤掉点赞
+          console.log(`🚫 过滤: ${action.characterName} 不能给自己点赞`)
+          return false
+        }
+        
+        if (action.action === 'comment' && !action.replyTo) {
+          // 过滤掉直接评论（没有回复对象）
+          console.log(`🚫 过滤: ${action.characterName} 不能直接评论自己的朋友圈`)
+          return false
+        }
+        
+        // 保留回复评论
+        if (action.action === 'comment' && action.replyTo) {
+          console.log(`✅ 保留: ${action.characterName} 回复 ${action.replyTo} 的评论`)
+          return true
+        }
+        
+        // 其他动作保留
+        return true
+      })
       
       if (scene.actions.length < originalCount) {
-        console.warn(`⚠️ 过滤掉了发布者本人的动作: ${originalCount - scene.actions.length} 个`)
-        console.log(`🚫 发布者ID: ${publisherId}`)
+        console.log(`📝 过滤后剩余动作: ${scene.actions.length}/${originalCount}`)
       }
     }
     
@@ -161,7 +198,41 @@ function executeAction(
   characters: any[],
   allActions: AIAction[]
 ): void {
-  // 先通过ID查找，找不到则通过角色名查找
+  // 检查是否是NPC（ID格式: npc-所属角色ID-NPC名字）
+  const isNPC = action.characterId.startsWith('npc-')
+  
+  if (isNPC) {
+    // NPC动作，构造虚拟角色对象
+    const npcParts = action.characterId.split('-')
+    const npcName = npcParts.slice(2).join('-')  // 支持名字中有连字符
+    
+    console.log(`👤 检测到NPC互动: ${npcName}`)
+    
+    const virtualCharacter = {
+      id: action.characterId,
+      realName: npcName,
+      nickname: npcName,
+      avatar: '👤'  // NPC默认头像
+    }
+    
+    // 执行NPC动作（只支持点赞和评论，不支持私聊）
+    switch (action.action) {
+      case 'like':
+        executeLikeAction(action, moment, virtualCharacter)
+        break
+      case 'comment':
+        executeCommentAction(action, moment, virtualCharacter, allActions)
+        break
+      case 'none':
+        console.log(`👀 NPC ${npcName} 选择沉默`)
+        break
+      default:
+        console.warn(`⚠️ NPC不支持此动作: ${action.action}`)
+    }
+    return
+  }
+  
+  // 普通角色处理
   let character = characters.find(c => c.id === action.characterId)
   
   if (!character) {
@@ -206,18 +277,15 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
   console.log(`🎬 朋友圈发布，准备让AI导演编排互动场景...`)
   console.log(`📱 朋友圈发布者: ${newMoment.userName} (ID: ${newMoment.userId})`)
   
-  // 过滤掉朋友圈发布者本人（AI不会给自己的朋友圈点赞评论）
-  const characters = allCharacters.filter(c => c.id !== newMoment.userId)
+  // 不再过滤发布者，因为发布者可以回复评论
+  const characters = allCharacters
   
   if (characters.length === 0) {
-    console.warn('⚠️ 没有其他AI角色可以互动')
+    console.warn('⚠️ 没有AI角色可以互动')
     return
   }
   
-  console.log(`✅ 过滤后可参与互动的角色: ${characters.map(c => c.realName).join('、')}`)
-  if (newMoment.userId !== 'user') {
-    console.log(`🚫 已排除发布者本人: ${newMoment.userName}`)
-  }
+  console.log(`✅ 可参与互动的角色: ${characters.map(c => c.realName).join('、')}`)
   
   // 延迟一会儿，让AI导演思考
   setTimeout(async () => {
@@ -229,7 +297,7 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
     console.log('📱 朋友圈内容:', newMoment.content)
     console.log('👥 参与编排的角色:', characters.map(c => c.realName).join('、'))
     if (!isUserPost) {
-      console.log(`🚫 已排除发布者: ${newMoment.userName}`)
+      console.log(`✅ 发布者 ${newMoment.userName} 可以回复评论`)
     }
     console.log('🎬'.repeat(40) + '\n')
     

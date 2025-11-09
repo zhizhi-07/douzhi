@@ -190,6 +190,7 @@ const ChatList = () => {
   // 因为 unread 字段由 unreadMessages.ts 管理
   // 只在添加/删除聊天时手动保存
 
+  // 加载未添加的角色（用于单聊）
   const loadCharacters = () => {
     const allCharacters = characterService.getAll()
     // 过滤出未添加到聊天列表的角色
@@ -197,6 +198,12 @@ const ChatList = () => {
       c => !chats.some(chat => chat.characterId === c.id)
     )
     setAvailableCharacters(available)
+  }
+  
+  // 加载所有角色（用于群聊）
+  const loadAllCharacters = () => {
+    const allCharacters = characterService.getAll()
+    setAvailableCharacters(allCharacters)
   }
 
   const handleAddCharacter = (characterId: string) => {
@@ -249,7 +256,7 @@ const ChatList = () => {
           <div className="flex items-center gap-3">
             <button 
               onClick={() => {
-                loadCharacters()
+                loadAllCharacters()  // 群聊显示所有角色
                 setShowGroupModal(true)
               }}
               className="text-gray-700 active:scale-95 transition-transform"
@@ -426,7 +433,7 @@ const ChatList = () => {
             }}
           />
           <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-            <div className="glass-card rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto">
+            <div className="bg-white rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">创建群聊</h2>
                 <button
@@ -457,13 +464,13 @@ const ChatList = () => {
               {/* 群头像 */}
               <div className="mb-4">
                 <label className="text-sm text-gray-600 mb-2 block">群头像（可选）</label>
-                <input
-                  type="text"
-                  value={groupAvatar}
-                  onChange={(e) => setGroupAvatar(e.target.value)}
-                  placeholder="输入头像URL"
-                  className="w-full px-3 py-2 bg-gray-100 rounded-lg focus:outline-none"
-                />
+                <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
+                  {groupAvatar ? (
+                    <img src={groupAvatar} alt="群头像" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl">👥</span>
+                  )}
+                </div>
               </div>
 
               {/* 选择成员 */}
@@ -522,7 +529,15 @@ const ChatList = () => {
                     alert('请至少选择2个成员')
                     return
                   }
-                  const group = groupChatManager.createGroup(groupName, ['user', ...Array.from(selectedMembers)])
+                  // 获取成员名称
+                  const memberIds = ['user', ...Array.from(selectedMembers)]
+                  const memberNames = memberIds.map(id => {
+                    if (id === 'user') return '你'
+                    const char = availableCharacters.find(c => c.id === id)
+                    return char?.nickname || char?.realName || '未知'
+                  })
+                  
+                  const group = groupChatManager.createGroup(groupName, memberIds, '你', memberNames)
                   if (groupAvatar) {
                     groupChatManager.updateGroup(group.id, { avatar: groupAvatar })
                   }

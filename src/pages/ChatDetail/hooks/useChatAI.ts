@@ -17,7 +17,7 @@ import {
   parseAIMessages,
   convertToApiMessages
 } from '../../../utils/messageUtils'
-import { loadMessages, addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
+import { loadMessages, addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
 import { commandHandlers } from './commandHandlers'
@@ -28,6 +28,8 @@ import { parseAIMomentsPost, executeAIMomentsPost } from '../../../utils/aiMomen
 import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
 import { loadMoments } from '../../../utils/momentsManager'
 import { playMessageSendSound, playMessageNotifySound } from '../../../utils/soundManager'
+import { memoryManager } from '../../../utils/memorySystem'
+import { groupChatManager } from '../../../utils/groupChatManager'
 
 export const useChatAI = (
   chatId: string,
@@ -42,7 +44,18 @@ export const useChatAI = (
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sendTimeoutRef = useRef<number>()
-  
+  const conversationCountRef = useRef<number>(0)  // 对话轮数计数器
+  const isGeneratingSummaryRef = useRef<boolean>(false)  // 防止重复生成总结
+
+  // 初始化：从 localStorage 加载计数器
+  useEffect(() => {
+    const savedCount = localStorage.getItem(`conversation_count_${chatId}`)
+    if (savedCount) {
+      conversationCountRef.current = parseInt(savedCount) || 0
+      console.log(`[自动总结] 加载已保存的对话轮数: ${conversationCountRef.current}`)
+    }
+  }, [chatId])
+
   /**
    * 滚动到消息底部
    */
@@ -140,6 +153,10 @@ export const useChatAI = (
 
     setIsAiTyping(true)
     setError(null)
+    
+    // 🔥 设置AI回复标志，阻止messages-loaded事件触发重新加载
+    ;(window as any).__AI_REPLYING__ = true
+    console.log('🚦 [AI回复] 开始，设置全局标志')
 
     try {
       const settings = getApiSettings()
@@ -156,6 +173,83 @@ export const useChatAI = (
       console.log(`🔍 [拉黑检查] AI拉黑了用户: ${hasAIBlockedUser}`)
       
       let systemPrompt = await buildSystemPrompt(character)
+      
+      // 🔥 注入相关记忆（根据用户消息内容检索）
+      const memorySystem = memoryManager.getSystem(chatId)
+      const allMessages = loadMessages(chatId)
+      const lastUserMessage = allMessages.filter(m => m.type === 'sent').pop()
+      const userMessageContent = lastUserMessage?.content || lastUserMessage?.photoDescription || lastUserMessage?.voiceText || ''
+      
+      const relevantMemories = memorySystem.getRelevantMemories(userMessageContent, 10)
+      
+      if (relevantMemories.length > 0) {
+        let memoryPrompt = '\n\n══════════════════════════════════\n\n'
+        memoryPrompt += '【相关记忆】（这些是你和TA之间的重要信息）\n\n'
+        
+        relevantMemories.forEach(memory => {
+          memoryPrompt += `- ${memory.content}\n`
+        })
+        
+        memoryPrompt += '\n💡 提示：对话中提到相关内容时，自然地表现出你知道这些事\n'
+        memoryPrompt += '\n══════════════════════════════════'
+        
+        systemPrompt = systemPrompt + memoryPrompt
+        console.log(`🧠 [记忆系统] 注入了 ${relevantMemories.length} 条相关记忆`)
+        console.log('注入的记忆:', relevantMemories.map(m => m.content))
+      } else {
+        console.log('🧠 [记忆系统] 未找到相关记忆')
+      }
+      
+      // 🔥 注入群聊消息（如果启用了群聊消息同步）
+      const chatSettings = localStorage.getItem(`chat_settings_${chatId}`)
+      if (chatSettings) {
+        try {
+          const settings = JSON.parse(chatSettings)
+          if (settings.groupChatSync?.enabled && settings.groupChatSync?.messageCount > 0) {
+            const allGroups = groupChatManager.getAllGroups()
+            const relevantGroups = allGroups.filter(g => g.memberIds.includes(chatId))
+            
+            if (relevantGroups.length > 0) {
+              const groupMessages: Array<{ groupName: string, content: string, time: string }> = []
+              
+              relevantGroups.forEach(group => {
+                const messages = groupChatManager.getMessages(group.id)
+                const aiMessages = messages
+                  .filter(m => m.userId === chatId)
+                  .slice(-settings.groupChatSync.messageCount)
+                
+                aiMessages.forEach(msg => {
+                  groupMessages.push({
+                    groupName: group.name,
+                    content: msg.content,
+                    time: msg.time
+                  })
+                })
+              })
+              
+              if (groupMessages.length > 0) {
+                // 按时间排序
+                groupMessages.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+                
+                let groupChatPrompt = '\n\n══════════════════════════════════\n\n'
+                groupChatPrompt += '【你在群聊中的发言记录】（这些是你最近在群聊中说过的话）\n\n'
+                
+                groupMessages.slice(-settings.groupChatSync.messageCount).forEach(msg => {
+                  groupChatPrompt += `[${msg.groupName}] ${msg.content}\n`
+                })
+                
+                groupChatPrompt += '\n💡 提示：保持你在群聊和私聊中的一致性\n'
+                groupChatPrompt += '\n══════════════════════════════════'
+                
+                systemPrompt = systemPrompt + groupChatPrompt
+                console.log(`💬 [群聊同步] 注入了 ${groupMessages.length} 条群聊消息`)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('读取群聊同步配置失败:', error)
+        }
+      }
       
       // 如果用户拉黑了AI，在最前面添加警告提示（确保AI优先看到）
       if (isBlocked) {
@@ -248,6 +342,17 @@ export const useChatAI = (
           // 更新React状态（setMessages会自动保存）
           setMessages(prev => [...prev, systemMessage])
           console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
+          
+          // 记录到AI互动记忆（重要！让AI记得自己发过朋友圈）
+          const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
+          recordAIInteraction({
+            characterId: aiId,
+            characterName: aiName,
+            actionType: 'post',
+            content: aiMomentsPost.content,
+            context: `发布朋友圈："${aiMomentsPost.content}"`
+          })
+          console.log(`🧠 [AI发朋友圈] 已记录到AI互动记忆`)
           
           // 调用朋友圈导演系统，让其他AI根据内容进行互动
           // 获取刚发布的朋友圈对象
@@ -439,15 +544,120 @@ export const useChatAI = (
       }
       
     } catch (error) {
-      console.error('AI回复失败:', error)
-      
-      if (error instanceof ChatApiError) {
-        setError(error.message)
-      } else {
-        setError('AI回复失败，请稍后重试')
-      }
+      console.error('🐞 AI生成失败:', error)
+      setError(error instanceof ChatApiError ? error.message : '生成回复失败')
     } finally {
       setIsAiTyping(false)
+      ;(window as any).__AI_REPLYING__ = false
+      console.log('✅ [AI回复] 结束，清除全局标志')
+      
+      // 自动总结逻辑
+      try {
+        const settingsStr = localStorage.getItem(`chat_settings_${chatId}`)
+        if (settingsStr) {
+          const settings = JSON.parse(settingsStr)
+          if (settings.autoMemorySummary && settings.memorySummaryInterval) {
+            conversationCountRef.current++
+            // 保存计数器到 localStorage
+            localStorage.setItem(`conversation_count_${chatId}`, conversationCountRef.current.toString())
+            console.log(`[自动总结] 对话轮数: ${conversationCountRef.current}/${settings.memorySummaryInterval}`)
+            
+            // 防止重复生成
+            if (conversationCountRef.current >= settings.memorySummaryInterval && !isGeneratingSummaryRef.current) {
+              console.log('[自动总结] 达到阈值，开始生成总结...')
+              conversationCountRef.current = 0  // 立即重置计数器
+              localStorage.setItem(`conversation_count_${chatId}`, '0')  // 保存重置后的值
+              isGeneratingSummaryRef.current = true  // 设置生成标志
+              
+              // 异步生成总结，不阻塞UI
+              setTimeout(async () => {
+                try {
+                  const msgs = loadMessages(chatId)
+                  const recentMessages = msgs.slice(-settings.memorySummaryInterval * 2)  // 获取最近的消息
+                  
+                  const userMessages = recentMessages.filter(m => m.type === 'sent')
+                  const aiMessages = recentMessages.filter(m => m.type === 'received')
+                  
+                  if (userMessages.length === 0 || aiMessages.length === 0) {
+                    console.log('[自动总结] 消息不足，跳过')
+                    return
+                  }
+                  
+                  const roundCount = Math.min(userMessages.length, aiMessages.length)
+                  
+                  const userContent = userMessages.map(m => {
+                    if (m.videoCallRecord) {
+                      // 提取视频通话内容
+                      const conversations = m.videoCallRecord.messages
+                        .map(msg => {
+                          const speaker = msg.type === 'user' ? '用户' : (msg.type === 'ai' ? character?.realName || 'AI' : '旁白')
+                          return `${speaker}: ${msg.content}`
+                        })
+                        .join('\n')
+                      return `[视频通话]\n${conversations}`
+                    }
+                    return m.content || m.photoDescription || m.voiceText || ''
+                  }).join('\n')
+                  
+                  const aiContent = aiMessages.map(m => {
+                    if (m.videoCallRecord) {
+                      // 提取视频通话内容
+                      const conversations = m.videoCallRecord.messages
+                        .map(msg => {
+                          const speaker = msg.type === 'user' ? '用户' : (msg.type === 'ai' ? character?.realName || 'AI' : '旁白')
+                          return `${speaker}: ${msg.content}`
+                        })
+                        .join('\n')
+                      return `[视频通话]\n${conversations}`
+                    }
+                    return m.content || m.photoDescription || m.voiceText || ''
+                  }).join('\n')
+                  
+                  const memorySystem = memoryManager.getSystem(chatId)
+                  const result = await memorySystem.extractMemoriesFromConversation(
+                    userContent,
+                    aiContent,
+                    character?.realName || 'AI',
+                    character?.personality || '',
+                    '用户'  // 用户名，暂时固定，后续可以从用户系统获取
+                  )
+                  
+                  if (result.summary && result.summary.trim()) {
+                    const oldSummary = localStorage.getItem(`memory_summary_${chatId}`) || ''
+                    const timestamp = new Date().toLocaleString('zh-CN')
+                    const newEntry = `【自动总结 - ${timestamp}】\n基于最近 ${roundCount} 轮对话生成\n\n${result.summary}`
+                    
+                    // 限制总结历史数量（只保留最近5次）
+                    let summaryHistory = oldSummary
+                    if (oldSummary) {
+                      const entries = oldSummary.split('\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n')
+                      // 只保留最近4次（加上新的这次就是5次）
+                      if (entries.length >= 5) {
+                        summaryHistory = entries.slice(-4).join('\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n')
+                      }
+                    }
+                    
+                    const separator = summaryHistory ? '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' : ''
+                    const newSummary = summaryHistory + separator + newEntry
+                    
+                    localStorage.setItem(`memory_summary_${chatId}`, newSummary)
+                    console.log(`[自动总结] 总结已保存，提取了 ${result.memories.length} 条记忆，历史总结数量已限制`)
+                  }
+                } catch (error) {
+                  console.error('[自动总结] 生成失败:', error)
+                } finally {
+                  // 5秒后才允许再次生成（防抖）
+                  setTimeout(() => {
+                    isGeneratingSummaryRef.current = false
+                  }, 5000)
+                }
+              }, 1000)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[自动总结] 检查失败:', error)
+      }
     }
   }, [character, chatId, setMessages, setError, onVideoCallRequest])  // chatId和setMessages必须保留
 
@@ -479,14 +689,21 @@ export const useChatAI = (
         }
       }
       
-      console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${prev.length - 1} 的消息`)
-      return prev.slice(0, deleteFromIndex)
+      const newMessages = prev.slice(0, deleteFromIndex)
+      const deletedCount = prev.length - newMessages.length
+      console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${prev.length - 1} 的 ${deletedCount} 条消息`)
+      
+      // 🔥 真正从 IndexedDB 删除（覆盖保存整个消息列表）
+      console.log(`💾 覆盖保存消息列表: chatId=${chatId}, 剩余=${newMessages.length}条`)
+      saveMessages(chatId, newMessages)
+      
+      return newMessages
     })
     
     setTimeout(() => {
       handleAIReply()
     }, 100)
-  }, [setMessages, setError, handleAIReply])
+  }, [chatId, setMessages, setError, handleAIReply])
 
   return {
     isAiTyping,

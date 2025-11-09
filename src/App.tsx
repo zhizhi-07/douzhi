@@ -15,8 +15,11 @@ import CharacterDetail from './pages/CharacterDetail'
 import ApiList from './pages/ApiList'
 import AddApi from './pages/AddApi'
 import EditApi from './pages/EditApi'
+import EditSummaryApi from './pages/EditSummaryApi'
 import ChatDetail from './pages/ChatDetail'
 import ChatSettings from './pages/ChatSettings'
+import MemorySummary from './pages/MemorySummary'
+import MemoryViewer from './pages/MemoryViewer'
 import CoupleSpace from './pages/CoupleSpace'
 import CoupleAlbum from './pages/CoupleAlbum'
 import CoupleAnniversary from './pages/CoupleAnniversary'
@@ -166,8 +169,11 @@ function App() {
       <Route path="/api-list" element={<ApiList />} />
       <Route path="/add-api" element={<AddApi />} />
       <Route path="/edit-api/:id" element={<EditApi />} />
+      <Route path="/edit-summary-api" element={<EditSummaryApi />} />
       <Route path="/chat/:id" element={<ChatDetail />} />
       <Route path="/chat/:id/settings" element={<ChatSettings />} />
+      <Route path="/chat/:id/memory-viewer" element={<MemoryViewer />} />
+      <Route path="/chat/:id/memory-summary" element={<MemorySummary />} />
       <Route path="/couple-space" element={<CoupleSpace />} />
       <Route path="/couple-album" element={<CoupleAlbum />} />
       <Route path="/couple-anniversary" element={<CoupleAnniversary />} />

@@ -110,6 +110,11 @@ export const useChatState = (chatId: string) => {
     // 🔥 监听异步加载完成事件
     const handleMessagesLoaded = (e: CustomEvent) => {
       if (e.detail.chatId === chatId) {
+        // 🔥 AI回复期间不响应加载事件，避免消息一次性显示
+        if ((window as any).__AI_REPLYING__) {
+          console.log('🚫 [useChatState] AI回复中，忽略messages-loaded事件')
+          return
+        }
         console.log('📥 [useChatState] 异步加载完成，刷新UI')
         loadChatMessages()
       }
