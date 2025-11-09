@@ -4,20 +4,22 @@
  * 部署到 Vercel Serverless Functions
  */
 
+const https = require('https')
+const http = require('http')
+const { URL } = require('url')
+
 module.exports = async function handler(req, res) {
   // 设置CORS头
-  res.setHeader('Access-Control-Allow-Credentials', true)
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  )
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   // 处理OPTIONS预检请求
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
   }
+
   // 只允许POST请求
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -34,10 +36,11 @@ module.exports = async function handler(req, res) {
     }
 
     // 构建MiniMax API URL
-    const minimaxUrl = `${baseUrl || 'https://api.minimaxi.com/v1'}/text_to_speech?GroupId=${groupId}`
+    const apiBaseUrl = baseUrl || 'https://api.minimaxi.com/v1'
+    const minimaxUrl = `${apiBaseUrl}/text_to_speech?GroupId=${groupId}`
 
     // 请求体
-    const requestBody = {
+    const requestBody = JSON.stringify({
       text: text,
       model: 'speech-01',
       voice_id: voiceId,
@@ -48,53 +51,74 @@ module.exports = async function handler(req, res) {
       audio_sample_rate: 32000,
       bitrate: 128000,
       format: 'mp3'
-    }
-
-    console.log('🎤 [Proxy] 调用MiniMax TTS:', {
-      url: minimaxUrl,
-      voiceId,
-      textLength: text.length
     })
 
-    // 调用MiniMax API
-    const response = await fetch(minimaxUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
+    console.log('🎤 [Proxy] 调用MiniMax TTS:', { voiceId, textLength: text.length })
+
+    // 使用Promise包装https请求
+    const result = await new Promise((resolve, reject) => {
+      const urlObj = new URL(minimaxUrl)
+      const protocol = urlObj.protocol === 'https:' ? https : http
+
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Length': Buffer.byteLength(requestBody)
+        }
+      }
+
+      const request = protocol.request(options, (response) => {
+        const chunks = []
+        
+        response.on('data', (chunk) => {
+          chunks.push(chunk)
+        })
+
+        response.on('end', () => {
+          const buffer = Buffer.concat(chunks)
+          const contentType = response.headers['content-type'] || ''
+
+          // 检查是否是音频
+          if (contentType.includes('audio') || contentType.includes('octet-stream')) {
+            console.log('✅ [Proxy] 收到音频数据')
+            resolve({ type: 'audio', buffer })
+          } else {
+            // JSON响应
+            try {
+              const jsonResult = JSON.parse(buffer.toString())
+              resolve({ type: 'json', data: jsonResult })
+            } catch (e) {
+              reject(new Error('解析响应失败'))
+            }
+          }
+        })
+      })
+
+      request.on('error', (error) => {
+        console.error('❌ [Proxy] 请求错误:', error)
+        reject(error)
+      })
+
+      request.write(requestBody)
+      request.end()
     })
 
-    const contentType = response.headers.get('content-type') || ''
-
-    // 检查是否返回音频文件（二进制）
-    if (contentType.includes('audio') || contentType.includes('octet-stream')) {
-      console.log('✅ [Proxy] 收到音频数据')
-      
-      // 将音频数据转为Buffer
-      const audioBuffer = await response.arrayBuffer()
-      
-      // 设置响应头
+    // 处理结果
+    if (result.type === 'audio') {
       res.setHeader('Content-Type', 'audio/mpeg')
-      res.setHeader('Content-Length', audioBuffer.byteLength)
-      
-      // 返回音频数据
-      return res.status(200).send(Buffer.from(audioBuffer))
+      res.setHeader('Content-Length', result.buffer.length)
+      return res.status(200).send(result.buffer)
     }
 
-    // 否则当作JSON处理
-    const result = await response.json()
-    
-    console.log('📦 [Proxy] API返回:', {
-      status: response.status,
-      hasError: result.base_resp?.status_code !== 0
-    })
-
-    // 检查MiniMax业务错误
-    if (result.base_resp?.status_code !== undefined && result.base_resp.status_code !== 0) {
-      const errorCode = result.base_resp.status_code
-      const errorMsg = result.base_resp.status_msg || '未知错误'
+    // JSON响应
+    if (result.data.base_resp?.status_code !== undefined && result.data.base_resp.status_code !== 0) {
+      const errorCode = result.data.base_resp.status_code
+      const errorMsg = result.data.base_resp.status_msg || '未知错误'
       
       console.error('❌ [Proxy] MiniMax API错误:', { errorCode, errorMsg })
       
@@ -104,14 +128,14 @@ module.exports = async function handler(req, res) {
       })
     }
 
-    // 成功返回JSON数据
-    return res.status(200).json(result)
+    return res.status(200).json(result.data)
 
   } catch (error) {
     console.error('❌ [Proxy] 代理错误:', error)
     
     return res.status(500).json({
-      error: error.message || '代理服务器错误'
+      error: error.message || '代理服务器错误',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 }
