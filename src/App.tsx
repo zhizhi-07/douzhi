@@ -44,8 +44,10 @@ import SoundCustomizer from './pages/SoundCustomizer'
 import IconCustomizer from './pages/IconCustomizer'
 import GroupChatDetail from './pages/GroupChatDetail'
 import GroupChatSettings from './pages/GroupChatSettings'
+import VoiceSettings from './pages/VoiceSettings'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
+import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
 
 function App() {
   const location = useLocation()
@@ -154,6 +156,7 @@ function App() {
       
       <SimpleNotificationListener />
       <GlobalMessageMonitor />
+      <GlobalProactiveMessageManager />
       <Routes>
       <Route path="/" element={<Desktop />} />
       <Route path="/wechat" element={<ChatList />} />
@@ -194,6 +197,7 @@ function App() {
       <Route path="/background-customizer" element={<BackgroundCustomizer />} />
       <Route path="/sound-customizer" element={<SoundCustomizer />} />
       <Route path="/icon-customizer" element={<IconCustomizer />} />
+      <Route path="/voice-settings" element={<VoiceSettings />} />
     </Routes>
     </>
   )

@@ -18,6 +18,7 @@ import {
 } from '../../../utils/coupleSpaceUtils'
 import { getEmojis } from '../../../utils/emojiStorage'
 import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
+import { callMinimaxTTS } from '../../../utils/voiceApi'
 
 /**
  * 指令处理器接口
@@ -297,15 +298,53 @@ export const voiceHandler: CommandHandler = {
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
     const voiceText = match[1]
 
+    console.log('🎤 开始处理语音指令:', voiceText)
+
+    // 先创建一个基础的语音消息（不含音频）
     const voiceMsg = createMessageObj('voice', {
       voiceText
     }, isBlocked)
 
     await addMessage(voiceMsg, setMessages, chatId)
 
+    // 异步生成TTS音频
+    try {
+      // 读取角色的音色ID配置
+      const settings = localStorage.getItem(`chat_settings_${chatId}`)
+      const voiceId = settings ? JSON.parse(settings).voiceId : ''
+
+      if (voiceId) {
+        console.log('🎤 使用音色ID生成语音:', voiceId)
+        const ttsResult = await callMinimaxTTS(voiceText, undefined, undefined, voiceId)
+        
+        // 更新消息，添加音频URL
+        if (chatId) {
+          saveMessageToStorage(chatId, {
+            ...voiceMsg,
+            voiceUrl: ttsResult.audioUrl,
+            duration: ttsResult.duration
+          })
+        }
+        
+        // 更新React状态
+        setMessages(prev => prev.map(m => 
+          m.id === voiceMsg.id 
+            ? { ...m, voiceUrl: ttsResult.audioUrl, duration: ttsResult.duration }
+            : m
+        ))
+        
+        console.log('✅ 语音生成成功')
+      } else {
+        console.warn('⚠️ 未配置音色ID，跳过TTS生成')
+      }
+    } catch (error) {
+      console.error('❌ 语音生成失败:', error)
+      // 失败也不影响消息发送，只是没有音频
+    }
+
     const remainingText = content.replace(match[0], '').trim()
     
-    console.log('🎤 语音指令处理:', { voiceText, remainingText, hasRemaining: !!remainingText })
+    console.log('🎤 语音指令处理完成:', { voiceText, remainingText, hasRemaining: !!remainingText })
     
     // 返回结果，标记跳过纯语音指令的文本消息
     return { 

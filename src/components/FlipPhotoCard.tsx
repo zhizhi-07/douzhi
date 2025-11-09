@@ -4,10 +4,16 @@ import photoPlaceholder from '../assets/photo-placeholder.webp'
 interface FlipPhotoCardProps {
   description: string
   messageId: number
+  photoBase64?: string  // 真实图片的base64编码
 }
 
-const FlipPhotoCard = ({ description }: FlipPhotoCardProps) => {
+const FlipPhotoCard = ({ description, photoBase64 }: FlipPhotoCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false)
+  
+  // 如果有真实图片base64，使用真实图片；否则使用占位图
+  const imageSrc = photoBase64 
+    ? `data:image/jpeg;base64,${photoBase64}` 
+    : photoPlaceholder
 
   return (
     <div 
@@ -23,7 +29,7 @@ const FlipPhotoCard = ({ description }: FlipPhotoCardProps) => {
           transformStyle: 'preserve-3d',
         }}
       >
-        {/* 正面 - 图片 */}
+        {/* 正面 - 真实图片 */}
         <div 
           className="absolute w-full h-full rounded-2xl overflow-hidden shadow-lg"
           style={{ 
@@ -32,7 +38,7 @@ const FlipPhotoCard = ({ description }: FlipPhotoCardProps) => {
           }}
         >
           <img 
-            src={photoPlaceholder}
+            src={imageSrc}
             alt="照片"
             className="w-full h-full object-cover"
           />

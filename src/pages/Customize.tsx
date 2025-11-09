@@ -15,7 +15,20 @@ const Customize = () => {
   })
 
   // 设置项列表
-  const settingItems = [
+  const settingItems: Array<{
+    id: string
+    name: string
+    description: string
+    route: string
+    badge?: string
+  }> = [
+    {
+      id: 'voice',
+      name: '语音设置',
+      description: '配置MiniMax等语音API',
+      route: '/voice-settings',
+      badge: 'NEW'
+    },
     {
       id: 'statusbar',
       name: '状态栏设置',
@@ -93,7 +106,14 @@ const Customize = () => {
             >
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
+                    {item.badge && (
+                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
                 </div>
                 <svg 

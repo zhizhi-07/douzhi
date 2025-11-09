@@ -8,10 +8,12 @@ import type { Message } from '../../../types/chat'
 import { createSystemMessage, addNotificationToChat } from '../../../utils/messageUtils'
 import { sendTransfer, receiveTransfer, getIntimatePayRelations, useIntimatePay as deductIntimatePayAmount } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
+import { addMessage as saveMessageToStorage, loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
 
 export const useTransfer = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
-  characterName: string
+  characterName: string,
+  chatId: string
 ) => {
   const [showTransferSender, setShowTransferSender] = useState(false)
 
@@ -94,67 +96,80 @@ export const useTransfer = (
       }
     }
 
+    // 保存到IndexedDB
+    saveMessageToStorage(chatId, transferMsg)
+    
     setMessages(prev => [...prev, transferMsg])
     setShowTransferSender(false)
-  }, [setMessages, characterName])
+  }, [setMessages, characterName, chatId])
 
   /**
    * 领取AI发来的转账
    */
   const handleReceiveTransfer = useCallback((messageId: number) => {
-    setMessages(prev => {
-      const updated = prev.map(msg => {
-        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
-          return {
-            ...msg,
-            transfer: {
-              ...msg.transfer!,
-              status: 'received' as const
-            }
+    const messages = loadMessages(chatId)
+    const transferMsg = messages.find(msg => msg.id === messageId)
+    const amount = transferMsg?.transfer?.amount || 0
+    const transferMessage = transferMsg?.transfer?.message || '转账'
+    
+    // 更新转账状态
+    const updated = messages.map(msg => {
+      if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
+        return {
+          ...msg,
+          transfer: {
+            ...msg.transfer!,
+            status: 'received' as const
           }
         }
-        return msg
-      })
-
-      // 获取转账金额和消息
-      const transferMsg = prev.find(msg => msg.id === messageId)
-      const amount = transferMsg?.transfer?.amount || 0
-      const transferMessage = transferMsg?.transfer?.message || '转账'
-
-      // 增加余额
-      receiveTransfer(amount, characterName, transferMessage)
-
-      // 添加系统提示告诉AI
-      const systemMessage = createSystemMessage(`已收款¥${amount.toFixed(2)}`)
-
-      return [...updated, systemMessage]
+      }
+      return msg
     })
-  }, [setMessages, characterName])
+
+    // 增加余额
+    receiveTransfer(amount, characterName, transferMessage)
+
+    // 添加系统提示告诉AI
+    const systemMessage = createSystemMessage(`已收款¥${amount.toFixed(2)}`)
+    const newMessages = [...updated, systemMessage]
+    
+    // 保存到IndexedDB
+    saveMessages(chatId, newMessages)
+    
+    // 更新React状态
+    setMessages(() => newMessages)
+  }, [setMessages, characterName, chatId])
 
   /**
    * 退还AI发来的转账
    */
   const handleRejectTransfer = useCallback((messageId: number) => {
-    setMessages(prev => {
-      const updated = prev.map(msg => {
-        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
-          return {
-            ...msg,
-            transfer: {
-              ...msg.transfer!,
-              status: 'expired' as const
-            }
+    const messages = loadMessages(chatId)
+    
+    // 更新转账状态
+    const updated = messages.map(msg => {
+      if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
+        return {
+          ...msg,
+          transfer: {
+            ...msg.transfer!,
+            status: 'expired' as const
           }
         }
-        return msg
-      })
-
-      // 添加系统提示告诉AI
-      const systemMessage = createSystemMessage('你已退还转账')
-
-      return [...updated, systemMessage]
+      }
+      return msg
     })
-  }, [setMessages])
+
+    // 添加系统提示告诉AI
+    const systemMessage = createSystemMessage('你已退还转账')
+    const newMessages = [...updated, systemMessage]
+    
+    // 保存到IndexedDB
+    saveMessages(chatId, newMessages)
+    
+    // 更新React状态
+    setMessages(() => newMessages)
+  }, [setMessages, chatId])
 
   return {
     showTransferSender,

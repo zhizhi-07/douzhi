@@ -72,7 +72,8 @@ export function publishMoment(
   user: User,
   content: string,
   images: MomentImage[] = [],
-  location?: string
+  location?: string,
+  mentions?: string[]
 ): Moment {
   const newMoment: Moment = {
     id: Date.now().toString(),
@@ -84,7 +85,8 @@ export function publishMoment(
     likes: [],
     comments: [],
     location,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    mentions
   }
   
   const moments = loadMoments()

@@ -195,6 +195,7 @@ const MessageItem = ({
           <FlipPhotoCard 
             description={message.photoDescription || '照片'}
             messageId={message.id}
+            photoBase64={message.photoBase64}
           />
         ) : (
           <div

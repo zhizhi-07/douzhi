@@ -11,6 +11,7 @@ export interface ApiConfig {
   maxTokens?: number
   createdAt: string
   isBuiltIn?: boolean
+  supportsVision?: boolean  // 是否支持视觉识别（图片理解）
 }
 
 // 内置API配置 - 九班AI（主力）
@@ -24,7 +25,8 @@ const jiubanApiConfig: ApiConfig = {
   temperature: 0.7,
   maxTokens: 8000,
   createdAt: new Date().toISOString(),
-  isBuiltIn: true
+  isBuiltIn: true,
+  supportsVision: true  // Gemini支持视觉识别
 }
 
 // 内置API配置 - HiAPI
@@ -38,7 +40,8 @@ const hiApiConfig: ApiConfig = {
   temperature: 0.7,
   maxTokens: 8000,
   createdAt: new Date().toISOString(),
-  isBuiltIn: true
+  isBuiltIn: true,
+  supportsVision: true  // Gemini支持视觉识别
 }
 
 // 内置API配置 - Gemini反代
@@ -52,7 +55,8 @@ const geminiProxyConfig: ApiConfig = {
   temperature: 0.7,
   maxTokens: 8000,
   createdAt: new Date().toISOString(),
-  isBuiltIn: true
+  isBuiltIn: true,
+  supportsVision: true  // Gemini支持视觉识别
 }
 
 // 内置API配置 - 硅基流动（备用）
@@ -66,7 +70,8 @@ const siliconflowApiConfig: ApiConfig = {
   temperature: 0.7,
   maxTokens: 8000,
   createdAt: new Date().toISOString(),
-  isBuiltIn: true
+  isBuiltIn: true,
+  supportsVision: false  // DeepSeek不支持视觉识别
 }
 
 // 内置API配置 - 小许API（满血版）
@@ -80,7 +85,8 @@ const xiaoxuApiConfig: ApiConfig = {
   temperature: 0.7,
   maxTokens: 8000,
   createdAt: new Date().toISOString(),
-  isBuiltIn: true
+  isBuiltIn: true,
+  supportsVision: true  // Gemini支持视觉识别
 }
 
 const BUILT_IN_CONFIGS = [xiaoxuApiConfig, jiubanApiConfig, hiApiConfig, geminiProxyConfig, siliconflowApiConfig]
@@ -128,7 +134,8 @@ export const apiService = {
         model: currentConfig.model,
         provider: currentConfig.provider,
         temperature: currentConfig.temperature,
-        maxTokens: currentConfig.maxTokens
+        maxTokens: currentConfig.maxTokens,
+        supportsVision: currentConfig.supportsVision
       })
     }
   },

@@ -8,7 +8,7 @@ export interface AIInteractionRecord {
   timestamp: number
   characterId: string
   characterName: string
-  actionType: 'like' | 'comment' | 'dm' | 'post'
+  actionType: 'like' | 'comment' | 'dm' | 'post' | 'delete'
   targetId?: string  // 朋友圈ID或聊天对象ID
   targetName?: string  // 目标名称
   content?: string  // 评论内容或私信内容

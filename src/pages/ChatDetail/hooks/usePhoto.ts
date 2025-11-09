@@ -7,20 +7,28 @@ import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
 import { addMessage } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
+import { generatePlaceholderImageBase64 } from '../../../utils/imageUtils'
 
 export const usePhoto = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
   chatId: string
 ) => {
   const [showPhotoSender, setShowPhotoSender] = useState(false)
+  const [showAlbumSelector, setShowAlbumSelector] = useState(false)
 
   /**
-   * 发送照片消息
+   * 发送单张照片消息
    */
   const handleSendPhoto = useCallback((description: string) => {
     if (!description.trim()) return
     
     const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
+    
+    // 生成图片的base64编码（用于AI视觉识别）
+    const photoBase64 = generatePlaceholderImageBase64(description.trim())
+    
+    console.log('📸 生成照片消息，描述:', description.trim())
+    console.log('🖼️ 已生成图片base64，长度:', photoBase64.length)
 
     const photoMsg: Message = {
       id: Date.now(),
@@ -33,16 +41,71 @@ export const usePhoto = (
       timestamp: Date.now(),
       messageType: 'photo',
       blockedByReceiver: isUserBlocked,
-      photoDescription: description.trim()
+      photoDescription: description.trim(),
+      photoBase64: photoBase64  // 添加base64编码供AI识图使用
     }
 
+    // 保存到IndexedDB
+    addMessage(chatId, photoMsg)
+    
     setMessages(prev => [...prev, photoMsg])
     setShowPhotoSender(false)
-  }, [setMessages])
+  }, [setMessages, chatId])
+
+  /**
+   * 发送多张照片消息（从相册选择）
+   */
+  const handleSendPhotos = useCallback((photos: Array<{ base64: string, name: string }>) => {
+    if (photos.length === 0) return
+    
+    const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
+    
+    console.log(`📸 从相册发送 ${photos.length} 张照片`)
+    photos.forEach((p, i) => {
+      console.log(`  照片${i+1}: ${p.name}, base64长度=${p.base64.length}`)
+    })
+    
+    // 为每张照片创建消息
+    const photoMessages: Message[] = photos.map((photo, index) => {
+      const msg = {
+        id: Date.now() + index,
+        type: 'sent' as const,
+        content: '',
+        time: new Date().toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        timestamp: Date.now() + index,
+        messageType: 'photo' as const,
+        blockedByReceiver: isUserBlocked,
+        photoDescription: '一张图片',  // 简单描述即可，AI会通过图片识别真实内容
+        photoBase64: photo.base64  // 使用真实上传的图片base64
+      }
+      console.log(`✅ 创建照片消息${index+1}:`, {
+        id: msg.id,
+        photoDescription: msg.photoDescription,
+        hasPhotoBase64: !!msg.photoBase64,
+        base64Length: msg.photoBase64?.length
+      })
+      return msg
+    })
+    
+    // 保存所有照片到IndexedDB
+    photoMessages.forEach(msg => {
+      addMessage(chatId, msg)
+    })
+    
+    // 批量添加到消息列表
+    setMessages(prev => [...prev, ...photoMessages])
+    setShowAlbumSelector(false)
+  }, [setMessages, chatId])
 
   return {
     showPhotoSender,
     setShowPhotoSender,
-    handleSendPhoto
+    showAlbumSelector,
+    setShowAlbumSelector,
+    handleSendPhoto,
+    handleSendPhotos
   }
 }

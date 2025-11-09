@@ -11,6 +11,7 @@ export const useAddMenu = (
   onOpenVoice?: () => void,
   onOpenLocation?: () => void,
   onOpenPhoto?: () => void,
+  onOpenAlbum?: () => void,
   onOpenCoupleSpace?: () => void,
   onOpenIntimatePay?: () => void
 ) => {
@@ -30,9 +31,11 @@ export const useAddMenu = (
    * 选择相册
    */
   const handleSelectImage = useCallback(() => {
-    console.log('选择相册')
-    // TODO: 实现相册选择功能
-  }, [])
+    setShowAddMenu(false)
+    if (onOpenAlbum) {
+      onOpenAlbum()
+    }
+  }, [onOpenAlbum])
   
   /**
    * 拍照

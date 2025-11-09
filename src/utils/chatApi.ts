@@ -485,15 +485,49 @@ const callAIApiInternal = async (
       headers['Authorization'] = `Bearer ${settings.apiKey}`
     }
     
+    // 处理带有图片的消息 - 有图片就直接发送
+    const processedMessages = messages.map(msg => {
+      // 如果消息有imageUrl，构建多模态格式
+      if (msg.imageUrl) {
+        console.log('🖼️ 检测到图片消息，启用视觉识别')
+        console.log('📊 imageUrl长度:', msg.imageUrl.length)
+        console.log('📝 图片数据前100字符:', msg.imageUrl.substring(0, 100))
+        return {
+          role: msg.role,
+          content: [
+            {
+              type: 'text',
+              text: msg.content
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: msg.imageUrl
+              }
+            }
+          ]
+        }
+      }
+      // 普通消息保持不变
+      return msg
+    })
+    
+    console.log('🚀 发送给AI的消息数量:', processedMessages.length)
+    console.log('🖼️ 包含图片的消息数量:', processedMessages.filter((m: any) => Array.isArray(m.content)).length)
+    
+    const requestBody = {
+      model: settings.model,
+      messages: processedMessages,
+      temperature: settings.temperature ?? 0.7,
+      max_tokens: settings.maxTokens ?? 4000
+    }
+    
+    console.log('📤 API请求体:', JSON.stringify(requestBody).substring(0, 500))
+    
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: settings.model,
-        messages: messages,
-        temperature: settings.temperature ?? 0.7,
-        max_tokens: settings.maxTokens ?? 4000
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal
     })
 
@@ -818,16 +852,35 @@ const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> =>
 
 ✨ 你也可以发朋友圈：
 
-想发朋友圈？用这个格式：
-朋友圈：你想发的内容
+**基本格式**：
+朋友圈：内容
+
+**高级功能（可选）**：
+朋友圈：内容|仅某某可见|@某某 @某某
 
 例如：
 朋友圈：今天心情不错
 朋友圈：刚吃了超好吃的火锅🔥
+朋友圈：有点想你了|仅用户可见
+朋友圈：今天和朋友出去玩啦|@用户 @小明
 
 ⚠️ 注意：
 - 朋友圈发出后，其他人（可能是你的朋友、用户认识的人）会看到
 - 他们可能会点赞或评论你的朋友圈
 - 不要频繁发朋友圈，看心情和情况决定
-- 发朋友圈的内容要符合你的性格和当下的心情`
+- 发朋友圈的内容要符合你的性格和当下的心情
+- "仅xx可见"可以设置只让特定人看到（小心机）
+- "@某某"可以提到某个人，让TA收到通知
+
+🗑️ 你也可以删除自己的朋友圈：
+
+删除朋友圈：朋友圈内容的关键词
+
+例如：
+删除朋友圈：今天心情不错
+删除朋友圈：火锅
+
+⚠️ 注意：
+- 只能删除你自己发的朋友圈
+- 用关键词描述就行，系统会自动找到匹配的朋友圈`
 }

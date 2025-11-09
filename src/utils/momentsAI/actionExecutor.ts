@@ -113,7 +113,8 @@ export function executeCommentAction(
  */
 export function executeDMAction(
   action: AIAction,
-  character: any
+  character: any,
+  moment?: Moment
 ): void {
   console.log(`📱 ${action.characterName} 准备发送私聊...`)
   console.log(`   角色ID: ${action.characterId}`)
@@ -126,10 +127,21 @@ export function executeDMAction(
   
   const now = Date.now()
   const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  
+  // 🔥 构建AI可读内容，包含朋友圈上下文
+  let aiReadableContent = action.dmContent
+  if (moment) {
+    const momentPreview = moment.content.length > 100 
+      ? moment.content.substring(0, 100) + '...' 
+      : moment.content
+    aiReadableContent = `[系统提示：你看到用户发的朋友圈"${momentPreview}"后，主动私聊了TA]\n\n${action.dmContent}`
+  }
+  
   const dmMsg = {
     id: uniqueId,
     type: 'received' as const,
     content: action.dmContent,
+    aiReadableContent: aiReadableContent,  // AI可见的内容包含朋友圈上下文
     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     timestamp: now,
     messageType: 'text' as const

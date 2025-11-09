@@ -13,6 +13,8 @@ import {
 } from '../utils/wallpaperManager'
 import BubbleSettings from './ChatSettings/BubbleSettings'
 import { clearMessages } from '../utils/simpleMessageManager'
+import { testVoiceConfig } from '../utils/voiceApi'
+import { voiceService } from '../services/voiceService'
 
 interface ChatSettingsData {
   messageLimit: number  // 读取的消息条数
@@ -20,6 +22,7 @@ interface ChatSettingsData {
   aiCanPostMoments: boolean  // AI是否可以主动发朋友圈
   autoMemorySummary: boolean  // 是否启用自动记忆总结
   memorySummaryInterval: number  // 每N轮对话自动生成总结
+  voiceId: string  // 角色专属音色ID
   groupChatSync: {
     enabled: boolean  // 是否启用群聊消息同步
     messageCount: number  // 同步消息条数
@@ -46,6 +49,7 @@ const ChatSettings = () => {
         aiCanPostMoments: data.aiCanPostMoments ?? false,
         autoMemorySummary: data.autoMemorySummary ?? false,
         memorySummaryInterval: data.memorySummaryInterval ?? 30,
+        voiceId: data.voiceId ?? '',
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
           messageCount: 20
@@ -63,6 +67,7 @@ const ChatSettings = () => {
       aiCanPostMoments: false,
       autoMemorySummary: false,
       memorySummaryInterval: 30,
+      voiceId: '',
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -75,9 +80,57 @@ const ChatSettings = () => {
     }
   }
   
-  const [settings, setSettings] = useState<ChatSettingsData>(getSettings())
+  const [settings, setSettings] = useState<ChatSettingsData>(() => {
+    // 🔥 使用函数形式初始化，确保id存在时才读取
+    if (id) {
+      const saved = localStorage.getItem(`chat_settings_${id}`)
+      if (saved) {
+        try {
+          const data = JSON.parse(saved)
+          return {
+            messageLimit: data.messageLimit ?? 50,
+            momentsVisibleCount: data.momentsVisibleCount ?? 10,
+            aiCanPostMoments: data.aiCanPostMoments ?? false,
+            autoMemorySummary: data.autoMemorySummary ?? false,
+            memorySummaryInterval: data.memorySummaryInterval ?? 30,
+            voiceId: data.voiceId ?? '',
+            groupChatSync: data.groupChatSync ?? {
+              enabled: false,
+              messageCount: 20
+            },
+            aiProactiveMessage: data.aiProactiveMessage ?? {
+              enabled: false,
+              mode: 'thinking',
+              interval: 5
+            }
+          }
+        } catch (e) {
+          console.error('[ChatSettings] 解析设置失败:', e)
+        }
+      }
+    }
+    // 默认设置
+    return {
+      messageLimit: 50,
+      momentsVisibleCount: 10,
+      aiCanPostMoments: false,
+      autoMemorySummary: false,
+      memorySummaryInterval: 30,
+      voiceId: '',
+      groupChatSync: {
+        enabled: false,
+        messageCount: 20
+      },
+      aiProactiveMessage: {
+        enabled: false,
+        mode: 'thinking',
+        interval: 5
+      }
+    }
+  })
   const [saved, setSaved] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [testingVoice, setTestingVoice] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // 检查拉黑状态
@@ -85,6 +138,19 @@ const ChatSettings = () => {
     if (id) {
       const blocked = blacklistManager.isBlockedByMe('user', id)
       setIsBlocked(blocked)
+    }
+  }, [id])
+
+  // 当id变化时重新加载设置
+  useEffect(() => {
+    if (id) {
+      const loadedSettings = getSettings()
+      setSettings(loadedSettings)
+      console.log('[ChatSettings] 🔄 重新加载设置:', {
+        chatId: id,
+        aiProactiveMessage: loadedSettings.aiProactiveMessage,
+        从localStorage读取: localStorage.getItem(`chat_settings_${id}`)?.substring(0, 100)
+      })
     }
   }, [id])
   
@@ -103,6 +169,33 @@ const ChatSettings = () => {
     setIsBlocked(newBlockStatus)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // 测试语音配置
+  const handleTestVoice = async () => {
+    if (!settings.voiceId) {
+      alert('请先输入音色ID')
+      return
+    }
+
+    // 读取全局语音配置
+    const voiceConfig = voiceService.getCurrent()
+    if (!voiceConfig?.apiKey || !voiceConfig?.groupId) {
+      alert('⚠️ 请先配置语音账号：\n\n系统设置 → 语音设置 → 填写API Key和Group ID')
+      return
+    }
+
+    setTestingVoice(true)
+    try {
+      await testVoiceConfig(voiceConfig.apiKey, voiceConfig.groupId, settings.voiceId)
+      alert('✅ 音色测试成功！配置正确，已播放测试音频。')
+    } catch (error) {
+      console.error('❌ 音色测试失败:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      alert(`❌ 音色测试失败：\n\n${errorMessage}\n\n请检查：\n1. 音色ID是否正确\n2. 账户余额是否充足`)
+    } finally {
+      setTestingVoice(false)
+    }
   }
   
   // 上传自定义壁纸
@@ -203,6 +296,44 @@ const ChatSettings = () => {
           </div>
         </div>
         
+        {/* 语音设置 */}
+        <div className="bg-white rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-medium text-gray-900">语音设置</div>
+          
+          <div>
+            <label className="block text-sm text-gray-600 mb-2">音色ID</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={settings.voiceId}
+                onChange={(e) => {
+                  const newSettings = { ...settings, voiceId: e.target.value }
+                  setSettings(newSettings)
+                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  setSaved(true)
+                  setTimeout(() => setSaved(false), 2000)
+                }}
+                placeholder="输入MiniMax音色ID"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                onClick={handleTestVoice}
+                disabled={testingVoice || !settings.voiceId}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  testingVoice || !settings.voiceId
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                }`}
+              >
+                {testingVoice ? '测试中...' : '测试'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              💡 在MiniMax控制台找到你喜欢的音色ID，将用于该角色的语音消息和视频通话
+            </p>
+          </div>
+        </div>
+        
         {/* AI 记忆 */}
         <div className="bg-white rounded-2xl p-4 space-y-2">
           <div className="text-sm font-medium text-gray-900 mb-3">AI 记忆</div>
@@ -259,8 +390,8 @@ const ChatSettings = () => {
                 }`}
               >
                 <div
-                  className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
-                    settings.autoMemorySummary ? 'left-5.5' : 'left-0.5'
+                  className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
+                    settings.autoMemorySummary ? 'translate-x-5' : 'translate-x-0.5'
                   }`}
                 />
               </button>
@@ -319,8 +450,8 @@ const ChatSettings = () => {
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
-                  settings.groupChatSync.enabled ? 'left-5.5' : 'left-0.5'
+                className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
+                  settings.groupChatSync.enabled ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -381,18 +512,31 @@ const ChatSettings = () => {
                     enabled: !settings.aiProactiveMessage.enabled
                   }
                 }
+                console.log('[ChatSettings] 💾 保存主动发消息设置:', {
+                  chatId: id,
+                  newValue: !settings.aiProactiveMessage.enabled,
+                  完整设置: newSettings.aiProactiveMessage
+                })
                 setSettings(newSettings)
                 localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                
+                // 立即验证是否保存成功
+                const verify = localStorage.getItem(`chat_settings_${id}`)
+                if (verify) {
+                  const parsed = JSON.parse(verify)
+                  console.log('[ChatSettings] ✅ 验证保存成功:', parsed.aiProactiveMessage)
+                }
+                
                 setSaved(true)
                 setTimeout(() => setSaved(false), 2000)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
-                settings.aiProactiveMessage.enabled ? 'bg-[#07c160]' : 'bg-gray-300'
+                settings.aiProactiveMessage.enabled ? 'bg-gray-900' : 'bg-gray-300'
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
-                  settings.aiProactiveMessage.enabled ? 'left-5.5' : 'left-0.5'
+                className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
+                  settings.aiProactiveMessage.enabled ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
               />
             </button>

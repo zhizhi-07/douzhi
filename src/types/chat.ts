@@ -20,11 +20,14 @@ export interface Message {
     intimatePayCharacterName?: string  // 亲密付支付人名称
   }
   voiceText?: string  // 语音消息的文本内容
+  voiceUrl?: string   // 语音消息的音频URL
+  duration?: number   // 语音时长（秒）
   location?: {        // 位置消息
     name: string      // 地点名称
     address: string   // 详细地址
   }
   photoDescription?: string  // 照片描述
+  photoBase64?: string        // 照片的base64编码（用于AI识图）
   isRecalled?: boolean        // 是否已撤回
   recalledContent?: string    // 撤回前的原始内容（供AI查看）
   recallReason?: string       // 撤回理由
@@ -90,9 +93,12 @@ export interface ApiSettings {
   provider: string
   temperature?: number
   maxTokens?: number
+  supportsVision?: boolean  // 是否支持视觉识别（图片理解）
 }
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+  // 可选的图片URL（用于视觉识别API）
+  imageUrl?: string
 }

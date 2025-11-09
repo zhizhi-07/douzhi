@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getChatWallpaper, getWallpaperStyle } from '../utils/wallpaperManager'
 import AddMenu from '../components/AddMenu'
+import AlbumSelector from '../components/AlbumSelector'
 import MessageMenu from '../components/MessageMenu.floating'
 import TransferSender from '../components/TransferSender'
 import VoiceSender from '../components/VoiceSender'
@@ -22,9 +23,8 @@ import ForwardedChatViewer from '../components/ForwardedChatViewer'
 import EmojiPanel from '../components/EmojiPanel'
 import MusicInviteSelector from '../components/MusicInviteSelector'
 import type { Message } from '../types/chat'
-import { addMessage } from '../utils/simpleMessageManager'
+import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
-import { useProactiveMessage } from './ChatDetail/hooks/useProactiveMessage'
 import ChatModals from './ChatDetail/components/ChatModals'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import { useChatBubbles } from '../hooks/useChatBubbles'
@@ -57,20 +57,11 @@ const ChatDetail = () => {
   const chatState = useChatState(id || '')
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter)
-  const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知')
+  const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知', id || '')
   const voice = useVoice(chatState.setMessages, id || '')
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
   const photo = usePhoto(chatState.setMessages, id || '')
   const intimatePay = useIntimatePay(chatState.setMessages, id || '')
-  
-  // AI主动发消息
-  useProactiveMessage({
-    chatId: id || '',
-    character: chatState.character,
-    messages: chatState.messages,
-    setMessages: chatState.setMessages,
-    isAiTyping: chatAI.isAiTyping
-  })
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -89,6 +80,7 @@ const ChatDetail = () => {
     () => voice.setShowVoiceSender(true),
     () => locationMsg.setShowLocationSender(true),
     () => photo.setShowPhotoSender(true),
+    () => photo.setShowAlbumSelector(true),
     coupleSpace.openMenu,
     () => intimatePay.setShowIntimatePaySender(true)
   )
@@ -187,7 +179,9 @@ const ChatDetail = () => {
     const isUserMessage = message.type === 'sent'
     const originalMessageType = message.type === 'sent' ? 'sent' as const : 'received' as const
     
-    chatState.setMessages(prev => prev.map(msg => 
+    // 从IndexedDB加载消息
+    const messages = loadMessages(id || '')
+    const updatedMessages = messages.map(msg => 
       msg.id === message.id 
         ? { 
             ...msg, 
@@ -200,7 +194,13 @@ const ChatDetail = () => {
             messageType: 'system' as const
           }
         : msg
-    ))
+    )
+    
+    // 保存到IndexedDB
+    saveMessages(id || '', updatedMessages)
+    
+    // 更新React状态
+    chatState.setMessages(() => updatedMessages)
   }
   
   const isInitialLoadRef = useRef(true)
@@ -777,9 +777,15 @@ const ChatDetail = () => {
       />
 
       <PhotoSender
-        show={photo.showPhotoSender}
+        isOpen={photo.showPhotoSender}
         onClose={() => photo.setShowPhotoSender(false)}
         onSend={photo.handleSendPhoto}
+      />
+
+      <AlbumSelector
+        isOpen={photo.showAlbumSelector}
+        onClose={() => photo.setShowAlbumSelector(false)}
+        onConfirm={photo.handleSendPhotos}
       />
 
       <IntimatePaySender

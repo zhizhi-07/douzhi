@@ -38,24 +38,49 @@ export const useVoice = (
       voiceText: voiceText.trim()
     }
 
+    // 保存到IndexedDB
+    addMessage(chatId, voiceMsg)
+    
     setMessages(prev => [...prev, voiceMsg])
     setShowVoiceSender(false)
-  }, [setMessages])
+  }, [setMessages, chatId])
 
   /**
    * 播放/暂停语音
    */
-  const handlePlayVoice = useCallback((messageId: number, duration: number) => {
+  const handlePlayVoice = useCallback(async (messageId: number, duration: number, voiceUrl?: string) => {
     if (playingVoiceId === messageId) {
-      // 暂停
+      // 暂停（TODO: 需要Audio对象的引用来真正暂停）
       setPlayingVoiceId(null)
     } else {
       // 播放
       setPlayingVoiceId(messageId)
-      // 模拟播放完成
-      setTimeout(() => {
-        setPlayingVoiceId(null)
-      }, duration * 1000)
+      
+      if (voiceUrl) {
+        // 有音频URL，播放真实音频
+        try {
+          const audio = new Audio(voiceUrl)
+          
+          audio.onended = () => {
+            setPlayingVoiceId(null)
+          }
+          
+          audio.onerror = () => {
+            console.error('音频播放失败')
+            setPlayingVoiceId(null)
+          }
+          
+          await audio.play()
+        } catch (error) {
+          console.error('播放音频出错:', error)
+          setPlayingVoiceId(null)
+        }
+      } else {
+        // 没有音频URL，模拟播放
+        setTimeout(() => {
+          setPlayingVoiceId(null)
+        }, duration * 1000)
+      }
     }
   }, [playingVoiceId])
 

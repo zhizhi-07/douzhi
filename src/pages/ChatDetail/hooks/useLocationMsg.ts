@@ -39,9 +39,12 @@ export const useLocationMsg = (
       }
     }
 
+    // 保存到IndexedDB
+    addMessage(chatId, locationMsg)
+    
     setMessages(prev => [...prev, locationMsg])
     setShowLocationSender(false)
-  }, [setMessages])
+  }, [setMessages, chatId])
 
   return {
     showLocationSender,

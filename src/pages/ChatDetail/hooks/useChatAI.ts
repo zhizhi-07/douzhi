@@ -24,7 +24,7 @@ import { commandHandlers } from './commandHandlers'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { buildBlacklistPrompt, buildAIBlockedUserPrompt } from '../../../utils/prompts'
 import { parseMomentsInteractions, executeMomentsInteractions } from '../../../utils/momentsInteractionParser'
-import { parseAIMomentsPost, executeAIMomentsPost } from '../../../utils/aiMomentsPostParser'
+import { parseAIMomentsPost, executeAIMomentsPost, parseAIMomentsDelete, executeAIMomentsDelete } from '../../../utils/aiMomentsPostParser'
 import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
 import { loadMoments } from '../../../utils/momentsManager'
 import { playMessageSendSound, playMessageNotifySound } from '../../../utils/soundManager'
@@ -369,8 +369,48 @@ export const useChatAI = (
         }
       }
       
+      // 再解析删除朋友圈指令
+      const { deleteCmd, cleanedMessage: messageAfterDelete } = parseAIMomentsDelete(
+        messageAfterMomentsPost,
+        aiId,
+        aiName
+      )
+      
+      // 如果AI删除了朋友圈，执行删除操作
+      if (deleteCmd) {
+        console.log('🗑️ [AI删除朋友圈] 检测到AI删除朋友圈指令:', deleteCmd)
+        const deletedContent = executeAIMomentsDelete(deleteCmd)
+        
+        if (deletedContent) {
+          // 创建系统消息
+          const systemContent = `${aiName}删除了朋友圈："${deletedContent}"`
+          const systemMessage: Message = {
+            ...createMessage(systemContent, 'system'),
+            aiReadableContent: `[系统通知：你删除了朋友圈"${deletedContent}"]`
+          }
+          
+          // 延迟300ms后添加系统消息
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          // 更新React状态（setMessages会自动保存）
+          setMessages(prev => [...prev, systemMessage])
+          console.log(`💾 [AI删除朋友圈] 系统消息已保存: ${systemContent}`)
+          
+          // 记录到AI互动记忆
+          const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
+          recordAIInteraction({
+            characterId: aiId,
+            characterName: aiName,
+            actionType: 'delete',
+            content: deletedContent,
+            context: `删除朋友圈："${deletedContent}"`
+          })
+          console.log(`🧠 [AI删除朋友圈] 已记录到AI互动记忆`)
+        }
+      }
+      
       // 再解析朋友圈互动指令
-      const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterMomentsPost, aiName, aiId)
+      const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterDelete, aiName, aiId)
       
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {

@@ -249,10 +249,22 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         const photoInfo = msg.type === 'sent'
           ? `[用户发了照片: ${msg.photoDescription}]`
           : `[你发了照片: ${msg.photoDescription}]`
-        return {
+        
+        // 如果有base64编码且是用户发送的照片，添加imageUrl字段供视觉识别API使用
+        const chatMessage: ChatMessage = {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
           content: photoInfo
         }
+        
+        if (msg.photoBase64 && msg.type === 'sent') {
+          console.log('📸 照片消息转换: photoBase64长度=', msg.photoBase64.length)
+          chatMessage.imageUrl = `data:image/jpeg;base64,${msg.photoBase64}`
+          console.log('✅ 已添加imageUrl到ChatMessage')
+        } else {
+          console.log('⚠️ 照片消息没有photoBase64数据')
+        }
+        
+        return chatMessage
       }
       
       // 表情包消息转换为AI可读格式
@@ -267,7 +279,8 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
       }
       
       // 普通文本消息（包含引用信息）
-      let textContent = msg.content
+      // 🔥 优先使用aiReadableContent（包含朋友圈等上下文），如果没有则使用content
+      let textContent = msg.aiReadableContent || msg.content
       if (msg.quotedMessage && msg.quotedMessage.content) {
         // 简化引用内容显示
         let quotedContent = msg.quotedMessage.content

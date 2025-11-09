@@ -138,6 +138,7 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
       <FlipPhotoCard 
         description={message.photoDescription || '照片'}
         messageId={message.id}
+        photoBase64={message.photoBase64}
       />
     )
   }

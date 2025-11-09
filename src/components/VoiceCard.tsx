@@ -9,7 +9,7 @@ interface VoiceCardProps {
   message: Message
   isPlaying?: boolean
   showText?: boolean
-  onPlay?: (messageId: number, duration: number) => void
+  onPlay?: (messageId: number, duration: number, voiceUrl?: string) => void
   onToggleText?: (messageId: number) => void
 }
 
@@ -23,8 +23,16 @@ const VoiceCard = ({
   if (!message.voiceText) return null
 
   const isSent = message.type === 'sent'
-  // 计算时长（按字数计算，5个字约1秒，最短1秒，最长60秒）
-  const duration = Math.min(Math.max(Math.ceil(message.voiceText.length / 5), 1), 60)
+  // 优先使用真实音频时长，如果没有则按字数估算
+  const duration = message.duration || Math.min(Math.max(Math.ceil(message.voiceText.length / 5), 1), 60)
+
+  // 调试信息
+  console.log('🎵 VoiceCard:', {
+    messageId: message.id,
+    hasVoiceUrl: !!message.voiceUrl,
+    voiceUrl: message.voiceUrl?.substring(0, 50),
+    duration
+  })
 
   return (
     <div className="flex flex-col gap-2" style={{ width: '160px' }}>
@@ -47,7 +55,7 @@ const VoiceCard = ({
             }`}
             onClick={(e) => {
               e.stopPropagation()
-              onPlay?.(message.id, duration)
+              onPlay?.(message.id, duration, message.voiceUrl)
             }}
           >
             {isPlaying ? (

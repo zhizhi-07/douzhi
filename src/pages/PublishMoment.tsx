@@ -9,6 +9,7 @@ import { publishMoment } from '../utils/momentsManager'
 import { triggerAIMomentsInteraction } from '../utils/momentsAI'
 import { getUserInfo } from '../utils/userUtils'
 import type { MomentImage } from '../types/moments'
+import { characterService } from '../services/characterService'
 
 export default function PublishMoment() {
   const navigate = useNavigate()
@@ -16,14 +17,19 @@ export default function PublishMoment() {
   const [images, setImages] = useState<MomentImage[]>([])
   const [location, setLocation] = useState('')
   const [showLocationInput, setShowLocationInput] = useState(false)
+  const [showMentionSelect, setShowMentionSelect] = useState(false)
+  const [mentions, setMentions] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 获取所有角色（用于@提到）
+  const allCharacters = characterService.getAll()
   
   // 获取当前用户信息
   const userInfo = getUserInfo()
   const currentUser = {
     id: 'user',
     name: userInfo.nickname || userInfo.realName,
-    avatar: userInfo.avatar || undefined
+    avatar: userInfo.avatar || '👤'
   }
   
   // 处理图片选择
@@ -75,7 +81,8 @@ export default function PublishMoment() {
       currentUser,
       content.trim(),
       images,
-      location.trim() || undefined
+      location.trim() || undefined,
+      mentions.length > 0 ? mentions : undefined
     )
     
     // 触发AI角色查看和互动
@@ -161,6 +168,40 @@ export default function PublishMoment() {
             />
           </div>
         )}
+        
+        {/* @提到人 */}
+        {showMentionSelect && (
+          <div className="mt-4">
+            <div className="text-sm text-gray-600 mb-2">@提到谁</div>
+            <div className="flex flex-wrap gap-2">
+              {allCharacters.map(char => (
+                <button
+                  key={char.id}
+                  onClick={() => {
+                    const name = char.realName
+                    if (mentions.includes(name)) {
+                      setMentions(prev => prev.filter(m => m !== name))
+                    } else {
+                      setMentions(prev => [...prev, name])
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                    mentions.includes(char.realName)
+                      ? 'bg-blue-500 text-white'
+                      : 'glass-card text-gray-700 hover:bg-white/60'
+                  }`}
+                >
+                  {char.avatar} {char.realName}
+                </button>
+              ))}
+            </div>
+            {mentions.length > 0 && (
+              <div className="mt-2 text-sm text-blue-600">
+                已选择: @{mentions.join(' @')}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {/* 底部工具栏 */}
@@ -186,6 +227,18 @@ export default function PublishMoment() {
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
             <span>位置</span>
+          </button>
+          
+          <button
+            onClick={() => setShowMentionSelect(!showMentionSelect)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
+              showMentionSelect || mentions.length > 0 ? 'bg-blue-50 text-blue-600' : 'glass-card text-gray-700 hover:bg-white/60'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+            </svg>
+            <span>@提到{mentions.length > 0 && ` (${mentions.length})`}</span>
           </button>
         </div>
       </div>

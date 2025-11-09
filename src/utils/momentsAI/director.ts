@@ -259,7 +259,7 @@ function executeAction(
       executeCommentAction(action, moment, character, allActions)
       break
     case 'dm':
-      executeDMAction(action, character)
+      executeDMAction(action, character, moment)
       break
     case 'none':
       console.log(`👀 ${action.characterName} 选择沉默`)

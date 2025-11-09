@@ -33,7 +33,8 @@ export const useProactiveMessage = ({
   isAiTyping
 }: UseProactiveMessageProps) => {
   const timerRef = useRef<number | null>(null)
-  const lastUserMessageTimeRef = useRef<number>(Date.now())
+  // 初始化为0，而不是Date.now()，这样第一次检查时会使用实际的最后一条消息时间
+  const lastUserMessageTimeRef = useRef<number>(0)
   const hasTriggeredRef = useRef<boolean>(false)
 
   // 获取配置
@@ -71,23 +72,27 @@ export const useProactiveMessage = ({
       const summaryApi = summaryApiService.get()
       if (!character) return false
 
-      // 构建思考提示词
-      const thinkingPrompt = `你是${character.nickname || character.realName}。
-用户已经${Math.floor((Date.now() - lastUserMessageTimeRef.current) / 60000)}分钟没有回复你了。
+      // 🔥 极简提示词，只告诉AI身份和人设
+      const coreSystemPrompt = `你是${character.nickname || character.realName}。
+性格：${character.personality || '普通人，有自己的生活。'}`
 
-请思考：在当前的对话情境下，你是否需要主动发消息给用户？
+      // 构建判断提示词
+      const minutesPassed = Math.floor((Date.now() - lastUserMessageTimeRef.current) / 60000)
+      const thinkingPrompt = `距离用户最后一条消息已经过了${minutesPassed}分钟，用户还没有回复你。
 
-考虑因素：
-- 你们之前的对话内容和关系
-- 对话是否已经自然结束
-- 主动发消息是否符合你的性格
-- 是否有值得分享或询问的事情
+根据上面的聊天记录和你的性格，你现在需要主动发消息给用户吗？
 
-请只回复"是"或"否"，不要解释。`
+只回复"是"或"否"。`
 
-      // 获取最近的对话历史
-      const recentMessages = getRecentMessages(messages, chatId, 20)
+      // 🔥 获取最近50条对话历史
+      const recentMessages = getRecentMessages(messages, chatId, 50)
       const apiMessages = convertToApiMessages(recentMessages)
+      
+      // 添加精简的系统提示词
+      apiMessages.unshift({
+        role: 'system',
+        content: coreSystemPrompt
+      })
       
       // 添加思考提示
       apiMessages.push({
@@ -95,15 +100,27 @@ export const useProactiveMessage = ({
         content: thinkingPrompt
       })
 
-      Logger.info(`[主动发消息] 调用副API思考是否发送... (${summaryApi.model})`)
+      Logger.info(`[主动发消息] 🔥 准备调用副API...`)
+      Logger.info(`[主动发消息] - API模型: ${summaryApi.model}`)
+      Logger.info(`[主动发消息] - API地址: ${summaryApi.baseUrl}`)
+      Logger.info(`[主动发消息] - 消息数量: ${apiMessages.length}`)
+      Logger.info(`[主动发消息] - 最近对话: ${recentMessages.length}条`)
+      Logger.info(`[主动发消息] - 核心提示词长度: ${coreSystemPrompt.length}字符 (已精简，不含表情包)`)
+      
       const response = await callAIApi(apiMessages, summaryApi as any)
       
+      Logger.info(`[主动发消息] ✅ API返回成功！`)
+      Logger.info(`[主动发消息] - 原始回复: "${response}"`)
+      Logger.info(`[主动发消息] - 回复长度: ${response.length}字符`)
+      
       const shouldSend = response.trim().includes('是')
-      Logger.info(`[主动发消息] AI思考结果: ${shouldSend ? '需要发送' : '不需要发送'}`)
+      Logger.info(`[主动发消息] - 最终决定: ${shouldSend ? '✅ 需要发送' : '❌ 不需要发送'}`)
       
       return shouldSend
     } catch (error) {
-      Logger.error('[主动发消息] 思考失败:', error)
+      Logger.error('[主动发消息] ❌ 思考失败:', error)
+      Logger.error('[主动发消息] - 错误类型:', error instanceof Error ? error.name : typeof error)
+      Logger.error('[主动发消息] - 错误消息:', error instanceof Error ? error.message : String(error))
       return false
     }
   }
@@ -169,56 +186,23 @@ export const useProactiveMessage = ({
     }
   }
 
-  /**
-   * 检查是否需要触发主动发消息
-   */
-  const checkAndTrigger = async () => {
-    const settings = getSettings()
-    
-    if (!settings.enabled) return
-    if (hasTriggeredRef.current) {
-      // 已触发过，不再重复
-      return
-    }
-    if (isAiTyping) return
-
-    const timeSinceLastMessage = Date.now() - lastUserMessageTimeRef.current
-    const intervalMs = settings.interval * 60 * 1000
-    const minutesPassed = Math.floor(timeSinceLastMessage / 60000)
-
-    // 只有时间到了才调用API
-    if (timeSinceLastMessage >= intervalMs) {
-      hasTriggeredRef.current = true
-      Logger.info(`[主动发消息] 时间到了！用户${minutesPassed}分钟未回复，触发检查`)
-
-      if (settings.mode === 'thinking') {
-        // AI思考模式：先判断是否需要发送
-        Logger.info('[主动发消息] 调用副API思考是否发送...')
-        const shouldSend = await thinkAboutSending()
-        
-        if (shouldSend) {
-          await sendProactiveMessage()
-        } else {
-          Logger.info('[主动发消息] AI决定不发送消息')
-        }
-      } else {
-        // 固定模式：直接发送
-        Logger.info('[主动发消息] 固定模式，直接发送')
-        await sendProactiveMessage()
-      }
-    }
-  }
-
   // 监听消息变化，更新最后一条用户消息的时间
   useEffect(() => {
     const lastUserMessage = [...messages].reverse().find(m => m.type === 'sent')
-    if (lastUserMessage) {
+    if (lastUserMessage && lastUserMessage.timestamp) {
       // 只有当用户发送了新消息时才更新时间和重置标志
       if (lastUserMessage.timestamp !== lastUserMessageTimeRef.current) {
-        Logger.info(`[主动发消息] 用户发送了新消息，重置计时器`)
+        const timeStr = new Date(lastUserMessage.timestamp).toLocaleTimeString('zh-CN')
+        Logger.info(`[主动发消息] 用户最后消息时间: ${timeStr}, 重置计时器`)
         lastUserMessageTimeRef.current = lastUserMessage.timestamp
         hasTriggeredRef.current = false  // 重置触发标志
       }
+    } else if (lastUserMessage && !lastUserMessage.timestamp) {
+      // 如果消息没有timestamp，使用当前时间
+      const now = Date.now()
+      Logger.info(`[主动发消息] 用户消息没有timestamp，使用当前时间`)
+      lastUserMessageTimeRef.current = now
+      hasTriggeredRef.current = false
     }
   }, [messages])
 
@@ -226,7 +210,10 @@ export const useProactiveMessage = ({
   useEffect(() => {
     const settings = getSettings()
     
+    Logger.info(`[主动发消息] useEffect触发, enabled=${settings.enabled}, chatId=${chatId}`)
+    
     if (!settings.enabled) {
+      Logger.info(`[主动发消息] 功能未启用，清除定时器`)
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
@@ -234,22 +221,86 @@ export const useProactiveMessage = ({
       return
     }
 
+    // 清除旧的定时器
+    if (timerRef.current) {
+      Logger.info(`[主动发消息] 清除旧定时器`)
+      clearInterval(timerRef.current)
+    }
+
+    // 在useEffect内部定义检查函数，能访问最新状态
+    const checkAndTrigger = async () => {
+      const currentSettings = getSettings()
+      
+      if (!currentSettings.enabled) return
+      if (hasTriggeredRef.current) {
+        // 已触发过，不再重复
+        return
+      }
+      if (isAiTyping) return
+      
+      // 如果还没有初始化最后消息时间，不检查
+      if (lastUserMessageTimeRef.current === 0) {
+        Logger.info(`[主动发消息] ⏰ 定时器触发，但最后消息时间未初始化，跳过`)
+        return
+      }
+
+      const now = Date.now()
+      const timeSinceLastMessage = now - lastUserMessageTimeRef.current
+      const intervalMs = currentSettings.interval * 60 * 1000
+      const minutesPassed = Math.floor(timeSinceLastMessage / 60000)
+      const secondsPassed = Math.floor(timeSinceLastMessage / 1000)
+      
+      // 每次检查都输出日志
+      Logger.info(`[主动发消息] ⏰ 检查: 已过${minutesPassed}分${secondsPassed % 60}秒 / 设定${currentSettings.interval}分钟, 已触发=${hasTriggeredRef.current}`)
+
+      // 只有时间到了才调用API
+      if (timeSinceLastMessage >= intervalMs) {
+        Logger.info(`[主动发消息] ✅ 时间到了！用户${minutesPassed}分钟未回复，触发检查`)
+
+        if (currentSettings.mode === 'thinking') {
+          // AI思考模式：先判断是否需要发送
+          Logger.info('[主动发消息] 调用副API思考是否发送...')
+          const shouldSend = await thinkAboutSending()
+          
+          if (shouldSend) {
+            // AI决定发送，执行发送并设置已触发标志
+            await sendProactiveMessage()
+            hasTriggeredRef.current = true
+            Logger.info('[主动发消息] ✅ 消息已发送，设置触发标志')
+          } else {
+            // AI决定不发送，更新最后检查时间，下个interval分钟后再检查
+            lastUserMessageTimeRef.current = Date.now()
+            Logger.info(`[主动发消息] ❌ AI决定不发送，${currentSettings.interval}分钟后再次检查`)
+          }
+        } else {
+          // 固定模式：直接发送
+          Logger.info('[主动发消息] 固定模式，直接发送')
+          await sendProactiveMessage()
+          hasTriggeredRef.current = true
+          Logger.info('[主动发消息] ✅ 消息已发送，设置触发标志')
+        }
+      }
+    }
+
     // 固定每30秒检查一次，足够精确
     const checkFrequency = 30000
     
-    Logger.info(`[主动发消息] 定时器启动，每30秒检查一次（只有时间到了才会调用API）`)
+    Logger.info(`[主动发消息] ✅ 定时器启动，每30秒检查一次（只有时间到了才会调用API）`)
+    Logger.info(`[主动发消息] - 当前设置: mode=${settings.mode}, interval=${settings.interval}分钟`)
+    Logger.info(`[主动发消息] - 最后消息时间: ${lastUserMessageTimeRef.current === 0 ? '未初始化' : new Date(lastUserMessageTimeRef.current).toLocaleTimeString('zh-CN')}`)
     
     timerRef.current = setInterval(() => {
       checkAndTrigger()
     }, checkFrequency) as unknown as number
 
     return () => {
+      Logger.info(`[主动发消息] useEffect清理，移除定时器`)
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
     }
-  }, [chatId]) // 只依赖chatId，避免频繁重建定时器
+  }, [chatId, character, isAiTyping, messages]) // 依赖最新状态
 
   return {
     // 可以暴露一些方法，比如手动触发

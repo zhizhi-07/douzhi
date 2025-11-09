@@ -6,20 +6,20 @@
 import { useState, useEffect } from 'react'
 
 interface PhotoSenderProps {
-  show: boolean
+  isOpen: boolean
   onClose: () => void
   onSend: (description: string) => void
 }
 
-const PhotoSender = ({ show, onClose, onSend }: PhotoSenderProps) => {
+const PhotoSender = ({ isOpen, onClose, onSend }: PhotoSenderProps) => {
   const [description, setDescription] = useState('')
 
   // 每次打开弹窗时重置表单
   useEffect(() => {
-    if (show) {
+    if (isOpen) {
       setDescription('')
     }
-  }, [show])
+  }, [isOpen])
 
   const handleSend = () => {
     if (!description.trim()) {
@@ -38,7 +38,7 @@ const PhotoSender = ({ show, onClose, onSend }: PhotoSenderProps) => {
     onClose()
   }
 
-  if (!show) return null
+  if (!isOpen) return null
 
   return (
     <div
