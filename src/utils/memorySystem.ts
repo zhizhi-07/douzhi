@@ -336,7 +336,7 @@ ${characterName}："需要帮忙就说"
       ], summarySettings)
 
       // 解析 AI 返回的 JSON
-      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
       if (jsonMatch) {
         const result = JSON.parse(jsonMatch[1])
         
@@ -660,7 +660,7 @@ ${characterDescription}
       ], settings)
 
       // 解析 AI 返回的 JSON
-      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
       if (jsonMatch) {
         const extractedMemories = JSON.parse(jsonMatch[1])
         
@@ -719,6 +719,267 @@ ${characterDescription}
   deleteMemory(memoryId: string) {
     this.memories.delete(memoryId)
     this.saveMemories()
+  }
+
+  // 生成时间线事件记录（用于记忆总结页面）
+  async generateTimelineFromMessages(
+    messages: any[],
+    characterName: string = 'AI',
+    userName: string = '用户'
+  ): Promise<string> {
+    try {
+      const { callAIApi } = await import('./chatApi')
+      const { summaryApiService } = await import('../services/summaryApiService')
+      
+      // 使用副API
+      const summaryApiConfig = summaryApiService.get()
+      const summarySettings = {
+        baseUrl: summaryApiConfig.baseUrl,
+        apiKey: summaryApiConfig.apiKey,
+        model: summaryApiConfig.model,
+        provider: summaryApiConfig.provider,
+        temperature: 0.3,
+        maxTokens: 4000  // 增加token限制
+      }
+
+      console.log('[时间线生成] 开始分析消息记录...')
+      console.log(`[时间线生成] 总消息数: ${messages.length}`)
+
+      // 如果消息太多，智能分批处理
+      const BATCH_SIZE = 100 // 每批最多100条消息
+      let allEvents: any[] = []
+      
+      if (messages.length > BATCH_SIZE) {
+        console.log(`[时间线生成] 消息较多，分批处理...`)
+        const batches = Math.ceil(messages.length / BATCH_SIZE)
+        
+        for (let i = 0; i < batches; i++) {
+          const start = i * BATCH_SIZE
+          const end = Math.min((i + 1) * BATCH_SIZE, messages.length)
+          const batchMessages = messages.slice(start, end)
+          
+          console.log(`[时间线生成] 处理第 ${i + 1}/${batches} 批 (${start + 1}-${end})`)
+          
+          const batchEvents = await this.analyzeBatch(batchMessages, characterName, userName, summarySettings)
+          allEvents.push(...batchEvents)
+          
+          // 避免请求过快
+          if (i < batches - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        }
+        
+        console.log(`[时间线生成] 所有批次处理完成，共 ${allEvents.length} 条事件`)
+        
+        // 格式化为时间线文本
+        const timeline = allEvents.map(event => 
+          `[${event.startTime}-${event.endTime}] ${event.description}`
+        ).join('\n')
+        
+        return timeline
+      }
+
+      // 消息不多，一次性处理
+      // 格式化所有消息为可读文本
+      const formattedMessages = messages.map((m, idx) => {
+        const time = new Date(m.timestamp).toLocaleString('zh-CN', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+        const sender = m.type === 'sent' ? userName : characterName
+        let content = m.content || ''
+        
+        // 处理视频通话记录
+        if (m.videoCallRecord) {
+          const callDuration = m.videoCallRecord.duration
+          const callMinutes = Math.floor(callDuration / 60)
+          const conversations = m.videoCallRecord.messages
+            .map((msg: any) => {
+              const speaker = msg.type === 'user' ? userName : (msg.type === 'ai' ? characterName : '旁白')
+              return `  ${speaker}: ${msg.content}`
+            })
+            .join('\n')
+          content = `[视频通话${callMinutes}分钟]\n${conversations}`
+        }
+        
+        // 处理线下模式
+        if (m.sceneMode === 'offline') {
+          content = `[线下剧情] ${content}`
+        }
+        
+        return `${idx + 1}. [${time}] ${sender}: ${content}`
+      }).join('\n')
+
+      // 让AI自己分析和分段
+      const prompt = `分析聊天记录，提取重要事件生成时间线。
+
+聊天记录：
+${formattedMessages}
+
+要求：
+1. 识别重要事件（对话、情绪变化、视频通话、线下剧情、争吵、表白等）
+2. 自己决定事件边界（如互怼50条消息=1个事件，不要机械分段）
+3. 每个事件30-50字详细描述，包含具体情节、对话、结果，禁止"进行了对话"等废话
+
+返回JSON：
+\`\`\`json
+[{"startTime":"MM/DD HH:mm","endTime":"MM/DD HH:mm","description":"详细描述"}]
+\`\`\``
+
+      console.log('[时间线生成] 调用AI分析...')
+      
+      const response = await callAIApi([
+        { role: 'user', content: prompt }
+      ], summarySettings)
+      
+      console.log('[时间线生成] AI返回结果')
+      
+      // 解析AI返回的JSON
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
+      if (!jsonMatch) {
+        console.error('[时间线生成] AI返回格式错误，未找到JSON')
+        return '时间线生成失败：AI返回格式错误'
+      }
+      
+      const events = JSON.parse(jsonMatch[1])
+      
+      if (!Array.isArray(events)) {
+        console.error('[时间线生成] AI返回格式错误，不是数组')
+        return '时间线生成失败：返回格式错误'
+      }
+      
+      console.log(`[时间线生成] 成功生成 ${events.length} 条事件`)
+      
+      // 格式化为时间线文本
+      const timeline = events.map(event => 
+        `[${event.startTime}-${event.endTime}] ${event.description}`
+      ).join('\n')
+      
+      return timeline
+      
+    } catch (error) {
+      console.error('[时间线生成] 失败:', error)
+      return `时间线生成失败：${error instanceof Error ? error.message : '未知错误'}`
+    }
+  }
+
+  // 分析一批消息（辅助方法）
+  private async analyzeBatch(
+    messages: any[],
+    characterName: string,
+    userName: string,
+    settings: any
+  ): Promise<any[]> {
+    const { callAIApi } = await import('./chatApi')
+    
+    // 格式化消息
+    const formattedMessages = messages.map((m, idx) => {
+      const time = new Date(m.timestamp).toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const sender = m.type === 'sent' ? userName : characterName
+      let content = m.content || ''
+      
+      // 处理视频通话记录
+      if (m.videoCallRecord) {
+        const callDuration = m.videoCallRecord.duration
+        const callMinutes = Math.floor(callDuration / 60)
+        const conversations = m.videoCallRecord.messages
+          .map((msg: any) => {
+            const speaker = msg.type === 'user' ? userName : (msg.type === 'ai' ? characterName : '旁白')
+            return `  ${speaker}: ${msg.content}`
+          })
+          .join('\n')
+        content = `[视频通话${callMinutes}分钟]\n${conversations}`
+      }
+      
+      // 处理线下模式
+      if (m.sceneMode === 'offline') {
+        content = `[线下剧情] ${content}`
+      }
+      
+      return `${idx + 1}. [${time}] ${sender}: ${content}`
+    }).join('\n')
+
+    const prompt = `分析聊天记录，提取重要事件生成时间线。
+
+聊天记录：
+${formattedMessages}
+
+要求：
+1. 识别重要事件（对话、情绪变化、视频通话、线下剧情、争吵、表白等）
+2. 自己决定事件边界（如互怼50条消息=1个事件，不要机械分段）
+3. 每个事件30-50字详细描述，包含具体情节、对话、结果，禁止"进行了对话"等废话
+
+返回JSON：
+\`\`\`json
+[{"startTime":"MM/DD HH:mm","endTime":"MM/DD HH:mm","description":"详细描述"}]
+\`\`\``
+
+    try {
+      const response = await callAIApi([
+        { role: 'user', content: prompt }
+      ], settings)
+      
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[1])
+      }
+      return []
+    } catch (error) {
+      console.error('[批次分析] 失败:', error)
+      return []
+    }
+  }
+
+  // 按时间分组消息
+  private groupMessagesByTime(messages: any[], intervalMinutes: number = 30) {
+    if (messages.length === 0) return []
+    
+    const groups: Array<{
+      startTime: number
+      endTime: number
+      messages: any[]
+    }> = []
+    
+    let currentGroup: any = null
+    const intervalMs = intervalMinutes * 60 * 1000
+    
+    messages.forEach(msg => {
+      if (!currentGroup) {
+        currentGroup = {
+          startTime: msg.timestamp,
+          endTime: msg.timestamp,
+          messages: [msg]
+        }
+      } else {
+        // 如果消息时间在当前组的间隔内，加入当前组
+        if (msg.timestamp - currentGroup.endTime <= intervalMs) {
+          currentGroup.endTime = msg.timestamp
+          currentGroup.messages.push(msg)
+        } else {
+          // 否则创建新组
+          groups.push(currentGroup)
+          currentGroup = {
+            startTime: msg.timestamp,
+            endTime: msg.timestamp,
+            messages: [msg]
+          }
+        }
+      }
+    })
+    
+    // 添加最后一组
+    if (currentGroup) {
+      groups.push(currentGroup)
+    }
+    
+    return groups
   }
 }
 

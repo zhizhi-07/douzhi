@@ -5,7 +5,8 @@ import {
   FileIcon,
   PhoneIcon,
   CalendarIcon,
-  ForumIcon
+  ForumIcon,
+  BookIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -28,9 +29,9 @@ export const page1Apps: AppItem[] = [
   { 
     id: 'worldbook', 
     name: '世界书', 
-    icon: FileIcon, 
+    icon: BookIcon, 
     color: 'glass-card', 
-    route: '/worldbook' 
+    route: '/world-book' 
   },
   { 
     id: 'music-app', 
@@ -99,8 +100,8 @@ export const dockApps: AppItem[] = [
   { 
     id: 'worldbook', 
     name: '世界书', 
-    icon: FileIcon, 
+    icon: BookIcon, 
     color: 'glass-card', 
-    route: '/worldbook' 
+    route: '/world-book' 
   },
 ]

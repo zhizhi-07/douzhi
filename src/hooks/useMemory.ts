@@ -50,6 +50,15 @@ export const useMemory = (characterId: string, characterName?: string, character
     return memorySystem.current.getStatistics()
   }, [])
 
+  // 生成时间线事件记录
+  const generateTimeline = useCallback(async (messages: any[]) => {
+    return await memorySystem.current.generateTimelineFromMessages(
+      messages,
+      characterName,
+      userName
+    )
+  }, [characterName, userName])
+
   return useMemo(() => ({
     extractMemories,
     extractInitialMemories,
@@ -57,6 +66,7 @@ export const useMemory = (characterId: string, characterName?: string, character
     getMemorySummary,
     addMemory,
     searchMemories,
-    getStatistics
-  }), [extractMemories, extractInitialMemories, getRelevantMemories, getMemorySummary, addMemory, searchMemories, getStatistics])
+    getStatistics,
+    generateTimeline
+  }), [extractMemories, extractInitialMemories, getRelevantMemories, getMemorySummary, addMemory, searchMemories, getStatistics, generateTimeline])
 }

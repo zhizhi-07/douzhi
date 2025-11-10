@@ -4,7 +4,6 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import StatusBar from '../components/StatusBar'
 import { getChatWallpaper, getWallpaperStyle } from '../utils/wallpaperManager'
 import AddMenu from '../components/AddMenu'
 import AlbumSelector from '../components/AlbumSelector'
@@ -22,10 +21,12 @@ import ForwardModal from '../components/ForwardModal'
 import ForwardedChatViewer from '../components/ForwardedChatViewer'
 import EmojiPanel from '../components/EmojiPanel'
 import MusicInviteSelector from '../components/MusicInviteSelector'
+import AIMemoModal from '../components/AIMemoModal'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
+import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
@@ -42,6 +43,20 @@ const ChatDetail = () => {
   
   // 气泡样式
   useChatBubbles(id)
+  
+  // Token 统计详情面板状态
+  const [showTokenDetail, setShowTokenDetail] = useState(false)
+  
+  // 场景模式状态
+  const [sceneMode, setSceneMode] = useState<'online' | 'offline'>('online')
+  
+  // 备忘录弹窗状态
+  const [showAIMemoModal, setShowAIMemoModal] = useState(false)
+  
+  // 调试：监听备忘录弹窗状态变化
+  useEffect(() => {
+    console.log('备忘录弹窗状态变化:', showAIMemoModal)
+  }, [showAIMemoModal])
   
   // 监听壁纸变化
   useEffect(() => {
@@ -82,7 +97,9 @@ const ChatDetail = () => {
     () => photo.setShowPhotoSender(true),
     () => photo.setShowAlbumSelector(true),
     coupleSpace.openMenu,
-    () => intimatePay.setShowIntimatePaySender(true)
+    () => intimatePay.setShowIntimatePaySender(true),
+    () => setShowAIMemoModal(true),
+    () => navigate(`/chat/${id}/offline`)  // 线下模式
   )
   
   // 多选模式
@@ -253,45 +270,79 @@ const ChatDetail = () => {
       className="h-screen flex flex-col"
       style={wallpaper ? getWallpaperStyle(wallpaper) : { backgroundColor: '#f5f7fa' }}
     >
-      <div className="backdrop-blur-sm bg-white/20 border-b border-white/10">
-        <StatusBar />
-        <div className="px-5 py-4 flex items-center justify-between">
-          <button onClick={() => navigate('/wechat')} className="text-gray-700 btn-press-fast touch-ripple-effect -ml-2 p-2 rounded-full">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex flex-col items-center">
-            <h1 className="text-lg font-semibold text-gray-900 transition-all duration-300">
-              {chatAI.isAiTyping ? (
-                <span className="flex items-center gap-2">
-                  正在输入
-                  <span className="typing-indicator flex gap-1">
-                    <span className="dot-pulse bg-gray-600"></span>
-                    <span className="dot-pulse bg-gray-600"></span>
-                    <span className="dot-pulse bg-gray-600"></span>
-                  </span>
-                </span>
-              ) : (
-                character.nickname || character.realName
-              )}
-            </h1>
-            {!chatAI.isAiTyping && (character as any).currentActivity && (
-              <p className="text-xs text-gray-500 mt-0.5">
-                {(character as any).currentActivity}
-              </p>
-            )}
+      <ChatHeader
+        characterName={character.nickname || character.realName}
+        isAiTyping={chatAI.isAiTyping}
+        onBack={() => navigate('/wechat')}
+        onMenuClick={() => navigate(`/chat/${id}/settings`)}
+        tokenStats={chatAI.tokenStats}
+        onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
+      />
+      
+      {/* Token 详情面板 - 显示在头部下方 */}
+      {showTokenDetail && chatAI.tokenStats.total > 0 && (
+        <div className="mx-4 mt-2 p-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">本次请求统计</span>
+            <button 
+              onClick={() => setShowTokenDetail(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button 
-            onClick={() => navigate(`/chat/${id}/settings`)}
-            className="text-gray-700 btn-press-fast touch-ripple-effect -mr-2 p-2 rounded-full"
-          >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            </svg>
-          </button>
+          
+          {/* Token 使用 */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-600 font-medium">输入 Token</span>
+              <span className="text-xs font-semibold text-blue-600">{chatAI.tokenStats.total.toLocaleString()} tokens</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-gray-500">系统提示</span>
+              <span className="text-gray-700">{chatAI.tokenStats.systemPrompt.toLocaleString()}</span>
+            </div>
+            {chatAI.tokenStats.lorebook > 0 && (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-500">世界书</span>
+                <span className="text-gray-700">{chatAI.tokenStats.lorebook.toLocaleString()}</span>
+              </div>
+            )}
+            {chatAI.tokenStats.memory > 0 && (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-500">记忆</span>
+                <span className="text-gray-700">{chatAI.tokenStats.memory.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-[11px]">
+              <span className="text-gray-500">消息历史</span>
+              <span className="text-gray-700">{chatAI.tokenStats.messages.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          {/* 输出Token */}
+          {chatAI.tokenStats.outputTokens && chatAI.tokenStats.outputTokens > 0 && (
+            <div className="pt-2 mt-2 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600 font-medium">输出 Token</span>
+                <span className="text-xs font-semibold text-green-600">{chatAI.tokenStats.outputTokens.toLocaleString()} tokens</span>
+              </div>
+            </div>
+          )}
+          
+          {/* 响应时间 */}
+          {chatAI.tokenStats.responseTime && chatAI.tokenStats.responseTime > 0 && (
+            <div className="pt-2 mt-2 border-t border-gray-200">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-500">响应时间</span>
+                <span className="text-gray-600">{(chatAI.tokenStats.responseTime/1000).toFixed(2)}s</span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
       
       {chatState.error && (
         <div className="mx-4 mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm">
@@ -419,6 +470,11 @@ const ChatDetail = () => {
             )
           }
 
+          // 线下模式消息不在聊天窗口显示
+          if (message.sceneMode === 'offline') {
+            return null
+          }
+
           const isSelectable = multiSelect.isMessageSelectable(message)
           const isSelected = multiSelect.selectedMessageIds.has(message.id)
           
@@ -462,13 +518,13 @@ const ChatDetail = () => {
                 {message.quotedMessage && (
                   <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
                     message.type === 'sent' 
-                      ? 'bg-green-600/30' 
+                      ? 'bg-gray-200' 
                       : 'bg-gray-200'
                   )}>
-                    <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-white' : 'text-blue-500')}>
+                    <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-gray-900' : 'text-blue-500')}>
                       {message.quotedMessage.senderName}
                     </div>
-                    <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-white' : 'text-gray-600')}>
+                    <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-gray-700' : 'text-gray-600')}>
                       {message.quotedMessage.content}
                     </div>
                   </div>
@@ -629,25 +685,24 @@ const ChatDetail = () => {
       {!multiSelect.isMultiSelectMode && (
       <div className="bg-[#f5f7fa] border-t border-gray-200/50">
         {modals.quotedMessage && (
-          <div className="px-3 pt-2 pb-1">
-            <div className="bg-gray-100 rounded-xl p-2 flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-gray-700 mb-0.5">
-                  {modals.quotedMessage.type === 'sent' ? '我' : character.realName}
-                </div>
-                <div className="text-xs text-gray-600 truncate">
-                  {modals.quotedMessage.content || modals.quotedMessage.voiceText || modals.quotedMessage.photoDescription || modals.quotedMessage.location?.name || '特殊消息'}
-                </div>
+          <div className="px-4 py-2 bg-gray-100 flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-blue-600 font-medium">
+                {modals.quotedMessage.type === 'sent' ? '我' : character.nickname || character.realName}
               </div>
-              <button
-                onClick={() => modals.setQuotedMessage(null)}
-                className="text-gray-400 hover:text-gray-600 text-lg"
-              >
-                ✕
-              </button>
+              <div className="text-sm text-gray-600 truncate">
+                {modals.quotedMessage.content}
+              </div>
             </div>
+            <button
+              onClick={() => modals.setQuotedMessage(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
           </div>
         )}
+        
         <div className="px-2 py-2 flex items-center gap-1">
           <button 
             onClick={() => addMenu.setShowAddMenu(true)}
@@ -679,7 +734,7 @@ const ChatDetail = () => {
             <button
               onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
               disabled={chatAI.isAiTyping}
-              className="w-9 h-9 flex items-center justify-center ios-button bg-green-500 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
+              className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -723,6 +778,9 @@ const ChatDetail = () => {
         onSelectVoice={addMenu.handlers.handleSelectVoice}
         onSelectVideoCall={() => videoCall.startCall()}
         onSelectMusicInvite={() => musicInvite.setShowMusicInviteSelector(true)}
+        onSelectAIMemo={addMenu.handlers.handleSelectAIMemo}
+        onSelectOffline={addMenu.handlers.handleSelectOffline}
+        hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 
       {/* 表情包面板 */}
@@ -739,6 +797,14 @@ const ChatDetail = () => {
           onSend={musicInvite.sendMusicInvite}
         />
       )}
+
+      {/* AI备忘录弹窗 */}
+      <AIMemoModal
+        isOpen={showAIMemoModal}
+        onClose={() => setShowAIMemoModal(false)}
+        characterId={id || ''}
+        characterName={chatState.character?.nickname || chatState.character?.realName || 'AI'}
+      />
 
       <MessageMenu
         isOpen={messageMenu.showMessageMenu}

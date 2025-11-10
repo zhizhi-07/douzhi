@@ -22,9 +22,10 @@ const TransferCard = ({ message, onReceive, onReject }: TransferCardProps) => {
 
   return (
     <div
-      className="rounded-2xl shadow-lg min-w-[200px] bg-white overflow-hidden"
+      className="rounded-2xl shadow-lg bg-white overflow-hidden"
       style={{
         position: 'relative',
+        width: '200px'
       }}
     >
       {/* 内容层 */}

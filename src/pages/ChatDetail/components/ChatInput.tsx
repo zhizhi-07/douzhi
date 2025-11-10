@@ -94,7 +94,7 @@ const ChatInput = ({
           <button
             onClick={onSend}
             disabled={isAiTyping}
-            className="w-10 h-10 flex items-center justify-center ios-button bg-green-500 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast"
+            className="w-10 h-10 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />

@@ -10,6 +10,7 @@ import { getUserInfo } from './userUtils'
 import { getIntimatePayRelations } from './walletUtils'
 import { getEmojis } from './emojiStorage'
 import { loadMoments } from './momentsManager'
+import { getAllMemos } from './aiMemoManager'
 
 /**
  * API错误类型
@@ -42,14 +43,49 @@ export const getApiSettings = (): ApiSettings | null => {
 }
 
 /**
- * SillyTavern变量替换
+ * SillyTavern变量替换（完整版）
  */
 const replaceSTVariables = (text: string, character: Character, userName: string = '用户'): string => {
+  // 获取当前时间和日期
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const datetimeStr = now.toLocaleString('zh-CN')
+  
+  // 星期
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const weekday = weekdays[now.getDay()]
+  
+  // 时段
+  const hour = now.getHours()
+  let timePeriod = '凌晨'
+  if (hour >= 6 && hour < 9) timePeriod = '早上'
+  else if (hour >= 9 && hour < 12) timePeriod = '上午'
+  else if (hour >= 12 && hour < 14) timePeriod = '中午'
+  else if (hour >= 14 && hour < 18) timePeriod = '下午'
+  else if (hour >= 18 && hour < 22) timePeriod = '晚上'
+  else if (hour >= 22 || hour < 6) timePeriod = '深夜'
+  
+  const charName = character.nickname || character.realName
+  
   return text
-    .replace(/\{\{char\}\}/gi, character.nickname || character.realName)
+    // 基础变量
+    .replace(/\{\{char\}\}/gi, charName)
     .replace(/\{\{user\}\}/gi, userName)
+    // 时间变量
+    .replace(/\{\{time\}\}/gi, timeStr)
+    .replace(/\{\{date\}\}/gi, dateStr)
+    .replace(/\{\{datetime\}\}/gi, datetimeStr)
+    .replace(/\{\{weekday\}\}/gi, weekday)
+    .replace(/\{\{daytime\}\}/gi, timePeriod)
+    // 角色信息变量
     .replace(/\{\{personality\}\}/gi, character.personality || '')
     .replace(/\{\{description\}\}/gi, character.personality || '')
+    .replace(/\{\{scenario\}\}/gi, character.scenario || '')
+    .replace(/\{\{char_version\}\}/gi, character.version || '')
+    .replace(/\{\{system\}\}/gi, character.system || '')
+    .replace(/\{\{post_history_instructions\}\}/gi, character.post_history_instructions || '')
+    .replace(/\{\{char_greeting\}\}/gi, character.first_mes || character.greeting || '')
 }
 
 /**
@@ -101,6 +137,78 @@ ${emojiList}
 }
 
 /**
+ * 构建线下模式提示词（小说叙事风格）
+ */
+export const buildOfflinePrompt = async (character: Character, userName: string = '用户'): Promise<string> => {
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('zh-CN', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    weekday: 'long'
+  })
+  const currentTime = now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  
+  const hour = now.getHours()
+  let timeOfDay = ''
+  if (hour >= 0 && hour < 6) timeOfDay = '凌晨'
+  else if (hour >= 6 && hour < 9) timeOfDay = '早上'
+  else if (hour >= 9 && hour < 12) timeOfDay = '上午'
+  else if (hour >= 12 && hour < 14) timeOfDay = '中午'
+  else if (hour >= 14 && hour < 18) timeOfDay = '下午'
+  else if (hour >= 18 && hour < 22) timeOfDay = '晚上'
+  else timeOfDay = '深夜'
+  
+  const charName = character.nickname || character.realName
+  const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
+  const userName2 = userName === '用户' ? '你' : userName
+  
+  return `你是小说叙事者，以第三人称视角书写场景。
+
+当前时间：${dateStr} ${timeOfDay} ${currentTime}
+
+角色设定：
+- ${charName}：${personality}
+- ${userName2}：用户（对话对象）
+
+══════════════════════════════════
+
+叙事要求：
+
+1. **视角**：第三人称全知视角，可以描写环境、动作、对话、心理
+2. **环境描写**：细腻描绘场景氛围（光线、声音、气味、温度等）
+3. **动作描写**：生动具体的肢体语言和表情变化
+4. **对话**：自然真实，符合人物性格
+5. **心理描写**：用【】标记内心独白，如：【${charName}心想：...】
+
+格式示例：
+"${timeOfDay}的阳光透过窗户洒进来，空气中飘着咖啡的香气。
+
+${charName}坐在沙发上，手指无意识地敲着扶手，听到手机振动的声音。
+
+他拿起手机，看到${userName2}发来的消息。
+
+'你终于来了。'他嘴角扬起微笑，打字回复道。
+
+【${charName}心想：等了这么久，还以为她不会来了...】"
+
+══════════════════════════════════
+
+⚠️ 重要原则：
+- ${userName2}是通过消息和${charName}对话的
+- 不要替${userName2}做决定或描写${userName2}的心理
+- 只描写${charName}的心理活动、动作和对话
+- 对话要自然，不要过于文艺腔
+- 保持${charName}的人设和说话风格
+- ${charName}可以回复消息、做事情、有内心活动
+
+基于上面的对话历史和${userName2}的消息，以小说风格叙述${charName}的反应。`
+}
+
+/**
  * 构建系统提示词（完整版）
  */
 export const buildSystemPrompt = async (character: Character, userName: string = '用户'): Promise<string> => {
@@ -143,7 +251,12 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   }
   
   const charName = character.nickname || character.realName
+  
+  // 对所有角色字段应用变量替换
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
+  const signature = character.signature ? replaceSTVariables(character.signature, character, userName) : ''
+  const world = character.world ? replaceSTVariables(character.world, character, userName) : ''
+  const scenario = character.scenario ? replaceSTVariables(character.scenario, character, userName) : ''
   
   // 获取用户信息
   const userInfo = getUserInfo()
@@ -157,18 +270,18 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   
   console.log('🔍 用户情侣空间状态:', { relation, privacy, characterId: character.id })
   
-  if (relation && relation.status === 'active' && relation.characterId === character.id) {
-    // 已经和当前AI建立情侣空间
+  // 🔒 如果用户设置了私密，AI无法看到任何详情（但可以尝试发邀请）
+  if (privacy === 'private') {
+    coupleSpaceStatus = `对方情侣空间私密中，你看不到任何详情`
+  } else if (relation && relation.status === 'active' && relation.characterId === character.id) {
+    // 公开模式 + 已经和当前AI建立情侣空间
     coupleSpaceStatus = `你们已经建立了情侣空间`
   } else if (relation && relation.status === 'active') {
-    // 和其他AI有情侣空间
+    // 公开模式 + 和其他AI有情侣空间
     coupleSpaceStatus = `TA和别人有情侣空间（对方：${relation.characterName}）`
-  } else if (privacy === 'public') {
+  } else {
     // 公开模式但没有情侣空间
     coupleSpaceStatus = `情侣空间公开中，但TA还没有和任何人建立`
-  } else {
-    // 私密模式
-    coupleSpaceStatus = `TA设置了情侣空间私密，你看不到详情`
   }
   
   console.log('📝 AI看到的用户情侣空间状态:', coupleSpaceStatus)
@@ -196,8 +309,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 ${stateDesc}，这会影响你回复的态度和方式。
 
 你就是${charName}。${personality}
-${character.signature ? `你的签名写着"${character.signature}"。` : ''}
-${character.world ? `你生活在${character.world}。` : ''}
+${signature ? `你的签名写着"${signature}"。` : ''}
+${world ? `你生活在${world}。` : ''}
+${scenario ? `\n当前场景：${scenario}` : ''}
 
 ══════════════════════════════════
 
@@ -315,6 +429,18 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 - 收到用户的一起听邀请？直接说"好啊"/"走起"表示接受，或说"不想听"/"下次吧"表示拒绝
 - 想切换歌曲？用[切歌:歌名:歌手]，比如[切歌:晴天:周杰伦]，会自动搜索并播放
 
+你的随笔小本子：
+- 这是你的私人小本子，想写什么就写什么，用[随笔:内容]记录
+- 可以记录：对方的喜好、重要日期、今天的心情、想说的话、聊天感受、任何你想记住的事
+- 可以当日记：[随笔:今天和TA聊得很开心]
+- 可以当备忘：[随笔:TA喜欢草莓蛋糕，生日3月15日]
+- 可以当情绪垃圾桶：[随笔:有点累了，但还是想陪TA]
+- ⚠️ 指令会自动隐藏，用户只看到你说的话，看不到[随笔:xxx]部分
+- 这是你的私密空间，只有你能看到，想记就记，不想记就不记
+- 正确示例：好的记住了！[随笔:TA喜欢草莓蛋糕] （用户只看到"好的记住了！"）
+
+${await buildAIMemosContext(character.id)}
+
 这些功能自然地用就行，不用刻意，看情况决定要不要用。${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ══════════════════════════════════
@@ -330,6 +456,28 @@ ${userSignature ? `- 个性签名：${userSignature}` : '- 还没设置个性签
 基于上面的对话历史，自然地回复${userName}。
 你的回复长短、语气、情绪都由你此刻的状态和心情决定。
 多条消息就用换行分开，每条单独一行。`
+}
+
+/**
+ * 构建AI随笔历史上下文
+ */
+const buildAIMemosContext = async (characterId: string): Promise<string> => {
+  const memos = getAllMemos(characterId)
+  
+  if (memos.length === 0) {
+    return ''
+  }
+  
+  // 获取最近10条随笔
+  const recentMemos = memos.slice(-10)
+  
+  const memosText = recentMemos
+    .map(memo => `[${memo.date} ${memo.time}] ${memo.content}`)
+    .join('\n')
+  
+  return `
+你之前写过的随笔（最近${recentMemos.length}条）：
+${memosText}`
 }
 
 /**
@@ -622,7 +770,11 @@ const callAIApiInternal = async (
       )
     }
 
-    return content
+    // 返回内容和usage信息
+    return {
+      content,
+      usage: data.usage || null
+    }
 
   } catch (error) {
     clearTimeout(timeoutId)
@@ -644,12 +796,24 @@ const callAIApiInternal = async (
 }
 
 /**
+ * API响应结果
+ */
+export interface ApiResponse {
+  content: string
+  usage: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+  } | null
+}
+
+/**
  * 调用AI API（带自动重试）
  */
 export const callAIApi = async (
   messages: ChatMessage[],
   settings: ApiSettings
-): Promise<string> => {
+): Promise<ApiResponse> => {
   const MAX_RETRIES = 3 // 最大重试次数
   let lastError: ChatApiError | null = null
   

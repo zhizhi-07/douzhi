@@ -173,6 +173,8 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
           '亲密付',
           '情侣空间',
           '拒绝了',
+          '驳回',
+          '修改了',
           '视频通话',
           '拉黑',
           '解除拉黑',

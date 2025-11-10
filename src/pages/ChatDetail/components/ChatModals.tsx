@@ -104,16 +104,16 @@ const ChatModals = ({
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                        className={`message-container flex ${isUser ? 'sent justify-end' : 'received justify-start'}`}
                       >
                         <div className="flex flex-col max-w-[75%]">
                           <div className={`text-xs text-gray-500 mb-1 ${isUser ? 'text-right' : 'text-left'}`}>
                             {isUser ? '我' : (character.nickname || character.realName)} · {msg.time}
                           </div>
                           <div
-                            className={`px-3 py-2 rounded-lg ${
+                            className={`message-bubble px-3 py-2 rounded-lg ${
                               isUser
-                                ? 'bg-green-500 text-white rounded-tr-none'
+                                ? 'rounded-tr-none'
                                 : 'bg-gray-100 text-gray-900 rounded-tl-none'
                             }`}
                           >

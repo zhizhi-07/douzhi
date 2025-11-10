@@ -14,6 +14,7 @@ import {
   parseDialogueLines,
   logApiContext
 } from '../../../utils/videoCallUtils'
+import { callMinimaxTTS } from '../../../utils/voiceApi'
 
 export interface CallMessage {
   id: number
@@ -38,11 +39,12 @@ export const useVideoCall = (
   const shouldAISpeakFirst = useRef(false) // 用ref来标记AI是否应该先说话
   const openingLinesRef = useRef<string | null>(null) // 保存AI第1次回复中的开场白
   const requestAIReplyRef = useRef<() => void>()
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null) // 当前播放的音频
 
   /**
-   * 添加AI消息
+   * 添加AI消息并播放语音
    */
-  const addAIMessage = useCallback((content: string) => {
+  const addAIMessage = useCallback(async (content: string) => {
     const newMessage: CallMessage = {
       id: Date.now(),
       type: 'ai',
@@ -53,7 +55,43 @@ export const useVideoCall = (
       })
     }
     setCallMessages(prev => [...prev, newMessage])
-  }, [])
+    
+    // 生成并播放语音
+    try {
+      // 读取角色的音色ID配置
+      const settingsKey = `chat_settings_${chatId}`
+      const settingsStr = localStorage.getItem(settingsKey)
+      const settings = settingsStr ? JSON.parse(settingsStr) : null
+      const voiceId = settings?.voiceId
+      
+      if (voiceId) {
+        console.log('🎤 [视频通话] 生成AI语音:', { content: content.substring(0, 30), voiceId })
+        const ttsResult = await callMinimaxTTS(content, undefined, undefined, voiceId)
+        
+        // 停止之前的音频
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause()
+          currentAudioRef.current = null
+        }
+        
+        // 播放新音频
+        const audio = new Audio(ttsResult.audioUrl)
+        currentAudioRef.current = audio
+        
+        audio.onended = () => {
+          currentAudioRef.current = null
+        }
+        
+        await audio.play()
+        console.log('✅ [视频通话] 语音播放成功')
+      } else {
+        console.warn('⚠️ [视频通话] 未配置音色ID，跳过语音生成')
+      }
+    } catch (error) {
+      console.error('❌ [视频通话] 语音生成失败:', error)
+      // 语音失败不影响文字显示
+    }
+  }, [chatId])
 
   /**
    * 添加旁白消息（画面描述）
@@ -219,6 +257,13 @@ export const useVideoCall = (
    */
   const endCall = useCallback(() => {
     console.log('📹 结束视频通话')
+    
+    // 停止当前播放的音频
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+      console.log('🔇 [视频通话] 已停止音频播放')
+    }
     
     const duration = Math.floor((Date.now() - callStartTime) / 1000)
     

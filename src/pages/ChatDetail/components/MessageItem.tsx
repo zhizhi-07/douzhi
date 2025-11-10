@@ -123,7 +123,7 @@ const MessageItem = ({
   // 普通消息
   return (
     <div
-      className={'flex items-start gap-2 my-2 message-enter ' + (message.type === 'sent' ? 'flex-row-reverse message-enter-right' : 'flex-row message-enter-left')}
+      className={'message-container flex items-start gap-2 my-2 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
     >
       {/* 头像和时间 */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0">
@@ -143,13 +143,13 @@ const MessageItem = ({
         {message.quotedMessage && (
           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
             message.type === 'sent' 
-              ? 'bg-green-600/30' 
+              ? 'bg-gray-200' 
               : 'bg-gray-200'
           )}>
-            <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-white' : 'text-blue-500')}>
+            <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-gray-900' : 'text-blue-500')}>
               {message.quotedMessage.senderName}
             </div>
-            <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-white' : 'text-gray-600')}>
+            <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-gray-700' : 'text-gray-600')}>
               {message.quotedMessage.content}
             </div>
           </div>
@@ -199,9 +199,9 @@ const MessageItem = ({
           />
         ) : (
           <div
-            className={'px-3 py-2 rounded-lg break-words cursor-pointer message-press ' + (
+            className={'message-bubble px-3 py-2 rounded-lg break-words cursor-pointer message-press ' + (
               message.type === 'sent'
-                ? 'bg-green-500 text-white rounded-tr-none shadow-sm'
+                ? 'rounded-tr-none shadow-sm'
                 : 'bg-white text-gray-900 rounded-tl-none shadow-sm'
             )}
             onTouchStart={(e) => onLongPressStart(message, e)}

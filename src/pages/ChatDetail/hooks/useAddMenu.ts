@@ -13,7 +13,9 @@ export const useAddMenu = (
   onOpenPhoto?: () => void,
   onOpenAlbum?: () => void,
   onOpenCoupleSpace?: () => void,
-  onOpenIntimatePay?: () => void
+  onOpenIntimatePay?: () => void,
+  onOpenAIMemo?: () => void,
+  onOpenOffline?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -112,6 +114,30 @@ export const useAddMenu = (
     // 由ChatDetail处理
   }, [])
   
+  /**
+   * AI随笔
+   */
+  const handleSelectAIMemo = useCallback(() => {
+    console.log('🎯 点击随笔按钮')
+    setShowAddMenu(false)
+    if (onOpenAIMemo) {
+      console.log('✅ 调用onOpenAIMemo')
+      onOpenAIMemo()
+    } else {
+      console.warn('⚠️ onOpenAIMemo 未定义')
+    }
+  }, [onOpenAIMemo])
+  
+  /**
+   * 线下模式
+   */
+  const handleSelectOffline = useCallback(() => {
+    setShowAddMenu(false)
+    if (onOpenOffline) {
+      onOpenOffline()
+    }
+  }, [onOpenOffline])
+  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -125,7 +151,9 @@ export const useAddMenu = (
       handleSelectLocation,
       handleSelectVoice,
       handleSelectVideoCall,
-      handleSelectMusicInvite
+      handleSelectMusicInvite,
+      handleSelectAIMemo,
+      handleSelectOffline
     }
   }
 }

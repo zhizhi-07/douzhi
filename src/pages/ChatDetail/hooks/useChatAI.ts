@@ -8,6 +8,7 @@ import type { Character, Message } from '../../../types/chat'
 import {
   getApiSettings,
   buildSystemPrompt,
+  buildOfflinePrompt,
   callAIApi,
   ChatApiError
 } from '../../../utils/chatApi'
@@ -30,6 +31,8 @@ import { loadMoments } from '../../../utils/momentsManager'
 import { playMessageSendSound, playMessageNotifySound } from '../../../utils/soundManager'
 import { memoryManager } from '../../../utils/memorySystem'
 import { groupChatManager } from '../../../utils/groupChatManager'
+import { lorebookManager } from '../../../utils/lorebookSystem'
+import { TokenStats, estimateTokens } from '../../../utils/tokenCounter'
 
 export const useChatAI = (
   chatId: string,
@@ -42,6 +45,18 @@ export const useChatAI = (
 ) => {
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [tokenStats, setTokenStats] = useState<TokenStats>({
+    total: 0,
+    remaining: 0,
+    percentage: 0,
+    systemPrompt: 0,
+    character: 0,
+    lorebook: 0,
+    memory: 0,
+    messages: 0,
+    responseTime: 0,
+    outputTokens: 0
+  })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sendTimeoutRef = useRef<number>()
   const conversationCountRef = useRef<number>(0)  // 对话轮数计数器
@@ -70,7 +85,8 @@ export const useChatAI = (
     inputValue: string, 
     setInputValue: (val: string) => void,
     quotedMessage?: Message | null,
-    clearQuote?: () => void
+    clearQuote?: () => void,
+    sceneMode?: 'online' | 'offline'
   ) => {
     // 防止重复发送和空消息
     if (!inputValue.trim() || isAiTyping || isSending) {
@@ -92,6 +108,7 @@ export const useChatAI = (
       const userMessage: Message = {
         ...createMessage(inputValue, 'sent'),
         blockedByReceiver: isUserBlocked,
+        sceneMode: sceneMode || 'online',  // 添加场景模式
         quotedMessage: quotedMessage ? {
           id: quotedMessage.id,
           content: quotedMessage.content || quotedMessage.voiceText || quotedMessage.photoDescription || '...',
@@ -172,17 +189,63 @@ export const useChatAI = (
       const hasAIBlockedUser = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
       console.log(`🔍 [拉黑检查] AI拉黑了用户: ${hasAIBlockedUser}`)
       
-      let systemPrompt = await buildSystemPrompt(character)
+      // 📊 保存各部分上下文用于Token统计
+      let lorebookContextText = ''
+      let memoryContextText = ''
+      
+      // 读取所有消息（用于多个地方）
+      const allMessages = loadMessages(chatId)
+      
+      // 检查最后一条消息的场景模式
+      const lastUserMessage = allMessages.filter(m => m.type === 'sent').pop()
+      const currentSceneMode = lastUserMessage?.sceneMode || 'online'
+      console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}`)
+      
+      // 根据场景模式选择提示词
+      let systemPrompt = currentSceneMode === 'offline' 
+        ? await buildOfflinePrompt(character)
+        : await buildSystemPrompt(character)
+      
+      // 🔥 注入世界书上下文（基于关键词触发）
+      if (character) {
+        // 获取最近的消息文本用于匹配关键词（最近10条）
+        const recentMsgs = allMessages.slice(-10)
+        const recentText = recentMsgs
+          .map(m => m.content || m.voiceText || m.photoDescription || '')
+          .filter(Boolean)
+          .join('\n')
+        
+        lorebookContextText = lorebookManager.buildContext(
+          character.id, 
+          recentText, 
+          2000,
+          character.realName || character.nickname || '角色',
+          '你',
+          character // 传入完整角色信息用于变量替换
+        )
+        
+        if (lorebookContextText) {
+          let lorebookPrompt = '\n\n══════════════════════════════════\n\n'
+          lorebookPrompt += '【世界书信息】（背景知识和设定）\n\n'
+          lorebookPrompt += lorebookContextText
+          lorebookPrompt += '\n\n💡 提示：这些是世界观和背景设定，请在对话中自然地体现\n'
+          lorebookPrompt += '══════════════════════════════════'
+          
+          systemPrompt = systemPrompt + lorebookPrompt
+          console.log('📚 [世界书] 已注入世界书上下文')
+        }
+      }
       
       // 🔥 注入相关记忆（根据用户消息内容检索）
       const memorySystem = memoryManager.getSystem(chatId)
-      const allMessages = loadMessages(chatId)
-      const lastUserMessage = allMessages.filter(m => m.type === 'sent').pop()
       const userMessageContent = lastUserMessage?.content || lastUserMessage?.photoDescription || lastUserMessage?.voiceText || ''
       
       const relevantMemories = memorySystem.getRelevantMemories(userMessageContent, 10)
       
       if (relevantMemories.length > 0) {
+        // 保存记忆内容用于Token统计
+        memoryContextText = relevantMemories.map(m => m.content).join('\n')
+        
         let memoryPrompt = '\n\n══════════════════════════════════\n\n'
         memoryPrompt += '【相关记忆】（这些是你和TA之间的重要信息）\n\n'
         
@@ -303,10 +366,90 @@ export const useChatAI = (
       console.log([{ role: 'system', content: systemPrompt }, ...apiMessages])
       console.groupEnd()
 
-      const aiReply = await callAIApi(
+      // ⏱ 开始计时
+      const startTime = Date.now()
+
+      const apiResult = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings
       )
+      
+      const aiReply = apiResult.content
+      const usage = apiResult.usage
+      
+      // ⏱ 计算响应时间
+      const responseTime = Date.now() - startTime
+      
+      // 📊 计算Token统计
+      // 优先使用API返回的实际token数
+      let stats: TokenStats
+      
+      if (usage?.prompt_tokens) {
+        // API返回了准确的token数
+        console.log('✅ 使用API返回的输入Token:', usage.prompt_tokens)
+        
+        // 单独统计各部分（用于显示分类）
+        const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
+        const messageStrings = apiMessages.map(m => m.content || '')
+        
+        stats = {
+          systemPrompt: estimateTokens(baseSystemPrompt),
+          character: 0,
+          lorebook: estimateTokens(lorebookContextText),
+          memory: estimateTokens(memoryContextText),
+          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(msg), 0),
+          total: usage.prompt_tokens, // 使用API返回的准确值
+          remaining: 0,
+          percentage: 0,
+          responseTime
+        }
+      } else {
+        // API未返回token数，使用估算
+        console.log('⚠️ API未返回输入token数，使用估算值')
+        
+        const messageStrings = apiMessages.map(m => m.content || '')
+        const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
+        
+        stats = {
+          systemPrompt: estimateTokens(baseSystemPrompt),
+          character: 0,
+          lorebook: estimateTokens(lorebookContextText),
+          memory: estimateTokens(memoryContextText),
+          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(msg), 0),
+          total: 0,
+          remaining: 0,
+          percentage: 0,
+          responseTime
+        }
+        
+        stats.total = stats.systemPrompt + stats.lorebook + stats.memory + stats.messages
+      }
+      
+      console.log('📊 Token详细统计:', {
+        系统提示: stats.systemPrompt,
+        世界书: stats.lorebook,
+        记忆: stats.memory,
+        消息历史: stats.messages,
+        总计: stats.total,
+        消息条数: apiMessages.length
+      })
+      
+      // 计算输出token（AI回复的token数）
+      // 优先使用API返回的实际token数（包含思维链等）
+      if (usage?.completion_tokens) {
+        stats.outputTokens = usage.completion_tokens
+        console.log('✅ 使用API返回的输出Token:', stats.outputTokens, '（包含思维链）')
+      } else {
+        // 如果API没返回，则估算
+        stats.outputTokens = estimateTokens(aiReply)
+        console.log('⚠️ API未返回token数，使用估算值:', stats.outputTokens)
+      }
+      
+      // 更新Token统计状态
+      setTokenStats(stats)
+      
+      // 输出Token统计
+      console.log('📊 Token统计:', stats)
       
       Logger.log('收到AI回复', aiReply)
       
@@ -339,9 +482,14 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 更新React状态（setMessages会自动保存）
-          setMessages(prev => [...prev, systemMessage])
-          console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
+          // 更新React状态
+          setMessages(prev => {
+            const updated = [...prev, systemMessage]
+            // 🔥 手动保存到IndexedDB
+            saveMessages(chatId, updated)
+            return updated
+          })
+          console.log(`💾 [AI发朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
           
           // 记录到AI互动记忆（重要！让AI记得自己发过朋友圈）
           const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
@@ -392,9 +540,14 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 更新React状态（setMessages会自动保存）
-          setMessages(prev => [...prev, systemMessage])
-          console.log(`💾 [AI删除朋友圈] 系统消息已保存: ${systemContent}`)
+          // 更新React状态
+          setMessages(prev => {
+            const updated = [...prev, systemMessage]
+            // 🔥 手动保存到IndexedDB
+            saveMessages(chatId, updated)
+            return updated
+          })
+          console.log(`💾 [AI删除朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
           
           // 记录到AI互动记忆
           const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
@@ -444,9 +597,14 @@ export const useChatAI = (
             // 延迟300ms后添加系统消息
             await new Promise(resolve => setTimeout(resolve, 300))
             
-            // 更新React状态（setMessages会自动保存）
-            setMessages(prev => [...prev, systemMessage])
-            console.log(`💾 [朋友圈互动] 系统消息已保存: ${systemContent}`)
+            // 更新React状态
+            setMessages(prev => {
+              const updated = [...prev, systemMessage]
+              // 🔥 手动保存到IndexedDB
+              saveMessages(chatId, updated)
+              return updated
+            })
+            console.log(`💾 [朋友圈互动] 系统消息已保存到IndexedDB: ${systemContent}`)
             
             // 显示通知弹窗
             showNotification(
@@ -461,7 +619,10 @@ export const useChatAI = (
       }
       
       // 使用清理后的消息内容继续处理
-      const aiMessagesList = parseAIMessages(cleanedMessage)
+      // 线下模式不分段，直接作为一整条消息
+      const aiMessagesList = currentSceneMode === 'offline' 
+        ? [cleanedMessage] 
+        : parseAIMessages(cleanedMessage)
       console.log('📝 AI消息拆分结果:', aiMessagesList)
       
       // 使用指令处理器处理每条消息
@@ -538,7 +699,8 @@ export const useChatAI = (
           const aiMessage: Message = {
             ...createMessage(messageContent, 'received'),
             quotedMessage: quotedMsg,
-            blocked: isBlocked  // 添加拉黑标记
+            blocked: isBlocked,  // 添加拉黑标记
+            sceneMode: currentSceneMode  // 继承场景模式
           }
           
           // 调试：输出引用消息信息
@@ -751,6 +913,7 @@ export const useChatAI = (
     scrollToBottom,
     handleSend,
     handleAIReply,
-    handleRegenerate
+    handleRegenerate,
+    tokenStats
   }
 }

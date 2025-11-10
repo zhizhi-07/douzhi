@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
 import { extractCharacterCardFromPNG, convertCharacterCardToInternal } from '../utils/characterCardParser'
+import { lorebookManager } from '../utils/lorebookSystem'
 
 const CreateCharacter = () => {
   const navigate = useNavigate()
@@ -18,6 +19,7 @@ const CreateCharacter = () => {
   })
   
   const [isImporting, setIsImporting] = useState(false)
+  const [importedCharacterBook, setImportedCharacterBook] = useState<any>(null)
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -63,6 +65,8 @@ const CreateCharacter = () => {
         console.log('创建者:', converted.creator)
         if (converted.characterBook) {
           console.log('包含世界书，条目数:', converted.characterBook.entries?.length || 0)
+          // 保存世界书数据，稍后在创建角色时导入
+          setImportedCharacterBook(converted.characterBook)
         }
         
         // 填充表单
@@ -78,7 +82,8 @@ const CreateCharacter = () => {
         
         // 显示成功提示
         const cardVersion = (characterCard as any).spec === 'chara_card_v2' ? 'V2' : 'V1'
-        alert(`✅ 成功导入 Character Card ${cardVersion}!\n\n角色名: ${converted.name}\n创建者: ${converted.creator || '未知'}`)
+        const hasWorldBook = converted.characterBook?.entries?.length > 0
+        alert(`✅ 成功导入 Character Card ${cardVersion}!\n\n角色名: ${converted.name}\n创建者: ${converted.creator || '未知'}${hasWorldBook ? `\n世界书条目: ${converted.characterBook.entries.length}` : ''}`)
       }
       
       reader.onerror = () => {
@@ -111,6 +116,22 @@ const CreateCharacter = () => {
       world: '现代都市' // 添加默认世界
     })
     console.log('创建角色成功:', newCharacter)
+    
+    // 如果有导入的世界书，则创建并关联
+    if (importedCharacterBook && importedCharacterBook.entries?.length > 0) {
+      try {
+        const lorebook = lorebookManager.importFromCharacterCard(
+          importedCharacterBook,
+          newCharacter.id,
+          newCharacter.name
+        )
+        if (lorebook) {
+          console.log('✅ 世界书导入成功:', lorebook.name, '条目数:', lorebook.entries.length)
+        }
+      } catch (error) {
+        console.error('世界书导入失败:', error)
+      }
+    }
     
     // 跳转到通讯录
     navigate('/contacts')

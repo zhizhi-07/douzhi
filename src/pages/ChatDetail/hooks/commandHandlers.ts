@@ -14,11 +14,13 @@ import {
   rejectCoupleSpaceInvite,
   getCoupleSpaceRelation,
   createCoupleSpaceInvite,
-  endCoupleSpaceRelation
+  endCoupleSpaceRelation,
+  getCoupleSpacePrivacy
 } from '../../../utils/coupleSpaceUtils'
 import { getEmojis } from '../../../utils/emojiStorage'
-import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
+import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { callMinimaxTTS } from '../../../utils/voiceApi'
+import { addAIMemo } from '../../../utils/aiMemoManager'
 
 /**
  * 指令处理器接口
@@ -113,7 +115,7 @@ const generateMessageId = (): number => {
 const createMessageObj = (type: Message['messageType'], data: any, isBlocked?: boolean): Message => {
   return {
     id: generateMessageId(),
-    type: 'received',
+    type: data.type || 'received',  // 🔥 使用data.type，如果没有则默认为'received'
     content: '',
     time: new Date().toLocaleTimeString('zh-CN', {
       hour: '2-digit',
@@ -205,11 +207,17 @@ export const rejectTransferHandler: CommandHandler = {
 
       if (!lastPending) return prev
 
-      return prev.map(msg =>
+      const updated = prev.map(msg =>
         msg.id === lastPending.id
           ? { ...msg, transfer: { ...msg.transfer!, status: 'expired' as const } }
           : msg
       )
+      
+      // 🔥 手动保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [转账退还] 状态已保存到IndexedDB')
+      
+      return updated
     })
 
     // 添加系统消息
@@ -520,8 +528,7 @@ export const recallHandler: CommandHandler = {
       
       console.log(`✅ 找到要撤回的消息: "${targetMessage.content}"，理由: ${reason}`)
 
-
-      return prev.map(msg =>
+      const updated = prev.map(msg =>
         msg.id === targetMessage.id
           ? {
               ...msg,
@@ -535,6 +542,12 @@ export const recallHandler: CommandHandler = {
             }
           : msg
       )
+      
+      // 🔥 手动保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [撤回消息] 已保存到IndexedDB')
+      
+      return updated
     })
 
     // 处理剩余文本
@@ -560,11 +573,17 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
     
     if (success) {
       // 更新邀请卡片状态
-      setMessages(prev => prev.map(msg => 
-        msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
-          ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'accepted' as const } }
-          : msg
-      ))
+      setMessages(prev => {
+        const updated = prev.map(msg => 
+          msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
+            ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'accepted' as const } }
+            : msg
+        )
+        // 🔥 手动保存到IndexedDB
+        saveMessages(chatId, updated)
+        console.log('💾 [情侣空间接受] 状态已保存到IndexedDB')
+        return updated
+      })
       
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
@@ -596,11 +615,17 @@ export const coupleSpaceRejectHandler: CommandHandler = {
     
     if (success) {
       // 更新邀请卡片状态
-      setMessages(prev => prev.map(msg => 
-        msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
-          ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'rejected' as const } }
-          : msg
-      ))
+      setMessages(prev => {
+        const updated = prev.map(msg => 
+          msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
+            ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'rejected' as const } }
+            : msg
+        )
+        // 🔥 手动保存到IndexedDB
+        saveMessages(chatId, updated)
+        console.log('💾 [情侣空间拒绝] 状态已保存到IndexedDB')
+        return updated
+      })
       
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
@@ -628,12 +653,36 @@ export const coupleSpaceInviteHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
-    // 检查是否可以发送邀请
+    // 🔒 检查用户是否设置了私密
+    const privacy = getCoupleSpacePrivacy()
     const relation = getCoupleSpaceRelation()
+    const charName = character.nickname || character.realName
+    
+    // 如果用户设置了私密且已经有active的情侣空间，驳回邀请
+    if (privacy === 'private' && relation && relation.status === 'active') {
+      const userMessage = `系统提示：对方已经建立了情侣空间，邀请被驳回`
+      const aiMessage = `【系统提示】你发送的情侣空间邀请被驳回了，原因：对方已经和别人建立了情侣空间。看来对方隐瞒了这件事...`
+      
+      // 添加系统消息（用户和AI都能看到，但显示不同内容）
+      const systemMsg = createMessageObj('system', {
+        content: userMessage,
+        aiReadableContent: aiMessage,
+        type: 'system'
+      })
+      await addMessage(systemMsg, setMessages, chatId)
+      
+      const remainingText = content.replace(match[0], '').trim()
+      return { 
+        handled: true, 
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+    
+    // 检查是否可以发送邀请
     if (relation) {
       // 已有情侣空间关系
       let message = ''
-      const charName = character.nickname || character.realName
       
       if (relation.status === 'pending' && relation.characterId === character.id) {
         // 当前AI已经发送过邀请
@@ -1267,7 +1316,13 @@ export const musicInviteHandler: CommandHandler = {
       blockedByReceiver: isBlocked
     }
     
-    setMessages(prev => [...prev, musicInviteMsg])
+    // 🔥 手动保存到IndexedDB
+    setMessages(prev => {
+      const updated = [...prev, musicInviteMsg]
+      saveMessages(chatId, updated)
+      console.log('💾 [音乐邀请] 已保存到IndexedDB')
+      return updated
+    })
     
     const remainingText = content.replace(match[0], '').trim()
     return {
@@ -1296,11 +1351,17 @@ export const musicAcceptHandler: CommandHandler = {
     }
     
     // 更新邀请状态为已接受
-    setMessages(prev => prev.map(msg => 
-      msg.id === pendingMusicInvite.id
-        ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'accepted' } }
-        : msg
-    ))
+    setMessages(prev => {
+      const updated = prev.map(msg => 
+        msg.id === pendingMusicInvite.id
+          ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'accepted' } }
+          : msg
+      )
+      // 🔥 手动保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [音乐邀请接受] 已保存到IndexedDB')
+      return updated
+    })
     
     // 保存一起听状态到localStorage
     const inviteData = (pendingMusicInvite as any).musicInvite
@@ -1346,7 +1407,7 @@ export const musicAcceptHandler: CommandHandler = {
  */
 export const musicRejectHandler: CommandHandler = {
   pattern: /^(不想听|下次吧|不听|算了|不要|不行|不了|pass|拒绝)[！!。，,、\s]*$/,
-  handler: async (match, content, { setMessages, character, messages }) => {
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
     const pendingMusicInvite = messages.slice().reverse().find(msg => 
       msg.type === 'sent' && 
@@ -1359,11 +1420,17 @@ export const musicRejectHandler: CommandHandler = {
     }
     
     // 更新邀请状态为已拒绝
-    setMessages(prev => prev.map(msg => 
-      msg.id === pendingMusicInvite.id
-        ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'rejected' } }
-        : msg
-    ))
+    setMessages(prev => {
+      const updated = prev.map(msg => 
+        msg.id === pendingMusicInvite.id
+          ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'rejected' } }
+          : msg
+      )
+      // 🔥 手动保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [音乐邀请拒绝] 已保存到IndexedDB')
+      return updated
+    })
     
     return {
       handled: true,
@@ -1431,6 +1498,39 @@ export const changeSongHandler: CommandHandler = {
 }
 
 /**
+ * AI随笔处理器
+ */
+export const aiMemoHandler: CommandHandler = {
+  pattern: /\[随笔:(.*?)\]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    if (!character) return { handled: false }
+    
+    const noteContent = match[1].trim()
+    
+    // 添加到随笔
+    addAIMemo(character.id, character.nickname || character.realName, noteContent)
+    
+    console.log(`📝 ${character.nickname || character.realName} 写随笔:`, noteContent)
+    
+    // 创建系统提示消息（用户和AI都能看到）
+    const systemMsg = createMessageObj('system', {
+      content: `${character.nickname || character.realName} 在小本子上记了点东西`,
+      aiReadableContent: `✅ 已记录到你的小本子：${noteContent}`,
+      type: 'system'
+    })
+    await addMessage(systemMsg, setMessages, chatId)
+    
+    // 移除随笔指令，保留其他文本
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -1463,5 +1563,6 @@ export const commandHandlers: CommandHandler[] = [
   coupleSpaceMessageHandler,
   coupleSpaceAnniversaryHandler,
   coupleSpaceEndHandler,  // 解除情侣空间
+  aiMemoHandler,  // AI备忘录
   quoteHandler
 ]

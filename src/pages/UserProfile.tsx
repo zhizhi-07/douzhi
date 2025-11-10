@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
+import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 
 const UserProfile = () => {
   const navigate = useNavigate()
@@ -45,14 +46,93 @@ const UserProfile = () => {
       return
     }
     
+    // 获取旧的用户信息用于对比
+    const oldUserInfo = getUserInfo()
+    
     // 如果没有填写网名，使用真实姓名
     const finalUserInfo = {
       ...userInfo,
       nickname: userInfo.nickname.trim() || userInfo.realName
     }
     
+    // 检测修改
+    const nicknameChanged = oldUserInfo.nickname !== finalUserInfo.nickname
+    const signatureChanged = oldUserInfo.signature !== finalUserInfo.signature
+    
+    // 保存用户信息
     saveUserInfo(finalUserInfo)
+    
+    // 如果有修改，通知所有活跃的AI
+    if (nicknameChanged || signatureChanged) {
+      notifyAIAboutUserInfoChange(nicknameChanged, signatureChanged, oldUserInfo, finalUserInfo)
+    }
+    
     navigate(-1)
+  }
+  
+  // 通知AI用户信息变更
+  const notifyAIAboutUserInfoChange = async (
+    nicknameChanged: boolean,
+    signatureChanged: boolean,
+    oldInfo: UserInfo,
+    newInfo: UserInfo
+  ) => {
+    try {
+      // 从localStorage获取所有聊天ID（只是为了获取ID列表）
+      const allChatIds = Object.keys(localStorage)
+        .filter(key => key.startsWith('chat_messages_') || key.startsWith('chat_'))
+        .map(key => key.replace(/^(chat_messages_|chat_)/, ''))
+        .filter((id, index, self) => self.indexOf(id) === index) // 去重
+      
+      console.log(`🔍 找到 ${allChatIds.length} 个聊天`)
+      
+      // 构建提示消息
+      const changes: string[] = []
+      if (nicknameChanged) {
+        changes.push(`网名从"${oldInfo.nickname}"改为"${newInfo.nickname}"`)
+      }
+      if (signatureChanged) {
+        const oldSig = oldInfo.signature || '(无)'
+        const newSig = newInfo.signature || '(无)'
+        changes.push(`个性签名从"${oldSig}"改为"${newSig}"`)
+      }
+      
+      const changeText = changes.join('，')
+      
+      // 为每个聊天添加系统提示
+      for (const chatId of allChatIds) {
+        try {
+          // 使用simpleMessageManager加载消息
+          const messages = loadMessages(chatId)
+          
+          if (messages.length === 0) continue // 跳过空聊天
+          
+          // 创建系统提示消息
+          const systemMessage = {
+            id: `system_${Date.now()}_${Math.random()}`,
+            type: 'system' as const,
+            messageType: 'system' as const,
+            content: `${newInfo.nickname || newInfo.realName} 修改了个人信息`,
+            aiReadableContent: `【系统提示】对方刚刚修改了个人信息：${changeText}。你可以对此做出反应，比如评论新的网名或签名。`,
+            timestamp: Date.now(),
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            hideInUI: false
+          }
+          
+          // 添加到消息列表并保存
+          messages.push(systemMessage)
+          saveMessages(chatId, messages)
+          
+          console.log(`✅ 已通知聊天 ${chatId} 用户信息变更`)
+        } catch (err) {
+          console.error(`处理聊天 ${chatId} 失败:`, err)
+        }
+      }
+      
+      console.log(`📢 已通知 ${allChatIds.length} 个聊天`)
+    } catch (error) {
+      console.error('通知AI失败:', error)
+    }
   }
 
   return (

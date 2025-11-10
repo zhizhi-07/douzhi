@@ -10,6 +10,12 @@ export interface Message {
   time: string
   timestamp: number
   messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji'
+  sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
+  sceneContext?: {                   // 线下场景上下文
+    location?: string                // 地点
+    time?: string                    // 时间
+    weather?: string                 // 天气
+  }
   blocked?: boolean  // 是否被拉黑（AI消息显示警告图标）
   blockedByReceiver?: boolean  // 用户被AI拉黑（用户消息显示警告图标和拒收提示）
   transfer?: {

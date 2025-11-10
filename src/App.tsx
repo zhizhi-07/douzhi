@@ -17,6 +17,7 @@ import AddApi from './pages/AddApi'
 import EditApi from './pages/EditApi'
 import EditSummaryApi from './pages/EditSummaryApi'
 import ChatDetail from './pages/ChatDetail'
+import OfflineChat from './pages/OfflineChat'
 import ChatSettings from './pages/ChatSettings'
 import MemorySummary from './pages/MemorySummary'
 import MemoryViewer from './pages/MemoryViewer'
@@ -45,6 +46,8 @@ import IconCustomizer from './pages/IconCustomizer'
 import GroupChatDetail from './pages/GroupChatDetail'
 import GroupChatSettings from './pages/GroupChatSettings'
 import VoiceSettings from './pages/VoiceSettings'
+import WorldBook from './pages/WorldBook'
+import EditWorldBook from './pages/EditWorldBook'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -175,6 +178,7 @@ function App() {
       <Route path="/edit-api/:id" element={<EditApi />} />
       <Route path="/edit-summary-api" element={<EditSummaryApi />} />
       <Route path="/chat/:id" element={<ChatDetail />} />
+      <Route path="/chat/:id/offline" element={<OfflineChat />} />
       <Route path="/chat/:id/settings" element={<ChatSettings />} />
       <Route path="/chat/:id/memory-viewer" element={<MemoryViewer />} />
       <Route path="/chat/:id/memory-summary" element={<MemorySummary />} />
@@ -198,6 +202,8 @@ function App() {
       <Route path="/sound-customizer" element={<SoundCustomizer />} />
       <Route path="/icon-customizer" element={<IconCustomizer />} />
       <Route path="/voice-settings" element={<VoiceSettings />} />
+      <Route path="/world-book" element={<WorldBook />} />
+      <Route path="/edit-world-book/:id" element={<EditWorldBook />} />
     </Routes>
     </>
   )

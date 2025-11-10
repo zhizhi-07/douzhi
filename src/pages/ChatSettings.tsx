@@ -173,9 +173,9 @@ const ChatSettings = () => {
 
   // 测试语音配置
   const handleTestVoice = async () => {
-    console.log('🔍 [聊天设置] 当前settings对象:', settings)
-    console.log('🔍 [聊天设置] 音色ID:', settings.voiceId)
-    console.log('🔍 [聊天设置] localStorage中的值:', localStorage.getItem(`chat_settings_${id}`))
+    console.log('[聊天设置] 当前settings对象:', settings)
+    console.log('[聊天设置] 音色ID:', settings.voiceId)
+    console.log('[聊天设置] localStorage中的值:', localStorage.getItem(`chat_settings_${id}`))
     
     if (!settings.voiceId) {
       alert('请先输入音色ID')
@@ -185,11 +185,11 @@ const ChatSettings = () => {
     // 读取全局语音配置
     const voiceConfig = voiceService.getCurrent()
     if (!voiceConfig?.apiKey || !voiceConfig?.groupId) {
-      alert('⚠️ 请先配置语音账号：\n\n系统设置 → 语音设置 → 填写API Key和Group ID')
+      alert('请先配置语音账号：\n\n系统设置 → 语音设置 → 填写API Key和Group ID')
       return
     }
 
-    console.log('🎤 [聊天设置] 准备测试音色:', {
+    console.log('[聊天设置] 准备测试音色:', {
       voiceId: settings.voiceId,
       apiKey: voiceConfig.apiKey.substring(0, 10) + '...',
       groupId: voiceConfig.groupId
@@ -198,11 +198,11 @@ const ChatSettings = () => {
     setTestingVoice(true)
     try {
       await testVoiceConfig(voiceConfig.apiKey, voiceConfig.groupId, settings.voiceId)
-      alert('✅ 音色测试成功！配置正确，已播放测试音频。')
+      alert('音色测试成功！配置正确，已播放测试音频。')
     } catch (error) {
-      console.error('❌ 音色测试失败:', error)
+      console.error('音色测试失败:', error)
       const errorMessage = error instanceof Error ? error.message : '未知错误'
-      alert(`❌ 音色测试失败：\n\n${errorMessage}\n\n请检查：\n1. 音色ID是否正确\n2. 账户余额是否充足`)
+      alert(`音色测试失败：\n\n${errorMessage}\n\n请检查：\n1. 音色ID是否正确\n2. 账户余额是否充足`)
     } finally {
       setTestingVoice(false)
     }
@@ -298,8 +298,8 @@ const ChatSettings = () => {
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
-                  isBlocked ? 'left-5.5' : 'left-0.5'
+                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform duration-200 ${
+                  isBlocked ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -339,7 +339,7 @@ const ChatSettings = () => {
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              💡 在MiniMax控制台找到你喜欢的音色ID，将用于该角色的语音消息和视频通话
+              在MiniMax控制台找到你喜欢的音色ID，将用于该角色的语音消息和视频通话
             </p>
           </div>
         </div>
@@ -396,7 +396,7 @@ const ChatSettings = () => {
                   setTimeout(() => setSaved(false), 2000)
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  settings.autoMemorySummary ? 'bg-[#07c160]' : 'bg-gray-300'
+                  settings.autoMemorySummary ? 'bg-black' : 'bg-gray-300'
                 }`}
               >
                 <div
@@ -456,7 +456,7 @@ const ChatSettings = () => {
                 setTimeout(() => setSaved(false), 2000)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
-                settings.groupChatSync.enabled ? 'bg-gray-900' : 'bg-gray-300'
+                settings.groupChatSync.enabled ? 'bg-black' : 'bg-gray-300'
               }`}
             >
               <div
@@ -491,7 +491,7 @@ const ChatSettings = () => {
                   setSettings(newSettings)
                   localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>10条</span>
@@ -522,7 +522,7 @@ const ChatSettings = () => {
                     enabled: !settings.aiProactiveMessage.enabled
                   }
                 }
-                console.log('[ChatSettings] 💾 保存主动发消息设置:', {
+                console.log('[ChatSettings] 保存主动发消息设置:', {
                   chatId: id,
                   newValue: !settings.aiProactiveMessage.enabled,
                   完整设置: newSettings.aiProactiveMessage
@@ -534,14 +534,14 @@ const ChatSettings = () => {
                 const verify = localStorage.getItem(`chat_settings_${id}`)
                 if (verify) {
                   const parsed = JSON.parse(verify)
-                  console.log('[ChatSettings] ✅ 验证保存成功:', parsed.aiProactiveMessage)
+                  console.log('[ChatSettings] 验证保存成功:', parsed.aiProactiveMessage)
                 }
                 
                 setSaved(true)
                 setTimeout(() => setSaved(false), 2000)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
-                settings.aiProactiveMessage.enabled ? 'bg-gray-900' : 'bg-gray-300'
+                settings.aiProactiveMessage.enabled ? 'bg-black' : 'bg-gray-300'
               }`}
             >
               <div
@@ -572,7 +572,7 @@ const ChatSettings = () => {
                     }}
                     className={`py-2 px-3 rounded-lg text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'fixed'
-                        ? 'bg-[#07c160] text-white'
+                        ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
@@ -592,7 +592,7 @@ const ChatSettings = () => {
                     }}
                     className={`py-2 px-3 rounded-lg text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'thinking'
-                        ? 'bg-[#07c160] text-white'
+                        ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
@@ -627,7 +627,7 @@ const ChatSettings = () => {
                     setSettings(newSettings)
                     localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                   }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#07c160]"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>1分钟</span>
@@ -748,7 +748,7 @@ const ChatSettings = () => {
             <button
               onClick={() => saveSettings({ ...settings, aiCanPostMoments: !settings.aiCanPostMoments })}
               className={`w-11 h-6 bg-gray-200 rounded-full relative active:scale-95 transition-all ${
-                settings.aiCanPostMoments ? 'bg-green-500' : 'bg-gray-200'
+                settings.aiCanPostMoments ? 'bg-black' : 'bg-gray-200'
               }`}
             >
               <div className={`w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5 transition-transform ${
