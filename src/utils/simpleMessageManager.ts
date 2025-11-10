@@ -159,26 +159,32 @@ export function saveMessages(chatId: string, messages: Message[]): void {
 
 /**
  * 添加一条消息（立即保存）
+ * 如果消息已存在，则更新它
  */
 export function addMessage(chatId: string, message: Message): void {
   const messages = loadMessages(chatId)
   
-  // 🔥 检查消息是否已存在（避免重复添加）
-  const exists = messages.some(m => m.id === message.id)
-  if (exists) {
-    console.warn(`⚠️ [addMessage] 消息已存在，跳过添加: id=${message.id}`)
-    return
+  // 🔥 检查消息是否已存在
+  const existingIndex = messages.findIndex(m => m.id === message.id)
+  
+  let newMessages: Message[]
+  if (existingIndex !== -1) {
+    // 消息已存在，更新它（保留voiceUrl等字段）
+    console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
+    newMessages = [...messages]
+    newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+  } else {
+    // 新消息，添加
+    newMessages = [...messages, message]
+    
+    // 触发事件通知（仅新消息）
+    window.dispatchEvent(new CustomEvent('new-message', {
+      detail: { chatId, message }
+    }))
+    console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
   }
   
-  // 创建新数组，避免修改原数组
-  const newMessages = [...messages, message]
   saveMessages(chatId, newMessages)
-  
-  // 触发事件通知
-  window.dispatchEvent(new CustomEvent('new-message', {
-    detail: { chatId, message }
-  }))
-  console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
 }
 
 /**

@@ -292,11 +292,16 @@ export const endCallHandler: CommandHandler = {
 
 /**
  * 语音指令处理器
+ * 匹配格式：
+ * - [角色名说了xxx]
+ * - [角色名的语音：xxx]
+ * - [语音:xxx] (兼容旧格式)
  */
 export const voiceHandler: CommandHandler = {
-  pattern: /[\[【]语音[:\：](.+?)[\]】]/,
+  pattern: /[\[【](?:([^说]+)说了(.+?)|([^的]+)的语音[:\：](.+?)|语音[:\：](.+?))[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
-    const voiceText = match[1]
+    // 提取语音文本：根据匹配到的格式选择对应的捕获组
+    const voiceText = match[2] || match[4] || match[5] || match[1]
 
     console.log('🎤 开始处理语音指令:', voiceText)
 

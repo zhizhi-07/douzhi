@@ -1,27 +1,17 @@
 /**
- * 语音API调用工具
- * 支持MiniMax TTS API
+ * 语音API调用工具 - 简化版
+ * 统一通过代理调用MiniMax TTS API
  */
 
 import { voiceService } from '../services/voiceService'
 
-export interface TTSRequest {
-  text: string
-  voiceId?: string
-  speed?: number
-  vol?: number
-  pitch?: number
-  audioSampleRate?: number
-  bitrate?: number
-}
-
 export interface TTSResponse {
   audioUrl: string
-  duration: number
+  duration?: number
 }
 
 /**
- * 调用MiniMax语音合成API
+ * 调用MiniMax语音合成API（统一通过代理）
  */
 export async function callMinimaxTTS(
   text: string,
@@ -29,195 +19,87 @@ export async function callMinimaxTTS(
   groupId?: string,
   voiceId?: string
 ): Promise<TTSResponse> {
-  // 如果没有传入配置，使用当前配置
+  // 获取配置
   const config = voiceService.getCurrent()
   const finalApiKey = apiKey || config?.apiKey
   const finalGroupId = groupId || config?.groupId
-  const finalVoiceId = voiceId || config?.voiceId || ''
+  const finalVoiceId = voiceId || ''
 
-  if (!finalApiKey) {
-    throw new Error('未配置API Key')
-  }
+  // 验证必需参数
+  if (!finalApiKey) throw new Error('未配置API Key')
+  if (!finalGroupId) throw new Error('未配置Group ID')
+  if (!finalVoiceId) throw new Error('未配置Voice ID（请在聊天设置中配置角色专属音色）')
 
-  if (!finalGroupId) {
-    throw new Error('未配置Group ID')
-  }
-
-  // 检测是否是本地开发环境
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  
-  const baseUrl = config?.baseUrl || 'https://api.minimaxi.com/v1'
-
-  console.log('🎤 [MiniMax TTS] 开始调用语音合成API')
-  console.log('- 环境:', isLocalDev ? '本地开发' : '生产环境')
-  console.log('- Base URL:', baseUrl)
-  console.log('- API Key前8位:', finalApiKey.substring(0, 8))
-  console.log('- Group ID:', finalGroupId)
-  console.log('- Voice ID:', finalVoiceId)
+  console.log('🎤 调用语音合成:', { voiceId: finalVoiceId, textLength: text.length })
 
   try {
-    let response
+    const baseUrl = config?.baseUrl || 'https://api.minimaxi.com/v1'
     
-    if (isLocalDev) {
-      // 本地开发：直接调用MiniMax API（需要CORS支持或浏览器插件）
-      console.log('⚡ [本地开发] 直接调用MiniMax API')
-      const url = `${baseUrl}/text_to_speech?GroupId=${finalGroupId}`
-      
-      response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${finalApiKey}`
-        },
-        body: JSON.stringify({
-          text: text,
-          model: 'speech-01',
-          voice_id: finalVoiceId,
-          speed: 1.0,
-          vol: 1.0,
-          pitch: 0,
-          timber_weights: null,
-          audio_sample_rate: 32000,
-          bitrate: 128000,
-          format: 'mp3'
-        })
+    // 统一调用
+    const response = await fetch(`${baseUrl}/text_to_speech?GroupId=${finalGroupId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${finalApiKey}`
+      },
+      body: JSON.stringify({
+        text,
+        model: 'speech-01',
+        voice_id: finalVoiceId,
+        speed: 1.0,
+        vol: 1.0,
+        pitch: 0,
+        audio_sample_rate: 32000,
+        bitrate: 128000,
+        format: 'mp3'
       })
-    } else {
-      // 生产环境：通过Serverless代理
-      console.log('☁️ [生产环境] 通过Serverless代理')
-      const proxyUrl = '/api/minimax-tts'
-      
-      response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text: text,
-          apiKey: finalApiKey,
-          groupId: finalGroupId,
-          voiceId: finalVoiceId,
-          baseUrl: baseUrl
-        })
-      })
-    }
-
-    console.log('📡 [MiniMax TTS] API响应状态:', response.status)
-    const contentType = response.headers.get('content-type') || ''
-    console.log('📡 [MiniMax TTS] 响应类型:', contentType)
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ [MiniMax TTS] API错误:', errorText)
-      
+      let errorMsg = '语音合成失败'
       try {
         const errorJson = JSON.parse(errorText)
-        throw new Error(errorJson.message || errorJson.error || '语音合成失败')
-      } catch {
-        throw new Error(`API错误 (${response.status}): ${errorText}`)
-      }
+        errorMsg = errorJson.error || errorJson.message || errorMsg
+      } catch {}
+      throw new Error(errorMsg)
     }
 
-    // 检查是否返回音频文件（二进制）
-    if (contentType.includes('audio') || contentType.includes('octet-stream')) {
-      console.log('🎵 [MiniMax TTS] 收到二进制音频数据')
+    // 处理音频响应
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('audio')) {
       const audioBlob = await response.blob()
-      const audioUrl = URL.createObjectURL(audioBlob)
       
-      return {
-        audioUrl,
-        duration: 0
-      }
+      // 转为base64保存（可持久化到localStorage）
+      const reader = new FileReader()
+      const audioUrl = await new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string
+          resolve(base64) // 返回 data:audio/mpeg;base64,xxx 格式
+        }
+        reader.readAsDataURL(audioBlob)
+      })
+      
+      console.log('✅ 语音合成成功，已转为base64')
+      return { audioUrl }
     }
 
-    // 否则当作JSON处理
-    const result = await response.json()
-    console.log('✅ [MiniMax TTS] API成功返回')
-    console.log('📦 返回数据结构:', result)
-    console.log('📦 返回数据字段:', Object.keys(result))
-
-    // 检查MiniMax的业务错误码
-    if (result.base_resp?.status_code !== undefined && result.base_resp.status_code !== 0) {
-      const errorCode = result.base_resp.status_code
-      const errorMsg = result.base_resp.status_msg || '未知错误'
-      
-      // 特殊错误处理
-      if (errorCode === 1008) {
-        throw new Error('余额不足！请前往MiniMax控制台充值。\n访问：https://platform.minimaxi.com')
-      }
-      
-      throw new Error(`MiniMax API错误 (${errorCode}): ${errorMsg}`)
-    }
-
-    // MiniMax可能返回不同的字段
-    // 尝试多种可能的字段名
-    const audioData = result.audio_file || result.data || result.audio || result.base_resp?.audio_file
-    
-    if (audioData) {
-      console.log('🎵 找到音频数据，类型:', typeof audioData)
-      
-      // 将base64转为blob URL
-      const audioBlob = base64ToBlob(audioData, 'audio/mp3')
-      const audioUrl = URL.createObjectURL(audioBlob)
-      
-      return {
-        audioUrl,
-        duration: result.duration || result.audio_time || 0
-      }
-    }
-
-    // 如果是URL直接返回
-    if (result.audio_url || result.url) {
-      return {
-        audioUrl: result.audio_url || result.url,
-        duration: result.duration || 0
-      }
-    }
-
-    console.error('❌ 无法找到音频数据，完整返回:', JSON.stringify(result, null, 2))
-    throw new Error('API返回格式错误，请查看控制台了解详情')
+    throw new Error('未收到音频数据')
   } catch (error) {
-    console.error('❌ [MiniMax TTS] 调用失败:', error)
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error('语音合成失败，请检查网络连接')
+    console.error('❌ 语音合成失败:', error)
+    throw error instanceof Error ? error : new Error('语音合成失败')
   }
 }
 
-/**
- * 将base64转换为Blob
- */
-function base64ToBlob(base64: string, mimeType: string): Blob {
-  const byteCharacters = atob(base64)
-  const byteNumbers = new Array(byteCharacters.length)
-  
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i)
-  }
-  
-  const byteArray = new Uint8Array(byteNumbers)
-  return new Blob([byteArray], { type: mimeType })
-}
 
 /**
- * 播放音频URL
+ * 播放音频
  */
-export function playAudio(audioUrl: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(audioUrl)
-    
-    audio.onended = () => {
-      URL.revokeObjectURL(audioUrl)
-      resolve()
-    }
-    
-    audio.onerror = (e) => {
-      URL.revokeObjectURL(audioUrl)
-      reject(new Error('音频播放失败'))
-    }
-    
-    audio.play().catch(reject)
+export async function playAudio(audioUrl: string): Promise<void> {
+  const audio = new Audio(audioUrl)
+  await audio.play()
+  return new Promise((resolve) => {
+    audio.onended = () => resolve()
   })
 }
 
@@ -228,19 +110,7 @@ export async function testVoiceConfig(
   apiKey: string,
   groupId: string,
   voiceId: string
-): Promise<boolean> {
-  try {
-    const result = await callMinimaxTTS(
-      '你好，这是语音测试。',
-      apiKey,
-      groupId,
-      voiceId
-    )
-    
-    await playAudio(result.audioUrl)
-    return true
-  } catch (error) {
-    console.error('语音测试失败:', error)
-    throw error
-  }
+): Promise<void> {
+  const result = await callMinimaxTTS('你好，这是语音测试', apiKey, groupId, voiceId)
+  await playAudio(result.audioUrl)
 }
