@@ -99,138 +99,163 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
 
   return (
     <>
-      {/* CSS动画定义 */}
+      {/* CSS样式定义 */}
       <style>{`
-        @keyframes pullPaper {
+        @keyframes notebookIn {
           0% {
-            transform: translateY(100%) scale(0.8) rotate(-8deg);
             opacity: 0;
-          }
-          60% {
-            transform: translateY(-10px) scale(1.02) rotate(2deg);
+            transform: translateY(20px) scale(0.95);
           }
           100% {
-            transform: translateY(0) scale(1) rotate(0deg);
             opacity: 1;
+            transform: translateY(0) scale(1);
           }
         }
         
-        @keyframes fadeOut {
+        .notebook-page {
+          animation: notebookIn 0.3s ease-out;
+        }
+        
+        /* 纸张纹理 */
+        .paper-texture {
+          background-image: 
+            linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px),
+            linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px);
+          background-size: 20px 20px;
+        }
+        
+        /* 卷页阴影 */
+        .page-curl {
+          background: linear-gradient(225deg, 
+            rgba(0,0,0,0) 45%, 
+            rgba(0,0,0,0.05) 50%, 
+            rgba(0,0,0,0.1) 56%, 
+            rgba(0,0,0,0.15) 62%, 
+            rgba(0,0,0,0.2) 80%, 
+            rgba(0,0,0,0.25) 100%
+          );
+        }
+        
+        /* 螺旋装订金属圈 */
+        .spiral-ring {
+          background: linear-gradient(135deg, #999 0%, #ccc 25%, #eee 50%, #ccc 75%, #999 100%);
+          box-shadow: 
+            inset -1px -1px 2px rgba(0,0,0,0.3),
+            inset 1px 1px 2px rgba(255,255,255,0.8),
+            0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* 翻页动画 */
+        .page-flip-left {
+          animation: flipLeft 0.6s ease-in-out;
+          transform-origin: left center;
+        }
+        
+        .page-flip-right {
+          animation: flipRight 0.6s ease-in-out;
+          transform-origin: right center;
+        }
+        
+        @keyframes flipLeft {
           0% {
-            opacity: 1;
-            transform: scale(1);
+            transform: perspective(1200px) rotateY(0deg);
+          }
+          50% {
+            transform: perspective(1200px) rotateY(-90deg);
+            opacity: 0.3;
           }
           100% {
-            opacity: 0;
-            transform: scale(0.95);
+            transform: perspective(1200px) rotateY(0deg);
           }
         }
         
-        @keyframes fadeIn {
+        @keyframes flipRight {
           0% {
-            opacity: 0;
-            transform: scale(0.95);
+            transform: perspective(1200px) rotateY(0deg);
+          }
+          50% {
+            transform: perspective(1200px) rotateY(90deg);
+            opacity: 0.3;
           }
           100% {
-            opacity: 1;
-            transform: scale(1);
+            transform: perspective(1200px) rotateY(0deg);
           }
         }
       `}</style>
 
       {/* 遮罩层 */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* 便签纸容器 */}
+        {/* 笔记本容器 */}
         <div
-          className="relative w-full max-w-md"
+          className="relative w-full max-w-lg notebook-page"
           onClick={(e) => e.stopPropagation()}
         >
           {/* 便签纸主体 */}
-          <div className="relative">
-            {/* 纸张堆叠效果 - 随意摆放 */}
-            <div 
-              className="absolute inset-0 bg-[#d9d2c2] rounded-[4px] opacity-70"
-              style={{ transform: 'translate(8px, 6px) rotate(-1.5deg)' }}
-            ></div>
-            <div 
-              className="absolute inset-0 bg-[#c4b8a0] rounded-[4px] opacity-50"
-              style={{ transform: 'translate(4px, 10px) rotate(0.8deg)' }}
-            ></div>
+          <div className="relative" style={{
+            filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.15))'
+          }}>
+            {/* 回形针 */}
+            <div className="absolute -top-8 right-8 w-12 h-24 z-10">
+              <svg viewBox="0 0 24 48" fill="none" className="w-full h-full">
+                <path d="M8 4 L8 36 C8 40, 12 44, 16 44 C20 44, 24 40, 24 36 L24 8" 
+                  stroke="#c0c0c0" 
+                  strokeWidth="2" 
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                <path d="M10 8 L10 34 C10 36, 12 38, 14 38 C16 38, 18 36, 18 34 L18 12" 
+                  stroke="#d0d0d0" 
+                  strokeWidth="2" 
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
             
-            {/* 主纸张 */}
+            {/* 白色便签纸 */}
             <div 
-              className="relative rounded-[4px]"
+              className="relative bg-white rounded-lg"
               style={{
-                backgroundColor: '#fffef7',
-                backgroundImage: `
-                  repeating-linear-gradient(
-                    white 0px,
-                    white 31px,
-                    #d3d3d3 31px,
-                    #d3d3d3 32px,
-                    white 32px
-                  )
-                `,
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1), 0 10px 20px rgba(0,0,0,0.1)'
+                boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
               }}
             >
-              {/* 透明胶带装饰 */}
-              <div 
-                className="absolute -top-3 right-16 w-16 h-10 bg-white/20"
-                style={{
-                  transform: 'rotate(15deg)',
-                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)',
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.3) 100%)',
-                  backdropFilter: 'blur(1px)',
-                  border: '1px solid rgba(255,255,255,0.4)',
-                  borderRadius: '2px'
-                }}
-              ></div>
-
-              {/* 便签纸内容区 */}
-              <div className="px-10 py-12 min-h-[500px] max-h-[70vh] overflow-y-auto">
+              {/* 内容区 */}
+              <div className="relative px-10 py-12 min-h-[450px] max-h-[65vh] overflow-y-auto">
                 {/* 关闭按钮 */}
                 <button
                   onClick={onClose}
-                  className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-200/30 transition-colors text-gray-500 hover:text-gray-700"
+                  className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
 
-                {/* 日期标题 */}
-                <div className="mb-6">
-                  <div className="text-lg font-semibold text-gray-700 mb-1">
+                {/* 标题 */}
+                <div className="mb-10">
+                  <div className="text-sm text-gray-400">
                     {allDates.length > 0 ? formatDateDisplay(currentDate) : '今天'}
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    {allDates.length > 0 ? `${currentDate} · ${memos.length} 条随笔` : '还没写随笔'}
                   </div>
                 </div>
 
-                {/* 随笔列表或空状态 */}
+                {/* 随笔内容 */}
                 {memos.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-4">📝</div>
-                    <p className="text-gray-500 font-medium mb-2">这一页还是空白的</p>
+                  <div className="text-center py-20">
+                    <p className="text-gray-300 text-sm">{characterName}还没有随笔哦</p>
                   </div>
                 ) : (
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     {memos.map((memo) => (
-                      <div key={memo.id}>
-                        {/* 时间 */}
-                        <div className="text-xs text-gray-400 mb-1">{memo.time}</div>
-                        
+                      <div key={memo.id} className="space-y-2">
                         {/* 内容 */}
                         <div 
-                          className="text-gray-700 leading-[40px] whitespace-pre-wrap" 
+                          className="text-gray-500 leading-loose whitespace-pre-wrap" 
                           style={{ 
-                            fontFamily: '"Segoe Print", "Comic Sans MS", "Ma Shan Zheng", "Zhi Mang Xing", cursive',
-                            fontSize: '15px',
+                            fontSize: '13px',
+                            lineHeight: '1.8',
                             letterSpacing: '0.5px'
                           }}
                         >
@@ -241,55 +266,45 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
                   </div>
                 )}
               </div>
-
-              {/* 底部翻页区域 */}
-              <div className="px-8 pb-5 pt-4">
-                <div className="flex items-center justify-center gap-8 mb-3">
-                  {/* 昨天箭头 */}
-                  <button
-                    onClick={() => flipPage('prev')}
-                    disabled={!canGoPrev}
-                    className={`p-1.5 transition-all ${
-                      canGoPrev
-                        ? 'text-amber-600 hover:text-amber-800 active:scale-90'
-                        : 'text-gray-300 cursor-not-allowed'
-                    }`}
-                    title="昨天"
-                  >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-
-                  {/* 页码 */}
-                  <div className="text-sm text-amber-700 font-medium min-w-[60px] text-center">
+              
+              {/* 底部装饰块 */}
+              <div className="h-16 bg-gradient-to-t from-gray-50 to-transparent">
+                <div className="flex items-center justify-between px-10 pt-6 pb-4">
+                  <div className="text-[10px] text-gray-300 tracking-wider">
+                    {currentDate || new Date().toISOString().split('T')[0]}
+                  </div>
+                  <div className="text-xs text-gray-300">
                     {currentIndex + 1} / {allDates.length}
                   </div>
-
-                  {/* 明天箭头 */}
-                  <button
-                    onClick={() => flipPage('next')}
-                    disabled={!canGoNext}
-                    className={`p-1.5 transition-all ${
-                      canGoNext
-                        ? 'text-amber-600 hover:text-amber-800 active:scale-90'
-                        : 'text-gray-300 cursor-not-allowed'
-                    }`}
-                    title="明天"
-                  >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-                
-                {/* 签名 */}
-                <div className="text-center text-xs text-amber-600/60" style={{ fontFamily: 'cursive' }}>
-                  ✍️ {characterName} 的小本子
                 </div>
               </div>
             </div>
           </div>
+          
+          {/* 外侧翻页按钮 */}
+          <button
+            onClick={() => flipPage('prev')}
+            disabled={!canGoPrev}
+            className={`absolute -left-14 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white shadow-md transition-all ${
+              canGoPrev ? 'hover:shadow-lg hover:scale-105' : 'opacity-20 cursor-not-allowed'
+            }`}
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => flipPage('next')}
+            disabled={!canGoNext}
+            className={`absolute -right-14 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white shadow-md transition-all ${
+              canGoNext ? 'hover:shadow-lg hover:scale-105' : 'opacity-20 cursor-not-allowed'
+            }`}
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </>

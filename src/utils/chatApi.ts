@@ -171,16 +171,36 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   if (customPreset) {
     try {
       const preset = JSON.parse(customPreset)
-      console.log('📋 使用自定义预设:', preset.name)
+      const presetName = localStorage.getItem('offline-active-preset') || '自定义预设'
+      console.log('📋 使用自定义预设:', presetName)
       
-      // 应用预设的系统提示词
-      let customPrompt = preset.system_prompt || preset.systemPrompt || ''
+      let customPrompt = ''
       
-      // 替换预设中的变量
-      customPrompt = replaceSTVariables(customPrompt, character, userName)
+      // 优先使用 system_prompt 字段
+      if (preset.system_prompt || preset.systemPrompt) {
+        customPrompt = preset.system_prompt || preset.systemPrompt
+      } 
+      // 如果有 prompts 数组，合并所有启用的提示词
+      else if (preset.prompts && Array.isArray(preset.prompts)) {
+        const enabledPrompts = preset.prompts
+          .filter((p: any) => p.enabled)
+          .sort((a: any, b: any) => (a.injection_order || 0) - (b.injection_order || 0))
+        
+        console.log(`🎯 预设包含 ${preset.prompts.length} 个提示词，已启用 ${enabledPrompts.length} 个`)
+        
+        // 合并所有启用的提示词内容
+        customPrompt = enabledPrompts
+          .map((p: any) => p.content || '')
+          .filter((c: string) => c.trim().length > 0)
+          .join('\n\n')
+      }
       
-      // 添加时间和角色信息
-      const contextInfo = `
+      if (customPrompt) {
+        // 替换预设中的变量
+        customPrompt = replaceSTVariables(customPrompt, character, userName)
+        
+        // 添加时间和角色信息
+        const contextInfo = `
 当前时间：${dateStr} ${timeOfDay} ${currentTime}
 
 角色设定：
@@ -190,8 +210,10 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 ══════════════════════════════════
 
 `
-      
-      return contextInfo + customPrompt
+        
+        console.log('✅ 预设提示词长度:', customPrompt.length, '字符')
+        return contextInfo + customPrompt
+      }
     } catch (error) {
       console.error('⚠️ 预设解析失败，使用默认提示词:', error)
     }

@@ -91,7 +91,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
       }}
     >
       <div 
-        className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl"
+        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
         style={{ animation: 'slideUp 0.3s ease-out' }}
       >
         <div className="p-6 bg-gradient-to-br from-orange-50 to-orange-100">
@@ -103,7 +103,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
             <label className="block text-sm font-medium text-gray-700 mb-2">金额</label>
             <input
               type="text"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-[32px] text-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="请输入金额"
               value={amount}
               onChange={handleAmountChange}
@@ -115,7 +115,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
             <label className="block text-sm font-medium text-gray-700 mb-2">转账说明</label>
             <input
               type="text"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-[32px] text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="添加转账说明（可选）"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -125,7 +125,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
           
           {availableIntimatePayList.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 p-3 bg-pink-50 rounded-xl">
+              <div className="flex items-center gap-2 p-3 bg-pink-50 rounded-[32px]">
                 <input
                   type="checkbox"
                   id="useIntimatePay"
@@ -142,7 +142,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
                 <select
                   value={selectedIntimatePayIndex}
                   onChange={(e) => setSelectedIntimatePayIndex(Number(e.target.value))}
-                  className="w-full px-4 py-2 border border-pink-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-4 py-2 border border-pink-300 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
                 >
                   {availableIntimatePayList.map((relation, index) => (
                     <option key={relation.id} value={index}>
@@ -153,7 +153,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
               )}
               
               {useIntimatePay && availableIntimatePayList.length === 1 && (
-                <div className="px-4 py-2 bg-white border border-pink-200 rounded-xl text-sm text-gray-700">
+                <div className="px-4 py-2 bg-white border border-pink-200 rounded-[32px] text-sm text-gray-700">
                   使用 <span className="font-medium text-pink-600">{availableIntimatePayList[0].characterName}</span> 的亲密付
                   <span className="text-xs text-gray-500 ml-2">
                     (剩余: ¥{(availableIntimatePayList[0].monthlyLimit - availableIntimatePayList[0].usedAmount).toFixed(2)})

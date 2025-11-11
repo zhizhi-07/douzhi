@@ -49,25 +49,23 @@ const VoiceSettings = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <StatusBar />
-      
-      {/* 顶部导航 */}
-      <div className="bg-white border-b">
-        <div className="flex items-center justify-between px-4 py-3">
+      {/* 顶部 */}
+      <div className="glass-effect">
+        <StatusBar />
+        <div className="px-5 py-4 flex items-center justify-between">
           <button 
             onClick={() => navigate(-1)}
-            className="p-1 active:scale-95 transition-transform"
+            className="text-gray-700"
           >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-base font-medium text-gray-900">语音设置</h1>
+          <h1 className="text-lg font-semibold text-gray-900">语音设置</h1>
           <button
             onClick={() => setShowApiKeyHelp(!showApiKeyHelp)}
-            className="p-1"
           >
-            <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
             </svg>
           </button>
@@ -94,21 +92,6 @@ const VoiceSettings = () => {
       {/* 配置表单 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="bg-white rounded-xl p-6 space-y-4">
-          {/* API 版本 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              API 版本
-            </label>
-            <select
-              value={config.baseUrl}
-              onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="https://api.minimaxi.com/v1">🌍 国际版 (支持声音克隆)</option>
-              <option value="https://api.minimax.chat/v1">🇨🇳 国内版</option>
-            </select>
-          </div>
-
           {/* API Key */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

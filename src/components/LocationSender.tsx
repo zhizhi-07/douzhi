@@ -53,7 +53,7 @@ const LocationSender = ({ show, onClose, onSend }: LocationSenderProps) => {
       }}
     >
       <div
-        className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl"
+        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
         style={{ animation: 'slideUp 0.3s ease-out' }}
       >
         <div className="p-6 bg-gradient-to-br from-blue-50 to-green-50">
@@ -66,7 +66,7 @@ const LocationSender = ({ show, onClose, onSend }: LocationSenderProps) => {
             <label className="block text-sm font-medium text-gray-700 mb-2">地点名称</label>
             <input
               type="text"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-[32px] text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例如：星巴克咖啡"
               value={locationName}
               onChange={(e) => setLocationName(e.target.value)}
@@ -80,7 +80,7 @@ const LocationSender = ({ show, onClose, onSend }: LocationSenderProps) => {
             <label className="block text-sm font-medium text-gray-700 mb-2">详细地址（可选）</label>
             <input
               type="text"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-[32px] text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例如：北京市朝阳区..."
               value={locationAddress}
               onChange={(e) => setLocationAddress(e.target.value)}

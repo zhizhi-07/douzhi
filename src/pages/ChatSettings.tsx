@@ -128,7 +128,6 @@ const ChatSettings = () => {
       }
     }
   })
-  const [saved, setSaved] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [testingVoice, setTestingVoice] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -158,8 +157,6 @@ const ChatSettings = () => {
   const saveSettings = (newSettings: ChatSettingsData) => {
     localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
     setSettings(newSettings)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
   }
   
   // 切换拉黑状态
@@ -167,8 +164,6 @@ const ChatSettings = () => {
     if (!id) return
     const newBlockStatus = blacklistManager.toggleBlock('user', id)
     setIsBlocked(newBlockStatus)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
   }
 
   // 测试语音配置
@@ -231,8 +226,6 @@ const ChatSettings = () => {
       const imageUrl = e.target?.result as string
       const customWallpaper = createCustomWallpaper(imageUrl)
       setChatWallpaper(id, customWallpaper)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
       alert('壁纸已设置！')
     }
     reader.readAsDataURL(file)
@@ -277,18 +270,11 @@ const ChatSettings = () => {
         </div>
       </div>
       
-      {/* 保存提示 */}
-      {saved && (
-        <div className="mx-4 mt-3 px-4 py-2 bg-green-500/10 backdrop-blur-xl rounded-2xl border border-green-500/20 text-green-700 text-sm text-center animate-in slide-in-from-top">
-          设置已保存
-        </div>
-      )}
-      
       {/* 设置内容 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* 拉黑设置 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">拉黑此角色</span>
             <button
@@ -307,7 +293,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 语音设置 */}
-        <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div className="bg-white rounded-[48px] p-4 space-y-3">
           <div className="text-sm font-medium text-gray-900">语音设置</div>
           
           <div>
@@ -320,16 +306,14 @@ const ChatSettings = () => {
                   const newSettings = { ...settings, voiceId: e.target.value }
                   setSettings(newSettings)
                   localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
-                  setSaved(true)
-                  setTimeout(() => setSaved(false), 2000)
                 }}
                 placeholder="输入MiniMax音色ID"
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
                 onClick={handleTestVoice}
                 disabled={testingVoice || !settings.voiceId}
-                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`px-4 py-2.5 rounded-[32px] text-sm font-medium transition-colors ${
                   testingVoice || !settings.voiceId
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
@@ -345,7 +329,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI 记忆 */}
-        <div className="bg-white rounded-2xl p-4 space-y-2">
+        <div className="bg-white rounded-[48px] p-4 space-y-2">
           <div className="text-sm font-medium text-gray-900 mb-3">AI 记忆</div>
           
           <button
@@ -392,8 +376,6 @@ const ChatSettings = () => {
                   const newSettings = { ...settings, autoMemorySummary: !settings.autoMemorySummary }
                   setSettings(newSettings)
                   localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
-                  setSaved(true)
-                  setTimeout(() => setSaved(false), 2000)
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
                   settings.autoMemorySummary ? 'bg-black' : 'bg-gray-300'
@@ -423,7 +405,7 @@ const ChatSettings = () => {
                       setSettings(newSettings)
                       localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                     }}
-                    className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded-lg"
+                    className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded-[24px]"
                   />
                   <span className="text-sm text-gray-600">轮对话</span>
                 </div>
@@ -433,7 +415,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 群聊消息同步 */}
-        <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div className="bg-white rounded-[48px] p-4 space-y-3">
           <div className="text-sm font-medium text-gray-900">群聊消息同步</div>
           
           <div className="flex items-center justify-between">
@@ -452,8 +434,6 @@ const ChatSettings = () => {
                 }
                 setSettings(newSettings)
                 localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
-                setSaved(true)
-                setTimeout(() => setSaved(false), 2000)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
                 settings.groupChatSync.enabled ? 'bg-black' : 'bg-gray-300'
@@ -491,7 +471,7 @@ const ChatSettings = () => {
                   setSettings(newSettings)
                   localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                className="w-full h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>10条</span>
@@ -505,7 +485,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发消息 */}
-        <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div className="bg-white rounded-[48px] p-4 space-y-3">
           <div className="text-sm font-medium text-gray-900">AI主动发消息</div>
           
           <div className="flex items-center justify-between">
@@ -536,9 +516,6 @@ const ChatSettings = () => {
                   const parsed = JSON.parse(verify)
                   console.log('[ChatSettings] 验证保存成功:', parsed.aiProactiveMessage)
                 }
-                
-                setSaved(true)
-                setTimeout(() => setSaved(false), 2000)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
                 settings.aiProactiveMessage.enabled ? 'bg-black' : 'bg-gray-300'
@@ -570,7 +547,7 @@ const ChatSettings = () => {
                       setSettings(newSettings)
                       localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                     }}
-                    className={`py-2 px-3 rounded-lg text-xs transition-all ${
+                    className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'fixed'
                         ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-600'
@@ -590,7 +567,7 @@ const ChatSettings = () => {
                       setSettings(newSettings)
                       localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                     }}
-                    className={`py-2 px-3 rounded-lg text-xs transition-all ${
+                    className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'thinking'
                         ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-600'
@@ -627,7 +604,7 @@ const ChatSettings = () => {
                     setSettings(newSettings)
                     localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
                   }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  className="w-full h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>1分钟</span>
@@ -636,7 +613,7 @@ const ChatSettings = () => {
               </div>
               
               {/* 说明文字 */}
-              <div className="p-3 bg-green-50 rounded-xl border border-green-200">
+              <div className="p-3 bg-green-50 rounded-[32px] border border-green-200">
                 <div className="flex items-start gap-2 text-green-600 text-xs">
                   <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -659,14 +636,13 @@ const ChatSettings = () => {
           <BubbleSettings 
             chatId={id} 
             onSaved={() => {
-              setSaved(true)
-              setTimeout(() => setSaved(false), 2000)
+              // 设置已保存
             }} 
           />
         )}
         
         {/* 壁纸设置 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <button 
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
@@ -686,7 +662,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 消息条数设置 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -721,7 +697,7 @@ const ChatSettings = () => {
                 <button
                   key={num}
                   onClick={() => saveSettings({ ...settings, messageLimit: num })}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95 ${
+                  className={`flex-1 py-1.5 px-3 rounded-[24px] text-xs transition-all active:scale-95 ${
                     settings.messageLimit === num
                       ? 'bg-gray-800 text-white'
                       : 'bg-gray-100 text-gray-600'
@@ -735,7 +711,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发朋友圈 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <h2 className="text-base font-semibold text-gray-900">
@@ -757,8 +733,8 @@ const ChatSettings = () => {
             </button>
           </div>
           {settings.aiCanPostMoments && (
-            <div className="mt-4 p-3 bg-green-50 rounded-xl border border-green-200">
-              <div className="flex items-start gap-2 text-green-600 text-xs">
+            <div className="mt-4 p-3 bg-gray-500/10 backdrop-blur-sm rounded-[32px] border border-gray-300/30">
+              <div className="flex items-start gap-2 text-gray-700 text-xs">
                 <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
@@ -769,7 +745,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 朋友圈可见条数 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -804,7 +780,7 @@ const ChatSettings = () => {
                 <button
                   key={num}
                   onClick={() => saveSettings({ ...settings, momentsVisibleCount: num })}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95 ${
+                  className={`flex-1 py-1.5 px-3 rounded-[24px] text-xs transition-all active:scale-95 ${
                     settings.momentsVisibleCount === num
                       ? 'bg-gray-800 text-white'
                       : 'bg-gray-100 text-gray-600'
@@ -817,8 +793,8 @@ const ChatSettings = () => {
           </div>
           
           {settings.momentsVisibleCount > 0 && (
-            <div className="mt-4 p-3 bg-green-50 rounded-xl border border-green-200">
-              <div className="flex items-start gap-2 text-green-600 text-xs">
+            <div className="mt-4 p-3 bg-gray-500/10 backdrop-blur-sm rounded-[32px] border border-gray-300/30">
+              <div className="flex items-start gap-2 text-gray-700 text-xs">
                 <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
@@ -829,7 +805,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 清空聊天记录 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="bg-white rounded-[48px] p-4">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-gray-900">
               清空聊天记录
@@ -841,7 +817,7 @@ const ChatSettings = () => {
           
           <button
             onClick={clearChatHistory}
-            className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-medium rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-medium rounded-[32px] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -849,8 +825,8 @@ const ChatSettings = () => {
             清空所有消息
           </button>
           
-          <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200">
-            <div className="flex items-start gap-2 text-red-600 text-xs">
+          <div className="mt-3 p-3 bg-gray-500/10 backdrop-blur-sm rounded-[32px] border border-gray-300/30">
+            <div className="flex items-start gap-2 text-gray-700 text-xs">
               <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>

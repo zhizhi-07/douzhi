@@ -24,6 +24,14 @@ export default function PublishMoment() {
   // 获取所有角色（用于@提到）
   const allCharacters = characterService.getAll()
   
+  // 调试：打印角色信息
+  console.log('📋 所有角色列表:', allCharacters.map(char => ({
+    id: char.id,
+    realName: char.realName,
+    nickname: char.nickname,
+    avatar: char.avatar
+  })))
+  
   // 获取当前用户信息
   const userInfo = getUserInfo()
   const currentUser = {

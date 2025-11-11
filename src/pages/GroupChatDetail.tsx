@@ -4,6 +4,7 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
+import { flushSync } from 'react-dom'
 import StatusBar from '../components/StatusBar'
 import Avatar from '../components/Avatar'
 import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
@@ -13,6 +14,7 @@ import { characterService } from '../services/characterService'
 import EmojiPanel from '../components/EmojiPanel'
 import type { Emoji } from '../utils/emojiStorage'
 import { getEmojis } from '../utils/emojiStorage'
+import { getUserInfo } from '../utils/userUtils'
 
 // 获取成员头像
 const getMemberAvatar = (userId: string): string => {
@@ -28,6 +30,7 @@ const GroupChatDetail = () => {
   const { id } = useParams<{ id: string }>()
   const [messages, setMessages] = useState<GroupMessage[]>([])
   const [groupName, setGroupName] = useState('')
+  const [groupAvatar, setGroupAvatar] = useState('')
   const [inputText, setInputText] = useState('')
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [showMentionList, setShowMentionList] = useState(false)
@@ -48,6 +51,7 @@ const GroupChatDetail = () => {
     const group = groupChatManager.getGroup(id)
     if (group) {
       setGroupName(group.name)
+      setGroupAvatar(group.avatar || '')
     }
     
     // 🔥 异步加载消息（等待IndexedDB加载完成）
@@ -276,9 +280,9 @@ const GroupChatDetail = () => {
     groupChatManager.recallMessage(id, longPressMessage.id)
     setLongPressMessage(null)
     
-    // 更新本地消息列表
-    const updatedMsgs = groupChatManager.getMessages(id)
-    setMessages(updatedMsgs)
+    // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
+    // const updatedMsgs = groupChatManager.getMessages(id)
+    // setMessages(updatedMsgs)
   }
 
   // 发送表情包
@@ -296,9 +300,9 @@ const GroupChatDetail = () => {
       emojiDescription: emoji.description
     })
 
-    // 🔥 立即刷新消息列表
-    const updatedMsgs = groupChatManager.getMessages(id)
-    setMessages(updatedMsgs)
+    // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
+    // const updatedMsgs = groupChatManager.getMessages(id)
+    // setMessages(updatedMsgs)
     
     setTimeout(scrollToBottom, 100)
   }
@@ -325,9 +329,9 @@ const GroupChatDetail = () => {
         .find(({ m }) => m.userId === 'user')?.i
       
       if (lastUserMessageIndex !== undefined) {
-        // 删除这条用户消息之后的所有AI消息
+        // 删除这条用户消息之后的所有AI消息（但不删除系统消息）
         const messagesToDelete = latestMessages.slice(lastUserMessageIndex + 1)
-          .filter(m => m.userId !== 'user')
+          .filter(m => m.userId !== 'user' && m.userId !== 'system')
         
         if (messagesToDelete.length > 0) {
           console.log(`🗑️ 删除上一轮的 ${messagesToDelete.length} 条AI消息`)
@@ -338,11 +342,12 @@ const GroupChatDetail = () => {
           // 🔥 真正从 IndexedDB 删除（覆盖保存）
           groupChatManager.replaceAllMessages(id, latestMessages)
           
-          // 更新UI
-          setMessages(latestMessages)
+          // 使用flushSync同步更新UI
+          flushSync(() => {
+            setMessages(latestMessages)
+          })
           
-          // 短暂延迟，确保删除操作完成
-          await new Promise(resolve => setTimeout(resolve, 300))
+          console.log(`✅ [AI回复] UI已同步更新，当前消息数: ${latestMessages.length}`)
         }
       }
       
@@ -351,9 +356,10 @@ const GroupChatDetail = () => {
         const memberDetail = group.members?.find(m => m.id === memberId)
         
         if (memberId === 'user') {
+          const userInfo = getUserInfo()
           return {
             id: 'user',
-            name: '用户',
+            name: userInfo.nickname || userInfo.realName,
             description: '',
             type: 'user',
             role: memberDetail?.role,
@@ -438,6 +444,7 @@ const GroupChatDetail = () => {
         }
         
         // 基于总结生成剧本
+        const minReplyCount = group.minReplyCount || 10
         script = await generateGroupChatReply(
           group.name,
           members,
@@ -445,11 +452,13 @@ const GroupChatDetail = () => {
           triggerEvent,
           emojis,
           group.announcement,
-          parsedOldSummary || undefined
+          parsedOldSummary || undefined,
+          minReplyCount
         )
       } else {
         // 🎬 无总结：正常生成剧本
         console.log('🎬 [正常模式] 生成剧本')
+        const minReplyCount = group.minReplyCount || 10
         script = await generateGroupChatReply(
           group.name,
           members,
@@ -457,7 +466,8 @@ const GroupChatDetail = () => {
           triggerEvent,
           emojis,
           group.announcement,
-          undefined  // 不使用总结
+          undefined,  // 不使用总结
+          minReplyCount
         )
       }
       
@@ -465,6 +475,9 @@ const GroupChatDetail = () => {
         console.error('生成群聊回复失败')
         return
       }
+      
+      // 🔥 维护一个本地消息数组，用于逐条显示
+      const currentMessages = [...latestMessages]
       
       // 逐条添加AI回复（第一条立即显示，后续间隔1.5秒）
       console.log(`🎬 [AI回复] 开始添加${script.actions.length}条消息，延迟显示`)
@@ -505,6 +518,9 @@ const GroupChatDetail = () => {
         // 🔥 检查是否包含特殊指令，支持"台词+指令"组合
         let content = action.content || ''
         let hasCommand = false
+        
+        // 🔥 清理引用标记（AI可能在台词中包含[引用]xxx[/引用]）
+        content = content.replace(/\[引用\](.+?)\[\/引用\]/g, '$1')
         
         // 检查撤回指令：[撤回:msg_xxx]
         const recallMatch = content.match(/\[撤回:(msg_\w+)\]/)
@@ -549,20 +565,14 @@ const GroupChatDetail = () => {
           hasCommand = true
         }
         
-        // 如果有指令且没有剩余文本，刷新消息列表后继续
-        if (hasCommand) {
-          const updatedMsgs = groupChatManager.getMessages(id)
-          setMessages(updatedMsgs)
-          
-          // 如果没有剩余文本，跳过添加消息
-          if (!content) {
-            continue
-          }
+        // 如果有指令且没有剩余文本，跳过添加消息
+        if (hasCommand && !content) {
+          // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
+          continue
         }
         
-        // 🔥 先添加消息到存储，获取完整的消息对象
+        // 🔥 添加消息到存储并获取返回的完整消息对象
         let newMessage
-        
         // 检查是否是表情包消息
         if (action.emojiIndex && emojis.length > 0) {
           const emoji = emojis[action.emojiIndex - 1] // 编号从1开始，数组从0开始
@@ -602,14 +612,18 @@ const GroupChatDetail = () => {
           })
         }
         
-        // 🔥 只添加新消息到React状态，而不是重新读取所有消息
+        // 🔥 追加到本地数组并立即更新UI
+        currentMessages.push(newMessage)
         console.log(`📨 [AI回复] 第${i + 1}条消息已添加到UI: ${action.actorName} - ${action.content?.substring(0, 20)}`)
-        setMessages(prev => {
-          const updated = [...prev, newMessage]
-          console.log(`📊 [AI回复] 当前UI显示消息总数: ${updated.length}`)
-          return updated
+        console.log(`📊 [AI回复] 当前UI显示消息总数: ${currentMessages.length}`)
+        
+        // 使用flushSync强制同步渲染
+        flushSync(() => {
+          setMessages([...currentMessages])
         })
-        setTimeout(scrollToBottom, 100)
+        
+        // 滚动到底部
+        scrollToBottom()
       }
       
       // 🔥 AI回复完成后，后台生成/更新总结（如果开启了智能总结）
@@ -700,9 +714,9 @@ const GroupChatDetail = () => {
       } : undefined
     })
     
-    // 🔥 立即刷新消息列表，确保UI显示最新消息
-    const updatedMsgs = groupChatManager.getMessages(id)
-    setMessages(updatedMsgs)
+    // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
+    // const updatedMsgs = groupChatManager.getMessages(id)
+    // setMessages(updatedMsgs)
     
     setInputText('')
     setQuotedMessage(null)  // 清除引用
@@ -886,8 +900,12 @@ const GroupChatDetail = () => {
         {/* AI正在输入提示 */}
         {isAiTyping && (
           <div className="flex items-center gap-2 my-2 px-1">
-            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-xs">🤖</span>
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+              {groupAvatar ? (
+                <img src={groupAvatar} alt="群头像" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs">👥</span>
+              )}
             </div>
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>

@@ -436,7 +436,7 @@ const ChatDetail = () => {
                   )}
                   <div className="flex justify-center my-1">
                     <div 
-                      className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
+                      className="bg-white/80 backdrop-blur-sm rounded-[32px] p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
                       onClick={() => modals.setViewingCallRecord(message)}
                     >
                       <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -480,6 +480,14 @@ const ChatDetail = () => {
           
           return (
             <div key={message.id} className="flex flex-col gap-0.5">
+            {/* 5分钟时间戳 */}
+            {shouldShow5MinTimestamp && (
+              <div className="flex justify-center my-2">
+                <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                </div>
+              </div>
+            )}
             <div
               className={'message-container flex items-start gap-1.5 my-1 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
             >
@@ -683,7 +691,7 @@ const ChatDetail = () => {
       
       {/* 底部输入栏 - 毛玻璃效果 */}
       {!multiSelect.isMultiSelectMode && (
-      <div className="bg-[#f5f7fa] border-t border-gray-200/50">
+      <div className="bg-transparent">
         {modals.quotedMessage && (
           <div className="px-4 py-2 bg-gray-100 flex items-center gap-2">
             <div className="flex-1 min-w-0">
@@ -712,7 +720,7 @@ const ChatDetail = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <div className="flex-1 flex items-center bg-white rounded-full px-3 py-1.5 shadow-sm touch-transition focus-within:shadow-md focus-within:scale-[1.01] min-w-0">
+          <div className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0">
             <input
               type="text"
               value={chatState.inputValue}

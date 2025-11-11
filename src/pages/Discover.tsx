@@ -103,21 +103,23 @@ const Discover = () => {
         {/* 顶部：StatusBar + 导航栏一体化 */}
         <div className="glass-effect">
           <StatusBar />
-          <div className="px-5 py-4 flex items-center justify-between">
-            <button onClick={() => navigate('/')} className="text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">发现</h1>
-            <div className="w-6"></div>
+          <div className="px-5 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => navigate('/')} className="text-gray-700 active:scale-95 transition-transform">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h1 className="text-lg font-semibold text-gray-900">发现</h1>
+              <div className="w-5"></div>
+            </div>
           </div>
         </div>
         {/* 内容区 */}
         <div className="flex-1 overflow-y-auto px-3 pt-3">
           {menuGroups.map((group) => (
             <div key={group.id} className="mb-3">
-              <div className="glass-card rounded-2xl overflow-hidden">
+              <div className="glass-card rounded-[48px] overflow-hidden">
                 {group.items.map((item, index) => (
                   <div key={item.id}>
                     <div 
@@ -143,32 +145,34 @@ const Discover = () => {
       </div>
 
       {/* 底部导航栏 */}
-      <div className="glass-effect border-t border-gray-200">
-        <div className="grid grid-cols-4 h-16">
-          <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <span className="text-xs">微信</span>
-          </button>
-          <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
-            </svg>
-            <span className="text-xs">通讯录</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-green-600">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <span className="text-xs">发现</span>
-          </button>
-          <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-            <span className="text-xs">我</span>
-          </button>
+      <div className="pb-3 px-4">
+        <div className="glass-card rounded-[48px] shadow-lg">
+          <div className="grid grid-cols-4 h-14 px-2">
+            <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              </svg>
+              <span className="text-xs">微信</span>
+            </button>
+            <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
+              </svg>
+              <span className="text-xs">通讯录</span>
+            </button>
+            <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span className="text-xs font-medium">发现</span>
+            </button>
+            <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              <span className="text-xs">我</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@
  */
 
 import * as IDB from './indexedDBManager'
+import { characterService } from '../services/characterService'
 
 export interface GroupMember {
   id: string
@@ -22,6 +23,7 @@ export interface GroupChat {
   lastMessage?: string
   lastMessageTime?: string
   announcement?: string  // 群公告
+  minReplyCount?: number  // AI每次回复的最少消息条数（默认10条）
   smartSummary?: {
     enabled: boolean  // 是否启用智能总结
     triggerInterval?: number  // 每隔多少轮对话触发一次总结（默认10轮）
@@ -259,8 +261,8 @@ class GroupChatManager {
   // 获取成员名称的辅助方法
   private getMemberName(memberId: string): string {
     if (memberId === 'user') return '我'
-    // 这里可以从characterService获取，但为了避免循环依赖，先返回ID
-    return memberId
+    const char = characterService.getById(memberId)
+    return char?.realName || char?.nickname || memberId
   }
 
   // 删除群聊

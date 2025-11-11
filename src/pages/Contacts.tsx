@@ -45,17 +45,7 @@ const Contacts = () => {
         </svg>
       ), 
       path: '/group-list' 
-    },
-    { 
-      id: 3, 
-      name: '标签', 
-      icon: (
-        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-        </svg>
-      ), 
-      path: '' 
-    },
+    }
   ]
 
   return (
@@ -65,24 +55,21 @@ const Contacts = () => {
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />
-        <div className="px-5 py-4 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">通讯录</h1>
-          <div className="flex items-center gap-3">
-            <button className="text-gray-700">
+        <div className="px-5 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => navigate('/')} className="text-gray-700 active:scale-95 transition-transform">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <button onClick={() => navigate('/create-character')} className="text-gray-700">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
+            <h1 className="text-lg font-semibold text-gray-900">通讯录</h1>
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/create-character')} className="text-gray-700 active:scale-95 transition-transform">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -94,7 +81,7 @@ const Contacts = () => {
           <div
             key={contact.id}
             onClick={() => contact.path && navigate(contact.path)}
-            className="flex items-center px-4 py-3 glass-card mb-2 rounded-2xl cursor-pointer active:scale-[0.98] transition-transform"
+            className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform"
           >
             <div className="w-12 h-12 rounded-xl bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md border border-gray-200/50 text-gray-600">
               {contact.icon}
@@ -125,7 +112,7 @@ const Contacts = () => {
               <div
                 key={character.id}
                 onClick={() => navigate(`/character/${character.id}`)}
-                className="flex items-center px-4 py-3 glass-card mb-2 rounded-xl cursor-pointer active:scale-[0.98] transition-transform"
+                className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform"
               >
                 <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center shadow-lg overflow-hidden">
                   {character.avatar ? (
@@ -149,32 +136,34 @@ const Contacts = () => {
       </div>
 
       {/* 底部导航栏 */}
-      <div className="glass-effect border-t border-gray-200">
-        <div className="grid grid-cols-4 h-16">
-          <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <span className="text-xs">微信</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-green-600">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
-            </svg>
-            <span className="text-xs">通讯录</span>
-          </button>
-          <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <span className="text-xs">发现</span>
-          </button>
-          <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-            <span className="text-xs">我</span>
-          </button>
+      <div className="pb-3 px-4">
+        <div className="glass-card rounded-[48px] shadow-lg">
+          <div className="grid grid-cols-4 h-14 px-2">
+            <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              </svg>
+              <span className="text-xs">微信</span>
+            </button>
+            <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
+              </svg>
+              <span className="text-xs font-medium">通讯录</span>
+            </button>
+            <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span className="text-xs">发现</span>
+            </button>
+            <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
+              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              <span className="text-xs">我</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

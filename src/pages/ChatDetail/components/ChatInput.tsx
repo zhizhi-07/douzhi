@@ -34,7 +34,7 @@ const ChatInput = ({
   }
 
   return (
-    <div className="glass-effect border-t border-gray-200/50">
+    <div className="bg-transparent">
       {/* 引用消息预览 */}
       {quotedMessage && (
         <div className="px-3 pt-2 pb-1">
@@ -70,7 +70,7 @@ const ChatInput = ({
         </button>
         
         {/* 输入框 */}
-        <div className="flex-1 flex items-center bg-white/90 rounded-full px-4 py-2 shadow-inner touch-transition focus-within:shadow-md focus-within:bg-white focus-within:scale-[1.01]">
+        <div className="flex-1 flex items-center">
           <input
             type="text"
             value={inputValue}

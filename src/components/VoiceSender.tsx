@@ -49,7 +49,7 @@ const VoiceSender = ({ show, onClose, onSend }: VoiceSenderProps) => {
       }}
     >
       <div
-        className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl"
+        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
         style={{ animation: 'slideUp 0.3s ease-out' }}
       >
         <div className="p-6 bg-gradient-to-br from-green-50 to-green-100">
@@ -66,7 +66,7 @@ const VoiceSender = ({ show, onClose, onSend }: VoiceSenderProps) => {
             value={voiceText}
             onChange={(e) => setVoiceText(e.target.value)}
             placeholder="请输入语音内容..."
-            className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full h-32 px-4 py-3 border border-gray-300 rounded-[32px] resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
             autoFocus
             maxLength={200}
           />

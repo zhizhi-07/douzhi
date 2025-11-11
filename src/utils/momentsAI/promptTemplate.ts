@@ -32,6 +32,7 @@ export function buildUserMomentPrompt(
 ## 朋友圈内容
 发布者：${moment.userName}（用户本人）
 内容：${moment.content}
+${moment.mentions && moment.mentions.length > 0 ? `@提到了：${moment.mentions.join('、')}（⚠️ 被@的角色会收到提醒，应该更有可能互动）` : ''}
 ${moment.location ? `位置：${moment.location}` : ''}
 ${moment.images.length > 0 ? `配图：${moment.images.length}张` : ''}
 
@@ -108,6 +109,7 @@ export function buildAIMomentPrompt(
 ## 朋友圈内容
 🚨 发布者：${moment.userName}（AI角色，ID: ${moment.userId}）
 内容：${moment.content}
+${moment.mentions && moment.mentions.length > 0 ? `@提到了：${moment.mentions.join('、')}（⚠️ 被@的角色会收到提醒，应该更有可能互动）` : ''}
 ${moment.location ? `位置：${moment.location}` : ''}
 ${moment.images.length > 0 ? `配图：${moment.images.length}张` : ''}
 

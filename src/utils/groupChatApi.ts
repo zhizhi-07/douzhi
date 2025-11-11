@@ -39,7 +39,8 @@ function buildGroupChatPrompt(
   userMessage: string,
   emojis: Emoji[] = [],
   announcement?: string,
-  summary?: GroupChatSummary  // 总结（可选）
+  summary?: GroupChatSummary,  // 总结（可选）
+  minReplyCount: number = 10  // 最少回复条数
 ): string {
   // 构建详细的时间信息
   const now = new Date()
@@ -368,6 +369,12 @@ ${emojiList}
   - 性格内向/话少的角色，少说或不说是正常的（0-3条）
   - **关键是要符合人设，不是强行平均分配**
 - **性格简单≠台词敷衍**：即使只有简短的性格描述，也要认真创作台词，不要水
+
+**🔥 回复条数要求**：
+- 本次对话必须生成至少 **${minReplyCount}条** 消息
+- 这是用户设置的最少回复条数，请确保达到这个数量
+- 但不要为了凑条数而生成低质量内容，每条都要符合人设和情境
+
 ## 🗣️ 口语化要求（核心！）
 
 ### 每条消息必须像真人打字
@@ -541,7 +548,8 @@ export async function generateGroupChatReply(
   userMessage: string,
   emojis: Emoji[] = [],
   announcement?: string,
-  summary?: GroupChatSummary  // 🔥 总结（可选）
+  summary?: GroupChatSummary,  // 🔥 总结（可选）
+  minReplyCount: number = 10  // 🔥 最少回复条数（默认10条）
 ): Promise<GroupChatScript | null> {
   try {
     console.log('🎬 开始生成群聊回复...')
@@ -573,7 +581,7 @@ export async function generateGroupChatReply(
     console.groupEnd()
     
     // 构建提示词
-    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary)
+    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary, minReplyCount)
     
     // 🔥 输出完整提示词
     console.group('🤖 [群聊导演] 完整AI提示词')

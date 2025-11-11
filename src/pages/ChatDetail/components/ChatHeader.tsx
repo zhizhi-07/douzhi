@@ -27,7 +27,7 @@ const ChatHeader = ({ characterName, isAiTyping, onBack, onMenuClick, tokenStats
   }
   
   return (
-    <div className="glass-effect">
+    <div className="glass-effect rounded-b-[20px]">
       <StatusBar />
       <div className="px-5 py-4 flex items-center justify-between">
         <button 

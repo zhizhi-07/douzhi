@@ -118,13 +118,16 @@ const ChatModals = ({
                   if (msg.type === 'narrator') {
                     // 旁白消息（画面描述）
                     return (
-                      <div key={msg.id} className="text-center">
-                        <div className="text-xs text-gray-400 italic">
+                      <div key={msg.id} className="text-center my-2">
+                        <div className="text-xs text-gray-400 italic px-4">
                           {msg.content}
                         </div>
                       </div>
                     )
-                  } else {
+                  }
+                  
+                  // 普通对话消息
+                  else {
                     // 普通对话消息
                     const isUser = msg.type === 'user'
                     return (

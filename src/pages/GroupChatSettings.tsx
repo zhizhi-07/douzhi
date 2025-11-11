@@ -23,6 +23,7 @@ const GroupChatSettings = () => {
   const [smartSummaryEnabled, setSmartSummaryEnabled] = useState(false)
   const [smartSummaryInterval, setSmartSummaryInterval] = useState(10)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
+  const [minReplyCount, setMinReplyCount] = useState(10)
 
   useEffect(() => {
     if (!id) return
@@ -32,6 +33,7 @@ const GroupChatSettings = () => {
       setAnnouncement(group.announcement || '')
       setSmartSummaryEnabled(group.smartSummary?.enabled || false)
       setSmartSummaryInterval(group.smartSummary?.triggerInterval || 10)
+      setMinReplyCount(group.minReplyCount || 10)
       // 加载成员信息
       const memberList = group.memberIds.map(memberId => {
         if (memberId === 'user') {
@@ -316,6 +318,45 @@ const GroupChatSettings = () => {
               )}
             </div>
           )}
+        </div>
+
+        {/* AI回复条数设置 */}
+        <div className="bg-white rounded-2xl p-4">
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium text-gray-900">AI回复条数</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  设置每次AI回复的最少消息条数
+                </p>
+              </div>
+              <span className="text-sm font-medium text-gray-900">每次至少{minReplyCount}条</span>
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="5"
+              value={minReplyCount}
+              onChange={(e) => {
+                const newCount = parseInt(e.target.value)
+                setMinReplyCount(newCount)
+                if (id) {
+                  groupChatManager.updateGroup(id, {
+                    minReplyCount: newCount
+                  })
+                }
+              }}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>5条</span>
+              <span>50条</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            💡 提示：设置较大值会增加一次对话API消耗，但能获得更丰富的群聊体验
+          </p>
         </div>
 
         {/* 置顶聊天 */}

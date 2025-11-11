@@ -49,6 +49,7 @@ import VoiceSettings from './pages/VoiceSettings'
 import WorldBook from './pages/WorldBook'
 import EditWorldBook from './pages/EditWorldBook'
 import PresetManager from './pages/PresetManager'
+import EditPreset from './pages/EditPreset'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -206,6 +207,7 @@ function App() {
       <Route path="/world-book" element={<WorldBook />} />
       <Route path="/edit-world-book/:id" element={<EditWorldBook />} />
       <Route path="/preset" element={<PresetManager />} />
+      <Route path="/edit-preset/:id" element={<EditPreset />} />
     </Routes>
     </>
   )

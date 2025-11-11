@@ -43,8 +43,17 @@ const PresetManager = () => {
     const stored = localStorage.getItem('offline-presets')
     if (stored) {
       try {
-        const presets = JSON.parse(stored)
+        let presets = JSON.parse(stored)
+        // 兼容旧数据：如果没有id字段，添加id
+        presets = presets.map((p: any) => {
+          if (!p.id) {
+            return { ...p, id: Date.now().toString() + Math.random().toString(36) }
+          }
+          return p
+        })
         setPresetList(presets)
+        // 更新localStorage
+        localStorage.setItem('offline-presets', JSON.stringify(presets))
       } catch (e) {
         console.error('预设列表加载失败:', e)
       }
@@ -55,6 +64,10 @@ const PresetManager = () => {
       setActivePreset(savedActive)
     }
   }, [])
+
+  const handleCreate = () => {
+    navigate('/edit-preset/new')
+  }
 
   const handleImport = () => {
     const input = document.createElement('input')
@@ -99,9 +112,8 @@ const PresetManager = () => {
     input.click()
   }
 
-  const handleEdit = (_id: string) => {
-    // TODO: 导航到编辑页面
-    alert('编辑功能开发中')
+  const handleEdit = (id: string) => {
+    navigate(`/edit-preset/${id}`)
   }
 
   const handleSwitch = (presetName: string) => {
@@ -174,7 +186,7 @@ const PresetManager = () => {
             预设管理
           </h1>
           <button
-            onClick={handleImport}
+            onClick={handleCreate}
             className="p-2 hover:bg-blue-50 rounded-full transition-colors"
           >
             <AddIcon size={24} className="text-blue-500" />
@@ -236,9 +248,21 @@ const PresetManager = () => {
               console.error('预设解析失败:', e)
             }
             
+            // 提取描述信息
             const description = presetData.description || ''
             const systemPrompt = presetData.system_prompt || presetData.systemPrompt || ''
-            const preview = description || (systemPrompt ? systemPrompt.substring(0, 100) + '...' : 'SillyTavern预设')
+            
+            // 如果有prompts数组，提取第一个enabled的prompt
+            let promptsInfo = ''
+            if (presetData.prompts && Array.isArray(presetData.prompts)) {
+              const enabledPrompts = presetData.prompts.filter((p: any) => p.enabled)
+              promptsInfo = `${presetData.prompts.length}个提示词`
+              if (enabledPrompts.length > 0) {
+                promptsInfo += ` (${enabledPrompts.length}个启用)`
+              }
+            }
+            
+            const preview = description || (systemPrompt ? systemPrompt.substring(0, 100) + '...' : (promptsInfo || 'SillyTavern预设'))
             
             return (
               <div
@@ -335,11 +359,16 @@ const PresetManager = () => {
         )}
       </div>
 
-      {/* 底部提示 */}
-      <div className="p-4 bg-white/80 backdrop-blur-md border-t border-gray-200/50">
+      {/* 底部操作 */}
+      <div className="p-4 bg-white/80 backdrop-blur-md border-t border-gray-200/50 space-y-3">
+        <button
+          onClick={handleImport}
+          className="w-full bg-white text-gray-700 rounded-xl py-3 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          导入预设
+        </button>
         <div className="text-xs text-gray-500 text-center">
-          💡 预设只在线下模式中生效<br/>
-          支持导入 SillyTavern 格式
+          💡 预设只在线下模式中生效 · 支持 SillyTavern 格式
         </div>
       </div>
     </div>

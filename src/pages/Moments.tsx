@@ -172,17 +172,22 @@ export default function Moments() {
           </div>
 
           {/* 用户信息 */}
-          <div className="absolute bottom-6 left-4 right-4 flex items-end justify-between">
-            <div className="flex-1 mr-4">
-              <h2 className="text-white font-semibold text-lg drop-shadow-lg">
+          <div className="absolute bottom-6 left-4 right-4 flex items-end justify-end gap-4">
+            <div className="flex flex-col items-end text-right">
+              <h2 className="text-white font-semibold text-base drop-shadow-lg mb-1">
                 {currentUser.name}
               </h2>
+              {userInfo.signature && (
+                <p className="text-white/90 text-xs drop-shadow-lg">
+                  {userInfo.signature}
+                </p>
+              )}
             </div>
-            <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-2xl overflow-hidden border-4 border-white/50">
+            <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center shadow-2xl overflow-hidden border-2 border-white/50 flex-shrink-0">
               {currentUser.avatar ? (
                 <img src={currentUser.avatar} alt="用户头像" className="w-full h-full object-cover" />
               ) : (
-                <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
               )}
@@ -213,10 +218,15 @@ export default function Moments() {
                   
                   <div className="flex-1">
                     {/* 用户名 */}
-                    <h3 className="font-semibold text-blue-600 mb-1">{moment.userName}</h3>
+                    <h3 className="font-semibold text-blue-600 mb-1">{moment.userName.length > 12 ? moment.userName.slice(0, 12) + '...' : moment.userName}</h3>
                     
                     {/* 动态内容 */}
-                    <p className="text-gray-800 leading-relaxed mb-2">{moment.content}</p>
+                    <p className="text-gray-800 leading-relaxed mb-2">
+                      {moment.content}
+                      {moment.mentions && moment.mentions.length > 0 && (
+                        <span className="text-blue-600"> @{moment.mentions.join(' @')}</span>
+                      )}
+                    </p>
                     
                     {/* 图片 */}
                     {moment.images.length > 0 && (
@@ -269,7 +279,7 @@ export default function Moments() {
                         </svg>
                         <div className="flex-1 text-sm">
                           <span className="text-blue-600">
-                            {moment.likes.map(like => like.userName).join(', ')}
+                            {moment.likes.map(like => like.userName.length > 8 ? like.userName.slice(0, 8) + '...' : like.userName).join(', ')}
                           </span>
                         </div>
                       </div>
@@ -284,7 +294,7 @@ export default function Moments() {
                       <div className="space-y-2">
                         {moment.comments.map((comment) => (
                           <div key={comment.id} className="text-sm">
-                            <span className="text-blue-600 font-medium">{comment.userName}：</span>
+                            <span className="text-blue-600 font-medium">{comment.userName.length > 8 ? comment.userName.slice(0, 8) + '...' : comment.userName}：</span>
                             <span className="text-gray-700">{comment.content}</span>
                           </div>
                         ))}

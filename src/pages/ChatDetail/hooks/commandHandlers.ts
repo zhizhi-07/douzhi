@@ -1535,7 +1535,7 @@ export const changeSongHandler: CommandHandler = {
  * AI随笔处理器
  */
 export const aiMemoHandler: CommandHandler = {
-  pattern: /\[随笔:(.*?)\]/,
+  pattern: /\[随笔:([^\]]+)\]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('🎯 [随笔处理器] 被调用!', { match: match[0], content })
     

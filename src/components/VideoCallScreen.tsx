@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { getUserInfo } from '../utils/userUtils'
 
 interface CallMessage {
   id: number
@@ -109,9 +110,13 @@ const VideoCallScreen = ({
           </div>
 
           {/* 小窗口（自己） */}
-          <div className="absolute top-4 right-4 w-24 h-32 bg-gray-900 rounded-lg overflow-hidden border-2 border-white/30 shadow-2xl">
+          <div className="absolute top-4 right-4 w-24 h-32 bg-gray-900 rounded-[32px] overflow-hidden border-2 border-white/30 shadow-2xl">
             <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-              <span className="text-white text-2xl">我</span>
+              {getUserInfo().avatar ? (
+                <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white text-2xl">我</span>
+              )}
             </div>
           </div>
 
@@ -152,7 +157,7 @@ const VideoCallScreen = ({
           </div>
 
           {/* 对话区域 */}
-          <div className="absolute left-0 right-0 bottom-48 max-h-[40%] overflow-y-auto px-4 py-4 hide-scrollbar z-10 bg-gradient-to-t from-black/60 to-transparent">
+          <div className="absolute left-0 right-0 bottom-48 max-h-[40%] overflow-y-auto px-4 py-4 hide-scrollbar z-10">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-white/60">开始对话...</p>
@@ -178,7 +183,7 @@ const VideoCallScreen = ({
                       className={'flex ' + (msg.type === 'user' ? 'justify-end' : 'justify-start')}
                     >
                       <div
-                        className={'max-w-[70%] px-4 py-2 rounded-2xl shadow-lg ' + (
+                        className={'max-w-[70%] px-4 py-2 rounded-[32px] shadow-lg ' + (
                           msg.type === 'user'
                             ? 'bg-green-500 text-white'
                             : 'bg-white/90 backdrop-blur-sm text-gray-900'
@@ -193,7 +198,7 @@ const VideoCallScreen = ({
                 {/* AI正在输入 */}
                 {isAITyping && (
                   <div className="flex justify-start">
-                    <div className="px-4 py-3 rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm">
+                    <div className="px-4 py-3 rounded-[32px] shadow-lg bg-white/90 backdrop-blur-sm">
                       <div className="flex gap-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></div>
@@ -209,9 +214,9 @@ const VideoCallScreen = ({
           </div>
 
           {/* 底部输入和控制区域 */}
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 z-20 bg-gradient-to-t from-black/90 via-black/80 to-transparent pt-8">
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 z-20 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12">
             {/* 输入框 */}
-            <div className="rounded-full px-4 py-2 flex items-center gap-2 mb-4 bg-white/20 backdrop-blur-md border border-white/30">
+            <div className="rounded-full px-4 py-2 flex items-center gap-2 mb-6 bg-white/20 backdrop-blur-md">
               <input
                 type="text"
                 value={inputValue}
@@ -301,7 +306,7 @@ const VideoCallScreen = ({
       {isMinimized && (
         <div
           onClick={() => setIsMinimized(false)}
-          className="fixed top-20 right-4 z-[9999] bg-white rounded-2xl shadow-2xl p-3 flex items-center gap-3 cursor-pointer border border-gray-200"
+          className="fixed top-20 right-4 z-[9999] bg-white rounded-[48px] shadow-2xl p-3 flex items-center gap-3 cursor-pointer border border-gray-200"
         >
           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
             {character.avatar ? (
