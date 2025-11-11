@@ -48,7 +48,6 @@ export async function generateGroupChatSummary(
   groupName: string,
   members: GroupMember[],
   messages: GroupChatMessage[],
-  privateChatSync?: { enabled: boolean, messageCount: number },
   lastSummary?: GroupChatSummary  // 上次总结（如果有）
 ): Promise<GroupChatSummary | null> {
   try {
@@ -69,7 +68,7 @@ export async function generateGroupChatSummary(
     console.log(`📊 [总结AI] 使用副API: ${summarySettings.model}`)
     
     // 构建总结提示词
-    const prompt = buildSummaryPrompt(groupName, members, messages, privateChatSync, lastSummary)
+    const prompt = buildSummaryPrompt(groupName, members, messages, lastSummary)
     
     // 输出提示词
     console.group('📊 [总结AI] 提示词')
@@ -84,10 +83,10 @@ export async function generateGroupChatSummary(
     
     const aiReply = await callAIApi(apiMessages, summarySettings)
     
-    console.log('📊 [总结AI] 原始回复:', aiReply)
+    console.log('📊 [总结AI] 原始回复:', aiReply.content)
     
     // 解析JSON
-    const summary = parseGroupChatSummary(aiReply)
+    const summary = parseGroupChatSummary(aiReply.content)
     
     if (summary) {
       console.group('📊 [总结AI] 解析成功')
@@ -112,7 +111,6 @@ function buildSummaryPrompt(
   groupName: string,
   members: GroupMember[],
   messages: GroupChatMessage[],
-  privateChatSync?: { enabled: boolean, messageCount: number },
   lastSummary?: GroupChatSummary
 ): string {
   // AI成员信息
@@ -135,13 +133,34 @@ function buildSummaryPrompt(
     `[${formatTime(msg.time || msg.timestamp)}] [${msg.userName}] ${msg.content}`
   ).join('\n')
   
-  // 私聊记录
+  // 私聊记录（根据每个角色的groupChatSync设置）
   let privateChatInfo = ''
-  if (privateChatSync && privateChatSync.enabled) {
+  const syncedMembers = aiMembers.filter(member => {
+    const settingsStr = localStorage.getItem(`chat_settings_${member.id}`)
+    if (!settingsStr) return false
+    try {
+      const settings = JSON.parse(settingsStr)
+      return settings.groupChatSync?.enabled === true
+    } catch {
+      return false
+    }
+  })
+  
+  if (syncedMembers.length > 0) {
     privateChatInfo = '\n\n### 私聊记录\n\n'
-    aiMembers.forEach(member => {
+    syncedMembers.forEach(member => {
+      // 获取同步条数
+      const settingsStr = localStorage.getItem(`chat_settings_${member.id}`)
+      let messageCount = 20
+      if (settingsStr) {
+        try {
+          const settings = JSON.parse(settingsStr)
+          messageCount = settings.groupChatSync?.messageCount || 20
+        } catch {}
+      }
+      
       const privateMsgs = loadMessages(member.id) || []
-      const recentMsgs = privateMsgs.slice(-privateChatSync.messageCount)
+      const recentMsgs = privateMsgs.slice(-messageCount)
       
       if (recentMsgs.length > 0) {
         privateChatInfo += `**${member.name} 与用户的私聊**：\n`

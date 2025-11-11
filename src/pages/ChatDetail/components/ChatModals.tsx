@@ -2,6 +2,7 @@
  * 聊天相关弹窗组件集合
  */
 
+import React from 'react'
 import type { Message, Character } from '../../../types/chat'
 
 interface ChatModalsProps {
@@ -19,6 +20,31 @@ const ChatModals = ({
   viewingCallRecord,
   onCloseCallRecord
 }: ChatModalsProps) => {
+  // 格式化文本段落
+  const formatText = (text?: string) => {
+    if (!text) return null
+    
+    const paragraphs = text.split('\n')
+    
+    return paragraphs.map((para, index) => {
+      const trimmedPara = para.trim()
+      
+      if (!trimmedPara) {
+        if (index > 0 && paragraphs[index - 1].trim() === '') {
+          return null
+        }
+        return <br key={index} />
+      }
+      
+      return (
+        <React.Fragment key={index}>
+          {index > 0 && <br />}
+          <span>{trimmedPara}</span>
+        </React.Fragment>
+      )
+    }).filter(Boolean)
+  }
+  
   return (
     <>
       {/* 查看撤回消息 */}
@@ -33,8 +59,8 @@ const ChatModals = ({
           >
             <div className="text-lg font-semibold text-gray-900 mb-4">撤回的消息</div>
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="text-sm text-gray-900 whitespace-pre-wrap break-words">
-                {viewingRecalledMessage.recalledContent}
+              <div className="text-sm text-gray-900 leading-relaxed break-words">
+                {formatText(viewingRecalledMessage.recalledContent)}
               </div>
             </div>
             {viewingRecalledMessage.recallReason && (
@@ -117,8 +143,8 @@ const ChatModals = ({
                                 : 'bg-gray-100 text-gray-900 rounded-tl-none'
                             }`}
                           >
-                            <div className="text-sm whitespace-pre-wrap break-words">
-                              {msg.content}
+                            <div className="text-sm leading-relaxed break-words">
+                              {formatText(msg.content)}
                             </div>
                           </div>
                         </div>

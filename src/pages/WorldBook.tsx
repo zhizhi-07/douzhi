@@ -77,12 +77,19 @@ const WorldBook = () => {
       const reader = new FileReader()
       reader.onload = (event) => {
         const content = event.target?.result as string
-        const lorebook = lorebookManager.importLorebook(content)
-        if (lorebook) {
+        const result = lorebookManager.importLorebook(content)
+        if (result && result.lorebook) {
           loadLorebooks()
-          alert('导入成功！')
+          
+          // 如果有被禁用的条目，显示详细提示
+          if (result.disabledEntries.length > 0) {
+            const disabledList = result.disabledEntries.map(e => `• ${e.name}`).join('\n')
+            alert(`✅ 世界书导入成功！\n\n⚠️ 已自动禁用 ${result.disabledEntries.length} 个栏目：\n${disabledList}\n\n原因：${result.disabledEntries[0].reason}\n\n💡 如需重新启用，请点击世界书进行编辑`)
+          } else {
+            alert('✅ 导入成功！')
+          }
         } else {
-          alert('导入失败，请检查文件格式')
+          alert('❌ 导入失败，请检查文件格式')
         }
       }
       reader.readAsText(file)

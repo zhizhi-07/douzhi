@@ -2,7 +2,7 @@
  * 情侣空间 - 留言板
  */
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { 
@@ -18,6 +18,29 @@ const CoupleMessageBoard = () => {
   const [messages, setMessages] = useState<CoupleMessage[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [messageContent, setMessageContent] = useState('')
+  
+  // 格式化文本段落
+  const formatText = (text: string) => {
+    const paragraphs = text.split('\n')
+    
+    return paragraphs.map((para, index) => {
+      const trimmedPara = para.trim()
+      
+      if (!trimmedPara) {
+        if (index > 0 && paragraphs[index - 1].trim() === '') {
+          return null
+        }
+        return <br key={index} />
+      }
+      
+      return (
+        <React.Fragment key={index}>
+          {index > 0 && <br />}
+          <span>{trimmedPara}</span>
+        </React.Fragment>
+      )
+    }).filter(Boolean)
+  }
 
   useEffect(() => {
     loadMessages()
@@ -142,8 +165,8 @@ const CoupleMessageBoard = () => {
                     </button>
                   </div>
                   
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {message.content}
+                  <p className="text-gray-700 leading-relaxed">
+                    {formatText(message.content)}
                   </p>
                 </div>
               )

@@ -42,12 +42,14 @@ export function parseAIMomentsPost(
 ): { post: AIMomentsPost | null, cleanedMessage: string } {
   // 匹配格式：朋友圈：内容[|仅xx可见][|@xx @yy]
   // 支持换行符前后都可以，贪婪匹配整行内容
-  const pattern = /^朋友圈[:：](.+?)(?:\|(.+?))?$/m
+  // 🔥 修复：朋友圈内容和参数都不能包含其他指令（[开头的指令），避免误删随笔等指令
+  const pattern = /^朋友圈[:：]([^\[\n]+?)(?:\|([^\[\n]+?))?$/m
   const match = message.match(pattern)
   
   if (!match) {
     // 如果没匹配到独立一行的，尝试匹配行内的
-    const inlinePattern = /朋友圈[:：]([^\n]+)/
+    // 🔥 修复：同样避免匹配到其他指令
+    const inlinePattern = /朋友圈[:：]([^\[\n]+)/
     const inlineMatch = message.match(inlinePattern)
     if (inlineMatch) {
       const fullMatch = inlineMatch[1].trim()
@@ -223,7 +225,8 @@ export function parseAIMomentsDelete(
   aiName: string
 ): { deleteCmd: AIMomentsDelete | null, cleanedMessage: string } {
   // 匹配格式：删除朋友圈：朋友圈内容描述
-  const pattern = /删除朋友圈[:：](.+?)(?:\n|$)/
+  // 🔥 修复：避免匹配到其他指令
+  const pattern = /删除朋友圈[:：]([^\[\n]+?)(?:\n|$)/
   const match = message.match(pattern)
   
   if (!match) {

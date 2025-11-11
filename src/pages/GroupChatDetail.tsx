@@ -160,50 +160,95 @@ const GroupChatDetail = () => {
     return aiMembers
   }
 
-  // 渲染带@高亮的消息内容
-  const renderMessageContent = (content: string) => {
-    if (!id) return content
-    const group = groupChatManager.getGroup(id)
-    if (!group) return content
-
-    // 匹配@某人的模式
-    const mentionRegex = /@([^\s@]+)/g
-    const parts: (string | JSX.Element)[] = []
-    let lastIndex = 0
-    let match
-
-    while ((match = mentionRegex.exec(content)) !== null) {
-      // 添加@之前的文本
-      if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index))
+  // 格式化文本段落
+  const formatParagraphs = (text: string) => {
+    // 将文本按换行符分割成段落
+    const paragraphs = text.split('\n')
+    
+    return paragraphs.map((para, index) => {
+      const trimmedPara = para.trim()
+      // 跳过空段落
+      if (!trimmedPara) {
+        // 保留空行，但限制连续空行数量
+        if (index > 0 && paragraphs[index - 1].trim() === '') {
+          return null // 跳过连续的空行
+        }
+        return <br key={`br-${index}`} />
       }
-
-      // 添加@高亮
-      const mentionedName = match[1]
-      const isMentioned = group.memberIds.some(memberId => {
-        const char = characterService.getById(memberId)
-        return (char?.realName === mentionedName || char?.nickname === mentionedName)
-      })
       
-      if (isMentioned) {
-        parts.push(
-          <span key={match.index} className="text-blue-600 font-medium bg-blue-50 px-1 rounded">
-            @{mentionedName}
-          </span>
-        )
-      } else {
-        parts.push(`@${mentionedName}`)
+      return (
+        <span key={`para-${index}`}>
+          {index > 0 && <br />}
+          {trimmedPara}
+        </span>
+      )
+    }).filter(Boolean)
+  }
+
+  // 渲染带@高亮的消息内容（优化段落显示）
+  const renderMessageContent = (content: string) => {
+    if (!id) return formatParagraphs(content)
+    const group = groupChatManager.getGroup(id)
+    if (!group) return formatParagraphs(content)
+
+    // 先按段落分割
+    const paragraphs = content.split('\n')
+    
+    return paragraphs.map((para, paraIndex) => {
+      const trimmedPara = para.trim()
+      
+      // 处理空段落
+      if (!trimmedPara) {
+        if (paraIndex > 0 && paragraphs[paraIndex - 1].trim() === '') {
+          return null
+        }
+        return <br key={`br-${paraIndex}`} />
+      }
+      
+      // 对每个段落处理@提及
+      const mentionRegex = /@([^\s@]+)/g
+      const parts: (string | JSX.Element)[] = []
+      let lastIndex = 0
+      let match
+
+      while ((match = mentionRegex.exec(trimmedPara)) !== null) {
+        // 添加@之前的文本
+        if (match.index > lastIndex) {
+          parts.push(trimmedPara.substring(lastIndex, match.index))
+        }
+
+        // 添加@高亮
+        const mentionedName = match[1]
+        const isMentioned = group.memberIds.some(memberId => {
+          const char = characterService.getById(memberId)
+          return (char?.realName === mentionedName || char?.nickname === mentionedName)
+        })
+        
+        if (isMentioned) {
+          parts.push(
+            <span key={`mention-${paraIndex}-${match.index}`} className="text-blue-600 font-medium bg-blue-50 px-1 rounded">
+              @{mentionedName}
+            </span>
+          )
+        } else {
+          parts.push(`@${mentionedName}`)
+        }
+
+        lastIndex = match.index + match[0].length
       }
 
-      lastIndex = match.index + match[0].length
-    }
+      // 添加剩余文本
+      if (lastIndex < trimmedPara.length) {
+        parts.push(trimmedPara.substring(lastIndex))
+      }
 
-    // 添加剩余文本
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex))
-    }
-
-    return parts.length > 0 ? parts : content
+      return (
+        <span key={`para-${paraIndex}`}>
+          {paraIndex > 0 && <br />}
+          {parts.length > 0 ? parts : trimmedPara}
+        </span>
+      )
+    }).filter(Boolean)
   }
 
   // 长按消息（撤回）
@@ -400,7 +445,6 @@ const GroupChatDetail = () => {
           triggerEvent,
           emojis,
           group.announcement,
-          group.privateChatSync,
           parsedOldSummary || undefined
         )
       } else {
@@ -413,7 +457,6 @@ const GroupChatDetail = () => {
           triggerEvent,
           emojis,
           group.announcement,
-          group.privateChatSync,
           undefined  // 不使用总结
         )
       }
@@ -605,7 +648,6 @@ const GroupChatDetail = () => {
             group.name,
             members,
             messagesToSummarize,
-            group.privateChatSync,
             lastSummary  // 传入上次总结
           ).then(newSummary => {
             if (newSummary && id) {

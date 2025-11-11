@@ -40,13 +40,20 @@ export const useVideoCall = (
   const openingLinesRef = useRef<string | null>(null) // 保存AI第1次回复中的开场白
   const requestAIReplyRef = useRef<() => void>()
   const currentAudioRef = useRef<HTMLAudioElement | null>(null) // 当前播放的音频
+  const messageIdCounterRef = useRef(0) // 🔥 消息ID计数器，确保唯一性
 
   /**
    * 添加AI消息并播放语音
+   * 🔥 修复：先生成语音，再显示文字，避免用户看到文字后立即关闭导致听不到语音
    */
   const addAIMessage = useCallback(async (content: string) => {
+    console.log('🎬 [addAIMessage] 开始处理:', { content: content.substring(0, 50) })
+    
+    // 🔥 使用计数器确保ID唯一
+    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    
     const newMessage: CallMessage = {
-      id: Date.now(),
+      id: uniqueId,
       type: 'ai',
       content,
       time: new Date().toLocaleTimeString('zh-CN', {
@@ -54,9 +61,8 @@ export const useVideoCall = (
         minute: '2-digit'
       })
     }
-    setCallMessages(prev => [...prev, newMessage])
     
-    // 生成并播放语音
+    // 🔥 关键修复：先生成语音，再显示文字
     try {
       // 读取角色的音色ID配置
       const settingsKey = `chat_settings_${chatId}`
@@ -64,9 +70,14 @@ export const useVideoCall = (
       const settings = settingsStr ? JSON.parse(settingsStr) : null
       const voiceId = settings?.voiceId
       
+      console.log('🔍 [addAIMessage] 音色配置:', { voiceId, hasSettings: !!settings })
+      
       if (voiceId) {
-        console.log('🎤 [视频通话] 生成AI语音:', { content: content.substring(0, 30), voiceId })
+        console.log('🎤 [视频通话] 开始生成AI语音:', { content: content.substring(0, 30), voiceId })
+        
+        // 先生成语音（等待完成）
         const ttsResult = await callMinimaxTTS(content, undefined, undefined, voiceId)
+        console.log('✅ [视频通话] 语音生成完成:', ttsResult)
         
         // 停止之前的音频
         if (currentAudioRef.current) {
@@ -74,23 +85,45 @@ export const useVideoCall = (
           currentAudioRef.current = null
         }
         
-        // 播放新音频
+        // 语音生成完成后，显示文字
+        setCallMessages(prev => {
+          console.log('📝 [视频通话] 正在更新消息列表，添加文字')
+          return [...prev, newMessage]
+        })
+        console.log('✅ [视频通话] 文字已添加到状态')
+        
+        // 立即播放音频
         const audio = new Audio(ttsResult.audioUrl)
         currentAudioRef.current = audio
         
         audio.onended = () => {
           currentAudioRef.current = null
+          console.log('🔇 [视频通话] 语音播放结束')
         }
         
         await audio.play()
-        console.log('✅ [视频通话] 语音播放成功')
+        console.log('🔊 [视频通话] 语音开始播放')
       } else {
-        console.warn('⚠️ [视频通话] 未配置音色ID，跳过语音生成')
+        // 没有配置语音，直接显示文字
+        console.warn('⚠️ [视频通话] 未配置音色ID，跳过语音生成，直接显示文字')
+        setCallMessages(prev => {
+          console.log('📝 [视频通话] 直接添加文字（无语音）')
+          return [...prev, newMessage]
+        })
+        console.log('✅ [视频通话] 文字已添加（无语音模式）')
       }
     } catch (error) {
       console.error('❌ [视频通话] 语音生成失败:', error)
-      // 语音失败不影响文字显示
+      console.error('❌ 错误详情:', error)
+      // 语音失败也要显示文字
+      setCallMessages(prev => {
+        console.log('📝 [视频通话] 语音失败，添加文字')
+        return [...prev, newMessage]
+      })
+      console.log('✅ [视频通话] 文字已添加（语音失败后）')
     }
+    
+    console.log('🏁 [addAIMessage] 处理完成')
   }, [chatId])
 
   /**
@@ -98,8 +131,12 @@ export const useVideoCall = (
    */
   const addNarratorMessage = useCallback((content: string) => {
     console.log('📺 [useVideoCall] 添加旁白消息:', content)
+    
+    // 🔥 使用计数器确保ID唯一
+    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    
     const newMessage: CallMessage = {
-      id: Date.now(),
+      id: uniqueId,
       type: 'narrator',
       content,
       time: new Date().toLocaleTimeString('zh-CN', {
@@ -363,8 +400,11 @@ export const useVideoCall = (
    * 发送用户消息
    */
   const sendMessage = useCallback((content: string) => {
+    // 🔥 使用计数器确保ID唯一
+    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    
     const newMessage: CallMessage = {
-      id: Date.now(),
+      id: uniqueId,
       type: 'user',
       content,
       time: new Date().toLocaleTimeString('zh-CN', {
@@ -423,7 +463,36 @@ export const useVideoCall = (
         callContext
       })
 
-      const aiReply = await callAIApi(apiMessages, settings)
+      // 🔥 临时禁用流式响应（视频通话需要语音合成，必须等待完整响应）
+      const originalStreaming = localStorage.getItem('offline-streaming')
+      localStorage.setItem('offline-streaming', 'false')
+      
+      const result = await callAIApi(apiMessages, settings)
+      
+      // 恢复原设置
+      if (originalStreaming) {
+        localStorage.setItem('offline-streaming', originalStreaming)
+      } else {
+        localStorage.removeItem('offline-streaming')
+      }
+      
+      console.log('📦 [视频通话] API返回的完整结果:', result)
+      console.log('📊 [视频通话] Token使用情况:', result.usage)
+      
+      const aiReply = result.content  // 🔥 修复：提取 content 字段
+      
+      console.log('✅ [视频通话] AI回复内容:', {
+        长度: aiReply.length,
+        前100字符: aiReply.substring(0, 100),
+        完整内容: aiReply
+      })
+      
+      // 🔥 检查 AI 是否返回空内容
+      if (!aiReply || aiReply.trim().length === 0) {
+        console.error('❌ [视频通话] AI返回空内容！')
+        addAIMessage('...')  // 显示省略号表示AI无话可说
+        return
+      }
 
       // 检测并处理所有通话控制指令
       const detectedCommands = detectCommands(aiReply)
@@ -449,15 +518,22 @@ export const useVideoCall = (
         const cleaned = removeControlCommands(contentBeforeEnd)
         const parsed = parseDialogueLines(cleaned)
         
-        for (const item of parsed) {
+        // 🔥 逐句显示，每句之间有延迟
+        for (let i = 0; i < parsed.length; i++) {
+          const item = parsed[i]
           if (item.type === 'narrator') {
             addNarratorMessage(item.content)
+            await new Promise(resolve => setTimeout(resolve, 300))
           } else {
-            addAIMessage(item.content)
+            await addAIMessage(item.content)
+            // 每句话之间延迟
+            if (i < parsed.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800))
+            }
           }
         }
         
-        // 延迟挂断，让消息显示出来
+        // 延迟挂断，让最后一句消息显示出来
         setTimeout(() => {
           endCall()
         }, 1500)
@@ -467,13 +543,38 @@ export const useVideoCall = (
       
       // 正常解析：分离对话和画面描述（排除控制指令）
       const cleaned = removeControlCommands(aiReply)
-      const parsed = parseDialogueLines(cleaned)
+      console.log('🧹 [视频通话] 清理指令后的内容:', cleaned)
       
-      for (const item of parsed) {
+      const parsed = parseDialogueLines(cleaned)
+      console.log('📝 [视频通话] 解析结果:', parsed)
+      
+      if (parsed.length === 0) {
+        console.warn('⚠️ [视频通话] 解析后没有内容！AI可能只返回了指令或空内容')
+        console.warn('原始回复:', aiReply)
+        console.warn('清理后:', cleaned)
+        // 显示省略号，避免完全不出字
+        addAIMessage('...')
+        return
+      }
+      
+      // 🔥 逐句显示，每句之间有延迟，更自然
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i]
+        console.log(`🔄 [视频通话] 处理项目 [${i+1}/${parsed.length}]:`, item)
+        
         if (item.type === 'narrator') {
           addNarratorMessage(item.content)
+          // 旁白后短暂延迟
+          await new Promise(resolve => setTimeout(resolve, 300))
         } else {
-          addAIMessage(item.content)
+          console.log(`📢 [视频通话] 准备调用 addAIMessage:`, item.content)
+          await addAIMessage(item.content)
+          console.log(`✅ [视频通话] addAIMessage 完成`)
+          
+          // 每句话之间延迟，让用户有时间阅读（最后一句不延迟）
+          if (i < parsed.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 800))
+          }
         }
       }
       

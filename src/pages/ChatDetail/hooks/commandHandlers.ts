@@ -917,14 +917,25 @@ export const coupleSpaceEndHandler: CommandHandler = {
 
 /**
  * 引用指令处理器
+ * 支持多种引用格式，提高AI的表达灵活性
  */
 export const quoteHandler: CommandHandler = {
-  pattern: /[\[【]引用[:\：]\s*(.+?)[\]】]/,
+  pattern: /[\[【](?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?(.+?)["」』"'"]?|引用[:\：]\s*(.+?)|回复[:\：]\s*(.+?))[\]】]/,
   handler: async (match, content, { messages, character }) => {
-    const quoteRef = match[1].trim()
+    // 从多个捕获组中找到非空的引用内容
+    const quoteRef = (match[1] || match[2] || match[3] || '').trim()
     let quotedMsg: Message['quotedMessage'] | undefined
 
     const currentMessages = messages
+    console.log('🔍 [quoteHandler] 开始搜索:', {
+      quoteRef,
+      messagesCount: currentMessages.length,
+      最近5条消息: currentMessages.slice(-5).map(m => ({
+        type: m.type,
+        content: m.content?.substring(0, 30),
+        messageType: m.messageType
+      }))
+    })
     let quoted: Message | undefined
 
     const quotedId = parseInt(quoteRef)
@@ -971,6 +982,13 @@ export const quoteHandler: CommandHandler = {
         senderName: quoted.type === 'sent' ? '我' : (character?.realName || 'AI'),
         type: quoted.type === 'system' ? 'sent' : quoted.type
       }
+      console.log('✅ [quoteHandler] 找到被引用的消息:', {
+        quoteRef,
+        quotedContent: quotedMsg.content,
+        quotedId: quotedMsg.id
+      })
+    } else {
+      console.warn('⚠️ [quoteHandler] 未找到被引用的消息:', quoteRef)
     }
 
     // 保留引用指令后的所有内容（不要trim，保持原样）
@@ -1015,41 +1033,48 @@ export const intimatePayHandler: CommandHandler = {
  */
 export const acceptIntimatePayHandler: CommandHandler = {
   pattern: /[\[【]接受亲密付[\]】]/,
-  handler: async (match, content, { setMessages, character, chatId }) => {
-    let monthlyLimit = 0
+  handler: async (match, content, { setMessages, character, chatId, messages }) => {
+    console.log('🎯 [接受亲密付] 处理器被调用')
     
-    setMessages(prev => {
-      const lastPending = [...prev].reverse().find(
-        msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
-      )
-
-      if (!lastPending || !lastPending.intimatePay) return prev
-      
-      // 保存信息用于创建亲密付关系
-      monthlyLimit = lastPending.intimatePay.monthlyLimit
-
-      return prev.map(msg =>
-        msg.id === lastPending.id
-          ? {
-              ...msg,
-              intimatePay: {
-                ...msg.intimatePay!,
-                status: 'accepted' as const
-              }
-            }
-          : msg
-      )
+    // 🔥 修复：先从 messages 中查找待处理的亲密付
+    const lastPending = [...messages].reverse().find(
+      msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
+    )
+    
+    if (!lastPending || !lastPending.intimatePay) {
+      console.warn('⚠️ [接受亲密付] 没有找到待处理的亲密付消息')
+      return { handled: false }
+    }
+    
+    const monthlyLimit = lastPending.intimatePay.monthlyLimit
+    console.log('✅ [接受亲密付] 找到待处理消息:', {
+      messageId: lastPending.id,
+      monthlyLimit
     })
+    
+    // 更新消息状态为已接受
+    setMessages(prev => prev.map(msg =>
+      msg.id === lastPending.id
+        ? {
+            ...msg,
+            intimatePay: {
+              ...msg.intimatePay!,
+              status: 'accepted' as const
+            }
+          }
+        : msg
+    ))
 
     // 创建亲密付关系（用户给AI开通，AI接受，类型是 user_to_character）
-    if (monthlyLimit > 0 && character) {
-      createIntimatePayRelation(
+    if (character) {
+      const success = createIntimatePayRelation(
         character.id,
         character.nickname || character.realName,
         monthlyLimit,
         character.avatar,
         'user_to_character'
       )
+      console.log('💳 [接受亲密付] 创建关系:', success ? '成功' : '失败（可能已存在）')
     }
 
     // 添加系统消息
@@ -1058,6 +1083,7 @@ export const acceptIntimatePayHandler: CommandHandler = {
       aiReadableContent: `${character?.nickname || character?.realName || '对方'}接受了你的亲密付邀请`,
       type: 'system'
     })
+    console.log('📝 [接受亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
@@ -1074,26 +1100,33 @@ export const acceptIntimatePayHandler: CommandHandler = {
  */
 export const rejectIntimatePayHandler: CommandHandler = {
   pattern: /[\[【]拒绝亲密付[\]】]/,
-  handler: async (match, content, { setMessages, chatId, character }) => {
-    setMessages(prev => {
-      const lastPending = [...prev].reverse().find(
-        msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
-      )
+  handler: async (match, content, { setMessages, chatId, character, messages }) => {
+    console.log('🎯 [拒绝亲密付] 处理器被调用')
+    
+    // 🔥 修复：先从 messages 中查找待处理的亲密付
+    const lastPending = [...messages].reverse().find(
+      msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
+    )
 
-      if (!lastPending) return prev
+    if (!lastPending) {
+      console.warn('⚠️ [拒绝亲密付] 没有找到待处理的亲密付消息')
+      return { handled: false }
+    }
+    
+    console.log('✅ [拒绝亲密付] 找到待处理消息:', lastPending.id)
 
-      return prev.map(msg =>
-        msg.id === lastPending.id
-          ? {
-              ...msg,
-              intimatePay: {
-                ...msg.intimatePay!,
-                status: 'rejected' as const
-              }
+    // 更新消息状态为已拒绝
+    setMessages(prev => prev.map(msg =>
+      msg.id === lastPending.id
+        ? {
+            ...msg,
+            intimatePay: {
+              ...msg.intimatePay!,
+              status: 'rejected' as const
             }
-          : msg
-      )
-    })
+          }
+        : msg
+    ))
 
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
@@ -1101,6 +1134,7 @@ export const rejectIntimatePayHandler: CommandHandler = {
       aiReadableContent: `${character?.nickname || character?.realName || '对方'}拒绝了你的亲密付邀请`,
       type: 'system'
     })
+    console.log('📝 [拒绝亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
@@ -1503,6 +1537,8 @@ export const changeSongHandler: CommandHandler = {
 export const aiMemoHandler: CommandHandler = {
   pattern: /\[随笔:(.*?)\]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
+    console.log('🎯 [随笔处理器] 被调用!', { match: match[0], content })
+    
     if (!character) return { handled: false }
     
     const noteContent = match[1].trim()

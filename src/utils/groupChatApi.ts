@@ -9,6 +9,7 @@ import type { ChatMessage } from '../types/chat'
 import type { Emoji } from './emojiStorage'
 import { loadMessages } from './simpleMessageManager'
 import type { GroupChatSummary } from './groupChatSummary'
+import { getRecentAIInteractions } from './aiInteractionMemory'
 
 export interface GroupMember {
   id: string
@@ -38,8 +39,7 @@ function buildGroupChatPrompt(
   userMessage: string,
   emojis: Emoji[] = [],
   announcement?: string,
-  privateChatSync?: { enabled: boolean, messageCount: number },
-  summary?: GroupChatSummary  // 🔥 总结（可选）
+  summary?: GroupChatSummary  // 总结（可选）
 ): string {
   // 构建详细的时间信息
   const now = new Date()
@@ -194,40 +194,78 @@ ${messages.slice(-3).map(msg => `${msg.userName}: ${msg.content}`).join('\n')}`
 
 ${aiMembersInfo}
 
-${privateChatSync && privateChatSync.enabled ? `
-### 成员私信记录（AI记忆增强）
-
-重要：以下是每个AI成员与用户的私聊记录，帮助你了解他们之间的关系和互动历史。
-
-${aiMembers.map(member => {
-  // 加载该成员与用户的私信
-  const privateMsgs = loadMessages(member.id) || []
-  const recentPrivateMsgs = privateMsgs.slice(-privateChatSync.messageCount)
+${(() => {
+  // 根据每个角色的groupChatSync设置，收集可以同步的私信
+  const syncedPrivateChats = aiMembers.filter(member => {
+    // 读取该角色的聊天设置
+    const settingsStr = localStorage.getItem(`chat_settings_${member.id}`)
+    if (!settingsStr) return false
+    
+    try {
+      const settings = JSON.parse(settingsStr)
+      return settings.groupChatSync?.enabled === true
+    } catch {
+      return false
+    }
+  }).map(member => {
+    // 读取该角色的聊天设置获取同步条数
+    const settingsStr = localStorage.getItem(`chat_settings_${member.id}`)
+    let messageCount = 20 // 默认20条
+    if (settingsStr) {
+      try {
+        const settings = JSON.parse(settingsStr)
+        messageCount = settings.groupChatSync?.messageCount || 20
+      } catch {}
+    }
+    
+    // 加载该成员与用户的私信
+    const privateMsgs = loadMessages(member.id) || []
+    const recentPrivateMsgs = privateMsgs.slice(-messageCount)
+    
+    if (recentPrivateMsgs.length === 0) {
+      return `**${member.name}** 与用户的私信：（暂无私信记录）`
+    }
+    
+    const chatLog = recentPrivateMsgs.map(msg => {
+      const sender = msg.type === 'sent' ? '用户' : member.name
+      let content = msg.content
+      
+      // 处理特殊消息类型
+      if (msg.messageType === 'voice') content = '[语音消息]'
+      else if (msg.messageType === 'photo') content = `[图片: ${msg.photoDescription || '照片'}]`
+      else if (msg.messageType === 'location') content = '[位置消息]'
+      else if (msg.messageType === 'transfer') content = `[转账: ¥${(msg as any).transferAmount || ''}]`
+      else if (msg.content?.includes('[视频通话]')) content = '[视频通话]'
+      
+      return `${sender}: ${content}`
+    }).join('\n')
+    
+    return `**${member.name}** 与用户的私信（最近${recentPrivateMsgs.length}条）：
+${chatLog}`
+  })
   
-  if (recentPrivateMsgs.length === 0) {
-    return `**${member.name}** 与用户的私信：（暂无私信记录）`
+  if (syncedPrivateChats.length === 0) {
+    return ''
   }
   
-  const chatLog = recentPrivateMsgs.map(msg => {
-    const sender = msg.type === 'sent' ? '用户' : member.name
-    let content = msg.content
-    
-    // 处理特殊消息类型
-    if (msg.messageType === 'voice') content = '[语音消息]'
-    else if (msg.messageType === 'photo') content = `[图片: ${msg.photoDescription || '照片'}]`
-    else if (msg.messageType === 'location') content = '[位置消息]'
-    else if (msg.messageType === 'transfer') content = `[转账: ¥${(msg as any).transferAmount || ''}]`
-    else if (msg.content?.includes('[视频通话]')) content = '[视频通话]'
-    
-    return `${sender}: ${content}`
-  }).join('\n')
-  
-  return `**${member.name}** 与用户的私信（最近${recentPrivateMsgs.length}条）：
-${chatLog}`
-}).join('\n\n---\n\n')}
+  return `
+### 成员私信记录（AI记忆增强）
+
+重要：以下是开启了"群聊同步"的成员与用户的私聊记录，帮助你了解他们之间的关系和互动历史。
+
+${syncedPrivateChats.join('\n\n---\n\n')}
 
 ---
-` : ''}
+`
+})()}
+
+### AI互动历史（朋友圈）
+
+以下是所有AI最近的朋友圈互动记录，帮助你了解谁做了什么事情：
+
+${getRecentAIInteractions(30)}
+
+---
 
 ${contextInfo}
 
@@ -330,11 +368,6 @@ ${emojiList}
   - 性格内向/话少的角色，少说或不说是正常的（0-3条）
   - **关键是要符合人设，不是强行平均分配**
 - **性格简单≠台词敷衍**：即使只有简短的性格描述，也要认真创作台词，不要水
-
-**重要**：不要为了凑条数而水群，也不要为了省条数而把话憋着分几轮说
-
----
-
 ## 🗣️ 口语化要求（核心！）
 
 ### 每条消息必须像真人打字
@@ -362,6 +395,40 @@ ${emojiList}
 - **表情包使用建议**：可以在合适的情境中发送表情包（如大笑、哭泣、尴尬等），但不要过度使用
 
 **重要**：真人聊天时，该说完整的时候就会一次说完，不要为了"模拟真实"而把话题拖成10轮对话！
+
+---
+
+## 📝 消息分段格式要求
+
+‼️ **禁止单条消息内一大段没有分段的长文本！**
+
+如果某个角色需要说很长的内容（超过50字），必须：
+- ✅ 分成多条短消息连续发送（推荐）
+- ✅ 或在单条消息内换行分段（每2-3句话换一行）
+
+**错误示例**：
+❌ \`{"actorName": "小明", "content": "啊我今天去了超市买了好多东西然后在路上遇到了一只小猫它好可爱我就喂了它一点零食然后它一直跟着我走我就带它回家了现在它在我房间里睡觉呢你要不要来看看..."}\` ← 一大段太长不分段
+
+**正确示例**：
+✅ 方案1（多条短消息 - 推荐）：
+\`\`\`
+{"actorName": "小明", "content": "啊我今天去了超市"},
+{"actorName": "小明", "content": "买了好多东西"},
+{"actorName": "小明", "content": "然后在路上遇到了一只小猫"},
+{"actorName": "小明", "content": "它好可爱我就喂了它一点零食"},
+{"actorName": "小明", "content": "现在它在我房间里睡觉呢"},
+{"actorName": "小明", "content": "你要不要来看看？"}
+\`\`\`
+
+✅ 方案2（单条消息内换行）：
+\`\`\`
+{"actorName": "小明", "content": "啊我今天去了超市\\n买了好多东西\\n\\n然后在路上遇到了一只小猫\\n它好可爱我就喂了它一点零食\\n\\n现在它在我房间里睡觉呢\\n你要不要来看看？"}
+\`\`\`
+
+**要点**：
+- 像平时微信聊天一样自然地分段
+- 避免连续多个空行（最多1个空行，即\\n\\n）
+- 长内容分成多个小段落，保持阅读舒适
 
 ---
 
@@ -474,7 +541,6 @@ export async function generateGroupChatReply(
   userMessage: string,
   emojis: Emoji[] = [],
   announcement?: string,
-  privateChatSync?: { enabled: boolean, messageCount: number },
   summary?: GroupChatSummary  // 🔥 总结（可选）
 ): Promise<GroupChatScript | null> {
   try {
@@ -503,24 +569,11 @@ export async function generateGroupChatReply(
       人设: m.description.substring(0, 50) + '...'
     })))
     
-    // 显示私聊同步信息
-    if (privateChatSync && privateChatSync.enabled) {
-      console.log('\n💬 私聊同步配置：')
-      console.log(`  ✅ 已启用，同步条数: ${privateChatSync.messageCount}`)
-      const aiMembers = members.filter(m => m.type === 'character')
-      aiMembers.forEach(member => {
-        const privateMsgs = loadMessages(member.id) || []
-        console.log(`  - ${member.name}: 共${privateMsgs.length}条私信，同步最近${Math.min(privateMsgs.length, privateChatSync.messageCount)}条`)
-      })
-    } else {
-      console.log('\n💬 私聊同步: ❌ 未启用')
-    }
-    
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.groupEnd()
     
     // 构建提示词
-    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, privateChatSync, summary)
+    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary)
     
     // 🔥 输出完整提示词
     console.group('🤖 [群聊导演] 完整AI提示词')
@@ -542,22 +595,20 @@ export async function generateGroupChatReply(
     ]
     const aiReply = await callAIApi(apiMessages, settings)
     
-    // 🔥 输出AI原始回复
-    console.group('💭 [群聊导演] AI原始回复')
+    // 输出AI原始回复
+    console.group(' [群聊导演] AI原始回复')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(aiReply)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log(`📏 回复长度: ${aiReply.length}字符`)
+    console.log(aiReply.content.length > 500 ? aiReply.content.substring(0, 500) + '...(太长，省略)' : aiReply.content)
     console.groupEnd()
     
     // 解析响应
-    const script = extractGroupChatScript(aiReply)
+    const script = extractGroupChatScript(aiReply.content)
     
     if (script) {
-      // 🔥 输出解析后的剧本
-      console.group('🎭 [群聊导演] 解析后的剧本')
+      // 输出解析后的剧本
+      console.group(' [群聊导演] 解析后的剧本')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('\n🔗 关系分析：')
+      console.log('\n 关系分析：')
       console.log(script.relationships)
       console.log('\n📖 情节构思：')
       console.log(script.plot)

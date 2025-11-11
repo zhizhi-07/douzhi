@@ -392,7 +392,7 @@ export const addNotificationToChat = (characterId: string, content: string): voi
 
 /**
  * 解析AI回复，支持多条消息（按换行分隔）
- * 特殊处理：[视频通话]指令会把它和后面的开场白合并成一条
+ * 特殊处理：[视频通话]指令会把它和后面的开场白合并成一条（遇到空行分隔）
  */
 export const parseAIMessages = (aiReply: string): string[] => {
   // 检测视频通话指令
@@ -402,7 +402,7 @@ export const parseAIMessages = (aiReply: string): string[] => {
     // 找到[视频通话]的位置
     const parts = aiReply.split(videoCallMatch[0])
     const beforeCall = parts[0]?.trim() || ''
-    const afterCall = parts[1]?.trim() || ''
+    const afterCall = parts[1] || ''
     
     const messages: string[] = []
     
@@ -415,11 +415,29 @@ export const parseAIMessages = (aiReply: string): string[] => {
       messages.push(...beforeMessages)
     }
     
-    // [视频通话] + 开场白合并成一条特殊消息
-    const videoCallMessage = [videoCallMatch[0], afterCall]
-      .filter(p => p)
-      .join('\n')
+    // 🔥 修复：只把紧跟在[视频通话]后的连续内容当作开场白，遇到空行就分隔
+    // 按双换行符（空行）分段
+    const afterCallParts = afterCall.split(/\n\s*\n/)
+    
+    // 第一段是开场白（可能包含多行）
+    const openingLines = afterCallParts[0]?.trim() || ''
+    const videoCallMessage = openingLines 
+      ? `${videoCallMatch[0]}\n${openingLines}`
+      : videoCallMatch[0]
     messages.push(videoCallMessage)
+    
+    // 后面的段落作为普通消息
+    for (let i = 1; i < afterCallParts.length; i++) {
+      const segment = afterCallParts[i]?.trim()
+      if (segment) {
+        // 每个段落可能包含多行，按行分割
+        const segmentLines = segment
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+        messages.push(...segmentLines)
+      }
+    }
     
     return messages
   }

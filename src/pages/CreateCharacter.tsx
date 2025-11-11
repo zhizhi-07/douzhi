@@ -83,7 +83,23 @@ const CreateCharacter = () => {
         // 显示成功提示
         const cardVersion = (characterCard as any).spec === 'chara_card_v2' ? 'V2' : 'V1'
         const hasWorldBook = converted.characterBook?.entries?.length > 0
-        alert(`✅ 成功导入 Character Card ${cardVersion}!\n\n角色名: ${converted.name}\n创建者: ${converted.creator || '未知'}${hasWorldBook ? `\n世界书条目: ${converted.characterBook.entries.length}` : ''}`)
+        let message = `✅ 成功导入 Character Card ${cardVersion}!\n\n角色名: ${converted.name}\n创建者: ${converted.creator || '未知'}`
+        
+        if (hasWorldBook) {
+          // 检查是否有包含"状态栏"的条目
+          const statusBarEntries = converted.characterBook.entries.filter((e: any) => {
+            const name = e.comment || e.name || ''
+            const content = e.content || ''
+            return name.includes('状态栏') || content.includes('状态栏')
+          })
+          
+          message += `\n世界书条目: ${converted.characterBook.entries.length}`
+          if (statusBarEntries.length > 0) {
+            message += `\n\n💡 提示：检测到 ${statusBarEntries.length} 个包含"状态栏"的条目，创建角色时会自动禁用`
+          }
+        }
+        
+        alert(message)
       }
       
       reader.onerror = () => {
@@ -120,13 +136,19 @@ const CreateCharacter = () => {
     // 如果有导入的世界书，则创建并关联
     if (importedCharacterBook && importedCharacterBook.entries?.length > 0) {
       try {
-        const lorebook = lorebookManager.importFromCharacterCard(
+        const result = lorebookManager.importFromCharacterCard(
           importedCharacterBook,
           newCharacter.id,
-          newCharacter.name
+          newCharacter.realName
         )
-        if (lorebook) {
-          console.log('✅ 世界书导入成功:', lorebook.name, '条目数:', lorebook.entries.length)
+        if (result && result.lorebook) {
+          console.log('✅ 世界书导入成功:', result.lorebook.name, '条目数:', result.lorebook.entries.length)
+          
+          // 如果有被禁用的条目，显示提示
+          if (result.disabledEntries.length > 0) {
+            const disabledList = result.disabledEntries.map(e => `• ${e.name}`).join('\n')
+            alert(`✅ 世界书导入成功！\n\n⚠️ 已自动禁用 ${result.disabledEntries.length} 个栏目：\n${disabledList}\n\n原因：${result.disabledEntries[0].reason}\n\n如需重新启用，请前往世界书管理页面编辑`)
+          }
         }
       } catch (error) {
         console.error('世界书导入失败:', error)

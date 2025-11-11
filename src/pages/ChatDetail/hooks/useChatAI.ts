@@ -193,8 +193,9 @@ export const useChatAI = (
       let lorebookContextText = ''
       let memoryContextText = ''
       
-      // 读取所有消息（用于多个地方）
-      const allMessages = loadMessages(chatId)
+      // 🔥 修复：使用 React 状态中的 messages，确保包含最新的用户消息
+      // 而不是从存储重新加载（IndexedDB 写入可能有延迟）
+      const allMessages = messages
       
       // 检查最后一条消息的场景模式
       const lastUserMessage = allMessages.filter(m => m.type === 'sent').pop()
@@ -368,14 +369,99 @@ export const useChatAI = (
 
       // ⏱ 开始计时
       const startTime = Date.now()
+      
+      // 🔥 设置当前场景模式标记（供API检测流式）
+      localStorage.setItem('current-scene-mode', currentSceneMode)
 
       const apiResult = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings
       )
       
-      const aiReply = apiResult.content
-      const usage = apiResult.usage
+      let aiReply = apiResult.content
+      let usage = apiResult.usage
+      
+      // 🌊 处理流式响应（仅线下模式+开启流式）
+      if ((apiResult as any).isStream && currentSceneMode === 'offline') {
+        console.log('🌊 [流式] 检测到流式响应，开始逐字显示')
+        
+        const response = (apiResult as any).response
+        const reader = response.body?.getReader()
+        const decoder = new TextDecoder()
+        
+        if (reader) {
+          let accumulatedText = ''
+          
+          // 创建临时消息用于逐步更新
+          const tempMessageId = Date.now()
+          const tempMessage: Message = {
+            ...createMessage('', 'received'),
+            id: tempMessageId,
+            sceneMode: 'offline'
+          }
+          
+          setMessages(prev => [...prev, tempMessage])
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              
+              if (done) break
+              
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6)
+                  
+                  if (data === '[DONE]') continue
+                  
+                  try {
+                    const parsed = JSON.parse(data)
+                    const content = parsed.choices?.[0]?.delta?.content || ''
+                    
+                    if (content) {
+                      accumulatedText += content
+                      
+                      // 更新临时消息
+                      setMessages(prev => prev.map(m => 
+                        m.id === tempMessageId 
+                          ? { ...m, content: accumulatedText }
+                          : m
+                      ))
+                    }
+                  } catch (e) {
+                    // 忽略解析错误
+                  }
+                }
+              }
+            }
+            
+            aiReply = accumulatedText
+            console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length)
+            
+            // 保存到IndexedDB
+            setTimeout(() => {
+              setMessages(prev => {
+                saveMessages(chatId, prev)
+                return prev
+              })
+              scrollToBottom()
+            }, 100)
+            
+            setIsAiTyping(false)
+            ;(window as any).__AI_REPLYING__ = false
+            console.log('🚦 [流式] AI回复结束，清除全局标志')
+            return // 直接返回，跳过后续处理
+            
+          } catch (streamError) {
+            console.error('❌ [流式] 流式处理错误:', streamError)
+            setMessages(prev => prev.filter(m => m.id !== tempMessageId))
+            throw streamError
+          }
+        }
+      }
       
       // ⏱ 计算响应时间
       const responseTime = Date.now() - startTime
@@ -565,6 +651,10 @@ export const useChatAI = (
       // 再解析朋友圈互动指令
       const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterDelete, aiName, aiId)
       
+      console.log('🔍 [朋友圈互动解析] 原始消息:', messageAfterDelete)
+      console.log('🔍 [朋友圈互动解析] 清理后消息:', cleanedMessage)
+      console.log('🔍 [朋友圈互动解析] 互动数量:', interactions.length)
+      
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {
         console.log('📱 检测到朋友圈互动指令:', interactions)
@@ -673,7 +763,10 @@ export const useChatAI = (
                 
                 // 特殊处理引用指令
                 if ('quotedMsg' in result) {
-                  quotedMsg = result.quotedMsg
+                  // 🔥 修复：只有当找到被引用的消息时才更新 quotedMsg，避免覆盖继承的引用
+                  if (result.quotedMsg !== undefined) {
+                    quotedMsg = result.quotedMsg
+                  }
                   messageContent = result.messageContent || ''
                 } else if (result.remainingText !== undefined) {
                   messageContent = result.remainingText
@@ -861,7 +954,7 @@ export const useChatAI = (
         console.error('[自动总结] 检查失败:', error)
       }
     }
-  }, [character, chatId, setMessages, setError, onVideoCallRequest])  // chatId和setMessages必须保留
+  }, [character, chatId, setMessages, setError, onVideoCallRequest, messages])  // 🔥 添加 messages 依赖，确保使用最新的消息列表
 
   /**
    * 重新生成AI回复

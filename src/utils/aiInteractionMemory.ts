@@ -65,9 +65,16 @@ export function recordAIInteraction(record: Omit<AIInteractionRecord, 'id' | 'ti
 
 /**
  * 获取最近的AI互动记录（格式化为可读文本）
+ * @param limit 最多返回多少条记录
+ * @param includeDM 是否包含私信记录（默认false，私信应该是私密的）
  */
-export function getRecentAIInteractions(limit: number = 30): string {
-  const records = loadAIMemory().slice(-limit)
+export function getRecentAIInteractions(limit: number = 30, includeDM: boolean = false): string {
+  let records = loadAIMemory().slice(-limit)
+  
+  // 🔥 过滤掉私信记录（私信是私密的，不应该被其他AI看到）
+  if (!includeDM) {
+    records = records.filter(r => r.actionType !== 'dm')
+  }
   
   if (records.length === 0) {
     return '（暂无AI互动记录）'

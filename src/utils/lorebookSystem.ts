@@ -51,6 +51,11 @@ export interface Lorebook {
   updated_at: number
 }
 
+export interface LorebookImportResult {
+  lorebook: Lorebook
+  disabledEntries: { name: string; reason: string }[]  // 被禁用的条目
+}
+
 // 存储键
 const STORAGE_KEY_LOREBOOKS = 'lorebooks'
 const STORAGE_KEY_GLOBAL_LOREBOOK = 'global_lorebook_id'
@@ -239,7 +244,7 @@ class LorebookManager {
    * 导入世界书（JSON）
    * 支持本系统格式和 SillyTavern 格式
    */
-  importLorebook(jsonString: string): Lorebook | null {
+  importLorebook(jsonString: string): LorebookImportResult | null {
     try {
       const data = JSON.parse(jsonString)
       
@@ -253,8 +258,8 @@ class LorebookManager {
         throw new Error('无效的世界书格式')
       }
 
-      // 创建新的世界书
-      return this.createLorebook({
+      // 创建新的世界书（本系统格式，无需检测状态栏）
+      const lorebook = this.createLorebook({
         name: data.name,
         description: data.description || '',
         entries: data.entries || [],
@@ -264,6 +269,11 @@ class LorebookManager {
         is_global: false,
         character_ids: []
       })
+      
+      return {
+        lorebook,
+        disabledEntries: []  // 本系统格式不需要禁用条目
+      }
     } catch (error) {
       console.error('导入世界书失败:', error)
       return null
@@ -273,7 +283,7 @@ class LorebookManager {
   /**
    * 从 Character Card 导入世界书
    */
-  importFromCharacterCard(characterBook: any, characterId: string, characterName: string): Lorebook | null {
+  importFromCharacterCard(characterBook: any, characterId: string, characterName: string): LorebookImportResult | null {
     try {
       console.log('📚 从角色卡导入世界书:', characterName)
       
@@ -288,17 +298,17 @@ class LorebookManager {
       }
       
       // 导入世界书
-      const lorebook = this.importFromSillyTavern(convertedData)
+      const result = this.importFromSillyTavern(convertedData)
       
-      if (lorebook) {
+      if (result && result.lorebook) {
         // 关联到角色
-        this.updateLorebook(lorebook.id, { 
+        this.updateLorebook(result.lorebook.id, { 
           character_ids: [characterId] 
         })
         console.log('✅ 世界书导入成功，已关联到角色')
       }
       
-      return lorebook
+      return result
     } catch (error) {
       console.error('从角色卡导入世界书失败:', error)
       return null
@@ -338,7 +348,7 @@ class LorebookManager {
   /**
    * 从 SillyTavern 格式导入
    */
-  private importFromSillyTavern(data: any): Lorebook {
+  private importFromSillyTavern(data: any): LorebookImportResult {
     console.log('检测到 SillyTavern 格式，开始转换...')
     
     // 将 entries 转换为数组（如果是对象格式）
@@ -360,13 +370,18 @@ class LorebookManager {
       const secondaryKeys = Array.isArray(stEntry.keysecondary) ? stEntry.keysecondary : []
       const allKeys = [...primaryKeys, ...secondaryKeys].filter(k => k && k.trim())
       
+      // 检查条目名称或内容是否包含"状态栏"
+      const entryName = stEntry.comment || stEntry.name || ''
+      const entryContent = stEntry.content || ''
+      const hasStatusBar = entryName.includes('状态栏') || entryContent.includes('状态栏')
+      
       return {
         id: `entry_${baseTimestamp}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         name: stEntry.comment || stEntry.name || `条目 ${index + 1}`,
         keys: allKeys,
         content: stEntry.content || '',
-        // 支持 enabled 或 disable 字段
-        enabled: stEntry.disable === true ? false : (stEntry.enabled !== false),
+        // 支持 enabled 或 disable 字段，如果包含"状态栏"则自动禁用
+        enabled: hasStatusBar ? false : (stEntry.disable === true ? false : (stEntry.enabled !== false)),
         
         // 优先级和顺序
         priority: stEntry.priority !== undefined ? stEntry.priority : 500,
@@ -394,8 +409,21 @@ class LorebookManager {
       }
     })
 
+    // 统计被禁用的状态栏条目
+    const disabledStatusBarEntries = entries.filter(e => {
+      const hasStatusBar = e.name.includes('状态栏') || e.content.includes('状态栏')
+      return hasStatusBar && !e.enabled
+    })
+    
+    if (disabledStatusBarEntries.length > 0) {
+      console.log(`⚠️ 检测到 ${disabledStatusBarEntries.length} 个包含"状态栏"的条目，已自动禁用:`)
+      disabledStatusBarEntries.forEach(e => {
+        console.log(`  - ${e.name}`)
+      })
+    }
+
     // 创建世界书
-    return this.createLorebook({
+    const lorebook = this.createLorebook({
       name: data.name || '导入的世界书',
       description: data.description || '从 SillyTavern 导入',
       entries: entries,
@@ -405,6 +433,15 @@ class LorebookManager {
       is_global: false,
       character_ids: []
     })
+
+    // 返回导入结果
+    return {
+      lorebook,
+      disabledEntries: disabledStatusBarEntries.map(e => ({
+        name: e.name,
+        reason: '包含"状态栏"关键词'
+      }))
+    }
   }
 
   /**

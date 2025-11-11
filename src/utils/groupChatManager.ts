@@ -22,10 +22,6 @@ export interface GroupChat {
   lastMessage?: string
   lastMessageTime?: string
   announcement?: string  // 群公告
-  privateChatSync?: {
-    enabled: boolean  // 是否启用私聊同步
-    messageCount: number  // 同步私聊消息条数（默认10条）
-  }
   smartSummary?: {
     enabled: boolean  // 是否启用智能总结
     triggerInterval?: number  // 每隔多少轮对话触发一次总结（默认10轮）

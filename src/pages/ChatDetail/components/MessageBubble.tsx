@@ -35,6 +35,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   // 如果过滤后内容为空，不显示
   if (!displayContent) return null
 
+  // 格式化文本：优化段落显示
+  const formatText = (text: string) => {
+    // 将文本按换行符分割成段落
+    const paragraphs = text.split('\n')
+    
+    return paragraphs.map((para, index) => {
+      const trimmedPara = para.trim()
+      // 跳过空段落
+      if (!trimmedPara) {
+        // 保留空行，但限制连续空行数量
+        if (index > 0 && paragraphs[index - 1].trim() === '') {
+          return null // 跳过连续的空行
+        }
+        return <br key={index} />
+      }
+      
+      return (
+        <React.Fragment key={index}>
+          {index > 0 && <br />}
+          <span>{trimmedPara}</span>
+        </React.Fragment>
+      )
+    }).filter(Boolean)
+  }
+
   return (
     <div
       className="message-bubble px-2.5 py-1.5 break-words cursor-pointer message-press text-sm"
@@ -44,7 +69,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}
     >
-      <div className="whitespace-pre-wrap">{displayContent}</div>
+      <div className="leading-relaxed">{formatText(displayContent)}</div>
     </div>
   )
 }

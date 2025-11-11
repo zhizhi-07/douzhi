@@ -20,8 +20,6 @@ const GroupChatSettings = () => {
   const [tempAnnouncement, setTempAnnouncement] = useState('')
   const [managingMember, setManagingMember] = useState<{id: string, name: string, role: string, title?: string} | null>(null)
   const [newTitle, setNewTitle] = useState('')
-  const [privateChatSyncEnabled, setPrivateChatSyncEnabled] = useState(false)
-  const [privateChatSyncCount, setPrivateChatSyncCount] = useState(10)
   const [smartSummaryEnabled, setSmartSummaryEnabled] = useState(false)
   const [smartSummaryInterval, setSmartSummaryInterval] = useState(10)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
@@ -32,8 +30,6 @@ const GroupChatSettings = () => {
     if (group) {
       setGroupName(group.name)
       setAnnouncement(group.announcement || '')
-      setPrivateChatSyncEnabled(group.privateChatSync?.enabled || false)
-      setPrivateChatSyncCount(group.privateChatSync?.messageCount || 10)
       setSmartSummaryEnabled(group.smartSummary?.enabled || false)
       setSmartSummaryInterval(group.smartSummary?.triggerInterval || 10)
       // 加载成员信息
@@ -215,77 +211,14 @@ const GroupChatSettings = () => {
           </div>
         </div>
 
-        {/* 私聊同步 */}
-        <div className="bg-white rounded-2xl p-4">
-          <div className="text-sm text-gray-500 mb-3">AI记忆增强</div>
-          
-          {/* 同步开关 */}
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-medium text-gray-900">同步私信</p>
-              <p className="text-xs text-gray-500 mt-0.5">让AI了解成员与你的私聊内容</p>
-            </div>
-            <button
-              onClick={() => {
-                const newEnabled = !privateChatSyncEnabled
-                setPrivateChatSyncEnabled(newEnabled)
-                if (id) {
-                  groupChatManager.updateGroup(id, {
-                    privateChatSync: {
-                      enabled: newEnabled,
-                      messageCount: privateChatSyncCount
-                    }
-                  })
-                }
-              }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                privateChatSyncEnabled ? 'bg-gray-900' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                  privateChatSyncEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* 同步条数滑块 */}
-          {privateChatSyncEnabled && (
-            <div className="pt-3 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-600">同步消息条数</span>
-                <span className="text-xs font-medium text-gray-900">{privateChatSyncCount}条</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="50"
-                step="5"
-                value={privateChatSyncCount}
-                onChange={(e) => {
-                  const newCount = parseInt(e.target.value)
-                  setPrivateChatSyncCount(newCount)
-                  if (id) {
-                    groupChatManager.updateGroup(id, {
-                      privateChatSync: {
-                        enabled: privateChatSyncEnabled,
-                        messageCount: newCount
-                      }
-                    })
-                  }
-                }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>5条</span>
-                <span>50条</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                AI将读取每个成员与你的最近{privateChatSyncCount}条私信对话
-              </p>
-            </div>
-          )}
+        {/* AI记忆增强提示 */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+          <div className="text-sm text-gray-500 mb-2">💡 私信同步</div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            群聊AI是否能看到成员的私信内容，由每个角色自己的聊天设置中的"群聊同步"开关控制。
+            <br />
+            开启后，该角色的私信消息会同步到群聊AI，让群聊对话更连贯。
+          </p>
         </div>
 
         {/* 智能总结 */}
