@@ -47,9 +47,9 @@ export function parseAIMomentsPost(
   const match = message.match(pattern)
   
   if (!match) {
-    // 如果没匹配到独立一行的，尝试匹配行内的
-    // 🔥 修复：同样避免匹配到其他指令
-    const inlinePattern = /朋友圈[:：]([^\[\n]+)/
+    // 如果没匹配到独立一行的，尝试匹配行内的（包括括号）
+    // 🔥 修复：正确匹配括号内的朋友圈指令，避免留下残余括号
+    const inlinePattern = /\[朋友圈[:：]([^\[\n\]]+)\]/
     const inlineMatch = message.match(inlinePattern)
     if (inlineMatch) {
       const fullMatch = inlineMatch[1].trim()
@@ -90,7 +90,11 @@ export function parseAIMomentsPost(
           mentions
         }
         
-        const cleanedMessage = message.replace(inlineMatch[0], '').trim()
+        // 🔥 修复：替换完整的括号内容，包括括号本身
+        let cleanedMessage = message.replace(inlineMatch[0], '').trim()
+        
+        // 清理可能残留的空括号或多余空白
+        cleanedMessage = cleanedMessage.replace(/^\[?\s*\]?\s*/, '').replace(/\s*\[?\s*\]?\s*$/, '').trim()
         
         console.log('📱 [parseAIMomentsPost] 解析结果（行内）:', {
           原始消息: message,
@@ -224,12 +228,34 @@ export function parseAIMomentsDelete(
   aiId: string,
   aiName: string
 ): { deleteCmd: AIMomentsDelete | null, cleanedMessage: string } {
+  // 🔥 强制日志：调试删除朋友圈解析
+  console.log(`🗑️ [parseAIMomentsDelete] 开始解析删除指令`)
+  console.log(`📝 [parseAIMomentsDelete] 输入消息:`, message)
+  
   // 匹配格式：删除朋友圈：朋友圈内容描述
-  // 🔥 修复：避免匹配到其他指令
-  const pattern = /删除朋友圈[:：]([^\[\n]+?)(?:\n|$)/
-  const match = message.match(pattern)
+  // 🔥 修复：支持多种格式变体，包括【】括号，并处理多余的括号
+  const patterns = [
+    /删除朋友圈[:：]([^\[\n\]]+?)(?:\]|】|\n|$)/,     // 删除朋友圈：内容] 或 删除朋友圈：内容
+    /【删除朋友圈[:：]([^】\n]+?)】/,                // 【删除朋友圈：内容】
+    /\[删除朋友圈[:：]([^\]\n]+?)\]/                // [删除朋友圈：内容]
+  ]
+  
+  let match = null
+  let matchedPattern = ''
+  for (let i = 0; i < patterns.length; i++) {
+    match = message.match(patterns[i])
+    if (match) {
+      matchedPattern = `格式${i + 1}`
+      console.log(`🎯 [parseAIMomentsDelete] 匹配到${matchedPattern}:`, match[0])
+      console.log(`📋 [parseAIMomentsDelete] 提取内容:`, match[1])
+      break
+    } else {
+      console.log(`❌ [parseAIMomentsDelete] 格式${i + 1}未匹配:`, patterns[i])
+    }
+  }
   
   if (!match) {
+    console.log(`❌ [parseAIMomentsDelete] 未匹配到删除指令`)
     return { deleteCmd: null, cleanedMessage: message }
   }
   
@@ -267,7 +293,11 @@ export function parseAIMomentsDelete(
   }
   
   // 从消息中移除删除指令
-  const cleanedMessage = message.replace(match[0], '').trim()
+  // 🔥 修复：确保完整替换匹配的内容，包括可能的括号
+  let cleanedMessage = message.replace(match[0], '').trim()
+  
+  // 清理可能残留的空括号
+  cleanedMessage = cleanedMessage.replace(/^\[?\s*\]?\s*/, '').replace(/\s*\[?\s*\]?\s*$/, '').trim()
   
   console.log('🗑️ [parseAIMomentsDelete] 解析结果:', {
     原始消息: message,

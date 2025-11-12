@@ -10,6 +10,7 @@ import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
+import MusicInviteCard from '../../../components/MusicInviteCard'
 
 interface MessageItemProps {
   message: Message
@@ -27,6 +28,8 @@ interface MessageItemProps {
   onUpdateIntimatePayStatus: (messageId: number, newStatus: 'accepted' | 'rejected') => void
   onAcceptCoupleSpace: (messageId: number) => void
   onRejectCoupleSpace: (messageId: number) => void
+  onAcceptMusicInvite?: (messageId: number) => void
+  onRejectMusicInvite?: (messageId: number) => void
 }
 
 import { memo } from 'react'
@@ -46,7 +49,9 @@ const MessageItemContent = ({
   showVoiceTextMap,
   onUpdateIntimatePayStatus,
   onAcceptCoupleSpace,
-  onRejectCoupleSpace
+  onRejectCoupleSpace,
+  onAcceptMusicInvite,
+  onRejectMusicInvite
 }: MessageItemProps) => {
   // 过滤特殊标签的函数
   const filterSpecialTags = (content: string): string => {
@@ -219,6 +224,17 @@ const MessageItemContent = ({
             description={message.photoDescription || '照片'}
             messageId={message.id}
             photoBase64={message.photoBase64}
+          />
+        ) : message.messageType === 'musicInvite' && message.musicInvite ? (
+          <MusicInviteCard
+            inviterName={message.musicInvite.inviterName}
+            songTitle={message.musicInvite.songTitle}
+            songArtist={message.musicInvite.songArtist}
+            songCover={message.musicInvite.songCover}
+            status={message.musicInvite.status}
+            isSent={message.type === 'sent'}
+            onAccept={() => onAcceptMusicInvite?.(message.id)}
+            onReject={() => onRejectMusicInvite?.(message.id)}
           />
         ) : (
           <div

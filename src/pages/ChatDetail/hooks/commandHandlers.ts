@@ -198,14 +198,18 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  pattern: /[\[【]退还转账[\]】]/,
+  pattern: /[\[【]退还(转账)?[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
+      // 查找最近的待处理转账（只有pending状态才能退还）
       const lastPending = [...prev].reverse().find(
         msg => msg.messageType === 'transfer' && msg.type === 'sent' && msg.transfer?.status === 'pending'
       )
 
-      if (!lastPending) return prev
+      if (!lastPending) {
+        console.log('❌ 没有找到可退还的转账')
+        return prev
+      }
 
       const updated = prev.map(msg =>
         msg.id === lastPending.id

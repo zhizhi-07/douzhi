@@ -55,12 +55,9 @@ export async function searchOnlineMusic(keyword: string, limit: number = 50): Pr
     } else {
       // 生产环境：使用Cloudflare Worker
       console.log('🌐 使用Cloudflare Worker')
-      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/search/get/web`
+      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/api/music/search`
       params = new URLSearchParams({
-        s: keyword,
-        type: '1',
-        offset: '0',
-        limit: limit.toString()
+        keyword: keyword
       })
     }
 

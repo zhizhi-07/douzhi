@@ -9,7 +9,7 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -78,6 +78,13 @@ export interface Message {
     url: string
     name: string
     description: string
+  }
+  musicInvite?: {             // 一起听邀请
+    songTitle: string         // 歌曲标题
+    songArtist: string        // 歌手
+    songCover?: string        // 封面图片
+    inviterName: string       // 邀请人姓名
+    status: 'pending' | 'accepted' | 'rejected'  // 邀请状态
   }
 }
 

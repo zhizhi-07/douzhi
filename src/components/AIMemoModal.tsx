@@ -87,7 +87,6 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
   }
 
   if (!isOpen) {
-    console.log('❌ AIMemoModal不渲染，isOpen=false')
     return null
   }
 
@@ -260,6 +259,12 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
                           }}
                         >
                           {memo.content}
+                          <span className="text-gray-400 text-xs ml-2">
+                            --{new Date(memo.timestamp).toLocaleTimeString('zh-CN', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
                         </div>
                       </div>
                     ))}

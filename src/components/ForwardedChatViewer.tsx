@@ -76,7 +76,7 @@ const ForwardedChatViewer = ({
           <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 active:scale-95 transition-all"
+              className="w-full px-4 py-2.5 bg-gray-500 text-white rounded-full font-medium hover:bg-gray-600 active:scale-95 transition-all"
             >
               关闭
             </button>

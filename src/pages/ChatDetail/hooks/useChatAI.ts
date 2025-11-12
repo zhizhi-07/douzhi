@@ -530,7 +530,7 @@ export const useChatAI = (
       Logger.log('收到AI回复', aiReply)
       
       // AI基本信息
-      const aiName = character?.realName || 'AI'
+      const aiName = character?.nickname || character?.realName || 'AI'
       const aiId = character?.id || chatId
       const aiAvatar = character?.avatar || '🤖'
       
@@ -799,7 +799,27 @@ export const useChatAI = (
             console.log('🚫 消息已标记为被拉黑状态')
           }
           
-          await new Promise(resolve => setTimeout(resolve, 300))
+          // 🔥 计算语音播放时间，避免下一条消息覆盖
+          let voiceDelay = 300 // 默认延迟
+          
+          // 检查是否有语音设置
+          const settingsStr = localStorage.getItem(`chat_settings_${chatId}`)
+          if (settingsStr) {
+            try {
+              const settings = JSON.parse(settingsStr)
+              if (settings.voiceId && messageContent.trim()) {
+                // 粗略估算语音播放时间：中文按每分钟200字计算
+                const textLength = messageContent.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length
+                const estimatedDuration = Math.max(1000, textLength * 300) // 每字300ms，最少1秒
+                voiceDelay = Math.min(estimatedDuration, 8000) // 最多8秒
+                console.log(`🎵 [语音延迟] 文本长度: ${textLength}字, 预计播放时间: ${voiceDelay}ms`)
+              }
+            } catch (e) {
+              console.warn('解析语音设置失败:', e)
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, voiceDelay))
           
           console.log(`💬 [useChatAI] 准备保存AI消息, id=${aiMessage.id}, content="${messageContent.substring(0, 20)}"`)
           
@@ -860,48 +880,68 @@ export const useChatAI = (
                   const msgs = loadMessages(chatId)
                   const recentMessages = msgs.slice(-settings.memorySummaryInterval * 2)  // 获取最近的消息
                   
-                  const userMessages = recentMessages.filter(m => m.type === 'sent')
-                  const aiMessages = recentMessages.filter(m => m.type === 'received')
+                  // 🔥 批量处理：将消息组织成对话对，一次性提取记忆
+                  const conversationPairs: Array<{userMsg: string, aiMsg: string, timestamp: number}> = []
                   
-                  if (userMessages.length === 0 || aiMessages.length === 0) {
-                    console.log('[自动总结] 消息不足，跳过')
+                  for (let i = 0; i < recentMessages.length - 1; i++) {
+                    const msg1 = recentMessages[i]
+                    const msg2 = recentMessages[i + 1]
+                    
+                    // 确保是一对用户-AI对话
+                    if (msg1.type === 'sent' && msg2.type === 'received') {
+                      let userContent = msg1.content || msg1.photoDescription || msg1.voiceText || ''
+                      let aiContent = msg2.content || msg2.photoDescription || msg2.voiceText || ''
+                      
+                      // 处理视频通话记录
+                      if (msg1.videoCallRecord) {
+                        const conversations = msg1.videoCallRecord.messages
+                          .map(callMsg => {
+                            const speaker = callMsg.type === 'user' ? '用户' : (callMsg.type === 'ai' ? character?.realName || 'AI' : '旁白')
+                            return `${speaker}: ${callMsg.content}`
+                          })
+                          .join('\n')
+                        userContent = `[视频通话]\n${conversations}`
+                      }
+                      
+                      if (msg2.videoCallRecord) {
+                        const conversations = msg2.videoCallRecord.messages
+                          .map(callMsg => {
+                            const speaker = callMsg.type === 'user' ? '用户' : (callMsg.type === 'ai' ? character?.realName || 'AI' : '旁白')
+                            return `${speaker}: ${callMsg.content}`
+                          })
+                          .join('\n')
+                        aiContent = `[视频通话]\n${conversations}`
+                      }
+                      
+                      conversationPairs.push({
+                        userMsg: userContent,
+                        aiMsg: aiContent,
+                        timestamp: msg1.timestamp || Date.now()
+                      })
+                      i++ // 跳过下一条消息
+                    }
+                  }
+                  
+                  if (conversationPairs.length === 0) {
+                    console.log('[自动总结] 没有找到有效的对话对，跳过')
                     return
                   }
                   
-                  const roundCount = Math.min(userMessages.length, aiMessages.length)
+                  console.log(`[自动总结] 批量处理 ${conversationPairs.length} 组对话`)
                   
-                  const userContent = userMessages.map(m => {
-                    if (m.videoCallRecord) {
-                      // 提取视频通话内容
-                      const conversations = m.videoCallRecord.messages
-                        .map(msg => {
-                          const speaker = msg.type === 'user' ? '用户' : (msg.type === 'ai' ? character?.realName || 'AI' : '旁白')
-                          return `${speaker}: ${msg.content}`
-                        })
-                        .join('\n')
-                      return `[视频通话]\n${conversations}`
-                    }
-                    return m.content || m.photoDescription || m.voiceText || ''
-                  }).join('\n')
+                  // 🔥 批量合并对话内容，一次API调用处理所有对话
+                  const batchUserContent = conversationPairs.map((pair, idx) => 
+                    `[对话${idx + 1}] ${pair.userMsg}`
+                  ).join('\n\n')
                   
-                  const aiContent = aiMessages.map(m => {
-                    if (m.videoCallRecord) {
-                      // 提取视频通话内容
-                      const conversations = m.videoCallRecord.messages
-                        .map(msg => {
-                          const speaker = msg.type === 'user' ? '用户' : (msg.type === 'ai' ? character?.realName || 'AI' : '旁白')
-                          return `${speaker}: ${msg.content}`
-                        })
-                        .join('\n')
-                      return `[视频通话]\n${conversations}`
-                    }
-                    return m.content || m.photoDescription || m.voiceText || ''
-                  }).join('\n')
+                  const batchAiContent = conversationPairs.map((pair, idx) => 
+                    `[对话${idx + 1}] ${pair.aiMsg}`
+                  ).join('\n\n')
                   
                   const memorySystem = memoryManager.getSystem(chatId)
                   const result = await memorySystem.extractMemoriesFromConversation(
-                    userContent,
-                    aiContent,
+                    batchUserContent,
+                    batchAiContent,
                     character?.realName || 'AI',
                     character?.personality || '',
                     '用户'  // 用户名，暂时固定，后续可以从用户系统获取
@@ -910,7 +950,7 @@ export const useChatAI = (
                   if (result.summary && result.summary.trim()) {
                     const oldSummary = localStorage.getItem(`memory_summary_${chatId}`) || ''
                     const timestamp = new Date().toLocaleString('zh-CN')
-                    const newEntry = `【自动总结 - ${timestamp}】\n基于最近 ${roundCount} 轮对话生成\n\n${result.summary}`
+                    const newEntry = `【自动总结 - ${timestamp}】\n基于最近 ${conversationPairs.length} 轮对话生成\n\n${result.summary}`
                     
                     // 限制总结历史数量（只保留最近5次）
                     let summaryHistory = oldSummary

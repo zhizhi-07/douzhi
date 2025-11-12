@@ -292,7 +292,7 @@ export const useVideoCall = (
       id: Date.now(),
       type: 'system',
       content: '你拒绝了视频通话',  // 用户看到的文本
-      aiReadableContent: '用户拒绝了你的视频通话请求',  // AI读取的文本
+      aiReadableContent: `[重要]用户拒绝了你的视频通话请求。你主动打给用户的视频电话被拒绝了，用户不想接听。`,  // AI读取的文本
       time: new Date().toLocaleTimeString('zh-CN', {
         hour: '2-digit',
         minute: '2-digit'
@@ -357,7 +357,7 @@ export const useVideoCall = (
           id: Date.now(),
           type: 'system',
           content: `视频通话 ${duration}秒`,  // 用户看到的
-          aiReadableContent: `用户接听了你的视频通话，但没有说话，通话${duration}秒后挂断了`,  // AI看到的：让AI知道用户接听了
+          aiReadableContent: `[重要]用户接听了你主动发起的视频通话，但通话中没有说话，${duration}秒后用户挂断了电话。`,  // AI看到的：让AI知道用户接听了
           time: new Date().toLocaleTimeString('zh-CN', {
             hour: '2-digit',
             minute: '2-digit'
@@ -373,7 +373,7 @@ export const useVideoCall = (
           id: Date.now(),
           type: 'system',
           content: `你拨打了视频通话 ${duration}秒（未接通）`,  // 用户看到的
-          aiReadableContent: `用户给你打了视频电话，拨打了${duration}秒，但没有接通，被用户取消了`,  // AI看到的
+          aiReadableContent: `[重要]用户给你打了视频电话，拨打了${duration}秒，但没有接通，被用户取消了。`,  // AI看到的
           time: new Date().toLocaleTimeString('zh-CN', {
             hour: '2-digit',
             minute: '2-digit'
@@ -402,6 +402,10 @@ export const useVideoCall = (
         id: Date.now(),
         type: 'system',
         content: `视频通话 ${Math.floor(duration / 60)}分${duration % 60}秒`,
+        aiReadableContent: `[重要]你们进行了${Math.floor(duration / 60)}分${duration % 60}秒的视频通话。通话内容：${dialogMessages.map(msg => {
+          const speaker = msg.type === 'user' ? '用户' : '你'
+          return `${speaker}: ${msg.content}`
+        }).join('; ')}`,
         time: new Date().toLocaleTimeString('zh-CN', {
           hour: '2-digit',
           minute: '2-digit'

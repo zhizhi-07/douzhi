@@ -1,10 +1,12 @@
 /**
  * 消息列表组件
+ * 🔥 性能优化：超过50条消息时自动启用虚拟化
  */
 
 import { forwardRef } from 'react'
 import type { Message, Character } from '../../../types/chat'
 import MessageItem from './MessageItem'
+import VirtualMessageList from './VirtualMessageList'
 
 interface MessageListProps {
   messages: Message[]
@@ -43,6 +45,36 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
   onAcceptCoupleSpace,
   onRejectCoupleSpace
 }, ref) => {
+  // 🔥 性能优化：超过30条消息时启用虚拟化
+  const shouldUseVirtualization = messages.length > 30
+  
+  console.log(`📊 [MessageList] 消息数量: ${messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}`)
+  
+  if (shouldUseVirtualization) {
+    // 使用虚拟化组件
+    return (
+      <VirtualMessageList
+        messages={messages}
+        character={character}
+        isAiTyping={isAiTyping}
+        onMessageLongPress={onMessageLongPress}
+        onMessageLongPressEnd={onMessageLongPressEnd}
+        onViewRecalledMessage={onViewRecalledMessage}
+        onViewCallRecord={onViewCallRecord}
+        onReceiveTransfer={onReceiveTransfer}
+        onRejectTransfer={onRejectTransfer}
+        onPlayVoice={onPlayVoice}
+        onToggleVoiceText={onToggleVoiceText}
+        playingVoiceId={playingVoiceId}
+        showVoiceTextMap={showVoiceTextMap}
+        onUpdateIntimatePayStatus={onUpdateIntimatePayStatus}
+        onAcceptCoupleSpace={onAcceptCoupleSpace}
+        onRejectCoupleSpace={onRejectCoupleSpace}
+      />
+    )
+  }
+  
+  // 少量消息时使用普通渲染
   return (
     <div 
       ref={ref}

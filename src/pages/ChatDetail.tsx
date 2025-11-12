@@ -28,6 +28,7 @@ import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useT
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
+import VirtualMessageList from './ChatDetail/components/VirtualMessageList'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
@@ -223,37 +224,50 @@ const ChatDetail = () => {
   const isInitialLoadRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
+  // 滚动到底部的函数（必须在useEffect之前定义）
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current
+      if (smooth) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        })
+      } else {
+        container.scrollTop = container.scrollHeight
+      }
+    }
+  }, [])
+  
   // 初始加载时立即跳到底部，不要动画
   useEffect(() => {
     if (isInitialLoadRef.current && chatState.messages.length > 0) {
-      // 直接设置scrollTop，不使用scrollIntoView避免动画
       // 使用setTimeout确保DOM已经渲染完成
       setTimeout(() => {
+        scrollToBottom(false) // 初始加载不用动画
+        // 初始加载完成后启用平滑滚动
         if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
-          // 初始加载完成后启用平滑滚动
           scrollContainerRef.current.classList.add('enable-smooth')
         }
-      }, 0)
+      }, 100) // 增加延迟确保虚拟化渲染完成
       isInitialLoadRef.current = false
     }
-  }, [chatState.messages])
+  }, [chatState.messages, scrollToBottom])
   
   // 后续消息更新时使用平滑滚动
   useEffect(() => {
     if (!isInitialLoadRef.current && chatState.messages.length > 0) {
-      chatAI.scrollToBottom(false)
+      // 使用setTimeout确保DOM更新后再滚动
+      setTimeout(() => scrollToBottom(true), 50)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatState.messages.length])
+  }, [chatState.messages.length, scrollToBottom])
   
   // AI打字时滚动
   useEffect(() => {
     if (chatAI.isAiTyping) {
-      chatAI.scrollToBottom(false)
+      setTimeout(() => scrollToBottom(true), 50)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatAI.isAiTyping])
+  }, [chatAI.isAiTyping, scrollToBottom])
   
   if (!chatState.character) {
     return (
@@ -264,6 +278,14 @@ const ChatDetail = () => {
   }
   
   const character = chatState.character
+  
+  // 虚拟化判断逻辑（启用虚拟化，解决性能问题）
+  const shouldUseVirtualization = chatState.messages.length > 50 // 50条消息以上启用虚拟化
+  
+  // 减少日志频率，避免输入时刷屏
+  if (chatState.messages.length % 10 === 0 || !shouldUseVirtualization) {
+    console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}`)
+  }
   
   return (
     <div 
@@ -355,9 +377,37 @@ const ChatDetail = () => {
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll" 
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {chatState.messages.filter(msg => !(msg as any).hideInUI).map((message, index) => {
+        {shouldUseVirtualization ? (
+          <VirtualMessageList
+            messages={chatState.messages}
+            character={character}
+            isAiTyping={chatAI.isAiTyping}
+            onMessageLongPress={longPress.handleLongPressStart}
+            onMessageLongPressEnd={longPress.handleLongPressEnd}
+            onViewRecalledMessage={modals.setViewingRecalledMessage}
+            onViewCallRecord={modals.setViewingCallRecord}
+            onReceiveTransfer={transfer.handleReceiveTransfer}
+            onRejectTransfer={transfer.handleRejectTransfer}
+            onPlayVoice={(messageId) => voice.handlePlayVoice(messageId, 0)}
+            onToggleVoiceText={(messageId) => voice.handleToggleVoiceText(messageId)}
+            playingVoiceId={voice.playingVoiceId}
+            showVoiceTextMap={voice.showVoiceTextMap}
+            onUpdateIntimatePayStatus={(messageId, newStatus) => {
+              chatState.setMessages(prev => prev.map(msg =>
+                msg.id === messageId && msg.intimatePay
+                  ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
+                  : msg
+              ))
+            }}
+            onAcceptCoupleSpace={coupleSpace.acceptInvite}
+            onRejectCoupleSpace={coupleSpace.rejectInvite}
+            onAcceptMusicInvite={musicInvite.acceptInvite}
+            onRejectMusicInvite={musicInvite.rejectInvite}
+          />
+        ) : (
+          chatState.messages.map((message, index) => {
           // 获取过滤后的消息列表用于计算时间戳
-          const visibleMessages = chatState.messages.filter(msg => !(msg as any).hideInUI)
+          const visibleMessages = chatState.messages
           // 判断是否需要显示5分钟时间戳（固定时间刻度）
           const prevMsg = visibleMessages[index - 1]
           let shouldShow5MinTimestamp = false
@@ -618,7 +668,8 @@ const ChatDetail = () => {
             )}
           </div>
           )
-        })}
+        })
+        )}
         
         {chatAI.isAiTyping && (
           <div className="flex items-start gap-1.5 my-1 message-enter message-enter-left">
@@ -641,7 +692,9 @@ const ChatDetail = () => {
             </div>
           </div>
         )}
-        <div ref={chatAI.messagesEndRef} />
+        
+        {/* 消息结束标记 - 用于滚动定位 */}
+        <div ref={chatAI.messagesEndRef} id="messages-end" />
       </div>
       
       {/* 多选模式底部操作栏 */}

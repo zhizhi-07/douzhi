@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Message } from '../../../types/chat'
+import { saveMessages } from '../../../utils/simpleMessageManager'
 
 export const useMusicInvite = (
   chatId: string,
@@ -16,7 +17,7 @@ export const useMusicInvite = (
     const newMessage: Message = {
       id: Date.now() + Math.random(),
       type: 'sent',
-      messageType: 'musicInvite' as any,
+      messageType: 'musicInvite',
       content: `我想和你一起听《${songTitle}》`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       musicInvite: {
@@ -31,7 +32,11 @@ export const useMusicInvite = (
     console.log('🎵 准备添加消息，ID:', newMessage.id)
     setMessages((prev) => {
       console.log('🎵 setMessages被执行，当前消息数:', prev.length)
-      return [...prev, newMessage]
+      const updated = [...prev, newMessage]
+      // 保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [音乐邀请] 消息已保存到IndexedDB')
+      return updated
     })
   }, [chatId, setMessages])
 

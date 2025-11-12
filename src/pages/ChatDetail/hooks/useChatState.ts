@@ -40,15 +40,28 @@ export const useChatState = (chatId: string) => {
   const [error, setError] = useState<string | null>(null)
   
   /**
-   * 刷新角色信息
+   * 刷新角色信息（带重试机制）
    */
   const refreshCharacter = useCallback(() => {
     if (!chatId) return
-    const char = characterService.getById(chatId)
-    setCharacter(char)
-    if (import.meta.env.DEV) {
-      console.log('🔄 角色信息已刷新:', char?.nickname || char?.realName)
+    
+    const loadCharacterWithRetry = (retryCount = 0) => {
+      const char = characterService.getById(chatId)
+      
+      if (char) {
+        setCharacter(char)
+        if (import.meta.env.DEV) {
+          console.log('🔄 角色信息已刷新:', char.nickname || char.realName)
+        }
+      } else if (retryCount < 2) {
+        // 最多重试2次
+        setTimeout(() => loadCharacterWithRetry(retryCount + 1), 50)
+      } else {
+        console.warn(`⚠️ 刷新角色失败，ID: ${chatId}`)
+      }
     }
+    
+    loadCharacterWithRetry()
   }, [chatId])
   
   /**
@@ -76,8 +89,28 @@ export const useChatState = (chatId: string) => {
   useEffect(() => {
     if (!chatId) return
     
-    const char = characterService.getById(chatId)
-    setCharacter(char)
+    // 🔥 修复：角色加载重试机制，解决刷新后"角色不存在"问题
+    const loadCharacterWithRetry = (retryCount = 0) => {
+      const char = characterService.getById(chatId)
+      
+      if (char) {
+        setCharacter(char)
+        if (import.meta.env.DEV) {
+          console.log('✅ 角色加载成功:', char.nickname || char.realName)
+        }
+      } else if (retryCount < 3) {
+        // 角色可能还在异步加载中，等待100ms后重试
+        if (import.meta.env.DEV) {
+          console.log(`⏳ 角色未找到，${100}ms后重试 (${retryCount + 1}/3)`)
+        }
+        setTimeout(() => loadCharacterWithRetry(retryCount + 1), 100)
+      } else {
+        console.error(`❌ 角色加载失败，ID: ${chatId}`)
+        setError(`角色不存在: ${chatId}`)
+      }
+    }
+    
+    loadCharacterWithRetry()
     
     // 🔥 优先使用ensureMessagesLoaded，确保消息已加载
     ensureMessagesLoaded(chatId).then(messages => {

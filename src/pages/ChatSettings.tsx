@@ -148,9 +148,27 @@ const ChatSettings = () => {
       setSettings(loadedSettings)
       console.log('[ChatSettings] 🔄 重新加载设置:', {
         chatId: id,
+        voiceId: loadedSettings.voiceId, // 🔥 调试voiceId
         aiProactiveMessage: loadedSettings.aiProactiveMessage,
         从localStorage读取: localStorage.getItem(`chat_settings_${id}`)?.substring(0, 100)
       })
+      
+      // 🔥 专门调试voiceId
+      const rawData = localStorage.getItem(`chat_settings_${id}`)
+      if (rawData) {
+        try {
+          const parsed = JSON.parse(rawData)
+          console.log('[ChatSettings] 🎤 VoiceId调试:', {
+            原始数据中的voiceId: parsed.voiceId,
+            加载后的voiceId: loadedSettings.voiceId,
+            数据是否存在: !!parsed.voiceId
+          })
+        } catch (e) {
+          console.error('[ChatSettings] JSON解析失败:', e)
+        }
+      } else {
+        console.log('[ChatSettings] ⚠️ localStorage中没有找到设置数据')
+      }
     }
   }, [id])
   
@@ -320,8 +338,17 @@ const ChatSettings = () => {
                 value={settings.voiceId}
                 onChange={(e) => {
                   const newSettings = { ...settings, voiceId: e.target.value }
+                  console.log('[ChatSettings] 🎤 保存音色ID:', {
+                    输入值: e.target.value,
+                    新设置: newSettings,
+                    存储键: `chat_settings_${id}`
+                  })
                   setSettings(newSettings)
                   localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  
+                  // 🔥 验证保存结果
+                  const saved = localStorage.getItem(`chat_settings_${id}`)
+                  console.log('[ChatSettings] ✅ 保存后验证:', JSON.parse(saved || '{}'))
                 }}
                 placeholder="输入MiniMax音色ID"
                 className="flex-1 px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

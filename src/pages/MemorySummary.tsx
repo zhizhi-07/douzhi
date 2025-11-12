@@ -132,10 +132,16 @@ const MemorySummary = () => {
         const timestamp = new Date().toLocaleString('zh-CN')
         const fullTimeline = oldTimeline + separator + `【记忆更新 - ${timestamp}】\n提取记忆: ${extractedMemoriesCount} 条\n\n${newTimeline}`
         
+        // 🔥 强制更新UI状态
         setTimeline(fullTimeline)
         localStorage.setItem(`memory_timeline_${id}`, fullTimeline)
-        console.log('✅ 时间线已保存')
-        console.log(`📊 时间线长度: ${fullTimeline.length} 字符`)
+        
+        // 🔥 添加延迟确保状态更新
+        setTimeout(() => {
+          setTimeline(fullTimeline)
+          console.log('✅ 时间线已保存并更新UI')
+          console.log(`📊 时间线长度: ${fullTimeline.length} 字符`)
+        }, 100)
       } else {
         console.log('⚠️ 时间线生成失败，但记忆已提取')
         if (extractedMemoriesCount > 0) {

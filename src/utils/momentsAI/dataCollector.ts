@@ -49,7 +49,7 @@ export function collectCharactersInfo(characters: any[]): CharacterInfo[] {
     const chatHistory = getRecentChatHistory(char.id, 30)
     return {
       id: char.id,
-      name: char.realName,
+      name: char.nickname || char.realName,
       personality: char.personality || '温柔体贴',
       chatCount: chatHistory.length,
       recentChat: formatChatContext(chatHistory)

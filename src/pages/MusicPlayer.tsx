@@ -348,7 +348,7 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-8 overflow-y-auto">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-20 overflow-y-auto">
         {/* 一起听头像显示 - 在唱片上方 */}
         {listeningTogether && (
           <div className="flex flex-col items-center mb-6">

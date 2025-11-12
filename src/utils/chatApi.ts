@@ -804,33 +804,48 @@ const callAIApiInternal = async (
     
     // 🔥 添加朋友圈图片到消息数组（用于视觉识别）
     const momentImages = (window as any).__momentImages || []
-    if (momentImages.length > 0) {
-      if (import.meta.env.DEV) {
-        console.log(`🖼️ [朋友圈图片识别] 发现${momentImages.length}张朋友圈图片，添加到AI消息中`)
-      }
+    const MAX_API_IMAGES = 3 // API请求最多包含3张图片，避免超时
+    const limitedImages = momentImages.slice(0, MAX_API_IMAGES)
+    
+    if (limitedImages.length > 0) {
+      // 🔥 检查当前API是否支持视觉识别
+      const currentApiSettings = getApiSettings()
+      const supportsVision = currentApiSettings?.supportsVision || false
       
-      // 为每张朋友圈图片创建一个system消息
-      momentImages.forEach((imgData: any) => {
-        processedMessages.push({
-          role: 'system',
-          content: [
-            {
-              type: 'text',
-              text: `[用户朋友圈图片] ${imgData.description}`
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: imgData.imageUrl
+      // 🔥 强制日志：不依赖开发模式
+      console.log(`🖼️ [朋友圈图片识别] 发现${momentImages.length}张朋友圈图片，限制为${limitedImages.length}张`)
+      console.log(`🔍 [朋友圈图片识别] 当前API支持视觉识别: ${supportsVision}`)
+      console.log(`📋 [朋友圈图片识别] 当前API: ${currentApiSettings?.model || '未知'}`)
+      
+      if (supportsVision) {
+        // 为每张朋友圈图片创建一个system消息（限制数量）
+        limitedImages.forEach((imgData: any) => {
+          processedMessages.push({
+            role: 'system',
+            content: [
+              {
+                type: 'text',
+                text: `[用户朋友圈图片] ${imgData.description}`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imgData.imageUrl
+                }
               }
-            }
-          ]
+            ]
+          })
         })
-      })
-      
-      if (import.meta.env.DEV) {
-        console.log(`✅ [朋友圈图片识别] 已添加${momentImages.length}张朋友圈图片到消息数组`)
-        console.log('📊 [朋友圈图片识别] 更新后消息数量:', processedMessages.length)
+        
+        if (import.meta.env.DEV) {
+          console.log(`✅ [朋友圈图片识别] 已添加${momentImages.length}张朋友圈图片到消息数组`)
+          console.log('📊 [朋友圈图片识别] 更新后消息数量:', processedMessages.length)
+        }
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn(`⚠️ [朋友圈图片识别] 当前API不支持视觉识别，跳过图片处理`)
+          console.warn(`💡 [朋友圈图片识别] 请切换到支持视觉识别的API（如Gemini）`)
+        }
       }
     }
     
@@ -1154,34 +1169,77 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   
   // 🔥 存储朋友圈图片数据（用于视觉识别）
   // @ts-ignore - 添加临时属性存储图片数据
-  if (!(window as any).__momentImages) {
-    (window as any).__momentImages = []
-  } else {
+  try {
+    if (!(window as any).__momentImages || !Array.isArray((window as any).__momentImages)) {
+      (window as any).__momentImages = []
+    } else {
+      (window as any).__momentImages = []
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('❌ [朋友圈图片识别] 初始化__momentImages失败:', error)
+    }
     (window as any).__momentImages = []
   }
+  
+  // 🔥 强制日志：不依赖开发模式
+  console.log(`🔍 [朋友圈图片识别] 开始处理朋友圈，共${visibleMoments.length}条`)
   
   // 格式化朋友圈列表
   const momentsList = visibleMoments.map((m, index) => {
     const number = String(index + 1).padStart(2, '0')
     const author = m.userId === characterId ? '你' : m.userName
     
+    // 🔥 强制日志：不依赖开发模式
+    console.log(`📱 [朋友圈${number}] 作者: ${author} (ID: ${m.userId}), 图片数: ${m.images?.length || 0}`)
+    
     // 🔥 如果是用户的朋友圈且有图片，收集图片数据
     let imagesText = ''
-    if (m.images && m.images.length > 0) {
+    if (m.images && Array.isArray(m.images) && m.images.length > 0) {
       imagesText = `\n  📷 配图：${m.images.length}张`
       
       // 收集用户发的朋友圈的图片（供AI视觉识别）
       if (m.userId === 'user') {
-        m.images.forEach((img, imgIndex) => {
-          (window as any).__momentImages.push({
-            momentIndex: index + 1,
-            imageUrl: img.url, // base64格式
-            description: `朋友圈${number}的第${imgIndex + 1}张图片`
+        // 🔥 强制日志：不依赖开发模式
+        console.log(`🖼️ [朋友圈图片识别] 发现用户朋友圈${number}有${m.images.length}张图片，开始收集...`)
+        
+        try {
+          m.images.forEach((img, imgIndex) => {
+            if (img && img.url) {
+              const imageData = {
+                momentIndex: index + 1,
+                imageUrl: img.url, // base64格式
+                description: `朋友圈${number}的第${imgIndex + 1}张图片`
+              }
+              
+              (window as any).__momentImages.push(imageData)
+              
+              if (import.meta.env.DEV) {
+                console.log(`  ✅ 收集图片${imgIndex + 1}: ${img.url.substring(0, 50)}...`)
+              }
+            } else {
+              if (import.meta.env.DEV) {
+                console.warn(`  ⚠️ 图片${imgIndex + 1}数据无效:`, img)
+              }
+            }
           })
-        })
-        if (import.meta.env.DEV) {
-          console.log(`🖼️ [朋友圈图片识别] 收集到朋友圈${number}的${m.images.length}张图片`)
+          
+          if (import.meta.env.DEV) {
+            console.log(`✅ [朋友圈图片识别] 朋友圈${number}收集完成，共${m.images.length}张图片`)
+          }
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error(`❌ [朋友圈图片识别] 处理朋友圈${number}图片时出错:`, error)
+          }
         }
+      } else {
+        if (import.meta.env.DEV) {
+          console.log(`⏭️ [朋友圈图片识别] 跳过AI朋友圈${number}的图片 (作者: ${author})`)
+        }
+      }
+    } else {
+      if (import.meta.env.DEV) {
+        console.log(`📝 [朋友圈${number}] 纯文字朋友圈，无图片`)
       }
     }
     
@@ -1195,9 +1253,8 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   }).join('\n\n')
   
   const hasUserMomentImages = (window as any).__momentImages?.length > 0
-  if (import.meta.env.DEV) {
-    console.log(`📊 [朋友圈图片识别] 共收集${hasUserMomentImages ? (window as any).__momentImages.length : 0}张用户朋友圈图片`)
-  }
+  // 🔥 强制日志：不依赖开发模式
+  console.log(`📊 [朋友圈图片识别] 共收集${hasUserMomentImages ? (window as any).__momentImages.length : 0}张用户朋友圈图片`)
   
   return `
 
@@ -1267,13 +1324,18 @@ const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> =>
 
 🗑️ 你也可以删除自己的朋友圈：
 
+支持多种格式：
 删除朋友圈：朋友圈内容的关键词
+【删除朋友圈：朋友圈内容的关键词】
+[删除朋友圈：朋友圈内容的关键词]
 
 例如：
 删除朋友圈：今天心情不错
-删除朋友圈：火锅
+【删除朋友圈：火锅】
+[删除朋友圈：测试]
 
 ⚠️ 注意：
 - 只能删除你自己发的朋友圈
+- 用关键词匹配，会找到包含该关键词的朋友圈
 - 用关键词描述就行，系统会自动找到匹配的朋友圈`
 }
