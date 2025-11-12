@@ -10,7 +10,6 @@ import MessageItem from './MessageItem'
 interface VirtualMessageListProps {
   messages: Message[]
   character: Character
-  isAiTyping: boolean
   onMessageLongPress: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
   onMessageLongPressEnd: () => void
   onViewRecalledMessage: (message: Message) => void
@@ -31,7 +30,6 @@ interface VirtualMessageListProps {
 const VirtualMessageList = ({
   messages,
   character,
-  isAiTyping,
   onMessageLongPress,
   onMessageLongPressEnd,
   onViewRecalledMessage,
@@ -49,16 +47,26 @@ const VirtualMessageList = ({
   onRejectMusicInvite,
 }: VirtualMessageListProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 15 })
+  const [visibleRange, setVisibleRange] = useState(() => {
+    // 简化初始显示：总是显示最后20条消息（或全部如果少于20条）
+    const displayCount = Math.min(20, messages.length)
+    const start = Math.max(0, messages.length - displayCount)
+    return { start, end: messages.length }
+  })
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   
   // 估算消息高度（平均值）
   const ESTIMATED_MESSAGE_HEIGHT = 80
-  const BUFFER_SIZE = 3 // 上下各预加载3条消息
+  const BUFFER_SIZE = 5 // 上下各预加载5条消息
   
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return
     
-    const { scrollTop, clientHeight } = containerRef.current
+    const { scrollTop, clientHeight, scrollHeight } = containerRef.current
+    
+    // 检测是否接近底部（距离底部小于100px）
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
+    setShouldAutoScroll(isNearBottom)
     
     // 计算可见范围
     const start = Math.max(0, Math.floor(scrollTop / ESTIMATED_MESSAGE_HEIGHT) - BUFFER_SIZE)
@@ -68,6 +76,7 @@ const VirtualMessageList = ({
     )
     
     setVisibleRange({ start, end })
+    console.log('📏 [VirtualMessageList] 可见范围:', { start, end, total: messages.length })
   }, [messages.length])
   
   useEffect(() => {
@@ -78,34 +87,39 @@ const VirtualMessageList = ({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
   
-  // 当消息数量变化时，重新计算可见范围并滚动到底部
+  // 当消息数量变化时，智能处理滚动
   useEffect(() => {
-    if (containerRef.current) {
-      // 强制滚动到底部
+    if (!containerRef.current) return
+    
+    // 如果应该自动滚动（用户在底部），则滚动到底部
+    if (shouldAutoScroll) {
       setTimeout(() => {
         if (containerRef.current) {
           containerRef.current.scrollTop = containerRef.current.scrollHeight
+          console.log('🔽 [VirtualMessageList] 自动滚动到底部')
         }
-      }, 100)
-      
-      setVisibleRange({ 
-        start: Math.max(0, messages.length - 15), 
-        end: messages.length 
-      })
+      }, 50)
     }
-  }, [messages.length])
+    
+    // 重新计算可见范围
+    handleScroll()
+  }, [messages.length, shouldAutoScroll, handleScroll])
   
-  // 初始化时滚动到底部
+  // 初始化时设置正确的滚动位置
   useEffect(() => {
-    if (containerRef.current && messages.length > 0) {
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = containerRef.current.scrollHeight
-          console.log('🔽 [VirtualMessageList] 已滚动到底部')
-        }
-      }, 200)
-    }
-  }, [])
+    if (!containerRef.current || messages.length === 0) return
+    
+    // 延迟设置滚动位置，确保DOM已经渲染
+    const timer = setTimeout(() => {
+      if (containerRef.current) {
+        // 总是滚动到底部（最新消息）
+        containerRef.current.scrollTop = containerRef.current.scrollHeight
+        console.log('🔽 [VirtualMessageList] 立即滚动到底部')
+      }
+    }, 10)
+    
+    return () => clearTimeout(timer)
+  }, [messages.length])
   
   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
   const offsetTop = visibleRange.start * ESTIMATED_MESSAGE_HEIGHT
@@ -142,28 +156,6 @@ const VirtualMessageList = ({
           onRejectMusicInvite={onRejectMusicInvite}
         />
       ))}
-      
-      {/* AI打字指示器 */}
-      {isAiTyping && (
-        <div className="flex items-start gap-2 my-2 message-enter message-enter-left">
-          <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-400 flex-shrink-0">
-              {character.avatar && (
-                <img 
-                  src={character.avatar} 
-                  alt={character.realName}
-                  className="w-full h-full object-cover"
-                />
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-2xl px-3 py-2">
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-        </div>
-      )}
       
       {/* 下方占位符 */}
       <div style={{ height: Math.max(0, (messages.length - visibleRange.end) * ESTIMATED_MESSAGE_HEIGHT) }} />

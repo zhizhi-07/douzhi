@@ -100,6 +100,11 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
             const audioUrl = await getSongUrl(song.id)
             console.log('🎵 获取播放链接:', audioUrl)
             
+            if (!audioUrl) {
+              console.error('❌ 无法获取播放链接，切歌失败')
+              return
+            }
+            
             const newSong: Song = {
               id: song.id,
               title: song.name,
@@ -107,7 +112,7 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
               album: song.album || '',
               duration: song.duration,
               cover: song.cover,
-              audioUrl: audioUrl || undefined
+              audioUrl: audioUrl
             }
             
             console.log('💾 保存到本地音乐库:', newSong)
@@ -120,16 +125,17 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
             setPlaylistState(customSongs)
             setCurrentSong(newSong, customSongs.length - 1)
             setTimeout(() => {
-              if (audioRef.current && audioUrl) {
+              if (audioRef.current) {
                 console.log('▶️ 开始播放:', audioUrl)
                 audioRef.current.play().then(() => {
                   setIsPlaying(true)
                   console.log('✅ 播放成功:', songTitle)
                 }).catch(err => {
                   console.error('❌ 播放失败:', err)
+                  setIsPlaying(false)
                 })
               } else {
-                console.error('❌ audioRef或audioUrl不存在', { audioRef: !!audioRef.current, audioUrl })
+                console.error('❌ audioRef不存在')
               }
             }, 100)
           } else {

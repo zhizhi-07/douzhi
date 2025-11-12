@@ -279,8 +279,8 @@ const ChatDetail = () => {
   
   const character = chatState.character
   
-  // 虚拟化判断逻辑（启用虚拟化，解决性能问题）
-  const shouldUseVirtualization = chatState.messages.length > 50 // 50条消息以上启用虚拟化
+  // 禁用虚拟化，使用原来的布局（避免卡顿和布局改变）
+  const shouldUseVirtualization = false // 暂时禁用虚拟化
   
   // 减少日志频率，避免输入时刷屏
   if (chatState.messages.length % 10 === 0 || !shouldUseVirtualization) {
@@ -381,7 +381,6 @@ const ChatDetail = () => {
           <VirtualMessageList
             messages={chatState.messages}
             character={character}
-            isAiTyping={chatAI.isAiTyping}
             onMessageLongPress={longPress.handleLongPressStart}
             onMessageLongPressEnd={longPress.handleLongPressEnd}
             onViewRecalledMessage={modals.setViewingRecalledMessage}

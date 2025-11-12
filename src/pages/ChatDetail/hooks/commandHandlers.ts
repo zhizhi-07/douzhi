@@ -1527,7 +1527,13 @@ export const changeSongHandler: CommandHandler = {
         timestamp: Date.now()
       }
       
-      setMessages(prev => [...prev, systemMsg])
+      setMessages(prev => {
+        const updated = [...prev, systemMsg]
+        // 保存到IndexedDB
+        saveMessages(chatId, updated)
+        console.log('💾 [切歌] 系统消息已保存到IndexedDB')
+        return updated
+      })
       
       const remainingText = content.replace(match[0], '').trim()
       return {
