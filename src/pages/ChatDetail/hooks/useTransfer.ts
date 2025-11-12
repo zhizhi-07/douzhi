@@ -5,10 +5,11 @@
 
 import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
-import { createSystemMessage, addNotificationToChat } from '../../../utils/messageUtils'
+import { addNotificationToChat } from '../../../utils/messageUtils'
 import { sendTransfer, receiveTransfer, getIntimatePayRelations, useIntimatePay as deductIntimatePayAmount } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { addMessage as saveMessageToStorage, loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
+import { getUserInfo } from '../../../utils/userUtils'
 
 export const useTransfer = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
@@ -112,6 +113,10 @@ export const useTransfer = (
     const amount = transferMsg?.transfer?.amount || 0
     const transferMessage = transferMsg?.transfer?.message || '转账'
     
+    // 获取用户真实名字
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName
+    
     // 更新转账状态
     const updated = messages.map(msg => {
       if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
@@ -120,7 +125,9 @@ export const useTransfer = (
           transfer: {
             ...msg.transfer!,
             status: 'received' as const
-          }
+          },
+          // 🔥 添加AI可读内容，使用用户的真实网名
+          aiReadableContent: `[${userName}领取了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
         }
       }
       return msg
@@ -128,16 +135,12 @@ export const useTransfer = (
 
     // 增加余额
     receiveTransfer(amount, characterName, transferMessage)
-
-    // 添加系统提示告诉AI
-    const systemMessage = createSystemMessage(`已收款¥${amount.toFixed(2)}`)
-    const newMessages = [...updated, systemMessage]
     
-    // 保存到IndexedDB
-    saveMessages(chatId, newMessages)
+    // 保存更新后的消息列表
+    saveMessages(chatId, updated)
     
     // 更新React状态
-    setMessages(() => newMessages)
+    setMessages(() => updated)
   }, [setMessages, characterName, chatId])
 
   /**
@@ -145,6 +148,13 @@ export const useTransfer = (
    */
   const handleRejectTransfer = useCallback((messageId: number) => {
     const messages = loadMessages(chatId)
+    const transferMsg = messages.find(msg => msg.id === messageId)
+    const amount = transferMsg?.transfer?.amount || 0
+    const transferMessage = transferMsg?.transfer?.message || ''
+    
+    // 获取用户真实名字
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName
     
     // 更新转账状态
     const updated = messages.map(msg => {
@@ -154,21 +164,19 @@ export const useTransfer = (
           transfer: {
             ...msg.transfer!,
             status: 'expired' as const
-          }
+          },
+          // 🔥 添加AI可读内容，使用用户的真实网名
+          aiReadableContent: `[${userName}退还了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
         }
       }
       return msg
     })
 
-    // 添加系统提示告诉AI
-    const systemMessage = createSystemMessage('你已退还转账')
-    const newMessages = [...updated, systemMessage]
-    
-    // 保存到IndexedDB
-    saveMessages(chatId, newMessages)
+    // 保存更新后的消息列表
+    saveMessages(chatId, updated)
     
     // 更新React状态
-    setMessages(() => newMessages)
+    setMessages(() => updated)
   }, [setMessages, chatId])
 
   return {

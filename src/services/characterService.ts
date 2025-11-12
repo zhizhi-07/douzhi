@@ -9,7 +9,6 @@ export interface Character {
   nickname?: string
   signature?: string
   personality?: string
-  world: string
   avatar?: string
   createdAt: string
   momentsVisibleCount?: number  // AI可见的朋友圈条数，默认10条
@@ -73,89 +72,52 @@ const DEFAULT_CHARACTER: Character = {
 
 用户：帮我测试一下新功能
 汁汁：收到！马上测试！（立刻变乖）...嗯，测完了，还行吧，这次总算没出大问题。看来妈咪偶尔也是能写出点像样的代码的嘛😒`,
-  world: '现代都市',
   createdAt: '2024-01-01T00:00:00.000Z'
 }
 
 // 内存缓存
-let charactersCache: Character[] | null = null
-let isInitialized = false // 标记是否已初始化
+let charactersCache: Character[] = [DEFAULT_CHARACTER] // 🔥 默认包含汁汁，避免初始化期间返回null
 
-// 初始化：从 IndexedDB 加载到缓存
+// 🔥 优化初始化：先同步加载localStorage作为快速缓存
+try {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    charactersCache = JSON.parse(saved)
+    console.log(`⚡ 已从 localStorage 同步加载 ${charactersCache.length} 个角色（临时缓存）`)
+  }
+} catch (e) {
+  console.error('从 localStorage 加载失败:', e)
+}
+
+// 后台异步从 IndexedDB 加载最新数据
 CharacterManager.getAllCharacters().then(characters => {
   if (characters.length === 0) {
-    // 如果 IndexedDB 是空的，尝试从 localStorage 迁移
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const localCharacters = JSON.parse(saved)
-        console.log(`📦 从 localStorage 迁移 ${localCharacters.length} 个角色到 IndexedDB`)
-        CharacterManager.saveAllCharacters(localCharacters)
-        charactersCache = localCharacters
-        
-        // 迁移后清理 localStorage
-        localStorage.removeItem(STORAGE_KEY)
-      } else {
-        // 完全新用户，添加默认角色
-        charactersCache = [DEFAULT_CHARACTER]
-        CharacterManager.saveAllCharacters(charactersCache)
-      }
-    } catch (e) {
-      console.error('迁移失败:', e)
-      charactersCache = [DEFAULT_CHARACTER]
+    // 如果 IndexedDB 是空的，说明是首次使用或需要迁移
+    if (charactersCache.length > 1 || charactersCache[0].id !== DEFAULT_CHARACTER.id) {
+      // 有 localStorage 数据，迁移到 IndexedDB
+      console.log(`📦 迁移 ${charactersCache.length} 个角色到 IndexedDB`)
+      CharacterManager.saveAllCharacters(charactersCache)
+      // 迁移后清理 localStorage
+      localStorage.removeItem(STORAGE_KEY)
+    } else {
+      // 完全新用户，保存默认角色
+      CharacterManager.saveAllCharacters(charactersCache)
     }
   } else {
+    // IndexedDB 有数据，使用 IndexedDB 的数据（最新）
     charactersCache = characters
-    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色`)
+    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色（覆盖临时缓存）`)
   }
-  isInitialized = true // 标记初始化完成
+}).catch(e => {
+  console.error('从 IndexedDB 加载失败:', e)
 })
 
 export const characterService = {
   // 获取所有角色（同步，使用缓存）
   getAll: (): Character[] => {
-    // 使用缓存（启动时已加载）
-    if (charactersCache) {
-      // ✅ 只在初始化时检查并更新汁汁，避免每次调用都保存
-      if (isInitialized) {
-        // 初始化后直接返回缓存，不再检查和保存
-        return charactersCache
-      }
-      
-      // 初始化阶段：确保汁汁存在且是最新的
-      let needSave = false
-      const zhizhiIndex = charactersCache.findIndex((c: Character) => c.id === 'zhizhi-001')
-      
-      if (zhizhiIndex !== -1) {
-        // 检查是否需要更新汁汁的人设
-        const zhizhi = charactersCache[zhizhiIndex]
-        if (zhizhi.personality !== DEFAULT_CHARACTER.personality || 
-            zhizhi.signature !== DEFAULT_CHARACTER.signature) {
-          charactersCache[zhizhiIndex] = {
-            ...zhizhi,
-            personality: DEFAULT_CHARACTER.personality,
-            signature: DEFAULT_CHARACTER.signature
-          }
-          needSave = true
-        }
-      } else {
-        // 汁汁不存在，添加
-        charactersCache.unshift(DEFAULT_CHARACTER)
-        needSave = true
-      }
-      
-      // 只在真正修改时才保存
-      if (needSave) {
-        CharacterManager.saveAllCharacters(charactersCache).catch(e => 
-          console.error('保存角色失败:', e)
-        )
-      }
-      
-      return charactersCache
-    }
-    
-    // 缓存还没加载完（极少情况），返回默认
-    return [DEFAULT_CHARACTER]
+    // 🔥 直接返回缓存，无需复杂检查
+    // 因为 charactersCache 现在始终有值（最少包含默认角色）
+    return charactersCache
   },
 
   // 保存角色

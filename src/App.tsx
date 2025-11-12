@@ -50,6 +50,14 @@ import WorldBook from './pages/WorldBook'
 import EditWorldBook from './pages/EditWorldBook'
 import PresetManager from './pages/PresetManager'
 import EditPreset from './pages/EditPreset'
+import Forum from './pages/Forum'
+import ForumPostDetail from './pages/ForumPostDetail'
+import ForumProfile from './pages/ForumProfile'
+import ForumMessages from './pages/ForumMessages'
+import ForumTopics from './pages/ForumTopics'
+import ForumTopicDetail from './pages/ForumTopicDetail'
+import Map from './pages/Map'
+import LocationHistory from './pages/LocationHistory'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -208,6 +216,14 @@ function App() {
       <Route path="/edit-world-book/:id" element={<EditWorldBook />} />
       <Route path="/preset" element={<PresetManager />} />
       <Route path="/edit-preset/:id" element={<EditPreset />} />
+      <Route path="/forum" element={<Forum />} />
+      <Route path="/forum/post/:id" element={<ForumPostDetail />} />
+      <Route path="/forum/profile" element={<ForumProfile />} />
+      <Route path="/forum/messages" element={<ForumMessages />} />
+      <Route path="/forum/topics" element={<ForumTopics />} />
+      <Route path="/forum/topic/:name" element={<ForumTopicDetail />} />
+      <Route path="/map" element={<Map />} />
+      <Route path="/location-history/:characterId" element={<LocationHistory />} />
     </Routes>
     </>
   )

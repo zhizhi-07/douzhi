@@ -6,6 +6,7 @@ import { MusicPlayerProvider } from './context/MusicPlayerContext'
 import './index.css'
 import './styles/animations.css'
 import './styles/bubble-default.css'
+import 'leaflet/dist/leaflet.css'
 // 🔥 立即加载清理工具
 import './utils/cleanupLocalStorage'
 

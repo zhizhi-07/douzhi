@@ -13,7 +13,6 @@ const CharacterDetail = () => {
     realName: '',
     signature: '',
     personality: '',
-    world: '',
     avatar: ''
   })
 
@@ -27,7 +26,6 @@ const CharacterDetail = () => {
           realName: data.realName,
           signature: data.signature || '',
           personality: data.personality || '',
-          world: data.world,
           avatar: data.avatar || ''
         })
       }
@@ -205,14 +203,6 @@ const CharacterDetail = () => {
             ) : (
               <p className="text-gray-900 text-sm">{character.personality || '未设置'}</p>
             )}
-          </div>
-
-          <div className="border-b border-gray-100 my-3"></div>
-
-          {/* 世界 */}
-          <div>
-            <label className="block text-xs text-gray-500 mb-1.5">所属世界</label>
-            <p className="text-gray-900 text-sm">{character.world}</p>
           </div>
         </div>
 

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Message } from '../../../types/chat'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import type { Emoji } from '../../../utils/emojiStorage'
+import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
 
 export const useEmoji = (
   chatId: string,
@@ -16,7 +17,7 @@ export const useEmoji = (
     const emojiMessage: Message = {
       id: Date.now(),
       type: 'sent',
-      content: `[表情包:${emoji.id}]`,
+      content: `[表情包:${emoji.description}]`,  // 🔥 使用description让AI知道是什么表情
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
       messageType: 'emoji',
@@ -29,10 +30,14 @@ export const useEmoji = (
       }
     }
     
-    // 只使用 setMessages，它会自动保存到 IndexedDB
+    // 🔥 保存到IndexedDB（触发new-message事件）
+    saveMessageToStorage(chatId, emojiMessage)
+    console.log('💾 表情包已保存到IndexedDB:', emoji.description)
+    
+    // 更新React状态
     setMessages(prev => [...prev, emojiMessage])
     
-    console.log('📤 发送表情包:', emoji.name, isUserBlocked ? '(被AI拉黑)' : '')
+    console.log('📤 发送表情包:', emoji.description, isUserBlocked ? '(被AI拉黑)' : '')
   }, [chatId, setMessages])
 
   return {

@@ -271,9 +271,11 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
       
       // 表情包消息转换为AI可读格式
       if (msg.messageType === 'emoji' && msg.emoji) {
+        // 🔥 修复：让AI看到的格式和AI应该使用的格式一致，避免AI混淆
+        // AI看到：[表情:描述] → AI学会：也要用[表情:描述]格式发送
         const emojiInfo = msg.type === 'sent'
-          ? `[用户发了表情包: ${msg.emoji.description}]`
-          : `[你发了表情包: ${msg.emoji.description}]`
+          ? `[用户发了表情包] [表情:${msg.emoji.description}]`
+          : `[表情:${msg.emoji.description}]`  // AI自己发的，直接显示指令格式
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
           content: emojiInfo

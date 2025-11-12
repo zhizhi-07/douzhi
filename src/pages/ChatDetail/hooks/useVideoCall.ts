@@ -49,8 +49,11 @@ export const useVideoCall = (
   const addAIMessage = useCallback(async (content: string) => {
     console.log('🎬 [addAIMessage] 开始处理:', { content: content.substring(0, 50) })
     
-    // 🔥 使用计数器确保ID唯一
-    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    // 🔥 生成绝对唯一的ID：时间戳 * 10000 + 计数器
+    const now = Date.now()
+    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
+    
+    console.log('🎯 [addAIMessage] 生成消息ID:', { uniqueId, now, counter: messageIdCounterRef.current - 1 })
     
     const newMessage: CallMessage = {
       id: uniqueId,
@@ -87,10 +90,16 @@ export const useVideoCall = (
         
         // 语音生成完成后，显示文字
         setCallMessages(prev => {
-          console.log('📝 [视频通话] 正在更新消息列表，添加文字')
+          // 🔥 防重复检查
+          const isDuplicate = prev.some(m => m.id === uniqueId)
+          if (isDuplicate) {
+            console.warn('⚠️ [视频通话] 检测到重复消息ID:', uniqueId, '，跳过添加')
+            return prev
+          }
+          console.log('📝 [视频通话] 正在更新消息列表，添加文字, ID:', uniqueId)
           return [...prev, newMessage]
         })
-        console.log('✅ [视频通话] 文字已添加到状态')
+        console.log('✅ [视频通话] 文字已添加到状态, ID:', uniqueId)
         
         // 立即播放音频
         const audio = new Audio(ttsResult.audioUrl)
@@ -107,20 +116,32 @@ export const useVideoCall = (
         // 没有配置语音，直接显示文字
         console.warn('⚠️ [视频通话] 未配置音色ID，跳过语音生成，直接显示文字')
         setCallMessages(prev => {
-          console.log('📝 [视频通话] 直接添加文字（无语音）')
+          // 🔥 防重复检查
+          const isDuplicate = prev.some(m => m.id === uniqueId)
+          if (isDuplicate) {
+            console.warn('⚠️ [视频通话] 检测到重复消息ID:', uniqueId, '，跳过添加')
+            return prev
+          }
+          console.log('📝 [视频通话] 直接添加文字（无语音）, ID:', uniqueId)
           return [...prev, newMessage]
         })
-        console.log('✅ [视频通话] 文字已添加（无语音模式）')
+        console.log('✅ [视频通话] 文字已添加（无语音模式）, ID:', uniqueId)
       }
     } catch (error) {
       console.error('❌ [视频通话] 语音生成失败:', error)
       console.error('❌ 错误详情:', error)
       // 语音失败也要显示文字
       setCallMessages(prev => {
-        console.log('📝 [视频通话] 语音失败，添加文字')
+        // 🔥 防重复检查
+        const isDuplicate = prev.some(m => m.id === uniqueId)
+        if (isDuplicate) {
+          console.warn('⚠️ [视频通话] 检测到重复消息ID:', uniqueId, '，跳过添加')
+          return prev
+        }
+        console.log('📝 [视频通话] 语音失败，添加文字, ID:', uniqueId)
         return [...prev, newMessage]
       })
-      console.log('✅ [视频通话] 文字已添加（语音失败后）')
+      console.log('✅ [视频通话] 文字已添加（语音失败后）, ID:', uniqueId)
     }
     
     console.log('🏁 [addAIMessage] 处理完成')
@@ -132,8 +153,9 @@ export const useVideoCall = (
   const addNarratorMessage = useCallback((content: string) => {
     console.log('📺 [useVideoCall] 添加旁白消息:', content)
     
-    // 🔥 使用计数器确保ID唯一
-    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    // 🔥 生成绝对唯一的ID
+    const now = Date.now()
+    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
     
     const newMessage: CallMessage = {
       id: uniqueId,
@@ -240,6 +262,9 @@ export const useVideoCall = (
     
     // 如果是AI主动打来的
     if (isAIInitiated) {
+      // 🔥 修复：无论有没有开场白，都要标记为AI发起
+      isAIInitiatedRef.current = true
+      
       // 检查是否有开场白
       if (openingLinesRef.current && openingLinesRef.current.trim()) {
         console.log('🎤 AI已在第1次回复中说了开场白，直接显示，不调用API')
@@ -248,7 +273,6 @@ export const useVideoCall = (
       } else {
         console.log('⚠️ 开场白为空！AI主动打来的电话，标记让AI先说话（需要调用API）')
         shouldAISpeakFirst.current = true
-        isAIInitiatedRef.current = true // 保存到ref，用于提示词
       }
       setIsAIInitiated(false)
     }
@@ -292,7 +316,7 @@ export const useVideoCall = (
   /**
    * 结束视频通话
    */
-  const endCall = useCallback(() => {
+  const endCall = useCallback(async () => {
     console.log('📹 结束视频通话')
     
     // 停止当前播放的音频
@@ -317,28 +341,50 @@ export const useVideoCall = (
     console.log('📊 通话状态检查:', {
       duration,
       callMessagesCount: callMessages.length,
-      hasRealConversation
+      hasRealConversation,
+      isAIInitiated: isAIInitiatedRef.current
     })
     
     if (!hasRealConversation && duration >= 0) {
-      // 用户打了电话但没有接通就挂断了（包括0秒的情况）
-      console.log('📞 用户拨打但未接通，时长:', duration, '秒')
+      // 🔥 修复：区分AI主动发起和用户主动拨打
+      let cancelMessage: Message
       
-      const cancelMessage: Message = {
-        id: Date.now(),
-        type: 'system',
-        content: `你拨打了视频通话 ${duration}秒（未接通）`,  // 用户看到的
-        aiReadableContent: `用户给你打了视频电话，拨打了${duration}秒，但没有接通，被用户取消了`,  // AI看到的
-        time: new Date().toLocaleTimeString('zh-CN', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        timestamp: Date.now(),
-        messageType: 'system'
+      if (isAIInitiatedRef.current) {
+        // AI主动打来的电话，用户接听了但没说话就挂了
+        console.log('📞 AI主动发起通话，用户接听但无对话，时长:', duration, '秒')
+        
+        cancelMessage = {
+          id: Date.now(),
+          type: 'system',
+          content: `视频通话 ${duration}秒`,  // 用户看到的
+          aiReadableContent: `用户接听了你的视频通话，但没有说话，通话${duration}秒后挂断了`,  // AI看到的：让AI知道用户接听了
+          time: new Date().toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          timestamp: Date.now(),
+          messageType: 'system'
+        }
+      } else {
+        // 用户打了电话但没有接通就挂断了（包括0秒的情况）
+        console.log('📞 用户拨打但未接通，时长:', duration, '秒')
+        
+        cancelMessage = {
+          id: Date.now(),
+          type: 'system',
+          content: `你拨打了视频通话 ${duration}秒（未接通）`,  // 用户看到的
+          aiReadableContent: `用户给你打了视频电话，拨打了${duration}秒，但没有接通，被用户取消了`,  // AI看到的
+          time: new Date().toLocaleTimeString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          timestamp: Date.now(),
+          messageType: 'system'
+        }
       }
       
       addMessage(chatId, cancelMessage)
-      console.log('💾 [useVideoCall] 已保存拨打未接通记录')
+      console.log('💾 [useVideoCall] 已保存通话记录')
       
       // 更新React状态
       setMessages(prev => {
@@ -378,7 +424,7 @@ export const useVideoCall = (
       
       // 立即保存到localStorage
       addMessage(chatId, recordMessage)
-      console.log('✅ [useVideoCall] localStorage保存完成')
+      console.log('💾 [useVideoCall] localStorage保存完成')
       
       // 更新React状态（用于UI显示）
       setMessages(prev => {
@@ -387,6 +433,10 @@ export const useVideoCall = (
         console.log('📋 [useVideoCall] 新消息列表最后一条:', newMessages[newMessages.length - 1])
         return newMessages
       })
+      
+      // 等待50ms确保保存完成（给IndexedDB写入时间）
+      await new Promise(resolve => setTimeout(resolve, 50))
+      console.log('✅ [useVideoCall] 视频通话记录保存等待完成')
     }
 
     setIsCallActive(false)
@@ -400,8 +450,11 @@ export const useVideoCall = (
    * 发送用户消息
    */
   const sendMessage = useCallback((content: string) => {
-    // 🔥 使用计数器确保ID唯一
-    const uniqueId = Date.now() + (messageIdCounterRef.current++)
+    // 🔥 生成绝对唯一的ID
+    const now = Date.now()
+    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
+    
+    console.log('💬 [sendMessage] 用户发送消息, ID:', uniqueId, 'content:', content.substring(0, 30))
     
     const newMessage: CallMessage = {
       id: uniqueId,
@@ -412,7 +465,15 @@ export const useVideoCall = (
         minute: '2-digit'
       })
     }
-    setCallMessages(prev => [...prev, newMessage])
+    setCallMessages(prev => {
+      // 🔥 防重复检查
+      const isDuplicate = prev.some(m => m.id === uniqueId)
+      if (isDuplicate) {
+        console.warn('⚠️ [sendMessage] 检测到重复消息ID:', uniqueId, '，跳过添加')
+        return prev
+      }
+      return [...prev, newMessage]
+    })
   }, [])
 
   /**
@@ -432,12 +493,23 @@ export const useVideoCall = (
 
       const systemPrompt = buildVideoCallPrompt(character, '用户', isAIInitiatedRef.current)
 
+      // 🔥 修复：从localStorage重新读取最新消息（确保包含视频通话记录）
+      const { loadMessages } = await import('../../../utils/simpleMessageManager')
+      const allStoredMessages = loadMessages(chatId)
+      console.log('📦 [视频通话AI回复] 从localStorage读取消息:', allStoredMessages.length)
+      
       // 构建对话历史（使用用户设置的消息条数）
-      const recentMessages = getRecentMessages(chatMessages, chatId)
+      const recentMessages = getRecentMessages(allStoredMessages, chatId)
       const recentChatContext = recentMessages.map(msg => ({
         role: msg.type === 'sent' ? ('user' as 'user') : ('assistant' as 'assistant'),
         content: msg.content || msg.voiceText || '...'
       }))
+      
+      console.log('📊 [视频通话AI回复] 聊天历史:', {
+        总消息数: allStoredMessages.length,
+        最近消息数: recentMessages.length,
+        包含视频通话记录: recentMessages.some(m => m.messageType === 'video-call-record')
+      })
       
       const callContext = callMessages.map(msg => {
         if (msg.type === 'narrator') {
@@ -588,10 +660,16 @@ export const useVideoCall = (
       if (error instanceof ChatApiError) {
         // 403错误特殊处理
         if (error.message.includes('403')) {
-          addAIMessage('抱歉，API权限验证失败，请检查API密钥是否有效...')
+          addAIMessage('API权限验证失败，请检查API密钥')
+        } else if (error.message.includes('timeout') || error.message.includes('超时')) {
+          addAIMessage('API响应超时，请稍后重试')
+        } else if (error.message.includes('network') || error.message.includes('网络')) {
+          addAIMessage('网络连接失败，请检查网络')
         } else {
-          addAIMessage('抱歉，网络有点卡...')
+          addAIMessage(`API调用失败: ${error.message}`)
         }
+      } else {
+        addAIMessage('发生错误，请重试')
       }
     } finally {
       setIsAITyping(false)

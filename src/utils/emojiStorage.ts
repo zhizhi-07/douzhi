@@ -38,50 +38,42 @@ export async function getEmojis(): Promise<Emoji[]> {
       return emojiCache
     }
 
-    // 🔥 优先从 localStorage 读取（因为它是同步保存的，最可靠）
+    // 🔥 优先从 IndexedDB 读取（支持大文件）
+    if (IDB.isIndexedDBAvailable()) {
+      const data = await IDB.getItem<Emoji[]>(STORAGE_KEY)
+      if (data && Array.isArray(data) && data.length > 0) {
+        console.log('✅ 从IndexedDB读取表情包:', data.length, '个')
+        emojiCache = data
+        return emojiCache
+      }
+    }
+
+    // 如果 IndexedDB 没有数据，尝试从 localStorage 迁移
     const lsData = localStorage.getItem(STORAGE_KEY)
     if (lsData) {
       try {
         const result = JSON.parse(lsData)
         if (Array.isArray(result) && result.length > 0) {
-          console.log('✅ 从localStorage读取表情包:', result.length, '个')
+          console.log('📦 从localStorage迁移表情包:', result.length, '个')
           emojiCache = result
           
-          // 异步同步到 IndexedDB（作为备份）
+          // 迁移到 IndexedDB
           if (IDB.isIndexedDBAvailable()) {
-            Promise.resolve().then(async () => {
-              try {
-                await IDB.setItem(STORAGE_KEY, result)
-                console.log('✅ 已同步到IndexedDB备份')
-              } catch (err) {
-                console.warn('⚠️ 同步到IndexedDB失败:', err)
-              }
-            })
+            try {
+              await IDB.setItem(STORAGE_KEY, result)
+              console.log('✅ 已迁移到IndexedDB')
+              // 迁移后清理localStorage释放空间
+              localStorage.removeItem(STORAGE_KEY)
+              console.log('🗑️ 已清理localStorage旧数据')
+            } catch (err) {
+              console.warn('⚠️ 迁移到IndexedDB失败:', err)
+            }
           }
           
           return result
         }
       } catch (parseError) {
         console.error('❌ localStorage数据解析失败:', parseError)
-      }
-    }
-
-    // 如果 localStorage 没有数据，尝试从 IndexedDB 恢复
-    if (IDB.isIndexedDBAvailable()) {
-      const data = await IDB.getItem<Emoji[]>(STORAGE_KEY)
-      if (data && Array.isArray(data) && data.length > 0) {
-        console.log('✅ 从IndexedDB恢复表情包:', data.length, '个')
-        emojiCache = data
-        
-        // 恢复到 localStorage
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-          console.log('✅ 已恢复到localStorage')
-        } catch (err) {
-          console.warn('⚠️ 恢复到localStorage失败:', err)
-        }
-        
-        return emojiCache
       }
     }
 
@@ -99,43 +91,35 @@ export async function getEmojis(): Promise<Emoji[]> {
  */
 export async function saveEmojis(emojis: Emoji[]): Promise<boolean> {
   try {
-    // 🔥 关键修复：先同步保存到 localStorage，确保数据不会丢失
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(emojis))
-      console.log('✅ 表情包已同步保存到localStorage:', emojis.length, '个')
-    } catch (lsError) {
-      console.error('❌ localStorage保存失败:', lsError)
-      // localStorage 是主要的持久化存储，如果失败就抛出错误
-      if (lsError instanceof Error && lsError.name === 'QuotaExceededError') {
-        throw new Error('存储空间不足，请尝试删除一些不常用的表情包')
-      }
-      throw lsError
-    }
-    
-    // 更新缓存（在 localStorage 保存成功后立即更新）
-    emojiCache = emojis
-    
-    // 然后异步保存到 IndexedDB（作为额外的备份）
+    // 🔥 主要存储：IndexedDB（支持大文件）
     if (IDB.isIndexedDBAvailable()) {
-      // 使用 Promise.resolve().then() 让 IndexedDB 写入在下一个事件循环中执行
-      // 这样即使用户立即关闭页面，localStorage 的数据也已经保存了
-      Promise.resolve().then(async () => {
-        try {
-          await IDB.setItem(STORAGE_KEY, emojis)
-          console.log('✅ 表情包已异步备份到IndexedDB:', emojis.length, '个')
-        } catch (idbError) {
-          console.warn('⚠️ IndexedDB备份失败（不影响使用）:', idbError)
+      await IDB.setItem(STORAGE_KEY, emojis)
+      console.log('✅ 表情包已保存到IndexedDB:', emojis.length, '个')
+    } else {
+      // IndexedDB 不可用，降级到 localStorage
+      console.warn('⚠️ IndexedDB不可用，使用localStorage')
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(emojis))
+        console.log('✅ 表情包已保存到localStorage:', emojis.length, '个')
+      } catch (lsError) {
+        console.error('❌ localStorage保存失败:', lsError)
+        if (lsError instanceof Error && lsError.name === 'QuotaExceededError') {
+          throw new Error('存储空间不足，请尝试删除一些不常用的表情包。建议使用现代浏览器以获得更大存储空间')
         }
-      })
+        throw lsError
+      }
     }
+    
+    // 更新缓存
+    emojiCache = emojis
     
     return true
   } catch (error) {
     console.error('❌ 保存表情包失败:', error)
     
     // 如果是配额超出错误，给出更明确的提示
-    if (error instanceof Error && error.name === 'QuotaExceededError') {
-      throw new Error('存储空间不足，请尝试删除一些不常用的表情包')
+    if (error instanceof Error && error.message.includes('存储空间不足')) {
+      throw error
     }
     
     return false

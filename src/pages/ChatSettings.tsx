@@ -15,6 +15,7 @@ import BubbleSettings from './ChatSettings/BubbleSettings'
 import { clearMessages } from '../utils/simpleMessageManager'
 import { testVoiceConfig } from '../utils/voiceApi'
 import { voiceService } from '../services/voiceService'
+import { exportCharacterData, downloadCharacterData } from '../utils/characterDataExporter'
 
 interface ChatSettingsData {
   messageLimit: number  // 读取的消息条数
@@ -231,15 +232,30 @@ const ChatSettings = () => {
     reader.readAsDataURL(file)
   }
   
+  // 导出角色数据
+  const handleExportData = async () => {
+    if (!id) return
+    
+    try {
+      console.log('🚀 开始导出角色数据...')
+      const data = await exportCharacterData(id)
+      downloadCharacterData(data)
+      alert(`✅ 导出成功！\n\n角色：${data.character.realName}\n聊天记录：${data.messages.length} 条\nAI随笔：${data.memos.length} 条\n记忆：${data.memories.length} 条\n朋友圈：${data.moments.length} 条\n世界书：${data.lorebook?.entries?.length || 0} 条\n表情包：${data.emojis.length} 个`)
+    } catch (error) {
+      console.error('导出失败:', error)
+      alert('导出失败，请重试')
+    }
+  }
+  
   // 清空聊天记录
   const clearChatHistory = async () => {
     if (!id) return
     
-    if (confirm('确定要清空所有聊天记录吗？\n此操作不可恢复！')) {
+    if (window.confirm('确定要清空所有聊天记录吗？此操作不可恢复！')) {
       try {
         await clearMessages(id)
-        alert('聊天记录已清空！')
-        // 触发消息更新事件
+        alert('聊天记录已清空')
+        // 触发消息加载事件，通知其他组件刷新
         window.dispatchEvent(new CustomEvent('messages-loaded', { detail: { chatId: id } }))
         navigate(`/chat/${id}`)
       } catch (error) {
@@ -802,6 +818,37 @@ const ChatSettings = () => {
               </div>
             </div>
           )}
+        </div>
+        
+        {/* 导出角色数据 */}
+        <div className="bg-white rounded-[48px] p-4">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-gray-900">
+              导出角色完整数据
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              导出角色的所有信息，包括聊天记录、随笔、记忆、朋友圈、世界书、表情包等
+            </p>
+          </div>
+          
+          <button
+            onClick={handleExportData}
+            className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium rounded-[32px] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            导出完整数据
+          </button>
+          
+          <div className="mt-3 p-3 bg-blue-500/10 backdrop-blur-sm rounded-[32px] border border-blue-300/30">
+            <div className="flex items-start gap-2 text-gray-700 text-xs">
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>导出的JSON文件可以在创建角色时上传导入，完整恢复所有数据</span>
+            </div>
+          </div>
         </div>
         
         {/* 清空聊天记录 */}

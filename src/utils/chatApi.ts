@@ -340,7 +340,6 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 对所有角色字段应用变量替换
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
   const signature = character.signature ? replaceSTVariables(character.signature, character, userName) : ''
-  const world = character.world ? replaceSTVariables(character.world, character, userName) : ''
   const scenario = character.scenario ? replaceSTVariables(character.scenario, character, userName) : ''
   
   // 获取用户信息
@@ -395,7 +394,6 @@ ${stateDesc}，这会影响你回复的态度和方式。
 
 你就是${charName}。${personality}
 ${signature ? `你的签名写着"${signature}"。` : ''}
-${world ? `你生活在${world}。` : ''}
 ${scenario ? `\n当前场景：${scenario}` : ''}
 
 ══════════════════════════════════
@@ -776,6 +774,34 @@ const callAIApiInternal = async (
     console.log('🚀 发送给AI的消息数量:', processedMessages.length)
     console.log('🖼️ 包含图片的消息数量:', processedMessages.filter((m: any) => Array.isArray(m.content)).length)
     
+    // 🔥 添加朋友圈图片到消息数组（用于视觉识别）
+    const momentImages = (window as any).__momentImages || []
+    if (momentImages.length > 0) {
+      console.log(`🖼️ [朋友圈图片识别] 发现${momentImages.length}张朋友圈图片，添加到AI消息中`)
+      
+      // 为每张朋友圈图片创建一个system消息
+      momentImages.forEach((imgData: any) => {
+        processedMessages.push({
+          role: 'system',
+          content: [
+            {
+              type: 'text',
+              text: `[用户朋友圈图片] ${imgData.description}`
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imgData.imageUrl
+              }
+            }
+          ]
+        })
+      })
+      
+      console.log(`✅ [朋友圈图片识别] 已添加${momentImages.length}张朋友圈图片到消息数组`)
+      console.log('📊 [朋友圈图片识别] 更新后消息数量:', processedMessages.length)
+    }
+    
     // 检查是否启用流式（仅线下模式）
     const offlineStreamEnabled = localStorage.getItem('offline-streaming') === 'true'
     const isOfflineRequest = localStorage.getItem('current-scene-mode') === 'offline'
@@ -1089,18 +1115,48 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
     return ''
   }
   
+  // 🔥 存储朋友圈图片数据（用于视觉识别）
+  // @ts-ignore - 添加临时属性存储图片数据
+  if (!(window as any).__momentImages) {
+    (window as any).__momentImages = []
+  } else {
+    (window as any).__momentImages = []
+  }
+  
   // 格式化朋友圈列表
   const momentsList = visibleMoments.map((m, index) => {
     const number = String(index + 1).padStart(2, '0')
     const author = m.userId === characterId ? '你' : m.userName
+    
+    // 🔥 如果是用户的朋友圈且有图片，收集图片数据
+    let imagesText = ''
+    if (m.images && m.images.length > 0) {
+      imagesText = `\n  📷 配图：${m.images.length}张`
+      
+      // 收集用户发的朋友圈的图片（供AI视觉识别）
+      if (m.userId === 'user') {
+        m.images.forEach((img, imgIndex) => {
+          (window as any).__momentImages.push({
+            momentIndex: index + 1,
+            imageUrl: img.url, // base64格式
+            description: `朋友圈${number}的第${imgIndex + 1}张图片`
+          })
+        })
+        console.log(`🖼️ [朋友圈图片识别] 收集到朋友圈${number}的${m.images.length}张图片`)
+      }
+    }
+    
     const likesText = m.likes.length > 0 
       ? `\n  点赞：${m.likes.map(l => l.userName).join('、')}` 
       : ''
     const commentsText = m.comments.length > 0
       ? `\n  评论：\n${m.comments.map(c => `    ${c.userName}: ${c.content}`).join('\n')}` 
       : ''
-    return `${number}. ${author}: ${m.content}${likesText}${commentsText}`
+    return `${number}. ${author}: ${m.content}${imagesText}${likesText}${commentsText}`
   }).join('\n\n')
+  
+  const hasUserMomentImages = (window as any).__momentImages?.length > 0
+  console.log(`📊 [朋友圈图片识别] 共收集${hasUserMomentImages ? (window as any).__momentImages.length : 0}张用户朋友圈图片`)
   
   return `
 
@@ -1115,6 +1171,7 @@ ${momentsList}
 - 点赞：点赞01
 - 回复评论：评论01回复张三 你的回复内容
 
+${hasUserMomentImages ? `\n⚠️ 重要：用户朋友圈中的图片你可以看到并识别内容，可以自然地评论图片中的具体内容、场景、人物等细节。` : ''}
 自然地使用，不要刻意。`
 }
 

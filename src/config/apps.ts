@@ -2,11 +2,11 @@ import {
   ChatIcon, 
   MusicIcon, 
   SettingsIcon, 
-  FileIcon,
   PhoneIcon,
   CalendarIcon,
   ForumIcon,
-  BookIcon
+  BookIcon,
+  MapIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -84,18 +84,18 @@ export const dockApps: AppItem[] = [
     route: '/api-list' 
   },
   { 
-    id: 'offline', 
-    name: '线下', 
-    icon: ChatIcon, 
+    id: 'forum', 
+    name: '论坛', 
+    icon: ForumIcon, 
     color: 'glass-card', 
-    route: '/offline-chat' 
+    route: '/forum' 
   },
   { 
-    id: 'customize', 
-    name: '系统设置', 
-    icon: SettingsIcon, 
+    id: 'map', 
+    name: '地图', 
+    icon: MapIcon, 
     color: 'glass-card', 
-    route: '/customize' 
+    route: '/map' 
   },
   { 
     id: 'worldbook', 

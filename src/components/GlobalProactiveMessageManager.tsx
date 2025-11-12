@@ -97,8 +97,9 @@ const GlobalProactiveMessageManager = () => {
       
       const response = await callAIApi(apiMessages, summaryApi as any)
       
-      const shouldSend = response.trim().includes('是')
+      const shouldSend = response.content.trim().includes('是')
       Logger.info(`[全局主动发消息] - ${character.nickname} 决定: ${shouldSend ? '✅ 发送' : '❌ 不发送'}`)
+      Logger.info(`[全局主动发消息] - AI原始回复: "${response.content.trim()}"`)
       
       return shouldSend
     } catch (error) {
@@ -139,7 +140,7 @@ const GlobalProactiveMessageManager = () => {
       })
 
       const response = await callAIApi(apiMessages, apiSettings)
-      const aiMessagesList = parseAIMessages(response)
+      const aiMessagesList = parseAIMessages(response.content)
 
       // 🔥 使用commandHandlers处理AI消息（支持照片、语音等指令）
       let currentMessages = loadMessages(chatId)

@@ -437,12 +437,18 @@ export const photoHandler: CommandHandler = {
 /**
  * 表情包指令处理器
  * 格式：[表情:描述] 或 [表情包:描述]
+ * 🔥 兼容错误格式：[你发了表情包：描述] 或 [我发了表情包：描述]
  * AI根据描述查找匹配的表情包发送
  */
 export const emojiHandler: CommandHandler = {
-  pattern: /[\[【]表情(?:包)?[:\：](.+?)[\]】]/,
+  pattern: /[\[【](?:(?:你|我)发了)?表情(?:包)?[:\：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
     const emojiDesc = match[1].trim()
+    
+    console.log('🎯 [表情包指令] 匹配到:', { 
+      原始文本: match[0], 
+      提取的描述: emojiDesc 
+    })
     
     // 从存储中查找匹配的表情包
     const emojis = await getEmojis()
@@ -1533,9 +1539,10 @@ export const changeSongHandler: CommandHandler = {
 
 /**
  * AI随笔处理器
+ * 🔥 支持全角和半角方括号：[随笔:...] 或 【随笔：...】
  */
 export const aiMemoHandler: CommandHandler = {
-  pattern: /\[随笔:([^\]]+)\]/,
+  pattern: /[\[【]随笔[:\：]([^\]】]+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('🎯 [随笔处理器] 被调用!', { match: match[0], content })
     
@@ -1552,7 +1559,9 @@ export const aiMemoHandler: CommandHandler = {
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName} 在小本子上记了点东西`,
       aiReadableContent: `✅ 已记录到你的小本子：${noteContent}`,
-      type: 'system'
+      type: 'system',
+      messageType: 'ai-memo',  // 标记为AI随笔类型
+      memoContent: noteContent  // 保存随笔内容用于显示
     })
     await addMessage(systemMsg, setMessages, chatId)
     

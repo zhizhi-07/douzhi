@@ -4,11 +4,13 @@ import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
 import { extractCharacterCardFromPNG, convertCharacterCardToInternal } from '../utils/characterCardParser'
 import { lorebookManager } from '../utils/lorebookSystem'
+import { readImportFile, importCharacterData } from '../utils/characterDataExporter'
 
 const CreateCharacter = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const characterCardInputRef = useRef<HTMLInputElement>(null)
+  const dataImportInputRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState({
     nickname: '',      // 网名（选填）
@@ -119,6 +121,46 @@ const CreateCharacter = () => {
     e.target.value = ''
   }
 
+  // 处理完整数据导入
+  const handleDataImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 检查是否为 JSON 文件
+    if (!file.name.endsWith('.json')) {
+      alert('请选择JSON格式的数据文件')
+      return
+    }
+
+    setIsImporting(true)
+
+    try {
+      // 读取并解析JSON文件
+      const data = await readImportFile(file)
+      
+      console.log('导入数据:', data)
+      
+      // 导入角色数据
+      const newCharacterId = await importCharacterData(data)
+      
+      setIsImporting(false)
+      
+      // 显示成功提示
+      alert(`✅ 导入成功！\n\n角色：${data.character.realName}\n聊天记录：${data.messages.length} 条\nAI随笔：${data.memos.length} 条\n记忆：${data.memories.length} 条\n朋友圈：${data.moments.length} 条\n世界书：${data.lorebook?.entries?.length || 0} 条\n表情包：${data.emojis.length} 个\n\n所有数据已完整恢复！`)
+      
+      // 跳转到聊天页面
+      navigate(`/chat/${newCharacterId}`)
+      
+    } catch (error: any) {
+      console.error('导入失败:', error)
+      alert(`导入失败: ${error.message || '未知错误'}`)
+      setIsImporting(false)
+    }
+    
+    // 清空输入
+    e.target.value = ''
+  }
+
   const handleSubmit = () => {
     // 验证
     if (!formData.realName.trim()) {
@@ -128,8 +170,7 @@ const CreateCharacter = () => {
 
     // 保存角色
     const newCharacter = characterService.save({
-      ...formData,
-      world: '现代都市' // 添加默认世界
+      ...formData
     })
     console.log('创建角色成功:', newCharacter)
     
@@ -178,16 +219,32 @@ const CreateCharacter = () => {
             <input
               ref={characterCardInputRef}
               type="file"
-              accept=".png"
+              accept="image/png"
               onChange={handleCharacterCardImport}
+              className="hidden"
+            />
+            <input
+              ref={dataImportInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleDataImport}
               className="hidden"
             />
             <button 
               onClick={() => characterCardInputRef.current?.click()}
               disabled={isImporting}
-              className="text-blue-600 font-medium disabled:opacity-50"
+              className="text-sm text-blue-600 font-medium disabled:opacity-50"
+              title="导入角色卡PNG"
             >
-              {isImporting ? '导入中...' : '上传'}
+              {isImporting ? '导入中...' : '角色卡'}
+            </button>
+            <button 
+              onClick={() => dataImportInputRef.current?.click()}
+              disabled={isImporting}
+              className="text-sm text-purple-600 font-medium disabled:opacity-50"
+              title="导入完整数据JSON"
+            >
+              完整数据
             </button>
             <button 
               onClick={handleSubmit}

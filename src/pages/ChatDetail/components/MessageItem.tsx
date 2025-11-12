@@ -110,6 +110,27 @@ const MessageItem = ({
       )
     }
     
+    // AI随笔消息
+    if (message.messageType === 'ai-memo' && (message as any).memoContent) {
+      return (
+        <div className="flex justify-center my-2">
+          <div className="bg-amber-50/80 backdrop-blur-sm rounded-xl p-3 border border-amber-200/50 shadow-sm max-w-xs">
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-amber-700 font-medium mb-1">随笔</div>
+                <div className="text-sm text-gray-700 leading-relaxed break-words">
+                  {(message as any).memoContent}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    
     // 普通系统消息
     return (
       <div className="flex justify-center my-2">
