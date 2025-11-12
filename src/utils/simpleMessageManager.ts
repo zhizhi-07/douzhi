@@ -21,7 +21,9 @@ async function preloadMessages() {
   preloadPromise = (async () => {
     try {
       const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
-      console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
+      if (import.meta.env.DEV) {
+        console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
+      }
       
       for (const chatId of allKeys) {
         const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
@@ -33,12 +35,16 @@ async function preloadMessages() {
           // 如果修复了ID，保存回数据库
           if (fixedMessages !== messages) {
             await IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
-            console.log(`✅ 预加载时修复消息ID: chatId=${chatId}`)
+            if (import.meta.env.DEV) {
+              console.log(`✅ 预加载时修复消息ID: chatId=${chatId}`)
+            }
           }
         }
       }
       
-      console.log('✅ 消息预加载完成')
+      if (import.meta.env.DEV) {
+        console.log('✅ 消息预加载完成')
+      }
     } catch (error) {
       console.error('预加载消息失败:', error)
     }
@@ -65,7 +71,9 @@ function fixDuplicateMessageIds(messages: Message[]): Message[] {
     return messages // 没有重复，直接返回
   }
   
-  console.log('⚠️ 检测到重复的消息ID，正在修复...')
+  if (import.meta.env.DEV) {
+    console.log('⚠️ 检测到重复的消息ID，正在修复...')
+  }
   const seenIds = new Set<number>()
   
   return messages.map(msg => {
@@ -73,7 +81,9 @@ function fixDuplicateMessageIds(messages: Message[]): Message[] {
       // ID重复，生成新的唯一ID
       const now = msg.timestamp || Date.now()
       const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
-      console.log(`🔧 修复重复ID: ${msg.id} -> ${uniqueId}`)
+      if (import.meta.env.DEV) {
+        console.log(`🔧 修复重复ID: ${msg.id} -> ${uniqueId}`)
+      }
       seenIds.add(uniqueId)
       return { ...msg, id: uniqueId }
     }
@@ -90,26 +100,13 @@ export function loadMessages(chatId: string): Message[] {
     // 从缓存读取
     let messages = messageCache.get(chatId)
     
-    // 如果缓存没有，尝试同步从IndexedDB读取（会触发异步加载）
     if (!messages) {
-      // 触发异步加载
-      IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId).then(loaded => {
-        if (loaded && loaded.length > 0) {
-          // 修复重复ID
-          const fixedMessages = fixDuplicateMessageIds(loaded)
-          messageCache.set(chatId, fixedMessages)
-          
-          // 如果修复了ID，保存回数据库
-          if (fixedMessages !== loaded) {
-            IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
-            console.log(`✅ 已修复并保存消息ID: chatId=${chatId}`)
-          }
-          
-          console.log(`📥 异步加载消息: chatId=${chatId}, count=${fixedMessages.length}`)
-          // 触发UI更新
-          window.dispatchEvent(new CustomEvent('messages-loaded', { detail: { chatId } }))
-        }
-      })
+      // 缓存未命中，但预加载可能还在进行
+      // 如果预加载还未完成，这里会返回空数组
+      // 但预加载完成后会自动触发事件更新UI
+      if (import.meta.env.DEV) {
+        console.log(`⏳ 消息缓存未命中: chatId=${chatId}，等待预加载...`)
+      }
       messages = []
     } else {
       // 从缓存读取时也检查并修复
@@ -119,16 +116,59 @@ export function loadMessages(chatId: string): Message[] {
         // 异步保存修复后的消息
         IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
         messages = fixedMessages
-        console.log(`✅ 从缓存修复消息ID: chatId=${chatId}`)
+        if (import.meta.env.DEV) {
+          console.log(`✅ 从缓存修复消息ID: chatId=${chatId}`)
+        }
       }
     }
     
-    console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}`)
+    if (import.meta.env.DEV) {
+      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}`)
+    }
     return messages
   } catch (error) {
     console.error('加载消息失败:', error)
     return []
   }
+}
+
+/**
+ * 等待消息加载完成（用于关键路径）
+ * 🔥 新增：在进入聊天时调用，确保消息已加载
+ */
+export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
+  // 先等待预加载完成
+  if (preloadPromise) {
+    await preloadPromise
+  }
+  
+  // 再次尝试从缓存读取
+  let messages = messageCache.get(chatId)
+  
+  if (!messages) {
+    // 如果还是没有，直接从IndexedDB读取
+    const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    if (loaded && loaded.length > 0) {
+      const fixedMessages = fixDuplicateMessageIds(loaded)
+      messageCache.set(chatId, fixedMessages)
+      
+      // 如果修复了ID，保存回数据库
+      if (fixedMessages !== loaded) {
+        await IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log(`✅ 已加载消息: chatId=${chatId}, count=${fixedMessages.length}`)
+      }
+      return fixedMessages
+    }
+    return []
+  }
+  
+  if (import.meta.env.DEV) {
+    console.log(`✅ 从缓存返回消息: chatId=${chatId}, count=${messages.length}`)
+  }
+  return messages
 }
 
 /**
@@ -138,17 +178,23 @@ export function saveMessages(chatId: string, messages: Message[]): void {
   try {
     // 立即更新缓存
     messageCache.set(chatId, messages)
-    console.log(`💾 [缓存] 保存消息: chatId=${chatId}, count=${messages.length}`)
+    if (import.meta.env.DEV) {
+      console.log(`💾 [缓存] 保存消息: chatId=${chatId}, count=${messages.length}`)
+    }
     
     // 立即保存到IndexedDB（不等待）
     IDB.setItem(IDB.STORES.MESSAGES, chatId, messages).then(() => {
-      console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${messages.length}`)
+      if (import.meta.env.DEV) {
+        console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${messages.length}`)
+      }
     }).catch(err => {
       console.error(`❌ [IndexedDB] 保存失败: chatId=${chatId}`, err)
     })
     
     // 🔥 触发消息保存事件，用于通知和未读标记
-    console.log(`🔔 [saveMessages] 触发 chat-message-saved 事件: chatId=${chatId}`)
+    if (import.meta.env.DEV) {
+      console.log(`🔔 [saveMessages] 触发 chat-message-saved 事件: chatId=${chatId}`)
+    }
     window.dispatchEvent(new CustomEvent('chat-message-saved', {
       detail: { chatId }
     }))
@@ -170,7 +216,9 @@ export function addMessage(chatId: string, message: Message): void {
   let newMessages: Message[]
   if (existingIndex !== -1) {
     // 消息已存在，更新它（保留voiceUrl等字段）
-    console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
+    if (import.meta.env.DEV) {
+      console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
+    }
     newMessages = [...messages]
     newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
   } else {
@@ -181,7 +229,9 @@ export function addMessage(chatId: string, message: Message): void {
     window.dispatchEvent(new CustomEvent('new-message', {
       detail: { chatId, message }
     }))
-    console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
+    if (import.meta.env.DEV) {
+      console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
+    }
   }
   
   saveMessages(chatId, newMessages)
@@ -195,7 +245,9 @@ export function deleteMessage(chatId: string, messageId: number): void {
     const messages = loadMessages(chatId)
     const filteredMessages = messages.filter(m => m.id !== messageId)
     saveMessages(chatId, filteredMessages)
-    console.log(`🗑️ 已删除消息: chatId=${chatId}, messageId=${messageId}`)
+    if (import.meta.env.DEV) {
+      console.log(`🗑️ 已删除消息: chatId=${chatId}, messageId=${messageId}`)
+    }
   } catch (error) {
     console.error('删除消息失败:', error)
   }
@@ -211,7 +263,9 @@ export function updateMessage(chatId: string, updatedMessage: Message): void {
       m.id === updatedMessage.id ? updatedMessage : m
     )
     saveMessages(chatId, updatedMessages)
-    console.log(`✏️ 已更新消息: chatId=${chatId}, messageId=${updatedMessage.id}`)
+    if (import.meta.env.DEV) {
+      console.log(`✏️ 已更新消息: chatId=${chatId}, messageId=${updatedMessage.id}`)
+    }
   } catch (error) {
     console.error('更新消息失败:', error)
   }
@@ -229,7 +283,9 @@ export async function clearMessages(chatId: string): Promise<void> {
     messageCache.delete(chatId)
     // 删除IndexedDB中的数据
     await IDB.removeItem(IDB.STORES.MESSAGES, chatId)
-    console.log(`🗑️ 已清空聊天记录: chatId=${chatId}`)
+    if (import.meta.env.DEV) {
+      console.log(`🗑️ 已清空聊天记录: chatId=${chatId}`)
+    }
   } catch (error) {
     console.error('清空聊天记录失败:', error)
     throw error

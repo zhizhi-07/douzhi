@@ -29,7 +29,9 @@ interface MessageItemProps {
   onRejectCoupleSpace: (messageId: number) => void
 }
 
-const MessageItem = ({
+import { memo } from 'react'
+
+const MessageItemContent = ({
   message,
   character,
   onLongPressStart,
@@ -238,5 +240,8 @@ const MessageItem = ({
     </div>
   )
 }
+
+// 🔥 使用React.memo优化，避免不必要的重新渲染
+const MessageItem = memo(MessageItemContent)
 
 export default MessageItem

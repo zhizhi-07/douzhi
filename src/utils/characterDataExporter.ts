@@ -244,19 +244,24 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
     
     // 6. 导入朋友圈（更新userId）
     if (jsonData.moments && jsonData.moments.length > 0) {
-      const allMoments = loadMoments()
-      const newMoments = jsonData.moments.map(m => ({
-        ...m,
-        id: `moment_${Date.now()}_${Math.random()}`,  // 新ID
-        userId: newId,  // 新角色ID
-        userName: newRealName,
-        userAvatar: newAvatar
-      }))
-      
-      // 保存朋友圈到localStorage
-      const updatedMoments = [...allMoments, ...newMoments]
-      localStorage.setItem('moments', JSON.stringify(updatedMoments))
-      console.log('✅ 朋友圈已导入:', newMoments.length, '条')
+      try {
+        const { saveMoments } = await import('./momentsManager')
+        const allMoments = loadMoments()
+        const newMoments = jsonData.moments.map(m => ({
+          ...m,
+          id: `moment_${Date.now()}_${Math.random()}`,  // 新ID
+          userId: newId,  // 新角色ID
+          userName: newRealName,
+          userAvatar: newAvatar
+        }))
+        
+        // 使用saveMoments保存到IndexedDB（避免localStorage超限）
+        const updatedMoments = [...allMoments, ...newMoments]
+        saveMoments(updatedMoments)
+        console.log('✅ 朋友圈已导入:', newMoments.length, '条')
+      } catch (e) {
+        console.warn('朋友圈导入失败，但不影响其他数据:', e)
+      }
     }
     
     // 7. 导入世界书

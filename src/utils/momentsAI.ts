@@ -93,6 +93,32 @@ ${chatContext}
   try {
     const apiUrl = `${apiConfig.baseUrl}/chat/completions`
     console.log(`🚀 开始调用API: ${apiUrl}`)
+    
+    // 完整的系统提示词
+    const systemPrompt = `你是一个有灵魂、有生活、有情感的真实个体。你会像普通人一样在朋友圈分享生活点滴和内心感受。
+
+## 创作指南
+
+1. **真实自然**
+   - 像真人一样随意自然，不做作
+   - 可以是日常碎碎念、心情感悟、生活分享等
+   - 有生活气息，不要假大空
+
+2. **符合性格**
+   - 内容要符合你的性格和说话风格
+   - 考虑最近的心情和生活状态
+   - 延续聊天中的话题或分享新的生活片段
+
+3. **表达方式**
+   - 可以用emoji但别太多
+   - 20-80字为佳，简洁有力
+   - 可以是文字、感悟、吐槽等多种形式
+
+4. **情感基调**
+   - 开心、感动、思考、吐槽、分享都可以
+   - 符合最近的心情
+   - 让用户感到真实和亲近`
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -104,7 +130,7 @@ ${chatContext}
         messages: [
           {
             role: 'system',
-            content: '你是一个有灵魂、有生活、有情感的真实个体。你会像普通人一样在朋友圈分享生活点滴和内心感受。'
+            content: systemPrompt
           },
           {
             role: 'user',
@@ -152,6 +178,10 @@ ${chatContext}
       )
 
       console.log(`📱 ${character.realName} 发布了朋友圈:`, result.content)
+      console.log(`💭 情感基调: ${result.emotion}`)
+      if (result.location) {
+        console.log(`📍 位置: ${result.location}`)
+      }
       return moment
     } catch (e) {
       console.error('⚠️ JSON解析失败:', e)

@@ -342,30 +342,20 @@ export const useChatAI = (
         isBlocked
       })
       
-      // 输出到控制台：AI读取的提示词和记忆
-      console.group('🤖 [私信聊天] AI读取的提示词和记忆')
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('📋 系统提示词：')
-      console.log(systemPrompt)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('💭 聊天记录（发送给AI的消息）：')
-      console.table(apiMessages.map((msg, i) => ({
-        序号: i + 1,
-        角色: msg.role === 'user' ? '用户' : (msg.role === 'assistant' ? 'AI' : '系统'),
-        内容: msg.content ? msg.content.substring(0, 80) + (msg.content.length > 80 ? '...' : '') : ''
-      })))
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('📊 统计信息：', {
-        系统提示词长度: systemPrompt.length,
-        聊天记录条数: apiMessages.length,
-        总消息数: apiMessages.length + 1,
-        用户拉黑了AI: isBlocked,
-        AI拉黑了用户: hasAIBlockedUser
-      })
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('📤 完整API请求：')
-      console.log([{ role: 'system', content: systemPrompt }, ...apiMessages])
-      console.groupEnd()
+      // 🔥 优化：仅在开发环境输出详细日志
+      if (import.meta.env.DEV) {
+        console.group('🤖 [私信聊天] AI读取的提示词和记忆')
+        console.log('📊 统计信息：', {
+          系统提示词长度: systemPrompt.length,
+          聊天记录条数: apiMessages.length,
+          总消息数: apiMessages.length + 1,
+          用户拉黑了AI: isBlocked,
+          AI拉黑了用户: hasAIBlockedUser
+        })
+        console.groupEnd()
+      } else {
+        console.log(`📤 发送API请求: ${apiMessages.length}条消息`)
+      }
 
       // ⏱ 开始计时
       const startTime = Date.now()

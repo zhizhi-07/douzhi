@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { loadMessages } from '../../../utils/simpleMessageManager'
+import { loadMessages, ensureMessagesLoaded } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 
 export const useChatState = (chatId: string) => {
@@ -18,7 +18,9 @@ export const useChatState = (chatId: string) => {
   
   // 包装setMessages：仅更新React状态
   const setMessages = useCallback((fn: ((prev: Message[]) => Message[]) | Message[]) => {
-    console.log(`📞 [useChatState] setMessages 被调用`)
+    if (import.meta.env.DEV) {
+      console.log(`📂 [useChatState] setMessages 被调用`)
+    }
     setMessagesState(fn)
   }, [])
   
@@ -44,7 +46,9 @@ export const useChatState = (chatId: string) => {
     if (!chatId) return
     const char = characterService.getById(chatId)
     setCharacter(char)
-    console.log('🔄 角色信息已刷新:', char?.nickname || char?.realName)
+    if (import.meta.env.DEV) {
+      console.log('🔄 角色信息已刷新:', char?.nickname || char?.realName)
+    }
   }, [chatId])
   
   /**
@@ -54,16 +58,9 @@ export const useChatState = (chatId: string) => {
     if (!chatId) return
     
     const savedMessages = loadMessages(chatId)
-    console.log(`📨 [useChatState] 加载消息: chatId=${chatId}, 总数=${savedMessages.length}`)
-    const systemMessages = savedMessages.filter(m => m.type === 'system')
-    console.log(`📨 [useChatState] 系统消息数: ${systemMessages.length}`)
-    if (systemMessages.length > 0) {
-      console.table(systemMessages.map(m => ({
-        id: m.id,
-        content: m.content,
-        messageType: m.messageType,
-        timestamp: m.timestamp
-      })))
+    // 🔥 优化：移除console.table，避免性能问题
+    if (import.meta.env.DEV) {
+      console.log(`📨 [useChatState] 加载消息: chatId=${chatId}, 总数=${savedMessages.length}`)
     }
     // 直接设置状态，不触发保存（因为是从IndexedDB加载的）
     setMessagesState(savedMessages)
@@ -74,6 +71,7 @@ export const useChatState = (chatId: string) => {
 
   /**
    * 初始化：加载角色和历史消息
+   * 🔥 优化：使用ensureMessagesLoaded确保消息已加载，避免卡顿
    */
   useEffect(() => {
     if (!chatId) return
@@ -81,8 +79,19 @@ export const useChatState = (chatId: string) => {
     const char = characterService.getById(chatId)
     setCharacter(char)
     
-    loadChatMessages()
-  }, [chatId])
+    // 🔥 优先使用ensureMessagesLoaded，确保消息已加载
+    ensureMessagesLoaded(chatId).then(messages => {
+      setMessagesState(messages)
+      clearUnread(chatId)
+      if (import.meta.env.DEV) {
+        console.log(`✅ [优化] 消息已加载: chatId=${chatId}, count=${messages.length}`)
+      }
+    }).catch(error => {
+      console.error('加载消息失败:', error)
+      // 正常加载作为后备
+      loadChatMessages()
+    })
+  }, [chatId, loadChatMessages])
   
   /**
    * 监听页面可见性和焦点，当返回聊天窗口时重新加载消息
@@ -94,7 +103,9 @@ export const useChatState = (chatId: string) => {
     // 页面可见性变化时重新加载
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('📱 [useChatState] 页面重新可见，重新加载消息')
+        if (import.meta.env.DEV) {
+          console.log('📱 [useChatState] 页面重新可见，重新加载消息')
+        }
         loadChatMessages()
         refreshCharacter()  // 同时刷新角色信息
       }
@@ -102,7 +113,9 @@ export const useChatState = (chatId: string) => {
     
     // 窗口获得焦点时重新加载
     const handleFocus = () => {
-      console.log('📱 [useChatState] 窗口获得焦点，重新加载消息')
+      if (import.meta.env.DEV) {
+        console.log('📱 [useChatState] 窗口获得焦点，重新加载消息')
+      }
       loadChatMessages()
       refreshCharacter()  // 同时刷新角色信息
     }
@@ -112,10 +125,14 @@ export const useChatState = (chatId: string) => {
       if (e.detail.chatId === chatId) {
         // 🔥 AI回复期间不响应加载事件，避免消息一次性显示
         if ((window as any).__AI_REPLYING__) {
-          console.log('🚫 [useChatState] AI回复中，忽略messages-loaded事件')
+          if (import.meta.env.DEV) {
+            console.log('🚫 [useChatState] AI回复中，忽略messages-loaded事件')
+          }
           return
         }
-        console.log('📥 [useChatState] 异步加载完成，刷新UI')
+        if (import.meta.env.DEV) {
+          console.log('📥 [useChatState] 异步加载完成，刷新UI')
+        }
         loadChatMessages()
       }
     }

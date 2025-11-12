@@ -95,15 +95,21 @@ const buildEmojiListPrompt = async (): Promise<string> => {
   try {
     const emojis = await getEmojis()
     
-    console.log('📱 [表情包系统] 读取到的表情包数量:', emojis.length)
+    if (import.meta.env.DEV) {
+      console.log('📱 [表情包系统] 读取到的表情包数量:', emojis.length)
+    }
     
     if (emojis.length === 0) {
-      console.warn('⚠️ [表情包系统] 没有可用的表情包')
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [表情包系统] 没有可用的表情包')
+      }
       return ''
     }
     
     // 显示全部表情包
-    console.log('📱 [表情包系统] 将显示全部表情包:', emojis.map(e => e.description).join(', '))
+    if (import.meta.env.DEV) {
+      console.log('📱 [表情包系统] 将显示全部表情包:', emojis.map(e => e.description).join(', '))
+    }
     
     // 构建清晰的列表，每个一行
     const emojiList = emojis
@@ -128,7 +134,9 @@ ${emojiList}
 2. 描述要完全匹配或部分匹配（比如"笑"可以匹配"大笑"）
 3. 自然使用，不要每句话都发表情`
     
-    console.log(`✅ [表情包系统] 表情包提示词已构建，共 ${emojis.length} 个`)
+    if (import.meta.env.DEV) {
+      console.log(`✅ [表情包系统] 表情包提示词已构建，共 ${emojis.length} 个`)
+    }
     return prompt
   } catch (error) {
     console.error('❌ [表情包系统] 构建表情包列表失败:', error)
@@ -172,7 +180,9 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
     try {
       const preset = JSON.parse(customPreset)
       const presetName = localStorage.getItem('offline-active-preset') || '自定义预设'
-      console.log('📋 使用自定义预设:', presetName)
+      if (import.meta.env.DEV) {
+        console.log('📋 使用自定义预设:', presetName)
+      }
       
       let customPrompt = ''
       
@@ -186,7 +196,9 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
           .filter((p: any) => p.enabled)
           .sort((a: any, b: any) => (a.injection_order || 0) - (b.injection_order || 0))
         
-        console.log(`🎯 预设包含 ${preset.prompts.length} 个提示词，已启用 ${enabledPrompts.length} 个`)
+        if (import.meta.env.DEV) {
+          console.log(`🎯 预设包含 ${preset.prompts.length} 个提示词，已启用 ${enabledPrompts.length} 个`)
+        }
         
         // 合并所有启用的提示词内容
         customPrompt = enabledPrompts
@@ -211,7 +223,9 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 `
         
-        console.log('✅ 预设提示词长度:', customPrompt.length, '字符')
+        if (import.meta.env.DEV) {
+          console.log('✅ 预设提示词长度:', customPrompt.length, '字符')
+        }
         return contextInfo + customPrompt
       }
     } catch (error) {
@@ -352,7 +366,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const privacy = getCoupleSpacePrivacy()
   let coupleSpaceStatus = ''
   
-  console.log('🔍 用户情侣空间状态:', { relation, privacy, characterId: character.id })
+  if (import.meta.env.DEV) {
+    console.log('🔍 用户情侣空间状态:', { relation, privacy, characterId: character.id })
+  }
   
   // 🔒 如果用户设置了私密，AI无法看到任何详情（但可以尝试发邀请）
   if (privacy === 'private') {
@@ -368,7 +384,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     coupleSpaceStatus = `情侣空间公开中，但TA还没有和任何人建立`
   }
   
-  console.log('📝 AI看到的用户情侣空间状态:', coupleSpaceStatus)
+  if (import.meta.env.DEV) {
+    console.log('📝 AI看到的用户情侣空间状态:', coupleSpaceStatus)
+  }
   
   // 获取亲密付信息
   const intimatePayRelations = getIntimatePayRelations()
@@ -383,7 +401,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     const total = myIntimatePayToUser.monthlyLimit
     const remaining = total - used
     intimatePayInfo = `\n- 亲密付：你给TA开通了亲密付，月额度¥${total.toFixed(2)}，已用¥${used.toFixed(2)}，剩余¥${remaining.toFixed(2)}`
-    console.log('💰 AI看到的亲密付额度:', { total, used, remaining })
+    if (import.meta.env.DEV) {
+      console.log('💰 AI看到的亲密付额度:', { total, used, remaining })
+    }
   }
 
   return `此刻，${charName}（真名${character.realName}）拿着手机，看到${userNickname}发来的消息。
@@ -648,7 +668,9 @@ const buildListeningTogetherContext = async (character: Character): Promise<stri
 const buildCoupleSpaceContext = (character: Character): string => {
   const relation = getCoupleSpaceRelation()
   
-  console.log('🔍 构建情侣空间上下文 - relation:', relation)
+  if (import.meta.env.DEV) {
+    console.log('🔍 构建情侣空间上下文 - relation:', relation)
+  }
   
   // 情况1：没有情侣空间关系
   if (!relation) {
@@ -719,7 +741,9 @@ const callAIApiInternal = async (
   const timeSinceLastRequest = now - lastRequestTime
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-    console.log(`⏱️ 请求节流：等待 ${waitTime}ms`)
+    if (import.meta.env.DEV) {
+      console.log(`⏱️ 请求节流：等待 ${waitTime}ms`)
+    }
     await delay(waitTime)
   }
   lastRequestTime = Date.now()
@@ -748,9 +772,11 @@ const callAIApiInternal = async (
     const processedMessages = messages.map(msg => {
       // 如果消息有imageUrl，构建多模态格式
       if (msg.imageUrl) {
-        console.log('🖼️ 检测到图片消息，启用视觉识别')
-        console.log('📊 imageUrl长度:', msg.imageUrl.length)
-        console.log('📝 图片数据前100字符:', msg.imageUrl.substring(0, 100))
+        if (import.meta.env.DEV) {
+          console.log('🖼️ 检测到图片消息，启用视觉识别')
+          console.log('📊 imageUrl长度:', msg.imageUrl.length)
+          console.log('📝 图片数据前100字符:', msg.imageUrl.substring(0, 100))
+        }
         return {
           role: msg.role,
           content: [
@@ -771,13 +797,17 @@ const callAIApiInternal = async (
       return msg
     })
     
-    console.log('🚀 发送给AI的消息数量:', processedMessages.length)
-    console.log('🖼️ 包含图片的消息数量:', processedMessages.filter((m: any) => Array.isArray(m.content)).length)
+    if (import.meta.env.DEV) {
+      console.log('🚀 发送给AI的消息数量:', processedMessages.length)
+      console.log('🖼️ 包含图片的消息数量:', processedMessages.filter((m: any) => Array.isArray(m.content)).length)
+    }
     
     // 🔥 添加朋友圈图片到消息数组（用于视觉识别）
     const momentImages = (window as any).__momentImages || []
     if (momentImages.length > 0) {
-      console.log(`🖼️ [朋友圈图片识别] 发现${momentImages.length}张朋友圈图片，添加到AI消息中`)
+      if (import.meta.env.DEV) {
+        console.log(`🖼️ [朋友圈图片识别] 发现${momentImages.length}张朋友圈图片，添加到AI消息中`)
+      }
       
       // 为每张朋友圈图片创建一个system消息
       momentImages.forEach((imgData: any) => {
@@ -798,8 +828,10 @@ const callAIApiInternal = async (
         })
       })
       
-      console.log(`✅ [朋友圈图片识别] 已添加${momentImages.length}张朋友圈图片到消息数组`)
-      console.log('📊 [朋友圈图片识别] 更新后消息数量:', processedMessages.length)
+      if (import.meta.env.DEV) {
+        console.log(`✅ [朋友圈图片识别] 已添加${momentImages.length}张朋友圈图片到消息数组`)
+        console.log('📊 [朋友圈图片识别] 更新后消息数量:', processedMessages.length)
+      }
     }
     
     // 检查是否启用流式（仅线下模式）
@@ -815,9 +847,10 @@ const callAIApiInternal = async (
       ...(useStreaming ? { stream: true } : {})
     }
     
-    console.log('📤 API请求配置:', { useStreaming, isOfflineRequest, offlineStreamEnabled })
-    
-    console.log('📤 API请求体:', JSON.stringify(requestBody).substring(0, 500))
+    if (import.meta.env.DEV) {
+      console.log('📤 API请求配置:', { useStreaming, isOfflineRequest, offlineStreamEnabled })
+      console.log('📤 API请求体:', JSON.stringify(requestBody).substring(0, 500))
+    }
     
     const response = await fetch(url, {
       method: 'POST',
@@ -866,7 +899,9 @@ const callAIApiInternal = async (
     }
     
     // 打印实际返回的数据，方便调试
-    console.log('API返回的完整数据:', JSON.stringify(data, null, 2))
+    if (import.meta.env.DEV) {
+      console.log('API返回的完整数据:', JSON.stringify(data, null, 2))
+    }
     
     // 检查是否有错误信息
     if (data.error) {
@@ -985,7 +1020,9 @@ export const callAIApi = async (
         if (error.statusCode === 429 && attempt < MAX_RETRIES - 1) {
           // 指数退避：1秒、2秒、4秒
           const waitTime = Math.pow(2, attempt) * 1000
-          console.log(`⚠️ 遇到频率限制，${waitTime/1000}秒后重试 (${attempt + 1}/${MAX_RETRIES})`)
+          if (import.meta.env.DEV) {
+            console.log(`⚠️ 遇到频率限制，${waitTime/1000}秒后重试 (${attempt + 1}/${MAX_RETRIES})`)
+          }
           await delay(waitTime)
           continue // 重试
         }
@@ -1142,7 +1179,9 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
             description: `朋友圈${number}的第${imgIndex + 1}张图片`
           })
         })
-        console.log(`🖼️ [朋友圈图片识别] 收集到朋友圈${number}的${m.images.length}张图片`)
+        if (import.meta.env.DEV) {
+          console.log(`🖼️ [朋友圈图片识别] 收集到朋友圈${number}的${m.images.length}张图片`)
+        }
       }
     }
     
@@ -1156,7 +1195,9 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   }).join('\n\n')
   
   const hasUserMomentImages = (window as any).__momentImages?.length > 0
-  console.log(`📊 [朋友圈图片识别] 共收集${hasUserMomentImages ? (window as any).__momentImages.length : 0}张用户朋友圈图片`)
+  if (import.meta.env.DEV) {
+    console.log(`📊 [朋友圈图片识别] 共收集${hasUserMomentImages ? (window as any).__momentImages.length : 0}张用户朋友圈图片`)
+  }
   
   return `
 

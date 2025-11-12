@@ -142,21 +142,32 @@ export const useProactiveMessage = ({
 
       // 使用主API生成消息
       const systemPrompt = await buildSystemPrompt(character, '用户')
-      const recentMessages = getRecentMessages(messages, chatId, 50)
+      // 使用用户设置的消息条数，而不是硬编码50条
+      const recentMessages = getRecentMessages(messages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)
 
-      // 添加主动发消息的提示
-      const proactivePrompt = `\n\n[系统提示] 用户已经有一段时间没有回复了。你可以主动发消息，比如：
+      // 计算用户没有回复的时间
+      const minutesPassed = Math.floor((Date.now() - lastUserMessageTimeRef.current) / 60000)
+      const secondsPassed = Math.floor(((Date.now() - lastUserMessageTimeRef.current) % 60000) / 1000)
+      
+      // 添加主动发消息的提示（明确告诉AI用户没回复的时间）
+      const proactivePrompt = `\n\n[系统提示] 用户已经${minutesPassed}分钟${secondsPassed}秒没有回复你了。请根据聊天记录和你的性格，主动发消息给用户。
+
+你可以：
 - 询问对方在做什么
 - 分享你正在做的事情
 - 继续之前的话题
+- 表达你在等他/她
 - 或者其他自然的开场
 
-请自然地主动发起对话。`
+请自然地主动发起对话，让对话显得连贯自然，就像你真的在想他/她。`
 
+      // 🔥 修改系统提示词，在主动发消息时明确告诉AI用户多久没回复
+      const enhancedSystemPrompt = systemPrompt + `\n\n⚠️ 重要：用户已经${minutesPassed}分钟${secondsPassed}秒没有回复你了。你需要主动发起对话，让对话显得自然连贯。`
+      
       apiMessages[0] = {
         role: 'system',
-        content: systemPrompt + proactivePrompt
+        content: enhancedSystemPrompt + proactivePrompt
       }
 
       const response = await callAIApi(apiMessages, apiSettings)
