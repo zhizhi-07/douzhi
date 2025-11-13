@@ -29,6 +29,7 @@ import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import VirtualMessageList from './ChatDetail/components/VirtualMessageList'
+import LoadingSkeleton from './ChatDetail/components/LoadingSkeleton'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
@@ -372,12 +373,15 @@ const ChatDetail = () => {
         </div>
       )}
       
-      <div 
-        ref={scrollContainerRef} 
-        className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll" 
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {shouldUseVirtualization ? (
+        {/* 🔥 加载状态骨架屏 */}
+        {chatState.isLoadingMessages && chatState.messages.length === 0 ? (
+          <LoadingSkeleton />
+        ) : shouldUseVirtualization ? (
           <VirtualMessageList
             messages={chatState.messages}
             character={character}
@@ -402,6 +406,9 @@ const ChatDetail = () => {
             onRejectCoupleSpace={coupleSpace.rejectInvite}
             onAcceptMusicInvite={musicInvite.acceptInvite}
             onRejectMusicInvite={musicInvite.rejectInvite}
+            hasMoreMessages={chatState.hasMoreMessages}
+            isLoadingMessages={chatState.isLoadingMessages}
+            onLoadMore={chatState.loadMoreMessages}
           />
         ) : (
           chatState.messages.map((message, index) => {

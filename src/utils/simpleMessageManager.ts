@@ -99,7 +99,7 @@ export function loadMessages(chatId: string): Message[] {
   try {
     // 从缓存读取
     let messages = messageCache.get(chatId)
-    
+
     if (!messages) {
       // 缓存未命中，但预加载可能还在进行
       // 如果预加载还未完成，这里会返回空数组
@@ -121,7 +121,7 @@ export function loadMessages(chatId: string): Message[] {
         }
       }
     }
-    
+
     if (import.meta.env.DEV) {
       console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}`)
     }
@@ -129,6 +129,78 @@ export function loadMessages(chatId: string): Message[] {
   } catch (error) {
     console.error('加载消息失败:', error)
     return []
+  }
+}
+
+/**
+ * 🔥 分页加载消息（性能优化）
+ * @param chatId 聊天ID
+ * @param limit 加载数量（默认50条）
+ * @param offset 偏移量（从后往前数，0表示最新的消息）
+ * @returns 消息数组和总数
+ */
+export async function loadMessagesPaginated(
+  chatId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<{ messages: Message[], total: number, hasMore: boolean }> {
+  try {
+    // 先等待预加载完成
+    if (preloadPromise) {
+      await preloadPromise
+    }
+
+    // 从缓存或IndexedDB获取所有消息
+    let allMessages = messageCache.get(chatId)
+
+    if (!allMessages) {
+      const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+      if (loaded && loaded.length > 0) {
+        const fixedMessages = fixDuplicateMessageIds(loaded)
+        messageCache.set(chatId, fixedMessages)
+        allMessages = fixedMessages
+      } else {
+        allMessages = []
+      }
+    }
+
+    const total = allMessages.length
+
+    // 🔥 从后往前取消息（最新的消息在数组末尾）
+    const startIndex = Math.max(0, total - offset - limit)
+    const endIndex = total - offset
+    const messages = allMessages.slice(startIndex, endIndex)
+
+    const hasMore = startIndex > 0
+
+    if (import.meta.env.DEV) {
+      console.log(`📄 [分页加载] chatId=${chatId}, limit=${limit}, offset=${offset}, 返回=${messages.length}, 总数=${total}, 还有更多=${hasMore}`)
+    }
+
+    return { messages, total, hasMore }
+  } catch (error) {
+    console.error('分页加载消息失败:', error)
+    return { messages: [], total: 0, hasMore: false }
+  }
+}
+
+/**
+ * 🔥 获取消息总数（不加载消息内容）
+ */
+export async function getMessageCount(chatId: string): Promise<number> {
+  try {
+    // 先检查缓存
+    const cached = messageCache.get(chatId)
+    if (cached) {
+      return cached.length
+    }
+
+    // 从IndexedDB读取
+    const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    return messages ? messages.length : 0
+  } catch (error) {
+    console.error('获取消息数量失败:', error)
+    return 0
   }
 }
 

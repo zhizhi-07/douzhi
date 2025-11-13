@@ -25,6 +25,10 @@ interface VirtualMessageListProps {
   onRejectCoupleSpace: (messageId: number) => void
   onAcceptMusicInvite?: (messageId: number) => void
   onRejectMusicInvite?: (messageId: number) => void
+  // 🔥 分页加载相关
+  hasMoreMessages?: boolean
+  isLoadingMessages?: boolean
+  onLoadMore?: () => void
 }
 
 const VirtualMessageList = ({
@@ -45,6 +49,9 @@ const VirtualMessageList = ({
   onRejectCoupleSpace,
   onAcceptMusicInvite,
   onRejectMusicInvite,
+  hasMoreMessages = false,
+  isLoadingMessages = false,
+  onLoadMore,
 }: VirtualMessageListProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [visibleRange, setVisibleRange] = useState(() => {
@@ -54,6 +61,7 @@ const VirtualMessageList = ({
     return { start, end: messages.length }
   })
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+  const loadMoreTriggeredRef = useRef(false)
   
   // 估算消息高度（平均值）
   const ESTIMATED_MESSAGE_HEIGHT = 80
@@ -61,23 +69,36 @@ const VirtualMessageList = ({
   
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return
-    
+
     const { scrollTop, clientHeight, scrollHeight } = containerRef.current
-    
+
+    // 🔥 检测是否滚动到顶部（加载更多历史消息）
+    if (scrollTop < 100 && hasMoreMessages && !isLoadingMessages && !loadMoreTriggeredRef.current) {
+      loadMoreTriggeredRef.current = true
+      if (import.meta.env.DEV) {
+        console.log('📜 [VirtualMessageList] 触发加载更多历史消息')
+      }
+      onLoadMore?.()
+      // 500ms后重置标志，避免重复触发
+      setTimeout(() => {
+        loadMoreTriggeredRef.current = false
+      }, 500)
+    }
+
     // 检测是否接近底部（距离底部小于100px）
     const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
     setShouldAutoScroll(isNearBottom)
-    
+
     // 计算可见范围
     const start = Math.max(0, Math.floor(scrollTop / ESTIMATED_MESSAGE_HEIGHT) - BUFFER_SIZE)
     const end = Math.min(
       messages.length,
       Math.ceil((scrollTop + clientHeight) / ESTIMATED_MESSAGE_HEIGHT) + BUFFER_SIZE
     )
-    
+
     setVisibleRange({ start, end })
     console.log('📏 [VirtualMessageList] 可见范围:', { start, end, total: messages.length })
-  }, [messages.length])
+  }, [messages.length, hasMoreMessages, isLoadingMessages, onLoadMore])
   
   useEffect(() => {
     const container = containerRef.current
@@ -125,14 +146,33 @@ const VirtualMessageList = ({
   const offsetTop = visibleRange.start * ESTIMATED_MESSAGE_HEIGHT
   
   return (
-    <div 
+    <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll" 
+      className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
+      {/* 🔥 加载更多指示器 */}
+      {hasMoreMessages && (
+        <div className="flex justify-center py-3">
+          {isLoadingMessages ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+              <span>加载中...</span>
+            </div>
+          ) : (
+            <button
+              onClick={onLoadMore}
+              className="text-sm text-blue-500 hover:text-blue-600 px-4 py-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
+            >
+              点击加载更多历史消息
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 上方占位符 */}
       <div style={{ height: offsetTop }} />
-      
+
       {/* 可见消息 */}
       {visibleMessages.map((message) => (
         <MessageItem

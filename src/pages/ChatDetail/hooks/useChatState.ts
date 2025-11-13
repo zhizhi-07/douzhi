@@ -6,16 +6,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { loadMessages, ensureMessagesLoaded } from '../../../utils/simpleMessageManager'
+import { loadMessages, ensureMessagesLoaded, loadMessagesPaginated, getMessageCount } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
   const [character, setCharacter] = useState<Character | null>(null)
-  
+
   // 消息列表（React状态）
   const [messages, setMessagesState] = useState<Message[]>([])
-  
+
+  // 🔥 分页加载状态
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true)
+  const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  const [totalMessageCount, setTotalMessageCount] = useState(0)
+  const [currentOffset, setCurrentOffset] = useState(0)
+
   // 包装setMessages：仅更新React状态
   const setMessages = useCallback((fn: ((prev: Message[]) => Message[]) | Message[]) => {
     if (import.meta.env.DEV) {
@@ -65,11 +71,80 @@ export const useChatState = (chatId: string) => {
   }, [chatId])
   
   /**
-   * 加载消息（提取为函数，便于复用）
+   * 🔥 分页加载消息（初次加载最近50条）
+   */
+  const loadChatMessagesInitial = useCallback(async () => {
+    if (!chatId) return
+
+    setIsLoadingMessages(true)
+
+    try {
+      // 获取总数
+      const total = await getMessageCount(chatId)
+      setTotalMessageCount(total)
+
+      // 🔥 初次只加载最近50条消息
+      const INITIAL_LOAD_COUNT = 50
+      const { messages: initialMessages, hasMore } = await loadMessagesPaginated(
+        chatId,
+        INITIAL_LOAD_COUNT,
+        0
+      )
+
+      if (import.meta.env.DEV) {
+        console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}, 总数=${total}, 还有更多=${hasMore}`)
+      }
+
+      setMessagesState(initialMessages)
+      setHasMoreMessages(hasMore)
+      setCurrentOffset(initialMessages.length)
+
+      // 清除未读数
+      clearUnread(chatId)
+    } catch (error) {
+      console.error('加载消息失败:', error)
+    } finally {
+      setIsLoadingMessages(false)
+    }
+  }, [chatId])
+
+  /**
+   * 🔥 加载更多历史消息
+   */
+  const loadMoreMessages = useCallback(async () => {
+    if (!chatId || !hasMoreMessages || isLoadingMessages) return
+
+    setIsLoadingMessages(true)
+
+    try {
+      const LOAD_MORE_COUNT = 30
+      const { messages: moreMessages, hasMore } = await loadMessagesPaginated(
+        chatId,
+        LOAD_MORE_COUNT,
+        currentOffset
+      )
+
+      if (import.meta.env.DEV) {
+        console.log(`📨 [加载更多] chatId=${chatId}, 新增=${moreMessages.length}, 偏移=${currentOffset}, 还有更多=${hasMore}`)
+      }
+
+      // 🔥 将新消息添加到前面（因为是历史消息）
+      setMessagesState(prev => [...moreMessages, ...prev])
+      setHasMoreMessages(hasMore)
+      setCurrentOffset(prev => prev + moreMessages.length)
+    } catch (error) {
+      console.error('加载更多消息失败:', error)
+    } finally {
+      setIsLoadingMessages(false)
+    }
+  }, [chatId, hasMoreMessages, isLoadingMessages, currentOffset])
+
+  /**
+   * 加载消息（提取为函数，便于复用 - 兼容旧代码）
    */
   const loadChatMessages = useCallback(() => {
     if (!chatId) return
-    
+
     const savedMessages = loadMessages(chatId)
     // 🔥 优化：移除console.table，避免性能问题
     if (import.meta.env.DEV) {
@@ -77,22 +152,22 @@ export const useChatState = (chatId: string) => {
     }
     // 直接设置状态，不触发保存（因为是从IndexedDB加载的）
     setMessagesState(savedMessages)
-    
+
     // 清除未读数
     clearUnread(chatId)
   }, [chatId])
 
   /**
    * 初始化：加载角色和历史消息
-   * 🔥 优化：使用ensureMessagesLoaded确保消息已加载，避免卡顿
+   * 🔥 优化：使用分页加载，避免卡顿
    */
   useEffect(() => {
     if (!chatId) return
-    
+
     // 🔥 修复：角色加载重试机制，解决刷新后"角色不存在"问题
     const loadCharacterWithRetry = (retryCount = 0) => {
       const char = characterService.getById(chatId)
-      
+
       if (char) {
         setCharacter(char)
         if (import.meta.env.DEV) {
@@ -109,22 +184,12 @@ export const useChatState = (chatId: string) => {
         setError(`角色不存在: ${chatId}`)
       }
     }
-    
+
     loadCharacterWithRetry()
-    
-    // 🔥 优先使用ensureMessagesLoaded，确保消息已加载
-    ensureMessagesLoaded(chatId).then(messages => {
-      setMessagesState(messages)
-      clearUnread(chatId)
-      if (import.meta.env.DEV) {
-        console.log(`✅ [优化] 消息已加载: chatId=${chatId}, count=${messages.length}`)
-      }
-    }).catch(error => {
-      console.error('加载消息失败:', error)
-      // 正常加载作为后备
-      loadChatMessages()
-    })
-  }, [chatId, loadChatMessages])
+
+    // 🔥 使用分页加载，初次只加载最近50条消息
+    loadChatMessagesInitial()
+  }, [chatId, loadChatMessagesInitial])
   
   /**
    * 监听页面可见性和焦点，当返回聊天窗口时重新加载消息
@@ -189,6 +254,11 @@ export const useChatState = (chatId: string) => {
     setInputValue,
     error,
     setError,
-    refreshCharacter
+    refreshCharacter,
+    // 🔥 分页加载相关
+    isLoadingMessages,
+    hasMoreMessages,
+    totalMessageCount,
+    loadMoreMessages
   }
 }

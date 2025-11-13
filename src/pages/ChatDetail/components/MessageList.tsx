@@ -25,6 +25,10 @@ interface MessageListProps {
   onUpdateIntimatePayStatus: (messageId: number, newStatus: 'accepted' | 'rejected') => void
   onAcceptCoupleSpace: (messageId: number) => void
   onRejectCoupleSpace: (messageId: number) => void
+  // 🔥 分页加载相关
+  hasMoreMessages?: boolean
+  isLoadingMessages?: boolean
+  onLoadMore?: () => void
 }
 
 const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
@@ -43,13 +47,16 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
   showVoiceTextMap,
   onUpdateIntimatePayStatus,
   onAcceptCoupleSpace,
-  onRejectCoupleSpace
+  onRejectCoupleSpace,
+  hasMoreMessages,
+  isLoadingMessages,
+  onLoadMore
 }, ref) => {
   // 🔥 性能优化：超过30条消息时启用虚拟化
   const shouldUseVirtualization = messages.length > 30
-  
+
   console.log(`📊 [MessageList] 消息数量: ${messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}`)
-  
+
   if (shouldUseVirtualization) {
     // 使用虚拟化组件
     return (
@@ -70,6 +77,9 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
         onUpdateIntimatePayStatus={onUpdateIntimatePayStatus}
         onAcceptCoupleSpace={onAcceptCoupleSpace}
         onRejectCoupleSpace={onRejectCoupleSpace}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingMessages={isLoadingMessages}
+        onLoadMore={onLoadMore}
       />
     )
   }
