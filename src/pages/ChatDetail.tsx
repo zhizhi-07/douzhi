@@ -366,22 +366,29 @@ const ChatDetail = () => {
 
     // 检测是否是加载更多（消息增加）
     if (currentCount > previousCount && previousScrollHeightRef.current > 0) {
+      // 🔥 使用多个 requestAnimationFrame 确保 DOM 完全渲染
       requestAnimationFrame(() => {
-        const newScrollHeight = container.scrollHeight
-        const heightDiff = newScrollHeight - previousScrollHeightRef.current
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight
+          const heightDiff = newScrollHeight - previousScrollHeightRef.current
 
-        // 调整scrollTop保持视觉位置
-        container.scrollTop = container.scrollTop + heightDiff
+          // 🔥 调整scrollTop保持视觉位置，添加小偏移避免触发新的加载
+          const newScrollTop = heightDiff + 250 // 加载后停在距离顶部250px的位置
 
-        console.log('📜 [ChatDetail] 加载更多完成，保持位置', {
-          previousCount,
-          currentCount,
-          heightDiff,
-          newScrollTop: container.scrollTop
+          console.log('📜 [ChatDetail] 加载更多完成，保持位置', {
+            previousCount,
+            currentCount,
+            previousScrollHeight: previousScrollHeightRef.current,
+            newScrollHeight,
+            heightDiff,
+            newScrollTop
+          })
+
+          container.scrollTop = newScrollTop
+
+          // 重置
+          previousScrollHeightRef.current = 0
         })
-
-        // 重置
-        previousScrollHeightRef.current = 0
       })
     }
 
