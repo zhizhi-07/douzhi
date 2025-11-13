@@ -2,6 +2,8 @@
  * 聊天输入框组件
  */
 
+import { playMessageSendSound, playMenuOpenSound, playClickPopSound } from '../../../utils/soundManager'
+
 interface ChatInputProps {
   inputValue: string
   isAiTyping: boolean
@@ -60,8 +62,11 @@ const ChatInput = ({
       {/* 输入栏 */}
       <div className="px-3 py-3 flex items-center gap-2">
         {/* 添加按钮 */}
-        <button 
-          onClick={onShowAddMenu}
+        <button
+          onClick={() => {
+            playMenuOpenSound() // 🎵 播放菜单打开音效
+            onShowAddMenu()
+          }}
           className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect"
         >
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,7 +97,10 @@ const ChatInput = ({
         {/* 发送/AI按钮 */}
         {inputValue.trim() ? (
           <button
-            onClick={onSend}
+            onClick={() => {
+              playMessageSendSound() // 🎵 播放发送音效
+              onSend()
+            }}
             disabled={isAiTyping}
             className="w-10 h-10 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast"
           >
@@ -101,8 +109,11 @@ const ChatInput = ({
             </svg>
           </button>
         ) : (
-          <button 
-            onClick={onAIReply}
+          <button
+            onClick={() => {
+              playClickPopSound() // 🎵 播放AI回复音效
+              onAIReply()
+            }}
             disabled={isAiTyping}
             className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect"
           >

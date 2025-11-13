@@ -3,6 +3,7 @@
  */
 
 import type { Message } from '../types/chat'
+import { playMenuSelectSound, playMenuCloseSound } from '../utils/soundManager'
 
 interface MenuItemConfig {
   label: string
@@ -95,7 +96,10 @@ const MessageMenu = ({
       {/* 遮罩层 - 液态玻璃效果 + 淡入动画 */}
       <div
         className="fixed inset-0 z-50 glass-dark modal-overlay-enter"
-        onClick={onClose}
+        onClick={() => {
+          playMenuCloseSound() // 🎵 播放关闭音效
+          onClose()
+        }}
         style={{
           willChange: 'opacity',
           transform: 'translateZ(0)' // 🚀 GPU加速
@@ -131,6 +135,7 @@ const MessageMenu = ({
             <button
               key={index}
               onClick={() => {
+                playMenuSelectSound() // 🎵 播放菜单选择音效
                 item.onClick()
                 onClose()
               }}

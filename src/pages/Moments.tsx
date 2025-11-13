@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
 import { getUserInfo } from '../utils/userUtils'
-import { playSystemSound } from '../utils/soundManager'
+import { playLikeSound } from '../utils/soundManager'
 import type { Moment } from '../types/moments'
 
 export default function Moments() {
@@ -67,7 +67,7 @@ export default function Moments() {
   }
   
   const handleLike = (momentId: string) => {
-    playSystemSound() // 🎵 播放点击音效
+    playLikeSound() // 🎵 播放点赞音效
     const moment = moments.find(m => m.id === momentId)
     if (!moment) return
 

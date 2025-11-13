@@ -248,10 +248,25 @@ const ChatDetail = () => {
   const isInitialLoadRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
+  // 检查用户是否在底部附近（距离底部150px以内）
+  const isNearBottom = useCallback(() => {
+    if (!scrollContainerRef.current) return true
+    const container = scrollContainerRef.current
+    const threshold = 150 // 距离底部150px以内认为是在底部
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+  }, [])
+
   // 滚动到底部的函数（必须在useEffect之前定义）
-  const scrollToBottom = useCallback((smooth = true) => {
+  const scrollToBottom = useCallback((smooth = true, force = false) => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current
+
+      // 🔥 如果不是强制滚动，且用户不在底部附近，就不要自动滚动
+      if (!force && !isNearBottom()) {
+        console.log('📜 [滚动] 用户正在查看历史消息，跳过自动滚动')
+        return
+      }
+
       if (smooth) {
         container.scrollTo({
           top: container.scrollHeight,
@@ -261,14 +276,14 @@ const ChatDetail = () => {
         container.scrollTop = container.scrollHeight
       }
     }
-  }, [])
+  }, [isNearBottom])
   
   // 初始加载时立即跳到底部，不要动画
   useEffect(() => {
     if (isInitialLoadRef.current && chatState.messages.length > 0) {
       // 使用setTimeout确保DOM已经渲染完成
       setTimeout(() => {
-        scrollToBottom(false) // 初始加载不用动画
+        scrollToBottom(false, true) // 初始加载强制滚动
         // 初始加载完成后启用平滑滚动
         if (scrollContainerRef.current) {
           scrollContainerRef.current.classList.add('enable-smooth')
@@ -277,7 +292,7 @@ const ChatDetail = () => {
       isInitialLoadRef.current = false
     }
   }, [chatState.messages, scrollToBottom])
-  
+
   // 🔥 后续消息更新时使用平滑滚动（但加载更多时不滚动）
   const lastMessageIdRef = useRef<number | null>(null)
 
@@ -290,15 +305,17 @@ const ChatDetail = () => {
       if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
         lastMessageIdRef.current = lastMessageId
         // 使用setTimeout确保DOM更新后再滚动
-        setTimeout(() => scrollToBottom(true), 50)
+        // 🔥 只有用户在底部附近时才自动滚动
+        setTimeout(() => scrollToBottom(true, false), 50)
       }
     }
   }, [chatState.messages, scrollToBottom])
-  
+
   // AI打字时滚动
   useEffect(() => {
     if (chatAI.isAiTyping) {
-      setTimeout(() => scrollToBottom(true), 50)
+      // 🔥 只有用户在底部附近时才自动滚动
+      setTimeout(() => scrollToBottom(true, false), 50)
     }
   }, [chatAI.isAiTyping, scrollToBottom])
 
@@ -397,6 +414,7 @@ const ChatDetail = () => {
     >
       <ChatHeader
         characterName={character.nickname || character.realName}
+        characterId={id}
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}

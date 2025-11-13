@@ -21,6 +21,7 @@ import { getEmojis } from '../../../utils/emojiStorage'
 import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { callMinimaxTTS } from '../../../utils/voiceApi'
 import { addAIMemo } from '../../../utils/aiMemoManager'
+import { extractStatusFromReply, setAIStatus } from '../../../utils/aiStatusManager'
 
 /**
  * 指令处理器接口
@@ -1304,27 +1305,27 @@ export const changeSignatureHandler: CommandHandler = {
 
 /**
  * 状态管理处理器
+ * 支持格式：[状态:正在吃火锅] 或 [状态更新:躺在床上]
  */
 export const statusHandler: CommandHandler = {
-  pattern: /[\[【]状态[:\：](.+?)[\]】]/,
-  handler: async (match, content, { character, refreshCharacter }) => {
+  pattern: /[\[【]状态(?:更新)?[:\：](.+?)[\]】]/,
+  handler: async (match, content, { character }) => {
     if (!character) {
       console.warn('⚠️ 更新状态失败: 没有character信息')
       return { handled: false }
     }
-    
-    const newActivity = match[1].trim()
-    
-    console.log(`🎭 AI更新状态: ${newActivity}`)
-    
-    // 更新角色状态
-    characterService.update(character.id, { currentActivity: newActivity })
-    
-    // 🔥 立即刷新界面上的character
-    if (refreshCharacter) {
-      refreshCharacter()
+
+    const newAction = match[1].trim()
+
+    console.log(`💫 [AI状态] 更新状态: ${newAction}`)
+
+    // 使用新的状态管理器
+    const statusUpdate = extractStatusFromReply(match[0], character.id)
+    if (statusUpdate) {
+      setAIStatus(statusUpdate)
+      console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
@@ -1550,6 +1551,7 @@ export const changeSongHandler: CommandHandler = {
 /**
  * AI随笔处理器
  * 🔥 支持全角和半角方括号：[随笔:...] 或 【随笔：...】
+ * 系统自动添加时间戳，AI只需写内容即可
  */
 export const aiMemoHandler: CommandHandler = {
   pattern: /[\[【]随笔[:\：]([^\]】]+)[\]】]/,
@@ -1560,7 +1562,7 @@ export const aiMemoHandler: CommandHandler = {
     
     const noteContent = match[1].trim()
     
-    // 添加到随笔
+    // 添加到随笔（系统自动生成时间戳）
     addAIMemo(character.id, character.nickname || character.realName, noteContent)
     
     console.log(`📝 ${character.nickname || character.realName} 写随笔:`, noteContent)

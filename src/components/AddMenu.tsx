@@ -2,6 +2,8 @@
  * 添加菜单组件（+号菜单）
  */
 
+import { playMenuSelectSound, playMenuCloseSound } from '../utils/soundManager'
+
 interface MenuItem {
   icon: JSX.Element
   label: string
@@ -117,7 +119,10 @@ const AddMenu = ({
       {/* 遮罩层 - 液态玻璃效果 + 淡入动画 */}
       <div
         className="fixed inset-0 glass-dark z-40 modal-overlay-enter"
-        onClick={onClose}
+        onClick={() => {
+          playMenuCloseSound() // 🎵 播放关闭音效
+          onClose()
+        }}
         style={{
           willChange: 'opacity',
           transform: 'translateZ(0)' // 🚀 GPU加速
@@ -148,6 +153,7 @@ const AddMenu = ({
             <button
               key={index}
               onClick={() => {
+                playMenuSelectSound() // 🎵 播放菜单选择音效
                 item.onClick()
                 onClose()
               }}

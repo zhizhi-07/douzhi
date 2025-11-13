@@ -1,39 +1,57 @@
 /**
  * 系统音效管理器
- * 🎵 可爱音效系统
+ * 🎵 可爱音效系统 - 多样化音效
  */
 
-// 🎵 可爱音效库 - 使用免费的可爱音效
+// 🎵 可爱音效库 - 每个交互都有独特的音效
 const CUTE_SOUNDS = {
-  // 点击音效 - 轻快可爱
-  click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 轻快点击
+  // 🔘 点击音效 - 不同场景不同音效
+  clickSoft: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 柔和点击
+  clickBright: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 明亮点击
+  clickPop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 弹出点击
+  clickTap: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 轻敲点击
 
-  // 发送消息 - 发送的感觉
-  send: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 发送音
+  // 🎯 导航音效
+  navSwitch: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 导航切换
+  pageEnter: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 页面进入
+  pageBack: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // 返回
 
-  // 接收消息 - 通知的感觉
-  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 柔和通知
+  // 💬 消息音效
+  send: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 发送消息
+  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 接收消息
+  typing: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 正在输入
 
-  // 成功操作 - 完成的感觉
-  success: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 成功音
+  // 📋 菜单音效
+  menuOpen: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 打开菜单
+  menuClose: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // 关闭菜单
+  menuSelect: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 选择菜单项
 
-  // 错误提示 - 温柔的提示
-  error: 'https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3', // 错误音
+  // 🎨 模态框音效
+  modalOpen: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 打开模态框
+  modalClose: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // 关闭模态框
 
-  // 长按 - 触发的感觉
-  longPress: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 长按音
+  // 👆 长按音效
+  longPressStart: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 长按开始
+  longPressEnd: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 长按结束
 
-  // 加载更多 - 刷新的感觉
-  loadMore: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 加载音
+  // 🔄 加载音效
+  loadMore: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 加载更多
+  refresh: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 刷新
 
-  // 打开菜单 - 展开的感觉
-  menuOpen: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // 菜单音
+  // ✅ 反馈音效
+  success: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 成功
+  error: 'https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3', // 错误
+  warning: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 警告
 
-  // 关闭 - 收起的感觉
-  close: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // 关闭音
+  // 📞 通话音效
+  call: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 来电
+  callEnd: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // 挂断
 
-  // 电话 - 来电的感觉
-  call: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 电话音
+  // 💝 特殊音效
+  like: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 点赞
+  transfer: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 转账
+  photo: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // 拍照
+  voice: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // 语音
 }
 
 let currentAudio: HTMLAudioElement | null = null
@@ -56,14 +74,14 @@ const playSound = (url: string, volume: number = 0.3) => {
 }
 
 /**
- * 🎵 播放系统音效（点击音效）
+ * 🎵 播放系统音效（通用点击音效）
  */
 export const playSystemSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
 
   const customSound = localStorage.getItem('custom_sound')
-  const url = customSound || CUTE_SOUNDS.click
+  const url = customSound || CUTE_SOUNDS.clickSoft
 
   if (currentAudio) {
     currentAudio.pause()
@@ -71,6 +89,96 @@ export const playSystemSound = () => {
   }
 
   currentAudio = playSound(url, 0.25)
+}
+
+/**
+ * 🎵 播放导航切换音效
+ */
+export const playNavSwitchSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.navSwitch, 0.3)
+}
+
+/**
+ * 🎵 播放页面进入音效
+ */
+export const playPageEnterSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.pageEnter, 0.25)
+}
+
+/**
+ * 🎵 播放返回音效
+ */
+export const playBackSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.pageBack, 0.25)
+}
+
+/**
+ * 🎵 播放明亮点击音效
+ */
+export const playClickBrightSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.clickBright, 0.3)
+}
+
+/**
+ * 🎵 播放弹出点击音效
+ */
+export const playClickPopSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.clickPop, 0.3)
+}
+
+/**
+ * 🎵 播放轻敲点击音效
+ */
+export const playClickTapSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.clickTap, 0.25)
 }
 
 /**
@@ -162,7 +270,7 @@ export const playErrorSound = () => {
 }
 
 /**
- * 🎵 播放长按音效
+ * 🎵 播放长按开始音效
  */
 export const playLongPressSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
@@ -173,7 +281,22 @@ export const playLongPressSound = () => {
     currentAudio.currentTime = 0
   }
 
-  currentAudio = playSound(CUTE_SOUNDS.longPress, 0.25)
+  currentAudio = playSound(CUTE_SOUNDS.longPressStart, 0.25)
+}
+
+/**
+ * 🎵 播放长按结束音效
+ */
+export const playLongPressEndSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.longPressEnd, 0.2)
 }
 
 /**
@@ -203,11 +326,41 @@ export const playMenuOpenSound = () => {
     currentAudio.currentTime = 0
   }
 
-  currentAudio = playSound(CUTE_SOUNDS.menuOpen, 0.25)
+  currentAudio = playSound(CUTE_SOUNDS.menuOpen, 0.3)
 }
 
 /**
- * 🎵 播放关闭音效
+ * 🎵 播放菜单关闭音效
+ */
+export const playMenuCloseSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.menuClose, 0.25)
+}
+
+/**
+ * 🎵 播放菜单选择音效
+ */
+export const playMenuSelectSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.menuSelect, 0.3)
+}
+
+/**
+ * 🎵 播放关闭音效（通用）
  */
 export const playCloseSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
@@ -218,7 +371,127 @@ export const playCloseSound = () => {
     currentAudio.currentTime = 0
   }
 
-  currentAudio = playSound(CUTE_SOUNDS.close, 0.25)
+  currentAudio = playSound(CUTE_SOUNDS.menuClose, 0.25)
+}
+
+/**
+ * 🎵 播放模态框打开音效
+ */
+export const playModalOpenSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.modalOpen, 0.3)
+}
+
+/**
+ * 🎵 播放模态框关闭音效
+ */
+export const playModalCloseSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.modalClose, 0.25)
+}
+
+/**
+ * 🎵 播放点赞音效
+ */
+export const playLikeSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.like, 0.35)
+}
+
+/**
+ * 🎵 播放转账音效
+ */
+export const playTransferSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.transfer, 0.35)
+}
+
+/**
+ * 🎵 播放拍照音效
+ */
+export const playPhotoSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.photo, 0.3)
+}
+
+/**
+ * 🎵 播放语音音效
+ */
+export const playVoiceSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.voice, 0.3)
+}
+
+/**
+ * 🎵 播放刷新音效
+ */
+export const playRefreshSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.refresh, 0.3)
+}
+
+/**
+ * 🎵 播放挂断音效
+ */
+export const playCallEndSound = () => {
+  const enabled = localStorage.getItem('system_sound_enabled')
+  if (enabled === 'false') return
+
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+  }
+
+  currentAudio = playSound(CUTE_SOUNDS.callEnd, 0.3)
 }
 
 /**

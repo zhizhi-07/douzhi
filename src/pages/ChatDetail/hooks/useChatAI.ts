@@ -640,10 +640,18 @@ export const useChatAI = (
       
       // 再解析朋友圈互动指令
       const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterDelete, aiName, aiId)
-      
+
       console.log('🔍 [朋友圈互动解析] 原始消息:', messageAfterDelete)
       console.log('🔍 [朋友圈互动解析] 清理后消息:', cleanedMessage)
       console.log('🔍 [朋友圈互动解析] 互动数量:', interactions.length)
+
+      // 🔥 提取并保存AI状态更新
+      const { extractStatusFromReply, setAIStatus } = await import('../../../utils/aiStatusManager')
+      const statusUpdate = extractStatusFromReply(cleanedMessage, aiId)
+      if (statusUpdate) {
+        setAIStatus(statusUpdate)
+        console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
+      }
       
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {

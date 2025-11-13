@@ -4,7 +4,7 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom'
-import { playSystemSound } from '../utils/soundManager'
+import { playNavSwitchSound } from '../utils/soundManager'
 import { useState } from 'react'
 
 const BottomNav = () => {
@@ -13,7 +13,7 @@ const BottomNav = () => {
   const [activeTab, setActiveTab] = useState(location.pathname)
 
   const handleNavClick = (path: string) => {
-    playSystemSound() // 🎵 播放点击音效
+    playNavSwitchSound() // 🎵 播放导航切换音效
     setActiveTab(path)
     navigate(path)
   }

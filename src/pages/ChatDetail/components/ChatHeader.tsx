@@ -3,11 +3,15 @@
  */
 
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import StatusBar from '../../../components/StatusBar'
 import { TokenStats } from '../../../utils/tokenCounter'
+import { playBackSound, playClickBrightSound } from '../../../utils/soundManager'
+import { getAIStatus, formatStatusShort } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
   characterName: string
+  characterId?: string
   isAiTyping: boolean
   onBack?: () => void
   onMenuClick?: () => void
@@ -15,22 +19,46 @@ interface ChatHeaderProps {
   onTokenStatsClick?: () => void
 }
 
-const ChatHeader = ({ characterName, isAiTyping, onBack, onMenuClick, tokenStats, onTokenStatsClick }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, tokenStats, onTokenStatsClick }: ChatHeaderProps) => {
   const navigate = useNavigate()
-  
+  const [aiStatus, setAiStatus] = useState<string>('')
+
+  // 获取AI状态
+  useEffect(() => {
+    if (characterId) {
+      const status = getAIStatus(characterId)
+      if (status) {
+        setAiStatus(formatStatusShort(status))
+      }
+    }
+
+    // 每30秒更新一次状态
+    const interval = setInterval(() => {
+      if (characterId) {
+        const status = getAIStatus(characterId)
+        if (status) {
+          setAiStatus(formatStatusShort(status))
+        }
+      }
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [characterId])
+
   const handleBack = () => {
+    playBackSound() // 🎵 播放返回音效
     if (onBack) {
       onBack()
     } else {
       navigate(-1)
     }
   }
-  
+
   return (
     <div className="glass-effect rounded-b-[20px]">
       <StatusBar />
       <div className="px-5 py-4 flex items-center justify-between">
-        <button 
+        <button
           onClick={handleBack}
           className="text-gray-700 btn-press-fast touch-ripple-effect -ml-2 p-2 rounded-full"
         >
@@ -38,10 +66,17 @@ const ChatHeader = ({ characterName, isAiTyping, onBack, onMenuClick, tokenStats
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        
-        <h1 className="text-lg font-semibold text-gray-900 transition-all duration-300">
-          {isAiTyping ? '正在输入' : characterName}
-        </h1>
+
+        <div className="flex flex-col items-center">
+          <h1 className="text-lg font-semibold text-gray-900 transition-all duration-300">
+            {isAiTyping ? '正在输入' : characterName}
+          </h1>
+          {!isAiTyping && aiStatus && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              {aiStatus}
+            </p>
+          )}
+        </div>
         
         <div className="flex items-center gap-2">
           {/* Token 统计按钮 */}
@@ -64,8 +99,11 @@ const ChatHeader = ({ characterName, isAiTyping, onBack, onMenuClick, tokenStats
             </button>
           )}
           
-          <button 
-            onClick={onMenuClick}
+          <button
+            onClick={() => {
+              playClickBrightSound() // 🎵 播放菜单音效
+              onMenuClick?.()
+            }}
             className="text-gray-700 btn-press-fast touch-ripple-effect -mr-2 p-2 rounded-full"
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
