@@ -91,12 +91,31 @@ const FontCustomizer = () => {
     applyFont(font.family, font.url, font.name)
   }
   
-  // 重置为系统默认
+  // 重置为系统默认（喵小九的喵字体）
   const resetToDefault = () => {
-    const defaultFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    const defaultFamily = '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    
+    // 加载喵小九的喵字体
+    const style = document.createElement('style')
+    style.textContent = `
+      @font-face {
+        font-family: '喵小九的喵';
+        src: url('/fonts/喵小九的喵.ttf');
+      }
+    `
+    document.head.appendChild(style)
+    
     document.body.style.fontFamily = defaultFamily
-    setCustomFont(null)
-    localStorage.removeItem('custom_font')
+    setCustomFont({
+      family: defaultFamily,
+      url: '/fonts/喵小九的喵.ttf',
+      name: '喵小九的喵'
+    })
+    localStorage.setItem('custom_font', JSON.stringify({
+      family: defaultFamily,
+      url: '/fonts/喵小九的喵.ttf',
+      name: '喵小九的喵'
+    }))
     window.dispatchEvent(new Event('fontChanged'))
   }
   
@@ -171,6 +190,17 @@ const FontCustomizer = () => {
         document.head.appendChild(style)
       }
       document.body.style.fontFamily = customFont.family
+    } else {
+      // 如果没有自定义字体，使用喵小九的喵作为默认字体
+      const style = document.createElement('style')
+      style.textContent = `
+        @font-face {
+          font-family: '喵小九的喵';
+          src: url('/fonts/喵小九的喵.ttf');
+        }
+      `
+      document.head.appendChild(style)
+      document.body.style.fontFamily = '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }
   }, [])
 
@@ -214,13 +244,13 @@ const FontCustomizer = () => {
             )}
           </div>
           <div className="text-lg font-semibold text-gray-900">
-            {customFont ? customFont.name : '系统默认'}
+            {customFont ? customFont.name : '喵小九的喵（系统默认）'}
           </div>
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-            <p className="text-base" style={{ fontFamily: customFont?.family || 'inherit' }}>
+            <p className="text-base" style={{ fontFamily: customFont?.family || '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
               床前明月光，疑是地上霜。
             </p>
-            <p className="text-sm text-gray-500 mt-1" style={{ fontFamily: customFont?.family || 'inherit' }}>
+            <p className="text-sm text-gray-500 mt-1" style={{ fontFamily: customFont?.family || '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
               The quick brown fox jumps over the lazy dog.
             </p>
           </div>
