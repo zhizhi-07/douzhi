@@ -33,16 +33,17 @@ import LoadingSkeleton from './ChatDetail/components/LoadingSkeleton'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
+import { playLoadMoreSound, playMenuOpenSound, playCloseSound } from '../utils/soundManager'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  
+
   // 壁纸
-  const [wallpaper, setWallpaper] = useState(() => 
+  const [wallpaper, setWallpaper] = useState(() =>
     id ? getChatWallpaper(id) : null
   )
-  
+
   // 气泡样式
   useChatBubbles(id)
   
@@ -128,14 +129,36 @@ const ChatDetail = () => {
   const longPress = useLongPress((msg, position) => {
     // 多选模式下不显示菜单
     if (multiSelect.isMultiSelectMode) return
-    
+
     messageMenu.setLongPressedMessage(msg)
     messageMenu.setMenuPosition(position)
     messageMenu.setShowMessageMenu(true)
   })
-  
-  
-  
+
+  // 🔥 禁用虚拟化，只使用分页加载（虚拟化有白屏bug）
+  const shouldUseVirtualization = false
+
+  // 🔥 优化：使用useCallback确保返回按钮始终可用
+  const handleBack = useCallback(() => {
+    navigate('/wechat')
+  }, [navigate])
+
+  // 🔥 优化：输入框处理函数，避免重复创建
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    chatState.setInputValue(e.target.value)
+  }, [chatState])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !chatAI.isAiTyping) {
+      e.preventDefault()
+      if (chatState.inputValue.trim()) {
+        chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))
+      } else {
+        chatAI.handleAIReply()
+      }
+    }
+  }, [chatAI, chatState, modals])
+
   // 检测未接来电（用户返回聊天页面时）
   useEffect(() => {
     // 检查是否从全局弹窗接受来电
@@ -255,13 +278,22 @@ const ChatDetail = () => {
     }
   }, [chatState.messages, scrollToBottom])
   
-  // 后续消息更新时使用平滑滚动
+  // 🔥 后续消息更新时使用平滑滚动（但加载更多时不滚动）
+  const lastMessageIdRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (!isInitialLoadRef.current && chatState.messages.length > 0) {
-      // 使用setTimeout确保DOM更新后再滚动
-      setTimeout(() => scrollToBottom(true), 50)
+      const lastMessage = chatState.messages[chatState.messages.length - 1]
+      const lastMessageId = lastMessage?.id
+
+      // 🔥 只有当最后一条消息的ID变化时才滚动（说明是新消息，不是加载更多）
+      if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
+        lastMessageIdRef.current = lastMessageId
+        // 使用setTimeout确保DOM更新后再滚动
+        setTimeout(() => scrollToBottom(true), 50)
+      }
     }
-  }, [chatState.messages.length, scrollToBottom])
+  }, [chatState.messages, scrollToBottom])
   
   // AI打字时滚动
   useEffect(() => {
@@ -269,23 +301,93 @@ const ChatDetail = () => {
       setTimeout(() => scrollToBottom(true), 50)
     }
   }, [chatAI.isAiTyping, scrollToBottom])
+
+  // 🔥 滚动检测 - 自动触发加载更多
+  const previousMessageCountRef = useRef(chatState.messages.length)
+  const previousScrollHeightRef = useRef(0)
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container || shouldUseVirtualization) return // 虚拟化模式下不需要
+
+    let isLoadingMore = false
+
+    const handleScroll = () => {
+      if (isLoadingMore || chatState.isLoadingMessages || !chatState.hasMoreMessages) return
+
+      const { scrollTop } = container
+
+      // 滚动到顶部200px内时触发加载更多
+      if (scrollTop < 200) {
+        isLoadingMore = true
+        // 记录加载前的scrollHeight
+        previousScrollHeightRef.current = container.scrollHeight
+        console.log('📜 [ChatDetail] 触发加载更多历史消息', {
+          scrollTop,
+          scrollHeight: container.scrollHeight
+        })
+        chatState.loadMoreMessages()
+
+        // 1秒后重置标志
+        setTimeout(() => {
+          isLoadingMore = false
+        }, 1000)
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [shouldUseVirtualization, chatState.isLoadingMessages, chatState.hasMoreMessages, chatState.loadMoreMessages])
+
+  // 🔥 加载更多后保持滚动位置
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container || shouldUseVirtualization) return
+
+    const currentCount = chatState.messages.length
+    const previousCount = previousMessageCountRef.current
+
+    // 检测是否是加载更多（消息增加）
+    if (currentCount > previousCount && previousScrollHeightRef.current > 0) {
+      requestAnimationFrame(() => {
+        const newScrollHeight = container.scrollHeight
+        const heightDiff = newScrollHeight - previousScrollHeightRef.current
+
+        // 调整scrollTop保持视觉位置
+        container.scrollTop = container.scrollTop + heightDiff
+
+        console.log('📜 [ChatDetail] 加载更多完成，保持位置', {
+          previousCount,
+          currentCount,
+          heightDiff,
+          newScrollTop: container.scrollTop
+        })
+
+        // 重置
+        previousScrollHeightRef.current = 0
+      })
+    }
+
+    previousMessageCountRef.current = currentCount
+  }, [chatState.messages.length, shouldUseVirtualization])
   
+  // 🔥 显示加载状态而不是"角色不存在"
   if (!chatState.character) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#f5f7fa]">
-        <p className="text-gray-400">角色不存在</p>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
       </div>
     )
   }
   
   const character = chatState.character
-  
-  // 禁用虚拟化，使用原来的布局（避免卡顿和布局改变）
-  const shouldUseVirtualization = false // 暂时禁用虚拟化
-  
+
   // 减少日志频率，避免输入时刷屏
-  if (chatState.messages.length % 10 === 0 || !shouldUseVirtualization) {
-    console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}`)
+  if (import.meta.env.DEV && chatState.messages.length % 10 === 0) {
+    console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}, 还有更多: ${chatState.hasMoreMessages}`)
   }
   
   return (
@@ -296,7 +398,7 @@ const ChatDetail = () => {
       <ChatHeader
         characterName={character.nickname || character.realName}
         isAiTyping={chatAI.isAiTyping}
-        onBack={() => navigate('/wechat')}
+        onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}
         tokenStats={chatAI.tokenStats}
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
@@ -376,7 +478,11 @@ const ChatDetail = () => {
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          willChange: 'scroll-position',
+          transform: 'translateZ(0)' // 🚀 GPU加速
+        }}
       >
         {/* 🔥 加载状态骨架屏 */}
         {chatState.isLoadingMessages && chatState.messages.length === 0 ? (
@@ -411,7 +517,30 @@ const ChatDetail = () => {
             onLoadMore={chatState.loadMoreMessages}
           />
         ) : (
-          chatState.messages.map((message, index) => {
+          <>
+            {/* 🔥 加载更多按钮 - 显示在消息列表顶部 */}
+            {chatState.hasMoreMessages && (
+              <div className="flex justify-center py-3 mb-2">
+                {chatState.isLoadingMessages ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    <span>加载中...</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      playLoadMoreSound() // 🎵 播放加载音效
+                      chatState.loadMoreMessages()
+                    }}
+                    className="text-sm text-blue-500 hover:text-blue-600 px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors active:scale-95"
+                  >
+                    点击加载更多历史消息
+                  </button>
+                )}
+              </div>
+            )}
+
+            {chatState.messages.map((message, index) => {
           // 获取过滤后的消息列表用于计算时间戳
           const visibleMessages = chatState.messages
           // 判断是否需要显示5分钟时间戳（固定时间刻度）
@@ -674,7 +803,8 @@ const ChatDetail = () => {
             )}
           </div>
           )
-        })
+        })}
+          </>
         )}
         
         {chatAI.isAiTyping && (
@@ -771,8 +901,11 @@ const ChatDetail = () => {
         )}
         
         <div className="px-2 py-2 flex items-center gap-1">
-          <button 
-            onClick={() => addMenu.setShowAddMenu(true)}
+          <button
+            onClick={() => {
+              playMenuOpenSound() // 🎵 播放菜单音效
+              addMenu.setShowAddMenu(true)
+            }}
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -783,10 +916,14 @@ const ChatDetail = () => {
             <input
               type="text"
               value={chatState.inputValue}
-              onChange={(e) => chatState.setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !chatAI.isAiTyping && (chatState.inputValue.trim() ? chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null)) : chatAI.handleAIReply())}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder="发送消息"
               className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
+              style={{
+                transform: 'translateZ(0)', // 🚀 GPU加速
+                willChange: 'contents'
+              }}
             />
           </div>
           <button 
@@ -834,7 +971,10 @@ const ChatDetail = () => {
 
       <AddMenu
         isOpen={addMenu.showAddMenu}
-        onClose={() => addMenu.setShowAddMenu(false)}
+        onClose={() => {
+          playCloseSound() // 🎵 关闭时播放音效
+          addMenu.setShowAddMenu(false)
+        }}
         onSelectRecall={addMenu.handlers.handleSelectRecall}
         onSelectImage={addMenu.handlers.handleSelectImage}
         onSelectCamera={addMenu.handlers.handleSelectCamera}

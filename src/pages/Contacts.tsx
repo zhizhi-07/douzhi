@@ -49,8 +49,8 @@ const Contacts = () => {
   ]
 
   return (
-    <div 
-      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center"
+    <div
+      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center page-fade-in"
       style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}>
       {/* 顶部 */}
       <div className="glass-effect">
@@ -77,11 +77,12 @@ const Contacts = () => {
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto px-3 pt-3">
         {/* 特殊联系人 */}
-        {specialContacts.map((contact) => (
+        {specialContacts.map((contact, index) => (
           <div
             key={contact.id}
             onClick={() => contact.path && navigate(contact.path)}
-            className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform"
+            className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform card-enter"
+            style={{ animationDelay: `${index * 0.05}s` }}
           >
             <div className="w-12 h-12 rounded-xl bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md border border-gray-200/50 text-gray-600">
               {contact.icon}
@@ -108,11 +109,12 @@ const Contacts = () => {
           </div>
         ) : (
           <div>
-            {characters.map((character) => (
+            {characters.map((character, index) => (
               <div
                 key={character.id}
                 onClick={() => navigate(`/character/${character.id}`)}
-                className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform"
+                className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform card-enter"
+                style={{ animationDelay: `${(specialContacts.length + index) * 0.05}s` }}
               >
                 <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center shadow-lg overflow-hidden">
                   {character.avatar ? (

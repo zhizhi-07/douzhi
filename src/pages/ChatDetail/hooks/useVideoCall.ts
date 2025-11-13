@@ -588,9 +588,19 @@ export const useVideoCall = (
       
       // 处理挂断电话指令
       if (hasHangUpCommand) {
-        // 解析挂断前的对话（排除所有指令）
+        // 🔥 修复：先移除[挂断电话]指令，再解析对话
         const hangUpMatch = aiReply.match(/[\[【]挂断电话[\]】]/)
-        const contentBeforeEnd = hangUpMatch ? aiReply.split(hangUpMatch[0])[0] : aiReply
+        if (!hangUpMatch) {
+          console.error('❌ [视频通话] 检测到挂断指令但找不到匹配的文本！')
+          endCall()
+          return
+        }
+        
+        // 获取挂断前的内容（不包括[挂断电话]）
+        const contentBeforeEnd = aiReply.split(hangUpMatch[0])[0]
+        console.log('📞 [视频通话] 挂断前的内容:', contentBeforeEnd.substring(0, 100))
+        
+        // 清理所有控制指令
         const cleaned = removeControlCommands(contentBeforeEnd)
         const parsed = parseDialogueLines(cleaned)
         

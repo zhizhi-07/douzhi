@@ -62,6 +62,9 @@ const VirtualMessageList = ({
   })
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const loadMoreTriggeredRef = useRef(false)
+  const isInitializedRef = useRef(false) // 🔥 标记是否已初始化
+  const previousMessageCountRef = useRef(messages.length) // 🔥 记录上次的消息数量
+  const previousScrollHeightRef = useRef(0) // 🔥 记录加载前的scrollHeight
   
   // 估算消息高度（平均值）
   const ESTIMATED_MESSAGE_HEIGHT = 80
@@ -73,16 +76,19 @@ const VirtualMessageList = ({
     const { scrollTop, clientHeight, scrollHeight } = containerRef.current
 
     // 🔥 检测是否滚动到顶部（加载更多历史消息）
-    if (scrollTop < 100 && hasMoreMessages && !isLoadingMessages && !loadMoreTriggeredRef.current) {
+    // 提高阈值到200px，更容易触发
+    if (scrollTop < 200 && hasMoreMessages && !isLoadingMessages && !loadMoreTriggeredRef.current) {
       loadMoreTriggeredRef.current = true
-      if (import.meta.env.DEV) {
-        console.log('📜 [VirtualMessageList] 触发加载更多历史消息')
-      }
+      console.log('📜 [VirtualMessageList] 🔥触发加载更多历史消息🔥', {
+        scrollTop,
+        hasMoreMessages,
+        isLoadingMessages
+      })
       onLoadMore?.()
-      // 500ms后重置标志，避免重复触发
+      // 1000ms后重置标志，避免重复触发
       setTimeout(() => {
         loadMoreTriggeredRef.current = false
-      }, 500)
+      }, 1000)
     }
 
     // 检测是否接近底部（距离底部小于100px）
@@ -97,7 +103,11 @@ const VirtualMessageList = ({
     )
 
     setVisibleRange({ start, end })
-    console.log('📏 [VirtualMessageList] 可见范围:', { start, end, total: messages.length })
+
+    // 只在开发模式下打印详细日志
+    if (import.meta.env.DEV && Math.random() < 0.1) { // 10%概率打印，减少刷屏
+      console.log('📏 [VirtualMessageList] 可见范围:', { start, end, total: messages.length, scrollTop, hasMoreMessages })
+    }
   }, [messages.length, hasMoreMessages, isLoadingMessages, onLoadMore])
   
   useEffect(() => {
@@ -108,39 +118,65 @@ const VirtualMessageList = ({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
   
-  // 当消息数量变化时，智能处理滚动
-  useEffect(() => {
-    if (!containerRef.current) return
-    
-    // 如果应该自动滚动（用户在底部），则滚动到底部
-    if (shouldAutoScroll) {
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = containerRef.current.scrollHeight
-          console.log('🔽 [VirtualMessageList] 自动滚动到底部')
-        }
-      }, 50)
-    }
-    
-    // 重新计算可见范围
-    handleScroll()
-  }, [messages.length, shouldAutoScroll, handleScroll])
-  
-  // 初始化时设置正确的滚动位置
+  // 🔥 优化：统一的滚动控制，避免跳动
   useEffect(() => {
     if (!containerRef.current || messages.length === 0) return
-    
-    // 延迟设置滚动位置，确保DOM已经渲染
-    const timer = setTimeout(() => {
-      if (containerRef.current) {
-        // 总是滚动到底部（最新消息）
-        containerRef.current.scrollTop = containerRef.current.scrollHeight
-        console.log('🔽 [VirtualMessageList] 立即滚动到底部')
-      }
-    }, 10)
-    
-    return () => clearTimeout(timer)
-  }, [messages.length])
+
+    const container = containerRef.current
+    const previousCount = previousMessageCountRef.current
+    const currentCount = messages.length
+
+    // 初次加载：直接滚动到底部，不要延迟
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true
+      previousMessageCountRef.current = currentCount
+      // 使用requestAnimationFrame确保DOM已渲染
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+          previousScrollHeightRef.current = container.scrollHeight // 记录初始高度
+          console.log('🔽 [VirtualMessageList] 初次加载，滚动到底部', {
+            scrollHeight: container.scrollHeight,
+            messageCount: currentCount
+          })
+        }
+      })
+      return
+    }
+
+    // 🔥 检测是否是加载更多（消息增加且不在底部）
+    const isLoadingMore = currentCount > previousCount && !shouldAutoScroll
+
+    if (isLoadingMore) {
+      // 加载更多历史消息：保持滚动位置
+      const previousScrollHeight = previousScrollHeightRef.current
+      requestAnimationFrame(() => {
+        if (container && previousScrollHeight > 0) {
+          const newScrollHeight = container.scrollHeight
+          const heightDiff = newScrollHeight - previousScrollHeight
+          container.scrollTop = container.scrollTop + heightDiff
+          console.log('📜 [VirtualMessageList] 加载更多，保持位置', {
+            heightDiff,
+            newScrollTop: container.scrollTop
+          })
+        }
+      })
+    } else if (shouldAutoScroll) {
+      // 新消息且用户在底部：滚动到底部
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+          if (import.meta.env.DEV) {
+            console.log('🔽 [VirtualMessageList] 新消息，自动滚动到底部')
+          }
+        }
+      })
+    }
+
+    // 更新记录
+    previousMessageCountRef.current = currentCount
+    previousScrollHeightRef.current = container.scrollHeight
+  }, [messages.length, shouldAutoScroll])
   
   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
   const offsetTop = visibleRange.start * ESTIMATED_MESSAGE_HEIGHT

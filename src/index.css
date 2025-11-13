@@ -133,20 +133,25 @@ body {
   height: 200px;
 }
 
-/* 旋转动画 */
+/* 🚀 GPU加速 - 旋转动画 */
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from { transform: rotate3d(0, 0, 1, 0deg); }
+  to { transform: rotate3d(0, 0, 1, 360deg); }
 }
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+  will-change: transform;
 }
 
-/* iOS按钮效果 */
+/* 🚀 GPU加速 - iOS按钮效果 */
+.ios-button {
+  will-change: transform;
+}
+
 .ios-button:active {
-  transform: scale(0.98);
-  transition: transform 0.1s;
+  transform: scale3d(0.98, 0.98, 1);
+  transition: transform 0.08s;
 }
 
 /* 隐藏滚动条 */

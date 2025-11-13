@@ -5,6 +5,7 @@
 
 import { useRef, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
+import { playLongPressSound } from '../../../utils/soundManager'
 
 interface MenuPosition {
   x: number
@@ -29,6 +30,7 @@ export const useLongPress = (
     const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
     
     longPressTimerRef.current = window.setTimeout(() => {
+      playLongPressSound() // 🎵 播放长按音效
       onLongPress(message, { x: clientX, y: clientY })
       // 振动反馈
       if (navigator.vibrate) {

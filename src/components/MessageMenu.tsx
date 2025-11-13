@@ -92,14 +92,24 @@ const MessageMenu = ({
 
   return (
     <>
-      {/* 遮罩层 - 液态玻璃效果 */}
+      {/* 遮罩层 - 液态玻璃效果 + 淡入动画 */}
       <div
-        className="fixed inset-0 z-50 glass-dark"
+        className="fixed inset-0 z-50 glass-dark modal-overlay-enter"
         onClick={onClose}
+        style={{
+          willChange: 'opacity',
+          transform: 'translateZ(0)' // 🚀 GPU加速
+        }}
       />
 
-      {/* 菜单面板 */}
-      <div className="fixed bottom-0 left-0 right-0 glass-card rounded-t-3xl z-50 animate-slide-up pb-safe">
+      {/* 菜单面板 - 从底部滑入 */}
+      <div
+        className="fixed bottom-0 left-0 right-0 glass-card rounded-t-3xl z-50 modal-slide-up pb-safe"
+        style={{
+          willChange: 'transform',
+          transform: 'translateZ(0)' // 🚀 GPU加速
+        }}
+      >
         {/* 拖动条 */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
@@ -115,7 +125,7 @@ const MessageMenu = ({
           </div>
         </div>
 
-        {/* 菜单项列表 */}
+        {/* 菜单项列表 - 瀑布流动画 */}
         <div className="py-2">
           {menuItems.map((item, index) => (
             <button
@@ -124,9 +134,13 @@ const MessageMenu = ({
                 item.onClick()
                 onClose()
               }}
-              className={`w-full px-5 py-3 flex items-center gap-3 hover:bg-white/50 active:bg-white/70 transition-all active:scale-[0.98] ${
+              className={`w-full px-5 py-3 flex items-center gap-3 hover:bg-white/50 active:bg-white/70 transition-all btn-press-fast menu-item-enter ${
                 item.danger ? 'text-red-500' : 'text-gray-800'
               }`}
+              style={{
+                animationDelay: `${index * 0.05}s`,
+                willChange: 'transform, opacity'
+              }}
             >
               <div className={item.danger ? 'text-red-500' : 'text-gray-600'}>
                 {item.icon}
@@ -138,17 +152,6 @@ const MessageMenu = ({
       </div>
 
       <style>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;

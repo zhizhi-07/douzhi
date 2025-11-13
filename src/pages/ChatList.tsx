@@ -296,12 +296,12 @@ const ChatList = () => {
           </div>
         ) : (
           <div className="glass-card rounded-[32px] overflow-hidden">
-            {chats.map((chat, index) => (
+            {chats.map((chat, chatIndex) => (
               <div
                 key={chat.id}
                 onClick={() => navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)}
-                className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 list-item-enter"
-                style={{ animationDelay: `${index * 0.05}s` }}
+                className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 card-enter"
+                style={{ animationDelay: `${chatIndex * 0.05}s` }}
               >
                 {/* 头像 */}
                 <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">

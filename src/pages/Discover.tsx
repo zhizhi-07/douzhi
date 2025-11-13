@@ -96,8 +96,8 @@ const Discover = () => {
   ]
 
   return (
-    <div 
-      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center"
+    <div
+      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center page-fade-in"
       style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
     >
         {/* 顶部：StatusBar + 导航栏一体化 */}
@@ -117,8 +117,12 @@ const Discover = () => {
         </div>
         {/* 内容区 */}
         <div className="flex-1 overflow-y-auto px-3 pt-3">
-          {menuGroups.map((group) => (
-            <div key={group.id} className="mb-3">
+          {menuGroups.map((group, groupIndex) => (
+            <div
+              key={group.id}
+              className="mb-3 card-enter"
+              style={{ animationDelay: `${groupIndex * 0.1}s` }}
+            >
               <div className="glass-card rounded-[48px] overflow-hidden">
                 {group.items.map((item, index) => (
                   <div key={item.id}>

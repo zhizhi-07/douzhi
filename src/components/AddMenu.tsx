@@ -114,14 +114,24 @@ const AddMenu = ({
 
   return (
     <>
-      {/* 遮罩层 - 液态玻璃效果 */}
+      {/* 遮罩层 - 液态玻璃效果 + 淡入动画 */}
       <div
-        className="fixed inset-0 glass-dark z-40"
+        className="fixed inset-0 glass-dark z-40 modal-overlay-enter"
         onClick={onClose}
+        style={{
+          willChange: 'opacity',
+          transform: 'translateZ(0)' // 🚀 GPU加速
+        }}
       />
 
-      {/* 菜单面板 */}
-      <div className="fixed bottom-0 left-0 right-0 glass-card rounded-t-3xl z-50 animate-slide-up pb-safe">
+      {/* 菜单面板 - 从底部滑入 */}
+      <div
+        className="fixed bottom-0 left-0 right-0 glass-card rounded-t-3xl z-50 modal-slide-up pb-safe"
+        style={{
+          willChange: 'transform',
+          transform: 'translateZ(0)' // 🚀 GPU加速
+        }}
+      >
         {/* 拖动条 */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
@@ -132,7 +142,7 @@ const AddMenu = ({
           <h3 className="text-base font-medium text-gray-800">选择功能</h3>
         </div>
 
-        {/* 菜单项网格 */}
+        {/* 菜单项网格 - 瀑布流动画 */}
         <div className="grid grid-cols-4 gap-3 p-4 pb-6">
           {menuItems.map((item, index) => (
             <button
@@ -141,7 +151,11 @@ const AddMenu = ({
                 item.onClick()
                 onClose()
               }}
-              className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/50 active:bg-white/70 transition-all active:scale-95"
+              className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/50 active:bg-white/70 transition-all btn-press-fast menu-item-enter"
+              style={{
+                animationDelay: `${index * 0.03}s`,
+                willChange: 'transform, opacity'
+              }}
             >
               <div className="text-gray-700">{item.icon}</div>
               <span className="text-xs text-gray-600 font-medium">{item.label}</span>
@@ -149,20 +163,6 @@ const AddMenu = ({
           ))}
         </div>
       </div>
-
-      <style>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
     </>
   )
 }

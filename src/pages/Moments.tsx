@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
 import { getUserInfo } from '../utils/userUtils'
+import { playSystemSound } from '../utils/soundManager'
 import type { Moment } from '../types/moments'
 
 export default function Moments() {
@@ -66,17 +67,18 @@ export default function Moments() {
   }
   
   const handleLike = (momentId: string) => {
+    playSystemSound() // 🎵 播放点击音效
     const moment = moments.find(m => m.id === momentId)
     if (!moment) return
-    
+
     const hasLiked = moment.likes.some(like => like.userId === currentUser.id)
-    
+
     if (hasLiked) {
       unlikeMoment(momentId, currentUser.id)
     } else {
       likeMoment(momentId, currentUser)
     }
-    
+
     refresh()
   }
   
@@ -122,7 +124,7 @@ export default function Moments() {
   }
   
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white page-fade-in">
       {/* 头部导航栏 */}
       <div className="glass-effect z-50">
         <StatusBar />
@@ -204,8 +206,12 @@ export default function Moments() {
             </div>
           ) : (
           <div>
-            {moments.map((moment) => (
-              <div key={moment.id} className="bg-white border-b border-gray-100 p-4 hover:bg-gray-50/50 transition-colors">
+            {moments.map((moment, index) => (
+              <div
+                key={moment.id}
+                className="bg-white border-b border-gray-100 p-4 hover:bg-gray-50/50 transition-colors card-enter"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
                 <div className="flex items-start gap-3">
                   {/* 用户头像 */}
                   <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">

@@ -5,123 +5,201 @@
 
 /* ========== 消息动画 ========== */
 
-/* 消息进入动画 */
+/* 🚀 GPU加速优化 - 消息进入动画 */
 @keyframes messageSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.95);
+    transform: translate3d(0, 10px, 0) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 @keyframes messageSlideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-20px) scale(0.95);
+    transform: translate3d(-20px, 0, 0) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 @keyframes messageSlideInRight {
   from {
     opacity: 0;
-    transform: translateX(20px) scale(0.95);
+    transform: translate3d(20px, 0, 0) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 .message-enter {
-  animation: messageSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: messageSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
 }
 
 .message-enter-left {
-  animation: messageSlideInLeft 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: messageSlideInLeft 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
 }
 
 .message-enter-right {
-  animation: messageSlideInRight 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: messageSlideInRight 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
 }
 
 /* ========== 页面切换动画 ========== */
 
-/* 页面淡入 */
+/* 🚀 GPU加速 - 页面淡入 */
 @keyframes pageFadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translate3d(0, 20px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
-/* 页面从右侧滑入 */
+/* 🚀 GPU加速 - 页面从右侧滑入 */
 @keyframes pageSlideInRight {
   from {
     opacity: 0;
-    transform: translateX(100%);
+    transform: translate3d(100%, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
-/* 页面从左侧滑入 */
+/* 🚀 GPU加速 - 页面从左侧滑入 */
 @keyframes pageSlideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-100%);
+    transform: translate3d(-100%, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 .page-fade-in {
   animation: pageFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
 }
 
 .page-slide-in-right {
   animation: pageSlideInRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
 }
 
 .page-slide-in-left {
   animation: pageSlideInLeft 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
+}
+
+/* 🚀 路由切换动画 - 微信风格 */
+.route-transition {
+  width: 100%;
+  height: 100%;
+}
+
+/* 前进：从右侧滑入 */
+@keyframes routeEnterForward {
+  from {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 前进：向左侧滑出 */
+@keyframes routeExitForward {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-30%, 0, 0);
+  }
+}
+
+/* 后退：从左侧滑入 */
+@keyframes routeEnterBackward {
+  from {
+    opacity: 0;
+    transform: translate3d(-30%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 后退：向右侧滑出 */
+@keyframes routeExitBackward {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.route-enter-forward {
+  animation: routeEnterForward 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.route-exit-forward {
+  animation: routeExitForward 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.route-enter-backward {
+  animation: routeEnterBackward 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.route-exit-backward {
+  animation: routeExitBackward 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* ========== 按钮反馈动画 ========== */
 
-/* 按钮点击缩放 - 移动端优化 */
+/* 🚀 GPU加速 - 按钮点击缩放 */
 .btn-press {
-  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  will-change: transform;
 }
 
 .btn-press:active {
-  transform: scale(0.92);
+  transform: scale3d(0.92, 0.92, 1);
 }
 
-/* 移动端快速反馈 */
+/* 🚀 移动端快速反馈 */
 .btn-press-fast {
   transition: transform 0.05s cubic-bezier(0.34, 1.56, 0.64, 1);
   -webkit-tap-highlight-color: transparent;
+  will-change: transform;
 }
 
 .btn-press-fast:active {
-  transform: scale(0.9);
+  transform: scale3d(0.9, 0.9, 1);
 }
 
 /* 按钮点击波纹效果 - 增强版 */
@@ -202,14 +280,14 @@
 
 /* ========== 加载动画 ========== */
 
-/* 点点点加载 */
+/* 🚀 GPU加速 - 点点点加载 */
 @keyframes dotPulse {
   0%, 80%, 100% {
-    transform: scale(0);
+    transform: scale3d(0, 0, 1);
     opacity: 0.5;
   }
   40% {
-    transform: scale(1);
+    transform: scale3d(1, 1, 1);
     opacity: 1;
   }
 }
@@ -221,6 +299,7 @@
   border-radius: 50%;
   background: currentColor;
   animation: dotPulse 1.4s infinite ease-in-out both;
+  will-change: transform, opacity;
 }
 
 .dot-pulse:nth-child(1) {
@@ -231,15 +310,16 @@
   animation-delay: -0.16s;
 }
 
-/* 旋转加载 */
+/* 🚀 GPU加速 - 旋转加载 */
 @keyframes spin {
   to {
-    transform: rotate(360deg);
+    transform: rotate3d(0, 0, 1, 360deg);
   }
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
+  will-change: transform;
 }
 
 /* 脉冲加载 */
@@ -828,15 +908,16 @@
 
 /* ========== 全局流畅动画增强 ========== */
 
-/* 所有可点击元素的统一触摸反馈 */
+/* 🚀 GPU加速 - 所有可点击元素的统一触摸反馈 */
 button, a, [role="button"], input[type="submit"], input[type="button"] {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
+  will-change: transform;
 }
 
 button:active, a:active, [role="button"]:active {
-  transform: scale(0.96);
+  transform: scale3d(0.96, 0.96, 1);
 }
 
 /* 输入框聚焦动画 - 禁用，保持扁平 */
@@ -1022,16 +1103,175 @@ select {
 @keyframes emojiPanelSlide {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translate3d(0, 20px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 .emoji-panel-enter {
   animation: emojiPanelSlide 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+}
+
+/* 🚀 模态框动画 - 微信风格 */
+
+/* 遮罩层淡入 */
+@keyframes modalOverlayEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-overlay-enter {
+  animation: modalOverlayEnter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 模态框从底部滑入 */
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.modal-slide-up {
+  animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 模态框从中心缩放弹出 */
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, -50%, 0) scale3d(0.8, 0.8, 1);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale3d(1, 1, 1);
+  }
+}
+
+.modal-scale-in {
+  animation: modalScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 菜单项依次出现 */
+@keyframes menuItemEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.menu-item-enter {
+  animation: menuItemEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 🚀 图片查看动画 - 微信风格 */
+
+/* 图片放大动画 */
+@keyframes imageZoomIn {
+  from {
+    opacity: 0;
+    transform: scale3d(0.5, 0.5, 1);
+  }
+  to {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.image-zoom-in {
+  animation: imageZoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 图片缩小动画 */
+@keyframes imageZoomOut {
+  from {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+  to {
+    opacity: 0;
+    transform: scale3d(0.5, 0.5, 1);
+  }
+}
+
+.image-zoom-out {
+  animation: imageZoomOut 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* 图片点击反馈 */
+.image-press {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.image-press:active {
+  transform: scale3d(0.95, 0.95, 1);
+}
+
+/* 🚀 下拉刷新动画 - 微信风格 */
+
+/* 下拉指示器旋转 */
+@keyframes pullRefreshSpin {
+  from {
+    transform: rotate3d(0, 0, 1, 0deg);
+  }
+  to {
+    transform: rotate3d(0, 0, 1, 360deg);
+  }
+}
+
+.pull-refresh-spin {
+  animation: pullRefreshSpin 1s linear infinite;
+}
+
+/* 下拉箭头弹跳 */
+@keyframes pullArrowBounce {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, 5px, 0);
+  }
+}
+
+.pull-arrow-bounce {
+  animation: pullArrowBounce 1.5s ease-in-out infinite;
+}
+
+/* 刷新成功提示 */
+@keyframes refreshSuccess {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0) scale3d(0.8, 0.8, 1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1.1, 1.1, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0) scale3d(0.8, 0.8, 1);
+  }
+}
+
+.refresh-success {
+  animation: refreshSuccess 1s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 加载占位符闪烁 */

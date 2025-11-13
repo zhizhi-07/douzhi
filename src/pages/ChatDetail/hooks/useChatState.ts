@@ -83,8 +83,8 @@ export const useChatState = (chatId: string) => {
       const total = await getMessageCount(chatId)
       setTotalMessageCount(total)
 
-      // 🔥 初次只加载最近50条消息
-      const INITIAL_LOAD_COUNT = 50
+      // 🔥 初次只加载最近30条消息（减少初始加载，提升性能）
+      const INITIAL_LOAD_COUNT = 30
       const { messages: initialMessages, hasMore } = await loadMessagesPaginated(
         chatId,
         INITIAL_LOAD_COUNT,
