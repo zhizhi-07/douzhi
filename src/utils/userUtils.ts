@@ -2,6 +2,8 @@
  * 用户信息管理工具
  */
 
+import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from './userInfoChangeTracker'
+
 const USER_INFO_KEY = 'user_info'
 
 export interface UserInfo {
@@ -37,6 +39,25 @@ export const getUserInfo = (): UserInfo => {
  */
 export const saveUserInfo = (info: UserInfo): void => {
   try {
+    // 🔥 保存前先追踪变更（只追踪网名和签名，不追踪真实名字）
+    
+    // 只追踪网名变更
+    if (info.nickname) {
+      trackNicknameChange(info.nickname)
+    }
+
+    // 只追踪签名变更
+    if (info.signature !== undefined) {  // 允许空字符串
+      trackSignatureChange(info.signature)
+    }
+
+    // 只追踪头像变更
+    if (info.avatar) {
+      trackAvatarChange(info.avatar)
+    }
+
+    // 真实名字不追踪，AI不需要知道用户改了真名
+
     localStorage.setItem(USER_INFO_KEY, JSON.stringify(info))
   } catch (error) {
     console.error('保存用户信息失败:', error)

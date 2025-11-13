@@ -3,64 +3,64 @@
  * 🎵 可爱音效系统 - 多样化音效
  */
 
-// 🎵 可爱音效库 - 软糯可爱的音效
+// 🎵 可爱果冻音效库 - 超级软萌的音效
 const CUTE_SOUNDS = {
-  // 🔘 点击音效 - 软糯可爱的泡泡音
-  clickSoft: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 柔和泡泡音
-  clickBright: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 明亮泡泡音
-  clickPop: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // 可爱弹出音
-  clickTap: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 轻柔点击
+  // 🔘 点击音效 - 可爱果冻音
+  clickSoft: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 软萌泡泡
+  clickBright: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 轻快泡泡
+  clickPop: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 可爱弹跳
+  clickTap: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 轻柔点击
 
   // 🎯 导航音效 - 轻快的切换音
-  navSwitch: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 导航切换
-  pageEnter: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 页面进入
-  pageBack: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 返回（轻柔）
+  navSwitch: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 导航切换
+  pageEnter: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 页面进入
+  pageBack: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 返回
 
   // 💬 消息音效 - 温柔的提示音
-  send: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 发送消息
-  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 接收消息（保留）
-  typing: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 正在输入
+  send: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 发送消息
+  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 接收消息
+  typing: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 正在输入
 
   // 📋 菜单音效 - 柔和的弹出音
-  menuOpen: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // 打开菜单
-  menuClose: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 关闭菜单
-  menuSelect: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 选择菜单项
+  menuOpen: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 打开菜单
+  menuClose: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 关闭菜单
+  menuSelect: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 选择菜单项
 
   // 🎨 模态框音效
-  modalOpen: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // 打开模态框
-  modalClose: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 关闭模态框
+  modalOpen: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 打开模态框
+  modalClose: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 关闭模态框
 
   // 👆 长按音效
-  longPressStart: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 长按开始
-  longPressEnd: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 长按结束
+  longPressStart: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 长按开始
+  longPressEnd: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 长按结束
 
   // 🔄 加载音效
-  loadMore: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 加载更多
-  refresh: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // 刷新
+  loadMore: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 加载更多
+  refresh: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 刷新
 
   // ✅ 反馈音效
-  success: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 成功（保留）
-  error: 'https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3', // 错误（保留）
-  warning: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 警告
+  success: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 成功
+  error: 'https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3', // 错误
+  warning: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 警告
 
   // 📞 通话音效
-  call: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 来电（保留）
-  callEnd: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 挂断
+  call: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 来电
+  callEnd: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 挂断
 
   // 💝 特殊音效
-  like: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // 点赞（可爱）
-  transfer: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 转账（保留）
-  photo: 'https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3', // 拍照
-  voice: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 语音
+  like: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 点赞
+  transfer: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // 转账
+  photo: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 拍照
+  voice: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 语音
 }
 
 let currentAudio: HTMLAudioElement | null = null
 
 /**
  * 播放音效的通用函数
- * 🎵 默认音量降低到0.15，更柔和
+ * 🎵 默认音量降低到0.08，超级柔和
  */
-const playSound = (url: string, volume: number = 0.15) => {
+const playSound = (url: string, volume: number = 0.08) => {
   try {
     const audio = new Audio(url)
     audio.volume = volume
@@ -89,7 +89,7 @@ export const playSystemSound = () => {
     currentAudio.currentTime = 0
   }
 
-  currentAudio = playSound(url, 0.15) // 🎵 更柔和的音量
+  currentAudio = playSound(url, 0.08) // 🎵 超级柔和的音量
 }
 
 /**

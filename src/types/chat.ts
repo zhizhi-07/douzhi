@@ -110,7 +110,13 @@ export interface ApiSettings {
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
-  content: string
+  content: string | Array<{
+    type: 'text' | 'image_url'
+    text?: string
+    image_url?: {
+      url: string
+    }
+  }>
   // 可选的图片URL（用于视觉识别API）
   imageUrl?: string
 }

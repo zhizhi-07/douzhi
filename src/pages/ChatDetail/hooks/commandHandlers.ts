@@ -22,6 +22,8 @@ import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils
 import { callMinimaxTTS } from '../../../utils/voiceApi'
 import { addAIMemo } from '../../../utils/aiMemoManager'
 import { extractStatusFromReply, setAIStatus } from '../../../utils/aiStatusManager'
+import { generateAvatarForAI } from '../../../utils/imageGenerator'
+import { getUserInfo } from '../../../utils/userUtils'
 
 /**
  * 指令处理器接口
@@ -1014,9 +1016,12 @@ export const quoteHandler: CommandHandler = {
 
 /**
  * 亲密付指令处理器
+ * 支持两种格式：
+ * 1. [亲密付:3000]
+ * 2. [亲密付:月额度:3000]
  */
 export const intimatePayHandler: CommandHandler = {
-  pattern: /[\[【]亲密付[:\：]\s*(\d+\.?\d*)[\]】]/,
+  pattern: /[\[【]亲密付[:\：](?:月额度[:\：])?(\d+\.?\d*)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId, isBlocked }) => {
     const monthlyLimit = parseFloat(match[1])
 
@@ -1031,8 +1036,8 @@ export const intimatePayHandler: CommandHandler = {
     await addMessage(intimatePayMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1588,6 +1593,109 @@ export const aiMemoHandler: CommandHandler = {
 }
 
 /**
+ * AI换头像处理器
+ * 支持三种方式：
+ * 1. [换头像:生成:描述] - AI生成新头像
+ * 2. [换头像:用户头像] - 使用用户的头像
+ * 3. [换头像:图片:消息ID] - 使用某条消息中的图片
+ */
+export const changeAvatarHandler: CommandHandler = {
+  pattern: /[\[【]换头像[:\：](.+?)[\]】]/,
+  handler: async (match, content, { character, setMessages, chatId, messages, refreshCharacter }) => {
+    if (!character) return { handled: false }
+
+    const param = match[1].trim()
+    console.log('🖼️ [AI换头像] 参数:', param)
+
+    let newAvatar: string | null = null
+    let usedPrompt = ''
+
+    // 方式1: 生成新头像
+    if (param.startsWith('生成:') || param.startsWith('生成：')) {
+      const description = param.replace(/^生成[:\：]/, '').trim()
+      console.log('🎨 [AI换头像] 生成新头像，描述:', description)
+
+      newAvatar = await generateAvatarForAI(description)
+      usedPrompt = description
+
+      if (!newAvatar) {
+        console.error('❌ [AI换头像] 生成失败')
+        return { handled: false }
+      }
+    }
+    // 方式2: 使用用户头像
+    else if (param === '用户头像' || param === '对方头像') {
+      console.log('👤 [AI换头像] 使用用户头像')
+      const userInfo = getUserInfo()
+
+      if (!userInfo.avatar) {
+        console.warn('⚠️ [AI换头像] 用户未设置头像')
+        return { handled: false }
+      }
+
+      newAvatar = userInfo.avatar
+      usedPrompt = '使用用户头像'
+    }
+    // 方式3: 使用消息中的图片
+    else if (param.startsWith('图片:') || param.startsWith('图片：')) {
+      const messageIdStr = param.replace(/^图片[:\：]/, '').trim()
+      const messageId = parseInt(messageIdStr)
+
+      console.log('🖼️ [AI换头像] 使用消息图片，ID:', messageId)
+
+      // 查找消息
+      const targetMessage = messages.find(m => m.id === messageId)
+      if (!targetMessage || !(targetMessage as any).images || (targetMessage as any).images.length === 0) {
+        console.warn('⚠️ [AI换头像] 未找到图片消息')
+        return { handled: false }
+      }
+
+      newAvatar = (targetMessage as any).images[0].url
+      usedPrompt = '使用聊天图片'
+    }
+    else {
+      console.warn('⚠️ [AI换头像] 未知参数格式:', param)
+      return { handled: false }
+    }
+
+    // 更新AI头像
+    if (newAvatar) {
+      characterService.update(character.id, { avatar: newAvatar })
+      console.log('✅ [AI换头像] 头像更换成功')
+
+      // 保存头像指纹（用于检测头像变化）
+      localStorage.setItem(`character_avatar_fingerprint_${character.id}`, newAvatar.substring(0, 200))
+      localStorage.setItem(`character_avatar_recognized_at_${character.id}`, Date.now().toString())
+
+      // 使用生成时的提示词作为描述
+      if (usedPrompt) {
+        localStorage.setItem(`character_avatar_description_${character.id}`, usedPrompt)
+      }
+
+      // 刷新角色信息
+      if (refreshCharacter) {
+        refreshCharacter()
+      }
+
+      // 添加系统消息
+      const systemMsg = createMessageObj('system', {
+        content: `${character.nickname || character.realName} 更换了头像`,
+        aiReadableContent: `[系统通知：你成功更换了头像]`,
+        type: 'system'
+      })
+      await addMessage(systemMsg, setMessages, chatId)
+    }
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -1621,5 +1729,6 @@ export const commandHandlers: CommandHandler[] = [
   coupleSpaceAnniversaryHandler,
   coupleSpaceEndHandler,  // 解除情侣空间
   aiMemoHandler,  // AI备忘录
-  quoteHandler
+  quoteHandler,
+  changeAvatarHandler  // AI换头像
 ]

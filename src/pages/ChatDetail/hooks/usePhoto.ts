@@ -57,14 +57,14 @@ export const usePhoto = (
    */
   const handleSendPhotos = useCallback((photos: Array<{ base64: string, name: string }>) => {
     if (photos.length === 0) return
-    
+
     const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
-    
+
     console.log(`📸 从相册发送 ${photos.length} 张照片`)
     photos.forEach((p, i) => {
       console.log(`  照片${i+1}: ${p.name}, base64长度=${p.base64.length}`)
     })
-    
+
     // 为每张照片创建消息
     const photoMessages: Message[] = photos.map((photo, index) => {
       const msg = {
@@ -89,14 +89,16 @@ export const usePhoto = (
       })
       return msg
     })
-    
+
     // 保存所有照片到IndexedDB
     photoMessages.forEach(msg => {
       addMessage(chatId, msg)
     })
-    
-    // 批量添加到消息列表
-    setMessages(prev => [...prev, ...photoMessages])
+
+    // 🔥 使用函数式更新，避免触发滚动逻辑
+    setMessages(prev => {
+      return [...prev, ...photoMessages]
+    })
     setShowAlbumSelector(false)
   }, [setMessages, chatId])
 

@@ -181,14 +181,25 @@ export const useChatAI = (
         throw new ChatApiError('请先配置API', 'NO_API_CONFIG')
       }
 
+      // 🔍 检查是否需要识别用户头像（首次聊天或头像变化）
+      const { getUserInfo } = await import('../../../utils/userUtils')
+      const { hasAvatarChanged } = await import('../../../utils/userAvatarManager')
+
+      const userInfo = getUserInfo()
+      const needsAvatarRecognition = userInfo.avatar && hasAvatarChanged(userInfo.avatar)
+
+      if (needsAvatarRecognition) {
+        console.log('🖼️ [头像识别] 检测到用户头像变化或首次识别，将在聊天时一起识别')
+      }
+
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', chatId)
       console.log(`🔍 [拉黑检查] 用户拉黑了AI: ${isBlocked}, chatId=${chatId}`)
-      
+
       // 检查AI是否拉黑了用户
       const hasAIBlockedUser = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
       console.log(`🔍 [拉黑检查] AI拉黑了用户: ${hasAIBlockedUser}`)
-      
+
       // 📊 保存各部分上下文用于Token统计
       let lorebookContextText = ''
       let memoryContextText = ''
@@ -203,9 +214,9 @@ export const useChatAI = (
       console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}`)
       
       // 根据场景模式选择提示词
-      let systemPrompt = currentSceneMode === 'offline' 
+      let systemPrompt = currentSceneMode === 'offline'
         ? await buildOfflinePrompt(character)
-        : await buildSystemPrompt(character)
+        : await buildSystemPrompt(character, '用户', messages)
       
       // 🔥 注入世界书上下文（基于关键词触发）
       if (character) {
@@ -334,7 +345,47 @@ export const useChatAI = (
       // 从localStorage读取最新消息，避免闭包问题
       const currentMessages = loadMessages(chatId)
       const recentMessages = getRecentMessages(currentMessages, chatId)
-      const apiMessages = convertToApiMessages(recentMessages)
+      let apiMessages = convertToApiMessages(recentMessages)
+
+      // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
+      if (needsAvatarRecognition && userInfo.avatar) {
+        console.log('🖼️ [头像识别] 在聊天请求中附加头像图片')
+
+        // 在系统提示词末尾添加识别请求（简化版，减少token消耗）
+        systemPrompt += `
+
+🖼️ 用户换了头像，回复时用[头像描述:简短描述]记录，15字内，只说主体和特征。例：[头像描述:橘猫，圆眼睛，很萌]`
+
+        // 找到最后一条用户消息，附加头像图片
+        if (apiMessages.length > 0) {
+          const lastUserMsgIndex = apiMessages.map((m, i) => ({ msg: m, index: i }))
+            .filter(item => item.msg.role === 'user')
+            .pop()?.index
+
+          if (lastUserMsgIndex !== undefined) {
+            const lastUserMsg = apiMessages[lastUserMsgIndex]
+
+            // 将文本消息转换为多模态消息
+            apiMessages[lastUserMsgIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: typeof lastUserMsg.content === 'string' ? lastUserMsg.content : ''
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: userInfo.avatar
+                  }
+                }
+              ]
+            }
+
+            console.log('✅ [头像识别] 已在最后一条用户消息中附加头像图片')
+          }
+        }
+      }
 
       Logger.log('发送API请求', {
         messageCount: apiMessages.length,
@@ -652,7 +703,23 @@ export const useChatAI = (
         setAIStatus(statusUpdate)
         console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
       }
-      
+
+      // 🖼️ 如果需要识别头像，从AI回复中提取头像描述
+      if (needsAvatarRecognition && userInfo.avatar) {
+        const { extractAvatarDescription, setUserAvatarDescription, removeAvatarDescriptionCommand } = await import('../../../utils/userAvatarManager')
+        const avatarDesc = extractAvatarDescription(cleanedMessage)
+
+        if (avatarDesc) {
+          setUserAvatarDescription(avatarDesc, userInfo.avatar)
+          console.log('✅ [头像识别] 从AI回复中提取并保存头像描述:', avatarDesc)
+
+          // 从显示的消息中移除头像描述指令
+          aiReply = removeAvatarDescriptionCommand(aiReply)
+        } else {
+          console.warn('⚠️ [头像识别] AI回复中未找到头像描述，下次继续尝试')
+        }
+      }
+
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {
         console.log('📱 检测到朋友圈互动指令:', interactions)

@@ -3,7 +3,7 @@
  */
 
 import { STORAGE_KEYS } from './storage'
-import type { ApiSettings, ChatMessage, Character } from '../types/chat'
+import type { ApiSettings, ChatMessage, Character, Message } from '../types/chat'
 import { getCoupleSpaceRelation, getCoupleSpacePrivacy } from './coupleSpaceUtils'
 import { getCoupleSpaceContentSummary } from './coupleSpaceContentUtils'
 import { getUserInfo } from './userUtils'
@@ -11,6 +11,31 @@ import { getIntimatePayRelations } from './walletUtils'
 import { getEmojis } from './emojiStorage'
 import { loadMoments } from './momentsManager'
 import { getAllMemos } from './aiMemoManager'
+import { getUserAvatarInfo } from './userAvatarManager'
+import { getUserInfoChangeContext } from './userInfoChangeTracker'
+
+/**
+ * 根据当前时间给AI提示应该做什么
+ */
+const getTimeBasedStatusHint = (hour: number, charName: string): string => {
+  if (hour >= 0 && hour < 6) {
+    return `${charName}现在应该在睡觉/做梦/躺床上，用[状态:xxx]更新`
+  } else if (hour >= 6 && hour < 9) {
+    return `${charName}现在可能刚起床/洗漱/吃早餐，用[状态:xxx]更新`
+  } else if (hour >= 9 && hour < 12) {
+    return `${charName}现在可能在窝沙发上/刷手机/看剧，用[状态:xxx]更新`
+  } else if (hour >= 12 && hour < 14) {
+    return `${charName}现在应该在吃午饭/午休，用[状态:xxx]更新`
+  } else if (hour >= 14 && hour < 18) {
+    return `${charName}现在可能在躺床上/追剧/玩手机，用[状态:xxx]更新`
+  } else if (hour >= 18 && hour < 20) {
+    return `${charName}现在应该在吃晚饭/做饭/点外卖，用[状态:xxx]更新`
+  } else if (hour >= 20 && hour < 23) {
+    return `${charName}现在可能在刷手机/看剧/敷面膜，用[状态:xxx]更新`
+  } else {
+    return `${charName}现在应该准备睡觉了，用[状态:xxx]更新`
+  }
+}
 
 /**
  * API错误类型
@@ -308,9 +333,40 @@ ${charName}坐在沙发上，手指无意识地敲着扶手，听到手机振动
 }
 
 /**
+ * 构建用户头像上下文
+ */
+const buildUserAvatarContext = (): string => {
+  const avatarInfo = getUserAvatarInfo()
+
+  if (!avatarInfo.current) {
+    return ''
+  }
+
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp)
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  let text = `- 对方头像：${avatarInfo.current.description}（${formatTime(avatarInfo.current.identifiedAt)} 识别）`
+
+  // 如果有最近的变更历史，显示最新一次
+  if (avatarInfo.history.length > 0) {
+    const latest = avatarInfo.history[avatarInfo.history.length - 1]
+    text += `\n  💡 最近变更：${formatTime(latest.changedAt)} 从"${latest.previousDescription}"换成了"${latest.description}"`
+  }
+
+  return text
+}
+
+/**
  * 构建系统提示词（完整版）
  */
-export const buildSystemPrompt = async (character: Character, userName: string = '用户'): Promise<string> => {
+export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = []): Promise<string> => {
   const now = new Date()
   const dateStr = now.toLocaleDateString('zh-CN', {
     year: 'numeric',
@@ -379,13 +435,21 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 
   return `${dateStr} ${timeOfDay} ${currentTime}
 
-你是${charName}（${character.realName}）。${personality}
-${signature ? `签名："${signature}"` : ''}
+【你的身份】
+- 你的网名：${charName}
+- 你的真名：${character.realName}
+- 你的性格：${personality}
+${signature ? `- 你的签名："${signature}"` : ''}
 
-此刻你${statusText}，手机震了一下——${userNickname}发来消息。
+【对方身份】
+- 对方网名：${userNickname}
+- 对方真名：${userInfo.realName}
+${userInfo.signature ? `- 对方签名："${userInfo.signature}"` : ''}
+${buildUserAvatarContext()}${getUserInfoChangeContext()}
 
-对方：${userNickname}（${userInfo.realName}）${userInfo.signature ? `，签名"${userInfo.signature}"` : ''}
-关系：${coupleSpaceStatus}${intimatePayInfo}
+【当前状态】
+- 你现在${statusText}
+- 关系：${coupleSpaceStatus}${intimatePayInfo}
 
 ══════════════════════════════════
 
@@ -408,44 +472,26 @@ ${signature ? `签名："${signature}"` : ''}
 
 ══════════════════════════════════
 
-手机功能（自然使用，不刻意）：
+功能：[状态:动作] [转账:金额:说明] [接收转账]/[退还转账] [亲密付:月额度] [接受亲密付]/[拒绝亲密付] [语音:内容] [位置:地点] [照片:描述] [撤回消息:关键词:理由] [引用:关键词] [视频通话] [挂断电话] [网名:xxx] [个性签名:xxx] [换头像:生成:描述]/[换头像:用户头像] [拉黑用户]/[解除拉黑] ${relation && relation.status === 'active' && relation.characterId === character.id ? `[相册:描述] [留言:内容] [纪念日:日期:标题] [情侣空间:解除]` : `[情侣空间邀请] [情侣空间:接受]/[情侣空间:拒绝]`} ${localStorage.getItem('listening_together') ? `[切歌:歌名:歌手]` : `[一起听:歌名:歌手]`} [随笔:内容]
 
-[转账:金额:说明] - 转钱，如[转账:520:爱你]
-[接收转账]/[退还转账] - 收到转账时
+时间提示：${getTimeBasedStatusHint(hour, charName)}
+记住：每次回复都要用[状态:xxx]更新${charName}在做什么，要符合当前时间和对话内容。
 
-[亲密付:月额度] - 给对方开通，如[亲密付:1000]
-[接受亲密付]/[拒绝亲密付] - 收到邀请时
-
-[语音:内容] [位置:地点] [照片:描述] - 发语音/位置/照片
-
-[撤回消息:内容关键词:理由] - 撤回2分钟内的消息，理由只有你知道
-[引用:关键词] - 引用之前的某条消息回复
-
-[视频通话] - 打视频，必须接开场白和[画面:动作]
-[挂断电话] - 挂断视频
-
-[网名:xxx] [个性签名:xxx] - 改自己的信息，别频繁改
-
-[拉黑用户]/[解除拉黑] - 真的生气时才用
-
-${relation && relation.status === 'active' && relation.characterId === character.id ? `[相册:描述] [留言:内容] [纪念日:日期:标题] [情侣空间:解除]` : `[情侣空间邀请] [情侣空间:接受]/[情侣空间:拒绝]`}
-
-${localStorage.getItem('listening_together') ? `[切歌:歌名:歌手]` : `[一起听:歌名:歌手] - 邀请一起听歌`}
-
-[随笔:内容] - 你的私密笔记，用户看不到，记录喜好/日期/心情等
 ${await buildAIMemosContext(character.id)}
 
-${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
+${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ══════════════════════════════════
 
-核心原则：
+【重要】记住：
+- 你是${charName}，对方是${userNickname}
+- 不要搞混自己和对方的网名/真名
 - 只回应对方实际说的话，不要替对方编造行为/想法
 - 不知道就问，别猜
 - 像发微信一样自然分段，每2-3句换行
 - 回复长短、语气由你当下状态决定
 
-基于对话历史回复${userName}。`
+现在基于对话历史回复${userNickname}的消息。`
 }
 
 /**
@@ -524,13 +570,70 @@ const buildListeningTogetherContext = async (character: Character): Promise<stri
 /**
  * 构建情侣空间上下文
  */
+/**
+ * 构建被拒绝状态提示
+ * 从最近的消息历史中检查用户拒绝了哪些功能
+ */
+const buildRejectionStatusContext = (messages: Message[], chatId: string): string => {
+  const rejections: string[] = []
+
+  // 只检查最近50条消息（避免性能问题）
+  const recentMessages = messages.slice(-50)
+
+  // 1. 检查亲密付被拒绝（查找最近的rejected状态）
+  const lastIntimatePayMsg = [...recentMessages].reverse().find(
+    msg => msg.messageType === 'intimatePay' && msg.type === 'received' && msg.intimatePay
+  )
+  if (lastIntimatePayMsg && lastIntimatePayMsg.intimatePay?.status === 'rejected') {
+    rejections.push(`⚠️ 亲密付：用户拒绝了你的亲密付邀请（月额度¥${lastIntimatePayMsg.intimatePay.monthlyLimit}）`)
+  }
+
+  // 2. 检查情侣空间被拒绝
+  const coupleSpaceRelation = getCoupleSpaceRelation()
+  if (coupleSpaceRelation && coupleSpaceRelation.status === 'rejected' && coupleSpaceRelation.characterId === chatId) {
+    rejections.push('⚠️ 情侣空间：用户拒绝了你的邀请')
+  }
+
+  // 3. 检查一起听歌被拒绝（查找最近的rejected状态）
+  const lastMusicInviteMsg = [...recentMessages].reverse().find(
+    msg => msg.messageType === 'musicInvite' && msg.type === 'received' && (msg as any).musicInvite
+  )
+  if (lastMusicInviteMsg && (lastMusicInviteMsg as any).musicInvite?.status === 'rejected') {
+    const musicData = (lastMusicInviteMsg as any).musicInvite
+    rejections.push(`⚠️ 一起听歌：用户拒绝了你的邀请（《${musicData.songTitle}》- ${musicData.songArtist}）`)
+  }
+
+  // 4. 检查视频通话被拒绝（查找最近的拒绝消息）
+  const lastVideoCallReject = [...recentMessages].reverse().find(
+    msg => msg.type === 'system' &&
+           msg.aiReadableContent &&
+           msg.aiReadableContent.includes('用户拒绝了你的视频通话')
+  )
+  if (lastVideoCallReject) {
+    rejections.push('⚠️ 视频通话：用户拒绝了你的视频通话请求')
+  }
+
+  if (rejections.length === 0) {
+    return ''
+  }
+
+  return `
+
+══════════════════════════════════
+
+📋 最近被拒绝的功能：
+${rejections.map(r => `- ${r}`).join('\n')}
+
+提示：尊重用户的决定，不要反复提起被拒绝的事情。如果用户主动提起，可以自然回应。`
+}
+
 const buildCoupleSpaceContext = (character: Character): string => {
   const relation = getCoupleSpaceRelation()
-  
+
   if (import.meta.env.DEV) {
     console.log('🔍 构建情侣空间上下文 - relation:', relation)
   }
-  
+
   // 情况1：没有情侣空间关系
   if (!relation) {
     return `
@@ -539,7 +642,7 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 情侣空间：你还没有开通情侣空间，发送邀请：[情侣空间邀请]`
   }
-  
+
   // 情况2：有待处理的邀请
   if (relation.status === 'pending') {
     return `
@@ -548,21 +651,24 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 情侣空间：你已向用户发送邀请，等待对方接受`
   }
-  
+
   // 情况3：已被拒绝
   if (relation.status === 'rejected') {
     return `
 
 ══════════════════════════════════
 
-情侣空间：用户拒绝了你的邀请`
+⚠️ 情侣空间状态：用户拒绝了你的邀请
+你可以：
+- 尊重对方的决定，不要再提
+- 或者过段时间再试试，重新发送：[情侣空间邀请]`
   }
-  
+
   // 情况4：活跃的情侣空间
   if (relation.status === 'active' && relation.characterId === character.id) {
     // 获取情侣空间内容摘要
     const summary = getCoupleSpaceContentSummary(character.id)
-    
+
     return `
 
 ══════════════════════════════════
@@ -575,7 +681,7 @@ const buildCoupleSpaceContext = (character: Character): string => {
 - [纪念日:日期:标题] 添加纪念日，比如[纪念日:2024-01-01:在一起100天]
 - [解除情侣空间] 解除关系（内容会保留）${summary}`
   }
-  
+
   return ''
 }
 

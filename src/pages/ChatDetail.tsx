@@ -22,6 +22,7 @@ import ForwardedChatViewer from '../components/ForwardedChatViewer'
 import EmojiPanel from '../components/EmojiPanel'
 import MusicInviteSelector from '../components/MusicInviteSelector'
 import AIMemoModal from '../components/AIMemoModal'
+import AIStatusModal from '../components/AIStatusModal'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
@@ -49,12 +50,16 @@ const ChatDetail = () => {
   
   // Token 统计详情面板状态
   const [showTokenDetail, setShowTokenDetail] = useState(false)
-  
+
   // 场景模式状态
   const [sceneMode, setSceneMode] = useState<'online' | 'offline'>('online')
-  
+
   // 备忘录弹窗状态
   const [showAIMemoModal, setShowAIMemoModal] = useState(false)
+
+  // AI状态弹窗
+  const [showAIStatusModal, setShowAIStatusModal] = useState(false)
+  const [currentAIStatus, setCurrentAIStatus] = useState<any>(null)
   
   // 调试：监听备忘录弹窗状态变化
   useEffect(() => {
@@ -422,9 +427,19 @@ const ChatDetail = () => {
       <ChatHeader
         characterName={character.nickname || character.realName}
         characterId={id}
+        characterAvatar={character.avatar}
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}
+        onAvatarClick={async () => {
+          // 获取最新的AI状态
+          if (id) {
+            const { getAIStatus } = await import('../utils/aiStatusManager')
+            const status = getAIStatus(id)
+            setCurrentAIStatus(status)
+            setShowAIStatusModal(true)
+          }
+        }}
         tokenStats={chatAI.tokenStats}
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
       />
@@ -1169,6 +1184,44 @@ const ChatDetail = () => {
           title={forward.viewingForwardedChat.forwardedChat.title}
           messages={forward.viewingForwardedChat.forwardedChat.messages}
         />
+      )}
+
+      {/* 🔥 Token统计悬浮按钮 - 右上角玻璃质感 */}
+      {chatAI.tokenStats && chatAI.tokenStats.total > 0 && (
+        <button
+          onClick={() => setShowTokenDetail(!showTokenDetail)}
+          className="fixed top-[120px] right-4 z-40 text-[10px] px-2 py-1 rounded-lg flex items-center gap-1 btn-press-fast"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            color: 'rgba(100, 100, 100, 0.7)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+          }}
+        >
+          <span className="font-medium">{(chatAI.tokenStats.total / 1000).toFixed(1)}k</span>
+          {chatAI.tokenStats.responseTime && chatAI.tokenStats.responseTime > 0 && (
+            <span className="text-[9px] opacity-60">·{(chatAI.tokenStats.responseTime/1000).toFixed(1)}s</span>
+          )}
+        </button>
+      )}
+
+      {/* AI状态详情弹窗 */}
+      {showAIStatusModal && (
+        <>
+          {/* 点击外部关闭 */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowAIStatusModal(false)}
+          />
+          <AIStatusModal
+            isOpen={showAIStatusModal}
+            onClose={() => setShowAIStatusModal(false)}
+            characterName={character.nickname || character.realName}
+            characterAvatar={character.avatar}
+            status={currentAIStatus}
+          />
+        </>
       )}
     </div>
   )

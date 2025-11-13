@@ -7,43 +7,53 @@ import { useState, useEffect } from 'react'
 import StatusBar from '../../../components/StatusBar'
 import { TokenStats } from '../../../utils/tokenCounter'
 import { playBackSound, playClickBrightSound } from '../../../utils/soundManager'
-import { getAIStatus, formatStatusShort } from '../../../utils/aiStatusManager'
+import { formatStatusShort, AIStatus } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
   characterName: string
   characterId?: string
+  characterAvatar?: string
   isAiTyping: boolean
   onBack?: () => void
   onMenuClick?: () => void
+  onAvatarClick?: () => void
   tokenStats?: TokenStats | null
   onTokenStatsClick?: () => void
 }
 
-const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, tokenStats, onTokenStatsClick }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
+  const [fullStatus, setFullStatus] = useState<AIStatus | null>(null)
 
   // 获取AI状态
   useEffect(() => {
-    if (characterId) {
-      const status = getAIStatus(characterId)
-      if (status) {
+    const updateStatus = async () => {
+      if (characterId && characterName) {
+        // 🔥 使用 getOrCreateAIStatus 确保状态存在且不过期
+        const { getOrCreateAIStatus } = await import('../../../utils/aiStatusManager')
+        const status = getOrCreateAIStatus(characterId, characterName)
         setAiStatus(formatStatusShort(status))
+        setFullStatus(status) // 保存完整状态
       }
     }
 
-    // 每30秒更新一次状态
+    updateStatus()
+
+    // 🔥 每30秒检查一次状态是否需要更新
     const interval = setInterval(() => {
-      if (characterId) {
-        const status = getAIStatus(characterId)
-        if (status) {
-          setAiStatus(formatStatusShort(status))
-        }
-      }
-    }, 30000)
+      updateStatus()
+    }, 30 * 1000) // 30秒
 
     return () => clearInterval(interval)
-  }, [characterId])
+  }, [characterId, characterName])
+
+  // 处理头像点击
+  const handleAvatarClick = () => {
+    if (onAvatarClick) {
+      onAvatarClick()
+    }
+  }
 
   const handleBack = () => {
     playBackSound() // 🎵 播放返回音效
@@ -69,41 +79,40 @@ const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClic
             </svg>
           </button>
 
-          {/* 头像 */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-            {characterName.charAt(0)}
-          </div>
+          {/* 头像 - 可点击 */}
+          <button
+            onClick={handleAvatarClick}
+            className="flex-shrink-0 btn-press-fast"
+          >
+            {characterAvatar ? (
+              <img
+                src={characterAvatar}
+                alt={characterName}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                {characterName.charAt(0)}
+              </div>
+            )}
+          </button>
 
-          {/* 名字和状态 */}
-          <div className="flex flex-col min-w-0 flex-1">
-            <h1 className="text-base font-semibold text-gray-900 truncate">
+          {/* 名字和状态 - 可点击 */}
+          <button
+            onClick={handleAvatarClick}
+            className="flex flex-col min-w-0 flex-1 items-start btn-press-fast"
+          >
+            <h1 className="text-base font-semibold text-gray-900 truncate w-full text-left">
               {characterName}
             </h1>
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-xs text-gray-500 truncate w-full text-left" title={aiStatus}>
               {isAiTyping ? '正在输入...' : (aiStatus || '在线')}
             </p>
-          </div>
+          </button>
         </div>
 
         {/* 右侧：功能按钮 */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Token 统计按钮 */}
-          {tokenStats && tokenStats.total > 0 && (
-            <button
-              onClick={onTokenStatsClick}
-              className="text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1"
-              style={{
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                color: '#3b82f6'
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              <span className="font-medium">{(tokenStats.total / 1000).toFixed(1)}k</span>
-            </button>
-          )}
-
           <button
             onClick={() => {
               playClickBrightSound()

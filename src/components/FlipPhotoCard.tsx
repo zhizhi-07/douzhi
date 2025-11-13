@@ -9,45 +9,45 @@ interface FlipPhotoCardProps {
 
 const FlipPhotoCard = ({ description, photoBase64 }: FlipPhotoCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false)
-  
+
   // 如果有真实图片base64，使用真实图片；否则使用占位图
-  const imageSrc = photoBase64 
-    ? `data:image/jpeg;base64,${photoBase64}` 
+  const imageSrc = photoBase64
+    ? `data:image/jpeg;base64,${photoBase64}`
     : photoPlaceholder
 
   return (
-    <div 
-      className="relative w-[200px] h-[200px] cursor-pointer"
+    <div
+      className="relative max-w-[280px] cursor-pointer"
       style={{ perspective: '1000px' }}
       onClick={() => setIsFlipped(!isFlipped)}
     >
-      <div 
-        className={`relative w-full h-full transition-transform duration-700 ${
+      <div
+        className={`relative w-full transition-transform duration-700 ${
           isFlipped ? '[transform:rotateY(180deg)]' : ''
         }`}
-        style={{ 
+        style={{
           transformStyle: 'preserve-3d',
         }}
       >
-        {/* 正面 - 真实图片 */}
-        <div 
-          className="absolute w-full h-full rounded-2xl overflow-hidden shadow-lg"
-          style={{ 
+        {/* 正面 - 真实图片（保持原始比例） */}
+        <div
+          className="relative w-full rounded-2xl overflow-hidden shadow-lg"
+          style={{
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden'
           }}
         >
-          <img 
+          <img
             src={imageSrc}
             alt="照片"
-            className="w-full h-full object-cover"
+            className="w-full h-auto"
           />
         </div>
-        
+
         {/* 背面 - 文字描述 */}
-        <div 
-          className="absolute w-full h-full rounded-2xl shadow-lg bg-white p-4 overflow-y-auto flex items-center justify-center"
-          style={{ 
+        <div
+          className="absolute top-0 left-0 w-full h-full rounded-2xl shadow-lg bg-white p-4 overflow-y-auto flex items-center justify-center"
+          style={{
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)'

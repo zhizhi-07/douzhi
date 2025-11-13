@@ -112,11 +112,11 @@ export const useTransfer = (
     const transferMsg = messages.find(msg => msg.id === messageId)
     const amount = transferMsg?.transfer?.amount || 0
     const transferMessage = transferMsg?.transfer?.message || '转账'
-    
+
     // 获取用户真实名字
     const userInfo = getUserInfo()
     const userName = userInfo.nickname || userInfo.realName
-    
+
     // 更新转账状态
     const updated = messages.map(msg => {
       if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
@@ -135,12 +135,27 @@ export const useTransfer = (
 
     // 增加余额
     receiveTransfer(amount, characterName, transferMessage)
-    
+
     // 保存更新后的消息列表
     saveMessages(chatId, updated)
-    
-    // 更新React状态
-    setMessages(() => updated)
+
+    // 🔥 使用函数式更新，避免触发滚动
+    setMessages(prev => {
+      // 只更新对应的消息，保持数组引用稳定
+      return prev.map(msg => {
+        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
+          return {
+            ...msg,
+            transfer: {
+              ...msg.transfer!,
+              status: 'received' as const
+            },
+            aiReadableContent: `[${userName}领取了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
+          }
+        }
+        return msg
+      })
+    })
   }, [setMessages, characterName, chatId])
 
   /**
@@ -151,11 +166,11 @@ export const useTransfer = (
     const transferMsg = messages.find(msg => msg.id === messageId)
     const amount = transferMsg?.transfer?.amount || 0
     const transferMessage = transferMsg?.transfer?.message || ''
-    
+
     // 获取用户真实名字
     const userInfo = getUserInfo()
     const userName = userInfo.nickname || userInfo.realName
-    
+
     // 更新转账状态
     const updated = messages.map(msg => {
       if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
@@ -174,9 +189,23 @@ export const useTransfer = (
 
     // 保存更新后的消息列表
     saveMessages(chatId, updated)
-    
-    // 更新React状态
-    setMessages(() => updated)
+
+    // 🔥 使用函数式更新，避免触发滚动
+    setMessages(prev => {
+      return prev.map(msg => {
+        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
+          return {
+            ...msg,
+            transfer: {
+              ...msg.transfer!,
+              status: 'rejected' as const
+            },
+            aiReadableContent: `[${userName}退还了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
+          }
+        }
+        return msg
+      })
+    })
   }, [setMessages, chatId])
 
   return {
