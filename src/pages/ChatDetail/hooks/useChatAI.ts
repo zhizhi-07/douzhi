@@ -517,14 +517,17 @@ export const useChatAI = (
         
         // 单独统计各部分（用于显示分类）
         const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
-        const messageStrings = apiMessages.map(m => m.content || '')
+        const messageStrings = apiMessages.map(m => {
+          const content = m.content || ''
+          return typeof content === 'string' ? content : String(content)
+        })
         
         stats = {
           systemPrompt: estimateTokens(baseSystemPrompt),
           character: 0,
           lorebook: estimateTokens(lorebookContextText),
           memory: estimateTokens(memoryContextText),
-          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(msg), 0),
+          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(String(msg)), 0),
           total: usage.prompt_tokens, // 使用API返回的准确值
           remaining: 0,
           percentage: 0,
@@ -534,7 +537,17 @@ export const useChatAI = (
         // API未返回token数，使用估算
         console.log('⚠️ API未返回输入token数，使用估算值')
         
-        const messageStrings = apiMessages.map(m => m.content || '')
+        const messageStrings = apiMessages.map(m => {
+          const content = m.content || ''
+          // 🔥 处理content可能是字符串或对象数组的情况
+          if (typeof content === 'string') {
+            return content
+          } else if (Array.isArray(content)) {
+            // 如果是对象数组，提取text字段
+            return content.map(c => c.text || '').join('')
+          }
+          return String(content)
+        })
         const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
         
         stats = {
@@ -542,7 +555,7 @@ export const useChatAI = (
           character: 0,
           lorebook: estimateTokens(lorebookContextText),
           memory: estimateTokens(memoryContextText),
-          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(msg), 0),
+          messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(String(msg)), 0),
           total: 0,
           remaining: 0,
           percentage: 0,
@@ -704,17 +717,18 @@ export const useChatAI = (
         console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
       }
 
-      // 🖼️ 如果需要识别头像，从AI回复中提取头像描述
+      // 🖼️ 始终隐藏头像描述指令（不显示给用户）
+      const { removeAvatarDescriptionCommand } = await import('../../../utils/userAvatarManager')
+      aiReply = removeAvatarDescriptionCommand(aiReply)
+      
+      // 如果需要识别头像，从AI回复中提取头像描述
       if (needsAvatarRecognition && userInfo.avatar) {
-        const { extractAvatarDescription, setUserAvatarDescription, removeAvatarDescriptionCommand } = await import('../../../utils/userAvatarManager')
+        const { extractAvatarDescription, setUserAvatarDescription } = await import('../../../utils/userAvatarManager')
         const avatarDesc = extractAvatarDescription(cleanedMessage)
 
         if (avatarDesc) {
           setUserAvatarDescription(avatarDesc, userInfo.avatar)
           console.log('✅ [头像识别] 从AI回复中提取并保存头像描述:', avatarDesc)
-
-          // 从显示的消息中移除头像描述指令
-          aiReply = removeAvatarDescriptionCommand(aiReply)
         } else {
           console.warn('⚠️ [头像识别] AI回复中未找到头像描述，下次继续尝试')
         }

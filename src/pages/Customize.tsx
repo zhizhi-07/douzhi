@@ -76,7 +76,7 @@ const Customize = () => {
           <button
             onClick={(e) => {
               e.stopPropagation()
-              navigate(-1)
+              navigate('/', { replace: true })
             }}
             className="text-gray-700 hover:text-gray-900 p-2 -ml-2 active:opacity-50"
           >
@@ -109,7 +109,7 @@ const Customize = () => {
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
                     {item.badge && (
-                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-red-500 text-white px-3 py-1 rounded-full">
                         {item.badge}
                       </span>
                     )}

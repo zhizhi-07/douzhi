@@ -176,39 +176,41 @@ export async function recognizeUserAvatar(avatarBase64: string): Promise<string 
     console.log('🔍 [头像识别] 开始调用AI识别用户头像...')
 
     // 动态导入chatApi避免循环依赖
-    const { callChatApi } = await import('./chatApi')
-    const { STORAGE_KEYS } = await import('./storage')
+    const { callAIApi } = await import('./chatApi')
 
     // 获取API设置
-    const settingsStr = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
-    if (!settingsStr) {
+    const settings = localStorage.getItem('api_settings')
+    if (!settings) {
       console.error('❌ [头像识别] 未配置API设置')
       return null
     }
 
-    const settings = JSON.parse(settingsStr)
+    const apiSettings = JSON.parse(settings)
 
     // 构建识别提示词
-    const prompt = `请简洁描述这张头像图片的内容，包括：
+    const prompt = `请描述这张头像图片的内容，要求：
+
+【描述内容】
 1. 主体是什么（人物/动物/物品/风景等）
-2. 主要特征（颜色、表情、姿态等）
+2. 主要特征（颜色、表情、姿态、装饰等）
 3. 整体风格或氛围
 
-要求：
-- 用一句话概括，不超过30字
-- 客观描述，不要主观评价
-- 重点突出最显眼的特征
+【要求】
+- 用2-3句话描述，不超过50字
+- 客观描述，突出最显眼的特征
+- 不要主观评价或过度修饰
+- 如果是人物，可提及发型、表情、穿着等
+- 如果是物品/动物，可提及颜色、形状、特殊标记等
 
-示例：
-- "一只橘色的小猫咪，圆圆的眼睛，很可爱"
-- "一个穿白色连衣裙的女孩，长发飘飘，在海边"
-- "蓝天白云下的雪山，阳光照耀，很壮观"
+【示例】
+- "一只橘色的短毛猫，圆圆的眼睛，正在看镜头，表情呆萌"
+- "一个穿白色连衣裙的女孩，长直黑发，在海边，背景是蓝天白云"
+- "蓝天白云下的雪山，山顶被阳光照亮，很壮观"
 
 现在请描述这张头像：`
 
     // 调用AI API
-    const response = await callChatApi(
-      settings,
+    const response = await callAIApi(
       [
         {
           role: 'user',
@@ -226,10 +228,7 @@ export async function recognizeUserAvatar(avatarBase64: string): Promise<string 
           ]
         }
       ],
-      {
-        temperature: 0.3,  // 降低温度，让描述更稳定
-        max_tokens: 100
-      }
+      apiSettings
     )
 
     const description = response.content.trim()

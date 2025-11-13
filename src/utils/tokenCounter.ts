@@ -8,11 +8,14 @@
  * 简单估算：中文约1个字=1 token，英文约1个词=1 token
  */
 export function estimateTokens(text: string): number {
+  // 🔥 修复：确保text是字符串，否则转换为字符串
   if (!text) return 0
   
+  const textStr = typeof text === 'string' ? text : String(text)
+  
   // 分离中文和非中文字符
-  const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || []
-  const nonChineseText = text.replace(/[\u4e00-\u9fa5]/g, '')
+  const chineseChars = textStr.match(/[\u4e00-\u9fa5]/g) || []
+  const nonChineseText = textStr.replace(/[\u4e00-\u9fa5]/g, '')
   
   // 中文字符数
   const chineseTokens = chineseChars.length

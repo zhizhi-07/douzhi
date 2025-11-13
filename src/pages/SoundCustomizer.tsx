@@ -238,7 +238,7 @@ const SoundCustomizer = () => {
         <div className="px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
-            className="text-gray-700 hover:text-gray-900 p-2 -ml-2 active:opacity-50"
+            className="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded-full transition-colors active:opacity-50"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -304,13 +304,13 @@ const SoundCustomizer = () => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => systemSoundInputRef.current?.click()}
-                        className="flex-1 px-2 py-1.5 bg-blue-500 text-white rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-blue-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         更换
                       </button>
                       <button
                         onClick={handleDeleteCustomSound}
-                        className="flex-1 px-2 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-red-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         删除
                       </button>
@@ -319,7 +319,7 @@ const SoundCustomizer = () => {
                 ) : (
                   <button
                     onClick={() => systemSoundInputRef.current?.click()}
-                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-colors"
                   >
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -349,13 +349,13 @@ const SoundCustomizer = () => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => sendSoundInputRef.current?.click()}
-                        className="flex-1 px-2 py-1.5 bg-green-500 text-white rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-green-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         更换
                       </button>
                       <button
                         onClick={handleDeleteSendSound}
-                        className="flex-1 px-2 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-red-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         删除
                       </button>
@@ -364,7 +364,7 @@ const SoundCustomizer = () => {
                 ) : (
                   <button
                     onClick={() => sendSoundInputRef.current?.click()}
-                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-green-400 hover:bg-green-50 active:bg-green-100 transition-colors"
+                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-green-400 hover:bg-green-50 active:bg-green-100 transition-colors"
                   >
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -394,13 +394,13 @@ const SoundCustomizer = () => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => notifySoundInputRef.current?.click()}
-                        className="flex-1 px-2 py-1.5 bg-purple-500 text-white rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-purple-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         更换
                       </button>
                       <button
                         onClick={handleDeleteNotifySound}
-                        className="flex-1 px-2 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-red-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         删除
                       </button>
@@ -409,7 +409,7 @@ const SoundCustomizer = () => {
                 ) : (
                   <button
                     onClick={() => notifySoundInputRef.current?.click()}
-                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-purple-400 hover:bg-purple-50 active:bg-purple-100 transition-colors"
+                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-purple-400 hover:bg-purple-50 active:bg-purple-100 transition-colors"
                   >
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -439,13 +439,13 @@ const SoundCustomizer = () => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => callSoundInputRef.current?.click()}
-                        className="flex-1 px-2 py-1.5 bg-orange-500 text-white rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-orange-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         更换
                       </button>
                       <button
                         onClick={handleDeleteCallSound}
-                        className="flex-1 px-2 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-red-500 text-white rounded-full text-xs active:opacity-80"
                       >
                         删除
                       </button>
@@ -454,7 +454,7 @@ const SoundCustomizer = () => {
                 ) : (
                   <button
                     onClick={() => callSoundInputRef.current?.click()}
-                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+                    className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 active:bg-orange-100 transition-colors"
                   >
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

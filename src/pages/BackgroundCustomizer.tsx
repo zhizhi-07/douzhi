@@ -240,14 +240,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => desktopFileRef.current?.click()}
                   disabled={desktopUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                 >
                   {desktopUploading ? '上传中...' : desktopBg ? '更换背景' : '上传背景'}
                 </button>
                 {desktopBg && (
                   <button
                     onClick={handleRemoveDesktop}
-                    className="w-full px-4 py-2.5 glass-card text-gray-700 rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -286,14 +286,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => musicFileRef.current?.click()}
                   disabled={musicUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                 >
                   {musicUploading ? '上传中...' : musicBg ? '更换背景' : '上传背景'}
                 </button>
                 {musicBg && (
                   <button
                     onClick={handleRemoveMusic}
-                    className="w-full px-4 py-2.5 glass-card text-gray-700 rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -332,14 +332,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => wechatFileRef.current?.click()}
                   disabled={wechatUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                 >
                   {wechatUploading ? '上传中...' : wechatBg ? '更换背景' : '上传背景'}
                 </button>
                 {wechatBg && (
                   <button
                     onClick={handleRemoveWechat}
-                    className="w-full px-4 py-2.5 glass-card text-gray-700 rounded-xl active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>

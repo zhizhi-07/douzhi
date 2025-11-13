@@ -223,14 +223,14 @@ const IconCustomizer = () => {
                       setSelectedAppId(config.appId)
                       fileInputRef.current?.click()
                     }}
-                    className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium active:opacity-80 transition-opacity"
+                    className="px-3 py-1.5 bg-blue-500 text-white rounded-full text-sm font-medium active:opacity-80 transition-opacity"
                   >
                     {config.customIcon ? '更换' : '上传'}
                   </button>
                   {config.customIcon && (
                     <button
                       onClick={() => resetIcon(config.appId)}
-                      className="px-3 py-1.5 glass-card text-gray-700 rounded-lg text-sm font-medium active:opacity-80 transition-opacity"
+                      className="px-3 py-1.5 bg-red-500 text-white rounded-full text-sm font-medium active:opacity-80 transition-opacity"
                     >
                       恢复
                     </button>

@@ -28,17 +28,6 @@ const FontCustomizer = () => {
   const [fontUrl, setFontUrl] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // 内置可爱字体列表
-  const builtInFonts = [
-    {
-      name: 'Catbox 超可爱',
-      desc: '日系卡通 · 少女梦幻 💖',
-      family: '"Catbox Cute", cursive',
-      url: 'https://files.catbox.moe/zr3pre.ttf',
-      preview: '超级无敌可爱 ♡(ӦｖӦ｡)'
-    }
-  ]
-  
   // 应用字体
   const applyFont = (fontFamily: string, fontUrl: string | null, fontName: string) => {
     const fontConfig = {
@@ -218,7 +207,7 @@ const FontCustomizer = () => {
             {customFont && (
               <button
                 onClick={resetToDefault}
-                className="text-xs text-blue-500 hover:text-blue-600"
+                className="text-xs bg-blue-500 text-white px-3 py-1 rounded-full hover:bg-blue-600 transition-colors"
               >
                 恢复默认
               </button>
@@ -237,39 +226,6 @@ const FontCustomizer = () => {
           </div>
         </div>
 
-        {/* 内置字体 */}
-        <div className="glass-card rounded-2xl p-4 mb-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <div className="text-sm font-semibold text-gray-900 mb-3">✨ 内置可爱字体</div>
-          <div className="space-y-2">
-            {builtInFonts.map((font, index) => (
-              <div
-                key={index}
-                className={`p-4 rounded-xl transition-all cursor-pointer ${
-                  customFont?.name === font.name
-                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-400 shadow-md'
-                    : 'bg-gray-50/80 border-2 border-transparent hover:border-blue-200 hover:shadow-sm'
-                }`}
-                onClick={() => applyFont(font.family, font.url, font.name)}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="font-semibold text-gray-900 text-base">{font.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{font.desc}</div>
-                  </div>
-                  {customFont?.name === font.name && (
-                    <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">使用中</span>
-                  )}
-                </div>
-                <div 
-                  className="text-base text-gray-700 mt-2 p-3 bg-white/60 rounded-lg"
-                  style={{ fontFamily: font.family }}
-                >
-                  {font.preview}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* 已保存的字体 */}
         {savedFonts.length > 0 && (
@@ -301,11 +257,9 @@ const FontCustomizer = () => {
                         deleteFontFromList(index)
                       }
                     }}
-                    className="ml-3 text-red-500 hover:text-red-600 p-2"
+                    className="ml-3 bg-red-500 text-white px-3 py-1 rounded-full hover:bg-red-600 transition-colors text-xs"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    删除
                   </button>
                 </div>
               ))}
@@ -328,7 +282,7 @@ const FontCustomizer = () => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+            className="w-full py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors font-medium"
           >
             选择字体文件
           </button>
@@ -350,7 +304,7 @@ const FontCustomizer = () => {
             />
             <button
               onClick={handleLoadFromUrl}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium whitespace-nowrap"
+              className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors font-medium whitespace-nowrap"
             >
               加载
             </button>

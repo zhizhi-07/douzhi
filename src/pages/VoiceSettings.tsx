@@ -125,13 +125,13 @@ const VoiceSettings = () => {
             <button
               onClick={handleTest}
               disabled={isTesting}
-              className="flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl hover:bg-blue-50 disabled:opacity-50"
+              className="flex-1 py-3 border border-blue-500 text-blue-500 rounded-full hover:bg-blue-50 disabled:opacity-50"
             >
               {isTesting ? '测试中...' : '测试语音'}
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600"
+              className="flex-1 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600"
             >
               保存配置
             </button>
