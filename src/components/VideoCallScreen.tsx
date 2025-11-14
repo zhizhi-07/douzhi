@@ -183,11 +183,7 @@ const VideoCallScreen = ({
                       className={'flex ' + (msg.type === 'user' ? 'justify-end' : 'justify-start')}
                     >
                       <div
-                        className={'max-w-[70%] px-4 py-2 rounded-[32px] shadow-lg ' + (
-                          msg.type === 'user'
-                            ? 'bg-green-500 text-white'
-                            : 'bg-white/90 backdrop-blur-sm text-gray-900'
-                        )}
+                        className="max-w-[70%] px-4 py-2 rounded-[32px] shadow-lg bg-white/90 backdrop-blur-sm text-gray-900"
                       >
                         <p className="text-sm break-words">{msg.content}</p>
                       </div>
@@ -243,7 +239,11 @@ const VideoCallScreen = ({
                 onClick={() => {
                   const newMuted = !isMuted
                   setIsMuted(newMuted)
-                  const message = newMuted ? '你静音了' : '你取消静音了'
+                  const userInfo = getUserInfo()
+                  const userName = userInfo.nickname || userInfo.realName || '用户'
+                  const message = newMuted
+                    ? `${userName}静音了，你听不见${userName}的声音了`
+                    : `${userName}取消静音了，你可以听见${userName}的声音了`
                   console.log('🎙️ 用户切换静音:', message)
                   onAddNarratorMessage(message)
                 }}
@@ -278,7 +278,11 @@ const VideoCallScreen = ({
                 onClick={() => {
                   const newCameraOff = !isCameraOff
                   setIsCameraOff(newCameraOff)
-                  const message = newCameraOff ? '你关闭了摄像头' : '你打开了摄像头'
+                  const userInfo = getUserInfo()
+                  const userName = userInfo.nickname || userInfo.realName || '用户'
+                  const message = newCameraOff
+                    ? `${userName}关闭了摄像头，你看不见${userName}了`
+                    : `${userName}打开了摄像头，你可以看见${userName}了`
                   console.log('📹 用户切换摄像头:', message)
                   onAddNarratorMessage(message)
                 }}

@@ -252,7 +252,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
           id: `moment_${Date.now()}_${Math.random()}`,  // 新ID
           userId: newId,  // 新角色ID
           userName: newRealName,
-          userAvatar: newAvatar
+          userAvatar: newAvatar || ''
         }))
         
         // 使用saveMoments保存到IndexedDB（避免localStorage超限）
@@ -272,18 +272,22 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
       console.log('✅ 世界书已导入:', jsonData.lorebook.entries.length, '条')
     }
     
-    // 8. 导入表情包（合并到现有表情包）
-    if (jsonData.emojis && jsonData.emojis.length > 0) {
+    // 导入表情包（如果有）
+    if (jsonData.emojis && Array.isArray(jsonData.emojis) && jsonData.emojis.length > 0) {
+      // 🔥 修复：使用 emojiStorage 的 API，自动使用 IndexedDB 避免 localStorage 配额问题
+      const { getEmojis, saveEmojis } = await import('./emojiStorage')
       const existingEmojis = await getEmojis()
-      // 过滤掉重复的表情包（根据description）
+      
+      // 只添加不存在的表情包（根据 description 去重）
       const newEmojis = jsonData.emojis.filter(e => 
         !existingEmojis.some(existing => existing.description === e.description)
       )
+      
       if (newEmojis.length > 0) {
-        // 保存表情包
+        // 保存表情包到 IndexedDB
         const updatedEmojis = [...existingEmojis, ...newEmojis]
-        localStorage.setItem('emojis', JSON.stringify(updatedEmojis))
-        console.log('✅ 表情包已导入:', newEmojis.length, '个新表情包')
+        await saveEmojis(updatedEmojis)
+        console.log('✅ 表情包已导入到IndexedDB:', newEmojis.length, '个新表情包')
       }
     }
     

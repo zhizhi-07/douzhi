@@ -79,7 +79,7 @@ const ChatDetail = () => {
   
   const chatState = useChatState(id || '')
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
-  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter)
+  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
   const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知', id || '')
   const voice = useVoice(chatState.setMessages, id || '')
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
@@ -541,12 +541,21 @@ const ChatDetail = () => {
             onToggleVoiceText={(messageId) => voice.handleToggleVoiceText(messageId)}
             playingVoiceId={voice.playingVoiceId}
             showVoiceTextMap={voice.showVoiceTextMap}
-            onUpdateIntimatePayStatus={(messageId, newStatus) => {
-              chatState.setMessages(prev => prev.map(msg =>
-                msg.id === messageId && msg.intimatePay
-                  ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
-                  : msg
-              ))
+            onUpdateIntimatePayStatus={async (messageId, newStatus) => {
+              let updatedMessages: Message[] = []
+              chatState.setMessages(prev => {
+                updatedMessages = prev.map(msg =>
+                  msg.id === messageId && msg.intimatePay
+                    ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
+                    : msg
+                )
+                return updatedMessages
+              })
+              // 🔥 保存到IndexedDB
+              if (id && updatedMessages.length > 0) {
+                await saveMessages(id, updatedMessages)
+                console.log('💾 [亲密付状态更新] 已保存到数据库')
+              }
             }}
             onAcceptCoupleSpace={coupleSpace.acceptInvite}
             onRejectCoupleSpace={coupleSpace.rejectInvite}
@@ -791,12 +800,21 @@ const ChatDetail = () => {
                     onRejectInvite={coupleSpace.rejectInvite}
                     onAcceptMusicInvite={musicInvite.acceptInvite}
                     onRejectMusicInvite={musicInvite.rejectInvite}
-                    onUpdateIntimatePayStatus={(messageId, newStatus) => {
-                      chatState.setMessages(prev => prev.map(msg =>
-                        msg.id === messageId && msg.intimatePay
-                          ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' } }
-                          : msg
-                      ))
+                    onUpdateIntimatePayStatus={async (messageId, newStatus) => {
+                      let updatedMessages: Message[] = []
+                      chatState.setMessages(prev => {
+                        updatedMessages = prev.map(msg =>
+                          msg.id === messageId && msg.intimatePay
+                            ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' } }
+                            : msg
+                        )
+                        return updatedMessages
+                      })
+                      // 🔥 保存到IndexedDB
+                      if (id && updatedMessages.length > 0) {
+                        await saveMessages(id, updatedMessages)
+                        console.log('💾 [亲密付状态更新] 已保存到数据库')
+                      }
                     }}
                     onViewForwardedChat={forward.setViewingForwardedChat}
                     onReceiveTransfer={transfer.handleReceiveTransfer}

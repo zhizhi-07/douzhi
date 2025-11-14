@@ -16,25 +16,25 @@ export const CALL_COMMANDS: CallCommand[] = [
   {
     type: 'mute',
     pattern: /[\[【]静音[\]】]/,
-    message: (name) => `${name}静音了`,
+    message: (name) => `${name}静音了，你听不见${name}的声音了`,
     emoji: '🔇'
   },
   {
     type: 'unmute',
     pattern: /[\[【]取消静音[\]】]/,
-    message: (name) => `${name}取消静音了`,
+    message: (name) => `${name}取消静音了，你可以听见${name}的声音了`,
     emoji: '🔊'
   },
   {
     type: 'camera-off',
     pattern: /[\[【]关闭摄像头[\]】]/,
-    message: (name) => `${name}关闭了摄像头`,
+    message: (name) => `${name}关闭了摄像头，你看不见${name}了`,
     emoji: '📵'
   },
   {
     type: 'camera-on',
     pattern: /[\[【]打开摄像头[\]】]/,
-    message: (name) => `${name}打开了摄像头`,
+    message: (name) => `${name}打开了摄像头，你可以看见${name}了`,
     emoji: '📹'
   },
   {

@@ -6,7 +6,7 @@
 // 🎵 可爱果冻音效库 - 超级软萌的音效
 const CUTE_SOUNDS = {
   // 🔘 点击音效 - 可爱果冻音
-  clickSoft: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 软萌泡泡
+  clickSoft: '/sounds/click.aiff', // 软萌泡泡
   clickBright: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 轻快泡泡
   clickPop: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 可爱弹跳
   clickTap: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 轻柔点击
@@ -17,8 +17,8 @@ const CUTE_SOUNDS = {
   pageBack: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 返回
 
   // 💬 消息音效 - 温柔的提示音
-  send: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 发送消息
-  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 接收消息
+  send: '/sounds/send.aiff', // 发送消息
+  notify: '/sounds/notify.aiff', // 接收消息
   typing: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 正在输入
 
   // 📋 菜单音效 - 柔和的弹出音
