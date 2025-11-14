@@ -364,6 +364,47 @@ const buildUserAvatarContext = (): string => {
 }
 
 /**
+ * 计算距离上次消息的时间间隔
+ */
+const getTimeSinceLastMessage = (messages: Message[]): string => {
+  if (messages.length === 0) return ''
+
+  // 找到最后一条用户消息
+  const lastUserMessage = [...messages].reverse().find(m => m.type === 'sent')
+  if (!lastUserMessage || !lastUserMessage.timestamp) return ''
+
+  const now = Date.now()
+  const diff = now - lastUserMessage.timestamp
+
+  // 小于1分钟
+  if (diff < 60 * 1000) {
+    return '刚刚'
+  }
+
+  // 小于1小时
+  if (diff < 60 * 60 * 1000) {
+    const minutes = Math.floor(diff / (60 * 1000))
+    return `${minutes}分钟`
+  }
+
+  // 小于24小时
+  if (diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(diff / (60 * 60 * 1000))
+    return `${hours}小时`
+  }
+
+  // 小于7天
+  if (diff < 7 * 24 * 60 * 60 * 1000) {
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000))
+    return `${days}天`
+  }
+
+  // 超过7天
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000))
+  return `${days}天`
+}
+
+/**
  * 构建系统提示词（完整版）
  */
 export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = []): Promise<string> => {
@@ -391,10 +432,13 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   else timeOfDay = '深夜'
 
   const charName = character.nickname || character.realName
-  
+
   // 对所有角色字段应用变量替换
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
   const signature = character.signature ? replaceSTVariables(character.signature, character, userName) : ''
+
+  // 计算距离上次消息的时间
+  const timeSinceLastMessage = getTimeSinceLastMessage(messages)
 
   // 获取用户信息
   const userInfo = getUserInfo()
@@ -445,12 +489,22 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 
 现在是：${dateStr} ${currentTime}（${hour}点）
 你的状态：${statusText}
+${timeSinceLastMessage ? `⏰ 距离上次${userNickname}发消息已经过去：${timeSinceLastMessage}` : ''}
 
 ## 你是谁
 
 你就是${charName}。${personality}
 ${signature ? `你的签名：${signature}` : ''}
 ${(character as any).world ? `你生活在：${(character as any).world}` : ''}
+
+⚠️ **禁止OOC（Out of Character）！**
+在回复之前，你必须问自己：
+1. 这句话真的是${charName}会说的吗？
+2. 这个语气符合${charName}的性格吗？
+3. 这个反应符合${charName}的人设吗？
+
+如果答案是"不确定"或"不符合"，立即调整！
+你必须100%贴合${charName}的人设，不能说出不符合角色性格的话！
 
 ## 对方是谁
 
@@ -574,7 +628,29 @@ ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(chara
 - 像发微信一样自然分段，每2-3句换行
 - 回复长短、语气由你当下状态决定
 
-现在基于对话历史回复${userNickname}的消息。`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎭 **角色扮演核心原则**
+
+在回复之前，必须完成以下思考：
+
+1. **人设检查**：这句话${charName}真的会说吗？
+2. **语气检查**：这个语气符合${charName}的性格吗？
+3. **反应检查**：这个反应是${charName}会有的吗？
+4. **时间感知**：${timeSinceLastMessage ? `已经过去${timeSinceLastMessage}了，${charName}会怎么反应？` : ''}
+
+❌ 禁止：
+- 说出不符合${charName}性格的话
+- 使用${charName}不会用的语气
+- 做出${charName}不会有的反应
+- 忽略时间流逝（如果很久没联系，要有相应反应）
+
+✅ 必须：
+- 100%贴合${charName}的人设
+- 每句话都要问自己"${charName}真的会这样说吗？"
+- 根据时间间隔调整反应（刚刚 vs 几小时前 vs 几天前）
+
+现在，作为${charName}，基于对话历史回复${userNickname}的消息。`
 }
 
 /**

@@ -4,7 +4,7 @@ import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
 import { cleanupOldMessages } from './utils/cleanupLocalStorage'
-import { playSystemSound } from './utils/soundManager'
+import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -81,6 +81,9 @@ function App() {
       // 即使不需要迁移，也清理一次旧数据
       cleanupOldMessages()
     }
+
+    // 🎵 初始化音效系统，预加载常用音效
+    initSoundSystem()
   }, [])
   
   // 🎨 加载自定义字体

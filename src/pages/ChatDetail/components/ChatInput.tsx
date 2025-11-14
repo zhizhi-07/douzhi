@@ -2,7 +2,7 @@
  * 聊天输入框组件
  */
 
-import { playMessageSendSound, playMenuOpenSound, playClickPopSound } from '../../../utils/soundManager'
+import { playMenuOpenSound, playClickPopSound } from '../../../utils/soundManager'
 
 interface ChatInputProps {
   inputValue: string
@@ -97,10 +97,7 @@ const ChatInput = ({
         {/* 发送/AI按钮 */}
         {inputValue.trim() ? (
           <button
-            onClick={() => {
-              playMessageSendSound() // 🎵 播放发送音效
-              onSend()
-            }}
+            onClick={onSend}
             disabled={isAiTyping}
             className="w-10 h-10 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast"
           >
