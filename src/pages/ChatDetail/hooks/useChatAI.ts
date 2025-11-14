@@ -41,7 +41,8 @@ export const useChatAI = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
   setError: (error: string | null) => void,
   onVideoCallRequest?: () => void,
-  refreshCharacter?: () => void
+  refreshCharacter?: () => void,
+  onEndCall?: () => void
 ) => {
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -349,7 +350,12 @@ export const useChatAI = (
 
       // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
       if (needsAvatarRecognition && userInfo.avatar) {
-        console.log('🖼️ [头像识别] 在聊天请求中附加头像图片')
+        // 🔥 降级处理：检查API是否支持视觉识别
+        if (!settings.supportsVision) {
+          console.warn('⚠️ [头像识别] 当前API不支持视觉识别，跳过头像识别')
+          console.warn('💡 [头像识别] 如需使用头像识别功能，请切换到支持视觉识别的API（如Gemini）')
+        } else {
+          console.log('🖼️ [头像识别] 在聊天请求中附加头像图片')
 
         // 在系统提示词末尾添加识别请求（简化版，减少token消耗）
         systemPrompt += `
@@ -384,6 +390,7 @@ export const useChatAI = (
 
             console.log('✅ [头像识别] 已在最后一条用户消息中附加头像图片')
           }
+        }
         }
       }
 
@@ -831,6 +838,7 @@ export const useChatAI = (
                 chatId,  // 🔥 传入chatId，确保消息能保存到localStorage
                 isBlocked,  // 🔥 传入拉黑状态，确保特殊消息也能显示感叹号
                 onVideoCallRequest,
+                onEndCall,  // 🔥 传入onEndCall，让AI挂断电话
                 refreshCharacter  // 🔥 传入refreshCharacter，让AI改名后立即更新界面
               })
 

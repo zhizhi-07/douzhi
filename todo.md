@@ -1,0 +1,3 @@
+- [x] Copy desktop sound files into project and update code references
+- [x] Copy desktop sound files into project
+- [x] Update default sound URLs in soundManager.ts to local files

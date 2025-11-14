@@ -49,6 +49,7 @@ export interface CommandContext {
   onVideoCallRequest?: (openingLines?: string | null) => void
   onEndCall?: () => void
   refreshCharacter?: () => void  // 🔥 刷新角色信息
+  onAddNarratorMessage?: (content: string) => void  // 🔥 添加旁白消息（视频通话）
 }
 
 /**
@@ -288,19 +289,127 @@ export const endCallHandler: CommandHandler = {
   pattern: /[\[【]挂断电话[\]】]/,
   handler: async (match, content, { onEndCall }) => {
     console.log('📴 挂断电话指令处理:', { content, match: match[0] })
-    
+
     if (onEndCall) {
       onEndCall()
     }
 
     const remainingText = content.replace(match[0], '').trim()
-    
+
     console.log('📴 挂断电话处理结果:', { remainingText })
-    
-    return { 
-      handled: true, 
+
+    return {
+      handled: true,
       remainingText: '',  // 清空剩余文本，因为挂断后不需要显示
       skipTextMessage: true  // 跳过文本消息
+    }
+  }
+}
+
+/**
+ * AI静音处理器
+ */
+export const aiMuteHandler: CommandHandler = {
+  pattern: /[\[【]静音[\]】]/,
+  handler: async (match, content, { character, onAddNarratorMessage }) => {
+    console.log('🎙️ [AI静音] AI静音了')
+
+    if (!character) return { handled: false }
+
+    const charName = character.nickname || character.realName
+
+    // 添加旁白消息
+    if (onAddNarratorMessage) {
+      onAddNarratorMessage(`${charName}静音了，你听不见${charName}的声音了`)
+    }
+
+    // 移除静音指令
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI取消静音处理器
+ */
+export const aiUnmuteHandler: CommandHandler = {
+  pattern: /[\[【]取消静音[\]】]/,
+  handler: async (match, content, { character, onAddNarratorMessage }) => {
+    console.log('🎙️ [AI取消静音] AI取消静音了')
+
+    if (!character) return { handled: false }
+
+    const charName = character.nickname || character.realName
+
+    // 添加旁白消息
+    if (onAddNarratorMessage) {
+      onAddNarratorMessage(`${charName}取消静音了，你可以听见${charName}的声音了`)
+    }
+
+    // 移除取消静音指令
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI关闭摄像头处理器
+ */
+export const aiCameraOffHandler: CommandHandler = {
+  pattern: /[\[【]关闭摄像头[\]】]/,
+  handler: async (match, content, { character, onAddNarratorMessage }) => {
+    console.log('📹 [AI关闭摄像头] AI关闭了摄像头')
+
+    if (!character) return { handled: false }
+
+    const charName = character.nickname || character.realName
+
+    // 添加旁白消息
+    if (onAddNarratorMessage) {
+      onAddNarratorMessage(`${charName}关闭了摄像头，你看不见${charName}了`)
+    }
+
+    // 移除关闭摄像头指令
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI打开摄像头处理器
+ */
+export const aiCameraOnHandler: CommandHandler = {
+  pattern: /[\[【]打开摄像头[\]】]/,
+  handler: async (match, content, { character, onAddNarratorMessage }) => {
+    console.log('📹 [AI打开摄像头] AI打开了摄像头')
+
+    if (!character) return { handled: false }
+
+    const charName = character.nickname || character.realName
+
+    // 添加旁白消息
+    if (onAddNarratorMessage) {
+      onAddNarratorMessage(`${charName}打开了摄像头，你可以看见${charName}了`)
+    }
+
+    // 移除打开摄像头指令
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
     }
   }
 }
@@ -393,12 +502,36 @@ export const voiceHandler: CommandHandler = {
 
 /**
  * 位置指令处理器
+ * 支持两种格式：
+ * 1. [位置:名称:地址] 或 [位置:名称 - 地址]
+ * 2. [位置:名称] （地址默认为"详细地址"）
  */
 export const locationHandler: CommandHandler = {
-  pattern: /[\[【]位置[:\：](.+?)(?:[:\：]|[\s]*-[\s]*)(.+?)[\]】]/,
+  pattern: /[\[【]位置[:\：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
-    const locationName = match[1].trim()
-    const locationAddress = match[2].trim()
+    const fullLocation = match[1].trim()
+
+    // 尝试分割名称和地址
+    let locationName: string
+    let locationAddress: string
+
+    // 检查是否有分隔符（: 或 -）
+    const colonMatch = fullLocation.match(/^(.+?)[:\：](.+)$/)
+    const dashMatch = fullLocation.match(/^(.+?)\s*-\s*(.+)$/)
+
+    if (colonMatch) {
+      locationName = colonMatch[1].trim()
+      locationAddress = colonMatch[2].trim()
+    } else if (dashMatch) {
+      locationName = dashMatch[1].trim()
+      locationAddress = dashMatch[2].trim()
+    } else {
+      // 只有一个参数，作为名称，地址默认
+      locationName = fullLocation
+      locationAddress = '详细地址'
+    }
+
+    console.log('📍 [位置指令]', { locationName, locationAddress })
 
     const locationMsg = createMessageObj('location', {
       location: {
@@ -410,8 +543,8 @@ export const locationHandler: CommandHandler = {
     await addMessage(locationMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1069,17 +1202,27 @@ export const acceptIntimatePayHandler: CommandHandler = {
     })
     
     // 更新消息状态为已接受
-    setMessages(prev => prev.map(msg =>
-      msg.id === lastPending.id
-        ? {
-            ...msg,
-            intimatePay: {
-              ...msg.intimatePay!,
-              status: 'accepted' as const
+    let updatedMessages: Message[] = []
+    setMessages(prev => {
+      updatedMessages = prev.map(msg =>
+        msg.id === lastPending.id
+          ? {
+              ...msg,
+              intimatePay: {
+                ...msg.intimatePay!,
+                status: 'accepted' as const
+              }
             }
-          }
-        : msg
-    ))
+          : msg
+      )
+      return updatedMessages
+    })
+
+    // 🔥 保存到IndexedDB
+    if (chatId && updatedMessages.length > 0) {
+      await saveMessages(chatId, updatedMessages)
+      console.log('💾 [接受亲密付] 消息状态已保存到数据库')
+    }
 
     // 创建亲密付关系（用户给AI开通，AI接受，类型是 user_to_character）
     if (character) {
@@ -1132,17 +1275,27 @@ export const rejectIntimatePayHandler: CommandHandler = {
     console.log('✅ [拒绝亲密付] 找到待处理消息:', lastPending.id)
 
     // 更新消息状态为已拒绝
-    setMessages(prev => prev.map(msg =>
-      msg.id === lastPending.id
-        ? {
-            ...msg,
-            intimatePay: {
-              ...msg.intimatePay!,
-              status: 'rejected' as const
+    let updatedMessages: Message[] = []
+    setMessages(prev => {
+      updatedMessages = prev.map(msg =>
+        msg.id === lastPending.id
+          ? {
+              ...msg,
+              intimatePay: {
+                ...msg.intimatePay!,
+                status: 'rejected' as const
+              }
             }
-          }
-        : msg
-    ))
+          : msg
+      )
+      return updatedMessages
+    })
+
+    // 🔥 保存到IndexedDB
+    if (chatId && updatedMessages.length > 0) {
+      await saveMessages(chatId, updatedMessages)
+      console.log('💾 [拒绝亲密付] 消息状态已保存到数据库')
+    }
 
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
@@ -1619,8 +1772,16 @@ export const changeAvatarHandler: CommandHandler = {
       usedPrompt = description
 
       if (!newAvatar) {
-        console.error('❌ [AI换头像] 生成失败')
-        return { handled: false }
+        console.error('❌ [AI换头像] 生成失败，添加降级提示')
+        // 🔥 降级处理：生成失败时，添加系统消息但继续处理，不中断AI回复
+        const failMsg = createMessageObj('system', {
+          content: `${character.nickname || character.realName} 想换头像，但生成失败了`,
+          aiReadableContent: `[系统通知：头像生成失败，可能是网络问题或API不可用]`,
+          type: 'system'
+        })
+        await addMessage(failMsg, setMessages, chatId)
+        // 继续处理，不返回 handled: false
+        newAvatar = null
       }
     }
     // 方式2: 使用用户头像
@@ -1707,6 +1868,10 @@ export const commandHandlers: CommandHandler[] = [
   rejectIntimatePayHandler,
   videoCallHandler,
   endCallHandler,
+  aiMuteHandler,  // AI静音
+  aiUnmuteHandler,  // AI取消静音
+  aiCameraOffHandler,  // AI关闭摄像头
+  aiCameraOnHandler,  // AI打开摄像头
   voiceHandler,
   locationHandler,
   photoHandler,

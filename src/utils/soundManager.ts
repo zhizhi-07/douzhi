@@ -6,7 +6,7 @@
 // 🎵 可爱果冻音效库 - 超级软萌的音效
 const CUTE_SOUNDS = {
   // 🔘 点击音效 - 可爱果冻音
-  clickSoft: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 软萌泡泡
+  clickSoft: '/sounds/click.aiff', // 软萌泡泡
   clickBright: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 轻快泡泡
   clickPop: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 可爱弹跳
   clickTap: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 轻柔点击
@@ -17,8 +17,8 @@ const CUTE_SOUNDS = {
   pageBack: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 返回
 
   // 💬 消息音效 - 温柔的提示音
-  send: 'https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3', // 发送消息
-  notify: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // 接收消息
+  send: '/sounds/notify.aiff', // 发送消息（原来的接收音效）
+  notify: '/sounds/send.aiff', // 接收消息（原来的发送音效）
   typing: 'https://assets.mixkit.co/active_storage/sfx/2356/2356-preview.mp3', // 正在输入
 
   // 📋 菜单音效 - 柔和的弹出音
@@ -56,22 +56,91 @@ const CUTE_SOUNDS = {
 
 let currentAudio: HTMLAudioElement | null = null
 
+// 🎵 音频池 - 为每个音效创建多个实例，避免冲突和延迟
+const audioPool: Record<string, HTMLAudioElement[]> = {}
+const POOL_SIZE = 3 // 每个音效保持3个实例
+
+// 预加载音效池
+const preloadSoundPool = (url: string): void => {
+  if (!audioPool[url]) {
+    audioPool[url] = []
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const audio = new Audio(url)
+      audio.preload = 'auto'
+      audio.volume = 0.3
+      // 预加载音频数据
+      audio.load()
+      audioPool[url].push(audio)
+    }
+  }
+}
+
+// 获取可用的音频实例
+const getAvailableAudio = (url: string): HTMLAudioElement => {
+  if (!audioPool[url]) {
+    preloadSoundPool(url)
+  }
+
+  // 找到一个未在播放的实例
+  const available = audioPool[url].find(audio => audio.paused)
+  if (available) {
+    return available
+  }
+
+  // 如果都在播放，返回第一个（会被重置）
+  return audioPool[url][0]
+}
+
 /**
  * 播放音效的通用函数
- * 🎵 默认音量降低到0.08，超级柔和
+ * 🎵 使用音频池，零延迟播放
  */
-const playSound = (url: string, volume: number = 0.08) => {
+const playSound = (url: string, volume: number = 0.3) => {
   try {
-    const audio = new Audio(url)
+    const audio = getAvailableAudio(url)
     audio.volume = volume
-    audio.play().catch(err => {
-      console.log('音效播放失败:', err)
-    })
+    audio.currentTime = 0
+
+    // 立即播放，不等待 Promise
+    const playPromise = audio.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        // 忽略自动播放策略错误
+        if (err.name !== 'NotAllowedError') {
+          console.log('音效播放失败:', err)
+        }
+      })
+    }
+
     return audio
   } catch (err) {
     console.error('创建音频失败:', err)
     return null
   }
+}
+
+/**
+ * 🎵 初始化音效系统 - 预加载常用音效
+ * 在应用启动时调用，避免首次播放延迟
+ */
+export const initSoundSystem = () => {
+  console.log('🎵 初始化音效系统...')
+
+  // 预加载最常用的音效
+  const commonSounds = [
+    CUTE_SOUNDS.send,
+    CUTE_SOUNDS.notify,
+    CUTE_SOUNDS.clickSoft,
+    CUTE_SOUNDS.navSwitch,
+    CUTE_SOUNDS.menuOpen,
+    CUTE_SOUNDS.menuClose
+  ]
+
+  commonSounds.forEach(url => {
+    preloadSoundPool(url)
+  })
+
+  console.log('✅ 音效系统初始化完成')
 }
 
 /**
@@ -84,12 +153,7 @@ export const playSystemSound = () => {
   const customSound = localStorage.getItem('custom_sound')
   const url = customSound || CUTE_SOUNDS.clickSoft
 
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(url, 0.08) // 🎵 超级柔和的音量
+  playSound(url, 0.08) // 🎵 超级柔和的音量
 }
 
 /**
@@ -99,12 +163,7 @@ export const playNavSwitchSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
 
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.navSwitch, 0.3)
+  playSound(CUTE_SOUNDS.navSwitch, 0.3)
 }
 
 /**
@@ -192,12 +251,7 @@ export const playMessageSendSound = () => {
   const customSound = localStorage.getItem('custom_send_sound')
   const url = customSound || CUTE_SOUNDS.send
 
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(url, 0.3)
+  playSound(url, 0.35)
 }
 
 /**
@@ -211,12 +265,7 @@ export const playMessageNotifySound = () => {
     const customSound = localStorage.getItem('custom_notify_sound')
     const url = customSound || CUTE_SOUNDS.notify
 
-    if (currentAudio) {
-      currentAudio.pause()
-      currentAudio.currentTime = 0
-    }
-
-    currentAudio = playSound(url, 0.35)
+    playSound(url, 0.35)
   } catch (error) {
     console.log('🎵 音效播放失败:', error)
   }
@@ -322,12 +371,7 @@ export const playMenuOpenSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
 
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.menuOpen, 0.3)
+  playSound(CUTE_SOUNDS.menuOpen, 0.3)
 }
 
 /**
@@ -337,12 +381,7 @@ export const playMenuCloseSound = () => {
   const enabled = localStorage.getItem('system_sound_enabled')
   if (enabled === 'false') return
 
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.menuClose, 0.25)
+  playSound(CUTE_SOUNDS.menuClose, 0.25)
 }
 
 /**

@@ -187,6 +187,13 @@ export async function recognizeUserAvatar(avatarBase64: string): Promise<string 
 
     const apiSettings = JSON.parse(settings)
 
+    // 🔥 降级处理：检查API是否支持视觉识别
+    if (!apiSettings.supportsVision) {
+      console.warn('⚠️ [头像识别] 当前API不支持视觉识别，跳过头像识别')
+      console.warn('💡 [头像识别] 如需使用头像识别功能，请切换到支持视觉识别的API（如Gemini）')
+      return null
+    }
+
     // 构建识别提示词
     const prompt = `请描述这张头像图片的内容，要求：
 

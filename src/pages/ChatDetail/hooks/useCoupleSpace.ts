@@ -66,20 +66,37 @@ export const useCoupleSpace = (
         senderAvatar: undefined
       }
     }
+    // 🔥 修复：保存到存储，避免退出窗口后消息丢失
+    saveMessage(chatId, newMessage)
     setMessages(prev => [...prev, newMessage])
   }
 
   // 接受邀请
   const acceptInvite = (messageId: number) => {
-    if (!chatId) return
+    console.log('💕 [情侣空间] 用户点击接受邀请，messageId:', messageId, 'chatId:', chatId)
+    if (!chatId) {
+      console.error('❌ [情侣空间] chatId为空')
+      return
+    }
 
     const success = acceptCoupleSpaceInvite(chatId)
+    console.log('💕 [情侣空间] acceptCoupleSpaceInvite结果:', success)
+
     if (success) {
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId && msg.coupleSpaceInvite
-          ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'accepted' } }
-          : msg
-      ))
+      // 🔥 修复：更新消息状态并保存
+      setMessages(prev => {
+        const updated = prev.map(msg =>
+          msg.id === messageId && msg.coupleSpaceInvite
+            ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'accepted' as const } }
+            : msg
+        )
+        // 保存更新后的消息列表
+        const updatedMsg = updated.find(m => m.id === messageId)
+        if (updatedMsg) {
+          saveMessage(chatId, updatedMsg)
+        }
+        return updated
+      })
 
       const systemMsg: Message = {
         id: Date.now(),
@@ -90,20 +107,38 @@ export const useCoupleSpace = (
         messageType: 'system'
       }
       setMessages(prev => [...prev, systemMsg])
+      console.log('✅ [情侣空间] 接受成功')
+    } else {
+      console.error('❌ [情侣空间] 接受失败')
     }
   }
 
   // 拒绝邀请
   const rejectInvite = (messageId: number) => {
-    if (!chatId) return
+    console.log('💔 [情侣空间] 用户点击拒绝邀请，messageId:', messageId, 'chatId:', chatId)
+    if (!chatId) {
+      console.error('❌ [情侣空间] chatId为空')
+      return
+    }
 
     const success = rejectCoupleSpaceInvite(chatId)
+    console.log('💔 [情侣空间] rejectCoupleSpaceInvite结果:', success)
+
     if (success) {
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId && msg.coupleSpaceInvite
-          ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'rejected' } }
-          : msg
-      ))
+      // 🔥 修复：更新消息状态并保存
+      setMessages(prev => {
+        const updated = prev.map(msg =>
+          msg.id === messageId && msg.coupleSpaceInvite
+            ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'rejected' as const } }
+            : msg
+        )
+        // 保存更新后的消息列表
+        const updatedMsg = updated.find(m => m.id === messageId)
+        if (updatedMsg) {
+          saveMessage(chatId, updatedMsg)
+        }
+        return updated
+      })
 
       const systemMsg: Message = {
         id: Date.now(),
@@ -114,6 +149,9 @@ export const useCoupleSpace = (
         messageType: 'system'
       }
       setMessages(prev => [...prev, systemMsg])
+      console.log('✅ [情侣空间] 拒绝成功')
+    } else {
+      console.error('❌ [情侣空间] 拒绝失败')
     }
   }
 

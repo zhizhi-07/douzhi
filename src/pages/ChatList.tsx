@@ -6,6 +6,7 @@ import { loadMessages } from '../utils/simpleMessageManager'
 import { getUnreadCount } from '../utils/simpleNotificationManager'
 import { groupChatManager } from '../utils/groupChatManager'
 import { getUserInfo } from '../utils/userUtils'
+import { loadChatList, saveChatList, loadChatListSync } from '../utils/chatListManager'
 
 interface Chat {
   id: string
@@ -17,8 +18,6 @@ interface Chat {
   unread?: number
   isGroup?: boolean
 }
-
-const CHAT_LIST_KEY = 'chat_list'
 
 const ChatList = () => {
   const navigate = useNavigate()
@@ -99,23 +98,24 @@ const ChatList = () => {
   }, [])
 
   // 统一的聊天列表刷新函数
-  const refreshChatList = useCallback(() => {
-    // 加载单聊
-    const savedChats = localStorage.getItem(CHAT_LIST_KEY)
+  const refreshChatList = useCallback(async () => {
+    // 加载单聊（从 IndexedDB）
     let chatList: Chat[] = []
-    if (savedChats) {
-      chatList = JSON.parse(savedChats)
+    try {
+      chatList = await loadChatList()
       chatList = updateChatsWithLatestMessages(chatList)
+    } catch (error) {
+      console.error('加载聊天列表失败:', error)
     }
-    
+
     // 加载群聊
     const groups = groupChatManager.getAllGroups()
-    
+
     // 去重群聊（基于ID）
-    const uniqueGroups = groups.filter((group, index, self) => 
+    const uniqueGroups = groups.filter((group, index, self) =>
       index === self.findIndex(g => g.id === group.id)
     )
-    
+
     const groupChats: Chat[] = uniqueGroups.map(group => ({
       id: group.id,
       characterId: group.id,
@@ -125,28 +125,28 @@ const ChatList = () => {
       time: group.lastMessageTime || '',
       isGroup: true
     }))
-    
+
     // 合并并去重（基于ID）
     const allChats = [...chatList, ...groupChats]
-    const uniqueChats = allChats.filter((chat, index, self) => 
+    const uniqueChats = allChats.filter((chat, index, self) =>
       index === self.findIndex(c => c.id === chat.id)
     )
-    
+
     // 按时间排序：最新的在最上面
     uniqueChats.sort((a, b) => {
       const timeA = a.time || ''
       const timeB = b.time || ''
-      
+
       // 如果时间格式是 HH:MM，转换为分钟数比较
       const parseTime = (timeStr: string) => {
         if (!timeStr) return 0
         const [hours, minutes] = timeStr.split(':').map(Number)
         return (hours || 0) * 60 + (minutes || 0)
       }
-      
+
       return parseTime(timeB) - parseTime(timeA)
     })
-    
+
     setChats(uniqueChats)
   }, [updateChatsWithLatestMessages])
 
@@ -207,7 +207,7 @@ const ChatList = () => {
     setAvailableCharacters(allCharacters)
   }
 
-  const handleAddCharacter = (characterId: string) => {
+  const handleAddCharacter = async (characterId: string) => {
     const character = availableCharacters.find(c => c.id === characterId)
     if (!character) return
 
@@ -223,9 +223,19 @@ const ChatList = () => {
       })
     }
 
-    const updatedChats = [newChat, ...chats]
-    setChats(updatedChats)
-    localStorage.setItem(CHAT_LIST_KEY, JSON.stringify(updatedChats))
+    const updatedChats = [newChat, ...chats.filter(c => !c.isGroup)]
+
+    // 保存到 IndexedDB
+    try {
+      await saveChatList(updatedChats)
+      console.log('✅ 聊天列表已保存')
+    } catch (error) {
+      console.error('❌ 保存聊天列表失败:', error)
+      alert('保存失败，存储空间可能不足')
+    }
+
+    // 刷新列表
+    await refreshChatList()
     setShowAddModal(false)
     loadCharacters() // 重新加载可用角色
   }
