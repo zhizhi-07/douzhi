@@ -93,11 +93,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   // 表情包
   if (message.messageType === 'emoji' && message.emoji) {
     return (
-      <div className="w-32 h-32 rounded-lg overflow-hidden cursor-pointer active:scale-95 transition-transform">
+      <div className="inline-block cursor-pointer active:scale-95 transition-transform">
         <img
           src={message.emoji.url}
           alt={message.emoji.description}
-          className="w-full h-full object-cover"
+          className="rounded-lg max-w-[160px] max-h-[160px] object-contain"
         />
       </div>
     )

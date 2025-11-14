@@ -7,6 +7,7 @@ import { getUnreadCount } from '../utils/simpleNotificationManager'
 import { groupChatManager } from '../utils/groupChatManager'
 import { getUserInfo } from '../utils/userUtils'
 import { loadChatList, saveChatList, loadChatListSync } from '../utils/chatListManager'
+import { playSystemSound } from '../utils/soundManager'
 
 interface Chat {
   id: string
@@ -309,7 +310,10 @@ const ChatList = () => {
             {chats.map((chat, chatIndex) => (
               <div
                 key={chat.id}
-                onClick={() => navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)}
+                onClick={() => {
+                  playSystemSound()
+                  navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
+                }}
                 className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 card-enter"
                 style={{ animationDelay: `${chatIndex * 0.05}s` }}
               >

@@ -57,18 +57,34 @@ const MemorySummary = () => {
         setError('暂无聊天记录')
         return
       }
+
+      // 读取上次已经处理到的时间戳（增量处理，避免重复提取）
+      const lastProcessedStr = localStorage.getItem(`memory_last_processed_ts_${id}`)
+      const lastProcessedTs = lastProcessedStr ? parseInt(lastProcessedStr, 10) : 0
+
+      // 本次需要处理的消息：只看上次标记之后的新消息
+      const newMessages = allMessages.filter(m => {
+        const ts = m.timestamp || 0
+        return ts > lastProcessedTs
+      })
+
+      if (newMessages.length === 0) {
+        setError('最近没有新的对话，无需更新记忆')
+        console.log('📊 本次没有发现新的消息需要提取记忆')
+        return
+      }
       
-      console.log(`📊 总消息数: ${allMessages.length}`)
+      console.log(`📊 总消息数: ${allMessages.length}，本次增量处理: ${newMessages.length} 条`)
       
       // 1. 批量提取记忆（从对话中）
       console.log('🧠 开始提取记忆...')
       let extractedMemoriesCount = 0
       
-      // 将消息分组为对话对（用户消息 + AI回复）
+      // 将消息分组为对话对（用户消息 + AI回复），只基于本次新增消息
       const conversationPairs: Array<{userMsg: string, aiMsg: string}> = []
-      for (let i = 0; i < allMessages.length - 1; i++) {
-        const msg1 = allMessages[i]
-        const msg2 = allMessages[i + 1]
+      for (let i = 0; i < newMessages.length - 1; i++) {
+        const msg1 = newMessages[i]
+        const msg2 = newMessages[i + 1]
         
         // 确保是一对用户-AI对话
         if (msg1.type === 'sent' && msg2.type === 'received') {
@@ -82,7 +98,7 @@ const MemorySummary = () => {
       
       console.log(`📊 发现 ${conversationPairs.length} 组对话`)
       
-      // 如果对话太多，只提取最近的部分（避免API请求过多）
+      // 如果对话太多，只提取最近的部分（避免单次请求上下文过长）
       const MAX_PAIRS = 50 // 最多处理50组对话
       const pairsToProcess = conversationPairs.length > MAX_PAIRS 
         ? conversationPairs.slice(-MAX_PAIRS) // 取最近的50组
@@ -91,37 +107,41 @@ const MemorySummary = () => {
       if (conversationPairs.length > MAX_PAIRS) {
         console.log(`⚠️ 对话过多，只处理最近的 ${MAX_PAIRS} 组`)
       }
-      
-      // 批量提取记忆
-      for (let i = 0; i < pairsToProcess.length; i++) {
-        const pair = pairsToProcess[i]
-        
+
+      if (pairsToProcess.length === 0) {
+        console.log('⚠️ 本次没有有效的用户-AI对话对可供提取记忆')
+      } else {
+        // 🔥 将对话对合并成两段批量文本，只调用一次记忆提取API
+        const batchUserContent = pairsToProcess.map((pair, idx) => 
+          `[对话${idx + 1}] ${pair.userMsg}`
+        ).join('\n\n')
+
+        const batchAiContent = pairsToProcess.map((pair, idx) => 
+          `[对话${idx + 1}] ${pair.aiMsg}`
+        ).join('\n\n')
+
         try {
           const result = await memorySystem.extractMemories(
-            pair.userMsg,
-            pair.aiMsg
+            batchUserContent,
+            batchAiContent
           )
-          
+
           if (result.memories && result.memories.length > 0) {
             extractedMemoriesCount += result.memories.length
-            console.log(`  ✓ 第 ${i + 1}/${pairsToProcess.length} 组: 提取 ${result.memories.length} 条记忆`)
-          }
-          
-          // 每处理5组对话暂停一下，避免请求过快
-          if ((i + 1) % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            console.log(`✅ 批量提取记忆成功，共提取 ${result.memories.length} 条记忆`)
+          } else {
+            console.log('ℹ️ 批量提取完成，但本次对话中没有值得记录的长期记忆')
           }
         } catch (err) {
-          console.warn(`  ⚠ 第 ${i + 1} 组对话记忆提取失败:`, err)
-          // 继续处理下一组
+          console.warn('⚠️ 批量记忆提取失败:', err)
         }
       }
-      
+
       console.log(`✅ 记忆提取完成，共提取 ${extractedMemoriesCount} 条记忆`)
       
-      // 2. 生成时间线
-      console.log('📅 开始生成时间线...')
-      const newTimeline = await memorySystem.generateTimeline(allMessages)
+      // 2. 生成时间线（只基于本次新增的消息）
+      console.log('📅 开始生成时间线（增量）...')
+      const newTimeline = await memorySystem.generateTimeline(newMessages)
       
       if (newTimeline && newTimeline.trim()) {
         // 获取旧的时间线
@@ -155,6 +175,12 @@ const MemorySummary = () => {
       if (extractedMemoriesCount > 0 || (newTimeline && newTimeline.trim())) {
         console.log(`🎉 完成！提取了 ${extractedMemoriesCount} 条记忆`)
       }
+
+      // 更新“已处理到哪里”的时间戳标记
+      const lastMsg = newMessages[newMessages.length - 1]
+      const newLastTs = lastMsg.timestamp || Date.now()
+      localStorage.setItem(`memory_last_processed_ts_${id}`, String(newLastTs))
+      console.log('🧠 已更新 last_processed_timestamp 为', newLastTs)
     } catch (err) {
       console.error('❌ 生成失败:', err)
       setError(err instanceof Error ? err.message : '生成失败，请检查 API 设置')

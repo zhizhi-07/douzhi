@@ -92,6 +92,9 @@ const GroupChatDetail = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // 获取当前群聊信息，用于渲染成员头衔/角色
+  const currentGroup = id ? groupChatManager.getGroup(id) : null
+
   // 处理输入框变化（检测@）
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -564,7 +567,27 @@ const GroupChatDetail = () => {
           content = content.replace(/\[群公告:.+?\]/, '').trim()
           hasCommand = true
         }
-        
+
+        // 检查头衔指令：[头衔:成员名:新头衔]
+        const titleMatch = content.match(/\[头衔:([^:]+?):(.+?)\]/)
+        if (titleMatch) {
+          const targetName = titleMatch[1].trim()
+          const newTitle = titleMatch[2].trim()
+          console.log(`🏷️ [AI指令] ${member.name} 修改头衔: ${targetName} -> ${newTitle}`)
+
+          // 查找目标成员
+          const targetMember = members.find(m => m.name === targetName)
+          if (targetMember && targetMember.type === 'character') {
+            groupChatManager.setTitle(id, targetMember.id, newTitle, member.name)
+          } else {
+            console.warn('找不到目标成员或无法设置头衔:', targetName)
+          }
+
+          // 从内容中移除指令部分
+          content = content.replace(/\[头衔:[^:]+?:.+?\]/, '').trim()
+          hasCommand = true
+        }
+
         // 如果有指令且没有剩余文本，跳过添加消息
         if (hasCommand && !content) {
           // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
@@ -797,6 +820,24 @@ const GroupChatDetail = () => {
             const isSent = msg.userId === 'user'
             const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
             const char = msg.userId !== 'user' ? characterService.getById(msg.userId) : null
+
+            // 计算显示名称：网名 + 角色 + 头衔
+            const memberDetail = currentGroup?.members?.find(m => m.id === msg.userId)
+
+            let baseName: string
+            if (msg.userId === 'user') {
+              const userInfo = getUserInfo()
+              baseName = userInfo.nickname || userInfo.realName || '我'
+            } else {
+              baseName = char?.nickname || char?.realName || msg.userName
+            }
+
+            let roleLabel: string | undefined
+            if (memberDetail?.role === 'owner') roleLabel = '群主'
+            else if (memberDetail?.role === 'admin') roleLabel = '管理员'
+
+            const titleLabel = memberDetail?.title
+            const displayName = [baseName, roleLabel, titleLabel].filter(Boolean).join(' ')
             
             return (
               <div key={msg.id}>
@@ -821,7 +862,7 @@ const GroupChatDetail = () => {
                   <Avatar 
                     type={isSent ? 'sent' : 'received'}
                     avatar={isSent ? undefined : avatar}
-                    name={isSent ? '我' : (char?.realName || msg.userName)}
+                    name={displayName}
                   />
                 </div>
                 
@@ -829,7 +870,7 @@ const GroupChatDetail = () => {
                   isSent ? 'items-end' : 'items-start'
                 }`}>
                   {!isSent && (
-                    <div className="text-xs text-gray-500 mb-1 px-1">{msg.userName}</div>
+                    <div className="text-xs text-gray-500 mb-1 px-1">{displayName}</div>
                   )}
                   <div
                     onClick={() => {

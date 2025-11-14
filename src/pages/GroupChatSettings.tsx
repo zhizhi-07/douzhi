@@ -162,7 +162,9 @@ const GroupChatSettings = () => {
               const memberDetail = group?.members?.find(m => m.id === member.id)
               const isOwner = memberDetail?.role === 'owner'
               const isAdmin = memberDetail?.role === 'admin'
-              const currentUserIsOwner = group?.owner === 'user'
+              const currentUserRole = group?.members?.find(m => m.id === 'user')?.role
+              const currentUserIsOwner = currentUserRole === 'owner'
+              const currentUserIsAdmin = currentUserRole === 'admin'
               
               return (
                 <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -190,7 +192,8 @@ const GroupChatSettings = () => {
                         )}
                       </div>
                     </div>
-                    {member.id !== 'user' && currentUserIsOwner && (
+                    {/* 所有成员都可以打开“管理”弹窗，用于修改头衔；具体权限在弹窗内部控制 */}
+                    {member.id !== 'user' && (
                       <button
                         onClick={() => {
                           setManagingMember({
@@ -430,8 +433,13 @@ const GroupChatSettings = () => {
                 <p className="text-xs text-gray-400 mt-1">{newTitle.length}/10</p>
               </div>
 
-              {/* 管理员设置 */}
-              {managingMember.role !== 'owner' && (
+              {/* 管理员设置（只有群主可以设置/取消管理员） */}
+              {managingMember.role !== 'owner' && id && (() => {
+                const group = groupChatManager.getGroup(id)
+                const currentUserRole = group?.members?.find(m => m.id === 'user')?.role
+                const currentUserIsOwner = currentUserRole === 'owner'
+                return currentUserIsOwner
+              })() && (
                 <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
@@ -461,8 +469,12 @@ const GroupChatSettings = () => {
                 </div>
               )}
 
-              {/* 移出群聊 */}
-              {managingMember.role !== 'owner' && (
+              {/* 移出群聊（群主和管理员都可以踢人） */}
+              {managingMember.role !== 'owner' && id && (() => {
+                const group = groupChatManager.getGroup(id)
+                const currentUserRole = group?.members?.find(m => m.id === 'user')?.role
+                return currentUserRole === 'owner' || currentUserRole === 'admin'
+              })() && (
                 <div className="mb-4">
                   <button
                     onClick={() => {
@@ -490,6 +502,44 @@ const GroupChatSettings = () => {
                     className="w-full py-2.5 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100"
                   >
                     移出群聊
+                  </button>
+                </div>
+              )}
+
+              {/* 转让群主（仅当前群主可见，且不能对自己显示） */}
+              {id && managingMember.role !== 'owner' && (() => {
+                const group = groupChatManager.getGroup(id)
+                const currentUserRole = group?.members?.find(m => m.id === 'user')?.role
+                return currentUserRole === 'owner'
+              })() && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => {
+                      if (id && confirm(`确定将群主转让给 ${managingMember.name} 吗？`)) {
+                        groupChatManager.transferOwner(id, managingMember.id, '你')
+                        alert('已转让群主')
+                        setManagingMember(null)
+                        // 刷新成员列表
+                        const group = groupChatManager.getGroup(id)
+                        if (group) {
+                          const memberList = group.memberIds.map(memberId => {
+                            if (memberId === 'user') {
+                              return { id: 'user', name: '我', avatar: '' }
+                            }
+                            const char = characterService.getById(memberId)
+                            return {
+                              id: memberId,
+                              name: char ? (char.nickname || char.realName) : '成员',
+                              avatar: char?.avatar || ''
+                            }
+                          })
+                          setMembers(memberList)
+                        }
+                      }
+                    }}
+                    className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800"
+                  >
+                    转让群主
                   </button>
                 </div>
               )}

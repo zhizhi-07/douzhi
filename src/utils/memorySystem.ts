@@ -142,9 +142,9 @@ ${characterName}: ${aiResponse}
 - 重要经历（谁做过什么事、发生过什么）
 
 **主观印象：**
-- 性格特点（温柔/直爽/傲娇/害羞/大大咧咧...）
+- 性格特点（温柔/直爽/傲娇/害羞/大大咧咧...）——**优先记录${userName}的性格，不要单独记录${characterName}自己的性格**
 - 外貌印象（漂亮/可爱/帅气，以及具体特征）
-- 说话风格（喜欢用什么词、什么语气）
+- 说话风格（喜欢用什么词、什么语气）——例如「${userName}说话喜欢加很多表情」
 - 行为模式（遇事怎么反应、有什么小习惯）
 - 情绪特征（容易生气/容易害羞/很乐观...）
 - 相处感觉（和这个人相处起来什么感觉）
@@ -340,18 +340,35 @@ ${characterName}："需要帮忙就说"
       if (jsonMatch) {
         const result = JSON.parse(jsonMatch[1])
         
-        // 提取记忆
+        // 提取记忆（只保存比较重要的条目，避免记一堆琐碎小事）
         if (result.memories && Array.isArray(result.memories)) {
           result.memories.forEach((mem: any) => {
             if (mem.type && mem.content && mem.importance) {
-              newMemories.push(
-                this.addMemory(
-                  mem.type,
-                  mem.content,
-                  mem.importance,
-                  mem.tags || []
+              const content: string = String(mem.content)
+
+              // ❌ 不记录只描述 AI 自己性格/特点的记忆（例如“汁汁说话风格直爽”）
+              // 规则：内容里只提到 characterName 而不提 userName，且类型为 fact，则跳过
+              const aiName = characterName || 'AI'
+              const hasAIName = content.includes(aiName)
+              const hasUserName = content.includes(userName)
+              const isAIOnlyFact = mem.type === 'fact' && hasAIName && !hasUserName
+
+              if (isAIOnlyFact) {
+                console.log('[记忆系统] 跳过关于 AI 自身性格的记忆:', content)
+                return
+              }
+
+              // importance < 5 视为噪音，不写入记忆库
+              if (mem.importance >= 5) {
+                newMemories.push(
+                  this.addMemory(
+                    mem.type,
+                    content,
+                    mem.importance,
+                    mem.tags || []
+                  )
                 )
-              )
+              }
             }
           })
         }
@@ -812,73 +829,29 @@ ${characterDescription}
         return `${idx + 1}. [${time}] ${sender}: ${content}`
       }).join('\n')
 
-      // 让AI智能分析和总结
-      const prompt = `你是时间线生成助手。分析聊天记录，提取**真正重要的事件**生成简洁时间线。
+      // 让AI智能分析和总结（使用数组拼接，避免复杂模板字符串转义问题）
+      const prompt = [
+        '你是时间线生成助手。分析聊天记录，生成一个人类能看懂的「我们这段时间发生了什么」时间轴。',
+        '',
+        '聊天记录：',
+        formattedMessages,
+        '',
+        '规则：',
+        '- 用 3-10 条事件概括整段聊天记录；',
+        '- 每条 30-80 字，描述大致时间范围、主要聊了什么、氛围和结果；',
+        '- 可以把普通闲聊合并成一句概括，例如「这段时间主要是日常聊天和打趣」。',
+        '',
+        '输出一个 JSON 数组，每一项形如：',
+        '{"startTime":"MM/DD HH:mm","endTime":"MM/DD HH:mm","description":"具体事件描述"}',
+        '',
+        '如果整段聊天里确实完全没有值得一提的内容，可以返回空数组 []。'
+      ].join('\n')
 
-聊天记录：
-${formattedMessages}
-
-## 核心原则：高度浓缩，只记录真正重要的
-
-**什么是重要事件？**
-- ✅ 关系发展（表白、确认关系、分手、和好）
-- ✅ 重要决定（计划约会、做重要决定）
-- ✅ 情绪爆发（大吵架、闹矛盾、深度倾诉）
-- ✅ 特殊活动（视频通话、线下见面、一起做某事）
-- ✅ 关键转折（态度转变、打开心扉、新发现）
-
-**什么不重要？（不要记录）**
-- ❌ 日常寒暄（"早安"、"在干嘛"、"吃饭了吗"）
-- ❌ 闲聊（聊天气、聊日常琐事）
-- ❌ 简单互动（发表情、简短回复）
-- ❌ 普通对话（没有特殊意义的聊天）
-
-## 智能分段规则
-
-1. **时间跨度要大**：一天内的多次对话可以合并成1-2个事件
-2. **内容要浓缩**：100条消息可能只是"日常聊天"，1条事件即可
-3. **抓住核心**：关注情感、关系、重要决定，忽略无意义对话
-4. **严格筛选**：宁可少记录，不要流水账
-
-## 合并规则示例
-
-❌ 错误（太细碎）：
-- [08:22-08:29] 用户询问视频通话，并讨论了...
-- [08:29-08:29] 用户回应视频通话内容...
-
-✅ 正确（合并）：
-- [08:22-09:15] 视频通话30分钟，讨论了最近工作压力和周末计划
-
-❌ 错误（记录无意义对话）：
-- [10:00-10:05] 日常问候和闲聊
-- [10:05-10:10] 继续聊天气
-
-✅ 正确（忽略）：
-（这种对话直接不记录）
-
-## 输出要求
-
-- 一天最多3-5个事件，普通聊天日可能只有1-2个甚至0个
-- 每个事件50-80字，包含**具体内容、情感、结果**
-- 时间跨度至少30分钟，最好1-2小时
-- **如果整段聊天都是普通闲聊，可以返回空数组**
-
-返回JSON：
-\`\`\`json
-[{"startTime":"MM/DD HH:mm","endTime":"MM/DD HH:mm","description":"详细描述"}]
-\`\`\`
-
-或者如果没有重要事件：
-\`\`\`json
-[]
-\`\`\``
-
-      console.log('[时间线生成] 调用AI分析...')
-      
+      // 调用副API生成时间线
       const response = await callAIApi([
         { role: 'user', content: prompt }
       ], summarySettings)
-      
+
       console.log('[时间线生成] AI返回结果')
       
       // 解析AI返回的JSON
@@ -1026,5 +999,8 @@ export const memoryManager = new MemoryManager()
 
 // 每天自动清理一次
 setInterval(() => {
-  memoryManager.cleanupAll()
+  const enableAutoCleanup = false
+  if (enableAutoCleanup) {
+    memoryManager.cleanupAll()
+  }
 }, 24 * 60 * 60 * 1000)

@@ -251,38 +251,46 @@ const ChatDetail = () => {
   }
   
   const isInitialLoadRef = useRef(true)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  
-  // 检查用户是否在底部附近（距离底部150px以内）
-  const isNearBottom = useCallback(() => {
-    if (!scrollContainerRef.current) return true
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // 使用 ref 记录“用户是否在底部”，由滚动事件维护
+  const isNearBottomRef = useRef(true)
+
+  const updateNearBottom = useCallback(() => {
     const container = scrollContainerRef.current
+    if (!container) return
     const threshold = 150 // 距离底部150px以内认为是在底部
-    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+    const nearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+    isNearBottomRef.current = nearBottom
+  }, [])
+
+  // 供其他逻辑读取当前“是否在底部”状态
+  const isNearBottom = useCallback(() => {
+    return isNearBottomRef.current
   }, [])
 
   // 滚动到底部的函数（必须在useEffect之前定义）
   const scrollToBottom = useCallback((smooth = true, force = false) => {
-    if (scrollContainerRef.current) {
-      const container = scrollContainerRef.current
+    const container = scrollContainerRef.current
+    if (!container) return
 
-      // 🔥 如果不是强制滚动，且用户不在底部附近，就不要自动滚动
-      if (!force && !isNearBottom()) {
-        console.log('📜 [滚动] 用户正在查看历史消息，跳过自动滚动')
-        return
-      }
-
-      if (smooth) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: 'smooth'
-        })
-      } else {
-        container.scrollTop = container.scrollHeight
-      }
+    // 🔥 如果不是强制滚动，且用户不在底部附近，就不要自动滚动
+    if (!force && !isNearBottomRef.current) {
+      console.log('📜 [滚动] 用户正在查看历史消息，跳过自动滚动')
+      return
     }
-  }, [isNearBottom])
-  
+
+    if (smooth) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      })
+    } else {
+      container.scrollTop = container.scrollHeight
+    }
+  }, [])
+
   // 初始加载时立即跳到底部，不要动画
   useEffect(() => {
     if (isInitialLoadRef.current && chatState.messages.length > 0) {
@@ -310,8 +318,10 @@ const ChatDetail = () => {
       if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
         lastMessageIdRef.current = lastMessageId
         // 使用setTimeout确保DOM更新后再滚动
-        // 🔥 只有用户在底部附近时才自动滚动
-        setTimeout(() => scrollToBottom(true, false), 50)
+        // 用户自己发送的消息：无论当前位置，强制滚动到底部
+        // 其他类型（AI 回复 / 系统消息）：仅在接近底部时根据 scrollToBottom 内部判断
+        const forceToBottom = lastMessage.type === 'sent'
+        setTimeout(() => scrollToBottom(true, forceToBottom), 50)
       }
     }
   }, [chatState.messages, scrollToBottom])
@@ -335,6 +345,9 @@ const ChatDetail = () => {
     let isLoadingMore = false
 
     const handleScroll = () => {
+      // 始终先更新“是否在底部”的状态，供自动滚动逻辑使用
+      updateNearBottom()
+
       if (isLoadingMore || chatState.isLoadingMessages || !chatState.hasMoreMessages) return
 
       const { scrollTop } = container
@@ -359,7 +372,7 @@ const ChatDetail = () => {
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [shouldUseVirtualization, chatState.isLoadingMessages, chatState.hasMoreMessages, chatState.loadMoreMessages])
+  }, [shouldUseVirtualization, chatState.isLoadingMessages, chatState.hasMoreMessages, chatState.loadMoreMessages, updateNearBottom])
 
   // 🔥 加载更多后保持滚动位置
   useEffect(() => {
@@ -469,6 +482,12 @@ const ChatDetail = () => {
               <span className="text-gray-500">系统提示</span>
               <span className="text-gray-700">{chatAI.tokenStats.systemPrompt.toLocaleString()}</span>
             </div>
+            {chatAI.tokenStats.character > 0 && (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-500">人设</span>
+                <span className="text-gray-700">{chatAI.tokenStats.character.toLocaleString()}</span>
+              </div>
+            )}
             {chatAI.tokenStats.lorebook > 0 && (
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-500">世界书</span>
@@ -686,6 +705,9 @@ const ChatDetail = () => {
               )
             }
             
+            // 带有头像提示词的系统消息（AI 换头像），点击可查看详细提示词
+            const avatarPrompt = (message as any).avatarPrompt as string | undefined
+
             return (
               <div key={message.id}>
                 {shouldShow5MinTimestamp && (
@@ -696,9 +718,20 @@ const ChatDetail = () => {
                   </div>
                 )}
                 <div className="flex justify-center my-1">
-                  <div className="text-xs text-gray-400 px-4 py-1">
-                    {message.content}
-                  </div>
+                  {avatarPrompt ? (
+                    <button
+                      className="text-xs text-gray-500 px-4 py-1 rounded-full bg-white/70 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:text-gray-700 transition-colors"
+                      onClick={() => {
+                        alert(`本次换头像使用的提示词:\n\n${avatarPrompt}`)
+                      }}
+                    >
+                      {message.content}
+                    </button>
+                  ) : (
+                    <div className="text-xs text-gray-400 px-4 py-1">
+                      {message.content}
+                    </div>
+                  )}
                 </div>
               </div>
             )

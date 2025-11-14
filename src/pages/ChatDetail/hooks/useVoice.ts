@@ -7,6 +7,7 @@ import { useState, useCallback, useRef } from 'react'
 import type { Message } from '../../../types/chat'
 import { addMessage } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
+import { playMessageSendSound } from '../../../utils/soundManager'
 
 export const useVoice = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
@@ -43,6 +44,10 @@ export const useVoice = (
     addMessage(chatId, voiceMsg)
     
     setMessages(prev => [...prev, voiceMsg])
+    
+    // 播放发送音效
+    playMessageSendSound()
+
     setShowVoiceSender(false)
   }, [setMessages, chatId])
 

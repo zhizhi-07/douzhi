@@ -129,6 +129,9 @@ const ChatSettings = () => {
       }
     }
   })
+  
+  // 记忆总结间隔的输入框字符串状态（解决手机端无法临时删光数字的问题）
+  const [memoryIntervalInput, setMemoryIntervalInput] = useState('')
   const [isBlocked, setIsBlocked] = useState(false)
   const [testingVoice, setTestingVoice] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -141,11 +144,18 @@ const ChatSettings = () => {
     }
   }, [id])
 
+  // 当内存中的设置发生变化（例如默认值或其他地方更新）时，同步到输入框
+  useEffect(() => {
+    setMemoryIntervalInput(String(settings.memorySummaryInterval))
+  }, [settings.memorySummaryInterval])
+
   // 当id变化时重新加载设置
   useEffect(() => {
     if (id) {
       const loadedSettings = getSettings()
       setSettings(loadedSettings)
+      // 同步输入框显示值
+      setMemoryIntervalInput(String(loadedSettings.memorySummaryInterval))
       console.log('[ChatSettings] 🔄 重新加载设置:', {
         chatId: id,
         voiceId: loadedSettings.voiceId, // 🔥 调试voiceId
@@ -438,15 +448,29 @@ const ChatSettings = () => {
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    min="10"
+                    min="1"
                     max="100"
-                    step="5"
-                    value={settings.memorySummaryInterval}
+                    step="1"
+                    value={memoryIntervalInput}
                     onChange={(e) => {
-                      const value = parseInt(e.target.value) || 30
+                      // 仅更新输入框内容，允许用户暂时删光或输入不完整的数字
+                      setMemoryIntervalInput(e.target.value)
+                    }}
+                    onBlur={() => {
+                      let value = parseInt(memoryIntervalInput, 10)
+                      if (Number.isNaN(value)) {
+                        // 如果用户留空或输入非法内容，回退到默认30
+                        value = 30
+                      }
+                      // 做区间限制
+                      if (value < 1) value = 1
+                      if (value > 100) value = 100
+
                       const newSettings = { ...settings, memorySummaryInterval: value }
                       setSettings(newSettings)
                       localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                      // 同步输入框显示
+                      setMemoryIntervalInput(String(value))
                     }}
                     className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded-[24px]"
                   />

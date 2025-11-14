@@ -240,9 +240,9 @@ class GroupChatManager {
     // 添加系统消息
     let content = ''
     if (title && !oldTitle) {
-      content = `${userName}给${memberName}设置了头衔：✨${title}`
+      content = `${userName}给${memberName}设置了头衔为：✨${title}`
     } else if (title && oldTitle) {
-      content = `${userName}修改了${memberName}的头衔：✨${title}`
+      content = `${userName}将${memberName}的头衔更改为：✨${title}`
     } else if (!title && oldTitle) {
       content = `${userName}取消了${memberName}的头衔`
     }
@@ -256,6 +256,43 @@ class GroupChatManager {
         type: 'system'
       })
     }
+  }
+
+  // 转让群主（带系统消息）
+  transferOwner(groupId: string, newOwnerId: string, operatorName: string = '你'): void {
+    const group = this.getGroup(groupId)
+    if (!group || !group.members) return
+
+    // 当前群主ID
+    const currentOwnerId = group.owner || group.members.find(m => m.role === 'owner')?.id
+    if (!currentOwnerId || currentOwnerId === newOwnerId) return
+
+    const newOwner = group.members.find(m => m.id === newOwnerId)
+    if (!newOwner) return
+
+    // 更新成员角色
+    group.members = group.members.map(m => {
+      if (m.id === currentOwnerId) {
+        return { ...m, role: 'member' }
+      }
+      if (m.id === newOwnerId) {
+        return { ...m, role: 'owner' }
+      }
+      return m
+    })
+
+    group.owner = newOwnerId
+    this.updateGroup(groupId, { members: group.members, owner: group.owner })
+
+    // 系统消息
+    const memberName = this.getMemberName(newOwnerId)
+    this.addMessage(groupId, {
+      userId: 'system',
+      userName: '系统',
+      userAvatar: '',
+      content: `${operatorName}将群主转让给了${memberName}`,
+      type: 'system'
+    })
   }
 
   // 获取成员名称的辅助方法

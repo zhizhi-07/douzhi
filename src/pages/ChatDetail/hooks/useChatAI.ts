@@ -249,31 +249,27 @@ export const useChatAI = (
         }
       }
       
-      // 🔥 注入相关记忆（根据用户消息内容检索）
-      const memorySystem = memoryManager.getSystem(chatId)
-      const userMessageContent = lastUserMessage?.content || lastUserMessage?.photoDescription || lastUserMessage?.voiceText || ''
-      
-      const relevantMemories = memorySystem.getRelevantMemories(userMessageContent, 10)
-      
-      if (relevantMemories.length > 0) {
-        // 保存记忆内容用于Token统计
-        memoryContextText = relevantMemories.map(m => m.content).join('\n')
-        
-        let memoryPrompt = '\n\n══════════════════════════════════\n\n'
-        memoryPrompt += '【相关记忆】（这些是你和TA之间的重要信息）\n\n'
-        
-        relevantMemories.forEach(memory => {
-          memoryPrompt += `- ${memory.content}\n`
-        })
-        
-        memoryPrompt += '\n💡 提示：对话中提到相关内容时，自然地表现出你知道这些事\n'
-        memoryPrompt += '\n══════════════════════════════════'
-        
-        systemPrompt = systemPrompt + memoryPrompt
-        console.log(`🧠 [记忆系统] 注入了 ${relevantMemories.length} 条相关记忆`)
-        console.log('注入的记忆:', relevantMemories.map(m => m.content))
+      // 读取记忆时间线（用于长期上下文）
+      const timelineKey = `memory_timeline_${chatId}`
+      const timelineRaw = localStorage.getItem(timelineKey) || ''
+      if (timelineRaw) {
+        const maxTimelineLength = 4000
+        const timelineText = timelineRaw.length > maxTimelineLength
+          ? timelineRaw.slice(-maxTimelineLength)
+          : timelineRaw
+
+        memoryContextText = timelineText
+
+        let timelinePrompt = '\n\n══════════════════════════════════\n\n'
+        timelinePrompt += '【互动时间线】（你和TA过去的重要事件和阶段性变化）\n\n'
+        timelinePrompt += timelineText
+        timelinePrompt += '\n\n💡 提示：回复时可以参考这些事件，让对话更连贯，但不要逐条复述。\n'
+        timelinePrompt += '══════════════════════════════════'
+
+        systemPrompt = systemPrompt + timelinePrompt
+        console.log('🧠 [时间线] 已注入记忆时间线，长度:', timelineText.length)
       } else {
-        console.log('🧠 [记忆系统] 未找到相关记忆')
+        console.log('🧠 [时间线] 没有找到已生成的记忆时间线')
       }
       
       // 🔥 注入群聊消息（如果启用了群聊消息同步）
@@ -518,20 +514,32 @@ export const useChatAI = (
       // 优先使用API返回的实际token数
       let stats: TokenStats
       
+      // 人设（角色卡）文本，用于单独统计
+      const characterPersonalityText = character?.personality || ''
+      const characterTokens = characterPersonalityText
+        ? estimateTokens(characterPersonalityText)
+        : 0
+      
       if (usage?.prompt_tokens) {
         // API返回了准确的token数
         console.log('✅ 使用API返回的输入Token:', usage.prompt_tokens)
         
         // 单独统计各部分（用于显示分类）
-        const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
+        const baseSystemPrompt = systemPrompt
+          .split('【世界书信息】')[0]
+          .split('【相关记忆】')[0]
+        const baseSystemTokens = estimateTokens(baseSystemPrompt)
+        // systemPrompt 中减去人设占用，防止重复统计
+        const systemPromptTokens = Math.max(baseSystemTokens - characterTokens, 0)
+        
         const messageStrings = apiMessages.map(m => {
           const content = m.content || ''
           return typeof content === 'string' ? content : String(content)
         })
         
         stats = {
-          systemPrompt: estimateTokens(baseSystemPrompt),
-          character: 0,
+          systemPrompt: systemPromptTokens,
+          character: characterTokens,
           lorebook: estimateTokens(lorebookContextText),
           memory: estimateTokens(memoryContextText),
           messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(String(msg)), 0),
@@ -555,11 +563,15 @@ export const useChatAI = (
           }
           return String(content)
         })
-        const baseSystemPrompt = systemPrompt.split('【世界书信息】')[0].split('【相关记忆】')[0]
+        const baseSystemPrompt = systemPrompt
+          .split('【世界书信息】')[0]
+          .split('【相关记忆】')[0]
+        const baseSystemTokens = estimateTokens(baseSystemPrompt)
+        const systemPromptTokens = Math.max(baseSystemTokens - characterTokens, 0)
         
         stats = {
-          systemPrompt: estimateTokens(baseSystemPrompt),
-          character: 0,
+          systemPrompt: systemPromptTokens,
+          character: characterTokens,
           lorebook: estimateTokens(lorebookContextText),
           memory: estimateTokens(memoryContextText),
           messages: messageStrings.reduce((sum, msg) => sum + estimateTokens(String(msg)), 0),
@@ -569,11 +581,17 @@ export const useChatAI = (
           responseTime
         }
         
-        stats.total = stats.systemPrompt + stats.lorebook + stats.memory + stats.messages
+        stats.total =
+          stats.systemPrompt +
+          stats.character +
+          stats.lorebook +
+          stats.memory +
+          stats.messages
       }
       
       console.log('📊 Token详细统计:', {
         系统提示: stats.systemPrompt,
+        人设: stats.character,
         世界书: stats.lorebook,
         记忆: stats.memory,
         消息历史: stats.messages,
@@ -975,14 +993,28 @@ export const useChatAI = (
               setTimeout(async () => {
                 try {
                   const msgs = loadMessages(chatId)
-                  const recentMessages = msgs.slice(-settings.memorySummaryInterval * 2)  // 获取最近的消息
+
+                  // 从 localStorage 读取上次记忆/时间线已经处理到的时间戳
+                  const lastProcessedStr = localStorage.getItem(`memory_last_processed_ts_${chatId}`)
+                  const lastProcessedTs = lastProcessedStr ? parseInt(lastProcessedStr, 10) : 0
+
+                  // 本次只处理「上次标记之后的新消息」，避免重复提取
+                  const newMessages = msgs.filter(m => {
+                    const ts = m.timestamp || 0
+                    return ts > lastProcessedTs
+                  })
+
+                  if (newMessages.length === 0) {
+                    console.log('[自动总结] 最近没有新的消息需要提取，跳过')
+                    return
+                  }
                   
                   // 🔥 批量处理：将消息组织成对话对，一次性提取记忆
                   const conversationPairs: Array<{userMsg: string, aiMsg: string, timestamp: number}> = []
                   
-                  for (let i = 0; i < recentMessages.length - 1; i++) {
-                    const msg1 = recentMessages[i]
-                    const msg2 = recentMessages[i + 1]
+                  for (let i = 0; i < newMessages.length - 1; i++) {
+                    const msg1 = newMessages[i]
+                    const msg2 = newMessages[i + 1]
                     
                     // 确保是一对用户-AI对话
                     if (msg1.type === 'sent' && msg2.type === 'received') {
@@ -1024,7 +1056,7 @@ export const useChatAI = (
                     return
                   }
                   
-                  console.log(`[自动总结] 批量处理 ${conversationPairs.length} 组对话`)
+                  console.log(`[自动总结] 本次增量处理 ${conversationPairs.length} 组对话`)
                   
                   // 🔥 批量合并对话内容，一次API调用处理所有对话
                   const batchUserContent = conversationPairs.map((pair, idx) => 
@@ -1065,6 +1097,12 @@ export const useChatAI = (
                     localStorage.setItem(`memory_summary_${chatId}`, newSummary)
                     console.log(`[自动总结] 总结已保存，提取了 ${result.memories.length} 条记忆，历史总结数量已限制`)
                   }
+
+                  // 更新“已处理到哪里”的时间戳标记，供下次增量使用
+                  const lastMsg = newMessages[newMessages.length - 1]
+                  const newLastTs = lastMsg.timestamp || Date.now()
+                  localStorage.setItem(`memory_last_processed_ts_${chatId}`, String(newLastTs))
+                  console.log('[自动总结] 已更新 last_processed_timestamp 为', newLastTs)
                 } catch (error) {
                   console.error('[自动总结] 生成失败:', error)
                 } finally {

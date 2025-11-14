@@ -6,6 +6,7 @@ import { useMusicPlayer } from '../context/MusicPlayerContext'
 import { page1Apps, page2Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
 import { getCustomIcon } from '../utils/iconManager'
+import { playSystemSound } from '../utils/soundManager'
 import '../css/character-card.css'
 
 const Desktop = () => {
@@ -47,6 +48,10 @@ const Desktop = () => {
   const handleAppClick = (e: React.MouseEvent, app: AppItem) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // 播放全局点击音效
+    playSystemSound()
+
     if (app.onClick) {
       app.onClick()
     } else if (app.route) {

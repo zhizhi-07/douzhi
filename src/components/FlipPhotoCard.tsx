@@ -17,7 +17,7 @@ const FlipPhotoCard = ({ description, photoBase64 }: FlipPhotoCardProps) => {
 
   return (
     <div
-      className="relative max-w-[280px] cursor-pointer"
+      className="relative max-w-[180px] cursor-pointer"
       style={{ perspective: '1000px' }}
       onClick={() => setIsFlipped(!isFlipped)}
     >

@@ -555,9 +555,13 @@ export const locationHandler: CommandHandler = {
  * 照片指令处理器
  */
 export const photoHandler: CommandHandler = {
-  pattern: /[\[【]照片[:\：](.+?)[\]】]/,
+  // 支持三种写法：
+  // 1. [照片:描述]
+  // 2. [你发了照片：描述]
+  // 3. [我发了照片：描述]
+  pattern: /[\[【](?:照片|(?:你|我)发了照片)[:\：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
-    const photoDescription = match[1]
+    const photoDescription = match[1].trim()
 
     const photoMsg = createMessageObj('photo', {
       photoDescription
@@ -1425,7 +1429,12 @@ export const changeNicknameHandler: CommandHandler = {
  * AI修改个性签名处理器
  */
 export const changeSignatureHandler: CommandHandler = {
-  pattern: /\[个性签名:(.+?)\]/,
+  // 支持格式：
+  // [个性签名:xxxx]
+  // [个性签名：xxxx]
+  // 【个性签名:xxxx】
+  // 【个性签名：xxxx】
+  pattern: /[\[【]个性签名[:：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId, refreshCharacter }) => {
     if (!character) {
       console.warn('⚠️ AI修改个性签名失败: 没有character信息')
@@ -1842,7 +1851,8 @@ export const changeAvatarHandler: CommandHandler = {
       const systemMsg = createMessageObj('system', {
         content: `${character.nickname || character.realName} 更换了头像`,
         aiReadableContent: `[系统通知：你成功更换了头像]`,
-        type: 'system'
+        type: 'system',
+        avatarPrompt: usedPrompt
       })
       await addMessage(systemMsg, setMessages, chatId)
     }

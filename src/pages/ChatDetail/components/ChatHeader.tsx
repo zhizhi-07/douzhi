@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../../../components/StatusBar'
 import { TokenStats } from '../../../utils/tokenCounter'
-import { playBackSound, playClickBrightSound } from '../../../utils/soundManager'
+import { playSystemSound } from '../../../utils/soundManager'
 import { formatStatusShort, AIStatus } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
@@ -56,7 +56,7 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
   }
 
   const handleBack = () => {
-    playBackSound() // 🎵 播放返回音效
+    playSystemSound() // 🎵 统一使用通用点击音效
     if (onBack) {
       onBack()
     } else {
@@ -115,7 +115,7 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => {
-              playClickBrightSound()
+              playSystemSound()
               onMenuClick?.()
             }}
             className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"

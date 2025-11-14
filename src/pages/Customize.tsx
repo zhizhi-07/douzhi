@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
+import { playSystemSound } from '../utils/soundManager'
 
 const Customize = () => {
   const navigate = useNavigate()
@@ -99,6 +100,7 @@ const Customize = () => {
               key={item.id}
               onClick={() => {
                 if (item.route) {
+                  playSystemSound()
                   navigate(item.route)
                 }
               }}

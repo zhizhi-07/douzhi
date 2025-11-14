@@ -20,31 +20,49 @@ export async function generateImage(
     
     // 简单中英翻译（避免中文导致生成错误）
     const translateMap: Record<string, string> = {
-      '猫咪': 'cute cat', '小猫': 'kitten', '猫': 'cat',
-      '狗': 'dog', '狗狗': 'cute dog',
-      '兔子': 'rabbit', '小兔': 'bunny',
-      '粉发': 'pink hair', '黑发': 'black hair', '金发': 'blonde hair',
-      '二次元': 'anime style', '动漫': 'anime',
-      '少女': 'girl', '女孩': 'girl', '男孩': 'boy',
-      '机器人': 'robot', '赛博朋克': 'cyberpunk',
-      '可爱': 'cute', '酷酷的': 'cool', '帅气': 'handsome',
-      '真实': 'realistic', '照片': 'photo',
-      '母亲': 'mother', '妈妈': 'mother', '宝宝': 'baby',
-      '呢': '', '好看': '', '多爱': 'love', '比较': 'compare',
-      '符合': 'match', '沉稳': 'calm', '气质': 'elegant', '喵喵': 'meow',
-      '女生': 'girl', '男生': 'boy', '小孩': 'child',
-      '风景': 'landscape', '天空': 'sky', '海边': 'beach',
-      '森林': 'forest', '城市': 'city', '夜晚': 'night',
-      '白天': 'day', '阳光': 'sunshine', '月亮': 'moon',
-      '星空': 'starry sky', '彩虹': 'rainbow',
-      '温柔': 'gentle', '优雅': 'elegant', '活泼': 'lively',
-      '神秘': 'mysterious', '梦幻': 'dreamy', '清新': 'fresh'
+      // 动物 & 角色
+      '猫咪': 'cute cat ', '小猫': 'kitten ', '猫': 'cat ',
+      '狗': 'dog ', '狗狗': 'cute dog ',
+      '兔子': 'rabbit ', '小兔': 'bunny ',
+      '少女': 'girl ', '女孩': 'girl ', '女生': 'girl ',
+      '男孩': 'boy ', '男生': 'boy ', '小孩': 'child ',
+      '机器人': 'robot ',
+
+      // 水果 & 食物
+      '苹果': 'apple ', '香蕉': 'banana ', '草莓': 'strawberry ', '西瓜': 'watermelon ',
+
+      // 情绪 & 状态
+      '愤怒的': 'angry ', '生气的': 'angry ', '生气': 'angry ',
+
+      // 动作
+      '拿着': 'holding ', '举着': 'holding up ',
+
+      // 风格 & 画风
+      '粉发': 'pink hair ', '黑发': 'black hair ', '金发': 'blonde hair ',
+      '二次元': 'anime style ', '动漫': 'anime ',
+      '赛博朋克': 'cyberpunk ',
+
+      // 形容词
+      '可爱': 'cute ', '酷酷的': 'cool ', '帅气': 'handsome ',
+      '真实': 'realistic ', '照片': 'photo ',
+      '母亲': 'mother ', '妈妈': 'mother ', '宝宝': 'baby ',
+      '温柔': 'gentle ', '优雅': 'elegant ', '活泼': 'lively ',
+      '神秘': 'mysterious ', '梦幻': 'dreamy ', '清新': 'fresh ',
+
+      // 杂项（去掉口语赘词）
+      '呢': ' ', '好看': ' ', '多爱': 'love ', '比较': 'compare ',
+      '符合': 'match ', '沉稳': 'calm ', '气质': 'elegant ', '喵喵': 'meow '
     }
     
     let translatedDesc = description
     for (const [cn, en] of Object.entries(translateMap)) {
       translatedDesc = translatedDesc.replace(new RegExp(cn, 'g'), en)
     }
+
+    // 去掉残留中文字符，避免干扰英文提示词
+    translatedDesc = translatedDesc.replace(/[\u4e00-\u9fa5]+/g, ' ')
+    // 压缩多余空格
+    translatedDesc = translatedDesc.replace(/\s+/g, ' ').trim()
     
     // 强化提示词：添加更多关键词确保生成正确
     const enhancedPrompt = `portrait avatar of ${translatedDesc}, centered composition, profile picture style, high quality, detailed, professional digital art, 4k`
@@ -84,11 +102,30 @@ export async function generateImage(
 
 /**
  * 为AI生成新头像
- * @param description 头像描述
- * @returns base64格式的头像数据
+ * 这里在原有描述基础上：
+ * - 固定偏可爱的头像风格（避免生成过于成熟的形象）
+ * - 加入一个轻量级随机seed标签，减少同一描述反复返回完全相同头像的情况
  */
 export async function generateAvatarForAI(description: string): Promise<string | null> {
-  return generateImage(description, 512, 512)
+  // 简单随机标签，用于打破模型对同一提示词的完全复现
+  const seedTag = `seed-${Math.random().toString(36).slice(2, 8)}`
+
+  // 多种可选的漫画/卡通风格 preset，避免所有头像风格完全一致
+  const stylePresets = [
+    'kawaii chibi 2d anime, flat pastel illustration, minimal shading, ',
+    'soft manga style portrait, clean lineart, flat colors, ',
+    'cute cartoon avatar, icon-style, simple shapes, bold outline, ',
+    'stylized anime profile picture, vibrant colors, gentle shading, ',
+    // 像素风/8bit 线条
+    'pixel art avatar, 8-bit style, sharp pixels, limited color palette, simple outlines, '
+  ]
+
+  const preset = stylePresets[Math.floor(Math.random() * stylePresets.length)]
+
+  // 让原始描述放在中间，风格只是辅助，不盖住描述语义
+  const avatarDescription = `${preset}${description}, character portrait, ${seedTag}`
+
+  return generateImage(avatarDescription, 512, 512)
 }
 
 /**

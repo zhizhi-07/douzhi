@@ -8,6 +8,7 @@ import type { Message } from '../../../types/chat'
 import { addMessage } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { generatePlaceholderImageBase64 } from '../../../utils/imageUtils'
+import { playMessageSendSound } from '../../../utils/soundManager'
 
 export const usePhoto = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
@@ -49,6 +50,10 @@ export const usePhoto = (
     addMessage(chatId, photoMsg)
     
     setMessages(prev => [...prev, photoMsg])
+    
+    // 播放发送音效
+    playMessageSendSound()
+
     setShowPhotoSender(false)
   }, [setMessages, chatId])
 
@@ -99,6 +104,9 @@ export const usePhoto = (
     setMessages(prev => {
       return [...prev, ...photoMessages]
     })
+
+    // 播放一次发送音效（批量发送也只播一次）
+    playMessageSendSound()
     setShowAlbumSelector(false)
   }, [setMessages, chatId])
 

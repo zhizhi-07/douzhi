@@ -2,7 +2,7 @@
  * 添加菜单组件（+号菜单）
  */
 
-import { playMenuSelectSound, playMenuCloseSound } from '../utils/soundManager'
+import { playSystemSound } from '../utils/soundManager'
 
 interface MenuItem {
   icon: JSX.Element
@@ -120,7 +120,7 @@ const AddMenu = ({
       <div
         className="fixed inset-0 glass-dark z-40 modal-overlay-enter"
         onClick={() => {
-          playMenuCloseSound() // 🎵 播放关闭音效
+          playSystemSound() // 🎵 统一使用通用点击音效
           onClose()
         }}
         style={{
@@ -153,7 +153,7 @@ const AddMenu = ({
             <button
               key={index}
               onClick={() => {
-                playMenuSelectSound() // 🎵 播放菜单选择音效
+                playSystemSound() // 🎵 统一使用通用点击音效
                 item.onClick()
                 onClose()
               }}
