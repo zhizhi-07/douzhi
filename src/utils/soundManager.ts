@@ -56,14 +56,28 @@ const CUTE_SOUNDS = {
 
 let currentAudio: HTMLAudioElement | null = null
 
+// 预加载音效对象，减少延迟
+const audioCache: Record<string, HTMLAudioElement> = {}
+
+// 预加载音效
+const preloadSound = (url: string): HTMLAudioElement => {
+  if (!audioCache[url]) {
+    const audio = new Audio(url)
+    audio.preload = 'auto'
+    audioCache[url] = audio
+  }
+  return audioCache[url]
+}
+
 /**
  * 播放音效的通用函数
  * 🎵 默认音量降低到0.08，超级柔和
  */
 const playSound = (url: string, volume: number = 0.08) => {
   try {
-    const audio = new Audio(url)
+    const audio = preloadSound(url)
     audio.volume = volume
+    audio.currentTime = 0
     audio.play().catch(err => {
       console.log('音效播放失败:', err)
     })
