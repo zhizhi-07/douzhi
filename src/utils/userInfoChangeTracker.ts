@@ -8,6 +8,7 @@ export interface UserInfoChange {
   previousValue: string
   newValue: string
   changedAt: number
+  reminderCount?: number
 }
 
 export interface UserInfoChangeHistory {
@@ -192,7 +193,8 @@ export function trackAvatarChange(newAvatar: string): boolean {
 export function getUserInfoChangeContext(): string {
   const history = getUserInfoChangeHistory()
   const changes: string[] = []
-  
+  let shouldSave = false
+
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
     return date.toLocaleString('zh-CN', {
@@ -202,33 +204,64 @@ export function getUserInfoChangeContext(): string {
       minute: '2-digit'
     })
   }
-  
-  // 显示最近的网名变更
+
+  const now = Date.now()
+  const maxAge = 3 * 24 * 60 * 60 * 1000
+  const maxReminders = 2
+
+  // 显示最近的网名变更（每次变更最多提醒两次，且仅在最近几天内提醒）
   if (history.nickname.history.length > 0) {
-    const latest = history.nickname.history[history.nickname.history.length - 1]
-    changes.push(`💡 ${formatTime(latest.changedAt)}: 用户把网名从"${latest.previousValue}"改成了"${latest.newValue}"`)
+    const latestIndex = history.nickname.history.length - 1
+    const latest = history.nickname.history[latestIndex] as UserInfoChange
+    const age = now - latest.changedAt
+    const count = latest.reminderCount ?? 0
+
+    if (age <= maxAge && count < maxReminders) {
+      changes.push(` ${formatTime(latest.changedAt)}: 用户把网名从"${latest.previousValue}"改成了"${latest.newValue}"`)
+      history.nickname.history[latestIndex] = { ...latest, reminderCount: count + 1 }
+      shouldSave = true
+    }
   }
-  
+
   // 显示最近的签名变更
   if (history.signature.history.length > 0) {
-    const latest = history.signature.history[history.signature.history.length - 1]
-    changes.push(`💡 ${formatTime(latest.changedAt)}: 用户把个性签名从"${latest.previousValue}"改成了"${latest.newValue}"`)
+    const latestIndex = history.signature.history.length - 1
+    const latest = history.signature.history[latestIndex] as UserInfoChange
+    const age = now - latest.changedAt
+    const count = latest.reminderCount ?? 0
+
+    if (age <= maxAge && count < maxReminders) {
+      changes.push(` ${formatTime(latest.changedAt)}: 用户把个性签名从"${latest.previousValue}"改成了"${latest.newValue}"`)
+      history.signature.history[latestIndex] = { ...latest, reminderCount: count + 1 }
+      shouldSave = true
+    }
   }
-  
+
   // 显示最近的头像变更
   if (history.avatar.history.length > 0) {
-    const latest = history.avatar.history[history.avatar.history.length - 1]
-    changes.push(`💡 ${formatTime(latest.changedAt)}: 用户换了新头像`)
+    const latestIndex = history.avatar.history.length - 1
+    const latest = history.avatar.history[latestIndex] as UserInfoChange
+    const age = now - latest.changedAt
+    const count = latest.reminderCount ?? 0
+
+    if (age <= maxAge && count < maxReminders) {
+      changes.push(` ${formatTime(latest.changedAt)}: 用户换了新头像`)
+      history.avatar.history[latestIndex] = { ...latest, reminderCount: count + 1 }
+      shouldSave = true
+    }
   }
-  
+
+  if (shouldSave) {
+    saveUserInfoChangeHistory(history)
+  }
+
   if (changes.length === 0) {
     return ''
   }
-  
+
   return `
 
-⚠️ 重要提示：用户最近修改了个人信息！
+ 提示：用户最近有一些个人信息上的小改动。
 ${changes.join('\n')}
-你必须注意到这些变化，并在接下来1-2次回复里自然地提及或询问一次（比如"咦？你换头像/改名了？""你签名怎么改成这个了"），不要完全忽略这些改动。`
+你可以注意到这些变化，并在接下来1-2次合适的回复里自然地提一下（比如"咦？你换头像/改名了？""你签名怎么改成这个了"），如果当下话题不合适，也可以先不提。不要在每一轮都重复强调，更不需要专门为此写随笔。`
 }
-
