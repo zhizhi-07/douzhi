@@ -79,8 +79,11 @@ const VirtualMessageList = ({
     // 提高阈值到200px，更容易触发
     if (scrollTop < 200 && hasMoreMessages && !isLoadingMessages && !loadMoreTriggeredRef.current) {
       loadMoreTriggeredRef.current = true
+      // 🔥 在触发加载前记录当前状态
+      previousScrollHeightRef.current = scrollHeight
       console.log('📜 [VirtualMessageList] 🔥触发加载更多历史消息🔥', {
         scrollTop,
+        scrollHeight,
         hasMoreMessages,
         isLoadingMessages
       })
@@ -145,21 +148,26 @@ const VirtualMessageList = ({
     }
 
     // 🔥 检测是否是加载更多（消息增加且不在底部）
-    const isLoadingMore = currentCount > previousCount && !shouldAutoScroll
+    const isLoadingMore = currentCount > previousCount && container.scrollTop < 500
 
     if (isLoadingMore) {
       // 加载更多历史消息：保持滚动位置
       const previousScrollHeight = previousScrollHeightRef.current
+      const previousScrollTop = container.scrollTop
       requestAnimationFrame(() => {
-        if (container && previousScrollHeight > 0) {
-          const newScrollHeight = container.scrollHeight
-          const heightDiff = newScrollHeight - previousScrollHeight
-          container.scrollTop = container.scrollTop + heightDiff
-          console.log('📜 [VirtualMessageList] 加载更多，保持位置', {
-            heightDiff,
-            newScrollTop: container.scrollTop
-          })
-        }
+        requestAnimationFrame(() => {
+          if (container && previousScrollHeight > 0) {
+            const newScrollHeight = container.scrollHeight
+            const heightDiff = newScrollHeight - previousScrollHeight
+            // 保持原来的滚动位置 + 新增内容的高度
+            container.scrollTop = previousScrollTop + heightDiff
+            console.log('📜 [VirtualMessageList] 加载更多，保持位置', {
+              previousScrollTop,
+              heightDiff,
+              newScrollTop: container.scrollTop
+            })
+          }
+        })
       })
     } else if (shouldAutoScroll) {
       // 新消息且用户在底部：滚动到底部
@@ -197,7 +205,17 @@ const VirtualMessageList = ({
             </div>
           ) : (
             <button
-              onClick={onLoadMore}
+              onClick={() => {
+                if (containerRef.current) {
+                  // 🔥 点击前记录当前滚动状态
+                  previousScrollHeightRef.current = containerRef.current.scrollHeight
+                  console.log('📜 [VirtualMessageList] 点击加载更多，记录状态', {
+                    scrollHeight: containerRef.current.scrollHeight,
+                    scrollTop: containerRef.current.scrollTop
+                  })
+                }
+                onLoadMore?.()
+              }}
               className="text-sm text-blue-500 hover:text-blue-600 px-4 py-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
             >
               点击加载更多历史消息

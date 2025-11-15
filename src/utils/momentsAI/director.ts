@@ -13,6 +13,40 @@ import { parseDirectorResponse } from './responseParser'
 import { executeLikeAction, executeCommentAction, executeDMAction } from './actionExecutor'
 
 /**
+ * 压缩图片
+ */
+async function compressImage(base64: string, quality: number = 0.6, maxWidth: number = 800): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let width = img.width
+      let height = img.height
+      
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width
+        width = maxWidth
+      }
+      
+      canvas.width = width
+      canvas.height = height
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('无法获取canvas context'))
+        return
+      }
+      
+      ctx.drawImage(img, 0, 0, width, height)
+      const compressed = canvas.toDataURL('image/jpeg', quality)
+      resolve(compressed)
+    }
+    img.onerror = reject
+    img.src = base64
+  })
+}
+
+/**
  * 获取当前API配置
  */
 function getCurrentApiConfig() {
@@ -123,30 +157,122 @@ export async function aiDirectorArrangeScene(
   console.log(`🆕 新图片: ${newImages.length}张`)
   console.log(`🎯 需要AI识别: ${(window as any).__momentImages?.length || 0}张`)
   
+  // 🔥 第一步：如果有新图片，先一次性识别所有图片内容
+  const newImageDescriptions: string[] = []
+  if (newImages.length > 0) {
+    console.log(`🔍 [朋友圈导演] 第1步：识别 ${newImages.length} 张新图片...`)
+    
+    // 🔥 检查并压缩图片
+    const compressedImages: any[] = []
+    for (let idx = 0; idx < newImages.length; idx++) {
+      const imgData = newImages[idx]
+      const url = imgData.imageUrl
+      const isBase64 = url.startsWith('data:')
+      const originalSize = isBase64 ? Math.round(url.length / 1024) : 0
+      
+      console.log(`📸 图片${idx + 1}: ${isBase64 ? `base64 (${originalSize}KB)` : 'URL'}`)
+      
+      if (isBase64 && originalSize > 200) {
+        // 图片过大，压缩后再识别
+        console.log(`🔧 压缩图片${idx + 1}...`)
+        try {
+          const compressed = await compressImage(url, 0.6, 800)
+          const compressedSize = Math.round(compressed.length / 1024)
+          console.log(`✅ 压缩完成: ${originalSize}KB → ${compressedSize}KB`)
+          compressedImages.push({
+            ...imgData,
+            imageUrl: compressed
+          })
+        } catch (error) {
+          console.error(`❌ 压缩失败，使用原图:`, error)
+          compressedImages.push(imgData)
+        }
+      } else {
+        compressedImages.push(imgData)
+      }
+    }
+    
+    try {
+      const { callAIApi } = await import('../chatApi')
+      
+      // 构建包含所有图片的识别请求
+      const contentParts: any[] = [
+        {
+          type: 'text' as const,
+          text: newImages.length === 1 
+            ? '请用一句话简短描述这张图片的内容（20字以内）' 
+            : `请分别用一句话简短描述以下${newImages.length}张图片的内容（每张20字以内），按顺序输出，格式：\n图1: xxx\n图2: xxx`
+        }
+      ]
+      
+      // 添加所有压缩后的图片
+      compressedImages.forEach(imgData => {
+        contentParts.push({
+          type: 'image_url' as const,
+          image_url: {
+            url: imgData.imageUrl
+          }
+        })
+      })
+      
+      const recognitionMessages = [
+        {
+          role: 'user' as const,
+          content: contentParts
+        }
+      ]
+      
+      const recognitionSettings = {
+        baseUrl: apiConfig.baseUrl,
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        provider: apiConfig.provider,
+        temperature: 0.3,
+        maxTokens: 500
+      }
+      
+      const response = await callAIApi(recognitionMessages, recognitionSettings)
+      
+      if (newImages.length === 1) {
+        // 单张图片，直接用返回内容
+        const description = response.content.trim()
+        const imgData = newImages[0]
+        imageCache.set(imgData.imageId, description)
+        newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
+        console.log(`✅ 识别完成: ${description}`)
+      } else {
+        // 多张图片，按行解析
+        const descriptions = response.content.trim().split('\n')
+        newImages.forEach((imgData, index) => {
+          let description = descriptions[index] || '[图片内容]'
+          description = description.replace(/^图\d+[:：]\s*/, '').trim()
+          
+          imageCache.set(imgData.imageId, description)
+          newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
+          console.log(`✅ 图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
+        })
+      }
+      
+      console.log(`✅ [朋友圈导演] 图片识别完成`)
+    } catch (error) {
+      console.error(`❌ [朋友圈导演] 图片识别失败:`, error)
+      // 识别失败时使用占位符
+      newImages.forEach(imgData => {
+        newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: [图片内容]`)
+      })
+    }
+  }
+  
   // 🔥 构建图片描述（缓存 + 新识别）
   let imageDescriptions = ''
-  if (cachedDescriptions.length > 0 || newImages.length > 0) {
-    imageDescriptions = `\n\n## 朋友圈图片内容（导演标记）\n⚠️ 以下是朋友圈中图片的内容描述，AI角色可以基于这些信息做出自然反应，但不要直接描述图片：\n\n`
+  if (cachedDescriptions.length > 0 || newImageDescriptions.length > 0) {
+    imageDescriptions = `\n\n## 朋友圈图片内容\n⚠️ 以下是朋友圈中图片的内容描述，AI角色可以基于这些信息做出自然反应：\n\n`
     
-    // 添加缓存的图片描述
-    if (cachedDescriptions.length > 0) {
-      imageDescriptions += `### 已识别图片：\n`
-      cachedDescriptions.forEach(desc => {
-        imageDescriptions += `${desc}\n`
-      })
-      imageDescriptions += `\n`
-    }
-    
-    // 添加需要新识别的图片占位符
-    if (newImages.length > 0) {
-      imageDescriptions += `### 新图片（AI将识别）：\n`
-      newImages.forEach((imgData, index) => {
-        imageDescriptions += `图${imgData.momentIndex}-${imgData.imageIndex}: [AI将识别此图片内容]\n`
-      })
-      imageDescriptions += `\n`
-    }
-    
-    imageDescriptions += `💡 提示：AI角色应该基于图片内容做出符合角色性格的自然反应，而不是机械地描述图片。`
+    const allDescriptions = [...cachedDescriptions, ...newImageDescriptions]
+    allDescriptions.forEach(desc => {
+      imageDescriptions += `${desc}\n`
+    })
+    imageDescriptions += `\n💡 提示：AI角色应该基于图片内容做出符合角色性格的自然反应，而不是机械地描述图片。`
   }
   
   // 构建提示词（包含图片描述）
@@ -157,6 +283,12 @@ export async function aiDirectorArrangeScene(
   console.log('='.repeat(80))
   console.log(prompt)
   console.log('='.repeat(80) + '\n')
+  
+  // 🔥 第二步：编排互动时禁用图片base64发送（只发文字描述）
+  // 原因：prompt + 图片base64会导致请求体过大(503)
+  const savedMomentImages = (window as any).__momentImages
+  ;(window as any).__momentImages = []
+  console.log(`🎬 [朋友圈导演] 第2步：编排互动（禁用图片base64，使用文字描述）`)
   
   try {
     // 🔥 修复：使用callAIApi函数，支持朋友圈图片识别
@@ -185,11 +317,17 @@ export async function aiDirectorArrangeScene(
     }
     
     console.log('\n📤 发送给AI的完整请求:')
-    console.log('System Prompt:', SYSTEM_PROMPT)
+    console.log('System Prompt 长度:', SYSTEM_PROMPT.length, '字符')
+    console.log('User Prompt 长度:', prompt.length, '字符')
+    console.log('总Prompt长度:', SYSTEM_PROMPT.length + prompt.length, '字符')
     console.log('Temperature:', apiSettings.temperature)
     console.log('Max Tokens: 无限制（完整输出）')
     
     const response = await callAIApi(messages, apiSettings)
+    
+    // 🔥 恢复图片数据
+    ;(window as any).__momentImages = savedMomentImages
+    console.log(`✅ [朋友圈导演] 已恢复图片数据`)
     
     // 构造兼容的数据格式
     const data = {
@@ -283,6 +421,9 @@ export async function aiDirectorArrangeScene(
     
     return scene
   } catch (error) {
+    // 🔥 错误时也要恢复图片数据
+    ;(window as any).__momentImages = savedMomentImages
+    console.log(`✅ [朋友圈导演] 错误处理：已恢复图片数据`)
     console.error('❌ 场景编排失败:', error)
     return null
   }

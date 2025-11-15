@@ -248,8 +248,9 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
       
       // 照片消息转换为AI可读格式
       if (msg.messageType === 'photo' && msg.photoDescription) {
+        // 🔥 添加消息ID，让AI能够引用这张图片（用于换头像等功能）
         const photoInfo = msg.type === 'sent'
-          ? `[用户发了照片: ${msg.photoDescription}]`
+          ? `[用户发了照片: ${msg.photoDescription}] (消息ID: ${msg.id})`
           : `[你发了照片: ${msg.photoDescription}]`
         
         // 如果有base64编码且是用户发送的照片，添加imageUrl字段供视觉识别API使用
@@ -444,7 +445,14 @@ export const parseAIMessages = (aiReply: string): string[] => {
     return messages
   }
   
-  // 正常按换行符分隔消息
+  // 🔥 特殊处理：如果整个消息以引用指令开头，保持完整不拆分
+  // （这些消息已经被多引用预处理拆分过了）
+  const quotePattern = /^[\[【]?(?:引用了?(?:你的消息)?[:\：]|回复[:\：])/
+  if (quotePattern.test(aiReply.trim())) {
+    return [aiReply.trim()]
+  }
+  
+  // 普通消息：按换行符分隔
   return aiReply
     .split('\n')
     .map(msg => msg.trim())

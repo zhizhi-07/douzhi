@@ -249,6 +249,28 @@ export const useChatAI = (
         }
       }
       
+      // 🔥 注入记忆条目（优先级高于时间线）
+      const { memoryManager } = await import('../../../utils/memorySystem')
+      const memorySystem = memoryManager.getSystem(chatId)
+      const memorySummary = memorySystem.generateMemorySummary()
+      
+      if (memorySummary && memorySummary !== '暂无重要记忆。') {
+        let memoryPrompt = '\n\n══════════════════════════════════\n\n'
+        memoryPrompt += '【关于对方的记忆】（你记住的关于TA的重要信息）\n\n'
+        memoryPrompt += memorySummary
+        memoryPrompt += '\n\n💡 重要提示：\n'
+        memoryPrompt += '- 当对方问起之前聊过的事、TA的习惯、你们的约定时，**优先从上面的记忆里找答案**\n'
+        memoryPrompt += '- 如果记忆里有记录，就直接用这些信息回答，不要说"不记得"或"你说过吗"\n'
+        memoryPrompt += '- 如果记忆里确实没有相关记录，才可以说不记得\n'
+        memoryPrompt += '- 平时聊天时不要逐条复述记忆，但要让这些记忆自然地体现在你的回复里\n'
+        memoryPrompt += '══════════════════════════════════'
+        
+        systemPrompt = systemPrompt + memoryPrompt
+        console.log('🧠 [记忆] 已注入记忆摘要')
+      } else {
+        console.log('🧠 [记忆] 暂无记忆条目')
+      }
+      
       // 读取记忆时间线（用于长期上下文）
       const timelineKey = `memory_timeline_${chatId}`
       const timelineRaw = localStorage.getItem(timelineKey) || ''
@@ -263,7 +285,9 @@ export const useChatAI = (
         let timelinePrompt = '\n\n══════════════════════════════════\n\n'
         timelinePrompt += '【互动时间线】（你和TA过去的重要事件和阶段性变化）\n\n'
         timelinePrompt += timelineText
-        timelinePrompt += '\n\n💡 提示：回复时可以参考这些事件，让对话更连贯，但不要逐条复述。\n'
+        timelinePrompt += '\n\n💡 提示：\n'
+        timelinePrompt += '- 时间线记录了你们互动的大致过程，可以帮助你回忆起聊天的背景和氛围\n'
+        timelinePrompt += '- 具体的事实信息（如对方几点上班、喜欢什么）请优先参考上面的【关于对方的记忆】\n'
         timelinePrompt += '══════════════════════════════════'
 
         systemPrompt = systemPrompt + timelinePrompt
@@ -727,10 +751,28 @@ export const useChatAI = (
         }
       }
       
-      // 再解析朋友圈互动指令
-      const { interactions, cleanedMessage } = parseMomentsInteractions(messageAfterDelete, aiName, aiId)
+      // 🖼️ 首先移除头像描述指令（在所有处理之前）
+      const { removeAvatarDescriptionCommand, extractAvatarDescription, setUserAvatarDescription } = await import('../../../utils/userAvatarManager')
+      
+      // 如果需要识别头像，先提取头像描述（在移除之前）
+      if (needsAvatarRecognition && userInfo.avatar) {
+        const avatarDesc = extractAvatarDescription(messageAfterDelete)
 
-      console.log('🔍 [朋友圈互动解析] 原始消息:', messageAfterDelete)
+        if (avatarDesc) {
+          setUserAvatarDescription(avatarDesc, userInfo.avatar)
+          console.log('✅ [头像识别] 从AI回复中提取并保存头像描述:', avatarDesc)
+        } else {
+          console.warn('⚠️ [头像识别] AI回复中未找到头像描述，下次继续尝试')
+        }
+      }
+      
+      // 移除头像描述指令（不显示给用户）
+      const messageWithoutAvatar = removeAvatarDescriptionCommand(messageAfterDelete)
+      
+      // 再解析朋友圈互动指令
+      const { interactions, cleanedMessage } = parseMomentsInteractions(messageWithoutAvatar, aiName, aiId)
+
+      console.log('🔍 [朋友圈互动解析] 原始消息:', messageWithoutAvatar)
       console.log('🔍 [朋友圈互动解析] 清理后消息:', cleanedMessage)
       console.log('🔍 [朋友圈互动解析] 互动数量:', interactions.length)
 
@@ -740,23 +782,6 @@ export const useChatAI = (
       if (statusUpdate) {
         setAIStatus(statusUpdate)
         console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
-      }
-
-      // 🖼️ 始终隐藏头像描述指令（不显示给用户）
-      const { removeAvatarDescriptionCommand } = await import('../../../utils/userAvatarManager')
-      aiReply = removeAvatarDescriptionCommand(aiReply)
-      
-      // 如果需要识别头像，从AI回复中提取头像描述
-      if (needsAvatarRecognition && userInfo.avatar) {
-        const { extractAvatarDescription, setUserAvatarDescription } = await import('../../../utils/userAvatarManager')
-        const avatarDesc = extractAvatarDescription(cleanedMessage)
-
-        if (avatarDesc) {
-          setUserAvatarDescription(avatarDesc, userInfo.avatar)
-          console.log('✅ [头像识别] 从AI回复中提取并保存头像描述:', avatarDesc)
-        } else {
-          console.warn('⚠️ [头像识别] AI回复中未找到头像描述，下次继续尝试')
-        }
       }
 
       // 如果有朋友圈互动指令，执行它们
@@ -812,11 +837,69 @@ export const useChatAI = (
         }
       }
       
+      // 🔥 预处理：检测多个连续的引用指令，将它们拆分成独立的消息段
+      const preprocessMultipleQuotes = (text: string): string[] => {
+        // 匹配所有引用指令（支持缺少前括号）
+        const quotePattern = /[\[【]?(?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?[^】\]]+["」』"'"]?|引用[:\：]\s*[^】\]]+|回复[:\：]\s*[^】\]]+)[\]】]/g
+        const quotes = text.match(quotePattern)
+        
+        if (!quotes || quotes.length <= 1) {
+          // 没有引用或只有一个引用，不需要拆分
+          return [text]
+        }
+        
+        console.log(`🔍 [多引用检测] 发现 ${quotes.length} 个引用指令，准备拆分`)
+        
+        // 将消息按引用指令拆分
+        const segments: string[] = []
+        let remaining = text
+        
+        for (const quote of quotes) {
+          const index = remaining.indexOf(quote)
+          if (index === -1) continue
+          
+          // 提取引用前的内容
+          const before = remaining.substring(0, index).trim()
+          if (before) {
+            segments.push(before)
+          }
+          
+          // 提取引用后的内容（到下一个引用或结尾）
+          remaining = remaining.substring(index + quote.length)
+          const nextQuoteIndex = remaining.search(quotePattern)
+          
+          if (nextQuoteIndex === -1) {
+            // 这是最后一个引用，包含剩余所有内容
+            segments.push(quote + remaining)
+            remaining = ''
+            break
+          } else {
+            // 还有更多引用，只取到下一个引用之前
+            const content = remaining.substring(0, nextQuoteIndex).trim()
+            segments.push(quote + (content ? ' ' + content : ''))
+            remaining = remaining.substring(nextQuoteIndex)
+          }
+        }
+        
+        // 如果还有剩余内容，添加到最后
+        if (remaining.trim()) {
+          segments.push(remaining.trim())
+        }
+        
+        console.log(`✂️ [多引用拆分] 拆分成 ${segments.length} 段:`, segments)
+        return segments.filter(s => s.trim())
+      }
+      
       // 使用清理后的消息内容继续处理
       // 线下模式不分段，直接作为一整条消息
-      const aiMessagesList = currentSceneMode === 'offline' 
-        ? [cleanedMessage] 
-        : parseAIMessages(cleanedMessage)
+      let aiMessagesList: string[]
+      if (currentSceneMode === 'offline') {
+        aiMessagesList = [cleanedMessage]
+      } else {
+        // 先拆分多引用，再按换行拆分
+        const quoteSegments = preprocessMultipleQuotes(cleanedMessage)
+        aiMessagesList = quoteSegments.flatMap(segment => parseAIMessages(segment))
+      }
       console.log('📝 AI消息拆分结果:', aiMessagesList)
       
       // 使用指令处理器处理每条消息
@@ -998,7 +1081,8 @@ export const useChatAI = (
                   const lastProcessedStr = localStorage.getItem(`memory_last_processed_ts_${chatId}`)
                   const lastProcessedTs = lastProcessedStr ? parseInt(lastProcessedStr, 10) : 0
 
-                  // 本次只处理「上次标记之后的新消息」，避免重复提取
+                  // 🔥 本次处理「上次标记之后的所有消息」，确保连贯性
+                  // 一次API调用处理完所有未总结的消息（例如：上次总结到第10轮，现在到第100轮，就一次性处理10-100这90轮）
                   const newMessages = msgs.filter(m => {
                     const ts = m.timestamp || 0
                     return ts > lastProcessedTs
@@ -1008,6 +1092,8 @@ export const useChatAI = (
                     console.log('[自动总结] 最近没有新的消息需要提取，跳过')
                     return
                   }
+                  
+                  console.log(`[自动总结] 🔥 本次将一次性处理 ${newMessages.length} 条消息（从上次总结标记到现在）`)
                   
                   // 🔥 批量处理：将消息组织成对话对，一次性提取记忆
                   const conversationPairs: Array<{userMsg: string, aiMsg: string, timestamp: number}> = []
@@ -1075,7 +1161,7 @@ export const useChatAI = (
                     character?.personality || '',
                     '用户'  // 用户名，暂时固定，后续可以从用户系统获取
                   )
-                  
+
                   if (result.summary && result.summary.trim()) {
                     const oldSummary = localStorage.getItem(`memory_summary_${chatId}`) || ''
                     const timestamp = new Date().toLocaleString('zh-CN')

@@ -334,85 +334,26 @@ const ChatDetail = () => {
     }
   }, [chatAI.isAiTyping, scrollToBottom])
 
-  // 🔥 滚动检测 - 自动触发加载更多
+  // 🔥 滚动检测（仅用于维护“是否在底部”状态）
   const previousMessageCountRef = useRef(chatState.messages.length)
   const previousScrollHeightRef = useRef(0)
+  const previousScrollTopRef = useRef(0)
 
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container || shouldUseVirtualization) return // 虚拟化模式下不需要
 
-    let isLoadingMore = false
-
     const handleScroll = () => {
       // 始终先更新“是否在底部”的状态，供自动滚动逻辑使用
       updateNearBottom()
-
-      if (isLoadingMore || chatState.isLoadingMessages || !chatState.hasMoreMessages) return
-
-      const { scrollTop } = container
-
-      // 滚动到顶部200px内时触发加载更多
-      if (scrollTop < 200) {
-        isLoadingMore = true
-        // 记录加载前的scrollHeight
-        previousScrollHeightRef.current = container.scrollHeight
-        console.log('📜 [ChatDetail] 触发加载更多历史消息', {
-          scrollTop,
-          scrollHeight: container.scrollHeight
-        })
-        chatState.loadMoreMessages()
-
-        // 1秒后重置标志
-        setTimeout(() => {
-          isLoadingMore = false
-        }, 1000)
-      }
+      // 非虚拟化模式下不再在这里自动触发加载更多，避免滚动时跳屏
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [shouldUseVirtualization, chatState.isLoadingMessages, chatState.hasMoreMessages, chatState.loadMoreMessages, updateNearBottom])
+  }, [shouldUseVirtualization, updateNearBottom])
 
-  // 🔥 加载更多后保持滚动位置
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container || shouldUseVirtualization) return
-
-    const currentCount = chatState.messages.length
-    const previousCount = previousMessageCountRef.current
-
-    // 检测是否是加载更多（消息增加）
-    if (currentCount > previousCount && previousScrollHeightRef.current > 0) {
-      // 🔥 使用多个 requestAnimationFrame 确保 DOM 完全渲染
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const newScrollHeight = container.scrollHeight
-          const heightDiff = newScrollHeight - previousScrollHeightRef.current
-
-          // 🔥 调整scrollTop保持视觉位置，添加小偏移避免触发新的加载
-          const newScrollTop = heightDiff + 250 // 加载后停在距离顶部250px的位置
-
-          console.log('📜 [ChatDetail] 加载更多完成，保持位置', {
-            previousCount,
-            currentCount,
-            previousScrollHeight: previousScrollHeightRef.current,
-            newScrollHeight,
-            heightDiff,
-            newScrollTop
-          })
-
-          container.scrollTop = newScrollTop
-
-          // 重置
-          previousScrollHeightRef.current = 0
-        })
-      })
-    }
-
-    previousMessageCountRef.current = currentCount
-  }, [chatState.messages.length, shouldUseVirtualization])
-  
+  // 🔥 加载更多后不再强制调整滚动位置（非虚拟化模式下交给浏览器默认行为，避免跳屏）
   // 🔥 显示加载状态而不是"角色不存在"
   if (!chatState.character) {
     return (
@@ -598,6 +539,15 @@ const ChatDetail = () => {
                   <button
                     onClick={() => {
                       playLoadMoreSound() // 🎵 播放加载音效
+                      // 🔥 点击前记录当前滚动状态
+                      if (scrollContainerRef.current) {
+                        previousScrollHeightRef.current = scrollContainerRef.current.scrollHeight
+                        previousScrollTopRef.current = scrollContainerRef.current.scrollTop
+                        console.log('📜 [ChatDetail] 点击加载更多，记录状态', {
+                          scrollHeight: scrollContainerRef.current.scrollHeight,
+                          scrollTop: scrollContainerRef.current.scrollTop
+                        })
+                      }
                       chatState.loadMoreMessages()
                     }}
                     className="text-sm text-blue-500 hover:text-blue-600 px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors active:scale-95"

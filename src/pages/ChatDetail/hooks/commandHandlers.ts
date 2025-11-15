@@ -1071,11 +1071,24 @@ export const coupleSpaceEndHandler: CommandHandler = {
  * 🔥 修复：支持缺少前括号的情况（AI有时会漏掉[）
  */
 export const quoteHandler: CommandHandler = {
-  pattern: /[\[【]?(?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?(.+?)["」』"'"]?|引用[:\：]\s*(.+?)|回复[:\：]\s*(.+?))[\]】]/,
+  // 🔥 修复：使用非贪婪匹配 [^\]】]+ 而不是 .+?，避免提前停止
+  pattern: /[\[【]?(?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?([^\]】]+?)["」』"'"]?|引用[:\：]\s*([^\]】]+)|回复[:\：]\s*([^\]】]+))[\]】]/,
   handler: async (match, content, { messages, character }) => {
     // 从多个捕获组中找到非空的引用内容
     const quoteRef = (match[1] || match[2] || match[3] || '').trim()
     let quotedMsg: Message['quotedMessage'] | undefined
+
+    // 🚫 屏蔽模糊引用指令：凡是包含“所有”“全部”“这些”等模糊词的引用，一律视为无效
+    // 目的：强制AI使用“某一句话的关键词”来引用，避免“把我所有消息引用”“全部引用了”等乱写
+    if (/(所有|全部|这些|全部引用|所有消息)/.test(quoteRef)) {
+      const remainingText = content.replace(match[0], '')
+      console.warn('🚫 [quoteHandler] 检测到模糊引用指令，已忽略引用:', quoteRef)
+      return {
+        handled: true,
+        quotedMsg: undefined,
+        messageContent: remainingText
+      }
+    }
 
     const currentMessages = messages
     console.log('🔍 [quoteHandler] 开始搜索:', {
@@ -1089,16 +1102,29 @@ export const quoteHandler: CommandHandler = {
     })
     let quoted: Message | undefined
 
+    // 先尝试按ID精确匹配（引用内容是纯数字时）
+    let lowerRef = quoteRef.toLowerCase()
     const quotedId = parseInt(quoteRef)
     if (!isNaN(quotedId)) {
       quoted = currentMessages.find(m => m.id === quotedId)
-    } else {
-      let lowerRef = quoteRef.toLowerCase()
-      
+      if (quoted) {
+        console.log('🔢 [quoteHandler] 通过消息ID匹配到引用:', { quotedId, quotedContent: quoted.content?.substring(0, 30) })
+      }
+    }
+
+    // 如果按ID没有匹配到，再走文本匹配流程
+    if (!quoted) {
       // 提取引号内的内容作为关键词
       const quoteMatch = quoteRef.match(/["「『"'"](.+?)["」』"'"]/)
       if (quoteMatch) {
         lowerRef = quoteMatch[1].toLowerCase()
+      }
+      
+      // 🔥 如果引用内容太长（超过20字），只取前面部分进行搜索
+      // 这样可以提高匹配成功率，避免因内容不完整而无法匹配
+      if (lowerRef.length > 20) {
+        lowerRef = lowerRef.substring(0, 20)
+        console.log('📏 [quoteHandler] 引用内容过长，截取前20字搜索:', lowerRef)
       }
 
       if (lowerRef.includes('上一条') || lowerRef.includes('上条') || lowerRef.includes('刚才')) {
@@ -1114,22 +1140,68 @@ export const quoteHandler: CommandHandler = {
       } else if (lowerRef.includes('转账')) {
         quoted = [...currentMessages].reverse().find(m => m.messageType === 'transfer')
       } else if (lowerRef.includes('用户') || lowerRef.includes('你问') || lowerRef.includes('你说') || lowerRef.includes('你发')) {
+        // 🔍 明确指的是“你”的消息（用户消息）
         quoted = [...currentMessages].reverse().find(m => m.type === 'sent')
       } else if (lowerRef.includes('我说') || lowerRef.includes('我发') || lowerRef.includes('自己')) {
+        // 🔍 明确指的是“我”的消息（AI自己的消息）
         quoted = [...currentMessages].reverse().find(m => m.type === 'received')
       } else {
-        // 模糊搜索消息内容
+        // 默认情况：在所有普通消息里搜索（包括用户和AI）
+        // 🔥 修复：允许AI引用自己的消息，不再仅限用户消息
         quoted = [...currentMessages].reverse().find(m => {
+          if (m.type !== 'sent' && m.type !== 'received') return false
+          const aiReadable = (m as any).aiReadableContent || ''
           const msgContent = (m.content || m.voiceText || m.photoDescription || m.emoji?.description || '').toLowerCase()
-          return msgContent.includes(lowerRef)
+          const searchContent = (aiReadable || msgContent).toLowerCase()
+          return searchContent.includes(lowerRef)
         })
+
+        // 🔁 兜底：如果还没找到，反向匹配——看“消息内容”是否被包含在引用文本里
+        // 典型场景：AI 把多条短消息串成一个引用，例如 [引用:引用消息多引用几条1]
+        // 这时 lowerRef 是整串，而每条消息内容只是其中的一部分
+        if (!quoted) {
+          quoted = [...currentMessages].reverse().find(m => {
+            if (m.type !== 'sent' && m.type !== 'received') return false
+            const raw = (m.content || m.voiceText || m.photoDescription || m.emoji?.description || '').trim()
+            if (!raw) return false
+            const msgLower = raw.toLowerCase()
+            // 避免一些特别短的非数字字符造成误匹配，例如单个标点
+            if (msgLower.length < 2 && !/^[0-9]+$/.test(msgLower)) return false
+            return lowerRef.includes(msgLower)
+          })
+          if (quoted) {
+            console.log('🔁 [quoteHandler] 通过反向包含匹配到引用消息:', {
+              quoteRef,
+              matchedContent: quoted.content?.substring(0, 30),
+              matchedId: quoted.id
+            })
+          }
+        }
       }
     }
 
     if (quoted) {
+      // 🔥 获取引用内容，优先使用实际内容而非AI可读内容
+      let quotedContent = quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息'
+      
+      // 🔥 清理系统提示标签和嵌套引用
+      quotedContent = quotedContent
+        .replace(/\[用户发了表情包\]\s*/g, '')
+        .replace(/\[AI发了表情包\]\s*/g, '')
+        // 清理嵌套的引用指令（避免引用中包含引用）
+        .replace(/\[引用了?[^\]]*?\]/g, '')
+        .replace(/【引用了?[^】]*?】/g, '')
+        .trim()
+      
+      // 🔥 限制引用内容长度，避免显示混乱（最多100字）
+      const MAX_QUOTE_LENGTH = 100
+      if (quotedContent.length > MAX_QUOTE_LENGTH) {
+        quotedContent = quotedContent.substring(0, MAX_QUOTE_LENGTH) + '...'
+      }
+      
       quotedMsg = {
         id: quoted.id,
-        content: quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息',
+        content: quotedContent,
         senderName: quoted.type === 'sent' ? '我' : (character?.realName || 'AI'),
         type: quoted.type === 'system' ? 'sent' : quoted.type
       }
@@ -1810,23 +1882,91 @@ export const changeAvatarHandler: CommandHandler = {
     // 方式3: 使用消息中的图片
     else if (param.startsWith('图片:') || param.startsWith('图片：')) {
       const messageIdStr = param.replace(/^图片[:\：]/, '').trim()
-      const messageId = parseInt(messageIdStr)
+      
+      console.log('🖼️ [AI换头像] 使用消息图片，ID字符串:', messageIdStr)
 
-      console.log('🖼️ [AI换头像] 使用消息图片，ID:', messageId)
-
-      // 查找消息
-      const targetMessage = messages.find(m => m.id === messageId)
-      if (!targetMessage || !(targetMessage as any).images || (targetMessage as any).images.length === 0) {
-        console.warn('⚠️ [AI换头像] 未找到图片消息')
-        return { handled: false }
+      // 🔥 支持数字ID和字符串ID（如 msg-xxx）
+      let targetMessage = null
+      
+      // 先尝试按数字ID查找
+      const numericId = parseInt(messageIdStr)
+      if (!isNaN(numericId)) {
+        targetMessage = messages.find(m => m.id === numericId)
+      }
+      
+      // 如果没找到，尝试按字符串ID查找（兼容 msg-xxx 格式）
+      if (!targetMessage) {
+        targetMessage = messages.find(m => String(m.id) === messageIdStr || (m as any).clientMessageId === messageIdStr)
+      }
+      
+      // 🔥 检查消息是否存在
+      if (!targetMessage) {
+        console.warn('⚠️ [AI换头像] 未找到消息，ID:', messageIdStr)
+        const failMsg = createMessageObj('system', {
+          content: `${character.nickname || character.realName} 想换头像，但没找到那张图片`,
+          aiReadableContent: `[系统通知：换头像失败，未找到指定的图片消息]`,
+          type: 'system'
+        })
+        await addMessage(failMsg, setMessages, chatId)
+        
+        const remainingText = content.replace(match[0], '').trim()
+        return {
+          handled: true,  // 🔥 标记为已处理，避免指令文本显示
+          remainingText,
+          skipTextMessage: !remainingText
+        }
+      }
+      
+      // 🔥 检查消息是否有图片（支持 images 数组或 photoBase64）
+      const hasImages = (targetMessage as any).images && (targetMessage as any).images.length > 0
+      const hasPhotoBase64 = targetMessage.photoBase64
+      
+      if (!hasImages && !hasPhotoBase64) {
+        console.warn('⚠️ [AI换头像] 消息没有图片，ID:', messageIdStr)
+        const failMsg = createMessageObj('system', {
+          content: `${character.nickname || character.realName} 想换头像，但那条消息没有图片`,
+          aiReadableContent: `[系统通知：换头像失败，指定的消息不包含图片]`,
+          type: 'system'
+        })
+        await addMessage(failMsg, setMessages, chatId)
+        
+        const remainingText = content.replace(match[0], '').trim()
+        return {
+          handled: true,
+          remainingText,
+          skipTextMessage: !remainingText
+        }
       }
 
-      newAvatar = (targetMessage as any).images[0].url
+      // 🔥 优先使用 images 数组，否则使用 photoBase64
+      if (hasImages) {
+        newAvatar = (targetMessage as any).images[0].url
+      } else if (hasPhotoBase64) {
+        // 如果是 base64 格式，需要转换为完整的 data URL
+        const base64Data = hasPhotoBase64.startsWith('data:') 
+          ? hasPhotoBase64 
+          : `data:image/jpeg;base64,${hasPhotoBase64}`
+        newAvatar = base64Data
+      }
+      
       usedPrompt = '使用聊天图片'
     }
     else {
       console.warn('⚠️ [AI换头像] 未知参数格式:', param)
-      return { handled: false }
+      // 🔥 未知格式也添加系统提示
+      const failMsg = createMessageObj('system', {
+        content: `${character.nickname || character.realName} 想换头像，但指令格式不对`,
+        aiReadableContent: `[系统通知：换头像失败，指令格式错误]`,
+        type: 'system'
+      })
+      await addMessage(failMsg, setMessages, chatId)
+      
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,  // 🔥 标记为已处理
+        remainingText,
+        skipTextMessage: !remainingText
+      }
     }
 
     // 更新AI头像

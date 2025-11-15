@@ -43,6 +43,20 @@ export const addAIMemo = (
   
   // 获取现有备忘录
   const memos = getAllMemos(characterId)
+
+  // 简单去重：如果最近一条随笔内容完全相同且在5分钟内，认为是重复记录，直接复用上一条
+  const lastMemo = memos[memos.length - 1]
+  const FIVE_MINUTES = 5 * 60 * 1000
+  if (
+    lastMemo &&
+    lastMemo.content === content &&
+    typeof lastMemo.timestamp === 'number' &&
+    timestamp - lastMemo.timestamp < FIVE_MINUTES
+  ) {
+    console.log('📝 检测到5分钟内的重复随笔，跳过新增:', content)
+    return lastMemo
+  }
+
   memos.push(memo)
   
   // 保存
