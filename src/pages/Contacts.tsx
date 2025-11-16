@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import { characterService, Character } from '../services/characterService'
+import { promptPassword } from '../utils/passwordProtection'
 
 const Contacts = () => {
   const navigate = useNavigate()
@@ -112,7 +113,13 @@ const Contacts = () => {
             {characters.map((character, index) => (
               <div
                 key={character.id}
-                onClick={() => navigate(`/character/${character.id}`)}
+                onClick={async () => {
+                  // 需要密码验证才能查看角色详情
+                  const verified = await promptPassword()
+                  if (verified) {
+                    navigate(`/character/${character.id}`)
+                  }
+                }}
                 className="flex items-center px-4 py-3 glass-card mb-2 rounded-[48px] cursor-pointer active:scale-[0.98] transition-transform card-enter"
                 style={{ animationDelay: `${(specialContacts.length + index) * 0.05}s` }}
               >

@@ -258,7 +258,7 @@ const MusicPlayer = () => {
         />
       )}
       
-      <div className="h-screen flex flex-col relative overflow-hidden bg-white">
+      <div className="min-h-screen flex flex-col relative overflow-hidden bg-white">
         <StatusBar />
       
       
@@ -353,9 +353,9 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex flex-col items-center p-4 pt-6 pb-8 overflow-y-auto">
+      <div className="relative z-10 flex flex-col items-center p-4 pt-4 pb-2 overflow-y-auto">
         {/* 头像显示 - 在唱片上方，始终显示 */}
-        <div className="flex flex-col items-center mb-3">
+        <div className="flex flex-col items-center mb-2">
           {listeningTogether ? (
             // 一起听模式：显示两个头像
             <>
@@ -402,7 +402,7 @@ const MusicPlayer = () => {
         </div>
         
         {/* 唱片封面和歌词容器 */}
-        <div className="relative mb-4 w-48 h-48 flex items-center justify-center">
+        <div className="relative mb-3 w-48 h-48 flex items-center justify-center">
           {/* 唱片盘 */}
           <div 
             className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
@@ -454,7 +454,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 歌曲信息和操作 */}
-        <div className="w-full max-w-md mb-4">
+        <div className="w-full max-w-md mb-3">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900 mb-1">{currentSong.title}</h2>
@@ -469,7 +469,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 进度条 */}
-        <div className="w-full max-w-md mb-5">
+        <div className="w-full max-w-md mb-3">
           <input
             type="range"
             min="0"
@@ -486,7 +486,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 控制按钮 */}
-        <div className="flex items-center justify-center gap-8">
+        <div className="flex items-center justify-center gap-8 mb-2">
           <button onClick={playPrevious} className="w-12 h-12 flex items-center justify-center hover:scale-110 transition-transform">
             <svg className="w-8 h-8 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>

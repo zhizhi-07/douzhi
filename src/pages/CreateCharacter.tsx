@@ -5,6 +5,7 @@ import { characterService } from '../services/characterService'
 import { extractCharacterCardFromPNG, convertCharacterCardToInternal } from '../utils/characterCardParser'
 import { lorebookManager } from '../utils/lorebookSystem'
 import { readImportFile, importCharacterData } from '../utils/characterDataExporter'
+import { promptPassword } from '../utils/passwordProtection'
 
 const CreateCharacter = () => {
   const navigate = useNavigate()
@@ -231,7 +232,13 @@ const CreateCharacter = () => {
               className="hidden"
             />
             <button 
-              onClick={() => characterCardInputRef.current?.click()}
+              onClick={async () => {
+                // 需要密码验证才能导入角色卡
+                const verified = await promptPassword()
+                if (verified) {
+                  characterCardInputRef.current?.click()
+                }
+              }}
               disabled={isImporting}
               className="text-sm text-blue-600 font-medium disabled:opacity-50"
               title="导入角色卡PNG"

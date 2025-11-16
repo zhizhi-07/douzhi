@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { BackIcon, AddIcon, SearchIcon, MoreIcon, BookIcon } from '../components/Icons'
 import StatusBar from '../components/StatusBar'
 import { lorebookManager, Lorebook } from '../utils/lorebookSystem'
+import { promptPassword } from '../utils/passwordProtection'
 
 const WorldBook = () => {
   const navigate = useNavigate()
@@ -66,7 +67,13 @@ const WorldBook = () => {
     URL.revokeObjectURL(url)
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    // 需要密码验证才能导入世界书
+    const verified = await promptPassword()
+    if (!verified) {
+      return
+    }
+
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json'
