@@ -6,7 +6,7 @@ import { loadMessages } from '../utils/simpleMessageManager'
 import { getUnreadCount } from '../utils/simpleNotificationManager'
 import { groupChatManager } from '../utils/groupChatManager'
 import { getUserInfo } from '../utils/userUtils'
-import { loadChatList, saveChatList, loadChatListSync } from '../utils/chatListManager'
+import { loadChatList, saveChatList } from '../utils/chatListManager'
 import { playSystemSound } from '../utils/soundManager'
 
 interface Chat {
@@ -33,7 +33,18 @@ const ChatList = () => {
 
   // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
-    return chatList.map(chat => {
+    return chatList.filter(chat => {
+      // 如果不是群聊，检查角色是否还存在
+      if (!chat.isGroup) {
+        const character = characterService.getById(chat.characterId)
+        // 如果角色已被删除，过滤掉这个聊天
+        if (!character) {
+          console.log(`🗑️ 过滤已删除角色的聊天: ${chat.name} (${chat.characterId})`)
+          return false
+        }
+      }
+      return true
+    }).map(chat => {
       // 获取角色最新信息（包括头像）
       const character = characterService.getById(chat.characterId)
       
@@ -102,9 +113,17 @@ const ChatList = () => {
   const refreshChatList = useCallback(async () => {
     // 加载单聊（从 IndexedDB）
     let chatList: Chat[] = []
+    let originalLength = 0
     try {
-      chatList = await loadChatList()
-      chatList = updateChatsWithLatestMessages(chatList)
+      const originalChatList = await loadChatList()
+      originalLength = originalChatList.length
+      chatList = updateChatsWithLatestMessages(originalChatList)
+      
+      // 如果过滤后数量减少了，说明有角色被删除，需要保存更新后的列表
+      if (chatList.length < originalLength) {
+        console.log(`🔄 检测到 ${originalLength - chatList.length} 个已删除角色的聊天，正在清理...`)
+        await saveChatList(chatList)
+      }
     } catch (error) {
       console.error('加载聊天列表失败:', error)
     }

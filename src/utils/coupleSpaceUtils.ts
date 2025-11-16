@@ -5,6 +5,7 @@
 export interface CoupleSpaceRelation {
   id: string
   userId: string
+  userAvatar?: string
   characterId: string
   characterName: string
   characterAvatar?: string
@@ -104,9 +105,14 @@ export const createCoupleSpaceInvite = (
     console.log(`覆盖旧邀请（旧: ${existing.sender}, 新: ${sender}）`)
   }
 
+  // 获取用户头像
+  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+  const userAvatar = userInfo.avatar
+
   const relation: CoupleSpaceRelation = {
     id: Date.now().toString(),
     userId,
+    userAvatar,
     characterId,
     characterName,
     characterAvatar,

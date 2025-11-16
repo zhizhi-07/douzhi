@@ -14,6 +14,7 @@ import {
   type CoupleSpaceRelation 
 } from '../utils/coupleSpaceUtils'
 import { addMessage } from '../utils/simpleMessageManager'
+import { getUserInfo } from '../utils/userUtils'
 
 const CoupleSpace = () => {
   const navigate = useNavigate()
@@ -30,12 +31,21 @@ const CoupleSpace = () => {
       }
     }
     
+    // 监听用户信息更新（包括头像更新）
+    const handleUserInfoUpdate = () => {
+      loadRelation()
+    }
+    
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', loadRelation)
+    window.addEventListener('storage', handleUserInfoUpdate)
+    window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', loadRelation)
+      window.removeEventListener('storage', handleUserInfoUpdate)
+      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
     }
   }, [])
 
@@ -163,8 +173,18 @@ const CoupleSpace = () => {
               <div className="relative flex items-center justify-center mb-6">
                 {/* 用户头像 */}
                 <div className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 p-1 shadow-xl">
-                  <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-gray-700 text-3xl font-bold">
-                    我
+                  <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                    {(() => {
+                      const userInfo = getUserInfo()
+                      const userAvatar = relation.userAvatar || userInfo.avatar
+                      return userAvatar ? (
+                        <img src={userAvatar} alt="我" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-700 text-3xl font-bold">
+                          我
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
 
