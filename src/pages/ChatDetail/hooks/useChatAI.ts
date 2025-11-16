@@ -1116,6 +1116,8 @@ export const useChatAI = (
             const currentMessages = messages
             const updatedMessages = [...currentMessages, aiMessage]
             
+            console.log(`🔍 [useChatAI调试] 准备保存，当前消息数=${currentMessages.length}, 加上AI消息后=${updatedMessages.length}`)
+            
             // 清理不可序列化对象
             const cleanedMessages = updatedMessages.map(msg => {
               const cleaned = { ...msg }
@@ -1129,13 +1131,26 @@ export const useChatAI = (
             })
             
             // 同步保存到localStorage
-            localStorage.setItem(backupKey, JSON.stringify({
+            const backupData = {
               messages: cleanedMessages,
               timestamp: Date.now()
-            }))
-            console.log(`💾 [useChatAI] AI消息已同步备份到localStorage`)
+            }
+            localStorage.setItem(backupKey, JSON.stringify(backupData))
+            
+            // 验证是否真的保存成功
+            const verification = localStorage.getItem(backupKey)
+            if (verification) {
+              const parsed = JSON.parse(verification)
+              console.log(`✅ [useChatAI] AI消息已同步备份到localStorage，共${parsed.messages.length}条，验证成功`)
+              // 在控制台显示，方便用户查看
+              alert(`调试：消息已保存！\n聊天ID: ${chatId}\n消息数: ${parsed.messages.length}\n备份key: ${backupKey}`)
+            } else {
+              console.error('❌ [useChatAI] localStorage备份验证失败！数据可能没保存')
+              alert('警告：消息备份失败！')
+            }
           } catch (e) {
             console.error('❌ [useChatAI] localStorage备份失败:', e)
+            alert(`错误：localStorage保存失败 - ${e}`)
           }
           
           // 异步保存到IndexedDB
