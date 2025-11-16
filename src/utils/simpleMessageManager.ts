@@ -21,11 +21,19 @@ async function preloadMessages() {
   preloadPromise = (async () => {
     try {
       const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
+      
+      // 🔥 关键修复：检查localStorage中的备份keys，可能有IndexedDB中不存在的新聊天
+      const backupKeys = Object.keys(localStorage).filter(key => key.startsWith('msg_backup_'))
+      const backupChatIds = backupKeys.map(key => key.replace('msg_backup_', ''))
+      
+      // 合并IndexedDB的keys和备份的chatIds（去重）
+      const allChatIds = Array.from(new Set([...allKeys, ...backupChatIds]))
+      
       if (import.meta.env.DEV) {
-        console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
+        console.log(`📦 预加载消息: IndexedDB=${allKeys.length}个, localStorage备份=${backupChatIds.length}个, 总计=${allChatIds.length}个`)
       }
       
-      for (const chatId of allKeys) {
+      for (const chatId of allChatIds) {
         let messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
         
         // 🔥 如果IndexedDB没有数据，尝试从localStorage备份恢复
