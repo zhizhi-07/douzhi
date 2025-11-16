@@ -26,7 +26,30 @@ async function preloadMessages() {
       }
       
       for (const chatId of allKeys) {
-        const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+        let messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+        
+        // 🔥 如果IndexedDB没有数据，尝试从localStorage备份恢复
+        if (!messages || messages.length === 0) {
+          try {
+            const backupKey = `msg_backup_${chatId}`
+            const backup = localStorage.getItem(backupKey)
+            if (backup) {
+              const parsed = JSON.parse(backup)
+              messages = parsed.messages
+              if (import.meta.env.DEV) {
+                console.log(`🔄 [恢复备份] 从localStorage恢复消息: chatId=${chatId}, count=${messages?.length || 0}`)
+              }
+              // 恢复到IndexedDB
+              if (messages && messages.length > 0) {
+                await IDB.setItem(IDB.STORES.MESSAGES, chatId, messages)
+                localStorage.removeItem(backupKey) // 恢复成功后删除备份
+              }
+            }
+          } catch (e) {
+            console.warn('恢复localStorage备份失败:', e)
+          }
+        }
+        
         if (messages) {
           // 修复重复ID
           const fixedMessages = fixDuplicateMessageIds(messages)
@@ -219,7 +242,30 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
   
   if (!messages) {
     // 如果还是没有，直接从IndexedDB读取
-    const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    let loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    
+    // 🔥 如果IndexedDB也没有，尝试从localStorage备份恢复
+    if (!loaded || loaded.length === 0) {
+      try {
+        const backupKey = `msg_backup_${chatId}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          loaded = parsed.messages
+          if (import.meta.env.DEV) {
+            console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: chatId=${chatId}, count=${loaded?.length || 0}`)
+          }
+          // 恢复到IndexedDB
+          if (loaded && loaded.length > 0) {
+            await IDB.setItem(IDB.STORES.MESSAGES, chatId, loaded)
+            localStorage.removeItem(backupKey)
+          }
+        }
+      } catch (e) {
+        console.warn('恢复localStorage备份失败:', e)
+      }
+    }
+    
     if (loaded && loaded.length > 0) {
       const fixedMessages = fixDuplicateMessageIds(loaded)
       messageCache.set(chatId, fixedMessages)
@@ -300,10 +346,30 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       console.log(`💾 [缓存] 保存消息: chatId=${chatId}, count=${messages.length}`)
     }
     
+    // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
+    try {
+      const backupKey = `msg_backup_${chatId}`
+      localStorage.setItem(backupKey, JSON.stringify({
+        messages: cleanedMessages,
+        timestamp: Date.now()
+      }))
+      if (import.meta.env.DEV) {
+        console.log(`💾 [localStorage备份] 已保存: chatId=${chatId}`)
+      }
+    } catch (e) {
+      console.warn(`⚠️ [localStorage备份] 保存失败（可能空间不足）:`, e)
+    }
+    
     // 立即保存到IndexedDB（使用清理后的消息）
     IDB.setItem(IDB.STORES.MESSAGES, chatId, cleanedMessages).then(() => {
       if (import.meta.env.DEV) {
         console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${cleanedMessages.length}`)
+      }
+      // 保存成功后可以删除备份
+      try {
+        localStorage.removeItem(`msg_backup_${chatId}`)
+      } catch (e) {
+        // 忽略删除失败
       }
     }).catch(err => {
       console.error(`❌ [IndexedDB] 保存失败: chatId=${chatId}`, err)
