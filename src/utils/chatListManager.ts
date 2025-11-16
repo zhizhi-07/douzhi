@@ -30,7 +30,29 @@ export async function loadChatList(): Promise<Chat[]> {
 
   try {
     // 从 IndexedDB 读取
-    const chats = await IDB.getItem<Chat[]>(IDB.STORES.SETTINGS, CHAT_LIST_KEY)
+    let chats = await IDB.getItem<Chat[]>(IDB.STORES.SETTINGS, CHAT_LIST_KEY)
+    
+    // 🔥 如果IndexedDB没有数据，尝试从localStorage备份恢复
+    if (!chats || chats.length === 0) {
+      try {
+        const backupKey = 'chat_list_backup'
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          chats = parsed.chats
+          if (chats && chats.length > 0) {
+            console.log(`🔄 [恢复备份] 从localStorage恢复聊天列表: ${chats.length} 个`)
+            // 恢复到IndexedDB
+            await IDB.setItem(IDB.STORES.SETTINGS, CHAT_LIST_KEY, chats)
+            localStorage.removeItem(backupKey)
+            chatListCache = chats
+            return chats
+          }
+        }
+      } catch (e) {
+        console.warn('恢复聊天列表备份失败:', e)
+      }
+    }
     
     if (chats && chats.length > 0) {
       console.log(`📦 [IndexedDB] 加载聊天列表: ${chats.length} 个`)
@@ -38,7 +60,7 @@ export async function loadChatList(): Promise<Chat[]> {
       return chats
     }
 
-    // 如果 IndexedDB 没有数据，尝试从 localStorage 迁移
+    // 如果 IndexedDB 和备份都没有数据，尝试从 localStorage 迁移
     const lsData = localStorage.getItem(CHAT_LIST_KEY)
     if (lsData) {
       try {
@@ -90,9 +112,28 @@ export async function saveChatList(chats: Chat[]): Promise<void> {
     // 更新缓存
     chatListCache = chats
     
+    // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
+    const backupKey = 'chat_list_backup'
+    try {
+      localStorage.setItem(backupKey, JSON.stringify({
+        chats: chats,
+        timestamp: Date.now()
+      }))
+      console.log(`💾 [localStorage备份] 聊天列表已备份: ${chats.length} 个`)
+    } catch (e) {
+      console.warn(`⚠️ [localStorage备份] 聊天列表备份失败:`, e)
+    }
+    
     // 保存到 IndexedDB
     await IDB.setItem(IDB.STORES.SETTINGS, CHAT_LIST_KEY, chats)
     console.log(`✅ [IndexedDB] 保存聊天列表: ${chats.length} 个`)
+    
+    // IndexedDB保存成功后删除备份
+    try {
+      localStorage.removeItem(backupKey)
+    } catch (e) {
+      // 忽略删除失败
+    }
     
     // 触发存储事件，通知其他组件
     window.dispatchEvent(new Event('storage'))
