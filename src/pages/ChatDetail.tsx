@@ -96,63 +96,8 @@ const ChatDetail = () => {
   
   const chatState = useChatState(id || '')
   
-  // 🔥 组件卸载时保存消息，确保退出聊天窗口时不丢失
-  const messagesRef = useRef(chatState.messages)
-  useEffect(() => {
-    messagesRef.current = chatState.messages
-  }, [chatState.messages])
-  
-  useEffect(() => {
-    return () => {
-      if (id && messagesRef.current.length > 0) {
-        console.log(`💾 [ChatDetail] 组件卸载，强制同步保存 ${messagesRef.current.length} 条消息`)
-        
-        // 🔥 关键修复：同步保存到localStorage，确保即使组件已销毁也能保存
-        try {
-          const backupKey = `msg_backup_${id}`
-          
-          // 🔥 使用强制序列化，过滤掉所有循环引用和不可序列化对象
-          const seen = new WeakSet()
-          const backupData = {
-            messages: messagesRef.current,
-            timestamp: Date.now()
-          }
-          
-          const jsonString = JSON.stringify(backupData, (_key, value) => {
-            // 过滤掉不可序列化的对象
-            if (typeof value === 'object' && value !== null) {
-              // 跳过 DOM 元素、Window、Document 等
-              if (value instanceof Node || value instanceof Window || value instanceof Document) {
-                return undefined
-              }
-              // 跳过 Event 对象
-              if (value instanceof Event) {
-                return undefined
-              }
-              // 检测循环引用
-              if (seen.has(value)) {
-                return undefined
-              }
-              seen.add(value)
-            }
-            // 跳过函数
-            if (typeof value === 'function') {
-              return undefined
-            }
-            return value
-          })
-          
-          localStorage.setItem(backupKey, jsonString)
-          console.log(`✅ [ChatDetail] 组件卸载，localStorage备份完成`)
-        } catch (e) {
-          console.error('❌ [ChatDetail] 组件卸载保存失败:', e)
-        }
-        
-        // 异步保存到IndexedDB（但可能来不及完成）
-        saveMessages(id, messagesRef.current)
-      }
-    }
-  }, [id])
+  // 移除组件卸载时的保存逻辑，因为addMessage已经会自动备份了
+  // 组件卸载时保存可能会用过时的React状态覆盖最新的备份
   
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
