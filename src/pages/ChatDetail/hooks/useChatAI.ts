@@ -1063,10 +1063,9 @@ export const useChatAI = (
         // 如果有剩余文本且不是纯指令消息，发送普通消息
         console.log(`✅ 最终状态: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}", hasQuote=${!!quotedMsg}`)
         
-        // 🔥 调试：强制显示是否进入保存分支
+        // 消息未保存的情况（纯指令消息）- 移除烦人的调试弹窗
         if (skipTextMessage || !messageContent || !messageContent.trim()) {
-          alert(`⚠️ 调试：消息未保存！\nskipTextMessage=${skipTextMessage}\nmessageContent="${messageContent}"\ntrim="${messageContent?.trim()}"`)
-          console.error(`❌ 消息未保存条件不满足: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}"`)
+          console.log(`ℹ️ 纯指令消息（无文本）: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}"`)
         }
         
         if (!skipTextMessage && messageContent && messageContent.trim()) {
@@ -1162,16 +1161,12 @@ export const useChatAI = (
             const verification = localStorage.getItem(backupKey)
             if (verification) {
               const parsed = JSON.parse(verification)
-              console.log(`✅ [useChatAI] AI消息已同步备份到localStorage，共${parsed.messages.length}条，验证成功`)
-              // 在控制台显示，方便用户查看
-              alert(`调试：消息已保存！\n聊天ID: ${chatId}\n消息数: ${parsed.messages.length}\n备份key: ${backupKey}`)
+              console.log(`✅ [useChatAI] AI消息已同步备份到localStorage，共${parsed.messages.length}条`)
             } else {
               console.error('❌ [useChatAI] localStorage备份验证失败！数据可能没保存')
-              alert('警告：消息备份失败！')
             }
           } catch (e) {
             console.error('❌ [useChatAI] localStorage备份失败:', e)
-            alert(`错误：localStorage保存失败 - ${e}`)
           }
           
           // 异步保存到IndexedDB
@@ -1206,12 +1201,19 @@ export const useChatAI = (
       ;(window as any).__AI_REPLYING__ = false
       console.log('✅ [AI回复] 结束，清除全局标志')
       
-      // 🔥 关键修复：AI回复完全结束后，强制备份当前状态（包括纯指令消息的情况）
+      // 🔥 关键修复：AI回复完全结束后，强制备份当前最新状态（包括纯指令消息的情况）
       try {
         const backupKey = `msg_backup_${chatId}`
+        
+        // 🔥 从IndexedDB/缓存获取最新消息，而不是用过时的messages参数
+        const { ensureMessagesLoaded } = await import('../../../utils/simpleMessageManager')
+        const latestMessages = await ensureMessagesLoaded(chatId)
+        
+        console.log(`🔍 [AI回复结束] 准备备份，最新消息数=${latestMessages.length}`)
+        
         const seen = new WeakSet()
         const backupData = {
-          messages: messages, // 保存当前所有消息（包括用户消息和任何已添加的AI消息）
+          messages: latestMessages, // 使用最新的消息列表
           timestamp: Date.now()
         }
         
@@ -1235,9 +1237,13 @@ export const useChatAI = (
         })
         
         localStorage.setItem(backupKey, jsonString)
-        console.log(`💾 [AI回复结束] 强制备份完成，共${messages.length}条消息`)
+        console.log(`✅ [AI回复结束] 强制备份完成，共${latestMessages.length}条消息`)
+        
+        // 弹窗确认（临时调试）
+        alert(`✅ AI回复结束备份\n消息数: ${latestMessages.length}`)
       } catch (e) {
         console.error('❌ [AI回复结束] 备份失败:', e)
+        alert(`❌ AI回复结束备份失败: ${e}`)
       }
       
       // 自动总结逻辑
