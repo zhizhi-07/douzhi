@@ -538,6 +538,52 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const aiStatus = getOrCreateAIStatus(character.id, charName)
   const statusText = aiStatus ? formatStatusShort(aiStatus) : '空闲'
 
+  // 获取世界书内容
+  const { lorebookManager } = await import('./lorebookSystem')
+  const lorebooks = lorebookManager.getCharacterLorebooks(character.id)
+  let lorebookContext = ''
+  
+  if (lorebooks.length > 0) {
+    const allEntries: string[] = []
+    
+    for (const lorebook of lorebooks) {
+      const enabledEntries = lorebook.entries.filter(e => e.enabled)
+      
+      for (const entry of enabledEntries) {
+        // 如果是 constant 条目，始终包含
+        if (entry.constant) {
+          allEntries.push(`【${entry.name || '背景设定'}】\n${entry.content}`)
+          continue
+        }
+        
+        // 否则检查是否匹配关键词
+        const recentMessages = messages.slice(-lorebook.scan_depth).map(m => m.content).join(' ')
+        const shouldInclude = entry.keys.some(key => {
+          if (entry.use_regex) {
+            try {
+              const regex = new RegExp(key, entry.case_sensitive ? '' : 'i')
+              return regex.test(recentMessages)
+            } catch {
+              return false
+            }
+          } else {
+            return entry.case_sensitive 
+              ? recentMessages.includes(key)
+              : recentMessages.toLowerCase().includes(key.toLowerCase())
+          }
+        })
+        
+        if (shouldInclude) {
+          allEntries.push(`【${entry.name || '相关信息'}】\n${entry.content}`)
+        }
+      }
+    }
+    
+    if (allEntries.length > 0) {
+      lorebookContext = `\n\n世界观与背景知识：\n${allEntries.join('\n\n')}\n`
+    }
+  }
+
   return `你是一个名为「${charName}」的角色扮演AI。你将扮演这个角色，像在微信里和真实的人聊天，而不是在写作文或说明书。
 
 一、时间感与现实感
@@ -555,7 +601,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 1. 你是：${charName}（真名：${character.realName}）。
 2. 你的角色设定是：${personality}
 3. 你的个性签名：${signature || '（暂无签名）'}
-4. 你生活的世界观：${(character as any).world || '（默认现代现实世界）'}
+4. 你生活的世界观：${(character as any).world || '（默认现代现实世界）'}${lorebookContext}
 
 5. 身份边界（非常重要）：
    - 你只是一名角色，不是「AI助手/机器人/大模型/系统」。

@@ -63,6 +63,21 @@ const ChatDetail = () => {
   const [showAIStatusModal, setShowAIStatusModal] = useState(false)
   const [currentAIStatus, setCurrentAIStatus] = useState<any>(null)
   
+  // 读取聊天设置（包括是否隐藏Token）
+  const [hideTokenStats, setHideTokenStats] = useState(false)
+  useEffect(() => {
+    if (!id) return
+    const saved = localStorage.getItem(`chat_settings_${id}`)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        setHideTokenStats(data.hideTokenStats ?? false)
+      } catch (error) {
+        console.error('读取聊天设置失败:', error)
+      }
+    }
+  }, [id])
+  
   // 调试：监听备忘录弹窗状态变化
   useEffect(() => {
     console.log('备忘录弹窗状态变化:', showAIMemoModal)
@@ -1035,7 +1050,7 @@ const ChatDetail = () => {
         onSelectCamera={addMenu.handlers.handleSelectCamera}
         onSelectTransfer={addMenu.handlers.handleSelectTransfer}
         onSelectIntimatePay={addMenu.handlers.handleSelectIntimatePay}
-        onSelectCoupleSpaceInvite={addMenu.handlers.handleSelectCoupleSpace}
+        onSelectCoupleSpaceInvite={addMenu.handlers.handleSelectCoupleSpaceInvite}
         onSelectLocation={addMenu.handlers.handleSelectLocation}
         onSelectVoice={addMenu.handlers.handleSelectVoice}
         onSelectVideoCall={() => videoCall.startCall()}
@@ -1212,7 +1227,7 @@ const ChatDetail = () => {
       )}
 
       {/* 🔥 Token统计悬浮按钮 - 右上角玻璃质感 */}
-      {chatAI.tokenStats && chatAI.tokenStats.total > 0 && (
+      {!hideTokenStats && chatAI.tokenStats && chatAI.tokenStats.total > 0 && (
         <button
           onClick={() => setShowTokenDetail(!showTokenDetail)}
           className="fixed top-[120px] right-4 z-40 text-[10px] px-2 py-1 rounded-lg flex items-center gap-1 btn-press-fast"

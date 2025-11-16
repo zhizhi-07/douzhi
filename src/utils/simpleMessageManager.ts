@@ -244,20 +244,66 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
 }
 
 /**
+ * 清理消息对象，移除不可序列化的属性
+ */
+function cleanMessageForStorage(message: Message): Message {
+  const cleaned = { ...message }
+  
+  // 移除所有可能的事件对象和DOM引用
+  const keysToRemove = Object.keys(cleaned).filter(key => {
+    const value = (cleaned as any)[key]
+    // 移除事件对象、DOM元素、函数等
+    return value instanceof Event || 
+           value instanceof Node || 
+           typeof value === 'function' ||
+           (value && typeof value === 'object' && value.constructor && 
+            (value.constructor.name.includes('Event') || value.constructor.name.includes('Element')))
+  })
+  
+  keysToRemove.forEach(key => {
+    delete (cleaned as any)[key]
+  })
+  
+  return cleaned
+}
+
+/**
  * 保存消息（立即更新缓存和IndexedDB）
  */
 export function saveMessages(chatId: string, messages: Message[]): void {
   try {
-    // 立即更新缓存
+    // 🔥 防止保存空数组覆盖已有数据
+    if (messages.length === 0) {
+      // 检查缓存和IndexedDB中是否已有数据
+      const cachedMessages = messageCache.get(chatId)
+      if (cachedMessages && cachedMessages.length > 0) {
+        console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
+        return
+      }
+      
+      // 异步检查IndexedDB
+      IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId).then(dbMessages => {
+        if (dbMessages && dbMessages.length > 0) {
+          console.warn(`⚠️ [saveMessages] IndexedDB中有 ${dbMessages.length} 条消息，不保存空数组`)
+          // 恢复缓存
+          messageCache.set(chatId, dbMessages)
+        }
+      })
+    }
+    
+    // 清理消息，移除不可序列化的对象
+    const cleanedMessages = messages.map(cleanMessageForStorage)
+    
+    // 立即更新缓存（使用原始消息）
     messageCache.set(chatId, messages)
     if (import.meta.env.DEV) {
       console.log(`💾 [缓存] 保存消息: chatId=${chatId}, count=${messages.length}`)
     }
     
-    // 立即保存到IndexedDB（不等待）
-    IDB.setItem(IDB.STORES.MESSAGES, chatId, messages).then(() => {
+    // 立即保存到IndexedDB（使用清理后的消息）
+    IDB.setItem(IDB.STORES.MESSAGES, chatId, cleanedMessages).then(() => {
       if (import.meta.env.DEV) {
-        console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${messages.length}`)
+        console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${cleanedMessages.length}`)
       }
     }).catch(err => {
       console.error(`❌ [IndexedDB] 保存失败: chatId=${chatId}`, err)

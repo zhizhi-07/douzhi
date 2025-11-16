@@ -204,7 +204,25 @@ export async function exportCharacterData(characterId: string): Promise<Exported
  */
 export function downloadCharacterData(data: ExportedCharacterData) {
   const fileName = `${data.character.realName}_完整数据_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.json`
-  const jsonStr = JSON.stringify(data, null, 2)
+  
+  // 使用安全的序列化方法，避免循环引用
+  const seen = new WeakSet()
+  const jsonStr = JSON.stringify(data, (_key, value) => {
+    // 过滤掉可能导致循环引用的对象
+    if (typeof value === 'object' && value !== null) {
+      // 跳过 Window、Document 等全局对象
+      if (value === window || value === document || value instanceof Window || value instanceof Document) {
+        return undefined
+      }
+      // 检测循环引用
+      if (seen.has(value)) {
+        return undefined
+      }
+      seen.add(value)
+    }
+    return value
+  }, 2)
+  
   const blob = new Blob([jsonStr], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   

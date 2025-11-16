@@ -24,6 +24,7 @@ interface ChatSettingsData {
   autoMemorySummary: boolean  // 是否启用自动记忆总结
   memorySummaryInterval: number  // 每N轮对话自动生成总结
   voiceId: string  // 角色专属音色ID
+  hideTokenStats: boolean  // 是否隐藏Token统计
   groupChatSync: {
     enabled: boolean  // 是否启用群聊消息同步
     messageCount: number  // 同步消息条数
@@ -51,6 +52,7 @@ const ChatSettings = () => {
         autoMemorySummary: data.autoMemorySummary ?? false,
         memorySummaryInterval: data.memorySummaryInterval ?? 30,
         voiceId: data.voiceId ?? '',
+        hideTokenStats: data.hideTokenStats ?? false,
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
           messageCount: 20
@@ -69,6 +71,7 @@ const ChatSettings = () => {
       autoMemorySummary: false,
       memorySummaryInterval: 30,
       voiceId: '',
+      hideTokenStats: false,
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -373,6 +376,26 @@ const ChatSettings = () => {
             <p className="text-xs text-gray-400 mt-1.5">
               在MiniMax控制台找到你喜欢的音色ID，将用于该角色的语音消息和视频通话
             </p>
+          </div>
+          
+          {/* 隐藏Token统计 */}
+          <div className="flex items-center justify-between py-2">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">隐藏Token统计</div>
+              <div className="text-xs text-gray-400">隐藏聊天界面右上角的Token数值</div>
+            </div>
+            <button
+              onClick={() => saveSettings({ ...settings, hideTokenStats: !settings.hideTokenStats })}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                settings.hideTokenStats ? 'bg-gray-900' : 'bg-gray-300'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                  settings.hideTokenStats ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </div>
         

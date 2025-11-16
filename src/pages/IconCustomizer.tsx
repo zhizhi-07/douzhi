@@ -168,10 +168,14 @@ const IconCustomizer = () => {
       {/* 顶部：StatusBar + 导航栏一体化 */}
       <div className="glass-effect sticky top-0 z-50">
         {showStatusBar && <StatusBar />}
-        <div className="px-4 py-3 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between relative">
           <button
-            onClick={() => navigate(-1)}
-            className="text-gray-700 hover:text-gray-900 p-2 -ml-2 active:opacity-50"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(-1)
+            }}
+            className="text-gray-700 hover:text-gray-900 p-2 -ml-2 active:opacity-50 relative z-10"
+            style={{ touchAction: 'manipulation' }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

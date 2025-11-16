@@ -19,6 +19,8 @@ const EmojiManagement = () => {
   const navigate = useNavigate()
   const [emojis, setEmojis] = useState<Emoji[]>([])
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url')
   const [newEmojiUrl, setNewEmojiUrl] = useState('')
   const [newEmojiName, setNewEmojiName] = useState('')
   const [newEmojiDesc, setNewEmojiDesc] = useState('')
@@ -32,9 +34,26 @@ const EmojiManagement = () => {
     setEmojis(loaded)
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string
+      setNewEmojiUrl(dataUrl)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleAddEmoji = async () => {
     if (!newEmojiUrl.trim()) {
-      alert('请输入表情包图片URL')
+      alert(uploadMode === 'url' ? '请输入表情包图片URL' : '请选择图片文件')
       return
     }
 
@@ -76,6 +95,57 @@ const EmojiManagement = () => {
     a.download = `emojis_${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleBatchImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.multiple = true
+    input.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+      if (files.length === 0) return
+
+      const confirmed = confirm(`准备导入 ${files.length} 张图片作为表情包。\n\n每个表情包都需要描述，将使用文件名作为默认描述。\n\n继续吗？`)
+      if (!confirmed) return
+
+      let successCount = 0
+      let failCount = 0
+
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          failCount++
+          continue
+        }
+
+        try {
+          const reader = new FileReader()
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target?.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+
+          // 使用文件名（去掉扩展名）作为描述
+          const fileName = file.name.replace(/\.[^/.]+$/, '')
+          
+          await addEmoji({
+            url: dataUrl,
+            name: fileName,
+            description: fileName
+          })
+          
+          successCount++
+        } catch (error) {
+          console.error('导入失败:', file.name, error)
+          failCount++
+        }
+      }
+
+      alert(`批量导入完成！\n\n成功: ${successCount} 个\n失败: ${failCount} 个`)
+      await loadEmojis()
+    }
+    input.click()
   }
 
   const handleImport = () => {
@@ -127,12 +197,56 @@ const EmojiManagement = () => {
           </button>
           <h1 className="text-lg font-semibold">表情包管理</h1>
         </div>
-        <button
-          onClick={() => setShowAddDialog(true)}
-          className="text-blue-500 text-2xl"
-        >
-          +
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            className="text-blue-500 text-2xl"
+          >
+            +
+          </button>
+          
+          {/* 悬浮菜单 */}
+          {showAddMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowAddMenu(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setShowAddMenu(false)
+                    handleBatchImport()
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">导入图片</div>
+                    <div className="text-xs text-gray-500">批量导入表情包图片</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMenu(false)
+                    handleImport()
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100"
+                >
+                  <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">导入JSON</div>
+                    <div className="text-xs text-gray-500">导入备份的表情包数据</div>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 统计信息 */}
@@ -144,12 +258,6 @@ const EmojiManagement = () => {
 
       {/* 操作按钮 */}
       <div className="bg-white px-4 py-3 flex gap-2 border-b">
-        <button
-          onClick={handleImport}
-          className="flex-1 py-2 bg-blue-500 text-white rounded-lg text-sm"
-        >
-          导入
-        </button>
         <button
           onClick={handleExport}
           className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm"
@@ -219,16 +327,60 @@ const EmojiManagement = () => {
             <h2 className="text-lg font-semibold mb-4">添加表情包</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">图片URL *</label>
-                <input
-                  type="text"
-                  value={newEmojiUrl}
-                  onChange={(e) => setNewEmojiUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+              {/* 上传方式切换 */}
+              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => {
+                    setUploadMode('url')
+                    setNewEmojiUrl('')
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+                    uploadMode === 'url' ? 'bg-white shadow-sm' : 'text-gray-600'
+                  }`}
+                >
+                  URL链接
+                </button>
+                <button
+                  onClick={() => {
+                    setUploadMode('file')
+                    setNewEmojiUrl('')
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+                    uploadMode === 'file' ? 'bg-white shadow-sm' : 'text-gray-600'
+                  }`}
+                >
+                  本地上传
+                </button>
               </div>
+
+              {/* URL 输入 */}
+              {uploadMode === 'url' ? (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">图片URL *</label>
+                  <input
+                    type="text"
+                    value={newEmojiUrl}
+                    onChange={(e) => setNewEmojiUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">选择图片 *</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                  {newEmojiUrl && (
+                    <div className="mt-2">
+                      <img src={newEmojiUrl} alt="预览" className="w-20 h-20 object-cover rounded-lg" />
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm text-gray-600 mb-2">名称</label>

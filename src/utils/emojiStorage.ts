@@ -199,8 +199,31 @@ export async function importEmojis(
   try {
     const importData = JSON.parse(jsonData)
     
-    if (!importData.emojis || !Array.isArray(importData.emojis)) {
-      return { success: false, count: 0, message: '导入文件格式不正确' }
+    // 支持多种格式
+    let emojisToImport: any[]
+    
+    if (Array.isArray(importData)) {
+      // 格式1: 直接是数组 [{url, name, description}, ...]
+      emojisToImport = importData
+    } else if (importData.emojis && Array.isArray(importData.emojis)) {
+      // 格式2: {emojis: [...]}
+      emojisToImport = importData.emojis
+    } else {
+      return { success: false, count: 0, message: '导入文件格式不正确，需要数组或包含emojis字段的对象' }
+    }
+    
+    // 转换为标准格式
+    const standardEmojis: Emoji[] = emojisToImport.map((item, index) => ({
+      id: item.id || Date.now() + index,
+      url: item.url || item.file || item.image || item.src || '',
+      name: item.name || item.title || `表情${index + 1}`,
+      description: item.description || item.desc || item.name || item.title || `表情${index + 1}`,
+      addTime: item.addTime || new Date().toISOString(),
+      useCount: item.useCount || 0
+    })).filter(e => e.url) // 过滤掉没有url的
+    
+    if (standardEmojis.length === 0) {
+      return { success: false, count: 0, message: '没有找到有效的表情包数据' }
     }
     
     let finalEmojis: Emoji[]
@@ -208,14 +231,14 @@ export async function importEmojis(
     let originalCount = 0
     
     if (replaceMode) {
-      finalEmojis = importData.emojis
+      finalEmojis = standardEmojis
       actualImported = finalEmojis.length
     } else {
       const currentEmojis = await getEmojis()
       originalCount = currentEmojis.length
       
       // 合并去重
-      const mergedEmojis = [...currentEmojis, ...importData.emojis]
+      const mergedEmojis = [...currentEmojis, ...standardEmojis]
       const uniqueEmojis: Emoji[] = []
       const urlSet = new Set<string>()
       
