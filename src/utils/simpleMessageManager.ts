@@ -36,13 +36,24 @@ async function preloadMessages() {
             if (backup) {
               const parsed = JSON.parse(backup)
               messages = parsed.messages
-              if (import.meta.env.DEV) {
-                console.log(`🔄 [恢复备份] 从localStorage恢复消息: chatId=${chatId}, count=${messages?.length || 0}`)
-              }
-              // 恢复到IndexedDB
-              if (messages && messages.length > 0) {
-                await IDB.setItem(IDB.STORES.MESSAGES, chatId, messages)
-                localStorage.removeItem(backupKey) // 恢复成功后删除备份
+              const backupAge = Date.now() - (parsed.timestamp || 0)
+              
+              // 只恢复1小时内的备份，防止恢复太旧的数据
+              if (backupAge > 60 * 60 * 1000) {
+                if (import.meta.env.DEV) {
+                  console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
+                }
+                localStorage.removeItem(backupKey)
+                messages = null
+              } else {
+                if (import.meta.env.DEV) {
+                  console.log(`🔄 [恢复备份] 从localStorage恢复消息: chatId=${chatId}, count=${messages?.length || 0}`)
+                }
+                // 恢复到IndexedDB
+                if (messages && messages.length > 0) {
+                  await IDB.setItem(IDB.STORES.MESSAGES, chatId, messages)
+                  localStorage.removeItem(backupKey) // 恢复成功后删除备份
+                }
               }
             }
           } catch (e) {
@@ -252,13 +263,24 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
         if (backup) {
           const parsed = JSON.parse(backup)
           loaded = parsed.messages
-          if (import.meta.env.DEV) {
-            console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: chatId=${chatId}, count=${loaded?.length || 0}`)
-          }
-          // 恢复到IndexedDB
-          if (loaded && loaded.length > 0) {
-            await IDB.setItem(IDB.STORES.MESSAGES, chatId, loaded)
+          const backupAge = Date.now() - (parsed.timestamp || 0)
+          
+          // 只恢复1小时内的备份，防止恢复太旧的数据
+          if (backupAge > 60 * 60 * 1000) {
+            if (import.meta.env.DEV) {
+              console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
+            }
             localStorage.removeItem(backupKey)
+            loaded = null
+          } else {
+            if (import.meta.env.DEV) {
+              console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: chatId=${chatId}, count=${loaded?.length || 0}`)
+            }
+            // 恢复到IndexedDB
+            if (loaded && loaded.length > 0) {
+              await IDB.setItem(IDB.STORES.MESSAGES, chatId, loaded)
+              localStorage.removeItem(backupKey)
+            }
           }
         }
       } catch (e) {
@@ -470,6 +492,18 @@ export async function clearMessages(chatId: string): Promise<void> {
   try {
     // 清空缓存
     messageCache.delete(chatId)
+    
+    // 🔥 关键修复：同时删除localStorage备份，防止误恢复
+    try {
+      const backupKey = `msg_backup_${chatId}`
+      localStorage.removeItem(backupKey)
+      if (import.meta.env.DEV) {
+        console.log(`🗑️ 已删除localStorage备份: ${backupKey}`)
+      }
+    } catch (e) {
+      console.warn('删除localStorage备份失败:', e)
+    }
+    
     // 删除IndexedDB中的数据
     await IDB.removeItem(IDB.STORES.MESSAGES, chatId)
     if (import.meta.env.DEV) {

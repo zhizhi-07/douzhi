@@ -40,7 +40,14 @@ export async function loadChatList(): Promise<Chat[]> {
         if (backup) {
           const parsed = JSON.parse(backup)
           chats = parsed.chats
-          if (chats && chats.length > 0) {
+          const backupAge = Date.now() - (parsed.timestamp || 0)
+          
+          // 只恢复1小时内的备份，防止恢复太旧的数据
+          if (backupAge > 60 * 60 * 1000) {
+            console.warn(`⚠️ [恢复备份] 聊天列表备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
+            localStorage.removeItem(backupKey)
+            chats = null
+          } else if (chats && chats.length > 0) {
             console.log(`🔄 [恢复备份] 从localStorage恢复聊天列表: ${chats.length} 个`)
             // 恢复到IndexedDB
             await IDB.setItem(IDB.STORES.SETTINGS, CHAT_LIST_KEY, chats)
