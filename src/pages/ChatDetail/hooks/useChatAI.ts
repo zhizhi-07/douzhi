@@ -1275,12 +1275,8 @@ export const useChatAI = (
         
         localStorage.setItem(backupKey, jsonString)
         console.log(`✅ [AI回复结束] 强制备份完成，共${latestMessages.length}条消息`)
-        
-        // 弹窗确认（临时调试）
-        alert(`✅ AI回复结束备份\n消息数: ${latestMessages.length}`)
       } catch (e) {
         console.error('❌ [AI回复结束] 备份失败:', e)
-        alert(`❌ AI回复结束备份失败: ${e}`)
       }
       
       // 自动总结逻辑

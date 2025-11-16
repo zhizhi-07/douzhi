@@ -21,19 +21,11 @@ async function preloadMessages() {
   preloadPromise = (async () => {
     try {
       const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
-      
-      // 🔥 关键修复：检查localStorage中的备份keys，可能有IndexedDB中不存在的新聊天
-      const backupKeys = Object.keys(localStorage).filter(key => key.startsWith('msg_backup_'))
-      const backupChatIds = backupKeys.map(key => key.replace('msg_backup_', ''))
-      
-      // 合并IndexedDB的keys和备份的chatIds（去重）
-      const allChatIds = Array.from(new Set([...allKeys, ...backupChatIds]))
-      
       if (import.meta.env.DEV) {
-        console.log(`📦 预加载消息: IndexedDB=${allKeys.length}个, localStorage备份=${backupChatIds.length}个, 总计=${allChatIds.length}个`)
+        console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
       }
       
-      for (const chatId of allChatIds) {
+      for (const chatId of allKeys) {
         let messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
         
         // 🔥 如果IndexedDB没有数据，尝试从localStorage备份恢复
@@ -357,15 +349,14 @@ export function saveMessages(chatId: string, messages: Message[]): void {
         return
       }
       
-      // 🔥 关键修复：检查localStorage备份
+      // 检查localStorage备份
       try {
         const backupKey = `msg_backup_${chatId}`
         const backup = localStorage.getItem(backupKey)
         if (backup) {
           const parsed = JSON.parse(backup)
           if (parsed.messages && parsed.messages.length > 0) {
-            console.error(`🚫 [saveMessages] 阻止保存空数组！localStorage备份中有 ${parsed.messages.length} 条消息`)
-            alert(`🚫 阻止数据丢失！\n检测到尝试保存空数组\n但localStorage备份中有${parsed.messages.length}条消息\n已阻止覆盖`)
+            console.warn(`⚠️ [saveMessages] localStorage备份中有 ${parsed.messages.length} 条消息，阻止保存空数组`)
             return
           }
         }
