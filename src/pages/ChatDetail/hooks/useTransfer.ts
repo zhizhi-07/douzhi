@@ -8,7 +8,7 @@ import type { Message } from '../../../types/chat'
 import { addNotificationToChat } from '../../../utils/messageUtils'
 import { sendTransfer, receiveTransfer, getIntimatePayRelations, useIntimatePay as deductIntimatePayAmount } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
-import { addMessage as saveMessageToStorage, loadMessages, saveMessages } from '../../../utils/simpleMessageManager'
+import { addMessage as saveMessageToStorage, ensureMessagesLoaded, saveMessages } from '../../../utils/simpleMessageManager'
 import { getUserInfo } from '../../../utils/userUtils'
 
 export const useTransfer = (
@@ -107,8 +107,9 @@ export const useTransfer = (
   /**
    * 领取AI发来的转账
    */
-  const handleReceiveTransfer = useCallback((messageId: number) => {
-    const messages = loadMessages(chatId)
+  const handleReceiveTransfer = useCallback(async (messageId: number) => {
+    // 🔥 关键修复：确保消息已加载
+    const messages = await ensureMessagesLoaded(chatId)
     const transferMsg = messages.find(msg => msg.id === messageId)
     const amount = transferMsg?.transfer?.amount || 0
     const transferMessage = transferMsg?.transfer?.message || '转账'
@@ -161,8 +162,9 @@ export const useTransfer = (
   /**
    * 退还AI发来的转账
    */
-  const handleRejectTransfer = useCallback((messageId: number) => {
-    const messages = loadMessages(chatId)
+  const handleRejectTransfer = useCallback(async (messageId: number) => {
+    // 🔥 关键修复：确保消息已加载
+    const messages = await ensureMessagesLoaded(chatId)
     const transferMsg = messages.find(msg => msg.id === messageId)
     const amount = transferMsg?.transfer?.amount || 0
     const transferMessage = transferMsg?.transfer?.message || ''

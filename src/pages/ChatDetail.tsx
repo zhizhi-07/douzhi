@@ -95,6 +95,22 @@ const ChatDetail = () => {
   }, [id])
   
   const chatState = useChatState(id || '')
+  
+  // 🔥 组件卸载时保存消息，确保退出聊天窗口时不丢失
+  const messagesRef = useRef(chatState.messages)
+  useEffect(() => {
+    messagesRef.current = chatState.messages
+  }, [chatState.messages])
+  
+  useEffect(() => {
+    return () => {
+      if (id && messagesRef.current.length > 0) {
+        console.log(`💾 [ChatDetail] 组件卸载，保存 ${messagesRef.current.length} 条消息`)
+        saveMessages(id, messagesRef.current)
+      }
+    }
+  }, [id])
+  
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
   const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知', id || '')
