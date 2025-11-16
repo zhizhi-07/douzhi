@@ -353,15 +353,15 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-8 overflow-y-auto">
+      <div className="relative z-10 flex flex-col items-center p-4 pt-6 pb-8 overflow-y-auto">
         {/* 头像显示 - 在唱片上方，始终显示 */}
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-3">
           {listeningTogether ? (
             // 一起听模式：显示两个头像
             <>
               <div className="flex items-center justify-center gap-2 mb-2">
                 {/* 用户头像 */}
-                <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden">
+                <div className="w-12 h-12 rounded-full border-3 border-white shadow-lg overflow-hidden">
                   {getUserInfo().avatar ? (
                     <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
                   ) : (
@@ -371,7 +371,7 @@ const MusicPlayer = () => {
                   )}
                 </div>
                 {/* AI头像 */}
-                <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-6">
+                <div className="w-12 h-12 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-4">
                   {listeningTogether.character?.avatar ? (
                     <img src={listeningTogether.character.avatar} alt={listeningTogether.character.realName} className="w-full h-full object-cover" />
                   ) : (
@@ -388,11 +388,11 @@ const MusicPlayer = () => {
           ) : (
             // 普通模式：始终显示用户头像
             <>
-              <div className="w-20 h-20 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
+              <div className="w-14 h-14 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
                 {getUserInfo().avatar ? (
                   <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-medium">
+                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-medium">
                     我
                   </div>
                 )}
@@ -402,7 +402,7 @@ const MusicPlayer = () => {
         </div>
         
         {/* 唱片封面和歌词容器 */}
-        <div className="relative mb-6 w-48 h-48 flex items-center justify-center">
+        <div className="relative mb-4 w-48 h-48 flex items-center justify-center">
           {/* 唱片盘 */}
           <div 
             className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
@@ -486,7 +486,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 控制按钮 */}
-        <div className="flex items-center justify-center gap-8 mb-6">
+        <div className="flex items-center justify-center gap-8">
           <button onClick={playPrevious} className="w-12 h-12 flex items-center justify-center hover:scale-110 transition-transform">
             <svg className="w-8 h-8 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
