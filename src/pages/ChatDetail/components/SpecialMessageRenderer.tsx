@@ -8,6 +8,7 @@ import VoiceCard from '../../../components/VoiceCard'
 import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
+import PaymentRequestCard from '../../../components/PaymentRequestCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -25,11 +26,13 @@ interface SpecialMessageRendererProps {
   showVoiceTextMap: Record<number, boolean>
   onAcceptMusicInvite?: (messageId: number) => void
   onRejectMusicInvite?: (messageId: number) => void
+  onAcceptPayment?: (messageId: number) => void
+  onRejectPayment?: (messageId: number) => void
 }
 
 /**
  * 特殊消息类型渲染器
- * 包括：情侣空间、亲密付、转发、表情包、转账、语音、位置、照片
+ * 包括：情侣空间、亲密付、转发、表情包、转账、语音、位置、照片、代付
  */
 export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   message,
@@ -46,7 +49,9 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   playingVoiceId,
   showVoiceTextMap,
   onAcceptMusicInvite,
-  onRejectMusicInvite
+  onRejectMusicInvite,
+  onAcceptPayment,
+  onRejectPayment
 }) => {
   // 情侣空间邀请
   if (message.coupleSpaceInvite) {
@@ -155,6 +160,18 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         isSent={message.type === 'sent'}
         onAccept={() => onAcceptMusicInvite?.(message.id)}
         onReject={() => onRejectMusicInvite?.(message.id)}
+      />
+    )
+  }
+
+  // 代付请求
+  if (message.messageType === 'paymentRequest' && message.paymentRequest) {
+    return (
+      <PaymentRequestCard
+        message={message}
+        isSent={message.type === 'sent'}
+        onAccept={onAcceptPayment}
+        onReject={onRejectPayment}
       />
     )
   }

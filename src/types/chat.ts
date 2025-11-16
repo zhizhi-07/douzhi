@@ -9,7 +9,7 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -85,6 +85,17 @@ export interface Message {
     songCover?: string        // 封面图片
     inviterName: string       // 邀请人姓名
     status: 'pending' | 'accepted' | 'rejected'  // 邀请状态
+  }
+  paymentRequest?: {          // 代付请求
+    itemName: string          // 商品/项目名称（外卖、衣服等）
+    amount: number            // 金额
+    note?: string             // 备注
+    paymentMethod: 'ai' | 'self' | 'intimate'  // 支付方式：AI代付/自己支付/亲密付
+    status: 'pending' | 'paid' | 'rejected'    // 状态（仅AI代付有pending状态）
+    requesterId: string       // 发起人ID（通常是'user'）
+    requesterName: string     // 发起人名称
+    payerId?: string          // 付款人ID（AI代付时是角色ID）
+    payerName?: string        // 付款人名称
   }
 }
 

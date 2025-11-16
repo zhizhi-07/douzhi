@@ -35,6 +35,8 @@ import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
 import { playLoadMoreSound, playMenuOpenSound, playCloseSound } from '../utils/soundManager'
+import PaymentRequestSender from '../components/PaymentRequestSender'
+import { usePaymentRequest } from './ChatDetail/hooks/usePaymentRequest'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -85,6 +87,12 @@ const ChatDetail = () => {
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
   const photo = usePhoto(chatState.setMessages, id || '')
   const intimatePay = useIntimatePay(chatState.setMessages, id || '')
+  const paymentRequest = usePaymentRequest(
+    id || '',
+    chatState.character?.id || '',
+    chatState.character?.nickname || chatState.character?.realName || 'AI',
+    chatState.setMessages
+  )
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -107,7 +115,8 @@ const ChatDetail = () => {
     coupleSpace.openMenu,
     () => intimatePay.setShowIntimatePaySender(true),
     () => setShowAIMemoModal(true),
-    () => navigate(`/chat/${id}/offline`)  // 线下模式
+    () => navigate(`/chat/${id}/offline`),  // 线下模式
+    () => paymentRequest.setShowPaymentRequestSender(true)  // 代付
   )
   
   // 多选模式
@@ -774,6 +783,7 @@ const ChatDetail = () => {
                  message.messageType === 'voice' || 
                  message.messageType === 'location' || 
                  message.messageType === 'photo' ||
+                 message.messageType === 'paymentRequest' ||
                  (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}
@@ -806,6 +816,8 @@ const ChatDetail = () => {
                     onToggleVoiceText={voice.handleToggleVoiceText}
                     playingVoiceId={voice.playingVoiceId}
                     showVoiceTextMap={voice.showVoiceTextMap}
+                    onAcceptPayment={paymentRequest.acceptPayment}
+                    onRejectPayment={paymentRequest.rejectPayment}
                   />
                 ) : (
                   <MessageBubble
@@ -1028,6 +1040,7 @@ const ChatDetail = () => {
         onSelectMusicInvite={() => musicInvite.setShowMusicInviteSelector(true)}
         onSelectAIMemo={addMenu.handlers.handleSelectAIMemo}
         onSelectOffline={addMenu.handlers.handleSelectOffline}
+        onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 
@@ -1108,6 +1121,15 @@ const ChatDetail = () => {
         onSend={intimatePay.handleSendIntimatePay}
         characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
       />
+
+      {paymentRequest.showPaymentRequestSender && (
+        <PaymentRequestSender
+          onClose={() => paymentRequest.setShowPaymentRequestSender(false)}
+          onSend={paymentRequest.sendPaymentRequest}
+          characterName={chatState.character?.nickname || chatState.character?.realName || 'AI'}
+          hasIntimatePay={paymentRequest.hasIntimatePay}
+        />
+      )}
 
       <IncomingCallScreen
         show={videoCall.showIncomingCall}

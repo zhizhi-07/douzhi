@@ -15,7 +15,8 @@ export const useAddMenu = (
   onOpenCoupleSpace?: () => void,
   onOpenIntimatePay?: () => void,
   onOpenAIMemo?: () => void,
-  onOpenOffline?: () => void
+  onOpenOffline?: () => void,
+  onOpenPaymentRequest?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -138,6 +139,16 @@ export const useAddMenu = (
     }
   }, [onOpenOffline])
   
+  /**
+   * 代付
+   */
+  const handleSelectPaymentRequest = useCallback(() => {
+    setShowAddMenu(false)
+    if (onOpenPaymentRequest) {
+      onOpenPaymentRequest()
+    }
+  }, [onOpenPaymentRequest])
+  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -153,7 +164,8 @@ export const useAddMenu = (
       handleSelectVideoCall,
       handleSelectMusicInvite,
       handleSelectAIMemo,
-      handleSelectOffline
+      handleSelectOffline,
+      handleSelectPaymentRequest
     }
   }
 }

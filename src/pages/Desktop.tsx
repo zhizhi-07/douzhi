@@ -73,17 +73,19 @@ const Desktop = () => {
 
   // 触摸结束
   const handleTouchEnd = () => {
-    const diffX = touchStartX.current - touchEndX.current
-    const diffY = Math.abs(touchEndY.current - touchStartY.current)
-    const minSwipeDistance = 50
+    // 暂时禁用第二页，不响应滑动
+    return
+    // const diffX = touchStartX.current - touchEndX.current
+    // const diffY = Math.abs(touchEndY.current - touchStartY.current)
+    // const minSwipeDistance = 50
 
-    if (Math.abs(diffX) > minSwipeDistance && Math.abs(diffX) > diffY) {
-      if (diffX > 0 && currentPage < 1) {
-        setCurrentPage(1)
-      } else if (diffX < 0 && currentPage > 0) {
-        setCurrentPage(0)
-      }
-    }
+    // if (Math.abs(diffX) > minSwipeDistance && Math.abs(diffX) > diffY) {
+    //   if (diffX > 0 && currentPage < 1) {
+    //     setCurrentPage(1)
+    //   } else if (diffX < 0 && currentPage > 0) {
+    //     setCurrentPage(0)
+    //   }
+    // }
   }
 
   return (
@@ -177,57 +179,11 @@ const Desktop = () => {
               </div>
             </div>
 
-            {/* ========== 第二页 ========== */}
-            <div className="min-w-full h-full px-4 overflow-y-auto flex flex-col hide-scrollbar" style={{ paddingTop: '20px', paddingBottom: '8px' }}>
-              {/* 第二页应用 */}
-              <div className="grid grid-cols-4 gap-4" style={{ gridAutoRows: '90px' }}>
-                {page2Apps.map((app) => {
-                  const isImageIcon = typeof app.icon === 'string'
-                  const customIcon = getCustomIcon(app.id)
-                  return (
-                    <div
-                      key={`${app.id}-${iconRefresh}`}
-                      onClick={(e) => handleAppClick(e, app)}
-                      className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
-                    >
-                      {customIcon ? (
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border border-white/30">
-                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
-                        </div>
-                      ) : isImageIcon ? (
-                        <div className="w-14 h-14">
-                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
-                        </div>
-                      ) : (
-                        <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
-                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-7 h-7 text-gray-300" })}
-                        </div>
-                      )}
-                      <span className="text-xs text-gray-700 text-center font-medium">
-                        {app.name}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            {/* 第二页暂时禁用 */}
           </div>
         </div>
 
-        {/* 页面指示器 */}
-        <div className="flex justify-center gap-2 py-4">
-          {[0, 1].map((index) => (
-            <div
-              key={index}
-              onClick={() => setCurrentPage(index)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                index === currentPage 
-                  ? 'bg-gray-800 w-6' 
-                  : 'bg-gray-400 w-2 hover:bg-gray-500'
-              }`}
-            />
-          ))}
-        </div>
+        {/* 页面指示器暂时禁用 */}
 
         {/* Dock 栏 */}
         <div className="pb-6 px-4">

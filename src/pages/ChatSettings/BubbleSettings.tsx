@@ -177,13 +177,42 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       
       {/* CSS输入 */}
       <div className="mb-3">
-        <div className="text-xs text-gray-500 mb-2">导入CSS样式</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500">导入CSS样式</div>
+          <button
+            onClick={() => {
+              const template = `.message-container.sent .message-bubble {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: #FFFFFF !important;
+  border-radius: 18px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+.message-container.received .message-bubble {
+  background: #FFFFFF !important;
+  color: #1F2937 !important;
+  border-radius: 18px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}`
+              setCSSInput(template)
+            }}
+            className="text-xs text-blue-500 hover:text-blue-600 active:scale-95 transition-all"
+          >
+            加载模板
+          </button>
+        </div>
         <textarea
           value={cssInput}
           onChange={(e) => setCSSInput(e.target.value)}
-          placeholder="粘贴CSS代码，点击下方应用按钮生效"
-          className="w-full h-24 px-3 py-2 bg-gray-50 rounded-lg text-xs font-mono resize-none focus:outline-none focus:bg-white"
+          placeholder="粘贴CSS代码，或点击右上角'加载模板'查看示例"
+          className="w-full h-32 px-3 py-2 bg-gray-50 rounded-lg text-xs font-mono resize-none focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
         />
+        <div className="mt-1.5 text-xs text-gray-400">
+          💡 支持渐变色、阴影、圆角等CSS属性
+        </div>
       </div>
       
       {/* 预览窗口 */}
@@ -212,7 +241,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       {/* 应用按钮 */}
       <button
         onClick={saveBubbleColors}
-        className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl active:scale-95 transition-all"
+        className="w-full py-2.5 bg-black hover:bg-gray-800 text-white rounded-full active:scale-95 transition-all font-medium"
       >
         应用
       </button>

@@ -353,12 +353,7 @@ const ChatSettings = () => {
                     新设置: newSettings,
                     存储键: `chat_settings_${id}`
                   })
-                  setSettings(newSettings)
-                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
-                  
-                  // 🔥 验证保存结果
-                  const saved = localStorage.getItem(`chat_settings_${id}`)
-                  console.log('[ChatSettings] ✅ 保存后验证:', JSON.parse(saved || '{}'))
+                  saveSettings(newSettings)
                 }}
                 placeholder="输入MiniMax音色ID"
                 className="flex-1 px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -427,8 +422,7 @@ const ChatSettings = () => {
               <button
                 onClick={() => {
                   const newSettings = { ...settings, autoMemorySummary: !settings.autoMemorySummary }
-                  setSettings(newSettings)
-                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  saveSettings(newSettings)
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
                   settings.autoMemorySummary ? 'bg-black' : 'bg-gray-300'
@@ -467,8 +461,7 @@ const ChatSettings = () => {
                       if (value > 100) value = 100
 
                       const newSettings = { ...settings, memorySummaryInterval: value }
-                      setSettings(newSettings)
-                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                      saveSettings(newSettings)
                       // 同步输入框显示
                       setMemoryIntervalInput(String(value))
                     }}
@@ -499,8 +492,7 @@ const ChatSettings = () => {
                     enabled: !settings.groupChatSync.enabled
                   }
                 }
-                setSettings(newSettings)
-                localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                saveSettings(newSettings)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
                 settings.groupChatSync.enabled ? 'bg-black' : 'bg-gray-300'
@@ -535,8 +527,7 @@ const ChatSettings = () => {
                       messageCount: newCount
                     }
                   }
-                  setSettings(newSettings)
-                  localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                  saveSettings(newSettings)
                 }}
                 className="w-full h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
               />
@@ -574,15 +565,7 @@ const ChatSettings = () => {
                   newValue: !settings.aiProactiveMessage.enabled,
                   完整设置: newSettings.aiProactiveMessage
                 })
-                setSettings(newSettings)
-                localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
-                
-                // 立即验证是否保存成功
-                const verify = localStorage.getItem(`chat_settings_${id}`)
-                if (verify) {
-                  const parsed = JSON.parse(verify)
-                  console.log('[ChatSettings] 验证保存成功:', parsed.aiProactiveMessage)
-                }
+                saveSettings(newSettings)
               }}
               className={`relative w-11 h-6 rounded-full transition-colors ${
                 settings.aiProactiveMessage.enabled ? 'bg-black' : 'bg-gray-300'
@@ -611,8 +594,7 @@ const ChatSettings = () => {
                           mode: 'fixed' as const
                         }
                       }
-                      setSettings(newSettings)
-                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                      saveSettings(newSettings)
                     }}
                     className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'fixed'
@@ -631,8 +613,7 @@ const ChatSettings = () => {
                           mode: 'thinking' as const
                         }
                       }
-                      setSettings(newSettings)
-                      localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                      saveSettings(newSettings)
                     }}
                     className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
                       settings.aiProactiveMessage.mode === 'thinking'
@@ -668,8 +649,7 @@ const ChatSettings = () => {
                         interval: newInterval
                       }
                     }
-                    setSettings(newSettings)
-                    localStorage.setItem(`chat_settings_${id}`, JSON.stringify(newSettings))
+                    saveSettings(newSettings)
                   }}
                   className="w-full h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
                 />

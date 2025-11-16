@@ -107,6 +107,7 @@ export async function searchOnlineMusic(keyword: string, limit: number = 50): Pr
 /**
  * 获取歌曲播放URL
  * 注意：网易云音乐的部分歌曲可能有版权限制
+ * 生产环境会通过Cloudflare Worker代理，确保HTTPS
  */
 export async function getSongUrl(id: number): Promise<string | null> {
   try {
@@ -124,11 +125,9 @@ export async function getSongUrl(id: number): Promise<string | null> {
       })
     } else {
       // 生产环境：使用Cloudflare Worker
-      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/song/enhance/player/url`
+      apiUrl = `https://zhizhi-api.2373922440jhj.workers.dev/api/music/url`
       params = new URLSearchParams({
-        id: id.toString(),
-        ids: `[${id}]`,
-        br: '320000'
+        id: id.toString()
       })
     }
 
@@ -137,13 +136,24 @@ export async function getSongUrl(id: number): Promise<string | null> {
     })
 
     if (!response.ok) {
+      console.error('❌ 获取音乐URL失败:', response.status)
       return null
     }
 
     const data = await response.json()
+    console.log('🎵 获取到音乐URL:', data)
     
-    if (data.data && data.data.length > 0 && data.data[0].url) {
-      return data.data[0].url
+    if (isDev) {
+      // 开发环境：直接返回网易云URL
+      if (data.data && data.data.length > 0 && data.data[0].url) {
+        return data.data[0].url
+      }
+    } else {
+      // 生产环境：返回Worker代理的HTTPS URL
+      if (data.url) {
+        console.log('✅ 使用Worker代理URL:', data.url)
+        return data.url
+      }
     }
 
     return null

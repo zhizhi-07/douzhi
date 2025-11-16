@@ -25,14 +25,8 @@ export function cleanupOldMessages(): void {
       console.log(`  🗑️ 标记删除旧消息: ${key} (${(size / 1024).toFixed(2)} KB)`)
     }
     
-    // 清理以 chat_settings_ 开头的键（如果存在）
-    if (key.startsWith('chat_settings_')) {
-      const size = localStorage.getItem(key)?.length || 0
-      freedSpace += size
-      keysToRemove.push(key)
-      cleanedCount++
-      console.log(`  🗑️ 标记删除旧设置: ${key} (${(size / 1024).toFixed(2)} KB)`)
-    }
+    // ❌ 不要清理 chat_settings_，这是合法的聊天设置（包含消息条数、自动总结等配置）
+    // ❌ 不要清理气泡样式相关的键（user_bubble_*, ai_bubble_*）
     
     // 清理以 group_messages_ 开头的键（旧的群聊消息存储）
     if (key.startsWith('group_messages_')) {
@@ -113,8 +107,9 @@ export function emergencyCleanup(): void {
     const key = localStorage.key(i)
     if (!key) continue
     
-    // 清理所有 chat_messages_、chat_settings_ 和 group_messages_ 开头的键
-    if (key.startsWith('chat_messages_') || key.startsWith('chat_settings_') || key.startsWith('group_messages_')) {
+    // 清理所有 chat_messages_ 和 group_messages_ 开头的键
+    // ❌ 不清理 chat_settings_，这是合法的聊天设置
+    if (key.startsWith('chat_messages_') || key.startsWith('group_messages_')) {
       const size = localStorage.getItem(key)?.length || 0
       totalCleaned += size
       keysToRemove.push(key)
