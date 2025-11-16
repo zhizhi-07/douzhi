@@ -105,7 +105,33 @@ const ChatDetail = () => {
   useEffect(() => {
     return () => {
       if (id && messagesRef.current.length > 0) {
-        console.log(`💾 [ChatDetail] 组件卸载，保存 ${messagesRef.current.length} 条消息`)
+        console.log(`💾 [ChatDetail] 组件卸载，强制同步保存 ${messagesRef.current.length} 条消息`)
+        
+        // 🔥 关键修复：同步保存到localStorage，确保即使组件已销毁也能保存
+        try {
+          const backupKey = `msg_backup_${id}`
+          const cleanedMessages = messagesRef.current.map(msg => {
+            const cleaned = { ...msg }
+            // 移除不可序列化的属性
+            Object.keys(cleaned).forEach(key => {
+              const value = (cleaned as any)[key]
+              if (value instanceof Event || value instanceof Node || typeof value === 'function') {
+                delete (cleaned as any)[key]
+              }
+            })
+            return cleaned
+          })
+          
+          localStorage.setItem(backupKey, JSON.stringify({
+            messages: cleanedMessages,
+            timestamp: Date.now()
+          }))
+          console.log(`✅ [ChatDetail] 组件卸载，localStorage备份完成`)
+        } catch (e) {
+          console.error('❌ [ChatDetail] 组件卸载保存失败:', e)
+        }
+        
+        // 异步保存到IndexedDB（但可能来不及完成）
         saveMessages(id, messagesRef.current)
       }
     }

@@ -1109,10 +1109,38 @@ export const useChatAI = (
           
           console.log(`💬 [useChatAI] 准备保存AI消息, id=${aiMessage.id}, content="${messageContent.substring(0, 20)}"`)
           
-          // 🔥 直接保存消息到IndexedDB（不依赖React状态，确保即使组件卸载也能保存）
-          // addMessage会触发new-message事件，用于通知和未读标记
+          // 🔥 关键修复：先同步保存到localStorage备份，再异步保存到IndexedDB
+          try {
+            const backupKey = `msg_backup_${chatId}`
+            // 立即从React状态获取最新消息
+            const currentMessages = messages
+            const updatedMessages = [...currentMessages, aiMessage]
+            
+            // 清理不可序列化对象
+            const cleanedMessages = updatedMessages.map(msg => {
+              const cleaned = { ...msg }
+              Object.keys(cleaned).forEach(key => {
+                const value = (cleaned as any)[key]
+                if (value instanceof Event || value instanceof Node || typeof value === 'function') {
+                  delete (cleaned as any)[key]
+                }
+              })
+              return cleaned
+            })
+            
+            // 同步保存到localStorage
+            localStorage.setItem(backupKey, JSON.stringify({
+              messages: cleanedMessages,
+              timestamp: Date.now()
+            }))
+            console.log(`💾 [useChatAI] AI消息已同步备份到localStorage`)
+          } catch (e) {
+            console.error('❌ [useChatAI] localStorage备份失败:', e)
+          }
+          
+          // 异步保存到IndexedDB
           saveMessageToStorage(chatId, aiMessage)
-          console.log(`💾 [useChatAI] AI消息已保存到存储, id=${aiMessage.id}`)
+          console.log(`💾 [useChatAI] AI消息开始异步保存到IndexedDB, id=${aiMessage.id}`)
           
           // 同时更新React状态（如果组件还挂载，更新UI）
           setMessages(prev => {
