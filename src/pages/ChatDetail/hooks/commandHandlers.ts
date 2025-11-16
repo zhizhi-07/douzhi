@@ -1071,11 +1071,13 @@ export const coupleSpaceEndHandler: CommandHandler = {
  * 🔥 修复：支持缺少前括号的情况（AI有时会漏掉[）
  */
 export const quoteHandler: CommandHandler = {
-  // 🔥 修复：使用非贪婪匹配 [^\]】]+ 而不是 .+?，避免提前停止
-  pattern: /[\[【]?(?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?([^\]】]+?)["」』"'"]?|引用[:\：]\s*([^\]】]+)|回复[:\：]\s*([^\]】]+))[\]】]/,
+  // 🔥 新格式：[引用:关键词 回复:内容]
+  pattern: /\[引用[:\：]\s*(.+?)\s+回复[:\：]\s*(.+?)\]/,
   handler: async (match, content, { messages, character }) => {
-    // 从多个捕获组中找到非空的引用内容
-    const quoteRef = (match[1] || match[2] || match[3] || '').trim()
+    // 提取引用关键词和回复内容
+    const quoteRef = match[1].trim()
+    const replyContent = match[2].trim()
+    console.log('🔍 [quoteHandler] 开始处理引用指令:', { quoteRef, replyContent, fullMatch: match[0] })
     let quotedMsg: Message['quotedMessage'] | undefined
 
     // 🚫 屏蔽模糊引用指令：凡是包含“所有”“全部”“这些”等模糊词的引用，一律视为无效
@@ -1214,8 +1216,9 @@ export const quoteHandler: CommandHandler = {
       console.warn('⚠️ [quoteHandler] 未找到被引用的消息:', quoteRef)
     }
 
-    // 保留引用指令后的所有内容（不要trim，保持原样）
-    const remainingText = content.replace(match[0], '')
+    // 🔥 新格式：回复内容已经在指令里了，直接使用
+    // 移除引用指令，保留回复内容
+    const remainingText = content.replace(match[0], replyContent)
     return { 
       handled: true, 
       quotedMsg, 
@@ -2035,6 +2038,15 @@ export const changeAvatarHandler: CommandHandler = {
       // 使用生成时的提示词作为描述
       if (usedPrompt) {
         localStorage.setItem(`character_avatar_description_${character.id}`, usedPrompt)
+      }
+
+      // 🔥 同步更新情侣空间头像
+      const { getCoupleSpaceRelation } = await import('../../../utils/coupleSpaceUtils')
+      const relation = getCoupleSpaceRelation()
+      if (relation && relation.characterId === character.id && relation.status === 'active') {
+        relation.characterAvatar = newAvatar
+        localStorage.setItem('couple_space_relation', JSON.stringify(relation))
+        console.log('✅ [AI换头像] 已同步更新情侣空间头像')
       }
 
       // 刷新角色信息

@@ -69,8 +69,15 @@ const GlobalMessageMonitor = () => {
         lastRecordedId,
         messageType: lastMessage.type,
         messageSubType: lastMessage.messageType,
+        sceneMode: lastMessage.sceneMode,
         isNew: lastMessage.id !== lastRecordedId
       })
+      
+      // 🔥 过滤掉线下模式的消息
+      if (lastMessage.sceneMode === 'offline') {
+        console.log(`🔇 [GlobalMessageMonitor] 线下模式消息，跳过通知`)
+        return
+      }
       
       // 如果是新消息且是AI发的
       if (lastMessage.type === 'received' && 

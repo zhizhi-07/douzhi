@@ -325,34 +325,8 @@ const GroupChatDetail = () => {
       // 🔥 先从 groupChatManager 重新读取最新消息
       let latestMessages = groupChatManager.getMessages(id)
       
-      // 🔥 删除上一轮的AI回复（重新生成）
-      // 找到最后一条用户消息的索引
-      const lastUserMessageIndex = latestMessages.map((m, i) => ({ m, i }))
-        .reverse()
-        .find(({ m }) => m.userId === 'user')?.i
-      
-      if (lastUserMessageIndex !== undefined) {
-        // 删除这条用户消息之后的所有AI消息（但不删除系统消息）
-        const messagesToDelete = latestMessages.slice(lastUserMessageIndex + 1)
-          .filter(m => m.userId !== 'user' && m.userId !== 'system')
-        
-        if (messagesToDelete.length > 0) {
-          console.log(`🗑️ 删除上一轮的 ${messagesToDelete.length} 条AI消息`)
-          
-          // 从数组中移除这些消息
-          latestMessages = latestMessages.slice(0, lastUserMessageIndex + 1)
-          
-          // 🔥 真正从 IndexedDB 删除（覆盖保存）
-          groupChatManager.replaceAllMessages(id, latestMessages)
-          
-          // 使用flushSync同步更新UI
-          flushSync(() => {
-            setMessages(latestMessages)
-          })
-          
-          console.log(`✅ [AI回复] UI已同步更新，当前消息数: ${latestMessages.length}`)
-        }
-      }
+      // 🔥 不再删除上一轮的AI回复，直接接着聊
+      console.log(`📝 [AI回复] 接着当前对话继续，消息数: ${latestMessages.length}`)
       
       // 构建成员列表（包含角色和头衔）
       const members: GroupMember[] = group.memberIds.map(memberId => {
@@ -410,20 +384,22 @@ const GroupChatDetail = () => {
       const emojis = await getEmojis()
       console.log(`📦 加载了 ${emojis.length} 个表情包`)
       
-      // 🔥 获取最后一条用户消息作为触发事件
-      const lastUserMessage = latestMessages
-        .slice()
-        .reverse()
-        .find(msg => msg.userId === 'user')
+      // 🔥 获取最后一条消息作为触发事件
+      const lastMessage = latestMessages[latestMessages.length - 1]
       
       let triggerEvent = '（群里有点安静，AI们可以主动聊天）'
-      if (lastUserMessage) {
-        // 如果是表情包消息，标注出来
-        if (lastUserMessage.type === 'emoji' || lastUserMessage.emojiDescription || lastUserMessage.emojiUrl) {
-          const description = lastUserMessage.emojiDescription || lastUserMessage.content || '表情包'
-          triggerEvent = `[发送了表情包：${description}]`
+      if (lastMessage) {
+        if (lastMessage.userId === 'user') {
+          // 最后一条是用户消息，作为触发事件
+          if (lastMessage.type === 'emoji' || lastMessage.emojiDescription || lastMessage.emojiUrl) {
+            const description = lastMessage.emojiDescription || lastMessage.content || '表情包'
+            triggerEvent = `[发送了表情包：${description}]`
+          } else {
+            triggerEvent = lastMessage.content
+          }
         } else {
-          triggerEvent = lastUserMessage.content
+          // 最后一条是 AI 消息，让 AI 接着聊
+          triggerEvent = '（AI们接着刚才的话题继续聊）'
         }
       }
       
@@ -456,7 +432,8 @@ const GroupChatDetail = () => {
           emojis,
           group.announcement,
           parsedOldSummary || undefined,
-          minReplyCount
+          minReplyCount,
+          group.lorebookId  // 传递世界书ID
         )
       } else {
         // 🎬 无总结：正常生成剧本
@@ -470,7 +447,8 @@ const GroupChatDetail = () => {
           emojis,
           group.announcement,
           undefined,  // 不使用总结
-          minReplyCount
+          minReplyCount,
+          group.lorebookId  // 传递世界书ID
         )
       }
       
@@ -744,6 +722,11 @@ const GroupChatDetail = () => {
     setInputText('')
     setQuotedMessage(null)  // 清除引用
     setTimeout(scrollToBottom, 100)
+    
+    // 🔥 发送消息后自动触发 AI 回复
+    setTimeout(() => {
+      handleAIReply()
+    }, 200)
   }
 
   return (
@@ -1014,7 +997,15 @@ const GroupChatDetail = () => {
               type="text"
               value={inputText}
               onChange={handleInputChange}
-              onKeyPress={(e) => e.key === 'Enter' && !isAiTyping && handleSend()}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !isAiTyping) {
+                  if (inputText.trim()) {
+                    handleSend()  // 有文字：发送消息并触发 AI 回复
+                  } else {
+                    handleAIReply()  // 无文字：让 AI 自己继续聊
+                  }
+                }
+              }}
               placeholder={isAiTyping ? 'AI正在回复...' : '发送消息'}
               disabled={isAiTyping}
               className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0 disabled:opacity-50"

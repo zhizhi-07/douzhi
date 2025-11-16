@@ -30,10 +30,11 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
   useEffect(() => {
     const updateStatus = async () => {
       if (characterId && characterName) {
-        // 🔥 使用 getOrCreateAIStatus 确保状态存在且不过期
+        // 🔥 获取状态，如果没有则返回 null（不自动生成）
         const { getOrCreateAIStatus } = await import('../../../utils/aiStatusManager')
         const status = getOrCreateAIStatus(characterId, characterName)
-        setAiStatus(formatStatusShort(status))
+        // 如果有状态就显示，否则显示"在线"
+        setAiStatus(status ? formatStatusShort(status) : '在线')
         setFullStatus(status) // 保存完整状态
       }
     }
@@ -105,9 +106,14 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
             <h1 className="text-base font-semibold text-gray-900 truncate w-full text-left">
               {characterName}
             </h1>
-            <p className="text-xs text-gray-500 truncate w-full text-left" title={aiStatus}>
-              {isAiTyping ? '正在输入...' : (aiStatus || '在线')}
-            </p>
+            {/* 状态栏：绿色圆点 + 状态文字 */}
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate w-full">
+              {/* 绿色在线圆点（像QQ那样） */}
+              <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+              <span className="truncate" title={aiStatus}>
+                {isAiTyping ? '正在输入...' : aiStatus}
+              </span>
+            </div>
           </button>
         </div>
 

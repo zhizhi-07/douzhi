@@ -191,7 +191,13 @@ const FontCustomizer = () => {
       }
       document.body.style.fontFamily = customFont.family
     } else {
-      // 如果没有自定义字体，使用喵小九的喵作为默认字体
+      // 如果没有自定义字体，使用喵小九的喵作为默认字体，并更新状态
+      const defaultFontConfig = {
+        family: '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        url: '/fonts/喵小九的喵.ttf',
+        name: '喵小九的喵'
+      }
+      
       const style = document.createElement('style')
       style.textContent = `
         @font-face {
@@ -200,7 +206,11 @@ const FontCustomizer = () => {
         }
       `
       document.head.appendChild(style)
-      document.body.style.fontFamily = '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      document.body.style.fontFamily = defaultFontConfig.family
+      
+      // 🔥 更新状态，让页面显示当前使用的默认字体
+      setCustomFont(defaultFontConfig)
+      localStorage.setItem('custom_font', JSON.stringify(defaultFontConfig))
     }
   }, [])
 

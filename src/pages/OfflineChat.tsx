@@ -4,7 +4,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useChatState, useChatAI } from './ChatDetail/hooks'
 import OfflineMessageBubble from './ChatDetail/components/OfflineMessageBubble'
 
@@ -31,38 +31,63 @@ const OfflineChat = () => {
   const [showPresetMenu, setShowPresetMenu] = useState(false)
   const [presetList, setPresetList] = useState<Array<{name: string, content: string}>>([])
   const [activePreset, setActivePreset] = useState<string>('默认')
+  const [maxTokens, setMaxTokens] = useState<number>(2000)
   
   // 自动滚动
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatState.messages])
   
-  // 只显示线下模式的消息
-  const offlineMessages = chatState.messages.filter(m => m.sceneMode === 'offline')
+  // 只显示线下模式的消息（使用 useMemo 避免渲染时触发状态更新）
+  const offlineMessages = useMemo(() => 
+    chatState.messages.filter(m => m.sceneMode === 'offline'),
+    [chatState.messages]
+  )
   
   const handleSend = async () => {
     if (!inputValue.trim() || chatAI.isAiTyping) return
     
-    // 保存流式状态，供线下模式使用
+    // 保存流式状态和字数限制，供线下模式使用
     localStorage.setItem('offline-streaming', useStreaming.toString())
+    localStorage.setItem('offline-max-tokens', maxTokens.toString())
     
     // 发送用户消息
     chatAI.handleSend(inputValue, setInputValue, null, undefined, 'offline')
     setInputValue('')
     
-    // 触发AI回复
+    // 触发AI回复（传递 offline 场景模式）
     setTimeout(() => {
-      chatAI.handleAIReply()
+      chatAI.handleAIReply('offline')
     }, 100)
   }
   
   // 加载预设列表
   const loadPresets = useCallback(() => {
-    const stored = localStorage.getItem('offline-presets')
-    if (stored) {
+    const saved = localStorage.getItem('offline-presets')
+    if (saved) {
       try {
-        const presets = JSON.parse(stored)
-        setPresetList(presets)
+        const presets = JSON.parse(saved)
+        
+        // 🔥 去重：如果有重复名称，只保留最后一个
+        const uniquePresets = presets.reduce((acc: typeof presets, preset: any) => {
+          const existingIndex = acc.findIndex((p: any) => p.name === preset.name)
+          if (existingIndex !== -1) {
+            // 替换已存在的
+            acc[existingIndex] = preset
+          } else {
+            // 添加新的
+            acc.push(preset)
+          }
+          return acc
+        }, [])
+        
+        setPresetList(uniquePresets)
+        
+        // 如果去重后数量变化，更新 localStorage
+        if (uniquePresets.length !== presets.length) {
+          localStorage.setItem('offline-presets', JSON.stringify(uniquePresets))
+          console.log(`🧹 [预设去重] 从 ${presets.length} 个预设去重到 ${uniquePresets.length} 个`)
+        }
       } catch (e) {
         console.error('预设列表加载失败:', e)
       }
@@ -74,13 +99,43 @@ const OfflineChat = () => {
     const savedStreaming = localStorage.getItem('offline-streaming')
     if (savedStreaming === 'true') setUseStreaming(true)
     
-    const savedActive = localStorage.getItem('offline-active-preset')
-    if (savedActive) {
-      setActivePreset(savedActive)
-      setPresetName(savedActive)
+    const savedMaxTokens = localStorage.getItem('offline-max-tokens')
+    if (savedMaxTokens) {
+      const tokens = parseInt(savedMaxTokens)
+      setMaxTokens(tokens)
+      console.log(`📏 [页面加载] 恢复字数限制: ${tokens}`)
+    } else {
+      // 如果没有保存过，设置默认值并保存
+      localStorage.setItem('offline-max-tokens', '2000')
+      console.log(`📏 [页面加载] 设置默认字数限制: 2000`)
     }
     
+    // 🔥 先加载预设列表
     loadPresets()
+    
+    // 🔥 然后恢复激活的预设
+    const savedActive = localStorage.getItem('offline-active-preset')
+    if (savedActive && savedActive !== '默认') {
+      setActivePreset(savedActive)
+      setPresetName(savedActive)
+      
+      // 🔥 从预设列表中找到对应的预设内容并激活
+      const savedPresets = localStorage.getItem('offline-presets')
+      if (savedPresets) {
+        try {
+          const presets = JSON.parse(savedPresets)
+          const activePresetData = presets.find((p: any) => p.name === savedActive)
+          if (activePresetData) {
+            localStorage.setItem('offline-preset', activePresetData.content)
+          }
+        } catch (e) {
+          console.error('❌ [页面加载] 恢复预设失败:', e)
+        }
+      }
+    } else {
+      setActivePreset('默认')
+      setPresetName('默认')
+    }
   }, [loadPresets])
   
   // 处理预设上传
@@ -94,17 +149,34 @@ const OfflineChat = () => {
           const preset = JSON.parse(content)
           const presetName = preset.name || file.name.replace('.json', '')
           
-          // 添加到预设列表
-          const newPreset = { name: presetName, content }
-          const updatedList = [...presetList, newPreset]
+          // 🔥 检查是否已存在同名预设
+          const existingIndex = presetList.findIndex(p => p.name === presetName)
+          let updatedList: typeof presetList
+          
+          if (existingIndex !== -1) {
+            // 替换已存在的预设
+            updatedList = [...presetList]
+            updatedList[existingIndex] = { name: presetName, content }
+            alert(`预设「${presetName}」已更新并激活！`)
+          } else {
+            // 添加新预设
+            const newPreset = { name: presetName, content }
+            updatedList = [...presetList, newPreset]
+            alert(`预设「${presetName}」已上传并激活！`)
+          }
+          
           setPresetList(updatedList)
           
           // 保存到localStorage
           localStorage.setItem('offline-presets', JSON.stringify(updatedList))
           
-          console.log('✅ 预设已添加:', presetName)
+          // 🔥 自动激活刚上传的预设
+          localStorage.setItem('offline-preset', content)
+          localStorage.setItem('offline-active-preset', presetName)
+          setActivePreset(presetName)
+          setPresetName(presetName)
         } catch (error) {
-          console.error('预设解析失败:', error)
+          console.error('❌ [预设上传] 预设解析失败:', error)
           alert('预设文件格式错误')
         }
       }
@@ -123,14 +195,12 @@ const OfflineChat = () => {
       setActivePreset(presetName)
       setPresetName(presetName)
       setShowPresetMenu(false)
-      console.log('✅ 已切换到预设:', presetName)
     } else if (presetName === '默认') {
       localStorage.removeItem('offline-preset')
       localStorage.setItem('offline-active-preset', '默认')
       setActivePreset('默认')
       setPresetName('默认')
       setShowPresetMenu(false)
-      console.log('✅ 已切换到默认预设')
     }
   }
   

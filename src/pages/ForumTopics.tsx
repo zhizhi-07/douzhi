@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import StatusBar from '../components/StatusBar'
+import ForumLayout from '../components/ForumLayout'
 import { loadTopics, followTopic, unfollowTopic, loadFollows, saveTopics, getTopicPosts } from '../utils/forumManager'
 import { generateTopicPosts, generateMockTopicContent } from '../utils/forumAIEcosystem'
 import type { ForumTopic } from '../types/forum'
@@ -93,30 +93,7 @@ const ForumTopics = () => {
   }
 
   return (
-    <div className="h-screen overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
-      {/* 顶部状态栏和导航 */}
-      <div className="sticky top-0 z-10" style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
-        <StatusBar />
-        <div className="px-4 py-3 flex items-center justify-between border-b border-black/5">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="flex-1 text-center text-base font-semibold text-gray-800">话题</h1>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="text-sm font-medium text-gray-700"
-          >
-            创建
-          </button>
-        </div>
-      </div>
-
-      {/* 主内容区 */}
+    <ForumLayout>
       <div className="p-4 pb-20">
         {topics.map((topic) => (
           <div
@@ -250,7 +227,7 @@ const ForumTopics = () => {
           </div>
         </div>
       )}
-    </div>
+    </ForumLayout>
   )
 }
 

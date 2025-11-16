@@ -86,7 +86,7 @@ function App() {
     initSoundSystem()
   }, [])
   
-  // 🎨 加载自定义字体
+  // 🎨 加载字体（自定义或系统默认）
   useEffect(() => {
     const customFont = localStorage.getItem('custom_font')
     if (customFont) {
@@ -117,6 +117,23 @@ function App() {
       } catch (err) {
         console.error('❌ 加载字体失败:', err)
       }
+    } else {
+      // 🔥 没有自定义字体时，加载系统默认字体"喵小九的喵"
+      const style = document.createElement('style')
+      style.textContent = `
+        @font-face {
+          font-family: '喵小九的喵';
+          src: url('/fonts/喵小九的喵.ttf');
+        }
+      `
+      document.head.appendChild(style)
+      
+      // 应用默认字体
+      setTimeout(() => {
+        document.body.style.fontFamily = '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }, 100)
+      
+      console.log('✅ 已加载系统默认字体：喵小九的喵')
     }
   }, [])
   

@@ -150,31 +150,15 @@ export function generateDefaultStatus(characterId: string, characterName: string
 }
 
 /**
- * 获取或生成AI状态
- * 🔥 改进：检查状态是否符合当前时间段，不符合则重新生成
+ * 获取AI状态（不自动生成）
+ * 🔥 修改：不再自动生成默认状态，让AI自己决定状态
  */
-export function getOrCreateAIStatus(characterId: string, characterName: string): AIStatus {
-  let status = getAIStatus(characterId)
-  const now = Date.now()
-
-  // 如果没有状态，生成新的
+export function getOrCreateAIStatus(characterId: string, characterName: string): AIStatus | null {
+  const status = getAIStatus(characterId)
+  
+  // 如果没有状态，返回 null，不自动生成
   if (!status) {
-    status = generateDefaultStatus(characterId, characterName)
-    setAIStatus(status)
-    return status
-  }
-
-  // 检查状态是否太旧（超过30分钟）
-  const isOld = now - status.updatedAt > 30 * 60 * 1000
-
-  // 检查状态是否符合当前时间段
-  const isTimeAppropriate = checkStatusTimeAppropriate(status)
-
-  // 如果状态太旧或不符合当前时间段，重新生成
-  if (isOld || !isTimeAppropriate) {
-    console.log(`💫 [AI状态] 状态${isOld ? '太旧' : '不符合当前时间'}，重新生成`)
-    status = generateDefaultStatus(characterId, characterName)
-    setAIStatus(status)
+    return null
   }
 
   return status

@@ -567,9 +567,11 @@ const ChatDetail = () => {
               </div>
             )}
 
-            {chatState.messages.map((message, index) => {
+            {chatState.messages
+              .filter(m => m.sceneMode !== 'offline')  // 🔥 过滤掉线下模式的消息
+              .map((message, index) => {
           // 获取过滤后的消息列表用于计算时间戳
-          const visibleMessages = chatState.messages
+          const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline')
           // 判断是否需要显示5分钟时间戳（固定时间刻度）
           const prevMsg = visibleMessages[index - 1]
           let shouldShow5MinTimestamp = false

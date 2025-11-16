@@ -40,7 +40,8 @@ function buildGroupChatPrompt(
   emojis: Emoji[] = [],
   announcement?: string,
   summary?: GroupChatSummary,  // 总结（可选）
-  minReplyCount: number = 10  // 最少回复条数
+  minReplyCount: number = 10,  // 最少回复条数
+  lorebookContext?: string  // 世界书上下文
 ): string {
   // 构建详细的时间信息
   const now = new Date()
@@ -210,15 +211,23 @@ ${aiMembersInfo}
 
 ${(() => {
   // 根据每个角色的groupChatSync设置，收集可以同步的私信
+  console.log(`🔍 [群聊同步] 开始检查 ${aiMembers.length} 个AI成员的群聊同步设置`)
+  
   const syncedPrivateChats = aiMembers.filter(member => {
     // 读取该角色的聊天设置
     const settingsStr = localStorage.getItem(`chat_settings_${member.id}`)
-    if (!settingsStr) return false
+    if (!settingsStr) {
+      console.log(`⚠️ [群聊同步] ${member.name} (${member.id}) 没有聊天设置`)
+      return false
+    }
     
     try {
       const settings = JSON.parse(settingsStr)
-      return settings.groupChatSync?.enabled === true
-    } catch {
+      const enabled = settings.groupChatSync?.enabled === true
+      console.log(`${enabled ? '✅' : '❌'} [群聊同步] ${member.name} (${member.id}) 群聊同步: ${enabled ? '已开启' : '未开启'}`)
+      return enabled
+    } catch (e) {
+      console.error(`❌ [群聊同步] ${member.name} (${member.id}) 设置解析失败:`, e)
       return false
     }
   }).map(member => {
@@ -234,11 +243,15 @@ ${(() => {
     
     // 加载该成员与用户的私信
     const privateMsgs = loadMessages(member.id) || []
+    console.log(`📚 [群聊同步] ${member.name} (${member.id}) 的私信记录: ${privateMsgs.length} 条`)
     const recentPrivateMsgs = privateMsgs.slice(-messageCount)
     
     if (recentPrivateMsgs.length === 0) {
+      console.log(`⚠️ [群聊同步] ${member.name} 没有私信记录`)
       return `**${member.name}** 与用户的私信：（暂无私信记录）`
     }
+    
+    console.log(`✅ [群聊同步] ${member.name} 同步最近 ${recentPrivateMsgs.length} 条私信`)
     
     const chatLog = recentPrivateMsgs.map(msg => {
       const sender = msg.type === 'sent' ? '用户' : member.name
@@ -373,6 +386,17 @@ ${aiMembers.map(m => `- **${m.name}**：${m.description.split('。')[0]}。`).jo
 - 可以偶尔爆粗或互怼来体现性格，但不要每一句话都变成纯粹的骂战，让对话听起来既有火花又不至于只有情绪没有内容
 - 同一角色前后情绪可以有波动，但整体性格和立场不能变
 
+${lorebookContext ? `
+---
+## 【世界书信息】（背景知识和设定）
+
+${lorebookContext}
+
+💡 提示：这些是世界观和背景设定，请在对话中自然地体现，角色会根据这些设定来行动和说话。
+
+---
+` : ''}
+
 现在请按三步创作法输出 JSON，只输出 JSON，不要其他内容！
 `;
 }
@@ -388,10 +412,30 @@ export async function generateGroupChatReply(
   emojis: Emoji[] = [],
   announcement?: string,
   summary?: GroupChatSummary,  // 总结（可选）
-  minReplyCount: number = 10  // 最少回复条数（默认10条）
+  minReplyCount: number = 10,  // 最少回复条数（默认10条）
+  lorebookId?: string  // 挂载的世界书ID
 ): Promise<GroupChatScript | null> {
   try {
     console.log('🎬 开始生成群聊回复...')
+
+    // 🔥 读取世界书上下文
+    let lorebookContext = ''
+    if (lorebookId) {
+      const { lorebookManager } = await import('./lorebookSystem')
+      const recentText = messages.slice(-10).map(m => m.content).join('\n')
+      lorebookContext = lorebookManager.buildContext(
+        '', // 群聊没有单一角色ID
+        recentText,
+        2000,
+        '',
+        '用户',
+        undefined,
+        lorebookId  // 直接传入世界书ID
+      )
+      if (lorebookContext) {
+        console.log('📚 [群聊] 已注入世界书上下文')
+      }
+    }
 
     // 🔥 输出AI接收到的聊天记录
     console.group('📋 [群聊导演] AI读取的聊天记录')
@@ -420,7 +464,7 @@ export async function generateGroupChatReply(
     console.groupEnd()
 
     // 构建提示词
-    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary, minReplyCount)
+    const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary, minReplyCount, lorebookContext)
 
     // 🔥 输出完整提示词
     console.group('🤖 [群聊导演] 完整AI提示词')

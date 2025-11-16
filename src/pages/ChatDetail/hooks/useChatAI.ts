@@ -106,16 +106,19 @@ export const useChatAI = (
       // 检查AI是否拉黑了用户
       const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
       
+      // 🔥 清理 quotedMessage，只保留可序列化的字段
+      const cleanQuotedMessage = quotedMessage ? {
+        id: quotedMessage.id,
+        content: quotedMessage.content || quotedMessage.voiceText || quotedMessage.photoDescription || '...',
+        senderName: quotedMessage.type === 'sent' ? '我' : (character?.realName || 'AI'),
+        type: quotedMessage.type
+      } : undefined
+      
       const userMessage: Message = {
         ...createMessage(inputValue, 'sent'),
         blockedByReceiver: isUserBlocked,
         sceneMode: sceneMode || 'online',  // 添加场景模式
-        quotedMessage: quotedMessage ? {
-          id: quotedMessage.id,
-          content: quotedMessage.content || quotedMessage.voiceText || quotedMessage.photoDescription || '...',
-          senderName: quotedMessage.type === 'sent' ? '我' : (character?.realName || 'AI'),
-          type: quotedMessage.type
-        } : undefined
+        quotedMessage: cleanQuotedMessage
       }
       
       console.log('📤 [handleSend] 发送消息:', {
@@ -162,8 +165,9 @@ export const useChatAI = (
 
   /**
    * 处理AI回复
+   * @param forceSceneMode 强制指定场景模式（用于线下模式）
    */
-  const handleAIReply = useCallback(async () => {
+  const handleAIReply = useCallback(async (forceSceneMode?: 'online' | 'offline') => {
     if (!character) {
       setError('角色不存在')
       return
@@ -209,15 +213,17 @@ export const useChatAI = (
       // 而不是从存储重新加载（IndexedDB 写入可能有延迟）
       const allMessages = messages
       
-      // 检查最后一条消息的场景模式
-      const lastUserMessage = allMessages.filter(m => m.type === 'sent').pop()
-      const currentSceneMode = lastUserMessage?.sceneMode || 'online'
-      console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}`)
+      // 检查最后一条消息的场景模式（优先使用强制指定的模式）
+      const currentSceneMode = forceSceneMode || (allMessages.filter(m => m.type === 'sent').pop()?.sceneMode || 'online')
+      console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}${forceSceneMode ? ' (强制指定)' : ''}`)
       
       // 根据场景模式选择提示词
-      let systemPrompt = currentSceneMode === 'offline'
-        ? await buildOfflinePrompt(character)
-        : await buildSystemPrompt(character, '用户', messages)
+      let systemPrompt: string
+      if (currentSceneMode === 'offline') {
+        systemPrompt = await buildOfflinePrompt(character)
+      } else {
+        systemPrompt = await buildSystemPrompt(character, '用户', messages)
+      }
       
       // 🔥 注入世界书上下文（基于关键词触发）
       if (character) {
@@ -471,19 +477,29 @@ export const useChatAI = (
           setMessages(prev => [...prev, tempMessage])
           
           try {
+            let chunkCount = 0
             while (true) {
               const { done, value } = await reader.read()
               
-              if (done) break
+              if (done) {
+                console.log(`🏁 [流式] 读取完成，共处理 ${chunkCount} 个数据块`)
+                break
+              }
               
+              chunkCount++
               const chunk = decoder.decode(value, { stream: true })
+              console.log(`📦 [流式] 收到数据块 #${chunkCount}，大小: ${chunk.length}`)
+              
               const lines = chunk.split('\n')
               
               for (const line of lines) {
                 if (line.startsWith('data: ')) {
                   const data = line.slice(6)
                   
-                  if (data === '[DONE]') continue
+                  if (data === '[DONE]') {
+                    console.log('🏁 [流式] 收到 [DONE] 信号')
+                    continue
+                  }
                   
                   try {
                     const parsed = JSON.parse(data)
@@ -499,15 +515,21 @@ export const useChatAI = (
                           : m
                       ))
                     }
+                    
+                    // 检查是否有 finish_reason
+                    const finishReason = parsed.choices?.[0]?.finish_reason
+                    if (finishReason) {
+                      console.log(`🛑 [流式] 收到停止信号: ${finishReason}`)
+                    }
                   } catch (e) {
-                    // 忽略解析错误
+                    console.warn('⚠️ [流式] 解析错误:', e, '原始数据:', data.substring(0, 100))
                   }
                 }
               }
             }
             
             aiReply = accumulatedText
-            console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length)
+            console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')
             
             // 保存到IndexedDB
             setTimeout(() => {
@@ -770,11 +792,73 @@ export const useChatAI = (
       const messageWithoutAvatar = removeAvatarDescriptionCommand(messageAfterDelete)
       
       // 再解析朋友圈互动指令
-      const { interactions, cleanedMessage } = parseMomentsInteractions(messageWithoutAvatar, aiName, aiId)
+      const { interactions, cleanedMessage: messageAfterMoments } = parseMomentsInteractions(messageWithoutAvatar, aiName, aiId)
 
       console.log('🔍 [朋友圈互动解析] 原始消息:', messageWithoutAvatar)
-      console.log('🔍 [朋友圈互动解析] 清理后消息:', cleanedMessage)
+      console.log('🔍 [朋友圈互动解析] 清理后消息:', messageAfterMoments)
       console.log('🔍 [朋友圈互动解析] 互动数量:', interactions.length)
+      
+      // 🔥 清理思维链和 HTML 标签（支持预设自定义正则）
+      console.log('📥 [AI原始输出] ==================')
+      console.log(messageAfterMoments)
+      console.log('==================')
+      
+      let cleanedMessage = messageAfterMoments
+      
+      try {
+        // 检查预设是否有自定义的正则过滤规则
+        const customPreset = localStorage.getItem('offline-preset')
+        let hasCustomRegex = false
+        
+        if (customPreset && currentSceneMode === 'offline') {
+          try {
+            const preset = JSON.parse(customPreset)
+            
+            // 支持 SillyTavern 的 regex_scripts 字段
+            if (preset.regex_scripts && Array.isArray(preset.regex_scripts)) {
+              console.log(`🔧 [正则过滤] 预设包含 ${preset.regex_scripts.length} 个正则规则`)
+              
+              for (const script of preset.regex_scripts) {
+                if (!script.enabled) continue
+                
+                try {
+                  // SillyTavern 格式：{ find_regex: "...", replace_string: "...", flags: "gi" }
+                  const flags = script.flags || 'gi'
+                  const regex = new RegExp(script.find_regex, flags)
+                  const replacement = script.replace_string || ''
+                  
+                  const before = cleanedMessage.length
+                  cleanedMessage = cleanedMessage.replace(regex, replacement)
+                  const after = cleanedMessage.length
+                  
+                  console.log(`✅ [正则过滤] 应用规则: ${script.script_name || '未命名'}, 长度变化: ${before} -> ${after}`)
+                  hasCustomRegex = true
+                } catch (e) {
+                  console.error(`❌ [正则过滤] 规则应用失败: ${script.script_name}`, e)
+                }
+              }
+            }
+          } catch (e) {
+            console.error('❌ [正则过滤] 预设解析失败:', e)
+          }
+        }
+        
+        // 如果没有自定义正则，不做任何清理（保留原始输出）
+        if (!hasCustomRegex) {
+          console.log('💡 [清理] 预设没有正则规则，保留原始输出')
+        } else {
+          // 移除多余的空行（仅在使用自定义正则时执行）
+          cleanedMessage = cleanedMessage.replace(/\n{3,}/g, '\n\n').trim()
+        }
+        
+        console.log('🧹 [清理] 最终清理后长度:', cleanedMessage.length)
+        console.log('📤 [清理后输出] ==================')
+        console.log(cleanedMessage)
+        console.log('==================')
+      } catch (e) {
+        console.error('❌ [清理] 清理过程出错，使用原始消息:', e)
+        cleanedMessage = messageAfterMoments
+      }
 
       // 🔥 提取并保存AI状态更新
       const { extractStatusFromReply, setAIStatus } = await import('../../../utils/aiStatusManager')
@@ -825,14 +909,18 @@ export const useChatAI = (
             })
             console.log(`💾 [朋友圈互动] 系统消息已保存到IndexedDB: ${systemContent}`)
             
-            // 显示通知弹窗
-            showNotification(
-              chatId,
-              result.aiName,
-              notificationMessage,
-              character?.avatar || '🤖'
-            )
-            console.log(`🔔 [朋友圈互动] 通知已显示: ${notificationMessage}`)
+            // 🔥 只在线上模式显示通知弹窗，线下模式不显示
+            if (currentSceneMode !== 'offline') {
+              showNotification(
+                chatId,
+                result.aiName,
+                notificationMessage,
+                character?.avatar || '🤖'
+              )
+              console.log(`🔔 [朋友圈互动] 通知已显示: ${notificationMessage}`)
+            } else {
+              console.log(`🔇 [朋友圈互动] 线下模式，跳过通知显示`)
+            }
           }
         }
       }

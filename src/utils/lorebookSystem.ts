@@ -582,9 +582,18 @@ class LorebookManager {
     maxTokens: number = 2000,
     characterName: string = '',
     userName: string = '你',
-    character?: any
+    character?: any,
+    lorebookId?: string  // 🔥 可选：直接指定世界书ID（用于群聊）
   ): string {
-    const lorebooks = this.getCharacterLorebooks(characterId)
+    // 🔥 如果指定了 lorebookId，只使用该世界书
+    let lorebooks: Lorebook[]
+    if (lorebookId) {
+      const lorebook = this.getLorebook(lorebookId)
+      lorebooks = lorebook ? [lorebook] : []
+    } else {
+      lorebooks = this.getCharacterLorebooks(characterId)
+    }
+    
     if (lorebooks.length === 0) return ''
 
     const allTriggered: LorebookEntry[] = []

@@ -367,9 +367,6 @@ const PresetManager = () => {
         >
           导入预设
         </button>
-        <div className="text-xs text-gray-500 text-center">
-          💡 预设只在线下模式中生效 · 支持 SillyTavern 格式
-        </div>
       </div>
     </div>
   )

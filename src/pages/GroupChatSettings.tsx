@@ -8,6 +8,7 @@ import StatusBar from '../components/StatusBar'
 import { groupChatManager } from '../utils/groupChatManager'
 import { characterService } from '../services/characterService'
 import { formatSummaryForDisplay } from '../utils/groupChatSummary'
+import { lorebookManager } from '../utils/lorebookSystem'
 
 const GroupChatSettings = () => {
   const navigate = useNavigate()
@@ -24,6 +25,8 @@ const GroupChatSettings = () => {
   const [smartSummaryInterval, setSmartSummaryInterval] = useState(10)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
   const [minReplyCount, setMinReplyCount] = useState(10)
+  const [selectedLorebookId, setSelectedLorebookId] = useState<string | undefined>(undefined)
+  const [availableLorebooks, setAvailableLorebooks] = useState<Array<{id: string, name: string}>>([])
 
   useEffect(() => {
     if (!id) return
@@ -34,6 +37,12 @@ const GroupChatSettings = () => {
       setSmartSummaryEnabled(group.smartSummary?.enabled || false)
       setSmartSummaryInterval(group.smartSummary?.triggerInterval || 10)
       setMinReplyCount(group.minReplyCount || 10)
+      setSelectedLorebookId(group.lorebookId)
+      
+      // 加载世界书列表
+      const lorebooks = lorebookManager.getAllLorebooks()
+      setAvailableLorebooks(lorebooks.map(lb => ({ id: lb.id, name: lb.name })))
+      
       // 加载成员信息
       const memberList = group.memberIds.map(memberId => {
         if (memberId === 'user') {
@@ -360,6 +369,37 @@ const GroupChatSettings = () => {
           <p className="text-xs text-gray-500">
             💡 提示：设置较大值会增加一次对话API消耗，但能获得更丰富的群聊体验
           </p>
+        </div>
+
+        {/* 挂载世界书 */}
+        <div className="bg-white rounded-2xl p-4">
+          <div className="mb-3">
+            <p className="text-sm font-medium text-gray-900">挂载世界书</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              为群聊挂载全局世界书，AI会根据关键词自动读取相关设定
+            </p>
+          </div>
+          <select
+            value={selectedLorebookId || ''}
+            onChange={(e) => {
+              const newId = e.target.value || undefined
+              setSelectedLorebookId(newId)
+              if (id) {
+                groupChatManager.updateGroup(id, { lorebookId: newId })
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-gray-900"
+          >
+            <option value="">不挂载世界书</option>
+            {availableLorebooks.map(lb => (
+              <option key={lb.id} value={lb.id}>{lb.name}</option>
+            ))}
+          </select>
+          {availableLorebooks.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              暂无可用的世界书，请先在世界书管理中创建
+            </p>
+          )}
         </div>
 
         {/* 置顶聊天 */}

@@ -354,7 +354,7 @@ const MusicPlayer = () => {
 
       {/* 主内容区 */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-8 overflow-y-auto">
-        {/* 头像显示 - 在唱片上方 */}
+        {/* 头像显示 - 在唱片上方，始终显示 */}
         <div className="flex flex-col items-center mb-6">
           {listeningTogether ? (
             // 一起听模式：显示两个头像
@@ -386,16 +386,18 @@ const MusicPlayer = () => {
               </div>
             </>
           ) : (
-            // 普通模式：只显示一个用户头像
-            <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
-              {getUserInfo().avatar ? (
-                <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
-                  我
-                </div>
-              )}
-            </div>
+            // 普通模式：始终显示用户头像
+            <>
+              <div className="w-20 h-20 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
+                {getUserInfo().avatar ? (
+                  <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-medium">
+                    我
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
         

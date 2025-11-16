@@ -24,6 +24,7 @@ export interface GroupChat {
   lastMessageTime?: string
   announcement?: string  // 群公告
   minReplyCount?: number  // AI每次回复的最少消息条数（默认10条）
+  lorebookId?: string  // 挂载的世界书ID（全局世界书）
   smartSummary?: {
     enabled: boolean  // 是否启用智能总结
     triggerInterval?: number  // 每隔多少轮对话触发一次总结（默认10轮）

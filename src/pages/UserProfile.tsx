@@ -7,6 +7,7 @@ import { useState, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
+import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
 
 const UserProfile = () => {
   const navigate = useNavigate()
@@ -62,6 +63,17 @@ const UserProfile = () => {
     // 保存用户信息
     saveUserInfo(finalUserInfo)
     
+    // 🔥 追踪用户信息变更（用于提示词生成）
+    if (nicknameChanged) {
+      trackNicknameChange(finalUserInfo.nickname)
+    }
+    if (signatureChanged && finalUserInfo.signature) {
+      trackSignatureChange(finalUserInfo.signature)
+    }
+    if (oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar) {
+      trackAvatarChange(finalUserInfo.avatar)
+    }
+    
     // 如果有修改，通知所有活跃的AI
     if (nicknameChanged || signatureChanged) {
       notifyAIAboutUserInfoChange(nicknameChanged, signatureChanged, oldUserInfo, finalUserInfo)
@@ -109,7 +121,7 @@ const UserProfile = () => {
           
           // 创建系统提示消息
           const systemMessage = {
-            id: `system_${Date.now()}_${Math.random()}`,
+            id: Date.now(),
             type: 'system' as const,
             messageType: 'system' as const,
             content: `${newInfo.nickname || newInfo.realName} 修改了个人信息`,
