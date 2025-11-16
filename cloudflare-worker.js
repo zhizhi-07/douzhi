@@ -58,7 +58,7 @@ async function handleRequest(request) {
 }
 
 /**
- * 搜索音乐
+ * 搜索音乐 - 使用第三方API (api.vkeys.cn)
  */
 async function handleSearch(url) {
   const keyword = url.searchParams.get('keyword')
@@ -69,16 +69,40 @@ async function handleSearch(url) {
     })
   }
 
-  const searchUrl = `${NETEASE_API_BASE}/search/get/web?s=${encodeURIComponent(keyword)}&type=1&offset=0&limit=50`
+  // 使用第三方API
+  const searchUrl = `https://api.vkeys.cn/v2/music/netease?word=${encodeURIComponent(keyword)}`
   
   const response = await fetch(searchUrl, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://music.163.com/'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
   })
 
   const data = await response.json()
+  
+  // 转换为网易云格式
+  if (data.code === 200 && data.data && Array.isArray(data.data)) {
+    // vkeys API返回的data直接是歌曲数组，需要转换成网易云格式
+    const songs = data.data.map(song => ({
+      id: song.id,
+      name: song.song || song.name,
+      artists: [{ name: song.singer || song.artists || song.歌手 || '' }],
+      album: {
+        name: song.album || song.专辑 || '',
+        picUrl: song.cover || song.封面 || ''
+      },
+      duration: 0,
+      fee: 0
+    }))
+    
+    return new Response(JSON.stringify({
+      result: {
+        songs: songs
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
   
   return new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -86,7 +110,7 @@ async function handleSearch(url) {
 }
 
 /**
- * 获取音乐播放URL（新接口，返回代理URL）
+ * 获取音乐播放URL - 使用 api.injahow.cn
  */
 async function handleMusicUrl(url) {
   const id = url.searchParams.get('id')
@@ -97,40 +121,26 @@ async function handleMusicUrl(url) {
     })
   }
 
-  // 获取网易云音乐URL
-  const musicUrl = `${NETEASE_API_BASE}/song/enhance/player/url?id=${id}&ids=[${id}]&br=320000`
-  
-  const response = await fetch(musicUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://music.163.com/'
-    }
-  })
-
-  const data = await response.json()
-  
-  // 如果获取到URL，返回代理URL
-  if (data.data && data.data.length > 0 && data.data[0].url) {
-    const originalUrl = data.data[0].url
+  try {
+    // 直接用网易云 ID 获取播放链接
+    // 这个接口返回的是 302 重定向到真实音频 URL，我们直接用这个 URL
+    const apiUrl = `https://api.injahow.cn/meting/?type=url&id=${id}&source=netease`
     
-    // 如果是HTTP，通过Worker代理转为HTTPS
-    if (originalUrl.startsWith('http://')) {
-      const proxyUrl = `${url.origin}/proxy/${encodeURIComponent(originalUrl)}`
-      return new Response(JSON.stringify({ url: proxyUrl }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+    // 直接返回这个 URL（它会自动重定向到真实的音频文件）
+    return new Response(JSON.stringify({ url: apiUrl }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
     
-    // 如果已经是HTTPS，直接返回
-    return new Response(JSON.stringify({ url: originalUrl }), {
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      error: '无法获取播放链接',
+      message: error.message,
+      apiUrl: `https://api.injahow.cn/meting/?type=url&id=${id}&source=netease`
+    }), {
+      status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-
-  return new Response(JSON.stringify({ error: '无法获取播放链接' }), {
-    status: 404,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  })
 }
 
 /**

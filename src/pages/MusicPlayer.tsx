@@ -348,27 +348,37 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-20 overflow-y-auto">
-        {/* 一起听头像显示 - 在唱片上方 */}
-        {listeningTogether && (
-          <div className="flex flex-col items-center mb-6">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden">
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
-                  我
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start p-4 pt-8 overflow-y-auto">
+        {/* 头像显示 - 在唱片上方 */}
+        <div className="flex flex-col items-center mb-6">
+          {listeningTogether ? (
+            // 一起听模式：显示两个头像
+            <>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
+                    我
+                  </div>
+                </div>
+                <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-6">
+                  <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
+                    {listeningTogether.character?.avatar || listeningTogether.character?.realName?.[0] || 'AI'}
+                  </div>
                 </div>
               </div>
-              <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-6">
-                <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
-                  {listeningTogether.character?.avatar || listeningTogether.character?.realName?.[0] || 'AI'}
-                </div>
+              <div className="text-sm text-gray-600">
+                一起听了 <span className="font-medium text-gray-900">{listeningDuration}</span>
+              </div>
+            </>
+          ) : (
+            // 普通模式：只显示一个用户头像
+            <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
+              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
+                我
               </div>
             </div>
-            <div className="text-sm text-gray-600">
-              一起听了 <span className="font-medium text-gray-900">{listeningDuration}</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* 唱片封面和歌词容器 */}
         <div className="relative mb-6 w-48 h-48 flex items-center justify-center">

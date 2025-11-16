@@ -23,7 +23,7 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
   const getStatusDisplay = () => {
     if (isPaid) return { text: '已支付', color: 'text-green-600', bg: 'bg-green-50' }
     if (isRejected) return { text: '已拒绝', color: 'text-gray-500', bg: 'bg-gray-50' }
-    if (isPending) return { text: '待确认', color: 'text-orange-600', bg: 'bg-orange-50' }
+    if (isPending && isAIPayment) return { text: '待确认', color: 'text-orange-600', bg: 'bg-orange-50' }
     return { text: '', color: '', bg: '' }
   }
 
@@ -31,9 +31,6 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
 
   return (
     <div className="max-w-[280px] bg-white rounded-2xl shadow-md overflow-hidden">
-      {/* 顶部橙色条 - 美团风格 */}
-      <div className="h-1 bg-gradient-to-r from-orange-400 to-yellow-400"></div>
-      
       {/* 主体内容 */}
       <div className="p-4">
         {/* 标题栏 */}

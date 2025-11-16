@@ -141,8 +141,13 @@ export const usePaymentRequest = (
       itemName,
       amount,
       paymentMethod,
-      status
+      status,
+      '最终状态': status === 'pending' ? '待确认' : status === 'paid' ? '已支付' : '已拒绝'
     })
+    
+    if (paymentMethod === 'ai' && status !== 'pending') {
+      console.error('⚠️ [代付错误] AI代付的状态应该是pending，但实际是:', status)
+    }
   }, [chatId, characterId, characterName, setMessages])
 
   /**

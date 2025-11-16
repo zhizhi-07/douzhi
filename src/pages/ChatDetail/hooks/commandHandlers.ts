@@ -1580,10 +1580,77 @@ export const statusHandler: CommandHandler = {
  */
 export const musicInviteHandler: CommandHandler = {
   pattern: /[\[【]一起听[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
-  handler: async (match, content, { setMessages, character, chatId, isBlocked }) => {
+  handler: async (match, content, { setMessages, character, chatId, isBlocked, messages }) => {
     const songTitle = match[1].trim()
     const songArtist = match[2].trim()
-    
+
+    // 1️⃣ 先检查是否已经有用户发出的待处理一起听邀请
+    const pendingUserInvite = messages
+      .slice()
+      .reverse()
+      .find(msg =>
+        msg.type === 'sent' &&
+        (msg as any).musicInvite &&
+        (msg as any).musicInvite.status === 'pending'
+      ) as Message | undefined
+
+    if (pendingUserInvite && (pendingUserInvite as any).musicInvite) {
+      // ✅ 用户已经发过一起听卡片：AI 此时不再发送新卡，而是当作“接受邀请”
+
+      // 更新邀请状态
+      setMessages(prev => {
+        const updated = prev.map(msg =>
+          msg.id === pendingUserInvite.id
+            ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'accepted' as const } }
+            : msg
+        )
+        saveMessages(chatId, updated)
+        console.log('💾 [音乐邀请接受-来自指令] 已保存到IndexedDB')
+        return updated
+      })
+
+      const inviteData = (pendingUserInvite as any).musicInvite
+
+      // 保存一起听状态到 localStorage
+      if (inviteData && chatId) {
+        localStorage.setItem('listening_together', JSON.stringify({
+          characterId: chatId,
+          songTitle: inviteData.songTitle,
+          songArtist: inviteData.songArtist,
+          startTime: Date.now()
+        }))
+      }
+
+      // 系统提示：AI 已加入一起听
+      const systemMsg: Message = {
+        id: Date.now() + Math.random(),
+        type: 'system',
+        content: `${character?.nickname || character?.realName}已加入一起听`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      }
+
+      setMessages(prev => [...prev, systemMsg])
+
+      // 触发播放器切歌
+      window.dispatchEvent(
+        new CustomEvent('change-song', {
+          detail: {
+            songTitle: inviteData.songTitle,
+            songArtist: inviteData.songArtist
+          }
+        })
+      )
+
+      const remainingTextAfterAccept = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText: remainingTextAfterAccept,
+        skipTextMessage: !remainingTextAfterAccept
+      }
+    }
+
+    // 2️⃣ 没有用户发出的邀请时，AI 正常发送一起听卡片
     const musicInviteMsg: Message = {
       id: Date.now() + Math.random(),
       type: 'received',
@@ -1600,15 +1667,14 @@ export const musicInviteHandler: CommandHandler = {
       },
       blockedByReceiver: isBlocked
     }
-    
-    // 🔥 手动保存到IndexedDB
+
     setMessages(prev => {
       const updated = [...prev, musicInviteMsg]
       saveMessages(chatId, updated)
       console.log('💾 [音乐邀请] 已保存到IndexedDB')
       return updated
     })
-    
+
     const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
@@ -1733,57 +1799,45 @@ export const changeSongHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     const songTitle = match[1].trim()
     const songArtist = match[2].trim()
-    
-    // 检查是否正在一起听
-    const listeningData = localStorage.getItem('listening_together')
-    if (!listeningData) {
-      return { handled: false }
+
+    // 无论当前是否在一起听，直接更新一起听状态并切歌
+    const listeningState = {
+      characterId: chatId,
+      songTitle,
+      songArtist,
+      startTime: Date.now(),
+      changedAt: Date.now()
     }
-    
-    try {
-      const data = JSON.parse(listeningData)
-      if (data.characterId !== chatId) {
-        return { handled: false }
-      }
-      
-      // 更新一起听状态
-      localStorage.setItem('listening_together', JSON.stringify({
-        ...data,
-        songTitle,
-        songArtist,
-        changedAt: Date.now()
-      }))
-      
-      // 触发播放器更新事件
-      window.dispatchEvent(new CustomEvent('change-song', {
+    localStorage.setItem('listening_together', JSON.stringify(listeningState))
+
+    // 触发播放器更新事件（MusicPlayerContext 会负责搜索+获取 URL+播放）
+    window.dispatchEvent(
+      new CustomEvent('change-song', {
         detail: { songTitle, songArtist }
-      }))
-      
-      // 发送系统消息
-      const systemMsg: Message = {
-        id: Date.now() + Math.random(),
-        type: 'system',
-        content: `${character?.nickname || character?.realName}切换歌曲为《${songTitle}》- ${songArtist}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: Date.now()
-      }
-      
-      setMessages(prev => {
-        const updated = [...prev, systemMsg]
-        // 保存到IndexedDB
-        saveMessages(chatId, updated)
-        console.log('💾 [切歌] 系统消息已保存到IndexedDB')
-        return updated
       })
-      
-      const remainingText = content.replace(match[0], '').trim()
-      return {
-        handled: true,
-        remainingText,
-        skipTextMessage: !remainingText
-      }
-    } catch (e) {
-      return { handled: false }
+    )
+
+    // 发送系统消息
+    const systemMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'system',
+      content: `${character?.nickname || character?.realName}切换歌曲为《${songTitle}》- ${songArtist}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
+    }
+
+    setMessages(prev => {
+      const updated = [...prev, systemMsg]
+      saveMessages(chatId, updated)
+      console.log('💾 [切歌] 系统消息已保存到IndexedDB')
+      return updated
+    })
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
     }
   }
 }
@@ -2008,6 +2062,118 @@ export const changeAvatarHandler: CommandHandler = {
 }
 
 /**
+ * 代付：AI同意代付
+ */
+export const acceptPaymentHandler: CommandHandler = {
+  pattern: /[\[【]同意代付[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('💰 [同意代付] 处理器被调用')
+    
+    // 查找最近的待确认代付请求
+    const pendingPayment = messages.slice().reverse().find(msg => 
+      msg.type === 'sent' && 
+      msg.messageType === 'paymentRequest' &&
+      msg.paymentRequest?.status === 'pending' &&
+      msg.paymentRequest?.paymentMethod === 'ai'
+    )
+    
+    if (!pendingPayment || !pendingPayment.paymentRequest) {
+      console.warn('⚠️ [同意代付] 未找到待确认的代付请求')
+      return { handled: false }
+    }
+    
+    console.log('✅ [同意代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
+    
+    // 更新代付状态为已支付
+    setMessages(prev => {
+      const updated = prev.map(msg => 
+        msg.id === pendingPayment.id && msg.paymentRequest
+          ? { ...msg, paymentRequest: { ...msg.paymentRequest, status: 'paid' as const } }
+          : msg
+      )
+      
+      // 添加系统消息
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `${character?.nickname || character?.realName || 'AI'} 已代付 ${pendingPayment.paymentRequest!.itemName} ¥${pendingPayment.paymentRequest!.amount.toFixed(2)}`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+      
+      const finalUpdated = [...updated, systemMsg]
+      saveMessages(chatId, finalUpdated)
+      console.log('💾 [同意代付] 已保存到IndexedDB')
+      return finalUpdated
+    })
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * 代付：AI拒绝代付
+ */
+export const rejectPaymentHandler: CommandHandler = {
+  pattern: /[\[【]拒绝代付[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('💰 [拒绝代付] 处理器被调用')
+    
+    // 查找最近的待确认代付请求
+    const pendingPayment = messages.slice().reverse().find(msg => 
+      msg.type === 'sent' && 
+      msg.messageType === 'paymentRequest' &&
+      msg.paymentRequest?.status === 'pending' &&
+      msg.paymentRequest?.paymentMethod === 'ai'
+    )
+    
+    if (!pendingPayment || !pendingPayment.paymentRequest) {
+      console.warn('⚠️ [拒绝代付] 未找到待确认的代付请求')
+      return { handled: false }
+    }
+    
+    console.log('❌ [拒绝代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
+    
+    // 更新代付状态为已拒绝
+    setMessages(prev => {
+      const updated = prev.map(msg => 
+        msg.id === pendingPayment.id && msg.paymentRequest
+          ? { ...msg, paymentRequest: { ...msg.paymentRequest, status: 'rejected' as const } }
+          : msg
+      )
+      
+      // 添加系统消息
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `${character?.nickname || character?.realName || 'AI'} 拒绝了代付请求`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+      
+      const finalUpdated = [...updated, systemMsg]
+      saveMessages(chatId, finalUpdated)
+      console.log('💾 [拒绝代付] 已保存到IndexedDB')
+      return finalUpdated
+    })
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -2017,6 +2183,8 @@ export const commandHandlers: CommandHandler[] = [
   intimatePayHandler,
   acceptIntimatePayHandler,
   rejectIntimatePayHandler,
+  acceptPaymentHandler,  // AI同意代付
+  rejectPaymentHandler,  // AI拒绝代付
   videoCallHandler,
   endCallHandler,
   aiMuteHandler,  // AI静音

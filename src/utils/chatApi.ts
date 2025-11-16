@@ -707,6 +707,10 @@ ${localStorage.getItem('listening_together')
 - 拉黑：[拉黑用户]
 - 解除：[解除拉黑]
 
+### 💰 代付
+- 同意代付：[同意代付]
+- 拒绝代付：[拒绝代付]
+
 ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
