@@ -4,6 +4,7 @@ import StatusBar from '../components/StatusBar'
 import DynamicIsland from '../components/DynamicIsland'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
 import { characterService } from '../services/characterService'
+import { getUserInfo } from '../utils/userUtils'
 
 interface Song {
   id: number
@@ -359,15 +360,25 @@ const MusicPlayer = () => {
             // 一起听模式：显示两个头像
             <>
               <div className="flex items-center justify-center gap-2 mb-2">
+                {/* 用户头像 */}
                 <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
-                    我
-                  </div>
+                  {getUserInfo().avatar ? (
+                    <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
+                      我
+                    </div>
+                  )}
                 </div>
+                {/* AI头像 */}
                 <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-6">
-                  <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
-                    {listeningTogether.character?.avatar || listeningTogether.character?.realName?.[0] || 'AI'}
-                  </div>
+                  {listeningTogether.character?.avatar ? (
+                    <img src={listeningTogether.character.avatar} alt={listeningTogether.character.realName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
+                      {listeningTogether.character?.realName?.[0] || 'AI'}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-sm text-gray-600">
@@ -377,9 +388,13 @@ const MusicPlayer = () => {
           ) : (
             // 普通模式：只显示一个用户头像
             <div className="w-16 h-16 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
-                我
-              </div>
+              {getUserInfo().avatar ? (
+                <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
+                  我
+                </div>
+              )}
             </div>
           )}
         </div>
