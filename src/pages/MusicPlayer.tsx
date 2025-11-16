@@ -50,6 +50,10 @@ const MusicPlayer = () => {
       const listeningData = localStorage.getItem('listening_together')
       if (listeningData) {
         const data = JSON.parse(listeningData)
+        // 🔥 每次更新时重新获取最新的角色信息（包括头像）
+        const character = characterService.getById(data.characterId)
+        setListeningTogether({ ...data, character })
+        
         const startTime = data.startTime || Date.now()
         const elapsed = Math.floor((Date.now() - startTime) / 1000)
         

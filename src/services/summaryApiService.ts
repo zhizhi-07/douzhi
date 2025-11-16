@@ -11,12 +11,19 @@ export interface SummaryApiConfig {
   provider: 'google' | 'openai' | 'claude' | 'siliconflow' | 'custom'
 }
 
-// 默认副API配置 - 硅基流动（便宜且快速）
+// 默认副API配置已移除，用户需要自行配置
+// 示例配置格式：
+// {
+//   baseUrl: 'https://your-api-endpoint.com/v1',
+//   apiKey: 'your-api-key',
+//   model: 'your-model-name',
+//   provider: 'openai' // 或 'google', 'claude', 'siliconflow', 'custom'
+// }
 const defaultSummaryApi: SummaryApiConfig = {
-  baseUrl: 'https://api.siliconflow.cn/v1',
-  apiKey: 'sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm',
-  model: 'deepseek-ai/DeepSeek-V3',
-  provider: 'siliconflow'
+  baseUrl: '',
+  apiKey: '',
+  model: '',
+  provider: 'custom'
 }
 
 export const summaryApiService = {

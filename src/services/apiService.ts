@@ -14,82 +14,23 @@ export interface ApiConfig {
   supportsVision?: boolean  // 是否支持视觉识别（图片理解）
 }
 
-// 内置API配置 - 九班AI（主力）
-const jiubanApiConfig: ApiConfig = {
-  id: 'default-jiuban',
-  name: '九班AI (Gemini 2.5 Pro)',
-  baseUrl: 'https://gy.jiubanai.com/v1',
-  apiKey: 'sk-NqOuYUHhjx8qWOjZCdA34XTMvJ7PXsxoHRQLNQDg3xyMYfJk',
-  model: 'gemini-2.5-pro',
-  provider: 'openai',
-  temperature: 0.7,
-  maxTokens: 8000,
-  createdAt: new Date().toISOString(),
-  isBuiltIn: true,
-  supportsVision: true  // Gemini支持视觉识别
-}
+// 内置API配置已移除，用户需要自行配置
+// 示例配置格式：
+// {
+//   id: 'your-api-id',
+//   name: '你的API名称',
+//   baseUrl: 'https://your-api-endpoint.com/v1',
+//   apiKey: 'your-api-key',
+//   model: 'your-model-name',
+//   provider: 'openai', // 或 'google', 'claude', 'siliconflow', 'custom'
+//   temperature: 0.7,
+//   maxTokens: 8000,
+//   createdAt: new Date().toISOString(),
+//   isBuiltIn: false,
+//   supportsVision: false
+// }
 
-// 内置API配置 - HiAPI
-const hiApiConfig: ApiConfig = {
-  id: 'default-hiapi',
-  name: 'HiAPI (Gemini 2.5 Pro)',
-  baseUrl: 'https://hiapi.online/v1',
-  apiKey: 'sk-D3TeNLaMBIYW9QN4AguxWucHo4zTWRhcr4V1EZ3OaVTPSjSB',
-  model: 'gemini-2.5-pro',
-  provider: 'openai',
-  temperature: 0.7,
-  maxTokens: 8000,
-  createdAt: new Date().toISOString(),
-  isBuiltIn: true,
-  supportsVision: true  // Gemini支持视觉识别
-}
-
-// 内置API配置 - Gemini反代
-const geminiProxyConfig: ApiConfig = {
-  id: 'default-gemini-proxy',
-  name: 'Gemini 反代（备用）',
-  baseUrl: 'https://zhizhi-ai.netlify.app/.netlify/functions/gemini-proxy',
-  apiKey: 'not-needed',
-  model: 'gemini-2.5-pro',
-  provider: 'google',
-  temperature: 0.7,
-  maxTokens: 8000,
-  createdAt: new Date().toISOString(),
-  isBuiltIn: true,
-  supportsVision: true  // Gemini支持视觉识别
-}
-
-// 内置API配置 - 硅基流动（备用）
-const siliconflowApiConfig: ApiConfig = {
-  id: 'default-siliconflow',
-  name: '硅基流动（备用）',
-  baseUrl: 'https://api.siliconflow.cn/v1',
-  apiKey: 'sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm',
-  model: 'deepseek-ai/DeepSeek-V3',
-  provider: 'siliconflow',
-  temperature: 0.7,
-  maxTokens: 8000,
-  createdAt: new Date().toISOString(),
-  isBuiltIn: true,
-  supportsVision: false  // DeepSeek不支持视觉识别
-}
-
-// 内置API配置 - 小许API（满血版）
-const xiaoxuApiConfig: ApiConfig = {
-  id: 'default-xiaoxu',
-  name: '小许API (Gemini 2.5 Pro 满血250w上下文)',
-  baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
-  apiKey: 'sk-Er01efzo3v3670tvF17KFTEu37mWnYAfzLSq4uDbqEZRXqJA',
-  model: 'gemini-2.5-pro(满血250w上下文cli1)',
-  provider: 'custom',
-  temperature: 0.7,
-  maxTokens: 8000,
-  createdAt: new Date().toISOString(),
-  isBuiltIn: true,
-  supportsVision: true  // Gemini支持视觉识别
-}
-
-const BUILT_IN_CONFIGS = [xiaoxuApiConfig, jiubanApiConfig, hiApiConfig, geminiProxyConfig, siliconflowApiConfig]
+const BUILT_IN_CONFIGS: ApiConfig[] = []
 
 export const apiService = {
   // 获取所有API配置
@@ -117,7 +58,12 @@ export const apiService = {
   // 获取当前API配置ID
   getCurrentId: (): string => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_API_ID)
-    return saved || 'default-xiaoxu'
+    // 如果没有保存的配置，返回第一个可用配置的ID
+    if (!saved) {
+      const configs = apiService.getAll()
+      return configs.length > 0 ? configs[0].id : ''
+    }
+    return saved
   },
 
   // 设置当前API配置

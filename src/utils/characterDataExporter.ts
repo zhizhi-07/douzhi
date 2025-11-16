@@ -38,6 +38,8 @@ export interface ExportedCharacterData {
   coupleSpace?: any  // 情侣空间数据
   intimatePay?: any  // 亲密付数据
   listeningTogether?: any  // 一起听数据
+  customSongs?: any[]  // 自定义歌曲列表
+  musicBackground?: any  // 音乐播放器背景
 }
 
 /**
@@ -144,7 +146,32 @@ export async function exportCharacterData(characterId: string): Promise<Exported
       console.warn('获取一起听数据失败:', e)
     }
     
-    // 12. 构建导出数据
+    // 12. 获取自定义歌曲列表
+    let customSongs = null
+    try {
+      const songsData = localStorage.getItem('customSongs')
+      if (songsData) {
+        customSongs = JSON.parse(songsData)
+        console.log('✅ 自定义歌曲:', customSongs.length, '首')
+      }
+    } catch (e) {
+      console.warn('获取自定义歌曲失败:', e)
+    }
+    
+    // 13. 获取音乐播放器背景
+    let musicBackground = null
+    try {
+      const bgUrl = localStorage.getItem('musicPlayerBackground')
+      const bgType = localStorage.getItem('musicPlayerBackgroundType')
+      if (bgUrl) {
+        musicBackground = { url: bgUrl, type: bgType }
+        console.log('✅ 音乐播放器背景')
+      }
+    } catch (e) {
+      console.warn('获取音乐背景失败:', e)
+    }
+    
+    // 14. 构建导出数据
     const exportData: ExportedCharacterData = {
       version: '1.0.0',
       exportDate: Date.now(),
@@ -158,7 +185,9 @@ export async function exportCharacterData(characterId: string): Promise<Exported
       emojis,
       coupleSpace,
       intimatePay,
-      listeningTogether
+      listeningTogether,
+      customSongs,
+      musicBackground
     }
     
     console.log('✅ 数据导出完成')
@@ -272,7 +301,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
       console.log('✅ 世界书已导入:', jsonData.lorebook.entries.length, '条')
     }
     
-    // 导入表情包（如果有）
+    // 8. 导入表情包（如果有）
     if (jsonData.emojis && Array.isArray(jsonData.emojis) && jsonData.emojis.length > 0) {
       // 🔥 修复：使用 emojiStorage 的 API，自动使用 IndexedDB 避免 localStorage 配额问题
       const { getEmojis, saveEmojis } = await import('./emojiStorage')
@@ -288,6 +317,39 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
         const updatedEmojis = [...existingEmojis, ...newEmojis]
         await saveEmojis(updatedEmojis)
         console.log('✅ 表情包已导入到IndexedDB:', newEmojis.length, '个新表情包')
+      }
+    }
+    
+    // 9. 导入自定义歌曲列表（如果有）
+    if (jsonData.customSongs && Array.isArray(jsonData.customSongs) && jsonData.customSongs.length > 0) {
+      try {
+        const existingSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
+        // 合并歌曲列表，根据 id 去重
+        const newSongs = jsonData.customSongs.filter(song => 
+          !existingSongs.some((existing: any) => existing.id === song.id)
+        )
+        if (newSongs.length > 0) {
+          const updatedSongs = [...existingSongs, ...newSongs]
+          localStorage.setItem('customSongs', JSON.stringify(updatedSongs))
+          console.log('✅ 自定义歌曲已导入:', newSongs.length, '首')
+        }
+      } catch (e) {
+        console.warn('自定义歌曲导入失败:', e)
+      }
+    }
+    
+    // 10. 导入音乐播放器背景（如果有）
+    if (jsonData.musicBackground) {
+      try {
+        if (jsonData.musicBackground.url) {
+          localStorage.setItem('musicPlayerBackground', jsonData.musicBackground.url)
+          if (jsonData.musicBackground.type) {
+            localStorage.setItem('musicPlayerBackgroundType', jsonData.musicBackground.type)
+          }
+          console.log('✅ 音乐播放器背景已导入')
+        }
+      } catch (e) {
+        console.warn('音乐背景导入失败:', e)
       }
     }
     
