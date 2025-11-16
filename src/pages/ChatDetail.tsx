@@ -110,22 +110,39 @@ const ChatDetail = () => {
         // 🔥 关键修复：同步保存到localStorage，确保即使组件已销毁也能保存
         try {
           const backupKey = `msg_backup_${id}`
-          const cleanedMessages = messagesRef.current.map(msg => {
-            const cleaned = { ...msg }
-            // 移除不可序列化的属性
-            Object.keys(cleaned).forEach(key => {
-              const value = (cleaned as any)[key]
-              if (value instanceof Event || value instanceof Node || typeof value === 'function') {
-                delete (cleaned as any)[key]
+          
+          // 🔥 使用强制序列化，过滤掉所有循环引用和不可序列化对象
+          const seen = new WeakSet()
+          const backupData = {
+            messages: messagesRef.current,
+            timestamp: Date.now()
+          }
+          
+          const jsonString = JSON.stringify(backupData, (_key, value) => {
+            // 过滤掉不可序列化的对象
+            if (typeof value === 'object' && value !== null) {
+              // 跳过 DOM 元素、Window、Document 等
+              if (value instanceof Node || value instanceof Window || value instanceof Document) {
+                return undefined
               }
-            })
-            return cleaned
+              // 跳过 Event 对象
+              if (value instanceof Event) {
+                return undefined
+              }
+              // 检测循环引用
+              if (seen.has(value)) {
+                return undefined
+              }
+              seen.add(value)
+            }
+            // 跳过函数
+            if (typeof value === 'function') {
+              return undefined
+            }
+            return value
           })
           
-          localStorage.setItem(backupKey, JSON.stringify({
-            messages: cleanedMessages,
-            timestamp: Date.now()
-          }))
+          localStorage.setItem(backupKey, jsonString)
           console.log(`✅ [ChatDetail] 组件卸载，localStorage备份完成`)
         } catch (e) {
           console.error('❌ [ChatDetail] 组件卸载保存失败:', e)

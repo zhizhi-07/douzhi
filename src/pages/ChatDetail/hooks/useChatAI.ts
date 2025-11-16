@@ -1124,24 +1124,39 @@ export const useChatAI = (
             
             console.log(`🔍 [useChatAI调试] 准备保存，当前消息数=${currentMessages.length}, 加上AI消息后=${updatedMessages.length}`)
             
-            // 清理不可序列化对象
-            const cleanedMessages = updatedMessages.map(msg => {
-              const cleaned = { ...msg }
-              Object.keys(cleaned).forEach(key => {
-                const value = (cleaned as any)[key]
-                if (value instanceof Event || value instanceof Node || typeof value === 'function') {
-                  delete (cleaned as any)[key]
+            // 🔥 使用强制序列化，过滤掉所有循环引用和不可序列化对象
+            const seen = new WeakSet()
+            const backupData = {
+              messages: updatedMessages,
+              timestamp: Date.now()
+            }
+            
+            const jsonString = JSON.stringify(backupData, (_key, value) => {
+              // 过滤掉不可序列化的对象
+              if (typeof value === 'object' && value !== null) {
+                // 跳过 DOM 元素、Window、Document 等
+                if (value instanceof Node || value instanceof Window || value instanceof Document) {
+                  return undefined
                 }
-              })
-              return cleaned
+                // 跳过 Event 对象
+                if (value instanceof Event) {
+                  return undefined
+                }
+                // 检测循环引用
+                if (seen.has(value)) {
+                  return undefined
+                }
+                seen.add(value)
+              }
+              // 跳过函数
+              if (typeof value === 'function') {
+                return undefined
+              }
+              return value
             })
             
             // 同步保存到localStorage
-            const backupData = {
-              messages: cleanedMessages,
-              timestamp: Date.now()
-            }
-            localStorage.setItem(backupKey, JSON.stringify(backupData))
+            localStorage.setItem(backupKey, jsonString)
             
             // 验证是否真的保存成功
             const verification = localStorage.getItem(backupKey)
