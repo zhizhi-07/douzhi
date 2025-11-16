@@ -127,9 +127,46 @@ export const useChatAI = (
         blocked: isUserBlocked
       })
       
-      // 🔥 直接保存到IndexedDB
+      // 🔥 关键修复：用户消息也要立即同步备份到localStorage
+      try {
+        const backupKey = `msg_backup_${chatId}`
+        const currentMessages = messages
+        const updatedMessages = [...currentMessages, userMessage]
+        
+        const seen = new WeakSet()
+        const backupData = {
+          messages: updatedMessages,
+          timestamp: Date.now()
+        }
+        
+        const jsonString = JSON.stringify(backupData, (_key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (value instanceof Node || value instanceof Window || value instanceof Document) {
+              return undefined
+            }
+            if (value instanceof Event) {
+              return undefined
+            }
+            if (seen.has(value)) {
+              return undefined
+            }
+            seen.add(value)
+          }
+          if (typeof value === 'function') {
+            return undefined
+          }
+          return value
+        })
+        
+        localStorage.setItem(backupKey, jsonString)
+        console.log(`✅ [handleSend] 用户消息已同步备份到localStorage`)
+      } catch (e) {
+        console.error('❌ [handleSend] localStorage备份失败:', e)
+      }
+      
+      // 异步保存到IndexedDB
       saveMessageToStorage(chatId, userMessage)
-      console.log(`💾 [handleSend] 用户消息已保存到存储, id=${userMessage.id}`)
+      console.log(`💾 [handleSend] 用户消息开始异步保存到IndexedDB, id=${userMessage.id}`)
       
       // 更新React状态（更新UI）
       setMessages(prev => {
