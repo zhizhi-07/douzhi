@@ -127,46 +127,8 @@ export const useChatAI = (
         blocked: isUserBlocked
       })
       
-      // 🔥 关键修复：用户消息也要立即同步备份到localStorage
-      try {
-        const backupKey = `msg_backup_${chatId}`
-        const currentMessages = messages
-        const updatedMessages = [...currentMessages, userMessage]
-        
-        const seen = new WeakSet()
-        const backupData = {
-          messages: updatedMessages,
-          timestamp: Date.now()
-        }
-        
-        const jsonString = JSON.stringify(backupData, (_key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (value instanceof Node || value instanceof Window || value instanceof Document) {
-              return undefined
-            }
-            if (value instanceof Event) {
-              return undefined
-            }
-            if (seen.has(value)) {
-              return undefined
-            }
-            seen.add(value)
-          }
-          if (typeof value === 'function') {
-            return undefined
-          }
-          return value
-        })
-        
-        localStorage.setItem(backupKey, jsonString)
-        console.log(`✅ [handleSend] 用户消息已同步备份到localStorage`)
-      } catch (e) {
-        console.error('❌ [handleSend] localStorage备份失败:', e)
-      }
-      
-      // 异步保存到IndexedDB
+      // 保存用户消息（addMessage内部会自动备份到localStorage）
       saveMessageToStorage(chatId, userMessage)
-      console.log(`💾 [handleSend] 用户消息开始异步保存到IndexedDB, id=${userMessage.id}`)
       
       // 更新React状态（更新UI）
       setMessages(prev => {
@@ -1149,66 +1111,8 @@ export const useChatAI = (
           
           await new Promise(resolve => setTimeout(resolve, voiceDelay))
           
-          console.log(`💬 [useChatAI] 准备保存AI消息, id=${aiMessage.id}, content="${messageContent.substring(0, 20)}"`)
-          
-          // 🔥 关键修复：先同步保存到localStorage备份，再异步保存到IndexedDB
-          try {
-            const backupKey = `msg_backup_${chatId}`
-            // 立即从React状态获取最新消息
-            const currentMessages = messages
-            const updatedMessages = [...currentMessages, aiMessage]
-            
-            console.log(`🔍 [useChatAI调试] 准备保存，当前消息数=${currentMessages.length}, 加上AI消息后=${updatedMessages.length}`)
-            
-            // 🔥 使用强制序列化，过滤掉所有循环引用和不可序列化对象
-            const seen = new WeakSet()
-            const backupData = {
-              messages: updatedMessages,
-              timestamp: Date.now()
-            }
-            
-            const jsonString = JSON.stringify(backupData, (_key, value) => {
-              // 过滤掉不可序列化的对象
-              if (typeof value === 'object' && value !== null) {
-                // 跳过 DOM 元素、Window、Document 等
-                if (value instanceof Node || value instanceof Window || value instanceof Document) {
-                  return undefined
-                }
-                // 跳过 Event 对象
-                if (value instanceof Event) {
-                  return undefined
-                }
-                // 检测循环引用
-                if (seen.has(value)) {
-                  return undefined
-                }
-                seen.add(value)
-              }
-              // 跳过函数
-              if (typeof value === 'function') {
-                return undefined
-              }
-              return value
-            })
-            
-            // 同步保存到localStorage
-            localStorage.setItem(backupKey, jsonString)
-            
-            // 验证是否真的保存成功
-            const verification = localStorage.getItem(backupKey)
-            if (verification) {
-              const parsed = JSON.parse(verification)
-              console.log(`✅ [useChatAI] AI消息已同步备份到localStorage，共${parsed.messages.length}条`)
-            } else {
-              console.error('❌ [useChatAI] localStorage备份验证失败！数据可能没保存')
-            }
-          } catch (e) {
-            console.error('❌ [useChatAI] localStorage备份失败:', e)
-          }
-          
-          // 异步保存到IndexedDB
+          // 保存AI消息（addMessage内部会自动备份到localStorage）
           saveMessageToStorage(chatId, aiMessage)
-          console.log(`💾 [useChatAI] AI消息开始异步保存到IndexedDB, id=${aiMessage.id}`)
           
           // 同时更新React状态（如果组件还挂载，更新UI）
           setMessages(prev => {
@@ -1236,48 +1140,7 @@ export const useChatAI = (
     } finally {
       setIsAiTyping(false)
       ;(window as any).__AI_REPLYING__ = false
-      console.log('✅ [AI回复] 结束，清除全局标志')
-      
-      // 🔥 关键修复：AI回复完全结束后，强制备份当前最新状态（包括纯指令消息的情况）
-      try {
-        const backupKey = `msg_backup_${chatId}`
-        
-        // 🔥 从IndexedDB/缓存获取最新消息，而不是用过时的messages参数
-        const { ensureMessagesLoaded } = await import('../../../utils/simpleMessageManager')
-        const latestMessages = await ensureMessagesLoaded(chatId)
-        
-        console.log(`🔍 [AI回复结束] 准备备份，最新消息数=${latestMessages.length}`)
-        
-        const seen = new WeakSet()
-        const backupData = {
-          messages: latestMessages, // 使用最新的消息列表
-          timestamp: Date.now()
-        }
-        
-        const jsonString = JSON.stringify(backupData, (_key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (value instanceof Node || value instanceof Window || value instanceof Document) {
-              return undefined
-            }
-            if (value instanceof Event) {
-              return undefined
-            }
-            if (seen.has(value)) {
-              return undefined
-            }
-            seen.add(value)
-          }
-          if (typeof value === 'function') {
-            return undefined
-          }
-          return value
-        })
-        
-        localStorage.setItem(backupKey, jsonString)
-        console.log(`✅ [AI回复结束] 强制备份完成，共${latestMessages.length}条消息`)
-      } catch (e) {
-        console.error('❌ [AI回复结束] 备份失败:', e)
-      }
+      console.log('✅ [AI回复] 结束')
       
       // 自动总结逻辑
       try {

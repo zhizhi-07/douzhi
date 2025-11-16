@@ -431,35 +431,52 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
-  // 🔥 关键修复：异步确保消息已加载，防止覆盖历史消息
+  // 🔥 立即同步备份到localStorage（最高优先级，确保不丢失）
+  try {
+    const backupKey = `msg_backup_${chatId}`
+    const cachedMessages = messageCache.get(chatId) || []
+    const updatedMessages = [...cachedMessages, message]
+    
+    const seen = new WeakSet()
+    const jsonString = JSON.stringify({
+      messages: updatedMessages,
+      timestamp: Date.now()
+    }, (_key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
+          return undefined
+        }
+        if (seen.has(value)) return undefined
+        seen.add(value)
+      }
+      if (typeof value === 'function') return undefined
+      return value
+    })
+    
+    localStorage.setItem(backupKey, jsonString)
+    console.log(`💾 [addMessage] 立即备份: chatId=${chatId}, messageId=${message.id}`)
+  } catch (e) {
+    console.error('❌ [addMessage] 备份失败:', e)
+  }
+  
+  // 异步保存到IndexedDB（可以慢慢来）
   ensureMessagesLoaded(chatId).then(messages => {
-    // 🔥 检查消息是否已存在
     const existingIndex = messages.findIndex(m => m.id === message.id)
     
     let newMessages: Message[]
     if (existingIndex !== -1) {
-      // 消息已存在，更新它（保留voiceUrl等字段）
-      if (import.meta.env.DEV) {
-        console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
-      }
       newMessages = [...messages]
       newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
     } else {
-      // 新消息，添加
       newMessages = [...messages, message]
-      
-      // 触发事件通知（仅新消息）
       window.dispatchEvent(new CustomEvent('new-message', {
         detail: { chatId, message }
       }))
-      if (import.meta.env.DEV) {
-        console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
-      }
     }
     
     saveMessages(chatId, newMessages)
   }).catch(error => {
-    console.error('❌ [addMessage] 添加消息失败:', error)
+    console.error('❌ [addMessage] IndexedDB保存失败:', error)
   })
 }
 
