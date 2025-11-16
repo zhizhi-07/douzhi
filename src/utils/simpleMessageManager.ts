@@ -324,59 +324,64 @@ export function saveMessages(chatId: string, messages: Message[]): void {
 /**
  * 添加一条消息（立即保存）
  * 如果消息已存在，则更新它
+ * 
+ * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
-  const messages = loadMessages(chatId)
-  
-  // 🔥 检查消息是否已存在
-  const existingIndex = messages.findIndex(m => m.id === message.id)
-  
-  let newMessages: Message[]
-  if (existingIndex !== -1) {
-    // 消息已存在，更新它（保留voiceUrl等字段）
-    if (import.meta.env.DEV) {
-      console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
-    }
-    newMessages = [...messages]
-    newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
-  } else {
-    // 新消息，添加
-    newMessages = [...messages, message]
+  // 🔥 关键修复：异步确保消息已加载，防止覆盖历史消息
+  ensureMessagesLoaded(chatId).then(messages => {
+    // 🔥 检查消息是否已存在
+    const existingIndex = messages.findIndex(m => m.id === message.id)
     
-    // 触发事件通知（仅新消息）
-    window.dispatchEvent(new CustomEvent('new-message', {
-      detail: { chatId, message }
-    }))
-    if (import.meta.env.DEV) {
-      console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
+    let newMessages: Message[]
+    if (existingIndex !== -1) {
+      // 消息已存在，更新它（保留voiceUrl等字段）
+      if (import.meta.env.DEV) {
+        console.log(`🔄 [addMessage] 更新已存在的消息: id=${message.id}`)
+      }
+      newMessages = [...messages]
+      newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+    } else {
+      // 新消息，添加
+      newMessages = [...messages, message]
+      
+      // 触发事件通知（仅新消息）
+      window.dispatchEvent(new CustomEvent('new-message', {
+        detail: { chatId, message }
+      }))
+      if (import.meta.env.DEV) {
+        console.log(`📡 触发new-message事件: chatId=${chatId}, messageId=${message.id}`)
+      }
     }
-  }
-  
-  saveMessages(chatId, newMessages)
+    
+    saveMessages(chatId, newMessages)
+  }).catch(error => {
+    console.error('❌ [addMessage] 添加消息失败:', error)
+  })
 }
 
 /**
  * 删除一条消息（永久删除）
  */
 export function deleteMessage(chatId: string, messageId: number): void {
-  try {
-    const messages = loadMessages(chatId)
+  // 🔥 关键修复：异步确保消息已加载，防止误删
+  ensureMessagesLoaded(chatId).then(messages => {
     const filteredMessages = messages.filter(m => m.id !== messageId)
     saveMessages(chatId, filteredMessages)
     if (import.meta.env.DEV) {
       console.log(`🗑️ 已删除消息: chatId=${chatId}, messageId=${messageId}`)
     }
-  } catch (error) {
-    console.error('删除消息失败:', error)
-  }
+  }).catch(error => {
+    console.error('❌ [deleteMessage] 删除消息失败:', error)
+  })
 }
 
 /**
  * 更新一条消息（永久修改）
  */
 export function updateMessage(chatId: string, updatedMessage: Message): void {
-  try {
-    const messages = loadMessages(chatId)
+  // 🔥 关键修复：异步确保消息已加载，防止丢失数据
+  ensureMessagesLoaded(chatId).then(messages => {
     const updatedMessages = messages.map(m => 
       m.id === updatedMessage.id ? updatedMessage : m
     )
@@ -384,9 +389,9 @@ export function updateMessage(chatId: string, updatedMessage: Message): void {
     if (import.meta.env.DEV) {
       console.log(`✏️ 已更新消息: chatId=${chatId}, messageId=${updatedMessage.id}`)
     }
-  } catch (error) {
-    console.error('更新消息失败:', error)
-  }
+  }).catch(error => {
+    console.error('❌ [updateMessage] 更新消息失败:', error)
+  })
 }
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
