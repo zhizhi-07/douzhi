@@ -25,43 +25,49 @@ const IconCustomizer = () => {
   
   // 可自定义图标的应用列表
   const [iconConfigs, setIconConfigs] = useState<IconConfig[]>(() => {
-    // 从apps.ts获取实际应用配置
-    const allApps = [...page1Apps, ...page2Apps, ...dockApps]
-    
-    // 去重（有些应用在多个地方出现）
-    const uniqueApps = allApps.filter((app, index, self) => 
-      index === self.findIndex(a => a.id === app.id)
-    )
-    
-    // 转换为IconConfig格式
-    const correctApps = uniqueApps.map(app => ({
-      appId: app.id,
-      appName: app.name,
-      defaultIcon: app.icon,
-      customIcon: undefined
-    }))
-    
-    // 检查localStorage中的数据
-    const saved = localStorage.getItem('custom_icons')
-    if (saved) {
-      try {
-        const savedConfigs = JSON.parse(saved)
-        // 检查第一个应用ID是否正确
-        if (savedConfigs[0]?.appId === 'wechat') {
-          // 旧数据，清除
-          console.log('🔧 检测到旧的图标数据，已清除')
-          localStorage.removeItem('custom_icons')
+    try {
+      // 从apps.ts获取实际应用配置
+      const allApps = [...page1Apps, ...page2Apps, ...dockApps]
+      
+      // 去重（有些应用在多个地方出现）
+      const uniqueApps = allApps.filter((app, index, self) => 
+        index === self.findIndex(a => a.id === app.id)
+      )
+      
+      // 转换为IconConfig格式
+      const correctApps = uniqueApps.map(app => ({
+        appId: app.id,
+        appName: app.name,
+        defaultIcon: app.icon,
+        customIcon: undefined
+      }))
+      
+      // 检查localStorage中的数据
+      const saved = localStorage.getItem('custom_icons')
+      if (saved) {
+        try {
+          const savedConfigs = JSON.parse(saved)
+          // 检查第一个应用ID是否正确
+          if (savedConfigs[0]?.appId === 'wechat') {
+            // 旧数据，清除
+            console.log('🔧 检测到旧的图标数据，已清除')
+            localStorage.removeItem('custom_icons')
+            return correctApps
+          }
+          // 数据正确，使用保存的数据
+          return savedConfigs
+        } catch (e) {
+          console.error('解析图标数据失败:', e)
           return correctApps
         }
-        // 数据正确，使用保存的数据
-        return savedConfigs
-      } catch (e) {
-        console.error('解析图标数据失败:', e)
-        return correctApps
       }
+      
+      return correctApps
+    } catch (e) {
+      console.error('初始化图标配置失败:', e)
+      // 返回空数组防止白屏
+      return []
     }
-    
-    return correctApps
   })
   
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -193,6 +199,17 @@ const IconCustomizer = () => {
       {/* 应用列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="glass-card rounded-2xl p-3 backdrop-blur-md bg-white/80 border border-white/50">
+          {iconConfigs.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <p>加载失败，请刷新重试</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg"
+              >
+                刷新页面
+              </button>
+            </div>
+          ) : (
           <div className="space-y-2">
             {iconConfigs.map((config) => (
               <div
@@ -201,15 +218,34 @@ const IconCustomizer = () => {
               >
                 {/* 图标预览 */}
                 <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-white border-2 border-gray-200 flex-shrink-0">
-                  {config.customIcon ? (
-                    <img src={config.customIcon} alt={config.appName} className="w-full h-full object-cover" />
-                  ) : typeof config.defaultIcon === 'string' ? (
-                    <img src={config.defaultIcon} alt={config.appName} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="glass-card w-full h-full flex items-center justify-center">
-                      {React.createElement(config.defaultIcon, { className: "w-7 h-7 text-gray-600" })}
-                    </div>
-                  )}
+                  {(() => {
+                    try {
+                      if (config.customIcon) {
+                        return <img src={config.customIcon} alt={config.appName} className="w-full h-full object-cover" />
+                      } else if (typeof config.defaultIcon === 'string') {
+                        return <img src={config.defaultIcon} alt={config.appName} className="w-full h-full object-cover" />
+                      } else if (config.defaultIcon) {
+                        return (
+                          <div className="glass-card w-full h-full flex items-center justify-center">
+                            {React.createElement(config.defaultIcon, { className: "w-7 h-7 text-gray-600" })}
+                          </div>
+                        )
+                      } else {
+                        return (
+                          <div className="glass-card w-full h-full flex items-center justify-center">
+                            <div className="w-7 h-7 bg-gray-300 rounded-lg"></div>
+                          </div>
+                        )
+                      }
+                    } catch (e) {
+                      console.error('渲染图标失败:', config.appId, e)
+                      return (
+                        <div className="glass-card w-full h-full flex items-center justify-center">
+                          <div className="w-7 h-7 bg-gray-300 rounded-lg"></div>
+                        </div>
+                      )
+                    }
+                  })()}
                 </div>
                 
                 {/* 应用名称 */}
@@ -243,6 +279,7 @@ const IconCustomizer = () => {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* 使用说明 */}
