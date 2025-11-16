@@ -342,11 +342,27 @@ export function saveMessages(chatId: string, messages: Message[]): void {
   try {
     // 🔥 防止保存空数组覆盖已有数据
     if (messages.length === 0) {
-      // 检查缓存和IndexedDB中是否已有数据
+      // 检查缓存
       const cachedMessages = messageCache.get(chatId)
       if (cachedMessages && cachedMessages.length > 0) {
         console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
         return
+      }
+      
+      // 🔥 关键修复：检查localStorage备份
+      try {
+        const backupKey = `msg_backup_${chatId}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          if (parsed.messages && parsed.messages.length > 0) {
+            console.error(`🚫 [saveMessages] 阻止保存空数组！localStorage备份中有 ${parsed.messages.length} 条消息`)
+            alert(`🚫 阻止数据丢失！\n检测到尝试保存空数组\n但localStorage备份中有${parsed.messages.length}条消息\n已阻止覆盖`)
+            return
+          }
+        }
+      } catch (e) {
+        console.error('检查localStorage备份失败:', e)
       }
       
       // 异步检查IndexedDB
