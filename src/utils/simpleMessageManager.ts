@@ -33,31 +33,36 @@ async function preloadMessages() {
           try {
             const backupKey = `msg_backup_${chatId}`
             const backup = localStorage.getItem(backupKey)
+            
+            alert(`🔍调试-预加载:\nchatId=${chatId}\nIndexedDB消息数=${messages?.length || 0}\nlocalStorage备份=${backup ? '存在' : '不存在'}\nkey=${backupKey}`)
+            
             if (backup) {
               const parsed = JSON.parse(backup)
               messages = parsed.messages
               const backupAge = Date.now() - (parsed.timestamp || 0)
               
+              alert(`🔍调试-备份内容:\n备份消息数=${messages?.length || 0}\n备份时间=${Math.floor(backupAge / 1000)}秒前\n是否过期=${backupAge > 60 * 60 * 1000}`)
+              
               // 只恢复1小时内的备份，防止恢复太旧的数据
               if (backupAge > 60 * 60 * 1000) {
-                if (import.meta.env.DEV) {
-                  console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
-                }
+                console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
                 localStorage.removeItem(backupKey)
                 messages = null
               } else {
-                if (import.meta.env.DEV) {
-                  console.log(`🔄 [恢复备份] 从localStorage恢复消息: chatId=${chatId}, count=${messages?.length || 0}`)
-                }
+                console.log(`🔄 [恢复备份] 从localStorage恢复消息: chatId=${chatId}, count=${messages?.length || 0}`)
                 // 恢复到IndexedDB
                 if (messages && messages.length > 0) {
                   await IDB.setItem(IDB.STORES.MESSAGES, chatId, messages)
+                  alert(`✅恢复成功！已从localStorage恢复${messages.length}条消息`)
                   localStorage.removeItem(backupKey) // 恢复成功后删除备份
                 }
               }
+            } else {
+              alert(`⚠️ 没有找到localStorage备份\nkey=${backupKey}`)
             }
           } catch (e) {
             console.warn('恢复localStorage备份失败:', e)
+            alert(`❌恢复失败: ${e}`)
           }
         }
         
