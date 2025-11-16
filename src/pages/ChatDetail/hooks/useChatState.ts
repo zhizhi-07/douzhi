@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { loadMessages, ensureMessagesLoaded, loadMessagesPaginated, getMessageCount } from '../../../utils/simpleMessageManager'
+import { ensureMessagesLoaded, loadMessagesPaginated, getMessageCount } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 
 export const useChatState = (chatId: string) => {
@@ -142,10 +142,12 @@ export const useChatState = (chatId: string) => {
   /**
    * 加载消息（提取为函数，便于复用 - 兼容旧代码）
    */
-  const loadChatMessages = useCallback(() => {
+  const loadChatMessages = useCallback(async () => {
     if (!chatId) return
 
-    const savedMessages = loadMessages(chatId)
+    // 🔥 确保预加载完成后再加载消息，避免返回空数组
+    const savedMessages = await ensureMessagesLoaded(chatId)
+    
     // 🔥 优化：移除console.table，避免性能问题
     if (import.meta.env.DEV) {
       console.log(`📨 [useChatState] 加载消息: chatId=${chatId}, 总数=${savedMessages.length}`)
