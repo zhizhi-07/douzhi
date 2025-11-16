@@ -1063,6 +1063,12 @@ export const useChatAI = (
         // 如果有剩余文本且不是纯指令消息，发送普通消息
         console.log(`✅ 最终状态: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}", hasQuote=${!!quotedMsg}`)
         
+        // 🔥 调试：强制显示是否进入保存分支
+        if (skipTextMessage || !messageContent || !messageContent.trim()) {
+          alert(`⚠️ 调试：消息未保存！\nskipTextMessage=${skipTextMessage}\nmessageContent="${messageContent}"\ntrim="${messageContent?.trim()}"`)
+          console.error(`❌ 消息未保存条件不满足: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}"`)
+        }
+        
         if (!skipTextMessage && messageContent && messageContent.trim()) {
           console.log(`💬 创建普通消息: "${messageContent}"${quotedMsg ? ' [带引用]' : ''}`)
           const aiMessage: Message = {
