@@ -1206,6 +1206,40 @@ export const useChatAI = (
       ;(window as any).__AI_REPLYING__ = false
       console.log('✅ [AI回复] 结束，清除全局标志')
       
+      // 🔥 关键修复：AI回复完全结束后，强制备份当前状态（包括纯指令消息的情况）
+      try {
+        const backupKey = `msg_backup_${chatId}`
+        const seen = new WeakSet()
+        const backupData = {
+          messages: messages, // 保存当前所有消息（包括用户消息和任何已添加的AI消息）
+          timestamp: Date.now()
+        }
+        
+        const jsonString = JSON.stringify(backupData, (_key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (value instanceof Node || value instanceof Window || value instanceof Document) {
+              return undefined
+            }
+            if (value instanceof Event) {
+              return undefined
+            }
+            if (seen.has(value)) {
+              return undefined
+            }
+            seen.add(value)
+          }
+          if (typeof value === 'function') {
+            return undefined
+          }
+          return value
+        })
+        
+        localStorage.setItem(backupKey, jsonString)
+        console.log(`💾 [AI回复结束] 强制备份完成，共${messages.length}条消息`)
+      } catch (e) {
+        console.error('❌ [AI回复结束] 备份失败:', e)
+      }
+      
       // 自动总结逻辑
       try {
         const settingsStr = localStorage.getItem(`chat_settings_${chatId}`)
