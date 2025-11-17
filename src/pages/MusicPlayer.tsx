@@ -394,9 +394,9 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex flex-col items-center p-4 pt-4 pb-2 overflow-y-auto">
+      <div className="relative z-10 flex flex-col items-center p-4 pt-12 pb-20 overflow-y-auto">
         {/* 头像显示 - 在唱片上方，始终显示 */}
-        <div className="flex flex-col items-center mb-2">
+        <div className="flex flex-col items-center mb-12">
           {listeningTogether ? (
             // 一起听模式：显示两个头像
             <>
@@ -443,7 +443,7 @@ const MusicPlayer = () => {
         </div>
         
         {/* 唱片封面和歌词容器 */}
-        <div className="relative mb-3 w-48 h-48 flex items-center justify-center">
+        <div className="relative mb-8 w-48 h-48 flex items-center justify-center">
           {/* 唱片盘 */}
           <div 
             className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}

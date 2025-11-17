@@ -7,10 +7,12 @@ import { forwardRef } from 'react'
 import type { Message, Character } from '../../../types/chat'
 import MessageItem from './MessageItem'
 import VirtualMessageList from './VirtualMessageList'
+import Avatar from '../../../components/Avatar'
 
 interface MessageListProps {
   messages: Message[]
   character: Character
+  chatId?: string
   isAiTyping: boolean
   onMessageLongPress: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
   onMessageLongPressEnd: () => void
@@ -25,15 +27,16 @@ interface MessageListProps {
   onUpdateIntimatePayStatus: (messageId: number, newStatus: 'accepted' | 'rejected') => void
   onAcceptCoupleSpace: (messageId: number) => void
   onRejectCoupleSpace: (messageId: number) => void
-  // 🔥 分页加载相关
+  // 分页加载相关
   hasMoreMessages?: boolean
   isLoadingMessages?: boolean
   onLoadMore?: () => void
 }
 
-const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
+const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({ 
   messages,
   character,
+  chatId,
   isAiTyping,
   onMessageLongPress,
   onMessageLongPressEnd,
@@ -52,10 +55,10 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
   isLoadingMessages,
   onLoadMore
 }, ref) => {
-  // 🔥 性能优化：超过30条消息时启用虚拟化
+  // 性能优化：超过30条消息时启用虚拟化
   const shouldUseVirtualization = messages.length > 30
 
-  console.log(`📊 [MessageList] 消息数量: ${messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}`)
+  console.log(` [MessageList] 消息数量: ${messages.length}, 虚拟化: ${shouldUseVirtualization ? '启用' : '关闭'}`)
 
   if (shouldUseVirtualization) {
     // 使用虚拟化组件
@@ -63,6 +66,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
       <VirtualMessageList
         messages={messages}
         character={character}
+        chatId={chatId}
         isAiTyping={isAiTyping}
         onMessageLongPress={onMessageLongPress}
         onMessageLongPressEnd={onMessageLongPressEnd}
@@ -96,6 +100,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
           key={message.id}
           message={message}
           character={character}
+          chatId={chatId}
           onLongPressStart={onMessageLongPress}
           onLongPressEnd={onMessageLongPressEnd}
           onViewRecalledMessage={onViewRecalledMessage}
@@ -116,15 +121,12 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
       {isAiTyping && (
         <div className="flex items-start gap-2 my-2 message-enter message-enter-left">
           <div className="flex flex-col items-center gap-1 flex-shrink-0">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-400 flex-shrink-0">
-              {character.avatar && (
-                <img 
-                  src={character.avatar} 
-                  alt={character.realName}
-                  className="w-full h-full object-cover"
-                />
-              )}
-            </div>
+            <Avatar 
+              type="received"
+              avatar={character.avatar}
+              name={character.realName}
+              chatId={chatId}
+            />
           </div>
           
           <div className="flex flex-col items-start">

@@ -600,12 +600,22 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 一、时间感与现实感
 
 1. 当前时间：现在是 ${dateStr} ${timeOfDay} ${currentTime}（${hour}点左右）。
-2. 你必须知道当前时间，并在对话中自然反映这一点：
-   - 晚上不要说"去吃早饭"
-   - 半夜不要突然建议"现在出门逛街"
-   - 工作日白天、深夜、周末的状态与回复风格可以不同
 
-3. 你只知道当前对话里提供的时间信息和设定，不要凭空引用现实中的节假日、新闻热点，除非用户提到。
+2. 🔥 时间观念（非常重要）：
+   - 你必须清楚知道现在是几点，是白天还是晚上
+   - 早上（6-11点）：可以说早安、吃早餐、上班上学
+   - 中午（11-14点）：可以说午安、吃午饭、午休
+   - 下午（14-18点）：可以说下午好、下午茶、准备下班
+   - 晚上（18-23点）：可以说晚安、吃晚饭、晚上活动
+   - 深夜（23-6点）：应该在睡觉，不要说"现在去吃早饭""出门逛街"
+   
+3. 昼夜不分的错误示例（禁止）：
+   - ❌ 凌晨3点说"早上好，吃早饭了吗"
+   - ❌ 晚上10点说"中午吃什么"
+   - ❌ 昨天晚上在睡觉，今天早上还说"我在睡觉"
+   - ✅ 正确：根据实际时间调整状态和对话内容
+
+4. 你只知道当前对话里提供的时间信息和设定，不要凭空引用现实中的节假日、新闻热点，除非用户提到。
 
 二、你是谁（角色设定与边界）
 
@@ -781,6 +791,9 @@ ${localStorage.getItem('listening_together')
 - 拒绝代付：[拒绝代付]
 - 给对方点外卖：[外卖:商品1,价格1,商品2,价格2:备注]
   示例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
+- 请求对方代付：[代付:商品1,价格1,商品2,价格2:备注]
+  示例：[代付:咖啡,25,蛋糕,35:帮我付一下呗]
+  说明：你可以主动请求用户帮你付款，用户会看到代付请求卡片并选择同意或拒绝
 
 ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
@@ -1233,6 +1246,12 @@ const callAIApiInternal = async (
         const retryAfter = response.headers.get('Retry-After')
         const waitTime = retryAfter ? `${retryAfter}秒` : '几秒钟'
         throw new ChatApiError(`请求过于频繁，${waitTime}后会自动重试`, 'RATE_LIMIT', 429)
+      } else if (response.status === 502) {
+        throw new ChatApiError('网关错误，正在自动重试...', 'BAD_GATEWAY', 502)
+      } else if (response.status === 503) {
+        throw new ChatApiError('服务暂时不可用，正在自动重试...', 'SERVICE_UNAVAILABLE', 503)
+      } else if (response.status === 504) {
+        throw new ChatApiError('网关超时，正在自动重试...', 'GATEWAY_TIMEOUT', 504)
       } else if (response.status >= 500) {
         throw new ChatApiError('API服务器错误', 'SERVER_ERROR', response.status)
       } else {
@@ -1367,12 +1386,22 @@ export const callAIApi = async (
       if (error instanceof ChatApiError) {
         lastError = error
         
-        // 只对 429 错误进行重试
-        if (error.statusCode === 429 && attempt < MAX_RETRIES - 1) {
+        // 对以下错误进行重试：429（频率限制）、503（服务不可用）、502（网关错误）、504（网关超时）
+        const shouldRetry = (
+          error.statusCode === 429 || 
+          error.statusCode === 502 || 
+          error.statusCode === 503 || 
+          error.statusCode === 504
+        ) && attempt < MAX_RETRIES - 1
+        
+        if (shouldRetry) {
           // 指数退避：1秒、2秒、4秒
           const waitTime = Math.pow(2, attempt) * 1000
+          const errorMsg = error.statusCode === 429 ? '频率限制' : 
+                          error.statusCode === 503 ? '服务暂时不可用' :
+                          error.statusCode === 502 ? '网关错误' : '网关超时'
           if (import.meta.env.DEV) {
-            console.log(`⚠️ 遇到频率限制，${waitTime/1000}秒后重试 (${attempt + 1}/${MAX_RETRIES})`)
+            console.log(`⚠️ 遇到${errorMsg}，${waitTime/1000}秒后重试 (${attempt + 1}/${MAX_RETRIES})`)
           }
           await delay(waitTime)
           continue // 重试

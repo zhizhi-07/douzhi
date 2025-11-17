@@ -105,6 +105,9 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
     )
   }
 
+  // 🔥 检查是否已过期
+  const isExpired = Date.now() > expiryTime
+
   // 🔥 AI收到的待确认请求：显示同意/拒绝按钮
   if (isAIPayment && isPending && !isSent) {
     return (
@@ -120,8 +123,12 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
               </div>
               <span className="font-semibold text-gray-800">代付请求</span>
             </div>
-            <span className="text-xs px-2 py-1 rounded-full bg-orange-50 text-orange-600 font-medium">
-              待确认
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              isExpired 
+                ? 'bg-gray-100 text-gray-500' 
+                : 'bg-orange-50 text-orange-600'
+            }`}>
+              {isExpired ? '已过期' : '待确认'}
             </span>
           </div>
 
@@ -156,18 +163,26 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
 
           {/* 操作按钮 */}
           <div className="flex gap-2 pt-2 border-t border-gray-100">
-            <button
-              onClick={() => onReject?.(message.id)}
-              className="flex-1 py-2 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-all"
-            >
-              拒绝
-            </button>
-            <button
-              onClick={() => onAccept?.(message.id)}
-              className="flex-1 py-2 px-4 bg-gradient-to-r from-orange-400 to-yellow-500 text-white rounded-lg text-sm font-medium hover:from-orange-500 hover:to-yellow-600 active:scale-95 transition-all shadow-sm"
-            >
-              同意代付
-            </button>
+            {isExpired ? (
+              <div className="flex-1 py-2 px-4 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium text-center">
+                代付已过期
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => onReject?.(message.id)}
+                  className="flex-1 py-2 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-all"
+                >
+                  拒绝
+                </button>
+                <button
+                  onClick={() => onAccept?.(message.id)}
+                  className="flex-1 py-2 px-4 bg-gradient-to-r from-orange-400 to-yellow-500 text-white rounded-lg text-sm font-medium hover:from-orange-500 hover:to-yellow-600 active:scale-95 transition-all shadow-sm"
+                >
+                  同意代付
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

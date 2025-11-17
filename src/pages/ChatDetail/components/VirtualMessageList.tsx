@@ -10,6 +10,8 @@ import MessageItem from './MessageItem'
 interface VirtualMessageListProps {
   messages: Message[]
   character: Character
+  chatId?: string
+  isAiTyping: boolean
   onMessageLongPress: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
   onMessageLongPressEnd: () => void
   onViewRecalledMessage: (message: Message) => void
@@ -34,6 +36,8 @@ interface VirtualMessageListProps {
 const VirtualMessageList = ({
   messages,
   character,
+  chatId,
+  isAiTyping,
   onMessageLongPress,
   onMessageLongPressEnd,
   onViewRecalledMessage,
@@ -233,6 +237,7 @@ const VirtualMessageList = ({
           key={message.id}
           message={message}
           character={character}
+          chatId={chatId}
           onLongPressStart={onMessageLongPress}
           onLongPressEnd={onMessageLongPressEnd}
           onViewRecalledMessage={onViewRecalledMessage}

@@ -2280,6 +2280,90 @@ export const aiOrderFoodHandler: CommandHandler = {
 }
 
 /**
+ * AI请求代付处理器
+ * 格式：[代付:商品1,价格1,商品2,价格2:备注]
+ */
+export const aiRequestPaymentHandler: CommandHandler = {
+  pattern: /[\[【]代付[:：]([^:：\]】]+)(?:[:：]([^\]】]+))?[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('💳 [AI请求代付] 处理器被调用')
+    
+    const itemsStr = match[1]
+    const note = match[2] || ''
+    
+    // 解析商品列表：商品1,价格1,商品2,价格2
+    const parts = itemsStr.split(',').map(s => s.trim())
+    if (parts.length < 2 || parts.length % 2 !== 0) {
+      console.warn('⚠️ [AI请求代付] 格式错误，应为：商品1,价格1,商品2,价格2')
+      return { handled: false }
+    }
+    
+    // 解析商品和价格
+    const items: { name: string; price: number }[] = []
+    let totalAmount = 0
+    
+    for (let i = 0; i < parts.length; i += 2) {
+      const name = parts[i]
+      const priceStr = parts[i + 1]
+      const price = parseFloat(priceStr)
+      
+      if (isNaN(price)) {
+        console.warn(`⚠️ [AI请求代付] 价格解析失败: ${priceStr}`)
+        return { handled: false }
+      }
+      
+      items.push({ name, price })
+      totalAmount += price
+    }
+    
+    // 生成商品列表描述
+    const itemNames = items.map(item => `${item.name} ¥${item.price.toFixed(2)}`).join('、')
+    
+    console.log('✅ [AI请求代付] 解析成功:', { items, totalAmount, note })
+    
+    // 生成唯一ID（使用时间戳 + 随机数）
+    const baseTimestamp = Date.now()
+    const paymentMessageId = baseTimestamp + Math.floor(Math.random() * 1000)
+    
+    // 创建代付请求消息（AI向用户请求代付，状态为待确认）
+    const paymentMessage: Message = {
+      id: paymentMessageId,
+      type: 'received',
+      content: `[代付请求] ${itemNames}`,
+      aiReadableContent: `[AI请求用户代付] 商品：${itemNames}，总金额：¥${totalAmount.toFixed(2)}${note ? `，备注：${note}` : ''}，等待用户确认`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: baseTimestamp,
+      messageType: 'paymentRequest',
+      paymentRequest: {
+        itemName: items.map(item => item.name).join('、'),
+        amount: totalAmount,
+        note: note || undefined,
+        paymentMethod: 'ai',
+        status: 'pending',
+        requesterId: character?.id || 'ai',
+        requesterName: character?.nickname || character?.realName || 'AI',
+        payerId: 'user',
+        payerName: '我'
+      }
+    }
+    
+    setMessages(prev => {
+      const updated = [...prev, paymentMessage]
+      saveMessages(chatId, updated)
+      console.log('💾 [AI请求代付] 已保存到IndexedDB')
+      return updated
+    })
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -2292,6 +2376,7 @@ export const commandHandlers: CommandHandler[] = [
   acceptPaymentHandler,  // AI同意代付
   rejectPaymentHandler,  // AI拒绝代付
   aiOrderFoodHandler,  // AI主动点外卖
+  aiRequestPaymentHandler,  // AI请求用户代付
   videoCallHandler,
   endCallHandler,
   aiMuteHandler,  // AI静音

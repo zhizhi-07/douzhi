@@ -12,6 +12,7 @@ import {
   createCustomWallpaper
 } from '../utils/wallpaperManager'
 import BubbleSettings from './ChatSettings/BubbleSettings'
+import AvatarFrameSettings from './ChatSettings/AvatarFrameSettings'
 import { clearMessages } from '../utils/simpleMessageManager'
 import { testVoiceConfig } from '../utils/voiceApi'
 import { voiceService } from '../services/voiceService'
@@ -138,12 +139,27 @@ const ChatSettings = () => {
   const [isBlocked, setIsBlocked] = useState(false)
   const [testingVoice, setTestingVoice] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isPinned, setIsPinned] = useState(false)
   
-  // 检查拉黑状态
+  // 检查拉黑状态和置顶状态
   useEffect(() => {
     if (id) {
       const blocked = blacklistManager.isBlockedByMe('user', id)
       setIsBlocked(blocked)
+      
+      // 读取置顶状态（从IndexedDB）
+      const loadPinnedStatus = async () => {
+        try {
+          const { loadChatList } = await import('../utils/chatListManager')
+          const chatList = await loadChatList()
+          const currentChat = chatList.find((chat: any) => chat.id === id)
+          setIsPinned(currentChat?.isPinned || false)
+          console.log('📌 加载置顶状态:', { chatId: id, isPinned: currentChat?.isPinned || false })
+        } catch (error) {
+          console.error('❌ 加载置顶状态失败:', error)
+        }
+      }
+      loadPinnedStatus()
     }
   }, [id])
 
@@ -278,6 +294,37 @@ const ChatSettings = () => {
     }
   }
   
+  // 切换置顶状态
+  const togglePin = async () => {
+    if (!id) return
+    
+    try {
+      // 从IndexedDB加载聊天列表
+      const { loadChatList, saveChatList } = await import('../utils/chatListManager')
+      const chatList = await loadChatList()
+      
+      const newPinned = !isPinned
+      const updatedList = chatList.map((chat: any) => {
+        if (chat.id === id) {
+          return { ...chat, isPinned: newPinned }
+        }
+        return chat
+      })
+      
+      // 保存到IndexedDB
+      await saveChatList(updatedList)
+      setIsPinned(newPinned)
+      
+      console.log('📌 置顶状态已更新并保存:', { chatId: id, isPinned: newPinned })
+      
+      // 触发聊天列表更新 - 使用自定义事件
+      window.dispatchEvent(new CustomEvent('chat-list-update'))
+    } catch (error) {
+      console.error('❌ 切换置顶状态失败:', error)
+      alert('操作失败，请重试')
+    }
+  }
+  
   // 清空聊天记录
   const clearChatHistory = async () => {
     if (!id) return
@@ -319,6 +366,28 @@ const ChatSettings = () => {
       
       {/* 设置内容 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        {/* 聊天置顶 */}
+        <div className="bg-white rounded-[48px] p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">聊天置顶</h2>
+              <p className="text-xs text-gray-500 mt-0.5">在聊天列表中置顶显示</p>
+            </div>
+            <button
+              onClick={togglePin}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                isPinned ? 'bg-black' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  isPinned ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
         
         {/* 拉黑设置 */}
         <div className="bg-white rounded-[48px] p-4">
@@ -704,6 +773,16 @@ const ChatSettings = () => {
         {/* 气泡设置 */}
         {id && (
           <BubbleSettings 
+            chatId={id} 
+            onSaved={() => {
+              // 设置已保存
+            }} 
+          />
+        )}
+        
+        {/* 头像框设置 */}
+        {id && (
+          <AvatarFrameSettings 
             chatId={id} 
             onSaved={() => {
               // 设置已保存

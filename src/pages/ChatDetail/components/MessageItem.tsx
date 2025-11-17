@@ -15,6 +15,7 @@ import MusicInviteCard from '../../../components/MusicInviteCard'
 interface MessageItemProps {
   message: Message
   character: Character
+  chatId?: string
   onLongPressStart: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
   onLongPressEnd: () => void
   onViewRecalledMessage: (message: Message) => void
@@ -37,6 +38,7 @@ import { memo } from 'react'
 const MessageItemContent = ({
   message,
   character,
+  chatId,
   onLongPressStart,
   onLongPressEnd,
   onViewRecalledMessage,
@@ -154,11 +156,12 @@ const MessageItemContent = ({
       className={'message-container flex items-start gap-2 my-2 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
     >
       {/* 头像和时间 */}
-      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+      <div className="flex flex-col items-center gap-1 flex-shrink-0 p-1">
         <Avatar 
           type={message.type}
           avatar={character.avatar}
           name={character.realName}
+          chatId={chatId}
         />
         <div className="text-xs text-gray-400">
           {message.time}

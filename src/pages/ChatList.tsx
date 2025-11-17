@@ -18,6 +18,7 @@ interface Chat {
   time: string
   unread?: number
   isGroup?: boolean
+  isPinned?: boolean
 }
 
 const ChatList = () => {
@@ -152,8 +153,13 @@ const ChatList = () => {
       index === self.findIndex(c => c.id === chat.id)
     )
 
-    // 按时间排序：最新的在最上面
+    // 排序：置顶的在最上面，其余按时间排序
     uniqueChats.sort((a, b) => {
+      // 先按置顶状态排序
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      
+      // 置顶状态相同时，按时间排序
       const timeA = a.time || ''
       const timeB = b.time || ''
 
@@ -176,20 +182,25 @@ const ChatList = () => {
     loadCharacters()
   }, [refreshChatList])
 
-  // 监听未读数更新事件
+  // 监听未读数更新事件和置顶更新
   useEffect(() => {
     const handleUnreadUpdate = () => {
       refreshChatList()
     }
-
-    window.addEventListener('unread-updated', handleUnreadUpdate)
-    window.addEventListener('new-message', handleUnreadUpdate)
-    window.addEventListener('storage', handleUnreadUpdate)
     
+    const handleChatListUpdate = () => {
+      console.log('📌 收到聊天列表更新事件，刷新列表')
+      refreshChatList()
+    }
+
+    window.addEventListener('unread-count-update', handleUnreadUpdate)
+    window.addEventListener('storage', handleUnreadUpdate)
+    window.addEventListener('chat-list-update', handleChatListUpdate)
+
     return () => {
-      window.removeEventListener('unread-updated', handleUnreadUpdate)
-      window.removeEventListener('new-message', handleUnreadUpdate)
+      window.removeEventListener('unread-count-update', handleUnreadUpdate)
       window.removeEventListener('storage', handleUnreadUpdate)
+      window.removeEventListener('chat-list-update', handleChatListUpdate)
     }
   }, [refreshChatList])
 
@@ -325,44 +336,91 @@ const ChatList = () => {
             <p className="text-sm">点击右上角 + 添加角色开始聊天</p>
           </div>
         ) : (
-          <div className="glass-card rounded-[32px] overflow-hidden">
-            {chats.map((chat, chatIndex) => (
-              <div
-                key={chat.id}
-                onClick={() => {
-                  playSystemSound()
-                  navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
-                }}
-                className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 card-enter"
-                style={{ animationDelay: `${chatIndex * 0.05}s` }}
-              >
-                {/* 头像 */}
-                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {chat.avatar ? (
-                    <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-xl">{chat.isGroup ? '👥' : '👤'}</div>
-                  )}
-                </div>
+          <>
+            {/* 置顶聊天区块 */}
+            {chats.some(chat => chat.isPinned) && (
+              <div className="glass-card rounded-[32px] overflow-hidden mb-3">
+                {chats.filter(chat => chat.isPinned).map((chat, chatIndex) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => {
+                      playSystemSound()
+                      navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
+                    }}
+                    className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 card-enter"
+                    style={{ animationDelay: `${chatIndex * 0.05}s` }}
+                  >
+                    {/* 头像 */}
+                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {chat.avatar ? (
+                        <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-xl">{chat.isGroup ? '👥' : '👤'}</div>
+                      )}
+                    </div>
 
-                {/* 消息内容 */}
-                <div className="flex-1 ml-3 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
-                    <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">{chat.time}</span>
+                    {/* 消息内容 */}
+                    <div className="flex-1 ml-3 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
+                        <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">{chat.time}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] text-gray-500 truncate flex-1 pr-2">{chat.lastMessage}</p>
+                        {(chat.unread ?? 0) > 0 && (
+                          <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[11px] text-white flex items-center justify-center bg-red-500 flex-shrink-0 badge-pop">
+                            {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] text-gray-500 truncate flex-1 pr-2">{chat.lastMessage}</p>
-                    {(chat.unread ?? 0) > 0 && (
-                      <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[11px] text-white flex items-center justify-center bg-red-500 flex-shrink-0 badge-pop">
-                        {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+            
+            {/* 未置顶聊天区块 */}
+            {chats.some(chat => !chat.isPinned) && (
+              <div className="glass-card rounded-[32px] overflow-hidden">
+                {chats.filter(chat => !chat.isPinned).map((chat, chatIndex) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => {
+                      playSystemSound()
+                      navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
+                    }}
+                    className="flex items-center px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 card-enter"
+                    style={{ animationDelay: `${(chatIndex + chats.filter(c => c.isPinned).length) * 0.05}s` }}
+                  >
+                    {/* 头像 */}
+                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {chat.avatar ? (
+                        <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-xl">{chat.isGroup ? '👥' : '👤'}</div>
+                      )}
+                    </div>
+
+                    {/* 消息内容 */}
+                    <div className="flex-1 ml-3 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
+                        <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">{chat.time}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] text-gray-500 truncate flex-1 pr-2">{chat.lastMessage}</p>
+                        {(chat.unread ?? 0) > 0 && (
+                          <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[11px] text-white flex items-center justify-center bg-red-500 flex-shrink-0 badge-pop">
+                            {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

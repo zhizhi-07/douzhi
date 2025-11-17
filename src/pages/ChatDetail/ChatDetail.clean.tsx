@@ -184,6 +184,7 @@ const ChatDetail = () => {
         ref={scrollContainerRef}
         messages={chatState.messages}
         character={character}
+        chatId={id}
         isAiTyping={chatAI.isAiTyping}
         onMessageLongPress={longPress.handleLongPressStart}
         onMessageLongPressEnd={longPress.handleLongPressEnd}

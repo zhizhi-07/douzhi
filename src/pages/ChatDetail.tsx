@@ -769,6 +769,7 @@ const ChatDetail = () => {
                   type={message.type}
                   avatar={character.avatar}
                   name={character.realName}
+                  chatId={id}
                 />
               </div>
               
@@ -892,6 +893,7 @@ const ChatDetail = () => {
                 type="received"
                 avatar={character.avatar}
                 name={character.realName}
+                chatId={id}
               />
             </div>
             

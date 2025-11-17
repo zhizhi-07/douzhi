@@ -14,6 +14,7 @@ export interface Chat {
   time: string
   isGroup?: boolean
   unread?: number
+  isPinned?: boolean
 }
 
 const CHAT_LIST_KEY = 'chat_list'

@@ -4,6 +4,7 @@ import { getCharacterById } from '../utils/characterManager'
 import { saveMessages, loadMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 import StatusBar from '../components/StatusBar'
+import { getIntimatePayRelations, useIntimatePay, type IntimatePayRelation, getBalance, setBalance, addTransaction } from '../utils/walletUtils'
 
 interface FoodItem {
   id: string
@@ -140,15 +141,58 @@ const PaymentRequest = () => {
           model: 'deepseek-ai/DeepSeek-V3',
           messages: [{
             role: 'user',
-            content: `根据关键词"${searchQuery}"生成10个相关的外卖商品，要求：
-1. 每个商品都要有不同的价格（范围0.1-50元）
-2. 每个商品都要有不同的特点或口味
-3. 价格要有差异性，包括特价、普通、高端
-4. 直接返回JSON数组格式，不要其他说明文字
-格式：[{"name":"商品名称","price":价格数字}]
-示例：[{"name":"珍珠奶茶","price":17},{"name":"超大波波奶茶","price":21},{"name":"特价奶茶","price":0.1}]`
+            content: `你是一个脑洞大开的美食创意师。用户搜索了"${searchQuery}"，请生成15个完全不同风格的创意商品。
+
+🎯 铁律：
+1. **必须包含关键词**："${searchQuery}"必须出现在商品名中
+2. **每次都要不一样**：不要重复套路，要有新意
+3. **价格随意**：从几毛钱到上万元都可以，脑洞大开，合理就行
+
+🌈 创意方向（每次随机选择不同的组合）：
+- 口味系：水果味、甜品味、咸味、辣味、酸味、苦味、混合味
+- 网红系：脏脏、爆浆、拉丝、爆珠、渐变、分层、冒烟
+- 规格系：迷你、正常、加大、超大、巨无霸、家庭装、派对装
+- 特色系：冰淇淋、奶盖、芝士、布丁、果冻、椰果、仙草
+- 联名系：动漫联名、游戏联名、明星同款、品牌联名
+- 季节系：春季限定、夏日特饮、秋冬暖饮、节日特供
+- 地域系：日式、韩式、泰式、港式、台式、欧式、美式
+- 创意系：DIY自选、盲盒款、隐藏款、会员专属、新品试吃
+- 情感系：恋爱款、失恋款、加班款、熬夜款、减肥款
+- 搞怪系：暗黑料理、奇葩组合、挑战款、整蛊款
+
+💡 命名技巧：
+- 可以用形容词：超级、极致、爆款、王炸、绝绝子
+- 可以用emoji：💕、🔥、⭐、🌈、🎉
+- 可以用网络用语：yyds、绝了、爱了、上头
+- 可以用数字：2.0、Pro、Max、Plus、Ultra
+- 可以讲故事：恋爱的味道、深夜食堂、周末特供
+
+📋 返回格式：纯JSON数组
+[{"name":"商品名称","price":价格数字}]
+
+🎲 示例（仅供参考，不要照抄）：
+搜索"奶茶" → 
+[
+  {"name":"失恋专用奶茶（超苦）","price":9.9},
+  {"name":"奶茶刺客Pro Max","price":88},
+  {"name":"深夜emo奶茶","price":15},
+  {"name":"奶茶盲盒（随机口味）","price":12},
+  {"name":"奶茶火锅（4-6人份）","price":168},
+  {"name":"奶茶冰淇淋三明治","price":22},
+  {"name":"会发光的奶茶","price":35},
+  {"name":"奶茶布丁双拼","price":18},
+  {"name":"奶茶雪糕","price":8},
+  {"name":"奶茶终身会员卡（无限畅饮）","price":9999}
+]
+
+💰 价格建议（可以更夸张）：
+- 普通款：几元到几十元
+- 豪华款：几百到几千元
+- 终极款：上万元（如：终身会员、包年套餐、超级豪华版）
+
+现在请为"${searchQuery}"生成15个脑洞大开的商品（每次都要有新花样）：`
           }],
-          temperature: 0.8,
+          temperature: 1.0,
           max_tokens: 2000
         })
       })
@@ -203,6 +247,60 @@ const PaymentRequest = () => {
       return
     }
 
+    // 🔥 处理支付逻辑
+    let intimatePayProvider: IntimatePayRelation | null = null
+    
+    if (isOrderMode) {
+      // 给TA点外卖模式
+      if (paymentMethod === 'self') {
+        // 使用零钱支付 - 扣除余额
+        const currentBalance = getBalance()
+        
+        if (currentBalance < totalPrice) {
+          alert(`零钱余额不足！当前余额：¥${currentBalance.toFixed(2)}，需要：¥${totalPrice.toFixed(2)}`)
+          return
+        }
+        
+        // 扣除余额
+        const newBalance = currentBalance - totalPrice
+        setBalance(newBalance)
+        
+        // 添加交易记录
+        addTransaction({
+          type: 'intimate_pay',
+          amount: totalPrice.toFixed(2),
+          description: `给 ${character.nickname || character.realName} 点外卖`,
+          characterName: character.nickname || character.realName
+        })
+        
+        console.log(`💰 使用零钱支付 ¥${totalPrice.toFixed(2)}，剩余余额 ¥${newBalance.toFixed(2)}`)
+      } else if (paymentMethod === 'intimate') {
+        // 使用亲密付
+        const allRelations = getIntimatePayRelations()
+        const availableRelations = allRelations.filter((r: IntimatePayRelation) => 
+          r.type === 'character_to_user' && 
+          (r.monthlyLimit - r.usedAmount) >= totalPrice
+        )
+        
+        if (availableRelations.length === 0) {
+          alert('没有可用的亲密付额度！请确保有角色给你开通了亲密付且额度充足')
+          return
+        }
+        
+        // 使用第一个可用的亲密付
+        intimatePayProvider = availableRelations[0]
+        
+        // 扣除亲密付额度
+        const success = useIntimatePay(intimatePayProvider.characterName, totalPrice)
+        if (!success) {
+          alert('使用亲密付失败，请重试')
+          return
+        }
+        
+        console.log(`💳 使用 ${intimatePayProvider.characterName} 的亲密付给 ${character.nickname || character.realName} 点外卖`)
+      }
+    }
+
     // 生成订单描述
     const itemNames = cart.map(item => `${item.name}x${item.quantity}`).join('、')
     
@@ -228,11 +326,11 @@ const PaymentRequest = () => {
           timestamp: baseTimestamp + 1,
           messageType: 'system'
         }
-      } else if (paymentMethod === 'intimate') {
+      } else if (paymentMethod === 'intimate' && intimatePayProvider) {
         systemMessage = {
           id: systemMessageId,
           type: 'system',
-          content: `你使用了 ${character.nickname || character.realName} 的亲密付给TA点外卖：${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
+          content: `你使用了 ${intimatePayProvider.characterName} 的亲密付给 ${character.nickname || character.realName} 点外卖：${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           timestamp: baseTimestamp + 1,
           messageType: 'system'
@@ -278,17 +376,37 @@ const PaymentRequest = () => {
     await saveMessages(chatId, newMessages)
     console.log('💾 [代付] 消息已保存到IndexedDB')
     
+    // 🔥 如果使用了亲密付，给提供亲密付的角色发送通知
+    if (intimatePayProvider && intimatePayProvider.characterId !== chatId) {
+      const providerMessages = await loadMessages(intimatePayProvider.characterId)
+      const notificationMessage: Message = {
+        id: Date.now() + 2000 + Math.floor(Math.random() * 1000),
+        type: 'system',
+        content: `${character.nickname || character.realName} 使用了你的亲密付购买 ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
+        aiReadableContent: `[系统通知] 用户使用了你给TA开通的亲密付，给 ${character.nickname || character.realName} 购买了 ${itemNames}，金额 ¥${totalPrice.toFixed(2)}`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: baseTimestamp + 2,
+        messageType: 'system'
+      }
+      
+      const updatedProviderMessages = [...providerMessages, notificationMessage]
+      await saveMessages(intimatePayProvider.characterId, updatedProviderMessages)
+      console.log(`📨 [亲密付通知] 已向 ${intimatePayProvider.characterName} 发送使用通知`)
+    }
+    
     // 返回聊天页面
     navigate(-1)
   }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* 状态栏 */}
-      <StatusBar />
-      
-      {/* 顶部导航栏 */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      {/* 状态栏和导航栏容器 - 合并为一个白色背景 */}
+      <div className="bg-white">
+        {/* 状态栏 */}
+        <StatusBar />
+        
+        {/* 顶部导航栏 */}
+        <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -338,6 +456,7 @@ const PaymentRequest = () => {
           >
             给TA点外卖
           </button>
+        </div>
         </div>
       </div>
 
