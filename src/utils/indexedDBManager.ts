@@ -59,21 +59,69 @@ function initDB(): Promise<IDBDatabase> {
 
 /**
  * 保存数据到IndexedDB
+ * 🔥 强化版：自动清理不可克隆的对象，防止DataCloneError
  */
 export async function setItem(store: string, key: string, value: any): Promise<void> {
   try {
+    // 🔥 关键修复：在保存前先通过JSON序列化清理不可克隆的对象
+    // 这会移除：Event、PointerEvent、DOM元素、函数、循环引用等
+    let cleanedValue = value
+    try {
+      const seen = new WeakSet()
+      const jsonString = JSON.stringify(value, (_key, val) => {
+        if (typeof val === 'object' && val !== null) {
+          // 检测循环引用
+          if (seen.has(val)) return undefined
+          seen.add(val)
+          
+          // 移除Event对象和DOM元素
+          if (val instanceof Event || 
+              val instanceof Node || 
+              val instanceof Window || 
+              val instanceof Document) {
+            return undefined
+          }
+          
+          // 检查构造函数名称
+          if (val.constructor) {
+            const name = val.constructor.name
+            if (name.includes('Event') || 
+                name.includes('Element') ||
+                name === 'Window' ||
+                name === 'Document') {
+              return undefined
+            }
+          }
+        }
+        
+        // 移除函数
+        if (typeof val === 'function') return undefined
+        
+        return val
+      })
+      
+      cleanedValue = JSON.parse(jsonString)
+    } catch (cleanError) {
+      console.warn('⚠️ [IndexedDB] 清理数据失败，使用原始数据:', cleanError)
+      // 如果清理失败，仍然尝试保存原始数据
+    }
+    
     const db = await initDB()
     const transaction = db.transaction([store], 'readwrite')
     const objectStore = transaction.objectStore(store)
     
     return new Promise((resolve, reject) => {
-      const request = objectStore.put(value, key)
+      const request = objectStore.put(cleanedValue, key)
       
       request.onsuccess = () => {
         transaction.oncomplete = () => resolve()
         transaction.onerror = () => reject(new Error('事务失败'))
       }
-      request.onerror = () => reject(new Error('保存数据失败'))
+      request.onerror = (event) => {
+        const error = (event.target as IDBRequest).error
+        console.error('❌ [IndexedDB] 保存失败:', error?.message || error)
+        reject(error || new Error('保存数据失败'))
+      }
     })
   } catch (error) {
     console.error('IndexedDB setItem error:', error)
