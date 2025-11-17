@@ -37,21 +37,46 @@ export const apiService = {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.API_CONFIGS)
       if (saved) {
-        const configs = JSON.parse(saved)
+        let configs = JSON.parse(saved)
+        let needsUpdate = false
         
-        // 🔥 关键修复：自动合并内置API到用户配置列表
-        // 检查是否已经包含内置API
-        const hasBuiltIn = configs.some((c: ApiConfig) => 
-          BUILT_IN_CONFIGS.some(b => b.id === c.id)
+        // 🔥 关键修复：自动更新内置API配置，确保字段是最新的
+        configs = configs.map((c: ApiConfig) => {
+          const builtInConfig = BUILT_IN_CONFIGS.find(b => b.id === c.id)
+          if (builtInConfig) {
+            // 如果是内置API，更新所有字段（保留用户可能修改的temperature等）
+            const updated = {
+              ...builtInConfig,
+              temperature: c.temperature ?? builtInConfig.temperature,
+              maxTokens: c.maxTokens ?? builtInConfig.maxTokens
+            }
+            if (JSON.stringify(c) !== JSON.stringify(updated)) {
+              needsUpdate = true
+              console.log(`🔄 更新内置API配置: ${c.name}`)
+            }
+            return updated
+          }
+          return c
+        })
+        
+        // 检查是否已经包含所有内置API
+        const hasAllBuiltIn = BUILT_IN_CONFIGS.every(b => 
+          configs.some((c: ApiConfig) => c.id === b.id)
         )
         
-        if (!hasBuiltIn && BUILT_IN_CONFIGS.length > 0) {
-          // 如果没有内置API，添加到列表开头
-          const mergedConfigs = [...BUILT_IN_CONFIGS, ...configs]
-          // 保存合并后的配置
-          localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(mergedConfigs))
+        if (!hasAllBuiltIn) {
+          // 添加缺失的内置API到列表开头
+          const missingBuiltIn = BUILT_IN_CONFIGS.filter(b =>
+            !configs.some((c: ApiConfig) => c.id === b.id)
+          )
+          configs = [...missingBuiltIn, ...configs]
+          needsUpdate = true
           console.log('✅ 已自动添加内置API配置')
-          return mergedConfigs
+        }
+        
+        // 如果有更新，保存回localStorage
+        if (needsUpdate) {
+          localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(configs))
         }
         
         return configs
