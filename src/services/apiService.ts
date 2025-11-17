@@ -22,7 +22,7 @@ const BUILT_IN_CONFIGS: ApiConfig[] = [
     baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
     apiKey: 'sk-P3jVxHNx7YvU07J0w818ZUHoiSPGaKDdhb7kNMxFhAPjM13s',
     model: 'gemini-2.5-pro',
-    provider: 'custom',  // 自定义API端点
+    provider: 'google',  // 使用google provider，直接使用baseUrl，不添加/chat/completions
     temperature: 0.7,
     maxTokens: 8000,
     createdAt: new Date().toISOString(),

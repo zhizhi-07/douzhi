@@ -70,7 +70,8 @@ async function preloadMessages() {
                 if (messages && messages.length > 0) {
                   await IDB.setItem(IDB.STORES.MESSAGES, chatId, messages)
                   console.log(`✅ [恢复备份] 成功恢复${messages.length}条消息到IndexedDB`)
-                  localStorage.removeItem(backupKey) // 恢复成功后删除备份
+                  // 🔥 关键修复：不要删除localStorage备份！保留24小时作为安全网
+                  // localStorage.removeItem(backupKey)  // 已禁用
                 }
               }
             } else {
@@ -368,7 +369,12 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
             // 恢复到IndexedDB
             if (loaded && loaded.length > 0) {
               await IDB.setItem(IDB.STORES.MESSAGES, chatId, loaded)
-              localStorage.removeItem(backupKey)
+              // 🔥 关键修复：不要删除localStorage备份！
+              // 保留24小时作为安全网，防止IndexedDB保存失败导致数据丢失
+              // localStorage.removeItem(backupKey)  // 已禁用
+              if (import.meta.env.DEV) {
+                console.log(`💾 [恢复备份] 已恢复到IndexedDB，保留localStorage备份作为安全网`)
+              }
             }
           }
         }
