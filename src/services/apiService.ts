@@ -14,23 +14,22 @@ export interface ApiConfig {
   supportsVision?: boolean  // 是否支持视觉识别（图片理解）
 }
 
-// 内置API配置已移除，用户需要自行配置
-// 示例配置格式：
-// {
-//   id: 'your-api-id',
-//   name: '你的API名称',
-//   baseUrl: 'https://your-api-endpoint.com/v1',
-//   apiKey: 'your-api-key',
-//   model: 'your-model-name',
-//   provider: 'openai', // 或 'google', 'claude', 'siliconflow', 'custom'
-//   temperature: 0.7,
-//   maxTokens: 8000,
-//   createdAt: new Date().toISOString(),
-//   isBuiltIn: false,
-//   supportsVision: false
-// }
-
-const BUILT_IN_CONFIGS: ApiConfig[] = []
+// 内置API配置
+const BUILT_IN_CONFIGS: ApiConfig[] = [
+  {
+    id: 'built-in-gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro（内置）',
+    baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
+    apiKey: 'sk-P3jVxHNx7YvU07J0w818ZUHoiSPGaKDdhb7kNMxFhAPjM13s',
+    model: 'gemini-2.5-pro',
+    provider: 'google',
+    temperature: 0.7,
+    maxTokens: 8000,
+    createdAt: new Date().toISOString(),
+    isBuiltIn: true,
+    supportsVision: true  // Gemini支持视觉识别
+  }
+]
 
 export const apiService = {
   // 获取所有API配置
