@@ -191,6 +191,7 @@ function fixDuplicateMessageIds(messages: Message[]): Message[] {
 
 /**
  * 加载消息（同步，从缓存读取）
+ * 🔥 手机端强化：缓存未命中时立即从localStorage备份恢复
  */
 export function loadMessages(chatId: string): Message[] {
   try {
@@ -198,13 +199,38 @@ export function loadMessages(chatId: string): Message[] {
     let messages = messageCache.get(chatId)
 
     if (!messages) {
-      // 缓存未命中，但预加载可能还在进行
-      // 如果预加载还未完成，这里会返回空数组
-      // 但预加载完成后会自动触发事件更新UI
+      // 🔥 关键修复：缓存未命中时，立即尝试从localStorage备份恢复
+      // 这解决了手机端刷新时IndexedDB预加载失败导致的消息丢失
       if (import.meta.env.DEV) {
-        console.log(`⏳ 消息缓存未命中: chatId=${chatId}，等待预加载...`)
+        console.log(`⏳ 消息缓存未命中: chatId=${chatId}，尝试从localStorage恢复...`)
       }
-      messages = []
+      
+      try {
+        const backupKey = `msg_backup_${chatId}`
+        const backup = localStorage.getItem(backupKey)
+        
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          const backupAge = Date.now() - (parsed.timestamp || 0)
+          
+          // 备份在24小时内有效
+          if (backupAge < 24 * 60 * 60 * 1000 && parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+            messages = parsed.messages as Message[]
+            messageCache.set(chatId, messages)
+            console.log(`✅ [立即恢复] 从localStorage恢复消息: chatId=${chatId}, count=${messages.length}, 备份时间=${Math.floor(backupAge / 1000)}秒前`)
+          } else if (backupAge >= 24 * 60 * 60 * 1000) {
+            console.warn(`⚠️ [立即恢复] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
+            localStorage.removeItem(backupKey)
+          }
+        }
+      } catch (e) {
+        console.error('❌ [立即恢复] 从localStorage恢复失败:', e)
+      }
+      
+      // 如果还是没有，返回空数组
+      if (!messages) {
+        messages = []
+      }
     } else {
       // 从缓存读取时也检查并修复
       const fixedMessages = fixDuplicateMessageIds(messages)
@@ -220,7 +246,7 @@ export function loadMessages(chatId: string): Message[] {
     }
 
     if (import.meta.env.DEV) {
-      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}`)
+      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}, 来源=${messageCache.has(chatId) ? '缓存' : 'localStorage备份'}`)
     }
     return messages
   } catch (error) {
