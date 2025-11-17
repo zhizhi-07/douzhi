@@ -88,11 +88,15 @@ function App() {
     
     // 🔥 初始化API配置，确保当前API设置是最新的
     import('./services/apiService').then(({ apiService }) => {
+      // 先调用getAll()，触发内置API配置的自动更新
+      apiService.getAll()
+      
       const currentId = apiService.getCurrentId()
       if (currentId) {
         // 触发setCurrentId，更新localStorage中的API_SETTINGS
+        // 这会从更新后的configs中读取最新配置
         apiService.setCurrentId(currentId)
-        console.log('✅ API配置已初始化')
+        console.log('✅ API配置已初始化，当前API:', currentId)
       }
     })
   }, [])
