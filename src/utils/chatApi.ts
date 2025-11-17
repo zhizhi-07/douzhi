@@ -640,6 +640,12 @@ ${buildUserAvatarContext()}
 6. 情侣空间状态：${coupleSpaceStatus}${intimatePayInfo}
 ${getUserInfoChangeContext()}
 
+⚠️ 关系与态度（非常重要）：
+- 你的人设中已经明确了你和${userNickname}的关系（如朋友、恋人、同学等）。
+- 你必须始终按照这个关系定位来对话，不要忽略或淡化这层关系。
+- 如果人设中说你们是恋人，就要表现出恋人的亲密感和在意；如果是朋友，就要有朋友的熟络和分寸。
+- 不要因为对话内容平淡就忘记你们的关系，要在日常对话中自然流露出这层关系的特点。
+
 关于「记忆与时间线」：
 - 你和 ${userNickname} 之间发生过的重要事件、聊天内容、偏好习惯等，会记录在「互动时间线」里。
 - 当对方问起"你还记得吗""上次说的那个""我喜欢什么"等问题时：
@@ -715,20 +721,17 @@ ${await buildAIMemosContext(character.id)}
 
 3）金钱相关
 
-- 向对方转账：
-  - [转账:金额:说明]
-  - 例：[转账:52:晚饭AA我先垫着]
+- 向对方转账：[转账:金额:说明]
+  例：[转账:52:晚饭AA我先垫着]
 
-- 收到对方转账时：
-  - 接受：[转账:接受]
-  - 拒绝或退还：[转账:拒绝]
-  - 发送这些指令后，必须再发一条普通文本消息，表达你的想法（开心/心虚/调侃等），符合你的人设。
+- 亲密付：[亲密付:月额度]
+  例：[亲密付:500]
 
-- 亲密付：
-  - 设置额度：[亲密付:月额度]
-  - 收亲密付邀请：[接受亲密付] 或 [拒绝亲密付]
+- 给对方点外卖：[外卖:商品1,价格1,商品2,价格2:备注]
+  例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
 
-⚠️ 你不能通过自然语言直接修改金额，只能用上述指令表达"接受/拒绝/发起"。
+- 请求对方代付：[代付:商品1,价格1,商品2,价格2:备注]
+  例：[代付:咖啡,25,蛋糕,35:帮我付一下呗]
 
 4）媒体消息
 
@@ -771,8 +774,7 @@ ${relation && relation.status === 'active' && relation.characterId === character
 - 留言：[留言:留言内容]
 - 纪念日：[纪念日:日期:标题]
 - 解除情侣空间：[情侣空间:解除]`
-  : `- 邀请建立情侣空间：[情侣空间邀请]
-- 回应邀请：[情侣空间:接受] 或 [情侣空间:拒绝]`}
+  : `- 邀请建立情侣空间：[情侣空间邀请]`}
 
 8）一起听歌
 
@@ -780,27 +782,20 @@ ${localStorage.getItem('listening_together')
   ? `- 切歌：[切歌:歌名:歌手]`
   : `- 邀请一起听歌：[一起听:歌名:歌手]`}
 
-9）拉黑与代付
+9）其他
 
 - 拉黑用户：[拉黑用户]
 - 解除拉黑：[解除拉黑]
 
-- 同意代付：[同意代付]（只写一次，不要重复）
-- 拒绝代付：[拒绝代付]（只写一次，不要重复）
-- 给对方点外卖：[外卖:商品1,价格1,商品2,价格2:备注]
-  示例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
-- 请求对方代付：[代付:商品1,价格1,商品2,价格2:备注]
-  示例：[代付:咖啡,25,蛋糕,35:帮我付一下呗]
-  说明：你可以主动请求用户帮你付款，用户会看到代付请求卡片并选择同意或拒绝
-
-${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
+${buildDynamicInstructions(messages)}${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 
 六、真实聊天习惯（非常重要）
 
 你是在用手机和人聊天，不是在写小说或论文。
 
 ✅ 建议：
-- 一次回复可以拆成 1～5 条短消息连续发送，而不是憋成一大段长文。
+- 一次回复可以拆成多条短消息连续发送，想发几条就发几条，完全根据你当时的心情和想说的内容决定。
+- ⚠️ 重要：不要每次都发相同数量的消息！每次对话的消息数量都应该不一样，要自然变化。
 - 可以打错字、用口语、用语气词、用拟声词：
   - "笑死""我裂开了""好困…"
 - 看不懂就直接说："。？"、"啥"、"你在说啥"。
@@ -819,6 +814,7 @@ ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(chara
 - 不要把很多内容都写在同一行里。
 - 当你有多件事、多种感受想说时，要拆成多行短句输出。
 - 每一行尽量只表达一个小意思，这样更像真实聊天。
+- 但也要灵活：有时候一句话就够了，有时候需要连发好几条。
 
 七、真实反应（非常重要）
 
@@ -915,6 +911,90 @@ const buildListeningTogetherContext = async (character: Character): Promise<stri
 /**
  * 构建情侣空间上下文
  */
+/**
+ * 根据最近消息动态生成相关指令说明
+ * 只在用户发送了相关功能时才告诉AI怎么处理
+ */
+const buildDynamicInstructions = (messages: Message[]): string => {
+  const instructions: string[] = []
+  const recentMessages = messages.slice(-20) // 只看最近20条
+  
+  // 检查是否有待处理的转账（用户发给AI的）
+  const hasPendingTransfer = recentMessages.some(
+    msg => msg.messageType === 'transfer' && msg.transfer?.status === 'pending' && msg.type === 'sent'
+  )
+  if (hasPendingTransfer) {
+    instructions.push(`
+💰 转账处理：
+- 用户给你发了转账，你可以：
+  - 接受：[接收转账]
+  - 拒绝：[退还]
+- 处理后必须再发一条文本消息表达你的想法`)
+  }
+  
+  // 检查是否有待处理的代付请求（用户请求AI代付）
+  const hasPendingPayment = recentMessages.some(
+    msg => msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'pending' && msg.type === 'sent'
+  )
+  if (hasPendingPayment) {
+    instructions.push(`
+🍔 代付处理：
+- 用户请求你代付，你可以：
+  - 同意：[同意代付]
+  - 拒绝：[拒绝代付]`)
+  }
+  
+  // 检查是否有待处理的亲密付邀请（用户邀请AI）
+  const hasPendingIntimatePay = recentMessages.some(
+    msg => msg.messageType === 'intimatePay' && msg.intimatePay?.status === 'pending' && msg.type === 'sent'
+  )
+  if (hasPendingIntimatePay) {
+    instructions.push(`
+💝 亲密付邀请：
+- 用户邀请你开通亲密付，你可以：
+  - 接受：[接受亲密付]
+  - 拒绝：[拒绝亲密付]`)
+  }
+  
+  // 检查是否有待处理的情侣空间邀请（用户邀请AI）
+  const hasCoupleSpaceInvite = recentMessages.some(
+    msg => msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending' && msg.type === 'sent'
+  )
+  if (hasCoupleSpaceInvite) {
+    instructions.push(`
+💑 情侣空间邀请：
+- 用户邀请你建立情侣空间，你可以：
+  - 接受：[情侣空间:接受]
+  - 拒绝：[情侣空间:拒绝]`)
+  }
+  
+  // 检查是否有待处理的一起听歌邀请（用户邀请AI）
+  const hasMusicInvite = recentMessages.some(
+    msg => msg.messageType === 'musicInvite' && (msg as any).musicInvite?.status === 'pending' && msg.type === 'sent'
+  )
+  if (hasMusicInvite) {
+    instructions.push(`
+🎵 一起听歌邀请：
+- 用户邀请你一起听歌，你可以：
+  - 接受：[接受一起听] 或直接说"好啊"、"走起"、"来吧"等
+  - 拒绝：[拒绝一起听] 或直接说"不想听"、"下次吧"、"算了"等`)
+  }
+  
+  if (instructions.length === 0) {
+    return ''
+  }
+  
+  return `
+
+══════════════════════════════════
+
+📋 当前需要处理的功能：
+${instructions.join('\n')}
+
+══════════════════════════════════
+`
+}
+
 /**
  * 构建被拒绝状态提示
  * 从最近的消息历史中检查用户拒绝了哪些功能

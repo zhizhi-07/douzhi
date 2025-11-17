@@ -165,7 +165,7 @@ export const transferHandler: CommandHandler = {
  * 接收转账指令处理器
  */
 export const receiveTransferHandler: CommandHandler = {
-  pattern: /[\[【]接收转账[\]】]/,
+  pattern: /[\[【](?:接收转账|转账[:\：]接受|转账[:\：]收下)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       const lastPending = [...prev].reverse().find(
@@ -202,7 +202,7 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  pattern: /[\[【]退还(转账)?[\]】]|^退还$/,
+  pattern: /[\[【](?:退还(?:转账)?|转账[:\：]拒绝|转账[:\：]退还)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）
@@ -1691,7 +1691,7 @@ export const musicInviteHandler: CommandHandler = {
  * 一起听：AI接受邀请（自然语言识别）
  */
 export const musicAcceptHandler: CommandHandler = {
-  pattern: /(好啊|走起|来吧|可以呀|行呀|好的|好嘛|好呀|走吧|听听|一起听吧|冲|安排|好滋|没问题|同意|接受)/,
+  pattern: /[\[【]接受一起听[\]】]|(好啊|走起|来吧|可以呀|行呀|好的|好嘛|好呀|走吧|听听|一起听吧|冲|安排|好滋|没问题|同意|接受)/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
     const pendingMusicInvite = messages.slice().reverse().find(msg => 
@@ -1760,7 +1760,7 @@ export const musicAcceptHandler: CommandHandler = {
  * 一起听：AI拒绝邀请（自然语言识别）
  */
 export const musicRejectHandler: CommandHandler = {
-  pattern: /^(不想听|下次吧|不听|算了|不要|不行|不了|pass|拒绝)[！!。，,、\s]*$/,
+  pattern: /[\[【]拒绝一起听[\]】]|^(不想听|下次吧|不听|算了|不要|不行|不了|pass|拒绝)[！!。，,、\s]*$/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
     const pendingMusicInvite = messages.slice().reverse().find(msg => 
