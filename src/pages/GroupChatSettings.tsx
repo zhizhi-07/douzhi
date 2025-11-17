@@ -9,6 +9,7 @@ import { groupChatManager } from '../utils/groupChatManager'
 import { characterService } from '../services/characterService'
 import { formatSummaryForDisplay } from '../utils/groupChatSummary'
 import { lorebookManager } from '../utils/lorebookSystem'
+import BubbleSettings from './ChatSettings/BubbleSettings'
 
 const GroupChatSettings = () => {
   const navigate = useNavigate()
@@ -401,6 +402,16 @@ const GroupChatSettings = () => {
             </p>
           )}
         </div>
+
+        {/* 气泡设置 */}
+        {id && (
+          <BubbleSettings 
+            chatId={id} 
+            onSaved={() => {
+              // 设置已保存
+            }} 
+          />
+        )}
 
         {/* 置顶聊天 */}
         <div className="bg-white rounded-2xl p-4">

@@ -53,29 +53,49 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     
     console.log('🎨 清理后的CSS:', cleanedCSS.substring(0, 100))
     
-    // 🔥 修复：不再自动注入颜色选择器的颜色，让自定义CSS完全独立
-    const finalCSS = cleanedCSS
+    // 🔥 智能合并：如果CSS中没有定义color，则使用颜色选择器的字体颜色作为默认值
+    let finalCSS = cleanedCSS
     
-    // 尝试分离用户CSS和AI CSS（如果包含的话）
+    // 检查用户气泡CSS是否包含color属性
     const userCSSMatch = finalCSS.match(/\.message-container\.sent[^}]+}/gs)
     const aiCSSMatch = finalCSS.match(/\.message-container\.received[^}]+}/gs)
     
-    if (userCSSMatch || aiCSSMatch) {
-      // 如果包含标准格式，合并所有匹配的规则
-      if (userCSSMatch) {
-        localStorage.setItem(`user_bubble_css_${chatId}`, userCSSMatch.join('\n'))
-      }
-      if (aiCSSMatch) {
-        localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSSMatch.join('\n'))
+    let userCSS = ''
+    let aiCSS = ''
+    
+    if (userCSSMatch) {
+      userCSS = userCSSMatch.join('\n')
+      // 如果CSS中没有定义color，添加颜色选择器的字体颜色
+      if (!userCSS.includes('color:') && !userCSS.includes('color :')) {
+        userCSS = userCSS.replace('}', `  color: ${userTextColor} !important;\n}`)
       }
     } else {
-      // 否则，直接保存整个CSS给双方
-      localStorage.setItem(`user_bubble_css_${chatId}`, finalCSS)
-      localStorage.setItem(`ai_bubble_css_${chatId}`, finalCSS)
+      // 如果没有标准格式，使用整个CSS并添加字体颜色
+      userCSS = finalCSS
+      if (!userCSS.includes('color:') && !userCSS.includes('color :')) {
+        userCSS += `\n.message-container.sent .message-bubble {\n  color: ${userTextColor} !important;\n}`
+      }
     }
     
+    if (aiCSSMatch) {
+      aiCSS = aiCSSMatch.join('\n')
+      // 如果CSS中没有定义color，添加颜色选择器的字体颜色
+      if (!aiCSS.includes('color:') && !aiCSS.includes('color :')) {
+        aiCSS = aiCSS.replace('}', `  color: ${aiTextColor} !important;\n}`)
+      }
+    } else {
+      // 如果没有标准格式，使用整个CSS并添加字体颜色
+      aiCSS = finalCSS
+      if (!aiCSS.includes('color:') && !aiCSS.includes('color :')) {
+        aiCSS += `\n.message-container.received .message-bubble {\n  color: ${aiTextColor} !important;\n}`
+      }
+    }
+    
+    localStorage.setItem(`user_bubble_css_${chatId}`, userCSS)
+    localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSS)
+    
     // 🔥 修复：更新预览CSS
-    setPreviewCSS(finalCSS)
+    setPreviewCSS(userCSS + '\n' + aiCSS)
     
     // 触发更新（使用自定义事件，因为storage事件不会在同窗口触发）
     window.dispatchEvent(new Event('bubbleStyleUpdate'))

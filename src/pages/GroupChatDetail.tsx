@@ -3,7 +3,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { flushSync } from 'react-dom'
 import StatusBar from '../components/StatusBar'
 import Avatar from '../components/Avatar'
@@ -15,6 +15,7 @@ import EmojiPanel from '../components/EmojiPanel'
 import type { Emoji } from '../utils/emojiStorage'
 import { getEmojis } from '../utils/emojiStorage'
 import { getUserInfo } from '../utils/userUtils'
+import { useChatBubbles } from '../hooks/useChatBubbles'
 
 // 获取成员头像
 const getMemberAvatar = (userId: string): string => {
@@ -43,6 +44,9 @@ const GroupChatDetail = () => {
   const inputRef = useRef<HTMLInputElement>(null)
   const longPressTimer = useRef<number | null>(null)
   const isAIReplying = useRef(false)  // 标志位：AI是否正在回复中
+
+  // 🎨 气泡样式
+  useChatBubbles(id)
 
   useEffect(() => {
     if (!id) return
@@ -194,6 +198,12 @@ const GroupChatDetail = () => {
 
   // 渲染带@高亮的消息内容（优化段落显示）
   const renderMessageContent = (content: string) => {
+    // 🔥 修复：确保content是字符串，避免undefined或null导致的错误
+    if (!content || typeof content !== 'string') {
+      console.warn('⚠️ 消息内容无效:', content)
+      return ''
+    }
+    
     if (!id) return formatParagraphs(content)
     const group = groupChatManager.getGroup(id)
     if (!group) return formatParagraphs(content)
@@ -221,7 +231,8 @@ const GroupChatDetail = () => {
       while ((match = mentionRegex.exec(trimmedPara)) !== null) {
         // 添加@之前的文本
         if (match.index > lastIndex) {
-          parts.push(trimmedPara.substring(lastIndex, match.index))
+          const textBefore = trimmedPara.substring(lastIndex, match.index)
+          parts.push(<React.Fragment key={`text-${paraIndex}-${lastIndex}`}>{textBefore}</React.Fragment>)
         }
 
         // 添加@高亮
@@ -238,7 +249,7 @@ const GroupChatDetail = () => {
             </span>
           )
         } else {
-          parts.push(`@${mentionedName}`)
+          parts.push(<React.Fragment key={`at-${paraIndex}-${match.index}`}>@{mentionedName}</React.Fragment>)
         }
 
         lastIndex = match.index + match[0].length
@@ -246,13 +257,24 @@ const GroupChatDetail = () => {
 
       // 添加剩余文本
       if (lastIndex < trimmedPara.length) {
-        parts.push(trimmedPara.substring(lastIndex))
+        const remainingText = trimmedPara.substring(lastIndex)
+        parts.push(<React.Fragment key={`text-${paraIndex}-${lastIndex}-end`}>{remainingText}</React.Fragment>)
+      }
+
+      // 🔥 修复：如果没有parts，直接返回文本内容
+      if (parts.length === 0) {
+        return (
+          <span key={`para-${paraIndex}`}>
+            {paraIndex > 0 && <br />}
+            {trimmedPara}
+          </span>
+        )
       }
 
       return (
         <span key={`para-${paraIndex}`}>
           {paraIndex > 0 && <br />}
-          {parts.length > 0 ? parts : trimmedPara}
+          {parts}
         </span>
       )
     }).filter(Boolean)
@@ -699,6 +721,7 @@ const GroupChatDetail = () => {
     if (!inputText.trim() || !id || isAiTyping) return
     
     const userMessage = inputText
+    console.log('📤 [发送消息] 仅发送用户消息，不触发AI回复')
     
     // 发送消息（带引用）
     groupChatManager.addMessage(id, {
@@ -723,10 +746,8 @@ const GroupChatDetail = () => {
     setQuotedMessage(null)  // 清除引用
     setTimeout(scrollToBottom, 100)
     
-    // 🔥 发送消息后自动触发 AI 回复
-    setTimeout(() => {
-      handleAIReply()
-    }, 200)
+    // 🔥 修复：不再自动触发AI回复，用户需要手动点击空发送按钮触发
+    console.log('✅ [发送完成] 消息已发送，未触发AI回复')
   }
 
   return (
@@ -1000,9 +1021,9 @@ const GroupChatDetail = () => {
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !isAiTyping) {
                   if (inputText.trim()) {
-                    handleSend()  // 有文字：发送消息并触发 AI 回复
+                    handleSend()  // 有文字：发送用户消息
                   } else {
-                    handleAIReply()  // 无文字：让 AI 自己继续聊
+                    handleAIReply()  // 无文字：触发 AI 回复
                   }
                 }
               }}
