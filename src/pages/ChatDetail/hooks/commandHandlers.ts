@@ -2120,11 +2120,10 @@ export const acceptPaymentHandler: CommandHandler = {
       return finalUpdated
     })
     
-    const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
-      remainingText,
-      skipTextMessage: !remainingText
+      hideCommand: true,
+      shouldRespond: false
     }
   }
 }
@@ -2178,6 +2177,7 @@ export const rejectPaymentHandler: CommandHandler = {
     
     return { 
       handled: true,
+      hideCommand: true,
       shouldRespond: false
     }
   }
