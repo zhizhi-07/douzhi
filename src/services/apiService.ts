@@ -19,10 +19,10 @@ const BUILT_IN_CONFIGS: ApiConfig[] = [
   {
     id: 'built-in-gemini-2.5-pro',
     name: 'Gemini 2.5 Pro（内置）',
-    baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
+    baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',  // custom provider会添加/chat/completions
     apiKey: 'sk-P3jVxHNx7YvU07J0w818ZUHoiSPGaKDdhb7kNMxFhAPjM13s',
     model: 'gemini-2.5-pro',
-    provider: 'google',  // 使用google provider，直接使用baseUrl，不添加/chat/completions
+    provider: 'custom',  // 自定义API端点，最终URL: baseUrl + /chat/completions
     temperature: 0.7,
     maxTokens: 8000,
     createdAt: new Date().toISOString(),
