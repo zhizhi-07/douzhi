@@ -53,21 +53,8 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     
     console.log('🎨 清理后的CSS:', cleanedCSS.substring(0, 100))
     
-    // 🔥 关键修复：自动注入颜色选择器的文字颜色
-    // 在每个气泡样式的末尾添加color属性（如果没有的话）
-    const colorInjectionCSS = `
-/* 🎨 颜色选择器设置（自动注入） */
-.message-container.sent .message-bubble {
-  color: ${userTextColor} !important;
-}
-
-.message-container.received .message-bubble {
-  color: ${aiTextColor} !important;
-}
-`
-    
-    // 合并CSS：自定义样式 + 颜色注入
-    const finalCSS = cleanedCSS + '\n' + colorInjectionCSS
+    // 🔥 修复：不再自动注入颜色选择器的颜色，让自定义CSS完全独立
+    const finalCSS = cleanedCSS
     
     // 尝试分离用户CSS和AI CSS（如果包含的话）
     const userCSSMatch = finalCSS.match(/\.message-container\.sent[^}]+}/gs)
@@ -98,15 +85,9 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     alert('✅ CSS样式已应用！')
   }
 
-  // 保存气泡设置
+  // 保存颜色选择器设置
   const saveBubbleColors = () => {
-    // 如果有CSS输入，优先应用CSS
-    if (cssInput.trim()) {
-      handleApplyCSS()
-      return
-    }
-    
-    // 否则应用颜色
+    // 保存颜色值
     localStorage.setItem(`user_bubble_color_${chatId}`, userBubbleColor)
     localStorage.setItem(`ai_bubble_color_${chatId}`, aiBubbleColor)
     localStorage.setItem(`user_text_color_${chatId}`, userTextColor)
@@ -136,6 +117,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     // 触发更新
     window.dispatchEvent(new Event('bubbleStyleUpdate'))
     onSaved()
+    alert('✅ 颜色设置已应用！')
   }
 
   return (
@@ -165,6 +147,15 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       
       {/* 自定义颜色 */}
       <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500">颜色选择器</div>
+          <button
+            onClick={saveBubbleColors}
+            className="px-3 py-1 bg-black hover:bg-gray-800 text-white text-xs rounded-full active:scale-95 transition-all"
+          >
+            应用颜色
+          </button>
+        </div>
         <div className="grid grid-cols-4 gap-3">
           <div>
             <div className="text-xs text-gray-500 mb-2">用户气泡</div>
@@ -209,9 +200,10 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs text-gray-500">导入CSS样式</div>
-          <button
-            onClick={() => {
-              const template = `.message-container.sent .message-bubble {
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const template = `.message-container.sent .message-bubble {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
   color: #FFFFFF !important;
   border-radius: 18px !important;
@@ -227,12 +219,19 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
   border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }`
-              setCSSInput(template)
-            }}
-            className="text-xs text-blue-500 hover:text-blue-600 active:scale-95 transition-all"
-          >
-            加载模板
-          </button>
+                setCSSInput(template)
+              }}
+              className="text-xs text-blue-500 hover:text-blue-600 active:scale-95 transition-all"
+            >
+              加载模板
+            </button>
+            <button
+              onClick={handleApplyCSS}
+              className="px-3 py-1 bg-black hover:bg-gray-800 text-white text-xs rounded-full active:scale-95 transition-all"
+            >
+              应用CSS
+            </button>
+          </div>
         </div>
         <textarea
           value={cssInput}
@@ -241,7 +240,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
           className="w-full h-32 px-3 py-2 bg-gray-50 rounded-lg text-xs font-mono resize-none focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
         />
         <div className="mt-1.5 text-xs text-gray-400">
-          💡 支持渐变色、阴影、圆角等CSS属性
+          💡 支持渐变色、阴影、圆角等CSS属性，完全独立于颜色选择器
         </div>
       </div>
       
@@ -292,14 +291,6 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
           </div>
         </div>
       </div>
-      
-      {/* 应用按钮 */}
-      <button
-        onClick={saveBubbleColors}
-        className="w-full py-2.5 bg-black hover:bg-gray-800 text-white rounded-full active:scale-95 transition-all font-medium"
-      >
-        应用
-      </button>
       </div>
       )}
     </div>
