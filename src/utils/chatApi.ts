@@ -58,9 +58,20 @@ export const getApiSettings = (): ApiSettings | null => {
   try {
     const apiSettings = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
     if (!apiSettings) {
+      console.warn('⚠️ [getApiSettings] localStorage中没有API_SETTINGS')
       return null
     }
-    return JSON.parse(apiSettings)
+    const settings = JSON.parse(apiSettings)
+    
+    // 🔥 诊断日志：显示完整的API配置
+    console.log('📋 [getApiSettings] 当前API配置:', {
+      model: settings.model,
+      provider: settings.provider,
+      supportsVision: settings.supportsVision,
+      baseUrl: settings.baseUrl?.substring(0, 30) + '...'
+    })
+    
+    return settings
   } catch (error) {
     console.error('读取API配置失败:', error)
     return null
@@ -1052,7 +1063,25 @@ const callAIApiInternal = async (
     }
     
     // 🔥 检查当前API是否支持视觉识别
-    const supportsVision = settings.supportsVision || false
+    // 智能检测：如果未明确设置，根据模型名称判断
+    let supportsVision = settings.supportsVision
+    if (supportsVision === undefined) {
+      const modelLower = settings.model.toLowerCase()
+      // 已知支持视觉识别的模型
+      const visionModels = [
+        'gemini',           // Gemini系列
+        'gpt-4-vision',     // GPT-4 Vision
+        'gpt-4o',           // GPT-4o
+        'gpt-4-turbo',      // GPT-4 Turbo
+        'claude-3',         // Claude 3系列
+        'claude-opus',      // Claude Opus
+        'claude-sonnet'     // Claude Sonnet
+      ]
+      supportsVision = visionModels.some(model => modelLower.includes(model))
+      console.log(`🤖 [智能检测] 模型 "${settings.model}" ${supportsVision ? '支持' : '不支持'}视觉识别`)
+    } else {
+      supportsVision = supportsVision || false
+    }
     
     // 处理带有图片的消息 - 只有在API支持视觉识别时才发送图片
     const processedMessages = messages.map(msg => {

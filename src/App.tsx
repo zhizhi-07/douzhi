@@ -85,6 +85,16 @@ function App() {
 
     // 🎵 初始化音效系统，预加载常用音效
     initSoundSystem()
+    
+    // 🔥 初始化API配置，确保当前API设置是最新的
+    import('./services/apiService').then(({ apiService }) => {
+      const currentId = apiService.getCurrentId()
+      if (currentId) {
+        // 触发setCurrentId，更新localStorage中的API_SETTINGS
+        apiService.setCurrentId(currentId)
+        console.log('✅ API配置已初始化')
+      }
+    })
   }, [])
   
   // 🔥 页面卸载时强制备份所有消息到 localStorage
