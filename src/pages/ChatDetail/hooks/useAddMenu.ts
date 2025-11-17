@@ -16,8 +16,7 @@ export const useAddMenu = (
   onOpenIntimatePay?: () => void,
   onOpenAIMemo?: () => void,
   onOpenOffline?: () => void,
-  onOpenPaymentRequest?: () => void,
-  onOpenOrderFood?: () => void
+  onOpenPaymentRequest?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -150,16 +149,6 @@ export const useAddMenu = (
     }
   }, [onOpenPaymentRequest])
   
-  /**
-   * 给TA点外卖
-   */
-  const handleSelectOrderFood = useCallback(() => {
-    setShowAddMenu(false)
-    if (onOpenOrderFood) {
-      onOpenOrderFood()
-    }
-  }, [onOpenOrderFood])
-  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -176,8 +165,7 @@ export const useAddMenu = (
       handleSelectMusicInvite,
       handleSelectAIMemo,
       handleSelectOffline,
-      handleSelectPaymentRequest,
-      handleSelectOrderFood
+      handleSelectPaymentRequest
     }
   }
 }

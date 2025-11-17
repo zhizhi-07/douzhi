@@ -204,29 +204,48 @@ export const useChatState = (chatId: string) => {
   /**
    * 监听页面可见性和焦点，当返回聊天窗口时重新加载消息
    * 解决：在其他页面时AI回复了消息，返回时需要自动显示
+   * 🔥 手机端优化：避免频繁重新加载导致消息丢失
    */
   useEffect(() => {
     if (!chatId) return
     
+    let lastHiddenTime = 0
+    
     // 页面可见性变化时重新加载
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        // 记录页面隐藏时间
+        lastHiddenTime = Date.now()
         if (import.meta.env.DEV) {
-          console.log('📱 [useChatState] 页面重新可见，重新加载消息')
+          console.log('📱 [useChatState] 页面隐藏，记录时间')
         }
-        loadChatMessages()
-        refreshCharacter()  // 同时刷新角色信息
+      } else if (document.visibilityState === 'visible') {
+        // 🔥 手机端优化：只有在页面隐藏超过3秒后才重新加载
+        // 避免快速切换应用时覆盖React状态中的最新消息
+        const hiddenDuration = Date.now() - lastHiddenTime
+        if (hiddenDuration > 3000) {
+          if (import.meta.env.DEV) {
+            console.log(`📱 [useChatState] 页面重新可见（隐藏了${Math.floor(hiddenDuration/1000)}秒），重新加载消息`)
+          }
+          loadChatMessages()
+          refreshCharacter()  // 同时刷新角色信息
+        } else {
+          if (import.meta.env.DEV) {
+            console.log(`📱 [useChatState] 页面重新可见（仅隐藏${Math.floor(hiddenDuration/1000)}秒），跳过重新加载`)
+          }
+        }
       }
     }
     
-    // 窗口获得焦点时重新加载
-    const handleFocus = () => {
-      if (import.meta.env.DEV) {
-        console.log('📱 [useChatState] 窗口获得焦点，重新加载消息')
-      }
-      loadChatMessages()
-      refreshCharacter()  // 同时刷新角色信息
-    }
+    // 🔥 手机端优化：移除focus事件监听，避免过度重新加载
+    // focus事件在手机端会频繁触发，导致消息丢失
+    // const handleFocus = () => {
+    //   if (import.meta.env.DEV) {
+    //     console.log('📱 [useChatState] 窗口获得焦点，重新加载消息')
+    //   }
+    //   loadChatMessages()
+    //   refreshCharacter()  // 同时刷新角色信息
+    // }
     
     // 🔥 监听异步加载完成事件
     const handleMessagesLoaded = (e: CustomEvent) => {
@@ -246,12 +265,13 @@ export const useChatState = (chatId: string) => {
     }
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
+    // 🔥 手机端优化：移除focus事件监听
+    // window.addEventListener('focus', handleFocus)
     window.addEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
+      // window.removeEventListener('focus', handleFocus)
       window.removeEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     }
   }, [chatId, loadChatMessages, refreshCharacter])

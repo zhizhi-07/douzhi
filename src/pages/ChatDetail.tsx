@@ -139,8 +139,7 @@ const ChatDetail = () => {
     () => intimatePay.setShowIntimatePaySender(true),
     () => setShowAIMemoModal(true),
     () => navigate(`/chat/${id}/offline`),  // 线下模式
-    () => navigate(`/chat/${id}/payment-request`),  // 代付（已合并给TA点外卖功能）
-    () => navigate(`/chat/${id}/payment-request`)  // 给TA点外卖（跳转到同一页面）
+    () => navigate(`/chat/${id}/payment-request`)  // 代付（已合并给TA点外卖功能）
   )
   
   // 多选模式
@@ -1067,7 +1066,6 @@ const ChatDetail = () => {
         onSelectAIMemo={addMenu.handlers.handleSelectAIMemo}
         onSelectOffline={addMenu.handlers.handleSelectOffline}
         onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
-        onSelectOrderFood={addMenu.handlers.handleSelectOrderFood}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 
