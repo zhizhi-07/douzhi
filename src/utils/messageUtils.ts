@@ -228,6 +228,23 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         }
       }
       
+      // 代付消息转换为AI可读格式
+      if (msg.messageType === 'paymentRequest' && msg.paymentRequest) {
+        const isUserSent = msg.type === 'sent'
+        const statusText = msg.paymentRequest.status === 'pending' ? '待处理' 
+                         : msg.paymentRequest.status === 'paid' ? '已支付' 
+                         : '已拒绝'
+        
+        const paymentInfo = isUserSent
+          ? `[用户请求你代付：${msg.paymentRequest.itemName}，金额¥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
+          : `[你请求用户代付：${msg.paymentRequest.itemName}，金额¥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
+        
+        return {
+          role: isUserSent ? 'user' as const : 'assistant' as const,
+          content: paymentInfo
+        }
+      }
+      
       // 语音消息转换为AI可读格式
       if (msg.messageType === 'voice' && msg.voiceText) {
         const voiceInfo = `[语音: ${msg.voiceText}]`

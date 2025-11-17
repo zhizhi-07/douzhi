@@ -836,9 +836,9 @@ ${buildDynamicInstructions(messages)}${buildCoupleSpaceContext(character)}${awai
    - 以 ${charName} 的性格，他/她现在大概率会怎么回？
    - 以你们现在的关系和聊天氛围，什么样的回复最自然？
 3. 不追求"写得多""写得华丽"，追求"像真人一样好聊"。
+4. 避免复读：在同一段聊天里，不要反复使用同一个梗、同一段台词，或者只改了少量字眼的句式。如果你要表达和之前类似的意思，换一种全新的说法，就像真人不会一遍遍背同一段台词。
 
-在以上所有前提下，基于完整的聊天历史和 ${userNickname} 刚才的消息，自然地回复，就像你拿着手机在和一个真实的人聊天。`
-}
+在以上所有前提下，基于完整的聊天历史和 ${userNickname} 刚才的消息，自然地回复，就像你拿着手机在和一个真实的人聊天。
 
 /**
  * 构建AI随笔历史上下文
@@ -938,15 +938,22 @@ const buildDynamicInstructions = (messages: Message[]): string => {
   }
   
   // 检查是否有待处理的代付请求（用户请求AI代付）
-  const hasPendingPayment = recentMessages.some(
+  const pendingPayments = recentMessages.filter(
     msg => msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'pending' && msg.type === 'sent'
   )
-  if (hasPendingPayment) {
+  if (pendingPayments.length > 0) {
+    const paymentCount = pendingPayments.length
+    const paymentList = pendingPayments
+      .map(msg => `${msg.paymentRequest!.itemName} ¥${msg.paymentRequest!.amount.toFixed(2)}`)
+      .join('、')
+    
     instructions.push(`
 🍔 代付处理：
-- 用户请求你代付，你可以：
-  - 同意：[同意代付]
-  - 拒绝：[拒绝代付]`)
+- 用户发了 ${paymentCount} 个代付请求：${paymentList}
+- 每个代付请求你都需要单独回应：
+  - 同意：[同意代付]（每次只处理最近的一个待处理代付）
+  - 拒绝：[拒绝代付]（每次只处理最近的一个待处理代付）
+- ⚠️ 如果有多个代付，你需要在不同的消息中多次使用这些指令`)
   }
   
   // 检查是否有待处理的亲密付邀请（用户邀请AI）
