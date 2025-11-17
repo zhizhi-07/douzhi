@@ -71,7 +71,7 @@ export const useChatState = (chatId: string) => {
   }, [chatId])
   
   /**
-   * 🔥 分页加载消息（初次加载最近50条）
+   * 🔥 分页加载消息（初次加载所有消息，不再分页）
    */
   const loadChatMessagesInitial = useCallback(async () => {
     if (!chatId) return
@@ -86,17 +86,15 @@ export const useChatState = (chatId: string) => {
       const total = await getMessageCount(chatId)
       setTotalMessageCount(total)
 
-      // 🔥 初次只加载最近30条消息（减少初始加载，提升性能）
-      const INITIAL_LOAD_COUNT = 30
+      // 🔥 修复：刷新后加载所有消息，而不是只加载最近30条
+      // 这样用户刷新后不会丢失之前看到的消息
       const { messages: initialMessages, hasMore } = await loadMessagesPaginated(
         chatId,
-        INITIAL_LOAD_COUNT,
+        total, // 加载所有消息
         0
       )
 
-      if (import.meta.env.DEV) {
-        console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}, 总数=${total}, 还有更多=${hasMore}`)
-      }
+      console.log(`📨 [分页加载] 初次加载所有消息: chatId=${chatId}, 加载=${initialMessages.length}, 总数=${total}, 还有更多=${hasMore}`)
 
       // 🔥 关键修复：只有当加载到消息时才设置状态，防止空数组覆盖
       if (initialMessages.length > 0 || total === 0) {
@@ -120,8 +118,12 @@ export const useChatState = (chatId: string) => {
    * 🔥 加载更多历史消息
    */
   const loadMoreMessages = useCallback(async () => {
-    if (!chatId || !hasMoreMessages || isLoadingMessages) return
+    if (!chatId || !hasMoreMessages || isLoadingMessages) {
+      console.log('🚫 [加载更多] 跳过:', { chatId, hasMoreMessages, isLoadingMessages })
+      return
+    }
 
+    console.log('📥 [加载更多] 开始加载...', { chatId, currentOffset, hasMoreMessages })
     setIsLoadingMessages(true)
 
     try {
@@ -132,16 +134,35 @@ export const useChatState = (chatId: string) => {
         currentOffset
       )
 
-      if (import.meta.env.DEV) {
-        console.log(`📨 [加载更多] chatId=${chatId}, 新增=${moreMessages.length}, 偏移=${currentOffset}, 还有更多=${hasMore}`)
-      }
+      console.log(`📨 [加载更多] 加载完成:`, {
+        chatId,
+        新增消息数: moreMessages.length,
+        当前偏移: currentOffset,
+        还有更多: hasMore,
+        新消息预览: moreMessages.slice(0, 3).map(m => ({ id: m.id, content: m.content?.substring(0, 20) }))
+      })
 
-      // 🔥 将新消息添加到前面（因为是历史消息）
-      setMessagesState(prev => [...moreMessages, ...prev])
+      // 🔥 只有在有新消息时才更新状态
+      if (moreMessages.length > 0) {
+        setMessagesState(prev => {
+          const newMessages = [...moreMessages, ...prev]
+          console.log(`✅ [加载更多] 消息状态更新: ${prev.length} -> ${newMessages.length}`)
+          return newMessages
+        })
+        setCurrentOffset(prev => {
+          const newOffset = prev + moreMessages.length
+          // 🔥 保存加载进度到 localStorage，刷新后可以恢复
+          localStorage.setItem(`chat_offset_${chatId}`, newOffset.toString())
+          console.log(`💾 [加载更多] 保存偏移量: ${newOffset}`)
+          return newOffset
+        })
+      } else {
+        console.warn('⚠️ [加载更多] 没有加载到新消息')
+      }
+      
       setHasMoreMessages(hasMore)
-      setCurrentOffset(prev => prev + moreMessages.length)
     } catch (error) {
-      console.error('加载更多消息失败:', error)
+      console.error('❌ [加载更多] 失败:', error)
     } finally {
       setIsLoadingMessages(false)
     }
