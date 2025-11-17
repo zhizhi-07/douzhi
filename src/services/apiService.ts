@@ -22,7 +22,7 @@ const BUILT_IN_CONFIGS: ApiConfig[] = [
     baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',
     apiKey: 'sk-P3jVxHNx7YvU07J0w818ZUHoiSPGaKDdhb7kNMxFhAPjM13s',
     model: 'gemini-2.5-pro',
-    provider: 'google',
+    provider: 'custom',  // 自定义API端点
     temperature: 0.7,
     maxTokens: 8000,
     createdAt: new Date().toISOString(),
@@ -38,11 +38,22 @@ export const apiService = {
       const saved = localStorage.getItem(STORAGE_KEYS.API_CONFIGS)
       if (saved) {
         const configs = JSON.parse(saved)
-        // 如果本地没有保存任何配置，返回内置配置
-        if (configs.length === 0) {
-          return BUILT_IN_CONFIGS
+        
+        // 🔥 关键修复：自动合并内置API到用户配置列表
+        // 检查是否已经包含内置API
+        const hasBuiltIn = configs.some((c: ApiConfig) => 
+          BUILT_IN_CONFIGS.some(b => b.id === c.id)
+        )
+        
+        if (!hasBuiltIn && BUILT_IN_CONFIGS.length > 0) {
+          // 如果没有内置API，添加到列表开头
+          const mergedConfigs = [...BUILT_IN_CONFIGS, ...configs]
+          // 保存合并后的配置
+          localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(mergedConfigs))
+          console.log('✅ 已自动添加内置API配置')
+          return mergedConfigs
         }
-        // 返回本地保存的所有配置（包括已编辑的内置配置）
+        
         return configs
       }
       // 首次使用，返回并保存内置配置
