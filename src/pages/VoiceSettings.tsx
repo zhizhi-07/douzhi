@@ -41,7 +41,23 @@ const VoiceSettings = () => {
       alert('✅ 账号测试成功！\n\n配置正确，可以正常使用。\n请在各角色的聊天设置中配置专属音色。')
     } catch (error) {
       const msg = error instanceof Error ? error.message : '未知错误'
-      alert(`❌ 测试失败：\n\n${msg}\n\n请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足`)
+      
+      // 友好的错误提示
+      let errorTitle = '❌ 测试失败'
+      let errorDetails = msg
+      
+      if (msg.includes('CORS') || msg.includes('跨域')) {
+        errorTitle = '⚠️ 跨域限制'
+        errorDetails = '当前环境遇到浏览器跨域限制\n\n解决方案：\n1. 部署到生产环境（自动使用代理）\n2. 本地开发时使用浏览器CORS插件\n3. 或等待部署后再测试'
+      } else if (msg.includes('not allowed') || msg.includes('permission')) {
+        errorTitle = '🔐 权限错误'
+        errorDetails = 'API权限验证失败\n\n请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足\n4. API Key是否已激活'
+      } else if (msg.includes('网络') || msg.includes('Network')) {
+        errorTitle = '🌐 网络错误'
+        errorDetails = '无法连接到语音服务\n\n请检查：\n1. 网络连接是否正常\n2. 是否在生产环境\n3. 代理服务是否正常'
+      }
+      
+      alert(`${errorTitle}\n\n${errorDetails}`)
     } finally {
       setIsTesting(false)
     }

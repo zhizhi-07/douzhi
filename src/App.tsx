@@ -58,6 +58,7 @@ import ForumTopics from './pages/ForumTopics'
 import ForumTopicDetail from './pages/ForumTopicDetail'
 import Map from './pages/Map'
 import LocationHistory from './pages/LocationHistory'
+import PaymentRequest from './pages/PaymentRequest'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -84,6 +85,57 @@ function App() {
 
     // 🎵 初始化音效系统，预加载常用音效
     initSoundSystem()
+  }, [])
+  
+  // 🔥 页面卸载时强制备份所有消息到 localStorage
+  // 手机端优化：监听多个事件确保备份成功
+  useEffect(() => {
+    let backupModule: any = null
+    
+    // 预加载备份模块
+    import('./utils/simpleMessageManager').then((module) => {
+      backupModule = module
+    })
+    
+    const doBackup = () => {
+      if (backupModule) {
+        backupModule.forceBackupAllMessages()
+      } else {
+        // 如果模块还没加载，立即加载并备份
+        import('./utils/simpleMessageManager').then(({ forceBackupAllMessages }) => {
+          forceBackupAllMessages()
+        })
+      }
+    }
+    
+    // 1. beforeunload - PC端主要事件
+    const handleBeforeUnload = () => {
+      doBackup()
+    }
+    
+    // 2. pagehide - 移动端更可靠的事件
+    const handlePageHide = () => {
+      console.log('📱 [pagehide] 触发备份')
+      doBackup()
+    }
+    
+    // 3. visibilitychange - 页面切到后台时备份
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('📱 [visibilitychange] 页面隐藏，触发备份')
+        doBackup()
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handlePageHide)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
   
   // 🎨 加载字体（自定义或系统默认）
@@ -244,6 +296,7 @@ function App() {
       <Route path="/forum/topic/:name" element={<ForumTopicDetail />} />
       <Route path="/map" element={<Map />} />
       <Route path="/location-history/:characterId" element={<LocationHistory />} />
+      <Route path="/chat/:id/payment-request" element={<PaymentRequest />} />
     </Routes>
     </>
   )

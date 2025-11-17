@@ -312,3 +312,19 @@ input[type="range"].slider::-moz-range-thumb:active {
   );
   height: 1px;
 }
+
+/* 淡入动画 - 用于代付详情展开 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

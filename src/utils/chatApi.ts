@@ -768,6 +768,8 @@ ${localStorage.getItem('listening_together')
 
 - 同意代付：[同意代付]
 - 拒绝代付：[拒绝代付]
+- 给对方点外卖：[外卖:商品1,价格1,商品2,价格2:备注]
+  示例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
 
 ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(character)}${buildRejectionStatusContext(messages, character.id)}${await buildEmojiListPrompt()}${await buildMomentsListPrompt(character.id)}${await buildAIMomentsPostPrompt(character.id)}
 

@@ -20,15 +20,35 @@ async function preloadMessages() {
   
   preloadPromise = (async () => {
     try {
+      // 🔥 关键修复：先扫描所有 localStorage 备份，防止数据丢失
+      const backupKeys: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('msg_backup_')) {
+          backupKeys.push(key)
+        }
+      }
+      
+      if (backupKeys.length > 0 && import.meta.env.DEV) {
+        console.log(`🔍 [预加载] 发现 ${backupKeys.length} 个 localStorage 备份`)
+      }
+      
       const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
       if (import.meta.env.DEV) {
         console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
       }
       
-      for (const chatId of allKeys) {
+      // 🔥 关键修复：合并 IndexedDB keys 和 localStorage 备份 keys
+      const allChatIds = new Set<string>(allKeys)
+      backupKeys.forEach(key => {
+        const chatId = key.replace('msg_backup_', '')
+        allChatIds.add(chatId)
+      })
+      
+      for (const chatId of allChatIds) {
         let messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
         
-        // 🔥 如果IndexedDB没有数据，尝试从localStorage备份恢复
+        // 🔥 如果IndexedDB没有数据，尝试从 localStorage备份恢复
         if (!messages || messages.length === 0) {
           try {
             const backupKey = `msg_backup_${chatId}`
@@ -39,9 +59,9 @@ async function preloadMessages() {
               messages = parsed.messages
               const backupAge = Date.now() - (parsed.timestamp || 0)
               
-              // 只恢复1小时内的备份，防止恢复太旧的数据
-              if (backupAge > 60 * 60 * 1000) {
-                console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
+              // 🔥 手机端优化：延长备份保留时间到24小时
+              if (backupAge > 24 * 60 * 60 * 1000) {
+                console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
                 localStorage.removeItem(backupKey)
                 messages = null
               } else {
@@ -89,6 +109,49 @@ async function preloadMessages() {
 
 // 启动时预加载
 preloadMessages()
+
+/**
+ * 🔥 强制备份所有缓存的消息到 localStorage
+ * 用于页面卸载时防止数据丢失
+ */
+export function forceBackupAllMessages(): void {
+  try {
+    console.log(`🔄 [强制备份] 开始备份所有消息到 localStorage`)
+    let backupCount = 0
+    
+    messageCache.forEach((messages, chatId) => {
+      if (messages.length > 0) {
+        try {
+          const backupKey = `msg_backup_${chatId}`
+          const seen = new WeakSet()
+          const jsonString = JSON.stringify({
+            messages,
+            timestamp: Date.now()
+          }, (_key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
+                return undefined
+              }
+              if (seen.has(value)) return undefined
+              seen.add(value)
+            }
+            if (typeof value === 'function') return undefined
+            return value
+          })
+          
+          localStorage.setItem(backupKey, jsonString)
+          backupCount++
+        } catch (e) {
+          console.error(`❌ [强制备份] 备份失败: chatId=${chatId}`, e)
+        }
+      }
+    })
+    
+    console.log(`✅ [强制备份] 完成，共备份 ${backupCount} 个聊天`)
+  } catch (error) {
+    console.error('❌ [强制备份] 失败:', error)
+  }
+}
 
 /**
  * 修复重复的消息ID
@@ -265,10 +328,10 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
           loaded = parsed.messages
           const backupAge = Date.now() - (parsed.timestamp || 0)
           
-          // 只恢复1小时内的备份，防止恢复太旧的数据
-          if (backupAge > 60 * 60 * 1000) {
+          // 🔥 手机端优化：延长备份保留时间到24小时
+          if (backupAge > 24 * 60 * 60 * 1000) {
             if (import.meta.env.DEV) {
-              console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60)}分钟)，跳过恢复`)
+              console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
             }
             localStorage.removeItem(backupKey)
             loaded = null
@@ -342,14 +405,14 @@ export function saveMessages(chatId: string, messages: Message[]): void {
   try {
     // 🔥 防止保存空数组覆盖已有数据
     if (messages.length === 0) {
-      // 检查缓存
+      // 1. 检查缓存
       const cachedMessages = messageCache.get(chatId)
       if (cachedMessages && cachedMessages.length > 0) {
         console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
         return
       }
       
-      // 检查localStorage备份
+      // 2. 检查localStorage备份
       try {
         const backupKey = `msg_backup_${chatId}`
         const backup = localStorage.getItem(backupKey)
@@ -357,6 +420,8 @@ export function saveMessages(chatId: string, messages: Message[]): void {
           const parsed = JSON.parse(backup)
           if (parsed.messages && parsed.messages.length > 0) {
             console.warn(`⚠️ [saveMessages] localStorage备份中有 ${parsed.messages.length} 条消息，阻止保存空数组`)
+            // 🔥 关键修复：立即从备份恢复到缓存，防止数据丢失
+            messageCache.set(chatId, parsed.messages)
             return
           }
         }
@@ -364,14 +429,10 @@ export function saveMessages(chatId: string, messages: Message[]): void {
         console.error('检查localStorage备份失败:', e)
       }
       
-      // 异步检查IndexedDB
-      IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId).then(dbMessages => {
-        if (dbMessages && dbMessages.length > 0) {
-          console.warn(`⚠️ [saveMessages] IndexedDB中有 ${dbMessages.length} 条消息，不保存空数组`)
-          // 恢复缓存
-          messageCache.set(chatId, dbMessages)
-        }
-      })
+      // 3. 🔥 关键修复：如果缓存和备份都没有，直接拒绝保存空数组
+      // 不再异步检查 IndexedDB，因为异步检查无法阻止后续代码执行
+      console.warn(`⚠️ [saveMessages] 拒绝保存空数组到 chatId=${chatId}，可能是数据加载未完成`)
+      return
     }
     
     // 清理消息，移除不可序列化的对象
@@ -402,14 +463,28 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       if (import.meta.env.DEV) {
         console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${cleanedMessages.length}`)
       }
-      // 保存成功后可以删除备份
-      try {
-        localStorage.removeItem(`msg_backup_${chatId}`)
-      } catch (e) {
-        // 忽略删除失败
-      }
+      // 🔥 手机端优化：延迟删除备份，给IndexedDB更多时间完成写入
+      setTimeout(() => {
+        try {
+          const backupKey = `msg_backup_${chatId}`
+          const backup = localStorage.getItem(backupKey)
+          if (backup) {
+            const parsed = JSON.parse(backup)
+            // 只删除5秒前的备份，确保是已经成功保存的
+            if (Date.now() - parsed.timestamp > 5000) {
+              localStorage.removeItem(backupKey)
+              if (import.meta.env.DEV) {
+                console.log(`🗑️ [localStorage备份] 已删除旧备份: chatId=${chatId}`)
+              }
+            }
+          }
+        } catch (e) {
+          // 忽略删除失败
+        }
+      }, 5000) // 5秒后再删除
     }).catch(err => {
       console.error(`❌ [IndexedDB] 保存失败: chatId=${chatId}`, err)
+      // IndexedDB保存失败时，保留localStorage备份
     })
     
     // 🔥 触发消息保存事件，用于通知和未读标记

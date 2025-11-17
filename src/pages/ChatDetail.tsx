@@ -35,8 +35,6 @@ import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
 import { playLoadMoreSound, playMenuOpenSound, playCloseSound } from '../utils/soundManager'
-import PaymentRequestSender from '../components/PaymentRequestSender'
-import { usePaymentRequest } from './ChatDetail/hooks/usePaymentRequest'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -106,12 +104,18 @@ const ChatDetail = () => {
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
   const photo = usePhoto(chatState.setMessages, id || '')
   const intimatePay = useIntimatePay(chatState.setMessages, id || '')
-  const paymentRequest = usePaymentRequest(
-    id || '',
-    chatState.character?.id || '',
-    chatState.character?.nickname || chatState.character?.realName || 'AI',
-    chatState.setMessages
-  )
+  
+  // 代付处理函数（临时占位，因为已改为页面形式）
+  const paymentRequest = {
+    acceptPayment: (messageId: number) => {
+      console.log('接受代付:', messageId)
+      // 这里可以添加接受代付的逻辑
+    },
+    rejectPayment: (messageId: number) => {
+      console.log('拒绝代付:', messageId)
+      // 这里可以添加拒绝代付的逻辑
+    }
+  }
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -135,7 +139,8 @@ const ChatDetail = () => {
     () => intimatePay.setShowIntimatePaySender(true),
     () => setShowAIMemoModal(true),
     () => navigate(`/chat/${id}/offline`),  // 线下模式
-    () => paymentRequest.setShowPaymentRequestSender(true)  // 代付
+    () => navigate(`/chat/${id}/payment-request`),  // 代付（已合并给TA点外卖功能）
+    () => navigate(`/chat/${id}/payment-request`)  // 给TA点外卖（跳转到同一页面）
   )
   
   // 多选模式
@@ -1054,7 +1059,7 @@ const ChatDetail = () => {
         onSelectCamera={addMenu.handlers.handleSelectCamera}
         onSelectTransfer={addMenu.handlers.handleSelectTransfer}
         onSelectIntimatePay={addMenu.handlers.handleSelectIntimatePay}
-        onSelectCoupleSpaceInvite={addMenu.handlers.handleSelectCoupleSpaceInvite}
+        onSelectCoupleSpaceInvite={addMenu.handlers.handleSelectCoupleSpace}
         onSelectLocation={addMenu.handlers.handleSelectLocation}
         onSelectVoice={addMenu.handlers.handleSelectVoice}
         onSelectVideoCall={() => videoCall.startCall()}
@@ -1062,6 +1067,7 @@ const ChatDetail = () => {
         onSelectAIMemo={addMenu.handlers.handleSelectAIMemo}
         onSelectOffline={addMenu.handlers.handleSelectOffline}
         onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
+        onSelectOrderFood={addMenu.handlers.handleSelectOrderFood}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 
@@ -1143,14 +1149,6 @@ const ChatDetail = () => {
         characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
       />
 
-      {paymentRequest.showPaymentRequestSender && (
-        <PaymentRequestSender
-          onClose={() => paymentRequest.setShowPaymentRequestSender(false)}
-          onSend={paymentRequest.sendPaymentRequest}
-          characterName={chatState.character?.nickname || chatState.character?.realName || 'AI'}
-          hasIntimatePay={paymentRequest.hasIntimatePay}
-        />
-      )}
 
       <IncomingCallScreen
         show={videoCall.showIncomingCall}

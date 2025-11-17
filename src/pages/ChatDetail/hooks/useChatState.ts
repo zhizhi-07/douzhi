@@ -79,6 +79,9 @@ export const useChatState = (chatId: string) => {
     setIsLoadingMessages(true)
 
     try {
+      // 🔥 关键修复：先确保消息已预加载，防止返回空数组
+      await ensureMessagesLoaded(chatId)
+      
       // 获取总数
       const total = await getMessageCount(chatId)
       setTotalMessageCount(total)
@@ -95,9 +98,14 @@ export const useChatState = (chatId: string) => {
         console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}, 总数=${total}, 还有更多=${hasMore}`)
       }
 
-      setMessagesState(initialMessages)
-      setHasMoreMessages(hasMore)
-      setCurrentOffset(initialMessages.length)
+      // 🔥 关键修复：只有当加载到消息时才设置状态，防止空数组覆盖
+      if (initialMessages.length > 0 || total === 0) {
+        setMessagesState(initialMessages)
+        setHasMoreMessages(hasMore)
+        setCurrentOffset(initialMessages.length)
+      } else {
+        console.warn(`⚠️ [分页加载] 加载到空数组但总数不为0，不更新状态`)
+      }
 
       // 清除未读数
       clearUnread(chatId)

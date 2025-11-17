@@ -213,6 +213,37 @@ const MusicPlayer = () => {
     setShowPlaylist(false)
   }
 
+  // 删除歌曲
+  const deleteSong = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation() // 阻止冒泡，避免触发播放
+    
+    if (!confirm('确定要删除这首歌吗？')) {
+      return
+    }
+    
+    const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
+    customSongs.splice(index, 1)
+    localStorage.setItem('customSongs', JSON.stringify(customSongs))
+    
+    // 如果删除的是当前播放的歌曲
+    if (index === currentSongIndex) {
+      if (customSongs.length > 0) {
+        // 播放下一首（如果有的话）
+        const nextIndex = index < customSongs.length ? index : 0
+        musicPlayer.setCurrentSong(customSongs[nextIndex], nextIndex)
+      } else {
+        // 没有歌曲了，停止播放
+        musicPlayer.pause()
+      }
+    } else if (index < currentSongIndex) {
+      // 如果删除的歌曲在当前播放歌曲之前，需要调整索引
+      musicPlayer.setCurrentSong(currentSong!, currentSongIndex - 1)
+    }
+    
+    // 刷新播放列表
+    window.location.reload()
+  }
+
   // 唱片旋转动画
   useEffect(() => {
     let animationFrame: number
@@ -337,13 +368,23 @@ const MusicPlayer = () => {
                       <div className={`font-medium ${index === currentSongIndex ? 'text-red-500' : 'text-gray-900'}`}>{song.title}</div>
                       <div className="text-sm text-gray-500">{song.artist}</div>
                     </div>
-                    {index === currentSongIndex && isPlaying && (
-                      <div className="flex gap-1 items-end">
-                        <div className="w-1 h-3 bg-red-500 rounded animate-pulse"></div>
-                        <div className="w-1 h-4 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-1 h-2 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {index === currentSongIndex && isPlaying && (
+                        <div className="flex gap-1 items-end">
+                          <div className="w-1 h-3 bg-red-500 rounded animate-pulse"></div>
+                          <div className="w-1 h-4 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-1 h-2 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => deleteSong(e, index)}
+                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

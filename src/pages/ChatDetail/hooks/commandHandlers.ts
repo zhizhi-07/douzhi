@@ -2176,8 +2176,102 @@ export const rejectPaymentHandler: CommandHandler = {
       return finalUpdated
     })
     
+    return { 
+      handled: true,
+      shouldRespond: false
+    }
+  }
+}
+
+/**
+ * AI主动点外卖
+ * 格式：[外卖:商品1,价格1,商品2,价格2:备注]
+ * 示例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
+ */
+export const aiOrderFoodHandler: CommandHandler = {
+  pattern: /[\[【]外卖[:：]([^:：\]】]+)(?:[:：]([^\]】]+))?[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('🍔 [AI点外卖] 处理器被调用')
+    
+    const itemsStr = match[1]
+    const note = match[2] || ''
+    
+    // 解析商品列表：商品1,价格1,商品2,价格2
+    const parts = itemsStr.split(',').map(s => s.trim())
+    if (parts.length < 2 || parts.length % 2 !== 0) {
+      console.warn('⚠️ [AI点外卖] 格式错误，应为：商品1,价格1,商品2,价格2')
+      return { handled: false }
+    }
+    
+    // 解析商品和价格
+    const items: { name: string; price: number }[] = []
+    let totalAmount = 0
+    
+    for (let i = 0; i < parts.length; i += 2) {
+      const name = parts[i]
+      const priceStr = parts[i + 1]
+      const price = parseFloat(priceStr)
+      
+      if (isNaN(price)) {
+        console.warn(`⚠️ [AI点外卖] 价格解析失败: ${priceStr}`)
+        return { handled: false }
+      }
+      
+      items.push({ name, price })
+      totalAmount += price
+    }
+    
+    // 生成商品列表描述
+    const itemNames = items.map(item => `${item.name} ¥${item.price.toFixed(2)}`).join('、')
+    
+    console.log('✅ [AI点外卖] 解析成功:', { items, totalAmount, note })
+    
+    // 生成唯一ID（使用时间戳 + 随机数）
+    const baseTimestamp = Date.now()
+    const paymentMessageId = baseTimestamp + Math.floor(Math.random() * 1000)
+    const systemMessageId = baseTimestamp + 1000 + Math.floor(Math.random() * 1000)
+    
+    // 创建代付消息（AI给用户点外卖，状态直接为已支付）
+    const paymentMessage: Message = {
+      id: paymentMessageId,
+      type: 'received',
+      content: `[外卖] ${itemNames}`,
+      aiReadableContent: `[AI给用户点外卖] 商品：${itemNames}，总金额：¥${totalAmount.toFixed(2)}${note ? `，备注：${note}` : ''}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: baseTimestamp,
+      messageType: 'paymentRequest',
+      paymentRequest: {
+        itemName: items.map(item => item.name).join('、'),
+        amount: totalAmount,
+        note: note || undefined,
+        paymentMethod: 'ai',
+        status: 'paid',
+        requesterId: character?.id || 'ai',
+        requesterName: character?.nickname || character?.realName || 'AI',
+        payerId: character?.id || 'ai',
+        payerName: character?.nickname || character?.realName || 'AI'
+      }
+    }
+    
+    // 添加系统消息
+    const systemMsg: Message = {
+      id: systemMessageId,
+      type: 'system',
+      content: `${character?.nickname || character?.realName || 'AI'} 给你点了外卖：${itemNames}，共 ¥${totalAmount.toFixed(2)}${note ? `（${note}）` : ''}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: baseTimestamp + 1,
+      messageType: 'system'
+    }
+    
+    setMessages(prev => {
+      const updated = [...prev, paymentMessage, systemMsg]
+      saveMessages(chatId, updated)
+      console.log('💾 [AI点外卖] 已保存到IndexedDB')
+      return updated
+    })
+    
     const remainingText = content.replace(match[0], '').trim()
-    return {
+    return { 
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -2197,6 +2291,7 @@ export const commandHandlers: CommandHandler[] = [
   rejectIntimatePayHandler,
   acceptPaymentHandler,  // AI同意代付
   rejectPaymentHandler,  // AI拒绝代付
+  aiOrderFoodHandler,  // AI主动点外卖
   videoCallHandler,
   endCallHandler,
   aiMuteHandler,  // AI静音

@@ -35,25 +35,53 @@ export async function callMinimaxTTS(
   try {
     const baseUrl = config?.baseUrl || 'https://api.minimaxi.com/v1'
     
-    // 统一调用
-    const response = await fetch(`${baseUrl}/text_to_speech?GroupId=${finalGroupId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${finalApiKey}`
-      },
-      body: JSON.stringify({
-        text,
-        model: 'speech-01',
-        voice_id: finalVoiceId,
-        speed: 1.0,
-        vol: 1.0,
-        pitch: 0,
-        audio_sample_rate: 32000,
-        bitrate: 128000,
-        format: 'mp3'
+    // 🔥 优先使用代理（避免CORS问题）
+    const useProxy = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    
+    let response: Response
+    
+    if (useProxy) {
+      // 使用Netlify Functions代理
+      response = await fetch('/api/minimax-tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text,
+          apiKey: finalApiKey,
+          groupId: finalGroupId,
+          voiceId: finalVoiceId,
+          baseUrl
+        })
+      }).catch(err => {
+        console.error('代理请求失败:', err)
+        throw new Error('语音服务请求失败\n\n可能原因：\n1. 网络连接问题\n2. 代理服务未部署\n3. API配置错误\n\n请检查网络连接或联系管理员')
       })
-    })
+    } else {
+      // 本地开发直接调用（可能有CORS问题）
+      response = await fetch(`${baseUrl}/text_to_speech?GroupId=${finalGroupId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${finalApiKey}`
+        },
+        body: JSON.stringify({
+          text,
+          model: 'speech-01',
+          voice_id: finalVoiceId,
+          speed: 1.0,
+          vol: 1.0,
+          pitch: 0,
+          audio_sample_rate: 32000,
+          bitrate: 128000,
+          format: 'mp3'
+        })
+      }).catch(err => {
+        console.error('直接请求失败:', err)
+        throw new Error('语音API请求失败\n\n本地开发环境可能遇到CORS跨域限制\n建议：\n1. 部署到生产环境使用代理\n2. 或使用浏览器CORS插件')
+      })
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -61,6 +89,11 @@ export async function callMinimaxTTS(
       try {
         const errorJson = JSON.parse(errorText)
         errorMsg = errorJson.error || errorJson.message || errorMsg
+        
+        // 特殊错误处理
+        if (errorMsg.includes('not allowed') || errorMsg.includes('permission')) {
+          errorMsg = 'API权限错误，请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足'
+        }
       } catch {}
       throw new Error(errorMsg)
     }
