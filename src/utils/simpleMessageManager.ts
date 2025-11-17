@@ -402,26 +402,66 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
 
 /**
  * 清理消息对象，移除不可序列化的属性
+ * 🔥 强化版：使用JSON序列化彻底清理，防止PointerEvent等对象导致IndexedDB保存失败
  */
 function cleanMessageForStorage(message: Message): Message {
-  const cleaned = { ...message }
-  
-  // 移除所有可能的事件对象和DOM引用
-  const keysToRemove = Object.keys(cleaned).filter(key => {
-    const value = (cleaned as any)[key]
-    // 移除事件对象、DOM元素、函数等
-    return value instanceof Event || 
-           value instanceof Node || 
-           typeof value === 'function' ||
-           (value && typeof value === 'object' && value.constructor && 
-            (value.constructor.name.includes('Event') || value.constructor.name.includes('Element')))
-  })
-  
-  keysToRemove.forEach(key => {
-    delete (cleaned as any)[key]
-  })
-  
-  return cleaned
+  try {
+    // 🔥 使用JSON序列化来彻底清理不可序列化的对象
+    // 这会自动移除：Event、PointerEvent、DOM元素、函数、循环引用等
+    const seen = new WeakSet()
+    const jsonString = JSON.stringify(message, (key, value) => {
+      // 跳过不可序列化的对象
+      if (typeof value === 'object' && value !== null) {
+        // 检测循环引用
+        if (seen.has(value)) {
+          return undefined
+        }
+        seen.add(value)
+        
+        // 移除Event对象（包括PointerEvent、MouseEvent等）
+        if (value instanceof Event || 
+            value instanceof Node || 
+            value instanceof Window || 
+            value instanceof Document) {
+          return undefined
+        }
+        
+        // 检查构造函数名称
+        if (value.constructor) {
+          const constructorName = value.constructor.name
+          if (constructorName.includes('Event') || 
+              constructorName.includes('Element') ||
+              constructorName === 'Window' ||
+              constructorName === 'Document') {
+            return undefined
+          }
+        }
+      }
+      
+      // 移除函数
+      if (typeof value === 'function') {
+        return undefined
+      }
+      
+      return value
+    })
+    
+    // 解析回对象
+    return JSON.parse(jsonString) as Message
+  } catch (error) {
+    console.error('❌ [cleanMessageForStorage] 清理失败，使用原始消息:', error)
+    // 降级：如果清理失败，至少移除顶层的危险属性
+    const cleaned = { ...message }
+    Object.keys(cleaned).forEach(key => {
+      const value = (cleaned as any)[key]
+      if (value instanceof Event || 
+          value instanceof Node || 
+          typeof value === 'function') {
+        delete (cleaned as any)[key]
+      }
+    })
+    return cleaned
+  }
 }
 
 /**
