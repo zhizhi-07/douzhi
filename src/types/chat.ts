@@ -9,7 +9,7 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -96,6 +96,12 @@ export interface Message {
     requesterName: string     // 发起人名称
     payerId?: string          // 付款人ID（AI代付时是角色ID）
     payerName?: string        // 付款人名称
+  }
+  productCard?: {             // 商品卡片
+    name: string              // 商品名称
+    price: number             // 价格
+    description: string       // 商品描述
+    sales: number             // 销量
   }
 }
 

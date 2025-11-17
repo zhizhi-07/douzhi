@@ -25,7 +25,7 @@ import AIMemoModal from '../components/AIMemoModal'
 import AIStatusModal from '../components/AIStatusModal'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -104,18 +104,12 @@ const ChatDetail = () => {
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
   const photo = usePhoto(chatState.setMessages, id || '')
   const intimatePay = useIntimatePay(chatState.setMessages, id || '')
-  
-  // 代付处理函数（临时占位，因为已改为页面形式）
-  const paymentRequest = {
-    acceptPayment: (messageId: number) => {
-      console.log('接受代付:', messageId)
-      // 这里可以添加接受代付的逻辑
-    },
-    rejectPayment: (messageId: number) => {
-      console.log('拒绝代付:', messageId)
-      // 这里可以添加拒绝代付的逻辑
-    }
-  }
+  const paymentRequest = usePaymentRequest(
+    id || '',
+    chatState.character?.id || '',
+    chatState.character?.nickname || chatState.character?.realName || 'AI',
+    chatState.setMessages
+  )
   
   // 通知和未读消息管理
   useChatNotifications({
@@ -139,7 +133,8 @@ const ChatDetail = () => {
     () => intimatePay.setShowIntimatePaySender(true),
     () => setShowAIMemoModal(true),
     () => navigate(`/chat/${id}/offline`),  // 线下模式
-    () => navigate(`/chat/${id}/payment-request`)  // 代付（已合并给TA点外卖功能）
+    () => navigate(`/chat/${id}/payment-request`),  // 外卖（已合并给TA点外卖功能）
+    () => navigate(`/chat/${id}/shopping`)  // 网购商店
   )
   
   // 多选模式
@@ -810,6 +805,7 @@ const ChatDetail = () => {
                  message.messageType === 'location' || 
                  message.messageType === 'photo' ||
                  message.messageType === 'paymentRequest' ||
+                 message.messageType === 'productCard' ||
                  (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}
@@ -1068,6 +1064,7 @@ const ChatDetail = () => {
         onSelectAIMemo={addMenu.handlers.handleSelectAIMemo}
         onSelectOffline={addMenu.handlers.handleSelectOffline}
         onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
+        onSelectShopping={addMenu.handlers.handleSelectShopping}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 

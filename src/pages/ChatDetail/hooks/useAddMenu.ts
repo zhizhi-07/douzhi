@@ -16,7 +16,8 @@ export const useAddMenu = (
   onOpenIntimatePay?: () => void,
   onOpenAIMemo?: () => void,
   onOpenOffline?: () => void,
-  onOpenPaymentRequest?: () => void
+  onOpenPaymentRequest?: () => void,
+  onOpenShopping?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -149,6 +150,16 @@ export const useAddMenu = (
     }
   }, [onOpenPaymentRequest])
   
+  /**
+   * 网购商店
+   */
+  const handleSelectShopping = useCallback(() => {
+    setShowAddMenu(false)
+    if (onOpenShopping) {
+      onOpenShopping()
+    }
+  }, [onOpenShopping])
+  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -165,7 +176,8 @@ export const useAddMenu = (
       handleSelectMusicInvite,
       handleSelectAIMemo,
       handleSelectOffline,
-      handleSelectPaymentRequest
+      handleSelectPaymentRequest,
+      handleSelectShopping
     }
   }
 }

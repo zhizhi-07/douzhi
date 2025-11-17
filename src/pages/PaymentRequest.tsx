@@ -31,11 +31,15 @@ const FOOD_ITEMS: FoodItem[] = [
   { id: '7', name: '汉堡套餐', price: 35, category: '快餐' },
   { id: '8', name: '炸鸡套餐', price: 38, category: '快餐' },
   { id: '9', name: '披萨', price: 45, category: '快餐' },
+  { id: '13', name: '海底捞火锅双人餐', price: 188, category: '快餐' },
+  { id: '14', name: '日料套餐', price: 158, category: '快餐' },
   
   // 小吃
   { id: '10', name: '煎饼果子', price: 12, category: '小吃' },
   { id: '11', name: '肉夹馍', price: 15, category: '小吃' },
   { id: '12', name: '烤冷面', price: 10, category: '小吃' },
+  { id: '15', name: '矿泉水', price: 2, category: '小吃' },
+  { id: '16', name: '包子', price: 3, category: '小吃' },
 ]
 
 const PaymentRequest = () => {
@@ -146,7 +150,10 @@ const PaymentRequest = () => {
 🎯 铁律：
 1. **必须包含关键词**："${searchQuery}"必须出现在商品名中
 2. **每次都要不一样**：不要重复套路，要有新意
-3. **价格随意**：从几毛钱到上万元都可以，脑洞大开，合理就行
+3. **价格层次（必须严格遵守）**：
+   - 至少2个超便宜商品（0.5-1元，比如试吃装、迷你版）
+   - 至少2个超贵商品（1000元以上，比如终身会员、豪华套餐）
+   - 其余商品价格随意分布
 
 🌈 创意方向（每次随机选择不同的组合）：
 - 口味系：水果味、甜品味、咸味、辣味、酸味、苦味、混合味

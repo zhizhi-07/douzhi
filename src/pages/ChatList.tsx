@@ -193,12 +193,12 @@ const ChatList = () => {
       refreshChatList()
     }
 
-    window.addEventListener('unread-count-update', handleUnreadUpdate)
+    window.addEventListener('unread-updated', handleUnreadUpdate) // 修复：使用正确的事件名
     window.addEventListener('storage', handleUnreadUpdate)
     window.addEventListener('chat-list-update', handleChatListUpdate)
 
     return () => {
-      window.removeEventListener('unread-count-update', handleUnreadUpdate)
+      window.removeEventListener('unread-updated', handleUnreadUpdate)
       window.removeEventListener('storage', handleUnreadUpdate)
       window.removeEventListener('chat-list-update', handleChatListUpdate)
     }

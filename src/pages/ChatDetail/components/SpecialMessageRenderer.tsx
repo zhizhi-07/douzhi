@@ -9,6 +9,7 @@ import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
 import PaymentRequestCard from '../../../components/PaymentRequestCard'
+import ProductCard from '../../../components/ProductCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -174,6 +175,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         onReject={onRejectPayment}
       />
     )
+  }
+
+  // 商品卡片
+  if (message.messageType === 'productCard' && message.productCard) {
+    return <ProductCard message={message} />
   }
 
   return null

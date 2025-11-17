@@ -104,7 +104,7 @@ export const usePaymentRequest = (
       type: messageType,
       content: `[代付] ${itemName} ¥${amount.toFixed(2)}`,
       aiReadableContent: `[用户发起代付请求] 商品：${itemName}，金额：¥${amount.toFixed(2)}${note ? `，备注：${note}` : ''}，支付方式：${
-        paymentMethod === 'ai' ? 'AI代付（需要你确认）' :
+        paymentMethod === 'ai' ? 'AI代付（需要你确认，15分钟内有效，过期后会自动失效）' :
         paymentMethod === 'self' ? '用户自己支付（已完成）' :
         '亲密付（已完成）'
       }`,
@@ -171,18 +171,26 @@ export const usePaymentRequest = (
       // 找到对应的代付消息
       const paymentMsg = updated.find(m => m.id === messageId)
       if (paymentMsg?.paymentRequest) {
+        // 判断是谁发起的代付请求
+        const isUserRequest = paymentMsg.type === 'sent' // 用户发起的请求
+        
         // 添加系统消息
         const systemMsg: Message = {
           id: Date.now(),
           type: 'system',
-          content: `${characterName} 已代付 ${paymentMsg.paymentRequest.itemName} ¥${paymentMsg.paymentRequest.amount.toFixed(2)}`,
+          content: isUserRequest
+            ? `${characterName} 已代付 ${paymentMsg.paymentRequest.itemName} ¥${paymentMsg.paymentRequest.amount.toFixed(2)}`
+            : `你已代付 ${paymentMsg.paymentRequest.itemName} ¥${paymentMsg.paymentRequest.amount.toFixed(2)}`,
+          aiReadableContent: isUserRequest
+            ? `【系统提示】你同意了代付请求，已为对方支付 ${paymentMsg.paymentRequest.itemName}，金额 ¥${paymentMsg.paymentRequest.amount.toFixed(2)}。你可以对此做出反应，比如说"已经帮你付了"或调侃对方。`
+            : `【系统提示】对方同意了你的代付请求，已为你支付 ${paymentMsg.paymentRequest.itemName}，金额 ¥${paymentMsg.paymentRequest.amount.toFixed(2)}。你可以表示感谢。`,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           timestamp: Date.now(),
           messageType: 'system'
         }
         updated.push(systemMsg)
 
-        console.log(`✅ [代付] AI同意代付 ¥${paymentMsg.paymentRequest.amount}`)
+        console.log(`✅ [代付] ${isUserRequest ? 'AI同意用户的代付' : '用户同意AI的代付'} ¥${paymentMsg.paymentRequest.amount}`)
       }
 
       // 保存到 IndexedDB
@@ -212,18 +220,26 @@ export const usePaymentRequest = (
       // 找到对应的代付消息
       const paymentMsg = updated.find(m => m.id === messageId)
       if (paymentMsg?.paymentRequest) {
+        // 判断是谁发起的代付请求
+        const isUserRequest = paymentMsg.type === 'sent' // 用户发起的请求
+        
         // 添加系统消息
         const systemMsg: Message = {
           id: Date.now(),
           type: 'system',
-          content: `${characterName} 拒绝了代付请求`,
+          content: isUserRequest 
+            ? `${characterName} 拒绝了代付请求`
+            : '你拒绝了代付请求',
+          aiReadableContent: isUserRequest
+            ? `【系统提示】你拒绝了对方的代付请求（${paymentMsg.paymentRequest.itemName} ¥${paymentMsg.paymentRequest.amount.toFixed(2)}）。你可以解释原因或开玩笑。`
+            : `【系统提示】对方拒绝了你的代付请求（${paymentMsg.paymentRequest.itemName} ¥${paymentMsg.paymentRequest.amount.toFixed(2)}）。`,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           timestamp: Date.now(),
           messageType: 'system'
         }
         updated.push(systemMsg)
 
-        console.log(`❌ [代付] AI拒绝代付`)
+        console.log(`❌ [代付] ${isUserRequest ? 'AI拒绝用户的代付' : '用户拒绝AI的代付'}`)
       }
 
       // 保存到 IndexedDB

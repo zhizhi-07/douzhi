@@ -11,6 +11,7 @@ export interface UserInfo {
   realName: string  // 真实姓名（必填）
   signature?: string  // 个性签名
   avatar?: string  // 头像（图片base64或URL）
+  persona?: string  // 用户人设（影响AI对用户的态度）
 }
 
 /**

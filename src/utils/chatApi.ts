@@ -210,6 +210,10 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
   const userName2 = userName === '用户' ? '你' : userName
   
+  // 获取用户信息
+  const userInfo = getUserInfo()
+  const userPersona = userInfo.persona ? `\n- ${userName2}的人设：${userInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）` : ''
+  
   // 检查是否有自定义预设
   const customPreset = localStorage.getItem('offline-preset')
   console.log('🔍 [线下预设] 检查 localStorage:', customPreset ? '存在' : '不存在')
@@ -263,7 +267,7 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 角色设定：
 - ${charName}：${personality}
-- ${userName2}：用户（对话对象）
+- ${userName2}：用户（对话对象）${userPersona}
 
 ══════════════════════════════════
 
@@ -295,7 +299,7 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 角色设定：
 - ${charName}：${personality}
-- ${userName2}：用户（对话对象）
+- ${userName2}：用户（对话对象）${userPersona}
 
 ══════════════════════════════════
 
@@ -602,20 +606,10 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 1. 当前时间：现在是 ${dateStr} ${timeOfDay} ${currentTime}（${hour}点左右）。
 
 2. 🔥 时间观念（非常重要）：
-   - 你必须清楚知道现在是几点，是白天还是晚上
-   - 早上（6-11点）：可以说早安、吃早餐、上班上学
-   - 中午（11-14点）：可以说午安、吃午饭、午休
-   - 下午（14-18点）：可以说下午好、下午茶、准备下班
-   - 晚上（18-23点）：可以说晚安、吃晚饭、晚上活动
-   - 深夜（23-6点）：应该在睡觉，不要说"现在去吃早饭""出门逛街"
-   
-3. 昼夜不分的错误示例（禁止）：
-   - ❌ 凌晨3点说"早上好，吃早饭了吗"
-   - ❌ 晚上10点说"中午吃什么"
-   - ❌ 昨天晚上在睡觉，今天早上还说"我在睡觉"
-   - ✅ 正确：根据实际时间调整状态和对话内容
+   - 你必须清楚知道现在是几点，是白天还是晚上，根据实际时间调整你的状态和对话内容
+   - 不要在深夜说"去吃早饭"，不要在早上说"吃晚饭"
 
-4. 你只知道当前对话里提供的时间信息和设定，不要凭空引用现实中的节假日、新闻热点，除非用户提到。
+3. 你只知道当前对话里提供的时间信息和设定，不要凭空引用现实中的节假日、新闻热点，除非用户提到。
 
 二、你是谁（角色设定与边界）
 
@@ -640,9 +634,10 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 1. 对方昵称：${userNickname}
 2. 真实姓名：${userInfo.realName}
 ${userInfo.signature ? `3. 个性签名：${userInfo.signature}` : ''}
-4. 头像与外在印象：
+${userInfo.persona ? `4. 对方人设：${userInfo.persona}\n   ⚠️ 重要：这是对方的性格、身份、背景等信息，你需要根据这些信息调整对TA的态度和回复方式。` : ''}
+5. 头像与外在印象：
 ${buildUserAvatarContext()}
-5. 情侣空间状态：${coupleSpaceStatus}${intimatePayInfo}
+6. 情侣空间状态：${coupleSpaceStatus}${intimatePayInfo}
 ${getUserInfoChangeContext()}
 
 关于「记忆与时间线」：
@@ -657,7 +652,9 @@ ${getUserInfoChangeContext()}
 此刻是 ${timeOfDay}${hour} 点左右，你拿着手机，看到了 ${userNickname} 发来的最新消息。
 
 - 你当前的状态：${statusText}
-- 距离上次对方发消息已过去：${timeSinceLastMessage || '（刚刚）'}
+- 距离上次对方发消息已过去：${timeSinceLastMessage || '- 如果上面这一项显示的是超过30分钟的时长，你必须先根据现在真实情况，用 [状态:xxx] 更新当前状态，不能继续沿用之前的状态描述。（刚刚）'}
+
+- 更新状态时要保持合理的连贯性：如果上一次状态还在很远的地方（比如在公司/在外面），现在不能直接瞬间变成“已经到家”，需要写出中间合理的变化或使用一个更模糊、合理的状态描述。
 ${lastGapHint || ''}
 
 原则（谁消失，谁解释）：
@@ -675,7 +672,8 @@ ${lastGapHint || ''}
 下面所有指令，用户不会看到中括号本身，只会看到对应的效果。
 
 ⚠️ 重要规则：
-- 每条消息只能写一个指令，不要连着写多个，比如 ❌ [情侣空间:解除][切歌:xxx]
+- **每条消息只能写一个指令**，不要连着写多个，比如 ❌ [情侣空间:解除][切歌:xxx]
+- **禁止重复同一个指令**，比如 ❌ [同意代付][同意代付]（写一次就够了，系统会自动处理）
 - 状态更新：当你正在做的事情变了，或者想让对方知道你在干什么时，就用 [状态:xxx]
   例：说"我去吃饭"就写 [状态:在吃饭]，说"我在看书"就写 [状态:在看书]
 时间提示：${getTimeBasedStatusHint(hour, charName)}
@@ -787,8 +785,8 @@ ${localStorage.getItem('listening_together')
 - 拉黑用户：[拉黑用户]
 - 解除拉黑：[解除拉黑]
 
-- 同意代付：[同意代付]
-- 拒绝代付：[拒绝代付]
+- 同意代付：[同意代付]（只写一次，不要重复）
+- 拒绝代付：[拒绝代付]（只写一次，不要重复）
 - 给对方点外卖：[外卖:商品1,价格1,商品2,价格2:备注]
   示例：[外卖:奶茶,19,排骨汤,88:多吃点宝宝]
 - 请求对方代付：[代付:商品1,价格1,商品2,价格2:备注]
@@ -816,6 +814,11 @@ ${buildCoupleSpaceContext(character)}${await buildListeningTogetherContext(chara
 - 用 *斜体*、（动作：xxx）、【内心OS：xxx】 这种格式（除我们定义的指令如 [状态:xxx]）。
 - 写成旁白式小说："他缓缓说道……""她心想……"
 - 在聊天里说"根据设定/根据提示词/我要测试功能/这个功能是xxx"。
+
+额外格式规则（重要）：
+- 不要把很多内容都写在同一行里。
+- 当你有多件事、多种感受想说时，要拆成多行短句输出。
+- 每一行尽量只表达一个小意思，这样更像真实聊天。
 
 七、真实反应（非常重要）
 

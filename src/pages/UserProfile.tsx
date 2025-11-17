@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
-import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
 
 const UserProfile = () => {
@@ -74,78 +73,11 @@ const UserProfile = () => {
       trackAvatarChange(finalUserInfo.avatar)
     }
     
-    // 如果有修改，通知所有活跃的AI
-    if (nicknameChanged || signatureChanged) {
-      notifyAIAboutUserInfoChange(nicknameChanged, signatureChanged, oldUserInfo, finalUserInfo)
-    }
+    // 移除自动通知AI的功能 - 用户修改个人信息不需要告诉AI
     
     navigate(-1)
   }
   
-  // 通知AI用户信息变更
-  const notifyAIAboutUserInfoChange = async (
-    nicknameChanged: boolean,
-    signatureChanged: boolean,
-    oldInfo: UserInfo,
-    newInfo: UserInfo
-  ) => {
-    try {
-      // 从localStorage获取所有聊天ID（只是为了获取ID列表）
-      const allChatIds = Object.keys(localStorage)
-        .filter(key => key.startsWith('chat_messages_') || key.startsWith('chat_'))
-        .map(key => key.replace(/^(chat_messages_|chat_)/, ''))
-        .filter((id, index, self) => self.indexOf(id) === index) // 去重
-      
-      console.log(`🔍 找到 ${allChatIds.length} 个聊天`)
-      
-      // 构建提示消息
-      const changes: string[] = []
-      if (nicknameChanged) {
-        changes.push(`网名从"${oldInfo.nickname}"改为"${newInfo.nickname}"`)
-      }
-      if (signatureChanged) {
-        const oldSig = oldInfo.signature || '(无)'
-        const newSig = newInfo.signature || '(无)'
-        changes.push(`个性签名从"${oldSig}"改为"${newSig}"`)
-      }
-      
-      const changeText = changes.join('，')
-      
-      // 为每个聊天添加系统提示
-      for (const chatId of allChatIds) {
-        try {
-          // 使用simpleMessageManager加载消息
-          const messages = loadMessages(chatId)
-          
-          if (messages.length === 0) continue // 跳过空聊天
-          
-          // 创建系统提示消息
-          const systemMessage = {
-            id: Date.now(),
-            type: 'system' as const,
-            messageType: 'system' as const,
-            content: `${newInfo.nickname || newInfo.realName} 修改了个人信息`,
-            aiReadableContent: `【系统提示】对方刚刚修改了个人信息：${changeText}。你可以对此做出反应，比如评论新的网名或签名。`,
-            timestamp: Date.now(),
-            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-            hideInUI: false
-          }
-          
-          // 添加到消息列表并保存
-          messages.push(systemMessage)
-          saveMessages(chatId, messages)
-          
-          console.log(`✅ 已通知聊天 ${chatId} 用户信息变更`)
-        } catch (err) {
-          console.error(`处理聊天 ${chatId} 失败:`, err)
-        }
-      }
-      
-      console.log(`📢 已通知 ${allChatIds.length} 个聊天`)
-    } catch (error) {
-      console.error('通知AI失败:', error)
-    }
-  }
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
@@ -230,7 +162,7 @@ const UserProfile = () => {
           </div>
 
           {/* 个性签名 */}
-          <div className="px-4 py-4">
+          <div className="px-4 py-4 border-b border-gray-100">
             <div className="text-gray-500 text-sm mb-3">个性签名</div>
             <textarea
               value={userInfo.signature || ''}
@@ -238,6 +170,18 @@ const UserProfile = () => {
               placeholder="写点什么吧..."
               className="w-full text-gray-900 outline-none resize-none"
               rows={3}
+            />
+          </div>
+
+          {/* 用户人设 */}
+          <div className="px-4 py-4">
+            <div className="text-gray-500 text-sm mb-3">用户人设</div>
+            <textarea
+              value={userInfo.persona || ''}
+              onChange={(e) => setUserInfo({ ...userInfo, persona: e.target.value })}
+              placeholder="描述你的性格、身份、背景等，AI会根据这些信息调整对你的态度和回复方式..."
+              className="w-full text-gray-900 outline-none resize-none placeholder:text-gray-400"
+              rows={4}
             />
           </div>
         </div>
@@ -251,7 +195,7 @@ const UserProfile = () => {
               </svg>
               <div>
                 <div className="font-medium mb-1">AI会读取这些信息</div>
-                <div className="text-blue-500">AI会根据你的网名、真实姓名和个性签名来了解你，提供更个性化的对话体验</div>
+                <div className="text-blue-500">AI会根据你的网名、真实姓名、个性签名和人设来了解你，提供更个性化的对话体验。人设会影响AI对你的态度和回复方式。</div>
               </div>
             </div>
           </div>
