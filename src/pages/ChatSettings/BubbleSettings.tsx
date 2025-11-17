@@ -22,8 +22,18 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
   const [aiTextColor, setAiTextColor] = useState(() => 
     localStorage.getItem(`ai_text_color_${chatId}`) || '#1F2937'
   )
-  const [cssInput, setCSSInput] = useState('')
+  // 🔥 修复：从localStorage读取已保存的CSS
+  const [cssInput, setCSSInput] = useState(() => {
+    const userCSS = localStorage.getItem(`user_bubble_css_${chatId}`) || ''
+    const aiCSS = localStorage.getItem(`ai_bubble_css_${chatId}`) || ''
+    // 如果有保存的CSS，合并显示
+    if (userCSS || aiCSS) {
+      return `${userCSS}\n\n${aiCSS}`.trim()
+    }
+    return ''
+  })
   const [isExpanded, setIsExpanded] = useState(false)
+  const [previewCSS, setPreviewCSS] = useState('')
 
   // 应用CSS代码
   const handleApplyCSS = () => {
@@ -33,7 +43,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     }
     
     // 清理CSS：移除HTML标签和多余空白
-    const cleanedCSS = cssInput
+    let cleanedCSS = cssInput
       .replace(/<br\s*\/?>/gi, '\n')  // 替换<br/>为换行
       .replace(/<[^>]+>/g, '')        // 移除所有HTML标签
       .replace(/&nbsp;/g, ' ')        // 替换&nbsp;
@@ -43,28 +53,48 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     
     console.log('🎨 清理后的CSS:', cleanedCSS.substring(0, 100))
     
+    // 🔥 关键修复：自动注入颜色选择器的文字颜色
+    // 在每个气泡样式的末尾添加color属性（如果没有的话）
+    const colorInjectionCSS = `
+/* 🎨 颜色选择器设置（自动注入） */
+.message-container.sent .message-bubble {
+  color: ${userTextColor} !important;
+}
+
+.message-container.received .message-bubble {
+  color: ${aiTextColor} !important;
+}
+`
+    
+    // 合并CSS：自定义样式 + 颜色注入
+    const finalCSS = cleanedCSS + '\n' + colorInjectionCSS
+    
     // 尝试分离用户CSS和AI CSS（如果包含的话）
-    const userCSSMatch = cleanedCSS.match(/\.message-container\.sent[^}]+}/s)
-    const aiCSSMatch = cleanedCSS.match(/\.message-container\.received[^}]+}/s)
+    const userCSSMatch = finalCSS.match(/\.message-container\.sent[^}]+}/gs)
+    const aiCSSMatch = finalCSS.match(/\.message-container\.received[^}]+}/gs)
     
     if (userCSSMatch || aiCSSMatch) {
-      // 如果包含标准格式，分别保存
+      // 如果包含标准格式，合并所有匹配的规则
       if (userCSSMatch) {
-        localStorage.setItem(`user_bubble_css_${chatId}`, userCSSMatch[0])
+        localStorage.setItem(`user_bubble_css_${chatId}`, userCSSMatch.join('\n'))
       }
       if (aiCSSMatch) {
-        localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSSMatch[0])
+        localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSSMatch.join('\n'))
       }
     } else {
       // 否则，直接保存整个CSS给双方
-      localStorage.setItem(`user_bubble_css_${chatId}`, cleanedCSS)
-      localStorage.setItem(`ai_bubble_css_${chatId}`, cleanedCSS)
+      localStorage.setItem(`user_bubble_css_${chatId}`, finalCSS)
+      localStorage.setItem(`ai_bubble_css_${chatId}`, finalCSS)
     }
+    
+    // 🔥 修复：更新预览CSS
+    setPreviewCSS(finalCSS)
     
     // 触发更新（使用自定义事件，因为storage事件不会在同窗口触发）
     window.dispatchEvent(new Event('bubbleStyleUpdate'))
     onSaved()
-    setCSSInput('')
+    // 🔥 修复：不清空输入框，保留CSS内容
+    // setCSSInput('')
     alert('✅ CSS样式已应用！')
   }
 
@@ -217,22 +247,47 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       
       {/* 预览窗口 */}
       <div className="mb-3 p-4 bg-gray-50 rounded-xl">
-        <div className="text-xs text-gray-500 mb-3">预览</div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs text-gray-500">预览</div>
+          <button
+            onClick={() => {
+              // 实时预览CSS
+              if (cssInput.trim()) {
+                const cleanedCSS = cssInput
+                  .replace(/<br\s*\/?>/gi, '\n')
+                  .replace(/<[^>]+>/g, '')
+                  .replace(/&nbsp;/g, ' ')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .trim()
+                setPreviewCSS(cleanedCSS)
+              }
+            }}
+            className="text-xs text-blue-500 hover:text-blue-600 active:scale-95 transition-all"
+          >
+            刷新预览
+          </button>
+        </div>
+        <style>{previewCSS}</style>
         <div className="space-y-2">
           <div className="flex justify-end">
-            <div 
-              className="px-3 py-2 rounded-2xl text-sm"
-              style={{ background: userBubbleColor, color: userTextColor }}
-            >
-              我的消息
+            <div className="message-container sent">
+              <div 
+                className="message-bubble px-3 py-2 rounded-2xl text-sm"
+                style={!previewCSS ? { background: userBubbleColor, color: userTextColor } : {}}
+              >
+                我的消息
+              </div>
             </div>
           </div>
           <div className="flex justify-start">
-            <div 
-              className="px-3 py-2 rounded-2xl text-sm"
-              style={{ background: aiBubbleColor, color: aiTextColor }}
-            >
-              AI回复
+            <div className="message-container received">
+              <div 
+                className="message-bubble px-3 py-2 rounded-2xl text-sm"
+                style={!previewCSS ? { background: aiBubbleColor, color: aiTextColor } : {}}
+              >
+                AI回复
+              </div>
             </div>
           </div>
         </div>

@@ -35,14 +35,7 @@ const FOOD_ITEMS: FoodItem[] = [
   { id: '10', name: '煎饼果子', price: 12, category: '小吃' },
   { id: '11', name: '肉夹馍', price: 15, category: '小吃' },
   { id: '12', name: '烤冷面', price: 10, category: '小吃' },
-  
-  // 饮品
-  { id: '13', name: '奶茶', price: 15, category: '饮品' },
-  { id: '14', name: '咖啡', price: 18, category: '饮品' },
-  { id: '15', name: '果汁', price: 12, category: '饮品' },
 ]
-
-const CATEGORIES = ['全部', '主食', '快餐', '小吃', '饮品']
 
 const PaymentRequest = () => {
   const navigate = useNavigate()
@@ -55,10 +48,10 @@ const PaymentRequest = () => {
     }
   }, [chatId])
   
-  const [selectedCategory, setSelectedCategory] = useState('全部')
   const [cart, setCart] = useState<CartItem[]>([])
   const [note, setNote] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'ai' | 'self' | 'intimate' | 'give'>('ai')
+  const [isOrderMode, setIsOrderMode] = useState(false) // 是否为"给TA点外卖"模式
+  const [paymentMethod, setPaymentMethod] = useState<'ai' | 'self' | 'intimate'>('ai')
   const [showCustomItem, setShowCustomItem] = useState(false)
   const [customItemName, setCustomItemName] = useState('')
   const [customItemPrice, setCustomItemPrice] = useState('')
@@ -69,9 +62,7 @@ const PaymentRequest = () => {
   // 筛选商品
   const filteredItems = searchResults.length > 0 
     ? searchResults 
-    : selectedCategory === '全部' 
-      ? FOOD_ITEMS 
-      : FOOD_ITEMS.filter(item => item.category === selectedCategory)
+    : FOOD_ITEMS
 
   // 添加到购物车
   const addToCart = (item: FoodItem) => {
@@ -226,48 +217,39 @@ const PaymentRequest = () => {
     
     // 创建系统消息
     let systemMessage: Message | null = null
-    if (paymentMethod === 'self') {
-      systemMessage = {
-        id: systemMessageId,
-        type: 'system',
-        content: `你购买了 ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: baseTimestamp + 1,
-        messageType: 'system'
-      }
-    } else if (paymentMethod === 'intimate') {
-      systemMessage = {
-        id: systemMessageId,
-        type: 'system',
-        content: `你使用了 ${character.nickname || character.realName} 的亲密付购买 ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: baseTimestamp + 1,
-        messageType: 'system'
-      }
-    } else if (paymentMethod === 'give') {
-      systemMessage = {
-        id: systemMessageId,
-        type: 'system',
-        content: `你给 ${character.nickname || character.realName} 点了外卖：${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: baseTimestamp + 1,
-        messageType: 'system'
+    if (isOrderMode) {
+      // 给TA点外卖模式
+      if (paymentMethod === 'self') {
+        systemMessage = {
+          id: systemMessageId,
+          type: 'system',
+          content: `你给 ${character.nickname || character.realName} 点了外卖：${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: baseTimestamp + 1,
+          messageType: 'system'
+        }
+      } else if (paymentMethod === 'intimate') {
+        systemMessage = {
+          id: systemMessageId,
+          type: 'system',
+          content: `你使用了 ${character.nickname || character.realName} 的亲密付给TA点外卖：${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: baseTimestamp + 1,
+          messageType: 'system'
+        }
       }
     }
 
     // 创建代付消息
-    const finalPaymentMethod = paymentMethod === 'give' ? 'self' : paymentMethod
     const paymentMessage: Message = {
       id: paymentMessageId,
       type: messageType,
-      content: `[${paymentMethod === 'give' ? '外卖' : '代付'}] ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
-      aiReadableContent: paymentMethod === 'give' 
-        ? `[用户给你点外卖] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}`
-        : `[用户发起代付请求] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}，支付方式：${
-            paymentMethod === 'ai' ? 'AI代付（需要你确认）' :
-            paymentMethod === 'self' ? '用户自己支付（已完成）' :
-            '亲密付（已完成）'
-          }`,
+      content: `[${isOrderMode ? '外卖' : '代付'}] ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
+      aiReadableContent: isOrderMode 
+        ? `[用户给你点外卖] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}，支付方式：${
+            paymentMethod === 'intimate' ? '使用你的亲密付' : '用户自己支付'
+          }`
+        : `[用户发起代付请求] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}，需要你确认代付`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: baseTimestamp,
       messageType: 'paymentRequest',
@@ -275,8 +257,8 @@ const PaymentRequest = () => {
         itemName: itemNames,
         amount: totalPrice,
         note: note || undefined,
-        paymentMethod: finalPaymentMethod,
-        status,
+        paymentMethod: isOrderMode ? 'self' : paymentMethod,
+        status: isOrderMode ? 'paid' : status,
         requesterId: 'user',
         requesterName: '我',
         payerId: paymentMethod === 'ai' ? character.id : undefined,
@@ -317,18 +299,46 @@ const PaymentRequest = () => {
             </svg>
           </button>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">发起代付</h1>
-            <p className="text-xs text-gray-500">请 {character?.nickname || character?.realName} 帮忙付款</p>
+            <h1 className="text-lg font-semibold text-gray-900">
+              {isOrderMode ? '给TA点外卖' : '发起代付'}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {isOrderMode 
+                ? `给 ${character?.nickname || character?.realName} 点外卖` 
+                : `请 ${character?.nickname || character?.realName} 帮忙付款`
+              }
+            </p>
           </div>
         </div>
-        {cart.length > 0 && (
+        <div className="flex items-center gap-2">
+          {cart.length > 0 && (
+            <button
+              onClick={clearCart}
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              清空
+            </button>
+          )}
           <button
-            onClick={clearCart}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            onClick={() => {
+              setIsOrderMode(!isOrderMode)
+              // 切换模式时重置支付方式
+              setPaymentMethod(isOrderMode ? 'ai' : 'intimate')
+            }}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              isOrderMode 
+                ? '' 
+                : 'border-2 border-dashed'
+            }`}
+            style={
+              isOrderMode
+                ? { backgroundColor: '#fff7b6', color: '#666' }
+                : { borderColor: '#e6d89a', color: '#666', backgroundColor: 'transparent' }
+            }
           >
-            清空
+            给TA点外卖
           </button>
-        )}
+        </div>
       </div>
 
       {/* 主体内容 */}
@@ -353,26 +363,6 @@ const PaymentRequest = () => {
             >
               {isSearching ? '搜索中...' : '搜索'}
             </button>
-          </div>
-        </div>
-
-        {/* 分类标签 */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="flex gap-2 overflow-x-auto">
-            {CATEGORIES.map(category => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedCategory === category
-                    ? 'text-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={selectedCategory === category ? { backgroundColor: '#fff7b6' } : {}}
-              >
-                {category}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -469,68 +459,49 @@ const PaymentRequest = () => {
             />
           </div>
 
-          {/* 支付方式 */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setPaymentMethod('ai')}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  paymentMethod === 'ai'
-                    ? 'text-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={paymentMethod === 'ai' ? { backgroundColor: '#fff7b6' } : {}}
-              >
-                请TA代付
-              </button>
-              <button
-                onClick={() => setPaymentMethod('self')}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  paymentMethod === 'self'
-                    ? 'text-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={paymentMethod === 'self' ? { backgroundColor: '#fff7b6' } : {}}
-              >
-                自己支付
-              </button>
-              <button
-                onClick={() => setPaymentMethod('intimate')}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  paymentMethod === 'intimate'
-                    ? 'text-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={paymentMethod === 'intimate' ? { backgroundColor: '#fff7b6' } : {}}
-              >
-                用TA的亲密付
-              </button>
-              <button
-                onClick={() => setPaymentMethod('give')}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  paymentMethod === 'give'
-                    ? 'text-gray-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                style={paymentMethod === 'give' ? { backgroundColor: '#fff7b6' } : {}}
-              >
-                给TA点外卖
-              </button>
+          {/* 支付方式 - 仅在给TA点外卖模式显示 */}
+          {isOrderMode && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPaymentMethod('intimate')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    paymentMethod === 'intimate'
+                      ? 'text-gray-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  style={paymentMethod === 'intimate' ? { backgroundColor: '#fff7b6' } : {}}
+                >
+                  亲密付
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('self')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    paymentMethod === 'self'
+                      ? 'text-gray-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  style={paymentMethod === 'self' ? { backgroundColor: '#fff7b6' } : {}}
+                >
+                  零钱支付
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 结算按钮 */}
           <div className="px-4 py-3 flex items-center justify-between">
             <div>
               <div className="text-xs text-gray-500">总计</div>
-              <div className="text-xl font-bold text-orange-600">¥{totalPrice.toFixed(2)}</div>
+              <div className="text-xl font-bold" style={{ color: '#d4a017' }}>¥{totalPrice.toFixed(2)}</div>
             </div>
             <button
               onClick={handleSubmit}
-              className="px-8 py-3 rounded-lg font-semibold active:scale-95 transition-all shadow-md"
+              disabled={cart.length === 0}
+              className="px-8 py-2 rounded-full font-medium transition-colors disabled:opacity-50"
               style={{ backgroundColor: '#fff7b6', color: '#666' }}
             >
-              发起代付
+              {isOrderMode ? '支付' : '发起代付'}
             </button>
           </div>
         </div>
