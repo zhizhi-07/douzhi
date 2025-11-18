@@ -1,10 +1,8 @@
 /**
- * MiniMax TTS API 代理 - 简化版
- * 解决CORS跨域问题
+ * MiniMax TTS API 代理 - Vercel 版本
+ * 使用 fetch API 避免兼容性问题
  */
-const https = require('https')
-
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // 设置CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -22,68 +20,49 @@ module.exports = async function handler(req, res) {
     }
 
     const minimaxUrl = `${baseUrl}/text_to_speech?GroupId=${groupId}`
-    const requestBody = JSON.stringify({
-      text,
-      model: 'speech-01',
-      voice_id: voiceId,
-      speed: 1.0,
-      vol: 1.0,
-      pitch: 0,
-      audio_sample_rate: 32000,
-      bitrate: 128000,
-      format: 'mp3'
-    })
-
-    // 调用MiniMax API
-    const result = await new Promise((resolve, reject) => {
-      const urlMatch = minimaxUrl.match(/^https?:\/\/([^\/]+)(.*)$/)
-      if (!urlMatch) return reject(new Error('Invalid URL'))
-      
-      const [, hostname, path = '/'] = urlMatch
-
-      const request = https.request({
-        hostname,
-        port: 443,
-        path,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Length': Buffer.byteLength(requestBody)
-        }
-      }, (response) => {
-        const chunks = []
-        response.on('data', chunk => chunks.push(chunk))
-        response.on('end', () => {
-          const buffer = Buffer.concat(chunks)
-          const contentType = response.headers['content-type'] || ''
-
-          if (contentType.includes('audio') || contentType.includes('octet-stream')) {
-            resolve({ type: 'audio', buffer })
-          } else {
-            try {
-              const data = JSON.parse(buffer.toString())
-              resolve({ type: 'json', data })
-            } catch {
-              reject(new Error('解析响应失败'))
-            }
-          }
-        })
+    
+    // 调用 MiniMax API
+    const response = await fetch(minimaxUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        text,
+        model: 'speech-01',
+        voice_id: voiceId,
+        speed: 1.0,
+        vol: 1.0,
+        pitch: 0,
+        audio_sample_rate: 32000,
+        bitrate: 128000,
+        format: 'mp3'
       })
-
-      request.on('error', reject)
-      request.write(requestBody)
-      request.end()
     })
 
-    // 处理响应
-    if (result.type === 'audio') {
+    // 检查响应类型
+    const contentType = response.headers.get('content-type') || ''
+    
+    if (contentType.includes('audio') || contentType.includes('octet-stream')) {
+      // 返回音频数据
+      const audioBuffer = await response.arrayBuffer()
       res.setHeader('Content-Type', 'audio/mpeg')
-      return res.status(200).send(result.buffer)
+      return res.status(200).send(Buffer.from(audioBuffer))
     }
 
+    // 返回 JSON 响应
+    const data = await response.json()
+    
     // 检查错误
-    const { base_resp } = result.data
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error || data.message || 'MiniMax API错误',
+        details: data
+      })
+    }
+
+    const { base_resp } = data
     if (base_resp?.status_code && base_resp.status_code !== 0) {
       return res.status(400).json({
         error: base_resp.status_msg || 'MiniMax API错误',
@@ -91,8 +70,9 @@ module.exports = async function handler(req, res) {
       })
     }
 
-    return res.status(200).json(result.data)
+    return res.status(200).json(data)
   } catch (error) {
+    console.error('代理错误:', error)
     return res.status(500).json({
       error: error.message || '代理服务器错误'
     })
