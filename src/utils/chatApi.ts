@@ -1374,6 +1374,16 @@ const callAIApiInternal = async (
     }
 
     if (!response.ok) {
+      // 尝试读取错误详情
+      let errorDetail = ''
+      try {
+        const errorText = await response.text()
+        errorDetail = errorText.substring(0, 200)
+        console.error('❌ API错误详情:', errorDetail)
+      } catch (e) {
+        // 忽略读取错误的异常
+      }
+      
       // 区分不同的HTTP错误
       if (response.status === 401) {
         throw new ChatApiError('API密钥无效', 'INVALID_API_KEY', 401)
@@ -1387,7 +1397,8 @@ const callAIApiInternal = async (
       } else if (response.status === 502) {
         throw new ChatApiError('网关错误，正在自动重试...', 'BAD_GATEWAY', 502)
       } else if (response.status === 503) {
-        throw new ChatApiError('服务暂时不可用，正在自动重试...', 'SERVICE_UNAVAILABLE', 503)
+        const msg = errorDetail ? `服务暂时不可用: ${errorDetail}` : '服务暂时不可用，正在自动重试...'
+        throw new ChatApiError(msg, 'SERVICE_UNAVAILABLE', 503)
       } else if (response.status === 504) {
         throw new ChatApiError('网关超时，正在自动重试...', 'GATEWAY_TIMEOUT', 504)
       } else if (response.status >= 500) {

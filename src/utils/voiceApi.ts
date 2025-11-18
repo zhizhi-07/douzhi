@@ -26,76 +26,114 @@ export async function callMinimaxTTS(
   const finalVoiceId = voiceId || ''
 
   // 验证必需参数
-  if (!finalApiKey) throw new Error('未配置API Key')
-  if (!finalGroupId) throw new Error('未配置Group ID')
-  if (!finalVoiceId) throw new Error('未配置Voice ID（请在聊天设置中配置角色专属音色）')
+  if (!finalApiKey) throw new Error('未配置API Key\n\n请前往：系统设置 → 语音设置')
+  if (!finalGroupId) throw new Error('未配置Group ID\n\n请前往：系统设置 → 语音设置')
+  if (!finalVoiceId) throw new Error('未配置Voice ID\n\n请前往：聊天设置 → 语音设置 → 配置音色ID')
 
-  console.log('🎤 调用语音合成:', { voiceId: finalVoiceId, textLength: text.length })
+  console.log('🎤 调用语音合成:', { 
+    voiceId: finalVoiceId, 
+    textLength: text.length,
+    hasApiKey: !!finalApiKey,
+    hasGroupId: !!finalGroupId
+  })
 
   try {
     const baseUrl = config?.baseUrl || 'https://api.minimaxi.com/v1'
     
-    // 🔥 优先使用代理（避免CORS问题）
-    const useProxy = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    // 🔥 判断是否使用代理（部署环境需要代理避免CORS）
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
     
     let response: Response
     
-    if (useProxy) {
-      // 使用Netlify Functions代理
-      response = await fetch('/api/minimax-tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text,
-          apiKey: finalApiKey,
-          groupId: finalGroupId,
-          voiceId: finalVoiceId,
-          baseUrl
+    if (isProduction) {
+      // 生产环境：使用 Vercel Serverless Function 代理
+      console.log('🌐 使用代理调用语音API')
+      try {
+        response = await fetch('/api/minimax-tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text,
+            apiKey: finalApiKey,
+            groupId: finalGroupId,
+            voiceId: finalVoiceId,
+            baseUrl
+          })
         })
-      }).catch(err => {
-        console.error('代理请求失败:', err)
-        throw new Error('语音服务请求失败\n\n可能原因：\n1. 网络连接问题\n2. 代理服务未部署\n3. API配置错误\n\n请检查网络连接或联系管理员')
-      })
+      } catch (err) {
+        console.error('❌ 代理请求失败:', err)
+        throw new Error('语音服务请求失败\n\n可能原因：\n1. 代理服务未部署\n2. 网络连接问题\n\n请联系管理员')
+      }
     } else {
-      // 本地开发直接调用（可能有CORS问题）
-      response = await fetch(`${baseUrl}/text_to_speech?GroupId=${finalGroupId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${finalApiKey}`
-        },
-        body: JSON.stringify({
-          text,
-          model: 'speech-01',
-          voice_id: finalVoiceId,
-          speed: 1.0,
-          vol: 1.0,
-          pitch: 0,
-          audio_sample_rate: 32000,
-          bitrate: 128000,
-          format: 'mp3'
+      // 本地开发：直接调用
+      console.log('🏠 本地开发，直接调用语音API')
+      try {
+        response = await fetch(`${baseUrl}/text_to_speech?GroupId=${finalGroupId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${finalApiKey}`
+          },
+          body: JSON.stringify({
+            text,
+            model: 'speech-01',
+            voice_id: finalVoiceId,
+            speed: 1.0,
+            vol: 1.0,
+            pitch: 0,
+            audio_sample_rate: 32000,
+            bitrate: 128000,
+            format: 'mp3'
+          })
         })
-      }).catch(err => {
-        console.error('直接请求失败:', err)
-        throw new Error('语音API请求失败\n\n本地开发环境可能遇到CORS跨域限制\n建议：\n1. 部署到生产环境使用代理\n2. 或使用浏览器CORS插件')
-      })
+      } catch (err) {
+        console.error('❌ 语音API请求失败:', err)
+        throw new Error('语音API请求失败\n\n可能原因：\n1. 网络连接问题\n2. CORS跨域限制\n\n请检查网络连接')
+      }
     }
 
     if (!response.ok) {
       const errorText = await response.text()
       let errorMsg = '语音合成失败'
+      let errorDetails = ''
+      
+      console.error('❌ 语音API错误:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText.substring(0, 500)
+      })
+      
       try {
         const errorJson = JSON.parse(errorText)
         errorMsg = errorJson.error || errorJson.message || errorMsg
         
-        // 特殊错误处理
-        if (errorMsg.includes('not allowed') || errorMsg.includes('permission')) {
-          errorMsg = 'API权限错误，请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足'
+        // 详细错误处理
+        if (errorMsg.includes('not allowed') || errorMsg.includes('permission') || errorMsg.includes('unauthorized')) {
+          errorMsg = 'API权限错误'
+          errorDetails = '\n\n请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足\n4. API Key是否已激活'
+        } else if (errorMsg.includes('voice_id') || errorMsg.includes('voice')) {
+          errorMsg = 'Voice ID错误'
+          errorDetails = '\n\n请检查：\n1. Voice ID是否正确\n2. 该音色是否存在\n3. 是否有权限使用该音色'
+        } else if (response.status === 400) {
+          errorDetails = '\n\n请求参数错误，请检查配置'
+        } else if (response.status === 401) {
+          errorDetails = '\n\nAPI Key无效或已过期'
+        } else if (response.status === 403) {
+          errorDetails = '\n\n无权限访问，请检查账户状态'
+        } else if (response.status === 429) {
+          errorDetails = '\n\n请求过于频繁，请稍后再试'
+        } else if (response.status === 500) {
+          errorDetails = '\n\nMiniMax服务器错误\n\n可能原因：\n1. Voice ID不存在或无权限\n2. 文本内容有问题\n3. API配置错误\n4. 服务器故障\n\n详细错误：' + errorText.substring(0, 200)
+        } else if (response.status >= 500) {
+          errorDetails = '\n\nMiniMax服务器错误，请稍后再试'
         }
-      } catch {}
-      throw new Error(errorMsg)
+      } catch {
+        errorDetails = `\n\nHTTP ${response.status}: ${errorText.substring(0, 200)}`
+      }
+      
+      throw new Error(errorMsg + errorDetails)
     }
 
     // 处理音频响应

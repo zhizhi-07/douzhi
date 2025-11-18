@@ -98,10 +98,10 @@ export const dockApps: AppItem[] = [
     route: '/map' 
   },
   { 
-    id: 'worldbook', 
-    name: '世界书', 
-    icon: BookIcon, 
+    id: 'aiphone', 
+    name: '查手机', 
+    icon: PhoneIcon, 
     color: 'glass-card', 
-    route: '/world-book' 
+    route: '/ai-phone-select' 
   },
 ]

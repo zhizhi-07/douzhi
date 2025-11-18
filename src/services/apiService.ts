@@ -20,8 +20,8 @@ const BUILT_IN_CONFIGS: ApiConfig[] = [
     id: 'built-in-gemini-2.5-pro',
     name: 'Gemini 2.5 Pro（内置）',
     baseUrl: 'https://xy.xiaoxu030.xyz:8888/v1',  // custom provider会添加/chat/completions
-    apiKey: 'sk-P3jVxHNx7YvU07J0w818ZUHoiSPGaKDdhb7kNMxFhAPjM13s',
-    model: 'gemini-2.5-pro',
+    apiKey: 'sk-9M5Ji34noQ3AiXYeFPv6bI0DrSomsP0MfOTKSvwTleGPNuVS',
+    model: 'gemini-2.5-pro(满血250w上下文cli3)',
     provider: 'custom',  // 自定义API端点，最终URL: baseUrl + /chat/completions
     temperature: 0.7,
     maxTokens: 8000,
@@ -44,11 +44,16 @@ export const apiService = {
         configs = configs.map((c: ApiConfig) => {
           const builtInConfig = BUILT_IN_CONFIGS.find(b => b.id === c.id)
           if (builtInConfig) {
-            // 如果是内置API，更新所有字段（保留用户可能修改的temperature等）
+            // 如果是内置API，强制更新所有字段（包括apiKey）
             const updated = {
               ...builtInConfig,
               temperature: c.temperature ?? builtInConfig.temperature,
               maxTokens: c.maxTokens ?? builtInConfig.maxTokens
+            }
+            // 检查 apiKey 是否不同，强制更新
+            if (c.apiKey !== builtInConfig.apiKey) {
+              needsUpdate = true
+              console.log(`🔄 更新内置API的apiKey: ${c.name}`)
             }
             if (JSON.stringify(c) !== JSON.stringify(updated)) {
               needsUpdate = true
