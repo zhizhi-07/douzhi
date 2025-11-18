@@ -2437,6 +2437,52 @@ export const aiRequestPaymentHandler: CommandHandler = {
 }
 
 /**
+ * AI发送帖子处理器
+ * 格式：[帖子:帖子内容]
+ */
+export const postHandler: CommandHandler = {
+  pattern: /[\[【]帖子[:：]([^\]】]+)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    console.log('📋 [AI发送帖子] 处理器被调用')
+    
+    const postContent = match[1].trim()
+    
+    if (!postContent) {
+      console.warn('⚠️ [AI发送帖子] 帖子内容为空')
+      return { handled: false }
+    }
+    
+    console.log('✅ [AI发送帖子] 帖子内容:', postContent)
+    
+    // 生成唯一ID
+    const postMessageId = generateMessageId()
+    
+    // 创建帖子卡片消息
+    const postMsg: Message = {
+      id: postMessageId,
+      type: 'received',
+      content: postContent,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      messageType: 'post',
+      post: {
+        content: postContent,
+        prompt: `${character?.nickname || character?.realName || 'AI'} 分享的帖子`
+      }
+    }
+    
+    await addMessage(postMsg, setMessages, chatId)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -2450,6 +2496,7 @@ export const commandHandlers: CommandHandler[] = [
   rejectPaymentHandler,  // AI拒绝代付
   aiOrderFoodHandler,  // AI主动点外卖
   aiRequestPaymentHandler,  // AI请求用户代付
+  postHandler,  // AI发送帖子
   videoCallHandler,
   endCallHandler,
   aiMuteHandler,  // AI静音

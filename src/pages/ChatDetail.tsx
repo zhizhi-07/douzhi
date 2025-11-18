@@ -5,6 +5,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { getChatWallpaper, getWallpaperStyle } from '../utils/wallpaperManager'
+import { getUserInfo } from '../utils/userUtils'
 import AddMenu from '../components/AddMenu'
 import AlbumSelector from '../components/AlbumSelector'
 import MessageMenu from '../components/MessageMenu.floating'
@@ -88,9 +89,25 @@ const ChatDetail = () => {
     const checkWallpaper = () => {
       setWallpaper(getChatWallpaper(id))
     }
+    
+    // 监听 storage 事件（其他标签页的修改）
     window.addEventListener('storage', checkWallpaper)
+    
+    // 监听自定义事件（当前标签页的修改）
+    const handleWallpaperChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ chatId: string }>
+      if (customEvent.detail.chatId === id) {
+        setWallpaper(getChatWallpaper(id))
+      }
+    }
+    window.addEventListener('chatWallpaperChanged', handleWallpaperChange)
+    
     checkWallpaper()
-    return () => window.removeEventListener('storage', checkWallpaper)
+    
+    return () => {
+      window.removeEventListener('storage', checkWallpaper)
+      window.removeEventListener('chatWallpaperChanged', handleWallpaperChange)
+    }
   }, [id])
   
   const chatState = useChatState(id || '')
@@ -814,6 +831,7 @@ const ChatDetail = () => {
                  message.messageType === 'photo' ||
                  message.messageType === 'paymentRequest' ||
                  message.messageType === 'productCard' ||
+                 message.messageType === 'post' ||
                  (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}
@@ -1243,6 +1261,7 @@ const ChatDetail = () => {
         characterName={chatState.character?.nickname || chatState.character?.realName}
         characterAvatar={chatState.character?.avatar}
         characterId={chatState.character?.id}
+        userAvatar={getUserInfo().avatar}
         generatedPost={postGenerator.generatedPost}
         onClearPost={() => postGenerator.setGeneratedPost(null)}
       />

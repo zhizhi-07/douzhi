@@ -6,32 +6,34 @@ interface MapsAppProps {
 
 const MapsApp = ({ content }: MapsAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
-      {/* 标题栏 */}
-      <div className="px-6 py-4 border-b border-white/30 bg-gradient-to-r from-blue-400/20 to-purple-400/20">
-        <h2 className="text-lg font-semibold text-gray-800">今日足迹</h2>
-        <p className="text-xs text-gray-600 mt-1">记录TA的一天</p>
+    <div className="w-full h-full bg-white overflow-hidden flex flex-col">
+      {/* 顶部标题栏 */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-4 pt-3 pb-2">
+          <h1 className="text-2xl font-bold text-gray-900">今日足迹</h1>
+          <p className="text-sm text-gray-500 mt-0.5">记录TA的一天</p>
+        </div>
       </div>
       
       {/* 足迹时间线 */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
         <div className="relative">
           {/* 时间线竖线 */}
-          <div className="absolute left-[22px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-blue-300 to-purple-300"></div>
+          <div className="absolute left-[22px] top-4 bottom-4 w-0.5 bg-gray-300"></div>
           
           {/* 足迹列表 */}
           <div className="space-y-4">
             {content.footprints.map((footprint, index) => (
               <div key={index} className="relative pl-12">
                 {/* 时间点 */}
-                <div className="absolute left-0 top-0 w-11 h-11 rounded-full bg-gradient-to-br from-blue-400/40 to-purple-400/40 backdrop-blur-md border-2 border-white flex items-center justify-center shadow-lg">
+                <div className="absolute left-0 top-0 w-11 h-11 rounded-full bg-gray-200 backdrop-blur-md border-2 border-white flex items-center justify-center shadow-lg">
                   <span className="text-xs font-bold text-gray-700">{footprint.time}</span>
                 </div>
                 
                 {/* 内容卡片 */}
-                <div className="bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-blue-200/50 shadow-md hover:shadow-lg transition-shadow">
+                <div className="bg-white backdrop-blur-md rounded-2xl p-4 border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-400/30 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                         <circle cx="12" cy="10" r="3"></circle>

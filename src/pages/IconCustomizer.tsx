@@ -91,9 +91,30 @@ const IconCustomizer = () => {
     
     const reader = new FileReader()
     reader.onload = () => {
+      const base64 = reader.result as string
+      
+      // 🎬 如果是GIF，直接保存不压缩（保持动画效果）
+      if (file.type === 'image/gif') {
+        // 更新图标配置
+        const updatedConfigs = iconConfigs.map(config => 
+          config.appId === appId 
+            ? { ...config, customIcon: base64 }
+            : config
+        )
+        
+        setIconConfigs(updatedConfigs)
+        localStorage.setItem('custom_icons', JSON.stringify(updatedConfigs))
+        
+        // 触发事件通知其他组件
+        window.dispatchEvent(new CustomEvent('iconChanged', { detail: { appId, icon: base64 } }))
+        
+        console.log('✅ GIF图标已更新:', appId)
+        return
+      }
+      
+      // 其他格式：压缩到128x128
       const img = new Image()
       img.onload = () => {
-        // 压缩图片到128x128
         const canvas = document.createElement('canvas')
         const size = 128
         canvas.width = size
@@ -129,7 +150,7 @@ const IconCustomizer = () => {
           console.log('✅ 图标已更新:', appId)
         }
       }
-      img.src = reader.result as string
+      img.src = base64
     }
     reader.onerror = () => {
       alert('图片读取失败')

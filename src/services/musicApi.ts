@@ -73,8 +73,14 @@ export async function searchOnlineMusic(keyword: string, limit: number = 50): Pr
     const data = await response.json()
     console.log('📦 Worker返回数据:', data)
     
-    if (data.result && data.result.songs) {
-      console.log('✅ 网易云搜索成功，找到', data.result.songs.length, '首')
+    // Worker返回错误但状态码200的情况（所有API都失败）
+    if (data.error && (!data.result || !data.result.songs || data.result.songs.length === 0)) {
+      console.log('⚠️ Worker所有API都失败:', data.error)
+      throw new Error(data.error)
+    }
+    
+    if (data.result && data.result.songs && data.result.songs.length > 0) {
+      console.log(`✅ 网易云搜索成功，找到 ${data.result.songs.length} 首（来源: ${data.source || '未知'}）`)
       return data.result.songs.map((song: NetEaseSong) => ({
         id: song.id,
         name: song.name,

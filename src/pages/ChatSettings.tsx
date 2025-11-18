@@ -274,6 +274,8 @@ const ChatSettings = () => {
       const imageUrl = e.target?.result as string
       const customWallpaper = createCustomWallpaper(imageUrl)
       setChatWallpaper(id, customWallpaper)
+      // 触发自定义事件通知聊天页面更新背景
+      window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
       alert('壁纸已设置！')
     }
     reader.readAsDataURL(file)

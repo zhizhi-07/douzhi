@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ContactIcon, ChatIcon, ImageIcon, MusicIcon, LocationIcon, ShoppingIcon, BrowserIcon, AlipayIcon, NotesIcon, CloseIcon, ChevronLeftIcon, ForumIcon } from './Icons'
 import { generateAIPhoneContent, AIPhoneContent } from '../utils/aiPhoneGenerator'
+import StatusBar from './StatusBar'
 import ContactsApp from './phone/ContactsApp'
 import WechatApp from './phone/WechatApp'
 import BrowserApp from './phone/BrowserApp'
@@ -67,25 +68,25 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
     loadContent()
   }, [characterId, characterName, forceNew, historyContent])
 
-  // iOS应用图标
+  // iOS应用图标 - iOS经典配色
   const allApps: PhoneApp[] = [
     { id: 'contacts', name: '通讯录', IconComponent: ContactIcon, color: 'from-gray-400 to-gray-500', onClick: () => setSelectedApp('contacts') },
     { id: 'wechat', name: '微信', IconComponent: ChatIcon, color: 'from-green-400 to-green-500', onClick: () => setSelectedApp('wechat') },
     { id: 'browser', name: 'Safari', IconComponent: BrowserIcon, color: 'from-blue-400 to-blue-500', onClick: () => setSelectedApp('browser') },
-    { id: 'taobao', name: '淘宝', IconComponent: ShoppingIcon, color: 'from-orange-400 to-orange-500', onClick: () => setSelectedApp('taobao') },
-    { id: 'alipay', name: '支付宝', IconComponent: AlipayIcon, color: 'from-blue-500 to-blue-600', onClick: () => setSelectedApp('alipay') },
-    { id: 'photos', name: '照片', IconComponent: ImageIcon, color: 'from-pink-400 to-pink-500', onClick: () => setSelectedApp('photos') },
-    { id: 'notes', name: '备忘录', IconComponent: NotesIcon, color: 'from-yellow-400 to-yellow-500', onClick: () => setSelectedApp('notes') },
-    { id: 'music', name: '音乐', IconComponent: MusicIcon, color: 'from-red-400 to-red-500', onClick: () => setSelectedApp('music') },
-    { id: 'footprints', name: '地图', IconComponent: LocationIcon, color: 'from-green-500 to-green-600', onClick: () => setSelectedApp('footprints') },
+    { id: 'taobao', name: '淘宝', IconComponent: ShoppingIcon, color: 'from-orange-400 to-red-500', onClick: () => setSelectedApp('taobao') },
+    { id: 'alipay', name: '支付宝', IconComponent: AlipayIcon, color: 'from-blue-400 to-blue-600', onClick: () => setSelectedApp('alipay') },
+    { id: 'photos', name: '照片', IconComponent: ImageIcon, color: 'from-pink-400 to-purple-500', onClick: () => setSelectedApp('photos') },
+    { id: 'notes', name: '备忘录', IconComponent: NotesIcon, color: 'from-yellow-300 to-yellow-400', onClick: () => setSelectedApp('notes') },
+    { id: 'music', name: '音乐', IconComponent: MusicIcon, color: 'from-red-400 to-pink-500', onClick: () => setSelectedApp('music') },
+    { id: 'footprints', name: '地图', IconComponent: LocationIcon, color: 'from-blue-400 to-purple-500', onClick: () => setSelectedApp('footprints') },
     { id: 'forum', name: '论坛', IconComponent: ForumIcon, color: 'from-purple-400 to-pink-500', onClick: () => setSelectedApp('forum') },
   ]
 
   const renderAppContent = (appId: string) => {
     if (!phoneContent) {
       return (
-        <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
-          <div className="animate-spin w-12 h-12 border-3 border-gray-400 border-t-transparent rounded-full mb-4"></div>
+        <div className="w-full h-full bg-gray-50/50 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
+          <div className="animate-spin w-12 h-12 border-4 border-gray-300 border-t-gray-600 rounded-full mb-4"></div>
           <p className="text-gray-600 text-center font-medium">加载中...</p>
         </div>
       )
@@ -95,7 +96,7 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
       case 'contacts':
         return <ContactsApp content={phoneContent} />
       case 'wechat':
-        return <WechatApp content={phoneContent} onBack={() => setSelectedApp(null)} />
+        return <WechatApp content={phoneContent} />
       case 'browser':
         return <BrowserApp content={phoneContent} />
       case 'taobao':
@@ -114,7 +115,7 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
         return <ForumApp content={phoneContent} />
       default:
         return (
-          <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
+          <div className="w-full h-full bg-gray-50/50 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
             <p className="text-gray-600 text-center font-medium">未知应用</p>
           </div>
         )
@@ -130,20 +131,13 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
       />
 
       {/* 手机外壳 - iOS风格 */}
-      <div className="relative w-full max-w-md h-[85vh] max-h-[850px] bg-white rounded-[3rem] shadow-2xl border-8 border-gray-900 overflow-hidden">
-        {/* iOS状态栏 */}
-        <div className="absolute top-0 left-0 right-0 h-11 bg-white flex items-center justify-between px-6 z-10">
-          <div className="text-xs font-semibold text-gray-900">
-            {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-          <div className="flex items-center gap-1">
-            <svg className="w-4 h-4 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
-            </svg>
-            <svg className="w-3 h-3 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
-            </svg>
-          </div>
+      <div 
+        className="relative w-full max-w-md h-[85vh] max-h-[850px] bg-white rounded-[3rem] shadow-2xl border-8 border-gray-900 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 使用现有的StatusBar组件 */}
+        <div className="absolute top-0 left-0 right-0 bg-white z-10">
+          <StatusBar />
         </div>
         
         {/* 关闭按钮 */}
@@ -151,35 +145,33 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
           onClick={onClose}
           className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-all"
         >
-          <CloseIcon size={14} className="text-gray-700" />
+          <CloseIcon size={14} className="text-gray-600" />
         </button>
 
         {/* 应用内容区 */}
-        <div className="absolute top-14 bottom-8 left-0 right-0">
+        <div className="absolute top-11 bottom-8 left-0 right-0">
           {isLoading ? (
             // 加载状态
             <div className="w-full h-full flex flex-col items-center justify-center">
-              <div className="animate-spin w-16 h-16 border-4 border-gray-300 border-t-gray-700 rounded-full mb-4"></div>
+              <div className="animate-spin w-16 h-16 border-4 border-gray-300 border-t-gray-600 rounded-full mb-4"></div>
               <p className="text-gray-600 font-medium">正在生成{characterName}的手机内容...</p>
               <p className="text-xs text-gray-400 mt-2">根据聊天记录和性格定制中</p>
             </div>
           ) : selectedApp ? (
             // 显示应用内容
             <div className="w-full h-full relative">
-              {/* 只在非微信应用时显示返回按钮，微信应用自己处理返回 */}
-              {selectedApp !== 'wechat' && (
-                <button
-                  onClick={() => setSelectedApp(null)}
-                  className="absolute top-4 left-4 z-10 w-10 h-10 rounded-full bg-white/80 hover:bg-white/95 flex items-center justify-center transition-all shadow-lg backdrop-blur-md border border-white/50"
-                >
-                  <ChevronLeftIcon size={20} className="text-gray-700" />
-                </button>
-              )}
+              {/* 返回桌面按钮 */}
+              <button
+                onClick={() => setSelectedApp(null)}
+                className="absolute top-4 left-4 z-10 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all shadow-md border border-gray-200"
+              >
+                <ChevronLeftIcon size={20} className="text-gray-600" />
+              </button>
               {renderAppContent(selectedApp)}
             </div>
           ) : (
             // iOS桌面
-            <div className="w-full h-full bg-gradient-to-b from-blue-50 to-white px-6 py-4 overflow-y-auto hide-scrollbar">
+            <div className="w-full h-full bg-gradient-to-b from-gray-50 to-white px-6 py-4 overflow-y-auto hide-scrollbar">
               {/* iOS时间和日期 */}
               <div className="text-center mb-8 mt-4">
                 <div className="text-6xl font-light text-gray-900 mb-1">
@@ -204,8 +196,9 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
                       onClick={app.onClick}
                       className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-90 transition-transform"
                     >
-                      <div className={`w-14 h-14 bg-gradient-to-br ${app.color} rounded-[1.1rem] flex items-center justify-center shadow-md`}>
-                        <Icon size={26} className="text-white" />
+                      <div className={`w-14 h-14 bg-gradient-to-br ${app.color} rounded-[1.1rem] flex items-center justify-center shadow-sm`}>
+                        {/* 统一使用 className 控制内部图标大小，避免个别图标显得过大 */}
+                        <Icon className="w-6 h-6 text-white" />
                       </div>
                       <span className="text-[10px] text-gray-900 text-center font-normal leading-tight">
                         {app.name}
@@ -220,7 +213,7 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
 
         {/* iOS Home Indicator */}
         <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-          <div className="w-28 h-1 bg-gray-900 rounded-full"></div>
+          <div className="w-28 h-1 bg-gray-800 rounded-full"></div>
         </div>
       </div>
     </div>

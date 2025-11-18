@@ -6,38 +6,44 @@ interface MusicAppProps {
 
 const MusicApp = ({ content }: MusicAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
-      {/* 标题栏 */}
-      <div className="px-6 py-4 border-b border-white/30 bg-white/20">
-        <h2 className="text-lg font-semibold text-gray-800">音乐</h2>
-        <p className="text-xs text-gray-500 mt-1">我的歌单</p>
+    <div className="w-full h-full bg-white overflow-hidden flex flex-col">
+      {/* 顶部标题栏 */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-4 pt-3 pb-2">
+          <h1 className="text-2xl font-bold text-gray-900">资资歌单</h1>
+        </div>
       </div>
       
       {/* 歌曲列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {content.musicPlaylist.map((song, index) => (
-          <div 
-            key={index}
-            className="bg-gradient-to-r from-red-100/60 to-pink-100/40 backdrop-blur-md rounded-xl p-4 border border-red-200/50 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-400/40 to-pink-400/40 flex items-center justify-center flex-shrink-0">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18V5l12-2v13"></path>
-                  <circle cx="6" cy="18" r="3"></circle>
-                  <circle cx="18" cy="16" r="3"></circle>
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-800 truncate">{song.title}</div>
-                <div className="text-sm text-gray-600 truncate">{song.artist}</div>
-                {song.mood && (
-                  <div className="text-xs text-gray-500 mt-1">心情: {song.mood}</div>
-                )}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <div className="bg-white">
+          {content.musicPlaylist.map((song, index) => (
+            <div 
+              key={index}
+              className="px-4 py-3 border-b border-gray-200 active:bg-gray-100"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-gray-400 text-sm w-6 flex-shrink-0 text-center">
+                  {index + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">{song.title}</div>
+                  <div className="text-sm text-gray-500 truncate">{song.artist}</div>
+                  {song.mood && (
+                    <div className="text-xs text-gray-400 mt-0.5 truncate">💭 {song.mood}</div>
+                  )}
+                </div>
+                <button className="p-2">
+                  <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="2"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <circle cx="12" cy="19" r="2"/>
+                  </svg>
+                </button>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )

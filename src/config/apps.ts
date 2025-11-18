@@ -3,10 +3,10 @@ import {
   MusicIcon, 
   SettingsIcon, 
   PhoneIcon,
-  CalendarIcon,
   ForumIcon,
   BookIcon,
-  MapIcon
+  MapIcon,
+  DecorationIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -47,6 +47,13 @@ export const page1Apps: AppItem[] = [
     color: 'glass-card', 
     route: '/customize' 
   },
+  { 
+    id: 'decoration', 
+    name: '美化', 
+    icon: DecorationIcon, 
+    color: 'glass-card', 
+    route: '/music-decoration' 
+  },
 ]
 
 // 第二页应用配置
@@ -64,13 +71,6 @@ export const page2Apps: AppItem[] = [
     icon: PhoneIcon, 
     color: 'glass-card', 
     route: '/ai-phone-select' 
-  },
-  { 
-    id: 'calendar', 
-    name: '日历', 
-    icon: CalendarIcon, 
-    color: 'glass-card', 
-    route: '/calendar' 
   },
 ]
 

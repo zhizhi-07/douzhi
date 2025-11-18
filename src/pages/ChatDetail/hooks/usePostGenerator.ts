@@ -19,39 +19,67 @@ export const usePostGenerator = (
   const [generatingPrompt, setGeneratingPrompt] = useState<string>('')
 
   /**
-   * 构建帖子生成prompt
+   * 构建帖子生成 prompt
+   * 目标：生成「网友在论坛讨论某人/某事」的主题帖，而不是角色本人发帖
    */
   const buildPostPrompt = useCallback((userPrompt: string, selectedRoles: string[]): string => {
-    let prompt = '请生成一个虚拟的社交媒体帖子。\n\n'
+    let prompt = ''
     
-    // 添加角色信息
+    // 🔥 用户的要求放在最前面，这是第一指令
+    prompt += `【你的任务】：根据以下描述生成一篇论坛帖子：\\n${userPrompt}\\n\\n`
+
+    // 背景角色说明（只作为被讨论对象）
     if (selectedRoles.length > 0) {
-      prompt += '相关角色信息：\n'
-      
+      prompt += '【相关角色信息】（他们只会被提起，不会亲自发帖）：\\n'
+
       if (selectedRoles.includes('user')) {
-        prompt += '- 用户\n'
+        prompt += '- 用户：可以是被讨论的对象\\n'
       }
-      
+
       if (selectedRoles.includes('ai') && characterPersona) {
-        prompt += `- ${characterName}：${characterPersona}\n`
+        prompt += `- ${characterName}：${characterPersona}\\n`
       } else if (selectedRoles.includes('ai')) {
-        prompt += `- ${characterName}\n`
+        prompt += `- ${characterName}\\n`
       }
-      
-      prompt += '\n请根据以上角色的背景和人设，生成合理的帖子内容。\n\n'
+
+      prompt += '\\n'
     }
-    
-    // 添加用户描述
-    prompt += `帖子要求：${userPrompt}\n\n`
-    
-    // 添加格式要求
-    prompt += `格式要求：
-- 包含多个网友的评论（至少3-5条）
-- 每条评论要有用户名
-- 内容要真实自然，符合社交媒体风格
-- 如果涉及到角色，内容要符合角色的人设和背景
-- 直接输出帖子内容，不要有任何解释说明`
-    
+
+    // 场景说明
+    prompt += '【场景设定】：\\n'
+    prompt += '- 这是论坛帖子（校园墙/表白墙/树洞/豆瓣/贴吧等）\\n'
+    prompt += '- 网友们在讨论某个人或某件事，当事人不会亲自发帖\\n'
+    prompt += '- 可以虚构路人、同学、室友等 NPC\\n\\n'
+
+    // 严格格式约束
+    prompt += '【输出格式要求（必须严格遵守）】\\n'
+    prompt += '1. 整体结构：\\n'
+    prompt += '- 先由楼主（OP）发一段主帖，语气像普通网友，可以是爆料、吐槽、求助、八卦等。\\n'
+    prompt += '- 后面至少 4-6 条楼层回复（1L、2L、3L…），每一层都是不同网友在讨论。\\n'
+    prompt += '- 可以在部分楼层下面加 1-3 条「楼中楼」回复，用来吵架、补充细节或爆更多料。\\n\\n'
+
+    prompt += '2. 行内格式：\\n'
+    prompt += '- 楼主行首用：楼主（OP）：内容\\n'
+    prompt += '- 普通楼层用：\\n'
+    prompt += '  【1L 用户名】内容\\n'
+    prompt += '  【2L 用户名】内容\\n'
+    prompt += '  ……\\n'
+    prompt += '- 某一楼下的楼中楼回复用：\\n'
+    prompt += '  -> 用户名：内容\\n'
+    prompt += '  （用箭头“->”表示是在上一楼下面的回复，可以有 1-3 条）\\n\\n'
+
+    prompt += '3. 内容风格：\\n'
+    prompt += '- 所有发言者都是「网友」，不会是被讨论的人本人；\\n'
+    prompt += '- 如果涉及用户或特定角色，只能用第三人称或者网友的视角来讨论，例如“他/她”、“楼主说的那个人”、“${characterName} 那个男生/女生”；\\n'
+    prompt += '- 可以在回复里转述 NPC 的话，比如“我舍友在他们班，他说…”、“我朋友在那家公司上班”；\\n'
+    prompt += '- 氛围可以是八卦、理性分析、吃瓜、怼人等，但整体要真实、像真论坛。\\n\\n'
+
+    prompt += '4. 其他限制：\\n'
+    prompt += '- 全程使用中文，保持手机论坛常见表达，不要太官方；\\n'
+    prompt += '- 不要写成小说旁白或系统说明，只写楼主 + 各楼层 + 楼中楼的内容本身；\\n'
+    prompt += '- 不要输出“以下是格式”“我将按照要求生成”之类的解释；\\n'
+    prompt += '- 直接输出完整帖子内容，从楼主到最后一楼，包含需要的楼中楼。\\n'
+
     return prompt
   }, [characterName, characterPersona])
 

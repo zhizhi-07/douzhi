@@ -46,11 +46,36 @@ async function handleRequest(request) {
     } else if (url.pathname.startsWith('/proxy/')) {
       // 音乐文件代理
       return await proxyMusic(url)
+    } else if (url.pathname === '/health' || url.pathname === '/') {
+      // 健康检查端点
+      return new Response(JSON.stringify({ 
+        status: 'ok', 
+        message: 'Music API Proxy is running',
+        timestamp: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    return new Response('Not Found', { status: 404, headers: corsHeaders })
+    return new Response(JSON.stringify({ 
+      error: 'Not Found',
+      availableEndpoints: [
+        '/api/music/search?keyword=xxx',
+        '/api/music/url?id=xxx',
+        '/song/lyric?id=xxx',
+        '/health'
+      ]
+    }), { 
+      status: 404, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Worker Error:', error)
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -58,7 +83,7 @@ async function handleRequest(request) {
 }
 
 /**
- * 搜索音乐 - 使用第三方API (api.vkeys.cn)
+ * 搜索音乐 - 使用多个备用API源
  */
 async function handleSearch(url) {
   const keyword = url.searchParams.get('keyword')
@@ -69,42 +94,119 @@ async function handleSearch(url) {
     })
   }
 
-  // 使用第三方API
-  const searchUrl = `https://api.vkeys.cn/v2/music/netease?word=${encodeURIComponent(keyword)}`
-  
-  const response = await fetch(searchUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-  })
-
-  const data = await response.json()
-  
-  // 转换为网易云格式
-  if (data.code === 200 && data.data && Array.isArray(data.data)) {
-    // vkeys API返回的data直接是歌曲数组，需要转换成网易云格式
-    const songs = data.data.map(song => ({
-      id: song.id,
-      name: song.song || song.name,
-      artists: [{ name: song.singer || song.artists || song.歌手 || '' }],
-      album: {
-        name: song.album || song.专辑 || '',
-        picUrl: song.cover || song.封面 || ''
-      },
-      duration: 0,
-      fee: 0
-    }))
-    
-    return new Response(JSON.stringify({
-      result: {
-        songs: songs
+  // API源列表（按优先级排序）
+  const apiSources = [
+    {
+      name: 'injahow',
+      url: `https://api.injahow.cn/meting/?type=search&id=${encodeURIComponent(keyword)}&source=netease`,
+      transform: (data) => {
+        if (Array.isArray(data)) {
+          return data.map(song => ({
+            id: song.id,
+            name: song.name || song.title,
+            artists: [{ name: song.artist || song.artists || '未知歌手' }],
+            album: {
+              name: song.album || '未知专辑',
+              picUrl: song.pic || song.cover || ''
+            },
+            duration: (song.time || 0) * 1000,
+            fee: 0
+          }))
+        }
+        return null
       }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    },
+    {
+      name: 'vkeys',
+      url: `https://api.vkeys.cn/v2/music/netease?word=${encodeURIComponent(keyword)}`,
+      transform: (data) => {
+        if (data.code === 200 && data.data && Array.isArray(data.data)) {
+          return data.data.map(song => ({
+            id: song.id,
+            name: song.song || song.name,
+            artists: [{ name: song.singer || song.artists || '未知歌手' }],
+            album: {
+              name: song.album || '未知专辑',
+              picUrl: song.cover || ''
+            },
+            duration: 0,
+            fee: 0
+          }))
+        }
+        return null
+      }
+    },
+    {
+      name: 'uomg',
+      url: `https://api.uomg.com/api/rand.music?sort=热歌榜&format=json`,
+      transform: (data) => {
+        // UOMG返回单首歌曲，需要特殊处理
+        if (data.code === 1 && data.data) {
+          const song = data.data
+          // 检查关键词匹配
+          if (song.name.includes(keyword) || song.artistsname.includes(keyword)) {
+            return [{
+              id: Date.now(),
+              name: song.name,
+              artists: [{ name: song.artistsname }],
+              album: {
+                name: '未知专辑',
+                picUrl: song.picurl || ''
+              },
+              duration: 0,
+              fee: 0
+            }]
+          }
+        }
+        return null
+      }
+    }
+  ]
+
+  // 尝试每个API源
+  for (const source of apiSources) {
+    try {
+      console.log(`🔍 尝试使用 ${source.name} API`)
+      
+      const response = await fetch(source.url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        // 添加超时控制
+        signal: AbortSignal.timeout(5000)
+      })
+
+      if (!response.ok) {
+        console.log(`❌ ${source.name} API 响应失败:`, response.status)
+        continue
+      }
+
+      const data = await response.json()
+      const songs = source.transform(data)
+      
+      if (songs && songs.length > 0) {
+        console.log(`✅ ${source.name} API 成功，找到 ${songs.length} 首歌`)
+        return new Response(JSON.stringify({
+          result: { songs },
+          source: source.name
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      
+      console.log(`⚠️ ${source.name} API 返回空结果`)
+    } catch (error) {
+      console.log(`❌ ${source.name} API 失败:`, error.message)
+      continue
+    }
   }
   
-  return new Response(JSON.stringify(data), {
+  // 所有API都失败
+  return new Response(JSON.stringify({
+    error: '所有音乐API都无法访问',
+    result: { songs: [] }
+  }), {
+    status: 200, // 返回200避免触发前端错误
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
 }

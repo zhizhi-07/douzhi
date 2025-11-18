@@ -152,6 +152,7 @@ export function generateDefaultStatus(characterId: string, characterName: string
 /**
  * 获取AI状态（不自动生成）
  * 🔥 修改：不再自动生成默认状态，让AI自己决定状态
+ * 🔥 新增：检查状态是否过期（超过6小时），过期则返回 null
  */
 export function getOrCreateAIStatus(characterId: string, characterName: string): AIStatus | null {
   const status = getAIStatus(characterId)
@@ -159,6 +160,16 @@ export function getOrCreateAIStatus(characterId: string, characterName: string):
   // 如果没有状态，返回 null，不自动生成
   if (!status) {
     return null
+  }
+
+  // 🔥 检查状态是否过期（超过6小时）
+  const now = Date.now()
+  const timeSinceUpdate = now - status.updatedAt
+  const SIX_HOURS = 6 * 60 * 60 * 1000
+  
+  if (timeSinceUpdate > SIX_HOURS) {
+    console.log(`💫 [AI状态] 状态已过期（${Math.floor(timeSinceUpdate / 1000 / 60 / 60)}小时前），需要更新`)
+    return null // 返回 null，让提示词告诉 AI 必须更新状态
   }
 
   return status

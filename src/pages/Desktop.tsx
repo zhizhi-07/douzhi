@@ -27,6 +27,13 @@ const Desktop = () => {
   
   // 强制刷新图标
   const [iconRefresh, setIconRefresh] = useState(0)
+  
+  // 备忘录状态
+  const [memoText, setMemoText] = useState(() => {
+    return localStorage.getItem('desktop_memo') || '今天要做的事情...'
+  })
+  const [isEditingMemo, setIsEditingMemo] = useState(false)
+  const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 更新时间
   useEffect(() => {
@@ -183,7 +190,7 @@ const Desktop = () => {
               </div>
 
               {/* 蓝色 - 备忘录widget (右下角) */}
-              <div className="absolute z-10" style={{ bottom: '10%', right: '6%', width: '38%', height: '140px' }}>
+              <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
                 <div 
                   className="w-full h-full rounded-2xl overflow-hidden flex flex-col"
                   style={{
@@ -208,16 +215,36 @@ const Desktop = () => {
                   </div>
                   
                   {/* 内容区域 */}
-                  <div className="flex-1 px-3 py-2">
-                    <div className="text-xs text-gray-600 leading-relaxed">
-                      今天要做的事情...
-                    </div>
+                  <div 
+                    className="flex-1 px-3 py-2 cursor-text"
+                    onClick={() => {
+                      setIsEditingMemo(true)
+                      setTimeout(() => memoTextareaRef.current?.focus(), 0)
+                    }}
+                  >
+                    {isEditingMemo ? (
+                      <textarea
+                        ref={memoTextareaRef}
+                        value={memoText}
+                        onChange={(e) => setMemoText(e.target.value)}
+                        onBlur={() => {
+                          setIsEditingMemo(false)
+                          localStorage.setItem('desktop_memo', memoText)
+                        }}
+                        className="w-full h-full text-xs text-gray-600 leading-relaxed resize-none bg-transparent outline-none"
+                        placeholder="今天要做的事情..."
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                        {memoText}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* 左下角 - 播放进度组件 */}
-              <div className="absolute z-10 flex flex-col gap-2" style={{ bottom: '27%', left: '6%', width: '42%' }}>
+              <div className="absolute z-10 flex flex-col gap-2" style={{ bottom: '29%', left: '6%', width: '42%' }}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-600 truncate" style={{ maxWidth: '60%' }}>
                     {musicPlayer.currentSong ? musicPlayer.currentSong.title : '暂无播放'}
@@ -241,7 +268,7 @@ const Desktop = () => {
               </div>
 
               {/* 左下区域 - 图标 */}
-              <div className="absolute flex gap-6 z-10" style={{ bottom: '10%', left: '6%' }}>
+              <div className="absolute flex gap-6 z-10" style={{ bottom: '13.5%', left: '6%' }}>
                 {page1Apps.slice(4, 5).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const customIcon = getCustomIcon(app.id)
