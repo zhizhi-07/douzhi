@@ -36,6 +36,7 @@ import UserProfile from './pages/UserProfile'
 import MusicPlayer from './pages/MusicPlayer'
 import MusicSearch from './pages/MusicSearch'
 import UploadSong from './pages/UploadSong'
+import MusicDecoration from './pages/MusicDecoration'
 import Customize from './pages/Customize'
 import DataManager from './pages/DataManager'
 import StatusBarCustomize from './pages/StatusBarCustomize'
@@ -293,6 +294,7 @@ function App() {
       <Route path="/music-player" element={<MusicPlayer />} />
       <Route path="/music-search" element={<MusicSearch />} />
       <Route path="/upload-song" element={<UploadSong />} />
+      <Route path="/music-decoration" element={<MusicDecoration />} />
       <Route path="/customize" element={<Customize />} />
       <Route path="/data-manager" element={<DataManager />} />
       <Route path="/statusbar-customize" element={<StatusBarCustomize />} />

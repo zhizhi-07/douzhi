@@ -116,11 +116,11 @@ const Desktop = () => {
             style={{ transform: `translateX(-${currentPage * 100}%)` }}
           >
             {/* ========== 第一页 ========== */}
-            <div className="min-w-full h-full relative">
+            <div className="min-w-full h-full relative overflow-hidden pb-20">
               {/* 黄色 - 时间widget (顶部横条) */}
-              <div className="absolute top-[5%] left-1/2 -translate-x-1/2 w-[90%] z-10">
+              <div className="absolute top-[3%] left-1/2 -translate-x-1/2 w-[90%] z-20">
                 <div className="text-center">
-                  <div className="text-7xl font-bold text-gray-900 mb-1">
+                  <div className="text-8xl font-bold text-gray-900 mb-1">
                     {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div className="text-base font-medium text-gray-600">
@@ -133,8 +133,8 @@ const Desktop = () => {
                 </div>
               </div>
 
-              {/* 红色 - 音乐播放器 (左侧大圆) */}
-              <div className="absolute" style={{ top: '25%', left: '5%', width: '45%', aspectRatio: '1' }}>
+              {/* 红色 - 音乐播放器 (左侧) */}
+              <div className="absolute z-10" style={{ top: '35%', left: '6%', width: '160px', height: '160px' }}>
                 <MusicPlayerCard
                   currentSong={musicPlayer.currentSong ? {
                     title: musicPlayer.currentSong.title,
@@ -148,25 +148,9 @@ const Desktop = () => {
                 />
               </div>
 
-              {/* 蓝色 - 备忘录widget (右下角) */}
-              <div className="absolute" style={{ bottom: '18%', right: '5%', width: '40%', height: '25%' }}>
-                <div 
-                  className="w-full h-full rounded-3xl p-4 flex items-center justify-center"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    WebkitBackdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                  }}
-                >
-                  <span className="text-sm text-gray-600">备忘录</span>
-                </div>
-              </div>
-
               {/* 绿色 - 应用图标 (分散布局) */}
               {/* 右上区域 - 2x2网格 */}
-              <div className="absolute grid grid-cols-2 gap-3" style={{ top: '25%', right: '5%' }}>
+              <div className="absolute grid grid-cols-2 gap-4 z-10" style={{ top: '35%', right: '6%' }}>
                 {page1Apps.slice(0, 4).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const customIcon = getCustomIcon(app.id)
@@ -178,16 +162,16 @@ const Desktop = () => {
                       className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                     >
                       {customIcon ? (
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden">
                           <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
                         </div>
                       ) : isImageIcon ? (
-                        <div className="w-14 h-14 flex items-center justify-center">
+                        <div className="w-16 h-16 flex items-center justify-center">
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
-                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-7 h-7 text-gray-300" })}
+                        <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
+                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
                         </div>
                       )}
                       <span className="text-xs text-gray-700 text-center font-medium">
@@ -198,9 +182,67 @@ const Desktop = () => {
                 })}
               </div>
 
-              {/* 左下区域 - 2x2网格 */}
-              <div className="absolute grid grid-cols-2 gap-3" style={{ bottom: '18%', left: '5%' }}>
-                {page1Apps.slice(4).map((app) => {
+              {/* 蓝色 - 备忘录widget (右下角) */}
+              <div className="absolute z-10" style={{ bottom: '10%', right: '6%', width: '38%', height: '140px' }}>
+                <div 
+                  className="w-full h-full rounded-2xl overflow-hidden flex flex-col"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                    border: '0.5px solid rgba(0, 0, 0, 0.04)'
+                  }}
+                >
+                  {/* 顶部标题栏 */}
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-gray-900">
+                        {currentTime.toLocaleDateString('zh-CN', { weekday: 'long' })}
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                      </span>
+                    </div>
+                    <span className="text-xs text-blue-500 font-medium">Edit</span>
+                  </div>
+                  
+                  {/* 内容区域 */}
+                  <div className="flex-1 px-3 py-2">
+                    <div className="text-xs text-gray-600 leading-relaxed">
+                      今天要做的事情...
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 左下角 - 播放进度组件 */}
+              <div className="absolute z-10 flex flex-col gap-2" style={{ bottom: '27%', left: '6%', width: '42%' }}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600 truncate" style={{ maxWidth: '60%' }}>
+                    {musicPlayer.currentSong ? musicPlayer.currentSong.title : '暂无播放'}
+                  </span>
+                  <span className="text-gray-500">
+                    {musicPlayer.currentSong 
+                      ? `${Math.floor(musicPlayer.currentTime / 60)}:${String(Math.floor(musicPlayer.currentTime % 60)).padStart(2, '0')} / ${Math.floor(musicPlayer.duration / 60)}:${String(Math.floor(musicPlayer.duration % 60)).padStart(2, '0')}`
+                      : '--:--'
+                    }
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E0E0E0' }}>
+                  <div 
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: musicPlayer.duration > 0 ? `${(musicPlayer.currentTime / musicPlayer.duration) * 100}%` : '0%',
+                      background: '#6B7280'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 左下区域 - 图标 */}
+              <div className="absolute flex gap-6 z-10" style={{ bottom: '10%', left: '6%' }}>
+                {page1Apps.slice(4, 5).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const customIcon = getCustomIcon(app.id)
                   
@@ -211,16 +253,16 @@ const Desktop = () => {
                       className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                     >
                       {customIcon ? (
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden">
                           <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
                         </div>
                       ) : isImageIcon ? (
-                        <div className="w-14 h-14 flex items-center justify-center">
+                        <div className="w-16 h-16 flex items-center justify-center">
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
-                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-7 h-7 text-gray-300" })}
+                        <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
+                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
                         </div>
                       )}
                       <span className="text-xs text-gray-700 text-center font-medium">
@@ -229,6 +271,21 @@ const Desktop = () => {
                     </div>
                   )
                 })}
+                
+                {/* 美化图标 */}
+                <div 
+                  className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+                  onClick={() => navigate('/music-decoration')}
+                >
+                  <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-300">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                  </div>
+                  <span className="text-xs text-gray-700 text-center font-medium">
+                    美化
+                  </span>
+                </div>
               </div>
             </div>
 

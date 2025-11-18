@@ -48,6 +48,9 @@ export async function callMinimaxTTS(
     if (isProduction) {
       // 生产环境：使用 Vercel Serverless Function 代理
       console.log('🌐 使用代理调用语音API')
+      console.log('📍 代理URL:', '/api/minimax-tts')
+      console.log('📦 请求参数:', { textLength: text.length, hasApiKey: !!finalApiKey, hasGroupId: !!finalGroupId, voiceId: finalVoiceId })
+      
       try {
         response = await fetch('/api/minimax-tts', {
           method: 'POST',
@@ -62,9 +65,15 @@ export async function callMinimaxTTS(
             baseUrl
           })
         })
-      } catch (err) {
+        console.log('✅ 代理响应状态:', response.status)
+      } catch (err: any) {
         console.error('❌ 代理请求失败:', err)
-        throw new Error('语音服务请求失败\n\n可能原因：\n1. 代理服务未部署\n2. 网络连接问题\n\n请联系管理员')
+        console.error('❌ 错误详情:', {
+          name: err?.name,
+          message: err?.message,
+          stack: err?.stack
+        })
+        throw new Error('语音服务请求失败\n\nFailed to fetch\n\n可能原因：\n1. 网络连接问题\n2. 代理服务异常\n3. 请求被浏览器阻止\n\n请检查网络连接或稍后重试')
       }
     } else {
       // 本地开发：直接调用
