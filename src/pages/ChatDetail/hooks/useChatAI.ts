@@ -956,9 +956,18 @@ export const useChatAI = (
           const nextQuoteIndex = remaining.search(quotePattern)
           
           if (nextQuoteIndex === -1) {
-            // 这是最后一个引用，包含剩余所有内容
-            segments.push(quote + remaining)
-            remaining = ''
+            // 🔥 修复：这是最后一个引用，只包含同一行的内容，换行后的内容作为独立消息
+            const firstLineEnd = remaining.indexOf('\n')
+            if (firstLineEnd === -1) {
+              // 没有换行，包含所有剩余内容
+              segments.push(quote + remaining)
+              remaining = ''
+            } else {
+              // 有换行，只包含第一行
+              const firstLine = remaining.substring(0, firstLineEnd).trim()
+              segments.push(quote + (firstLine ? ' ' + firstLine : ''))
+              remaining = remaining.substring(firstLineEnd + 1).trim()
+            }
             break
           } else {
             // 还有更多引用，只取到下一个引用之前

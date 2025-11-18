@@ -1403,6 +1403,19 @@ export const blockUserHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
+    // 🔥 检查是否已经拉黑，避免重复拉黑
+    const alreadyBlocked = blacklistManager.isBlockedByMe(`character_${character.id}`, 'user')
+    if (alreadyBlocked) {
+      console.warn(`⚠️ ${character.nickname || character.realName} 已经拉黑了用户，忽略重复的拉黑指令`)
+      // 移除指令但不执行任何操作
+      const remainingText = content.replace(match[0], '').trim()
+      return { 
+        handled: true, 
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+    
     // AI拉黑用户（character拉黑user）
     blacklistManager.blockUser(`character_${character.id}`, 'user')
     console.log(`🚫 ${character.nickname || character.realName} 拉黑了用户`)
@@ -2091,7 +2104,33 @@ export const acceptPaymentHandler: CommandHandler = {
     
     if (!pendingPayment || !pendingPayment.paymentRequest) {
       console.warn('⚠️ [同意代付] 未找到待确认的代付请求')
-      return { handled: false }
+      // 🔥 移除指令但不报错，避免AI重复发送
+      const remainingText = content.replace(match[0], '').trim()
+      return { 
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+    
+    // 🔥 防止重复：检查最近3秒内是否已经有相同的代付成功系统消息
+    const recentSystemMsgs = messages.filter(msg => 
+      msg.type === 'system' &&
+      msg.messageType === 'system' &&
+      msg.timestamp && Date.now() - msg.timestamp < 3000
+    )
+    const hasSamePayment = recentSystemMsgs.some(msg => {
+      const content = msg.content || ''
+      return content.includes('已代付') && content.includes(pendingPayment.paymentRequest!.itemName)
+    })
+    if (hasSamePayment) {
+      console.warn('⚠️ [同意代付] 检测到重复处理，忽略')
+      const remainingText = content.replace(match[0], '').trim()
+      return { 
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
     }
     
     console.log('✅ [同意代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
@@ -2104,11 +2143,23 @@ export const acceptPaymentHandler: CommandHandler = {
           : msg
       )
       
+      // 🔥 防止重复：检查是否已经存在相同的系统消息
+      const systemMsgContent = `${character?.nickname || character?.realName || 'AI'} 已代付 ${pendingPayment.paymentRequest!.itemName} ¥${pendingPayment.paymentRequest!.amount.toFixed(2)}`
+      const hasSystemMsg = updated.some(msg => 
+        msg.type === 'system' && 
+        msg.content === systemMsgContent
+      )
+      
+      if (hasSystemMsg) {
+        console.warn('⚠️ [同意代付] 系统消息已存在，跳过创建')
+        return updated
+      }
+      
       // 添加系统消息
       const systemMsg: Message = {
         id: Date.now(),
         type: 'system',
-        content: `${character?.nickname || character?.realName || 'AI'} 已代付 ${pendingPayment.paymentRequest!.itemName} ¥${pendingPayment.paymentRequest!.amount.toFixed(2)}`,
+        content: systemMsgContent,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now(),
         messageType: 'system'
@@ -2290,6 +2341,28 @@ export const aiRequestPaymentHandler: CommandHandler = {
     
     const itemsStr = match[1]
     const note = match[2] || ''
+    
+    // 🔥 防止重复：检查最近5秒内是否有相同的代付请求
+    const recentPayments = messages.filter(msg => 
+      msg.messageType === 'paymentRequest' && 
+      msg.type === 'received' &&
+      msg.timestamp && Date.now() - msg.timestamp < 5000
+    )
+    if (recentPayments.length > 0) {
+      const hasSameRequest = recentPayments.some(msg => {
+        const content = msg.content || ''
+        return content.includes(itemsStr)
+      })
+      if (hasSameRequest) {
+        console.warn('⚠️ [AI请求代付] 检测到重复请求，忽略')
+        const remainingText = content.replace(match[0], '').trim()
+        return { 
+          handled: true,
+          remainingText,
+          skipTextMessage: !remainingText
+        }
+      }
+    }
     
     // 解析商品列表：商品1,价格1,商品2,价格2
     const parts = itemsStr.split(',').map(s => s.trim())

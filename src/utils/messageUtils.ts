@@ -462,13 +462,6 @@ export const parseAIMessages = (aiReply: string): string[] => {
     return messages
   }
   
-  // 🔥 特殊处理：如果整个消息以引用指令开头，保持完整不拆分
-  // （这些消息已经被多引用预处理拆分过了）
-  const quotePattern = /^[\[【]?(?:引用了?(?:你的消息)?[:\：]|回复[:\：])/
-  if (quotePattern.test(aiReply.trim())) {
-    return [aiReply.trim()]
-  }
-  
   // 普通消息：按换行符分隔
   return aiReply
     .split('\n')
