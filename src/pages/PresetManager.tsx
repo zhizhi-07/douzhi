@@ -214,10 +214,9 @@ const PresetManager = () => {
         <div className="space-y-3 mt-3">
           <div
             className="bg-white rounded-2xl p-4 relative shadow-sm hover:shadow-md transition-shadow"
-            onClick={() => handleSwitch('默认')}
           >
             <div className="flex items-start justify-between">
-              <div className="flex-1">
+              <div className="flex-1" onClick={() => handleEdit('default')}>
                 <div className="flex items-center gap-2 mb-1">
                   <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -232,9 +231,15 @@ const PresetManager = () => {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 line-clamp-2 ml-6">
-                  系统默认小说叙事风格
+                  系统默认小说叙事风格（含去八股规则 + 张爱玲文风）
                 </p>
               </div>
+              <button
+                onClick={() => handleSwitch('默认')}
+                className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors ml-2"
+              >
+                {activePreset === '默认' ? '使用中' : '切换使用'}
+              </button>
             </div>
           </div>
 

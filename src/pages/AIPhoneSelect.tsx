@@ -3,13 +3,13 @@ import { useState, useEffect } from 'react'
 import { BackIcon } from '../components/Icons'
 import StatusBar from '../components/StatusBar'
 import AIPhoneModal from '../components/AIPhoneModal'
-import { useCharacter } from '../context/ContactsContext'
+import { characterService } from '../services/characterService'
 import { getPhoneHistory, PhoneHistory } from '../utils/aiPhoneGenerator'
 import { backgroundGenerator, BackgroundTask } from '../utils/backgroundPhoneGenerator'
 
 const AIPhoneSelect = () => {
   const navigate = useNavigate()
-  const { characters } = useCharacter()
+  const [characters, setCharacters] = useState(() => characterService.getAll())
   const [selectedHistory, setSelectedHistory] = useState<PhoneHistory | null>(null)
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null)
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([])
@@ -17,11 +17,14 @@ const AIPhoneSelect = () => {
 
   // 页面加载时刷新一次，确保显示历史记录，并自动展开第一个有历史的角色
   useEffect(() => {
+    // 🔥 从 characterService 重新加载角色列表
+    const latestCharacters = characterService.getAll()
+    setCharacters(latestCharacters)
     setRefreshKey(prev => prev + 1)
     
     // 自动展开第一个有历史记录的角色
-    if (characters.length > 0) {
-      const firstCharacterWithHistory = characters.find((char: any) => {
+    if (latestCharacters.length > 0) {
+      const firstCharacterWithHistory = latestCharacters.find((char: any) => {
         const history = getPhoneHistory(char.id)
         return history.length > 0
       })
@@ -30,7 +33,7 @@ const AIPhoneSelect = () => {
         setExpandedCharacterId(firstCharacterWithHistory.id)
       }
     }
-  }, [characters])
+  }, [])
 
   // 监听后台任务
   useEffect(() => {
@@ -63,10 +66,11 @@ const AIPhoneSelect = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <StatusBar />
-      
-      {/* 顶部导航栏 */}
+      {/* 状态栏和导航栏容器 - 合并为一个白色背景 */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b border-gray-200/50">
+        <StatusBar />
+        
+        {/* 顶部导航栏 */}
         <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => navigate(-1)}

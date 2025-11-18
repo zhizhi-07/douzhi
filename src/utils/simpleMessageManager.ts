@@ -415,7 +415,7 @@ function cleanMessageForStorage(message: Message): Message {
     // 🔥 使用JSON序列化来彻底清理不可序列化的对象
     // 这会自动移除：Event、PointerEvent、DOM元素、函数、循环引用等
     const seen = new WeakSet()
-    const jsonString = JSON.stringify(message, (key, value) => {
+    const jsonString = JSON.stringify(message, (_key, value) => {
       // 跳过不可序列化的对象
       if (typeof value === 'object' && value !== null) {
         // 检测循环引用
@@ -509,6 +509,18 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     
     // 清理消息，移除不可序列化的对象
     const cleanedMessages = messages.map(cleanMessageForStorage)
+    
+    // 🔍 调试：检查最后一条消息的messageType
+    const lastMsg = messages[messages.length - 1]
+    const lastCleanedMsg = cleanedMessages[cleanedMessages.length - 1]
+    if (lastMsg?.messageType === 'post' || lastCleanedMsg?.messageType === 'post') {
+      console.log('🔍 [saveMessages] 帖子消息检查:', {
+        原始messageType: lastMsg?.messageType,
+        清理后messageType: lastCleanedMsg?.messageType,
+        原始post字段: !!lastMsg?.post,
+        清理后post字段: !!lastCleanedMsg?.post
+      })
+    }
     
     // 立即更新缓存（使用原始消息）
     messageCache.set(chatId, messages)

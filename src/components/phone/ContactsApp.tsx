@@ -6,7 +6,7 @@ interface ContactsAppProps {
 
 const ContactsApp = ({ content }: ContactsAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
       {/* 标题栏 */}
       <div className="px-6 py-4 border-b border-white/30 bg-white/20">
         <h2 className="text-lg font-semibold text-gray-800">通讯录</h2>

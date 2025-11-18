@@ -6,7 +6,7 @@ interface TaobaoAppProps {
 
 const TaobaoApp = ({ content }: TaobaoAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
       {/* 标题栏 */}
       <div className="px-6 py-4 border-b border-white/30 bg-gradient-to-r from-orange-400/20 to-red-400/20">
         <h2 className="text-lg font-semibold text-gray-800">淘宝</h2>
@@ -37,7 +37,7 @@ const TaobaoApp = ({ content }: TaobaoAppProps) => {
                   <p className="text-xs text-gray-500 italic mb-2">"{order.thought}"</p>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-orange-600">¥{order.price}</span>
+                  <span className="text-lg font-bold text-orange-600">¥{order.price.replace(/[¥￥+\-\s]/g, '')}</span>
                   <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">
                     {order.status}
                   </span>

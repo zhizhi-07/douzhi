@@ -11,6 +11,7 @@ import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
+import PostCard from '../../../components/PostCard'
 
 interface MessageItemProps {
   message: Message
@@ -71,7 +72,7 @@ const MessageItemContent = ({
     return filtered.trim()
   }
 
-  // 如果是普通文本消息，检查过滤后是否为空
+  // 如果是普通文本消息（没有messageType），检查过滤后是否为空
   if (message.type !== 'system' && 
       !message.coupleSpaceInvite && 
       !message.messageType &&
@@ -81,6 +82,11 @@ const MessageItemContent = ({
     if (!filteredContent) {
       return null
     }
+  }
+  
+  // 如果有messageType但content为空，允许渲染（特殊消息类型如帖子）
+  if (message.messageType && !message.content) {
+    console.log('🎯 [MessageItem] 特殊消息类型:', message.messageType, message)
   }
 
   // 系统消息
@@ -239,6 +245,8 @@ const MessageItemContent = ({
             onAccept={() => onAcceptMusicInvite?.(message.id)}
             onReject={() => onRejectMusicInvite?.(message.id)}
           />
+        ) : (message.messageType === 'post' || message.post) && message.post ? (
+          <PostCard message={message} />
         ) : (
           <div
             className={'message-bubble px-3 py-2 rounded-lg break-words cursor-pointer message-press ' + (

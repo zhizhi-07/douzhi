@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 import { ChevronLeftIcon } from '../Icons'
+import { getUserInfo } from '../../utils/userUtils'
 
 interface WechatAppProps {
   content: AIPhoneContent
@@ -9,11 +10,24 @@ interface WechatAppProps {
 
 const WechatApp = ({ content, onBack }: WechatAppProps) => {
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
+  
+  // 🔥 获取真实用户名称
+  const userInfo = getUserInfo()
+  const userName = userInfo.nickname || userInfo.realName || '用户'
 
   if (selectedChat !== null) {
     const chat = content.wechatChats[selectedChat]
+    
+    // 🔥 判断是否是与真实用户的聊天
+    const isUserChat = chat.name === userName || chat.name.includes(userName)
+    
+    // 🔥 如果是与真实用户的聊天，只显示角色发送的消息（isSelf: true）
+    const displayMessages = isUserChat 
+      ? chat.messages.filter(msg => msg.isSelf)
+      : chat.messages
+    
     return (
-      <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+      <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
         {/* 聊天详情标题栏 */}
         <div className="px-4 py-3 border-b border-white/30 bg-white/20 flex items-center gap-3">
           <button
@@ -32,7 +46,7 @@ const WechatApp = ({ content, onBack }: WechatAppProps) => {
         
         {/* 聊天消息列表 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {chat.messages.map((message, index) => (
+          {displayMessages.map((message, index) => (
             <div 
               key={index}
               className={`flex ${message.isSelf ? 'justify-end' : 'justify-start'}`}
@@ -57,7 +71,7 @@ const WechatApp = ({ content, onBack }: WechatAppProps) => {
   }
 
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
       {/* 标题栏 */}
       <div className="px-4 py-3 border-b border-white/30 bg-white/20 flex items-center gap-3">
         <button
@@ -78,8 +92,8 @@ const WechatApp = ({ content, onBack }: WechatAppProps) => {
             className="px-4 py-3 border-b border-white/20 hover:bg-white/20 transition-colors cursor-pointer active:bg-white/30"
           >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-400/30 to-green-500/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg font-medium text-gray-700">{chat.name[0]}</span>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-400/30 to-green-500/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-base font-medium text-gray-700">{chat.name[0]}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">

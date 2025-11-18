@@ -6,7 +6,7 @@ interface BrowserAppProps {
 
 const BrowserApp = ({ content }: BrowserAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
       {/* 地址栏 */}
       <div className="px-4 py-3 border-b border-white/30 bg-white/20">
         <div className="bg-white/50 rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-2">

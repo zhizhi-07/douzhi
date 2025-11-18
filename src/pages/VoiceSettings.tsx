@@ -35,9 +35,18 @@ const VoiceSettings = () => {
     }
 
     setIsTesting(true)
+    
+    // 设置30秒超时
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('请求超时（30秒）\n\n可能原因：\n1. 网络连接慢\n2. 代理服务响应慢\n3. MiniMax API 响应慢\n\n请稍后重试')), 30000)
+    })
+    
     try {
-      // 使用默认音色测试账号配置
-      await testVoiceConfig(config.apiKey, config.groupId, 'male-qn-qingse')
+      // 使用默认音色测试账号配置，带超时
+      await Promise.race([
+        testVoiceConfig(config.apiKey, config.groupId, 'male-qn-qingse'),
+        timeoutPromise
+      ])
       alert('✅ 账号测试成功！\n\n配置正确，可以正常使用。\n请在各角色的聊天设置中配置专属音色。')
     } catch (error) {
       const msg = error instanceof Error ? error.message : '未知错误'
@@ -46,15 +55,18 @@ const VoiceSettings = () => {
       let errorTitle = '❌ 测试失败'
       let errorDetails = msg
       
-      if (msg.includes('CORS') || msg.includes('跨域')) {
+      if (msg.includes('超时')) {
+        errorTitle = '⏱️ 请求超时'
+        errorDetails = msg
+      } else if (msg.includes('CORS') || msg.includes('跨域')) {
         errorTitle = '⚠️ 跨域限制'
         errorDetails = '当前环境遇到浏览器跨域限制\n\n解决方案：\n1. 部署到生产环境（自动使用代理）\n2. 本地开发时使用浏览器CORS插件\n3. 或等待部署后再测试'
       } else if (msg.includes('not allowed') || msg.includes('permission')) {
         errorTitle = '🔐 权限错误'
         errorDetails = 'API权限验证失败\n\n请检查：\n1. API Key是否正确\n2. Group ID是否正确\n3. 账户余额是否充足\n4. API Key是否已激活'
-      } else if (msg.includes('网络') || msg.includes('Network')) {
+      } else if (msg.includes('网络') || msg.includes('Network') || msg.includes('Failed to fetch')) {
         errorTitle = '🌐 网络错误'
-        errorDetails = '无法连接到语音服务\n\n请检查：\n1. 网络连接是否正常\n2. 是否在生产环境\n3. 代理服务是否正常'
+        errorDetails = '无法连接到语音服务\n\n请检查：\n1. 网络连接是否正常\n2. 代理服务是否正常\n3. 是否被防火墙阻止'
       }
       
       alert(`${errorTitle}\n\n${errorDetails}`)

@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { BackIcon, SaveIcon } from '../components/Icons'
 import StatusBar from '../components/StatusBar'
+import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 
 interface Preset {
   id: string
@@ -22,7 +23,12 @@ const EditPreset = () => {
   const [prompts, setPrompts] = useState<any[]>([])
 
   useEffect(() => {
-    if (id && id !== 'new') {
+    if (id === 'default') {
+      // 加载默认预设
+      setName('系统默认预设')
+      setSystemPrompt(DEFAULT_OFFLINE_PROMPT_TEMPLATE)
+      setEditMode('simple')
+    } else if (id && id !== 'new') {
       loadPreset(id)
     }
   }, [id])
@@ -82,6 +88,12 @@ const EditPreset = () => {
   }
 
   const handleSave = () => {
+    // 默认预设不允许保存
+    if (id === 'default') {
+      alert('系统默认预设不可修改')
+      return
+    }
+    
     if (!name.trim()) {
       alert('请输入预设名称')
       return
@@ -157,14 +169,16 @@ const EditPreset = () => {
             <BackIcon size={24} className="text-gray-700" />
           </button>
           <h1 className="text-lg font-semibold text-gray-900">
-            {id === 'new' ? '新建预设' : '编辑预设'}
+            {id === 'default' ? '查看默认预设' : id === 'new' ? '新建预设' : '编辑预设'}
           </h1>
-          <button
-            onClick={handleSave}
-            className="p-2 hover:bg-blue-50 rounded-full transition-colors"
-          >
-            <SaveIcon size={24} className="text-blue-500" />
-          </button>
+          {id !== 'default' && (
+            <button
+              onClick={handleSave}
+              className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+            >
+              <SaveIcon size={24} className="text-blue-500" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -207,7 +221,8 @@ const EditPreset = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="输入预设名称"
-              className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm"
+              disabled={id === 'default'}
+              className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -222,7 +237,8 @@ const EditPreset = () => {
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder="输入系统提示词，定义AI的叙事风格和行为..."
-                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm resize-none font-mono"
+                  disabled={id === 'default'}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm resize-none font-mono disabled:opacity-60 disabled:cursor-not-allowed"
                   rows={15}
                 />
                 <p className="text-xs text-gray-400 mt-2">
@@ -361,7 +377,10 @@ const EditPreset = () => {
       {/* 底部提示 */}
       <div className="p-4 bg-white/80 backdrop-blur-md border-t border-gray-200/50">
         <div className="text-xs text-gray-500 text-center">
-          💡 修改后需要在线下模式中重新选择预设才能生效
+          {id === 'default' 
+            ? '📖 这是系统默认预设，包含去八股规则和张爱玲文风，不可修改'
+            : '💡 修改后需要在线下模式中重新选择预设才能生效'
+          }
         </div>
       </div>
     </div>

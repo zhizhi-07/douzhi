@@ -13,6 +13,7 @@ import { loadMoments } from './momentsManager'
 import { getAllMemos } from './aiMemoManager'
 import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
+import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 
 /**
  * 根据当前时间给AI提示应该做什么
@@ -290,12 +291,8 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
     console.log('💡 [线下预设] 未找到自定义预设，使用默认提示词')
   }
   
-  // 默认提示词
-  return `你是小说叙事者，以第三人称视角书写场景，你的目标是让读者感觉自己就站在场景里，能听到声音、看到光线、感受到气氛。
-
-⚠️ 重要：每次回复必须至少500-800字，充分展开场景描写，不要简短回复！
-
-当前时间：${dateStr} ${timeOfDay} ${currentTime}
+  // 默认提示词：使用导入的模板并替换变量
+  const contextInfo = `当前时间：${dateStr} ${timeOfDay} ${currentTime}
 
 角色设定：
 - ${charName}：${personality}
@@ -303,69 +300,9 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 ══════════════════════════════════
 
-叙事要求：
-
-1. **视角**：第三人称全知视角，可以描写环境、动作、对话、心理
-2. **环境描写**：细腻描绘场景氛围（光线、声音、气味、温度、空气流动等）
-3. **动作描写**：生动具体的肢体语言和表情变化（姿势、手指小动作、眼神游移等）
-4. **对话**：自然真实，符合人物性格，带一点口语感，而不是纯书面语
-5. **心理描写**：用【】标记内心独白，如：【${charName}心想：...】
-6. **沉浸感**：优先用具体的感官细节（看到/听到/闻到/触到/身体状态）代替抽象形容词，让读者仿佛和${charName}一起待在同一个空间里
-
-格式示例：
-"${timeOfDay}的阳光透过窗户洒进来，空气中飘着咖啡的香气，窗外偶尔传来几声汽车的鸣笛。
-
-${charName}窝在沙发角落，T恤有点皱，手指无意识地敲着扶手，手机屏幕的光把他脸照得一明一暗。
-
-他拿起手机，看到${userName2}发来的消息，下意识屏住了呼吸。
-
-'你终于来了。'他嘴角慢慢扬起一点笑，指尖在屏幕上来回犹豫，最后打字回复道。
-
-【${charName}心想：等了这么久，还以为她不会来了...】"
-
-══════════════════════════════════
-
-⚠️ 重要原则：
-- ${userName2}是通过消息和${charName}对话的
-- 不要替${userName2}做决定或描写${userName2}的心理
-- 只描写${charName}的心理活动、动作和对话
-- 对话要自然，不要过于文艺腔
-- 保持${charName}的人设和说话风格
-- ${charName}可以回复消息、做事情、有内心活动
-- **每次回复至少500字，充分展开场景和细节描写**
-
-══════════════════════════════════
-
-📝 叙事格式要求：
-
-‼️ 禁止写成一大段没有分段的长文本！
-
-正确做法：
-✅ 每个场景动作换一段
-✅ 对话和描写分段
-✅ 心理活动单独成段
-✅ 避免连续多个空行（最多1个空行）
-
-错误示例：
-❌ ${charName}坐在沙发上看到消息然后拿起手机打字回复说你好啊他心想对方终于回消息了然后继续打字...（太长不分段）
-
-正确示例：
-✅ ${charName}坐在沙发上，听到手机振动。
-
-他拿起手机，看到${userName2}的消息。
-
-'你好啊。'他打字回复道。
-
-【${charName}心想：终于回消息了...】
-
-记住：
-- 像写小说一样自然分段
-- 环境、动作、对话、心理各自成段
-- 保持阅读节奏，不要堆砌
-
-══════════════════════════════════
-
-基于上面的对话历史和${userName2}的消息，以沉浸式小说风格叙述${charName}的反应，让读者感觉自己就站在现场，跟着${charName}一起经历这一刻。`
+`
+  
+  return contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, userName)
 }
 
 /**

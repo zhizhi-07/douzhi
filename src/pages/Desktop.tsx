@@ -118,7 +118,7 @@ const Desktop = () => {
             {/* ========== 第一页 ========== */}
             <div className="min-w-full h-full relative overflow-hidden pb-20">
               {/* 黄色 - 时间widget (顶部横条) */}
-              <div className="absolute top-[3%] left-1/2 -translate-x-1/2 w-[90%] z-20">
+              <div className="absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20">
                 <div className="text-center">
                   <div className="text-8xl font-bold text-gray-900 mb-1">
                     {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}

@@ -17,7 +17,8 @@ export const useAddMenu = (
   onOpenAIMemo?: () => void,
   onOpenOffline?: () => void,
   onOpenPaymentRequest?: () => void,
-  onOpenShopping?: () => void
+  onOpenShopping?: () => void,
+  onOpenPost?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -160,6 +161,16 @@ export const useAddMenu = (
     }
   }, [onOpenShopping])
   
+  /**
+   * AI帖子生成
+   */
+  const handleSelectPost = useCallback(() => {
+    setShowAddMenu(false)
+    if (onOpenPost) {
+      onOpenPost()
+    }
+  }, [onOpenPost])
+  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -177,7 +188,8 @@ export const useAddMenu = (
       handleSelectAIMemo,
       handleSelectOffline,
       handleSelectPaymentRequest,
-      handleSelectShopping
+      handleSelectShopping,
+      handleSelectPost
     }
   }
 }

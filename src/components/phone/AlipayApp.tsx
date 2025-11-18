@@ -6,7 +6,7 @@ interface AlipayAppProps {
 
 const AlipayApp = ({ content }: AlipayAppProps) => {
   return (
-    <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white/30 backdrop-blur-xl overflow-hidden flex flex-col">
       {/* 标题栏 */}
       <div className="px-6 py-4 border-b border-white/30 bg-gradient-to-r from-blue-400/20 to-blue-500/20">
         <h2 className="text-lg font-semibold text-gray-800">支付宝</h2>
@@ -46,7 +46,7 @@ const AlipayApp = ({ content }: AlipayAppProps) => {
                   ? 'text-green-600' 
                   : 'text-gray-800'
               }`}>
-                {bill.type === 'income' ? '+' : '-'}¥{bill.amount}
+                {bill.type === 'income' ? '+' : '-'}¥{bill.amount.replace(/[¥￥+\-\s]/g, '')}
               </div>
             </div>
           </div>

@@ -15,7 +15,6 @@ export default function Moments() {
   const [moments, setMoments] = useState<Moment[]>([])
   const [showCommentInput, setShowCommentInput] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
-  const [replyToUser, setReplyToUser] = useState('')
   const [coverImage, setCoverImage] = useState<string>(() => {
     return localStorage.getItem('moments_cover_image') || ''
   })
@@ -25,15 +24,19 @@ export default function Moments() {
   const currentUser = {
     id: 'user',
     name: userInfo.nickname || userInfo.realName,
-    avatar: userInfo.avatar
+    avatar: userInfo.avatar || '👤'
   }
   
   useEffect(() => {
-    setMoments(loadMoments())
+    const loadedMoments = loadMoments()
+    console.log('🔍 [Moments] 加载朋友圈数据:', loadedMoments)
+    setMoments(loadedMoments)
     
     // 监听朋友圈数据变化，实时刷新
     const handleMomentsUpdate = () => {
-      setMoments(loadMoments())
+      const updatedMoments = loadMoments()
+      console.log('🔄 [Moments] 刷新朋友圈数据:', updatedMoments)
+      setMoments(updatedMoments)
     }
     
     window.addEventListener('moments-updated', handleMomentsUpdate)
@@ -88,7 +91,6 @@ export default function Moments() {
     commentMoment(momentId, currentUser, commentText.trim())
     setCommentText('')
     setShowCommentInput(null)
-    setReplyToUser('')
     refresh()
   }
   

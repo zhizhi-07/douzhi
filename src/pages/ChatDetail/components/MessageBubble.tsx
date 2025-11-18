@@ -32,8 +32,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const displayContent = filterSpecialTags(message.content)
   
-  // 如果过滤后内容为空，不显示
-  if (!displayContent) return null
+  // 如果过滤后内容为空，且不是特殊消息类型，不显示
+  // 特殊消息类型（如帖子）会由SpecialMessageRenderer处理
+  if (!displayContent && !message.messageType) return null
+  if (!displayContent && message.messageType === 'text') return null
 
   // 格式化文本：优化段落显示
   const formatText = (text: string) => {

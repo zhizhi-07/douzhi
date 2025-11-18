@@ -27,6 +27,7 @@ interface AddMenuProps {
   onSelectOffline: () => void
   onSelectPaymentRequest: () => void
   onSelectShopping: () => void
+  onSelectPost: () => void
   hasCoupleSpaceActive?: boolean
 }
 
@@ -47,6 +48,7 @@ const AddMenu = ({
   onSelectOffline,
   onSelectPaymentRequest,
   onSelectShopping,
+  onSelectPost,
   hasCoupleSpaceActive = false
 }: AddMenuProps) => {
   if (!isOpen) return null
@@ -116,6 +118,11 @@ const AddMenu = ({
       icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>,
       label: '网购',
       onClick: onSelectShopping
+    },
+    { 
+      icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>,
+      label: '帖子',
+      onClick: onSelectPost
     },
   ]
 

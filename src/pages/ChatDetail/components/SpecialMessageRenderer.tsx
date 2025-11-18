@@ -10,6 +10,7 @@ import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
 import PaymentRequestCard from '../../../components/PaymentRequestCard'
 import ProductCard from '../../../components/ProductCard'
+import PostCard from '../../../components/PostCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -180,6 +181,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   // 商品卡片
   if (message.messageType === 'productCard' && message.productCard) {
     return <ProductCard message={message} />
+  }
+
+  // 帖子卡片
+  if (message.messageType === 'post' && message.post) {
+    return <PostCard message={message} />
   }
 
   return null

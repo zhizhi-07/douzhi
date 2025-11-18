@@ -23,9 +23,10 @@ import EmojiPanel from '../components/EmojiPanel'
 import MusicInviteSelector from '../components/MusicInviteSelector'
 import AIMemoModal from '../components/AIMemoModal'
 import AIStatusModal from '../components/AIStatusModal'
+import PostGenerator from '../components/PostGenerator'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -121,6 +122,12 @@ const ChatDetail = () => {
   const musicInvite = useMusicInvite(id || '', chatState.setMessages, id)
   const emoji = useEmoji(id || '', chatState.setMessages)
   const forward = useForward(id || '', chatState.setMessages)
+  const postGenerator = usePostGenerator(
+    chatState.setMessages,
+    id || '',
+    chatState.character?.nickname || chatState.character?.realName || 'AI',
+    chatState.character?.personality
+  )
   
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
@@ -134,7 +141,8 @@ const ChatDetail = () => {
     () => setShowAIMemoModal(true),
     () => navigate(`/chat/${id}/offline`),  // 线下模式
     () => navigate(`/chat/${id}/payment-request`),  // 外卖（已合并给TA点外卖功能）
-    () => navigate(`/chat/${id}/shopping`)  // 网购商店
+    () => navigate(`/chat/${id}/shopping`),  // 网购商店
+    () => postGenerator.setShowPostGenerator(true)  // 帖子生成
   )
   
   // 多选模式
@@ -1065,6 +1073,7 @@ const ChatDetail = () => {
         onSelectOffline={addMenu.handlers.handleSelectOffline}
         onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
         onSelectShopping={addMenu.handlers.handleSelectShopping}
+        onSelectPost={addMenu.handlers.handleSelectPost}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 
@@ -1224,6 +1233,19 @@ const ChatDetail = () => {
           messages={forward.viewingForwardedChat.forwardedChat.messages}
         />
       )}
+
+      {/* AI帖子生成器 */}
+      <PostGenerator
+        isOpen={postGenerator.showPostGenerator}
+        onClose={() => postGenerator.setShowPostGenerator(false)}
+        onGenerate={postGenerator.handleGeneratePost}
+        onSend={postGenerator.handleSendPost}
+        characterName={chatState.character?.nickname || chatState.character?.realName}
+        characterAvatar={chatState.character?.avatar}
+        characterId={chatState.character?.id}
+        generatedPost={postGenerator.generatedPost}
+        onClearPost={() => postGenerator.setGeneratedPost(null)}
+      />
 
       {/* 🔥 Token统计悬浮按钮 - 右上角玻璃质感 */}
       {!hideTokenStats && chatAI.tokenStats && chatAI.tokenStats.total > 0 && (

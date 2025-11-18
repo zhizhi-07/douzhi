@@ -24,7 +24,8 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
     photos: [],
     notes: [],
     musicPlaylist: [],
-    footprints: []
+    footprints: [],
+    forumPosts: []
   }
 
   sections.forEach((section, index) => {
@@ -222,6 +223,25 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
         })
         console.log(`📱 [手机解析] 足迹解析完成: ${result.footprints.length}条`)
         break
+
+      case '论坛':
+        dataLines.forEach(line => {
+          const parts = line.split('|||')
+          if (parts.length >= 5) {  // 至少需要标题、论坛、内容、时间、是否评论
+            const hasCommented = parts[4].trim() === '是'
+            result.forumPosts.push({
+              title: parts[0].trim(),
+              forum: parts[1].trim(),
+              content: parts[2].trim(),
+              time: parts[3].trim(),
+              hasCommented,
+              comment: hasCommented && parts[5] ? parts[5].trim() : undefined,
+              reason: parts[6]?.trim() || undefined
+            })
+          }
+        })
+        console.log(`📱 [手机解析] 论坛解析完成: ${result.forumPosts.length}条`)
+        break
     }
   })
 
@@ -235,7 +255,8 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
     相册: result.photos.length,
     备忘录: result.notes.length,
     音乐: result.musicPlaylist.length,
-    足迹: result.footprints.length
+    足迹: result.footprints.length,
+    论坛: result.forumPosts.length
   })
 
   return result

@@ -193,6 +193,17 @@ const VirtualMessageList = ({
   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
   const offsetTop = visibleRange.start * ESTIMATED_MESSAGE_HEIGHT
   
+  // 检查最后一条消息是否是帖子
+  const lastMessage = messages[messages.length - 1]
+  if (lastMessage?.messageType === 'post') {
+    console.log('📋 [VirtualMessageList] 最后一条是帖子消息:', {
+      messageId: lastMessage.id,
+      inVisibleRange: visibleMessages.some(m => m.id === lastMessage.id),
+      visibleRange,
+      totalMessages: messages.length
+    })
+  }
+  
   return (
     <div
       ref={containerRef}

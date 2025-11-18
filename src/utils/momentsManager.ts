@@ -60,6 +60,10 @@ export function saveMoments(moments: Moment[]): void {
       console.error('IndexedDB保存失败:', err)
       // IndexedDB空间极大，基本不会超出
     })
+    
+    // 🔥 触发更新事件，让页面实时刷新
+    window.dispatchEvent(new CustomEvent('moments-updated'))
+    window.dispatchEvent(new Event('storage'))
   } catch (error) {
     console.error('保存朋友圈失败:', error)
   }
@@ -93,7 +97,9 @@ export function publishMoment(
   moments.unshift(newMoment)  // 添加到开头
   saveMoments(moments)
   
-  console.log('📱 发布朋友圈:', content.substring(0, 20))
+  console.log('📱 发布朋友圈:', content.substring(0, 20) || '[纯图片]')
+  console.log('📱 完整朋友圈对象:', newMoment)
+  
   return newMoment
 }
 

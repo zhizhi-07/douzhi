@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ContactIcon, ChatIcon, ImageIcon, MusicIcon, LocationIcon, ShoppingIcon, BrowserIcon, AlipayIcon, NotesIcon, CloseIcon, ChevronLeftIcon } from './Icons'
+import { ContactIcon, ChatIcon, ImageIcon, MusicIcon, LocationIcon, ShoppingIcon, BrowserIcon, AlipayIcon, NotesIcon, CloseIcon, ChevronLeftIcon, ForumIcon } from './Icons'
 import { generateAIPhoneContent, AIPhoneContent } from '../utils/aiPhoneGenerator'
 import ContactsApp from './phone/ContactsApp'
 import WechatApp from './phone/WechatApp'
@@ -10,6 +10,7 @@ import PhotosApp from './phone/PhotosApp'
 import NotesApp from './phone/NotesApp'
 import MusicApp from './phone/MusicApp'
 import MapsApp from './phone/MapsApp'
+import ForumApp from './phone/ForumApp'
 
 interface AIPhoneModalProps {
   onClose: () => void
@@ -66,17 +67,18 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
     loadContent()
   }, [characterId, characterName, forceNew, historyContent])
 
-  // 所有应用（单页显示）
+  // iOS应用图标
   const allApps: PhoneApp[] = [
-    { id: 'contacts', name: '通讯录', IconComponent: ContactIcon, color: 'from-gray-300/50 to-gray-400/50', onClick: () => setSelectedApp('contacts') },
-    { id: 'wechat', name: '微信', IconComponent: ChatIcon, color: 'from-green-300/50 to-green-400/50', onClick: () => setSelectedApp('wechat') },
-    { id: 'browser', name: '浏览器', IconComponent: BrowserIcon, color: 'from-blue-300/50 to-blue-400/50', onClick: () => setSelectedApp('browser') },
-    { id: 'taobao', name: '淘宝', IconComponent: ShoppingIcon, color: 'from-orange-300/50 to-orange-400/50', onClick: () => setSelectedApp('taobao') },
-    { id: 'alipay', name: '支付宝', IconComponent: AlipayIcon, color: 'from-blue-400/50 to-blue-500/50', onClick: () => setSelectedApp('alipay') },
-    { id: 'photos', name: '相册', IconComponent: ImageIcon, color: 'from-pink-300/50 to-pink-400/50', onClick: () => setSelectedApp('photos') },
-    { id: 'notes', name: '备忘录', IconComponent: NotesIcon, color: 'from-yellow-300/50 to-yellow-400/50', onClick: () => setSelectedApp('notes') },
-    { id: 'music', name: '音乐', IconComponent: MusicIcon, color: 'from-red-300/50 to-red-400/50', onClick: () => setSelectedApp('music') },
-    { id: 'footprints', name: '足迹', IconComponent: LocationIcon, color: 'from-green-400/50 to-green-500/50', onClick: () => setSelectedApp('footprints') },
+    { id: 'contacts', name: '通讯录', IconComponent: ContactIcon, color: 'from-gray-400 to-gray-500', onClick: () => setSelectedApp('contacts') },
+    { id: 'wechat', name: '微信', IconComponent: ChatIcon, color: 'from-green-400 to-green-500', onClick: () => setSelectedApp('wechat') },
+    { id: 'browser', name: 'Safari', IconComponent: BrowserIcon, color: 'from-blue-400 to-blue-500', onClick: () => setSelectedApp('browser') },
+    { id: 'taobao', name: '淘宝', IconComponent: ShoppingIcon, color: 'from-orange-400 to-orange-500', onClick: () => setSelectedApp('taobao') },
+    { id: 'alipay', name: '支付宝', IconComponent: AlipayIcon, color: 'from-blue-500 to-blue-600', onClick: () => setSelectedApp('alipay') },
+    { id: 'photos', name: '照片', IconComponent: ImageIcon, color: 'from-pink-400 to-pink-500', onClick: () => setSelectedApp('photos') },
+    { id: 'notes', name: '备忘录', IconComponent: NotesIcon, color: 'from-yellow-400 to-yellow-500', onClick: () => setSelectedApp('notes') },
+    { id: 'music', name: '音乐', IconComponent: MusicIcon, color: 'from-red-400 to-red-500', onClick: () => setSelectedApp('music') },
+    { id: 'footprints', name: '地图', IconComponent: LocationIcon, color: 'from-green-500 to-green-600', onClick: () => setSelectedApp('footprints') },
+    { id: 'forum', name: '论坛', IconComponent: ForumIcon, color: 'from-purple-400 to-pink-500', onClick: () => setSelectedApp('forum') },
   ]
 
   const renderAppContent = (appId: string) => {
@@ -108,6 +110,8 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
         return <MusicApp content={phoneContent} />
       case 'footprints':
         return <MapsApp content={phoneContent} />
+      case 'forum':
+        return <ForumApp content={phoneContent} />
       default:
         return (
           <div className="w-full h-full bg-white/30 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
@@ -125,20 +129,30 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
         onClick={onClose}
       />
 
-      {/* 手机外壳 - 白色液态玻璃 */}
-      <div className="relative w-full max-w-md h-[80vh] max-h-[800px] bg-gradient-to-br from-white/95 to-white/80 backdrop-blur-2xl rounded-[3rem] shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/60 overflow-hidden">
-        {/* 顶部状态栏 */}
-        <div className="absolute top-0 left-0 right-0 h-14 bg-white/40 backdrop-blur-xl border-b border-white/40 flex items-center justify-between px-6 z-10">
-          <div className="text-sm font-medium text-gray-800">
-            {characterName}的手机
+      {/* 手机外壳 - iOS风格 */}
+      <div className="relative w-full max-w-md h-[85vh] max-h-[850px] bg-white rounded-[3rem] shadow-2xl border-8 border-gray-900 overflow-hidden">
+        {/* iOS状态栏 */}
+        <div className="absolute top-0 left-0 right-0 h-11 bg-white flex items-center justify-between px-6 z-10">
+          <div className="text-xs font-semibold text-gray-900">
+            {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/60 hover:bg-white/80 flex items-center justify-center transition-all shadow-sm"
-          >
-            <CloseIcon size={18} className="text-gray-700" />
-          </button>
+          <div className="flex items-center gap-1">
+            <svg className="w-4 h-4 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+            </svg>
+            <svg className="w-3 h-3 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+            </svg>
+          </div>
         </div>
+        
+        {/* 关闭按钮 */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-all"
+        >
+          <CloseIcon size={14} className="text-gray-700" />
+        </button>
 
         {/* 应用内容区 */}
         <div className="absolute top-14 bottom-8 left-0 right-0">
@@ -164,14 +178,14 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
               {renderAppContent(selectedApp)}
             </div>
           ) : (
-            // 显示桌面 - 使用项目桌面风格
-            <div className="w-full h-full px-4 py-2 overflow-y-auto hide-scrollbar flex flex-col">
-              {/* 大时间 */}
-              <div className="p-6 mb-4 text-center">
-                <div className="text-7xl font-bold text-gray-900 mb-2">
+            // iOS桌面
+            <div className="w-full h-full bg-gradient-to-b from-blue-50 to-white px-6 py-4 overflow-y-auto hide-scrollbar">
+              {/* iOS时间和日期 */}
+              <div className="text-center mb-8 mt-4">
+                <div className="text-6xl font-light text-gray-900 mb-1">
                   {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div className="text-base font-semibold text-gray-600">
+                <div className="text-sm text-gray-600">
                   {currentTime.toLocaleDateString('zh-CN', { 
                     month: 'long', 
                     day: 'numeric',
@@ -180,20 +194,20 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
                 </div>
               </div>
 
-              {/* 应用图标网格 - 4列布局 */}
-              <div className="grid grid-cols-4 gap-4 auto-rows-min">
+              {/* iOS应用图标 - 4列布局 */}
+              <div className="grid grid-cols-4 gap-6 px-2">
                 {allApps.map((app) => {
                   const Icon = app.IconComponent
                   return (
                     <div
                       key={app.id}
                       onClick={app.onClick}
-                      className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+                      className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-90 transition-transform"
                     >
-                      <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
-                        <Icon size={28} className="text-gray-300" />
+                      <div className={`w-14 h-14 bg-gradient-to-br ${app.color} rounded-[1.1rem] flex items-center justify-center shadow-md`}>
+                        <Icon size={26} className="text-white" />
                       </div>
-                      <span className="text-xs text-gray-700 text-center font-medium">
+                      <span className="text-[10px] text-gray-900 text-center font-normal leading-tight">
                         {app.name}
                       </span>
                     </div>
@@ -205,8 +219,8 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
         </div>
 
         {/* iOS Home Indicator */}
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-          <div className="w-32 h-1 bg-gray-900 rounded-full opacity-30"></div>
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+          <div className="w-28 h-1 bg-gray-900 rounded-full"></div>
         </div>
       </div>
     </div>
