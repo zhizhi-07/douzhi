@@ -33,6 +33,7 @@ import { memoryManager } from '../../../utils/memorySystem'
 import { groupChatManager } from '../../../utils/groupChatManager'
 import { lorebookManager } from '../../../utils/lorebookSystem'
 import { TokenStats, estimateTokens } from '../../../utils/tokenCounter'
+import { getCoupleSpaceRelation } from '../../../utils/coupleSpaceUtils'
 
 export const useChatAI = (
   chatId: string,
@@ -243,14 +244,19 @@ export const useChatAI = (
         )
         
         if (lorebookContextText) {
-          let lorebookPrompt = '\n\n══════════════════════════════════\n\n'
-          lorebookPrompt += '【世界书信息】（背景知识和设定）\n\n'
-          lorebookPrompt += lorebookContextText
-          lorebookPrompt += '\n\n💡 提示：这些是世界观和背景设定，请在对话中自然地体现\n'
-          lorebookPrompt += '══════════════════════════════════'
-          
-          systemPrompt = systemPrompt + lorebookPrompt
-          console.log('📚 [世界书] 已注入世界书上下文')
+          const hasLore = systemPrompt.includes('世界观与背景知识') || systemPrompt.includes('【世界书信息】')
+          if (!hasLore) {
+            let lorebookPrompt = '\n\n══════════════════════════════════\n\n'
+            lorebookPrompt += '【世界书信息】（背景知识和设定）\n\n'
+            lorebookPrompt += lorebookContextText
+            lorebookPrompt += '\n\n💡 提示：这些是世界观和背景设定，请在对话中自然地体现\n'
+            lorebookPrompt += '══════════════════════════════════'
+            
+            systemPrompt = systemPrompt + lorebookPrompt
+            console.log('📚 [世界书] 已注入世界书上下文')
+          } else {
+            console.log('📚 [世界书] 已包含世界书上下文，跳过重复注入')
+          }
         }
       }
       
@@ -452,6 +458,34 @@ export const useChatAI = (
       )
       
       let aiReply = apiResult.content
+      
+      // 🚧 早期对话边界：非亲密关系下，禁止主动使用[表情]/[状态]/[随笔]
+      try {
+        const allMsgs = messages
+        const totalNonSystem = allMsgs.filter(m => m.type === 'sent' || m.type === 'received').length
+        const isEarly = totalNonSystem < 6
+        const relation = getCoupleSpaceRelation()
+        const isCoupleActive = !!(relation && relation.status === 'active' && character && relation.characterId === character.id)
+        const personaSuggestsIntimate = /恋|情侣|对象|男朋友|女朋友|伴侣|cp/i.test((userInfo.persona || '') + (character?.personality || ''))
+        const isIntimate = !!(isCoupleActive || personaSuggestsIntimate)
+        if (isEarly && !isIntimate && typeof aiReply === 'string') {
+          const before = aiReply
+          aiReply = aiReply
+            // 移除早期不允许的功能指令（仅限少数类型）
+            .replace(/\[(表情|状态|随笔):[^\]\n]{0,100}\]/g, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim()
+          if (!aiReply) {
+            // 保底，避免全被清空
+            aiReply = '你好。'
+          }
+          if (import.meta.env.DEV && before !== aiReply) {
+            console.log('🛡️ [边界保护] 已过滤早期指令。原始/过滤后：', before.substring(0,120), '=>', aiReply.substring(0,120))
+          }
+        }
+      } catch (e) {
+        console.warn('边界过滤出错，已忽略：', e)
+      }
       let usage = apiResult.usage
       
       // 🌊 处理流式响应（仅线下模式+开启流式）
@@ -924,10 +958,15 @@ export const useChatAI = (
         }
       }
       
+      cleanedMessage = cleanedMessage.replace(/[\[【][^\]】]+[\]】]/g, (m) => {
+        if (m.includes('引用') && !/回复[:：]/.test(m)) return ''
+        return m
+      })
+      
       // 🔥 预处理：检测多个连续的引用指令，将它们拆分成独立的消息段
       const preprocessMultipleQuotes = (text: string): string[] => {
-        // 匹配所有引用指令（支持缺少前括号）
-        const quotePattern = /[\[【]?(?:引用了?(?:你的消息)?[:\：]?\s*["「『"'"]?[^】\]]+["」』"'"]?|引用[:\：]\s*[^】\]]+|回复[:\：]\s*[^】\]]+)[\]】]/g
+        // 仅匹配严格格式的引用指令：[引用:关键词 回复:内容] 或 【引用：关键词 回复：内容】
+        const quotePattern = /[\[【]引用[:\：]\s*[^】\]]+?\s+回复[:\：]\s*[^】\]]+[\]】]/g
         const quotes = text.match(quotePattern)
         
         if (!quotes || quotes.length <= 1) {

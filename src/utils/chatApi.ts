@@ -522,6 +522,16 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     intimatePayInfo = `，亲密付剩余¥${remaining.toFixed(0)}`
   }
 
+  // 关系证据与熟悉度标定（防止无端“很熟”）
+  const personaText = (userInfo.persona || '') + (character.personality || '')
+  const personaSuggestsIntimate = /恋|情侣|对象|男朋友|女朋友|伴侣|cp/i.test(personaText)
+  const isCoupleActive = !!(relation && relation.status === 'active' && relation.characterId === character.id)
+  const isIntimateRelation = !!(isCoupleActive || personaSuggestsIntimate)
+
+  // 早期对话检测：总消息（非system）少于6条，视为初次/早期阶段
+  const totalNonSystemMsgs = messages.filter(m => m.type === 'sent' || m.type === 'received').length
+  const isEarlyConversation = totalNonSystemMsgs < 6
+
   // 获取或生成AI状态
   const { getOrCreateAIStatus, formatStatusShort } = await import('./aiStatusManager')
   const aiStatus = getOrCreateAIStatus(character.id, charName)
@@ -615,11 +625,22 @@ ${getUserInfoChangeContext()}
 ${buildNicknameCoupleReminderContext(userNickname, character.id)}
 
 关于你们的关系：
-- 在你的人设里，已经写清楚你和 ${userNickname} 是什么关系（恋人、朋友、同学、网友等）。
-- 聊天时要一直带着这层关系，而不是像客服、机器人或者陌生人。
-- 如果你们是恋人，你会自然地在意 TA、撒娇、偶尔吃醋、吃醋的时候嘴硬心软；
-- 如果是朋友，你会有熟络、互损、吐槽、分享日常的感觉。
-- 即使聊天话题很普通，你也可以在语气和细节里，不经意地透出这层关系。
+${isIntimateRelation
+  ? `- 已有明确的亲密关系证据（如情侣空间/人设等）。保持自然的亲密感，但不要无端夸大。
+- 可以适度使用更贴近的语气，但仍以真实场景为准，不要一上来就过度亲昵。`
+  : `- 默认按“泛熟/普通网友”起步：不要自称恋人/对象，不使用“宝/亲/老婆/老公”等称呼。
+- 使用中性称呼：优先用“${userNickname}”或“你”。当且仅当对话或设定里出现明确证据（如双方确认关系/开启情侣空间）再逐步升级亲密度。`}
+- 保持一致性：在群聊与私聊中的态度要一致，不要忽冷忽热。
+
+【称呼与语气】
+- 默认不使用暧昧或占有性称呼；如要使用，先确认对方接受或已有关系证据。
+- 即使在亲密关系下，也不要脱离当下场景夸张撒娇或越界。
+
+${isEarlyConversation && !isIntimateRelation ? `【边界与熟悉度】
+- 这是初次/早期对话阶段，请保持克制、礼貌、中性，不要自来熟。
+- 避免口头禅式的过分随意开场（如“嘿”“喂”“诶嘿嘿”）、避免主动贴贴或撒娇。
+- 不要主动使用[表情]、[状态]、[随笔]等功能指令，除非对方先使用或明确提出。
+- 回复尽量1-2句为主，可轻问一个问题来了解对方需求；暂时不要主动分享太多个人状态或隐私。` : ''}
 
 你对情绪很敏感（你自己的 + 对方的）：
 
@@ -666,6 +687,8 @@ ${lastGapHint || ''}
 不要随便编特别严重、特别具体的借口（例如"手机被收了""一直没看手机"），除非之前对话里真的出现过。
 
 【5. 怎么发消息，怎么用指令】
+
+${isEarlyConversation && !isIntimateRelation ? '（当前为初次/早期对话：不要主动使用任何功能指令；只有当对方先使用或明确要求时再跟进。）\n' : ''}
 
 你大部分时候，只需要像普通人在手机上聊天那样说话，发的是一条条自然的文字消息。
 只有在你觉得"用功能更方便/更符合你现在想做的事"时，才会加一个中括号指令。
@@ -1440,6 +1463,15 @@ const callAIApiInternal = async (
       }
     }
     
+    // 规范化消息角色：仅保留首条 system（人设指令），其余 system 统一降级为 user，避免覆盖/稀释人设
+    const normalizedMessages = processedMessages.map((m: any, idx: number) => {
+      if (idx === 0) return m
+      if (m && m.role === 'system') {
+        return { ...m, role: 'user' as const }
+      }
+      return m
+    })
+
     // 检查是否启用流式（仅线下模式）
     const offlineStreamEnabled = localStorage.getItem('offline-streaming') === 'true'
     const isOfflineRequest = localStorage.getItem('current-scene-mode') === 'offline'
@@ -1454,7 +1486,7 @@ const callAIApiInternal = async (
     
     const requestBody = {
       model: settings.model,
-      messages: processedMessages,
+      messages: normalizedMessages,
       temperature: settings.temperature ?? 0.7,
       max_tokens: maxTokens,
       ...(useStreaming ? { stream: true } : {})

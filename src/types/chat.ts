@@ -117,6 +117,14 @@ export interface Character {
   avatar?: string
   personality?: string  // 人设描述/性格
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
+  // 以下为可选扩展字段（兼容外部角色卡/预设）
+  world?: string
+  scenario?: string
+  version?: string
+  system?: string
+  post_history_instructions?: string
+  first_mes?: string
+  greeting?: string
 }
 
 export interface ApiSettings {

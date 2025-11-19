@@ -103,6 +103,15 @@ function App() {
         console.log('✅ API配置已初始化，当前API:', currentId)
       }
     })
+    
+    // 🔥 初始化朋友圈AI动作调度器（恢复页面刷新前待执行的动作）
+    import('./utils/momentsAI/actionScheduler').then(({ startScheduler, getPendingActionsCount }) => {
+      const pendingCount = getPendingActionsCount()
+      if (pendingCount > 0) {
+        console.log(`📋 发现 ${pendingCount} 个待执行的朋友圈动作，启动调度器...`)
+        startScheduler()
+      }
+    })
   }, [])
   
   // 🔥 页面卸载时强制备份所有消息到 localStorage

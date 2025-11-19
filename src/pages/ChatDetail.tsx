@@ -27,6 +27,7 @@ import AIStatusModal from '../components/AIStatusModal'
 import PostGenerator from '../components/PostGenerator'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
+import { correctAIMessageFormat } from '../utils/formatCorrector'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
@@ -146,6 +147,49 @@ const ChatDetail = () => {
     chatState.character?.personality
   )
   
+  // 格式修正处理器
+  const handleFormatCorrection = useCallback(() => {
+    if (!id) return
+    
+    // 找到最后一轮AI消息（从最后一条用户消息之后的所有AI消息）
+    const messages = chatState.messages
+    const lastUserMsgIndex = messages.map((m, i) => m.type === 'sent' ? i : -1).filter(i => i !== -1).pop() ?? -1
+    const lastRoundAIMessages = messages.slice(lastUserMsgIndex + 1).filter(m => m.type === 'received')
+    
+    if (lastRoundAIMessages.length === 0) {
+      alert('没有找到AI消息')
+      return
+    }
+    
+    // 修正所有消息
+    let totalCorrections: string[] = []
+    const updatedMessages = messages.map(msg => {
+      const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
+      if (!isTargetMessage) return msg
+      
+      const result = correctAIMessageFormat(msg.content || '')
+      if (result.corrected) {
+        totalCorrections.push(...result.corrections.map(c => `[${String(msg.id).slice(0, 8)}] ${c}`))
+        return { ...msg, content: result.fixed }
+      }
+      return msg
+    })
+    
+    if (totalCorrections.length === 0) {
+      alert('格式正确，无需修正')
+      return
+    }
+    
+    // 保存到存储
+    saveMessages(id, updatedMessages)
+    
+    // 更新React状态
+    chatState.setMessages(updatedMessages)
+    
+    // 显示修正结果
+    alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}`)
+  }, [id, chatState.messages, chatState.setMessages])
+  
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
     () => transfer.setShowTransferSender(true),
@@ -159,7 +203,8 @@ const ChatDetail = () => {
     () => navigate(`/chat/${id}/offline`),  // 线下模式
     () => navigate(`/chat/${id}/payment-request`),  // 外卖（已合并给TA点外卖功能）
     () => navigate(`/chat/${id}/shopping`),  // 网购商店
-    () => postGenerator.setShowPostGenerator(true)  // 帖子生成
+    () => postGenerator.setShowPostGenerator(true),  // 帖子生成
+    handleFormatCorrection  // 格式修正
   )
   
   // 多选模式
@@ -305,8 +350,14 @@ const ChatDetail = () => {
   const isInitialLoadRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
-  // 使用 ref 记录“用户是否在底部”，由滚动事件维护
+  // 使用 ref 记录"用户是否在底部"，由滚动事件维护
   const isNearBottomRef = useRef(true)
+
+  // 🔥 分页加载相关的 ref
+  const previousMessageCountRef = useRef(chatState.messages.length)
+  const previousScrollHeightRef = useRef(0)
+  const previousScrollTopRef = useRef(0)
+  const loadMoreTriggeredRef = useRef(false)
 
   const updateNearBottom = useCallback(() => {
     const container = scrollContainerRef.current
@@ -385,27 +436,64 @@ const ChatDetail = () => {
       setTimeout(() => scrollToBottom(true, false), 50)
     }
   }, [chatAI.isAiTyping, scrollToBottom])
-
-  // 🔥 滚动检测（仅用于维护“是否在底部”状态）
-  const previousMessageCountRef = useRef(chatState.messages.length)
-  const previousScrollHeightRef = useRef(0)
-  const previousScrollTopRef = useRef(0)
-
+  
+  // 🔥 滚动检测和自动加载更多
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container || shouldUseVirtualization) return // 虚拟化模式下不需要
 
     const handleScroll = () => {
-      // 始终先更新“是否在底部”的状态，供自动滚动逻辑使用
+      // 始终先更新"是否在底部"的状态，供自动滚动逻辑使用
       updateNearBottom()
-      // 非虚拟化模式下不再在这里自动触发加载更多，避免滚动时跳屏
+      
+      // 🔥 滚动到顶部时自动加载更多历史消息
+      const { scrollTop, scrollHeight } = container
+      if (scrollTop < 100 && chatState.hasMoreMessages && !chatState.isLoadingMessages && !loadMoreTriggeredRef.current) {
+        loadMoreTriggeredRef.current = true
+        
+        // 记录当前滚动状态，用于加载后恢复位置
+        previousScrollHeightRef.current = scrollHeight
+        previousScrollTopRef.current = scrollTop
+        
+        console.log('📜 [自动加载] 滚动到顶部，触发加载更多')
+        chatState.loadMoreMessages()
+        
+        // 防止频繁触发
+        setTimeout(() => {
+          loadMoreTriggeredRef.current = false
+        }, 500)
+      }
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [shouldUseVirtualization, updateNearBottom])
+  }, [shouldUseVirtualization, updateNearBottom, chatState.hasMoreMessages, chatState.isLoadingMessages, chatState.loadMoreMessages])
+  
+  // 🔥 加载更多后保持滚动位置不跳动
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    // 检测是否是加载更多导致的消息增加
+    if (previousMessageCountRef.current > 0 && chatState.messages.length > previousMessageCountRef.current) {
+      const isLoadMore = previousScrollTopRef.current < 200 // 之前在顶部附近
+      
+      if (isLoadMore && previousScrollHeightRef.current > 0) {
+        // 计算新增内容的高度
+        const newScrollHeight = container.scrollHeight
+        const addedHeight = newScrollHeight - previousScrollHeightRef.current
+        
+        // 保持视觉位置不变
+        if (addedHeight > 0) {
+          container.scrollTop = previousScrollTopRef.current + addedHeight
+          console.log(`📜 [保持位置] 新增高度: ${addedHeight}px, 调整滚动位置`)
+        }
+      }
+    }
+    
+    previousMessageCountRef.current = chatState.messages.length
+  }, [chatState.messages])
 
-  // 🔥 加载更多后不再强制调整滚动位置（非虚拟化模式下交给浏览器默认行为，避免跳屏）
   // 🔥 显示加载状态而不是"角色不存在"
   if (!chatState.character) {
     return (
@@ -1092,6 +1180,7 @@ const ChatDetail = () => {
         onSelectPaymentRequest={addMenu.handlers.handleSelectPaymentRequest}
         onSelectShopping={addMenu.handlers.handleSelectShopping}
         onSelectPost={addMenu.handlers.handleSelectPost}
+        onSelectFormatCorrector={addMenu.handlers.handleSelectFormatCorrector}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
       />
 

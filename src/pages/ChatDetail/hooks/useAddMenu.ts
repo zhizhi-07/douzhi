@@ -18,7 +18,8 @@ export const useAddMenu = (
   onOpenOffline?: () => void,
   onOpenPaymentRequest?: () => void,
   onOpenShopping?: () => void,
-  onOpenPost?: () => void
+  onOpenPost?: () => void,
+  onFormatCorrector?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -171,6 +172,16 @@ export const useAddMenu = (
     }
   }, [onOpenPost])
   
+  /**
+   * 格式修正
+   */
+  const handleSelectFormatCorrector = useCallback(() => {
+    setShowAddMenu(false)
+    if (onFormatCorrector) {
+      onFormatCorrector()
+    }
+  }, [onFormatCorrector])
+  
   return {
     showAddMenu,
     setShowAddMenu,
@@ -189,7 +200,8 @@ export const useAddMenu = (
       handleSelectOffline,
       handleSelectPaymentRequest,
       handleSelectShopping,
-      handleSelectPost
+      handleSelectPost,
+      handleSelectFormatCorrector
     }
   }
 }

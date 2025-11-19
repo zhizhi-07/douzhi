@@ -1065,6 +1065,114 @@ export const coupleSpaceEndHandler: CommandHandler = {
   }
 }
 
+export const quoteOnlyHandler: CommandHandler = {
+  pattern: /[\[【]引用(?:了?(?:你的消息)?)?[:\：]\s*(.+?)[\]】]/,
+  handler: async (match, content, { messages, character }) => {
+    const quoteRef = match[1].trim()
+    let quotedMsg: Message['quotedMessage'] | undefined
+
+    // 如果同一对括号内包含“回复:”，交给 quoteHandler 处理
+    if (/回复[:：]/.test(match[0])) {
+      return { handled: false }
+    }
+
+    if (/(所有|全部|这些|全部引用|所有消息)/.test(quoteRef)) {
+      const remainingText = content.replace(match[0], '')
+      return {
+        handled: true,
+        quotedMsg: undefined,
+        messageContent: remainingText
+      }
+    }
+
+    const currentMessages = messages
+    let quoted: Message | undefined
+
+    let lowerRef = quoteRef.toLowerCase()
+    const quotedId = parseInt(quoteRef)
+    if (!isNaN(quotedId)) {
+      quoted = currentMessages.find(m => m.id === quotedId)
+    }
+
+    if (!quoted) {
+      const quoteMatch = quoteRef.match(/["「『"'"](.+?)["」』"'"]/)
+      if (quoteMatch) {
+        lowerRef = quoteMatch[1].toLowerCase()
+      }
+
+      if (lowerRef.length > 20) {
+        lowerRef = lowerRef.substring(0, 20)
+      }
+
+      if (lowerRef.includes('上一条') || lowerRef.includes('上条') || lowerRef.includes('刚才')) {
+        quoted = [...currentMessages].reverse().find(m => m.type === 'sent' || m.type === 'received')
+      } else if (lowerRef.includes('语音')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'voice')
+      } else if (lowerRef.includes('照片') || lowerRef.includes('图片')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'photo')
+      } else if (lowerRef.includes('位置')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'location')
+      } else if (lowerRef.includes('表情')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'emoji')
+      } else if (lowerRef.includes('转账')) {
+        quoted = [...currentMessages].reverse().find(m => m.messageType === 'transfer')
+      } else if (lowerRef.includes('用户') || lowerRef.includes('你问') || lowerRef.includes('你说') || lowerRef.includes('你发')) {
+        quoted = [...currentMessages].reverse().find(m => m.type === 'sent')
+      } else if (lowerRef.includes('我说') || lowerRef.includes('我发') || lowerRef.includes('自己')) {
+        quoted = [...currentMessages].reverse().find(m => m.type === 'received')
+      } else {
+        quoted = [...currentMessages].reverse().find(m => {
+          if (m.type !== 'sent' && m.type !== 'received') return false
+          const aiReadable = (m as any).aiReadableContent || ''
+          const msgContent = (m.content || m.voiceText || m.photoDescription || m.emoji?.description || '').toLowerCase()
+          const searchContent = (aiReadable || msgContent).toLowerCase()
+          return searchContent.includes(lowerRef)
+        })
+
+        if (!quoted) {
+          quoted = [...currentMessages].reverse().find(m => {
+            if (m.type !== 'sent' && m.type !== 'received') return false
+            const raw = (m.content || m.voiceText || m.photoDescription || m.emoji?.description || '').trim()
+            if (!raw) return false
+            const msgLower = raw.toLowerCase()
+            if (msgLower.length < 2 && !/^[0-9]+$/.test(msgLower)) return false
+            return lowerRef.includes(msgLower)
+          })
+        }
+      }
+    }
+
+    if (quoted) {
+      let quotedContent = quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息'
+      quotedContent = quotedContent
+        .replace(/\[用户发了表情包\]\s*/g, '')
+        .replace(/\[AI发了表情包\]\s*/g, '')
+        .replace(/\[引用了?[^\]]*?\]/g, '')
+        .replace(/【引用了?[^】]*?】/g, '')
+        .trim()
+
+      const MAX_QUOTE_LENGTH = 100
+      if (quotedContent.length > MAX_QUOTE_LENGTH) {
+        quotedContent = quotedContent.substring(0, MAX_QUOTE_LENGTH) + '...'
+      }
+
+      quotedMsg = {
+        id: quoted.id,
+        content: quotedContent,
+        senderName: quoted.type === 'sent' ? '我' : (character?.realName || 'AI'),
+        type: quoted.type === 'system' ? 'sent' : quoted.type
+      }
+    }
+
+    const remainingText = content.replace(match[0], '')
+    return {
+      handled: true,
+      quotedMsg,
+      messageContent: remainingText
+    }
+  }
+}
+
 /**
  * 引用指令处理器
  * 支持多种引用格式，提高AI的表达灵活性
@@ -1072,7 +1180,7 @@ export const coupleSpaceEndHandler: CommandHandler = {
  */
 export const quoteHandler: CommandHandler = {
   // 🔥 新格式：[引用:关键词 回复:内容]
-  pattern: /\[引用[:\：]\s*(.+?)\s+回复[:\：]\s*(.+?)\]/,
+  pattern: /[\[【]引用[:\：]\s*(.+?)\s+回复[:\：]\s*(.+?)[\]】]/,
   handler: async (match, content, { messages, character }) => {
     // 提取引用关键词和回复内容
     const quoteRef = match[1].trim()

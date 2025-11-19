@@ -3,14 +3,14 @@
  * 协调各个模块，编排和执行朋友圈互动场景
  */
 
+import type { AIAction, AIScene } from '../../types/momentsAI'
 import type { Moment } from '../../types/moments'
-import type { AIScene, AIAction } from '../../types/momentsAI'
-import { apiService } from '../../services/apiService'
 import { characterService } from '../../services/characterService'
+import { apiService } from '../../services/apiService'
 import { collectCharactersInfo, formatMomentsHistory, formatAIMemory } from './dataCollector'
 import { buildDirectorPrompt, SYSTEM_PROMPT } from './promptTemplate'
 import { parseDirectorResponse } from './responseParser'
-import { executeLikeAction, executeCommentAction, executeDMAction } from './actionExecutor'
+import { scheduleAction } from './actionScheduler'
 
 /**
  * 压缩图片
@@ -116,8 +116,8 @@ export async function aiDirectorArrangeScene(
   const imageCache = (window as any).__imageDescriptionCache
   
   // 收集所有用户朋友圈图片，区分已识别和未识别
-  const newImages = [] // 需要识别的新图片
-  const cachedDescriptions = [] // 已缓存的图片描述
+  const newImages: any[] = [] // 需要识别的新图片
+  const cachedDescriptions: string[] = [] // 已缓存的图片描述
   
   visibleMoments.forEach((m, index) => {
     if (m.userId === 'user' && m.images && Array.isArray(m.images) && m.images.length > 0) {
@@ -155,15 +155,11 @@ export async function aiDirectorArrangeScene(
   console.log(`🔥 [朋友圈导演] 图片分析完成`)
   console.log(`📋 缓存图片: ${cachedDescriptions.length}张`)
   console.log(`🆕 新图片: ${newImages.length}张`)
-  console.log(`🎯 需要AI识别: ${(window as any).__momentImages?.length || 0}张`)
   
-  // 🔥 第一步：如果有新图片，先一次性识别所有图片内容
-  const newImageDescriptions: string[] = []
+  // 🔥 压缩新图片（用于发送给AI）
+  const compressedImages: any[] = []
   if (newImages.length > 0) {
-    console.log(`🔍 [朋友圈导演] 第1步：识别 ${newImages.length} 张新图片...`)
-    
-    // 🔥 检查并压缩图片
-    const compressedImages: any[] = []
+    console.log(`🔧 压缩 ${newImages.length} 张新图片...`)
     for (let idx = 0; idx < newImages.length; idx++) {
       const imgData = newImages[idx]
       const url = imgData.imageUrl
@@ -173,7 +169,6 @@ export async function aiDirectorArrangeScene(
       console.log(`📸 图片${idx + 1}: ${isBase64 ? `base64 (${originalSize}KB)` : 'URL'}`)
       
       if (isBase64 && originalSize > 200) {
-        // 图片过大，压缩后再识别
         console.log(`🔧 压缩图片${idx + 1}...`)
         try {
           const compressed = await compressImage(url, 0.6, 800)
@@ -191,21 +186,52 @@ export async function aiDirectorArrangeScene(
         compressedImages.push(imgData)
       }
     }
+  }
+  
+  // 🔥 构建缓存图片的文字描述（仅用于历史朋友圈）
+  let cachedImageDescriptions = ''
+  if (cachedDescriptions.length > 0) {
+    cachedImageDescriptions = `\n\n## 历史朋友圈图片内容\n`
+    cachedDescriptions.forEach(desc => {
+      cachedImageDescriptions += `${desc}\n`
+    })
+  }
+  
+  // 🔥 构建提示词（包含缓存图片描述 + 新图片处理说明）
+  let prompt = buildDirectorPrompt(moment, charactersInfo, momentsHistory, aiMemory, publisherPersonality) + cachedImageDescriptions
+  
+  // 如果有新图片，添加图片理解说明
+  if (compressedImages.length > 0) {
+    prompt += `\n\n⚠️ 特别说明：本条朋友圈包含 ${compressedImages.length} 张图片，请先理解图片内容，然后基于图片内容编排各角色的互动。直接输出场景编排结果即可，不需要单独描述图片。`
+  }
+  
+  console.log('\n' + '='.repeat(80))
+  console.log('🎬 AI导演编排场景 - 完整输入')
+  console.log('='.repeat(80))
+  console.log(prompt)
+  if (compressedImages.length > 0) {
+    console.log(`📸 附带 ${compressedImages.length} 张图片`)
+  }
+  console.log('='.repeat(80) + '\n')
+  
+  try {
+    const { callAIApi } = await import('../chatApi')
     
-    try {
-      const { callAIApi } = await import('../chatApi')
-      
-      // 构建包含所有图片的识别请求
+    console.log(`🚀 开始调用API编排场景: ${apiConfig.model}`)
+    console.log(`📊 一次性完成：${compressedImages.length > 0 ? '图片理解 + 场景编排' : '场景编排（无图片）'}`)
+    
+    // 🔥 构建消息内容（如果有图片，使用multipart格式）
+    let userContent: any
+    if (compressedImages.length > 0) {
+      // 有新图片：使用multipart格式（文字 + 图片）
       const contentParts: any[] = [
         {
           type: 'text' as const,
-          text: newImages.length === 1 
-            ? '请用一句话简短描述这张图片的内容（20字以内）' 
-            : `请分别用一句话简短描述以下${newImages.length}张图片的内容（每张20字以内），按顺序输出，格式：\n图1: xxx\n图2: xxx`
+          text: prompt
         }
       ]
       
-      // 添加所有压缩后的图片
+      // 添加压缩后的图片
       compressedImages.forEach(imgData => {
         contentParts.push({
           type: 'image_url' as const,
@@ -215,86 +241,11 @@ export async function aiDirectorArrangeScene(
         })
       })
       
-      const recognitionMessages = [
-        {
-          role: 'user' as const,
-          content: contentParts
-        }
-      ]
-      
-      const recognitionSettings = {
-        baseUrl: apiConfig.baseUrl,
-        apiKey: apiConfig.apiKey,
-        model: apiConfig.model,
-        provider: apiConfig.provider,
-        temperature: 0.3,
-        maxTokens: 500
-      }
-      
-      const response = await callAIApi(recognitionMessages, recognitionSettings)
-      
-      if (newImages.length === 1) {
-        // 单张图片，直接用返回内容
-        const description = response.content.trim()
-        const imgData = newImages[0]
-        imageCache.set(imgData.imageId, description)
-        newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
-        console.log(`✅ 识别完成: ${description}`)
-      } else {
-        // 多张图片，按行解析
-        const descriptions = response.content.trim().split('\n')
-        newImages.forEach((imgData, index) => {
-          let description = descriptions[index] || '[图片内容]'
-          description = description.replace(/^图\d+[:：]\s*/, '').trim()
-          
-          imageCache.set(imgData.imageId, description)
-          newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
-          console.log(`✅ 图${imgData.momentIndex}-${imgData.imageIndex}: ${description}`)
-        })
-      }
-      
-      console.log(`✅ [朋友圈导演] 图片识别完成`)
-    } catch (error) {
-      console.error(`❌ [朋友圈导演] 图片识别失败:`, error)
-      // 识别失败时使用占位符
-      newImages.forEach(imgData => {
-        newImageDescriptions.push(`图${imgData.momentIndex}-${imgData.imageIndex}: [图片内容]`)
-      })
+      userContent = contentParts
+    } else {
+      // 无新图片：纯文字
+      userContent = prompt
     }
-  }
-  
-  // 🔥 构建图片描述（缓存 + 新识别）
-  let imageDescriptions = ''
-  if (cachedDescriptions.length > 0 || newImageDescriptions.length > 0) {
-    imageDescriptions = `\n\n## 朋友圈图片内容\n⚠️ 以下是朋友圈中图片的内容描述，AI角色可以基于这些信息做出自然反应：\n\n`
-    
-    const allDescriptions = [...cachedDescriptions, ...newImageDescriptions]
-    allDescriptions.forEach(desc => {
-      imageDescriptions += `${desc}\n`
-    })
-    imageDescriptions += `\n💡 提示：AI角色应该基于图片内容做出符合角色性格的自然反应，而不是机械地描述图片。`
-  }
-  
-  // 构建提示词（包含图片描述）
-  const prompt = buildDirectorPrompt(moment, charactersInfo, momentsHistory, aiMemory, publisherPersonality) + imageDescriptions
-  
-  console.log('\n' + '='.repeat(80))
-  console.log('🎬 AI导演编排场景 - 完整输入')
-  console.log('='.repeat(80))
-  console.log(prompt)
-  console.log('='.repeat(80) + '\n')
-  
-  // 🔥 第二步：编排互动时禁用图片base64发送（只发文字描述）
-  // 原因：prompt + 图片base64会导致请求体过大(503)
-  const savedMomentImages = (window as any).__momentImages
-  ;(window as any).__momentImages = []
-  console.log(`🎬 [朋友圈导演] 第2步：编排互动（禁用图片base64，使用文字描述）`)
-  
-  try {
-    // 🔥 修复：使用callAIApi函数，支持朋友圈图片识别
-    const { callAIApi } = await import('../chatApi')
-    
-    console.log(`🚀 开始调用API编排场景: ${apiConfig.model}`)
     
     const messages = [
       {
@@ -303,7 +254,7 @@ export async function aiDirectorArrangeScene(
       },
       {
         role: 'user' as const,
-        content: prompt
+        content: userContent
       }
     ]
     
@@ -325,61 +276,27 @@ export async function aiDirectorArrangeScene(
     
     const response = await callAIApi(messages, apiSettings)
     
-    // 🔥 恢复图片数据
-    ;(window as any).__momentImages = savedMomentImages
-    console.log(`✅ [朋友圈导演] 已恢复图片数据`)
-    
-    // 构造兼容的数据格式
-    const data = {
-      choices: [{
-        message: {
-          content: response.content,
-          reasoning_content: null // callAIApi不返回reasoning
-        }
-      }],
-      usage: response.usage
-    }
-    
-    // 🔥 TODO: 解析AI识别结果并保存到缓存
-    // 这里需要从AI的回复中提取图片描述，然后保存到imageCache中
-    // 格式：图1-1: 粉色像素猫咪 → 保存到缓存
-    console.log(`💾 [朋友圈导演] TODO: 解析AI识别结果并保存到缓存，供下次使用`)
-    
     console.log('\n' + '='.repeat(80))
     console.log('📦 API返回的完整数据')
     console.log('='.repeat(80))
-    console.log(JSON.stringify(data, null, 2))
+    console.log(JSON.stringify({ content: response.content, usage: response.usage }, null, 2))
     console.log('='.repeat(80) + '\n')
-    
-    // 提取内容和思考过程
-    const message = data.choices?.[0]?.message
-    const content = message?.content || ''
-    const reasoning = message?.reasoning_content || null
-    const usage = data.usage
     
     console.log('\n' + '='.repeat(80))
     console.log('💬 AI导演的回复内容')
     console.log('='.repeat(80))
-    console.log(content)
+    console.log(response.content)
     console.log('='.repeat(80) + '\n')
     
-    if (reasoning) {
-      console.log('\n' + '🧠'.repeat(40))
-      console.log('🧠 AI导演的思考过程（reasoning）')
-      console.log('🧠'.repeat(40))
-      console.log(reasoning)
-      console.log('🧠'.repeat(40) + '\n')
-    }
-    
-    if (usage) {
-      console.log('\n📊 Token使用统计:')
-      console.log(`  输入: ${usage.prompt_tokens} tokens`)
-      console.log(`  输出: ${usage.completion_tokens} tokens`)
-      console.log(`  总计: ${usage.total_tokens} tokens\n`)
+    if (response.usage) {
+      console.log(`\n📊 Token使用统计:`)
+      console.log(`  输入: ${response.usage.prompt_tokens || 0} tokens`)
+      console.log(`  输出: ${response.usage.completion_tokens || 0} tokens`)
+      console.log(`  总计: ${response.usage.total_tokens || 0} tokens\n`)
     }
     
     // 解析响应
-    const scene = parseDirectorResponse(content)
+    const scene = parseDirectorResponse(response.content)
     
     if (scene) {
       console.log('🎬 场景编排完成:', scene)
@@ -421,91 +338,12 @@ export async function aiDirectorArrangeScene(
     
     return scene
   } catch (error) {
-    // 🔥 错误时也要恢复图片数据
-    ;(window as any).__momentImages = savedMomentImages
-    console.log(`✅ [朋友圈导演] 错误处理：已恢复图片数据`)
     console.error('❌ 场景编排失败:', error)
     return null
   }
 }
 
-/**
- * 执行单个动作
- */
-function executeAction(
-  action: AIAction,
-  moment: Moment,
-  characters: any[],
-  allActions: AIAction[]
-): void {
-  // 检查是否是NPC（ID格式: npc-所属角色ID-NPC名字）
-  const isNPC = action.characterId.startsWith('npc-')
-  
-  if (isNPC) {
-    // NPC动作，构造虚拟角色对象
-    const npcParts = action.characterId.split('-')
-    const npcName = npcParts.slice(2).join('-')  // 支持名字中有连字符
-    
-    console.log(`👤 检测到NPC互动: ${npcName}`)
-    
-    const virtualCharacter = {
-      id: action.characterId,
-      realName: npcName,
-      nickname: npcName,
-      avatar: '👤'  // NPC默认头像
-    }
-    
-    // 执行NPC动作（只支持点赞和评论，不支持私聊）
-    switch (action.action) {
-      case 'like':
-        executeLikeAction(action, moment, virtualCharacter)
-        break
-      case 'comment':
-        executeCommentAction(action, moment, virtualCharacter, allActions)
-        break
-      case 'none':
-        console.log(`👀 NPC ${npcName} 选择沉默`)
-        break
-      default:
-        console.warn(`⚠️ NPC不支持此动作: ${action.action}`)
-    }
-    return
-  }
-  
-  // 普通角色处理
-  let character = characters.find(c => c.id === action.characterId)
-  
-  if (!character) {
-    // 尝试通过角色名查找（优先匹配网名）
-    character = characters.find(c => 
-      c.nickname === action.characterName || 
-      c.realName === action.characterName
-    )
-  }
-  
-  if (!character) {
-    console.error(`❌ 找不到角色: ID=${action.characterId}, Name=${action.characterName}`)
-    console.log('可用角色:', characters.map(c => ({ id: c.id, name: c.nickname || c.realName })))
-    return
-  }
-  
-  console.log(`✅ 找到角色: ${character.nickname || character.realName} (ID: ${character.id})`)
-  
-  switch (action.action) {
-    case 'like':
-      executeLikeAction(action, moment, character)
-      break
-    case 'comment':
-      executeCommentAction(action, moment, character, allActions)
-      break
-    case 'dm':
-      executeDMAction(action, character, moment)
-      break
-    case 'none':
-      console.log(`👀 ${action.characterName} 选择沉默`)
-      break
-  }
-}
+// executeAction 函数已移至 actionScheduler.ts，现在使用持久化调度
 
 /**
  * 触发AI朋友圈互动
@@ -557,15 +395,15 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
     console.log(`📋 共编排了 ${scene.actions.length} 个动作`)
     console.log('✨'.repeat(40) + '\n')
     
-    // 按照导演编排的剧本执行
+    // 按照导演编排的剧本调度动作（使用持久化调度器）
     console.log('📅 动作时间表:')
     scene.actions.forEach((action: AIAction, index: number) => {
-      const delay = (action.delay || 0) * 1000
+      const delay = action.delay || 0
       
       const actionText = action.action === 'like' ? '点赞' : 
                          action.action === 'comment' ? '评论' : 
                          action.action === 'dm' ? '私聊' : '不互动'
-      console.log(`\n${index + 1}. ⏱️ ${action.characterName} - ${action.delay}秒后${actionText}`)
+      console.log(`\n${index + 1}. ⏱️ ${action.characterName} - ${delay}秒后${actionText}`)
       console.log(`   📝 理由: ${action.reason}`)
       if (action.commentContent) {
         console.log(`   💬 评论: ${action.commentContent}`)
@@ -577,12 +415,8 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
         console.log(`   📱 私聊: ${action.dmContent}`)
       }
       
-      setTimeout(() => {
-        console.log(`\n${'▶️'.repeat(20)}`)
-        console.log(`▶️  执行动作: ${action.characterName} ${actionText}`)
-        console.log(`${'▶️'.repeat(20)}`)
-        executeAction(action, newMoment, characters, scene.actions)
-      }, delay)
+      // 🔥 使用持久化调度器，防止页面刷新导致定时器丢失
+      scheduleAction(action, newMoment, delay, characters, scene.actions)
     })
   }, 3000)  // 3秒后让导演开始工作
 }

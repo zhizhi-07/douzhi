@@ -42,29 +42,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
   )
 
   // 预设头像框样式
-  const presets = [
-    {
-      name: '霓虹发光',
-      userCSS: `
-        border: 2px solid #00ffff !important;
-        box-shadow: 
-          0 0 5px #00ffff,
-          0 0 10px #00ffff,
-          0 0 20px #00ffff,
-          inset 0 0 10px rgba(0, 255, 255, 0.2) !important;
-        animation: neon-pulse 2s ease-in-out infinite !important;
-      `,
-      aiCSS: `
-        border: 2px solid #ff00ff !important;
-        box-shadow: 
-          0 0 5px #ff00ff,
-          0 0 10px #ff00ff,
-          0 0 20px #ff00ff,
-          inset 0 0 10px rgba(255, 0, 255, 0.2) !important;
-        animation: neon-pulse 2s ease-in-out infinite !important;
-      `
-    },
-  ]
+  const presets: Array<{name: string, userCSS: string, aiCSS: string}> = []
 
   // 应用预设
   const applyPreset = (preset: typeof presets[0]) => {
@@ -161,25 +139,27 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
         </div>
       </div>
       
-      {/* 预设样式 */}
-      <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-3">预设样式</div>
-        <div className="grid grid-cols-3 gap-2">
-          {presets.map((preset, index) => (
-            <button
-              key={index}
-              onClick={() => applyPreset(preset)}
-              className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 active:scale-95 transition-all"
-            >
-              <div className="text-xs font-medium text-gray-700 mb-2">{preset.name}</div>
-              <div className="flex justify-center">
-                <style>{`.preset-avatar-${index} { ${preset.userCSS} }`}</style>
-                <div className={`preset-avatar-${index} w-10 h-10 rounded-lg bg-white border border-gray-200`} />
-              </div>
-            </button>
-          ))}
+      {/* 预设样式 - 已移除 */}
+      {presets.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs text-gray-500 mb-3">预设样式</div>
+          <div className="grid grid-cols-3 gap-2">
+            {presets.map((preset, index) => (
+              <button
+                key={index}
+                onClick={() => applyPreset(preset)}
+                className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 active:scale-95 transition-all"
+              >
+                <div className="text-xs font-medium text-gray-700 mb-2">{preset.name}</div>
+                <div className="flex justify-center">
+                  <style>{`.preset-avatar-${index} { ${preset.userCSS} }`}</style>
+                  <div className={`preset-avatar-${index} w-10 h-10 rounded-lg bg-white border border-gray-200`} />
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* 图片装饰框 */}
       <div className="mb-4">

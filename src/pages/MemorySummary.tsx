@@ -26,6 +26,8 @@ const MemorySummary = () => {
   const [timeline, setTimeline] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string>('')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTimeline, setEditedTimeline] = useState<string>('')
   
   // 从 localStorage 加载时间线
   useEffect(() => {
@@ -191,9 +193,9 @@ const MemorySummary = () => {
   
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* 顶部导航栏 */}
-      <StatusBar />
-      <div className="bg-white">
+      {/* 顶部导航栏 - 状态栏和导航合并 */}
+      <div className="bg-white border-b border-gray-200/50">
+        <StatusBar />
         <div className="flex items-center justify-between px-4 py-3">
           <button 
             onClick={() => navigate(-1)}
@@ -253,12 +255,59 @@ const MemorySummary = () => {
           <div>
             {/* 时间线内容 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                📅 互动时间线
-              </h2>
-              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-mono text-sm">
-                {timeline}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  📅 互动时间线
+                </h2>
+                {!isEditing ? (
+                  <button
+                    onClick={() => {
+                      setIsEditing(true)
+                      setEditedTimeline(timeline)
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    编辑
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setIsEditing(false)
+                        setEditedTimeline('')
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (id) {
+                          setTimeline(editedTimeline)
+                          localStorage.setItem(`memory_timeline_${id}`, editedTimeline)
+                          setIsEditing(false)
+                          console.log('✅ 时间线已保存')
+                        }
+                      }}
+                      className="text-sm text-green-600 hover:text-green-700 font-medium"
+                    >
+                      保存
+                    </button>
+                  </div>
+                )}
               </div>
+              {!isEditing ? (
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-mono text-sm">
+                  {timeline}
+                </div>
+              ) : (
+                <textarea
+                  value={editedTimeline}
+                  onChange={(e) => setEditedTimeline(e.target.value)}
+                  className="w-full h-96 px-4 py-3 bg-gray-50 rounded-lg font-mono text-sm text-gray-700 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="编辑时间线内容..."
+                />
+              )}
             </div>
             
             {/* 重新生成按钮 */}

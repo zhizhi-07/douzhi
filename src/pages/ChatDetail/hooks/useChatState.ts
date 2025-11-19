@@ -86,15 +86,15 @@ export const useChatState = (chatId: string) => {
       const total = await getMessageCount(chatId)
       setTotalMessageCount(total)
 
-      // 🔥 修复：刷新后加载所有消息，而不是只加载最近30条
-      // 这样用户刷新后不会丢失之前看到的消息
+      // 🔥 分页加载优化：初次只加载30条，避免卡顿
+      const INITIAL_LOAD_COUNT = 30
       const { messages: initialMessages, hasMore } = await loadMessagesPaginated(
         chatId,
-        total, // 加载所有消息
+        Math.min(INITIAL_LOAD_COUNT, total), // 加载30条或全部（如果少于30条）
         0
       )
 
-      console.log(`📨 [分页加载] 初次加载所有消息: chatId=${chatId}, 加载=${initialMessages.length}, 总数=${total}, 还有更多=${hasMore}`)
+      console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}/${total}, 还有更多=${hasMore}`)
 
       // 🔥 关键修复：只有当加载到消息时才设置状态，防止空数组覆盖
       if (initialMessages.length > 0 || total === 0) {
