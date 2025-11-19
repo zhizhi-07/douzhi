@@ -533,16 +533,11 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const isEarlyConversation = totalNonSystemMsgs < 6
 
   // 获取或生成AI状态
-  const { getOrCreateAIStatus, formatStatusShort, getForceUpdateFlag, clearForceUpdateFlag } = await import('./aiStatusManager')
+  const { getOrCreateAIStatus, formatStatusShort, getForceUpdateFlag } = await import('./aiStatusManager')
   const aiStatus = getOrCreateAIStatus(character.id, charName)
   const statusText = aiStatus ? formatStatusShort(aiStatus) : '状态已过期'
   const statusExpired = !aiStatus // 标记状态是否过期
   const forceUpdateStatus = getForceUpdateFlag(character.id) // 检查是否需要强制更新状态
-  
-  // 如果有强制更新标记，在AI回复后清除
-  if (forceUpdateStatus) {
-    setTimeout(() => clearForceUpdateFlag(character.id), 1000)
-  }
 
   // 获取世界书内容
   const { lorebookManager } = await import('./lorebookSystem')

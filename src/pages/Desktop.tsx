@@ -7,6 +7,7 @@ import { page1Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
 import { getCustomIcon } from '../utils/iconManager'
 import { playSystemSound } from '../utils/soundManager'
+import { getBackground } from '../utils/backgroundStorage'
 import '../css/character-card.css'
 
 const Desktop = () => {
@@ -32,6 +33,10 @@ const Desktop = () => {
   const [memoText, setMemoText] = useState(() => {
     return localStorage.getItem('desktop_memo') || '今天要做的事情...'
   })
+  const [memoBg, setMemoBg] = useState('')
+  const [showMemoHeader, setShowMemoHeader] = useState(() => {
+    return localStorage.getItem('show_memo_header') !== 'false'
+  })
   const [isEditingMemo, setIsEditingMemo] = useState(false)
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -41,6 +46,22 @@ const Desktop = () => {
       setCurrentTime(new Date())
     }, 1000)
     return () => clearInterval(timer)
+  }, [])
+  
+  // 加载备忘录背景
+  useEffect(() => {
+    const loadMemoBg = async () => {
+      const bg = await getBackground('memo')
+      if (bg) setMemoBg(bg)
+    }
+    loadMemoBg()
+    
+    const handleBgUpdate = async () => {
+      const bg = await getBackground('memo')
+      setMemoBg(bg || '')
+    }
+    window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
   }, [])
   
   // 监听图标变化
@@ -192,34 +213,50 @@ const Desktop = () => {
               {/* 蓝色 - 备忘录widget (右下角) */}
               <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
                 <div 
-                  className="w-full h-full rounded-2xl overflow-hidden flex flex-col"
+                  className="w-full h-full flex flex-col"
                   style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-                    border: '0.5px solid rgba(0, 0, 0, 0.04)'
+                    backgroundImage: memoBg ? `url(${memoBg})` : 'none',
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)'
+                  }}
+                  onDoubleClick={() => {
+                    const newValue = !showMemoHeader
+                    setShowMemoHeader(newValue)
+                    localStorage.setItem('show_memo_header', String(newValue))
                   }}
                 >
-                  {/* 顶部标题栏 */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-gray-900">
-                        {currentTime.toLocaleDateString('zh-CN', { weekday: 'long' })}
-                      </span>
-                      <span className="text-[10px] text-gray-500">
-                        {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      </span>
+                  {/* 顶部标题栏 - 可通过双击切换显示 */}
+                  {showMemoHeader && (
+                    <div 
+                      className="flex items-center justify-between px-3 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        setIsEditingMemo(true)
+                        setTimeout(() => memoTextareaRef.current?.focus(), 0)
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-gray-900">
+                          {currentTime.toLocaleDateString('zh-CN', { weekday: 'long' })}
+                        </span>
+                        <span className="text-[10px] text-gray-500">
+                          {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </span>
+                      </div>
+                      <span className="text-xs text-blue-500 font-medium">Edit</span>
                     </div>
-                    <span className="text-xs text-blue-500 font-medium">Edit</span>
-                  </div>
+                  )}
                   
                   {/* 内容区域 */}
                   <div 
                     className="flex-1 px-3 py-2 cursor-text"
-                    onClick={() => {
-                      setIsEditingMemo(true)
-                      setTimeout(() => memoTextareaRef.current?.focus(), 0)
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!isEditingMemo) {
+                        setIsEditingMemo(true)
+                        setTimeout(() => memoTextareaRef.current?.focus(), 0)
+                      }
                     }}
                   >
                     {isEditingMemo ? (
@@ -301,14 +338,21 @@ const Desktop = () => {
                 
                 {/* 美化图标 */}
                 <div 
+                  key={`decoration-${iconRefresh}`}
                   className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                   onClick={() => navigate('/decoration')}
                 >
-                  <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-300">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                  </div>
+                  {getCustomIcon('decoration') ? (
+                    <div className="w-16 h-16 flex items-center justify-center">
+                      <img src={getCustomIcon('decoration')!} alt="美化" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-300">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                      </svg>
+                    </div>
+                  )}
                   <span className="text-xs text-gray-700 text-center font-medium">
                     美化
                   </span>
@@ -345,11 +389,11 @@ const Desktop = () => {
                     className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform"
                   >
                     {customIcon ? (
-                      <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border border-white/30">
-                        <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                      <div className="w-14 h-14 flex items-center justify-center">
+                        <img src={customIcon} alt={app.name} className="w-full h-full object-contain" />
                       </div>
                     ) : isImageIcon ? (
-                      <div className="w-14 h-14">
+                      <div className="w-14 h-14 flex items-center justify-center">
                         <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                       </div>
                     ) : (

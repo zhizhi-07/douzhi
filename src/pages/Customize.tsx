@@ -55,12 +55,6 @@ const Customize = () => {
       route: '/sound-customizer'
     },
     {
-      id: 'icon',
-      name: '图标设置',
-      description: '自定义应用图标',
-      route: '/icon-customizer'
-    },
-    {
       id: 'data',
       name: '数据管理',
       description: '导出、导入、清除数据',

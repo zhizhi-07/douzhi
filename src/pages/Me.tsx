@@ -2,11 +2,13 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, type UserInfo } from '../utils/userUtils'
+import { getAllUIIcons } from '../utils/iconStorage'
 
 const Me = () => {
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
   const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
 
   // 监听storage变化，实时更新用户信息
   useEffect(() => {
@@ -32,6 +34,22 @@ const Me = () => {
     const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
     window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
+  }, [])
+  
+  // 加载自定义图标
+  useEffect(() => {
+    const loadIcons = async () => {
+      const icons = await getAllUIIcons()
+      setCustomIcons(icons)
+    }
+    loadIcons()
+    
+    const handleIconChange = async () => {
+      const icons = await getAllUIIcons()
+      setCustomIcons(icons)
+    }
+    window.addEventListener('iconChanged', handleIconChange)
+    return () => window.removeEventListener('iconChanged', handleIconChange)
   }, [])
 
   const menuGroups = [
@@ -73,7 +91,14 @@ const Me = () => {
       style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
     >
       {/* 顶部 */}
-      <div className="glass-effect">
+      <div 
+        className="glass-effect relative"
+        style={customIcons['main-topbar-bg'] ? {
+          backgroundImage: `url(${customIcons['main-topbar-bg']})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        } : {}}
+      >
         <StatusBar />
         <div className="px-5 py-3">
           <div className="flex items-center justify-between mb-3">
@@ -167,27 +192,43 @@ const Me = () => {
         <div className="glass-card rounded-[48px] shadow-lg">
           <div className="grid grid-cols-4 h-14 px-2">
             <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-              </svg>
+              {customIcons['nav-chat'] ? (
+                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover" />
+              ) : (
+                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                </svg>
+              )}
               <span className="text-xs">微信</span>
             </button>
             <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
-              </svg>
+              {customIcons['nav-contacts'] ? (
+                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover" />
+              ) : (
+                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
+                </svg>
+              )}
               <span className="text-xs">通讯录</span>
             </button>
             <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+              {customIcons['nav-discover'] ? (
+                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover" />
+              ) : (
+                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              )}
               <span className="text-xs">发现</span>
             </button>
             <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
-              <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+              {customIcons['nav-me'] ? (
+                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover" />
+              ) : (
+                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              )}
               <span className="text-xs font-medium">我</span>
             </button>
           </div>

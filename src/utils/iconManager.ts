@@ -23,19 +23,12 @@ export const getCustomIcon = (appId: string): string | null => {
     const saved = localStorage.getItem('custom_icons')
     if (!saved) return null
     
-    const configs: IconConfig[] = JSON.parse(saved)
-    
-    // 映射应用ID
+    const configs: any[] = JSON.parse(saved)
     const mappedId = APP_ID_MAP[appId] || appId
-    
-    // 查找对应的图标配置
     const config = configs.find(c => c.appId === mappedId)
+    const iconData = config?.icon || config?.customIcon
     
-    if (config?.customIcon) {
-      console.log(`🎨 找到自定义图标: ${appId} -> ${mappedId}`)
-    }
-    
-    return config?.customIcon || null
+    return iconData || null
   } catch (error) {
     console.error('获取自定义图标失败:', error)
     return null

@@ -3,7 +3,7 @@
  * 不依赖复杂的状态管理，直接操作localStorage
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { getApiSettings, buildSystemPrompt, callAIApi } from '../../../utils/chatApi'
 import { loadMessages, addMessage, createTextMessage } from '../../../utils/simpleMessageManager'
@@ -69,10 +69,25 @@ export const useSimpleChatAI = (
       const apiMessages = convertToApiMessages(recentMessages)
 
       const systemPrompt = await buildSystemPrompt(character)
-      const aiReply = await callAIApi(
+      const apiResponse = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings
       )
+      const aiReply = apiResponse.content
+
+      // 🔥 提取并保存AI状态更新
+      const { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } = await import('../../../utils/aiStatusManager')
+      const statusUpdate = extractStatusFromReply(aiReply, character.id)
+      if (statusUpdate) {
+        setAIStatus(statusUpdate)
+        console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
+        
+        // 如果有强制更新标记，清除它
+        if (getForceUpdateFlag(character.id)) {
+          clearForceUpdateFlag(character.id)
+          console.log('✅ [状态修正] AI已响应状态修正要求，清除标记')
+        }
+      }
 
       // 创建AI消息并立即保存
       const aiMessage = createTextMessage(aiReply, 'received')

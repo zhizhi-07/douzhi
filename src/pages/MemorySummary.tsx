@@ -214,16 +214,22 @@ const MemorySummary = () => {
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {!timeline && !isGenerating && (
           // 初始状态
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-16 h-16 mb-4 bg-green-100 rounded-full flex items-center justify-center">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <h2 className="text-xl font-medium text-gray-900 mb-2">AI记忆生成</h2>
-            <p className="text-sm text-gray-500 mb-6 max-w-xs">
+            <p className="text-sm text-gray-500 mb-4 max-w-xs">
               从聊天记录中提取记忆和时间线事件，让AI真正记住你
             </p>
+            <div className="bg-blue-50 rounded-lg p-3 mb-6 max-w-sm">
+              <p className="text-xs text-blue-700 leading-relaxed">
+                💡 此功能需要使用<span className="font-medium">副API（智能总结API）</span>
+                <br />请先在系统设置中配置副API
+              </p>
+            </div>
             <button
               onClick={generateTimeline}
               className="px-6 py-2.5 bg-green-500 text-white rounded-lg text-sm font-medium active:scale-95 transition-transform"
@@ -245,8 +251,16 @@ const MemorySummary = () => {
         {error && (
           // 错误提示
           <div className="bg-red-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-red-900 mb-1">生成失败</h3>
-            <p className="text-xs text-red-700">{error}</p>
+            <h3 className="text-sm font-medium text-red-900 mb-2">生成失败</h3>
+            <p className="text-xs text-red-700 mb-3">{error}</p>
+            {error.includes('副API') && (
+              <button
+                onClick={() => navigate('/settings')}
+                className="text-xs text-blue-600 hover:text-blue-700 underline"
+              >
+                去配置副API →
+              </button>
+            )}
           </div>
         )}
         

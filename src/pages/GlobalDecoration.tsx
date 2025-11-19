@@ -69,7 +69,7 @@ const iconNameMap: Record<string, string> = {
   'forum': '论坛',
   'aiphone': '查手机',
   'api-config': 'API',
-  'map': '地图'
+  'global-memory': '记忆'
 }
 
 const GlobalDecoration = () => {
@@ -227,10 +227,20 @@ const GlobalDecoration = () => {
             return
           }
 
+          // 如果是PNG，保持透明背景
+          const isPNG = file.type === 'image/png'
+          if (!isPNG) {
+            // 非PNG图片，填充白色背景
+            ctx.fillStyle = '#FFFFFF'
+            ctx.fillRect(0, 0, width, height)
+          }
+
           ctx.drawImage(img, 0, 0, width, height)
           
-          // 转换为base64，使用quality控制质量
-          const compressedBase64 = canvas.toDataURL('image/jpeg', quality)
+          // 根据原始格式选择输出格式
+          // PNG保留透明通道，其他格式转JPEG
+          const outputFormat = isPNG ? 'image/png' : 'image/jpeg'
+          const compressedBase64 = canvas.toDataURL(outputFormat, quality)
           resolve(compressedBase64)
         }
         img.onerror = () => reject(new Error('图片加载失败'))
@@ -286,7 +296,7 @@ const GlobalDecoration = () => {
       console.log('✅ 文件读取成功，更新图标:', currentEditingIcon)
       
       // 判断是桌面应用图标还是UI图标
-      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'forum', 'aiphone', 'api-config', 'map']
+      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'forum', 'aiphone', 'api-config', 'global-memory']
       
       if (desktopAppIds.includes(currentEditingIcon)) {
         // 桌面应用图标
@@ -305,10 +315,11 @@ const GlobalDecoration = () => {
         
         // 同时备份到localStorage
         localStorage.setItem('custom_icons', JSON.stringify(newDesktopIcons))
+        console.log('💾 已保存到localStorage custom_icons:', newDesktopIcons)
         
-        // 触发事件
-        await saveDesktopIconsToStorage()
-        console.log('✅ 桌面图标已上传:', currentEditingIcon)
+        // 触发事件通知Desktop更新
+        window.dispatchEvent(new CustomEvent('iconChanged'))
+        console.log('✅ 桌面图标已上传并触发事件:', currentEditingIcon)
       } else {
         // UI图标
         await saveUIIcon(currentEditingIcon, result)
@@ -785,21 +796,27 @@ const GlobalDecoration = () => {
       { id: 'forum', name: '论坛' },
       { id: 'aiphone', name: '查手机' },
       { id: 'api-config', name: 'API' },
-      { id: 'map', name: '地图' },
+      { id: 'global-memory', name: '记忆' },
     ]
     
     const getDesktopIcon = (appId: string) => {
-      return desktopIcons.find(item => item.appId === appId)?.icon
+      const icon = desktopIcons.find(item => item.appId === appId)?.icon
+      if (icon) {
+        console.log('🎨 桌面预览找到图标:', appId)
+      }
+      return icon
     }
     
     return (
       <div className="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col p-4">
         <div className="text-center mb-4">
-          <h3 className="text-sm font-medium text-gray-700">桌面应用</h3>
+          <h3 className="text-sm font-medium text-gray-700">桌面应用 ({desktopIcons.length}个已自定义)</h3>
         </div>
         <div className="grid grid-cols-4 gap-4 flex-1 content-start">
-          {apps.map(app => (
-            <div key={app.id} className="flex flex-col items-center gap-2">
+          {apps.map(app => {
+            const hasIcon = !!getDesktopIcon(app.id)
+            return (
+            <div key={`${app.id}-${hasIcon}`} className="flex flex-col items-center gap-2">
               <div
                 className="w-12 h-12 bg-white/80 backdrop-blur rounded-2xl cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center shadow-lg transition-all active:scale-95"
                 onClick={(e) => {
@@ -821,7 +838,8 @@ const GlobalDecoration = () => {
               </div>
               <span className="text-[10px] text-gray-700 text-center">{app.name}</span>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
@@ -912,85 +930,108 @@ const GlobalDecoration = () => {
       </div>
 
       {/* 主要内容 - 适配手机端 */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-auto">
-        <div className="bg-white rounded-3xl shadow-xl p-4 md:p-8 w-full max-w-4xl lg:flex lg:gap-8 lg:items-center">
+      <div className="flex-1 flex items-start justify-center p-4 md:p-8 overflow-auto">
+        <div className="bg-white rounded-3xl shadow-xl p-4 md:p-8 w-full max-w-4xl lg:flex lg:gap-8">
           {/* 手机预览框 */}
-          <div className="relative mx-auto lg:mx-0 mb-6 lg:mb-0">
-            <div className="w-[320px] h-[568px] md:w-[375px] md:h-[667px] bg-white border-2 border-gray-300 rounded-[3rem] p-3 shadow-2xl mx-auto">
-              <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
-                {/* 界面内容 */}
-                {currentView === 'main' ? <MainView /> : currentView === 'chat' ? <ChatView /> : <DesktopView />}
-              </div>
+          <div className="w-[320px] h-[568px] md:w-[375px] md:h-[667px] bg-white border-2 border-gray-300 rounded-[3rem] p-3 shadow-2xl mx-auto lg:mx-0 mb-6 lg:mb-0 flex-shrink-0">
+            <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden">
+              {currentView === 'main' ? <MainView /> : currentView === 'chat' ? <ChatView /> : <DesktopView />}
             </div>
           </div>
 
           {/* 说明文字 - 手机端居中 */}
-          <div className="text-center lg:text-left max-w-xs mx-auto lg:mx-0">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-3 md:mb-4">自定义图标</h2>
-            <p className="text-xs md:text-sm text-gray-600 mb-3 md:mb-4">
-              点击预览中的任意<strong>灰色图标</strong>即可上传图片进行替换。支持 PNG、JPG、GIF 格式。
-            </p>
-            
-            {/* 控制按钮 */}
-            {currentView === 'chat' && (
-              <div className="mb-4 space-y-2">
+          <div className="text-center lg:text-left max-w-xs mx-auto lg:mx-0 flex flex-col">
+            <div className="flex-shrink-0">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">自定义图标</h2>
+              <p className="text-xs md:text-sm text-gray-600 mb-2">
+                点击预览中的任意<strong>灰色图标</strong>即可上传图片进行替换。支持 PNG、JPG、GIF 格式。
+              </p>
+              
+              {/* 控制按钮 */}
+              {currentView === 'chat' && (
+                <div className="mb-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="hasInput"
+                      checked={hasInput}
+                      onChange={(e) => setHasInput(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="hasInput" className="text-xs text-gray-600">
+                      切换为发送按钮（有输入时）
+                    </label>
+                  </div>
+                  <div className="text-xs text-gray-500 ml-5">
+                    未勾选时显示AI回复按钮
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="showMenu"
+                      checked={showAddMenu}
+                      onChange={(e) => setShowAddMenu(e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="showMenu" className="text-xs text-gray-600">
+                      显示加号功能菜单
+                    </label>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1.5 text-left mb-3">
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="hasInput"
-                    checked={hasInput}
-                    onChange={(e) => setHasInput(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="hasInput" className="text-xs text-gray-600">
-                    切换为发送按钮（有输入时）
-                  </label>
-                </div>
-                <div className="text-xs text-gray-500 ml-5 mb-2">
-                  未勾选时显示AI回复按钮
+                  <div className="w-3 h-3 md:w-4 md:h-4 bg-blue-500 rounded"></div>
+                  <span className="text-xs md:text-sm text-gray-600">可点击替换的图标</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="showMenu"
-                    checked={showAddMenu}
-                    onChange={(e) => setShowAddMenu(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="showMenu" className="text-xs text-gray-600">
-                    显示加号功能菜单
-                  </label>
+                  <div className="w-3 h-3 md:w-4 md:h-4 bg-gray-300 rounded"></div>
+                  <span className="text-xs md:text-sm text-gray-600">默认图标样式</span>
                 </div>
-              </div>
-            )}
-            <div className="space-y-2 text-left">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 md:w-4 md:h-4 bg-blue-500 rounded"></div>
-                <span className="text-xs md:text-sm text-gray-600">可点击替换的图标</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 md:w-4 md:h-4 bg-gray-300 rounded"></div>
-                <span className="text-xs md:text-sm text-gray-600">默认图标样式</span>
               </div>
             </div>
             
-            <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t min-h-[200px]">
-              {(Object.keys(customIcons).length > 0 || desktopIcons.length > 0) ? (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs md:text-sm font-medium text-gray-700">
-                      已自定义 {Object.keys(customIcons).length + desktopIcons.length} 个图标
-                    </p>
-                    <div className="text-xs text-gray-500">
-                      存储: {storageUsage.used.toFixed(2)}MB / {storageUsage.total}MB
-                      <span className={`ml-1 ${storageUsage.used / storageUsage.total > 0.8 ? 'text-red-500' : 'text-green-500'}`}>
-                        ({((storageUsage.used / storageUsage.total) * 100).toFixed(0)}%)
-                      </span>
+            <div className="flex-1 pt-3 border-t flex flex-col min-h-0">
+              {(() => {
+                // 根据当前视图过滤图标
+                let filteredUIIcons: string[] = []
+                let filteredDesktopIcons = desktopIcons
+                
+                if (currentView === 'desktop') {
+                  // 桌面视图只显示桌面图标
+                  filteredUIIcons = []
+                } else if (currentView === 'main') {
+                  // 主界面视图只显示主界面相关的UI图标
+                  filteredUIIcons = Object.keys(customIcons).filter(key => 
+                    key.startsWith('main-') || key.startsWith('avatar-') || key.startsWith('nav-')
+                  )
+                  filteredDesktopIcons = []
+                } else if (currentView === 'chat') {
+                  // 聊天界面视图只显示聊天界面相关的UI图标
+                  filteredUIIcons = Object.keys(customIcons).filter(key => 
+                    key.startsWith('chat-') || key.startsWith('menu-')
+                  )
+                  filteredDesktopIcons = []
+                }
+                
+                const totalCount = filteredUIIcons.length + filteredDesktopIcons.length
+                
+                return totalCount > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                      <p className="text-xs md:text-sm font-medium text-gray-700">
+                        已自定义 {totalCount} 个图标
+                      </p>
+                      <div className="text-xs text-gray-500">
+                        存储: {storageUsage.used.toFixed(2)}MB / {storageUsage.total}MB
+                        <span className={`ml-1 ${storageUsage.used / storageUsage.total > 0.8 ? 'text-red-500' : 'text-green-500'}`}>
+                          ({((storageUsage.used / storageUsage.total) * 100).toFixed(0)}%)
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-xs space-y-2 h-40 overflow-y-auto pr-2 custom-scrollbar">
-                    {/* UI图标 */}
-                    {Object.keys(customIcons).map(key => (
+                    <div className="text-xs space-y-2 flex-1 min-h-0 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {/* UI图标 */}
+                      {filteredUIIcons.map(key => (
                       <div key={`ui-${key}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-2 flex-1">
                           <img src={customIcons[key]} alt={key} className="w-6 h-6 rounded object-cover flex-shrink-0" />
@@ -1007,47 +1048,48 @@ const GlobalDecoration = () => {
                           </svg>
                         </button>
                       </div>
-                    ))}
-                    {/* 桌面图标 */}
-                    {desktopIcons.map(item => {
-                      const appNames: Record<string, string> = {
-                        'wechat-app': '微信',
-                        'preset': '预设',
-                        'worldbook': '世界书',
-                        'music-app': '音乐',
-                        'customize': '系统设置',
-                        'decoration': '美化',
-                        'forum': '论坛',
-                        'aiphone': '查手机',
-                        'api-config': 'API',
-                        'map': '地图'
-                      }
-                      return (
-                        <div key={`desktop-${item.appId}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-2 flex-1">
-                            <img src={item.icon} alt={item.appId} className="w-6 h-6 rounded object-cover flex-shrink-0" />
-                            <span className="text-gray-700 font-medium">{appNames[item.appId] || item.appId}</span>
-                            <span className="text-[10px] text-gray-400 bg-purple-100 px-1.5 py-0.5 rounded">桌面</span>
+                      ))}
+                      {/* 桌面图标 */}
+                      {filteredDesktopIcons.map(item => {
+                        const appNames: Record<string, string> = {
+                          'wechat-app': '微信',
+                          'preset': '预设',
+                          'worldbook': '世界书',
+                          'music-app': '音乐',
+                          'customize': '系统设置',
+                          'decoration': '美化',
+                          'forum': '论坛',
+                          'aiphone': '查手机',
+                          'api-config': 'API',
+                          'global-memory': '记忆'
+                        }
+                        return (
+                          <div key={`desktop-${item.appId}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div className="flex items-center gap-2 flex-1">
+                              <img src={item.icon} alt={item.appId} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                              <span className="text-gray-700 font-medium">{appNames[item.appId] || item.appId}</span>
+                              <span className="text-[10px] text-gray-400 bg-purple-100 px-1.5 py-0.5 rounded">桌面</span>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteDesktopIcon(item.appId)}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                              title="删除"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleDeleteDesktopIcon(item.appId)}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                            title="删除"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-gray-400 text-sm py-8">
+                    暂无自定义图标
                   </div>
-                </>
-              ) : (
-                <div className="text-center text-gray-400 text-sm py-8">
-                  暂无自定义图标
-                </div>
-              )}
+                )
+              })()}
             </div>
           </div>
         </div>

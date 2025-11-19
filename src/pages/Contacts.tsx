@@ -84,7 +84,14 @@ const Contacts = () => {
       className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center page-fade-in"
       style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}>
       {/* 顶部 */}
-      <div className="glass-effect">
+      <div 
+        className="glass-effect relative"
+        style={customIcons['main-topbar-bg'] ? {
+          backgroundImage: `url(${customIcons['main-topbar-bg']})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        } : {}}
+      >
         <StatusBar />
         <div className="px-5 py-3">
           <div className="flex items-center justify-between mb-3">

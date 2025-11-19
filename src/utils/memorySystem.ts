@@ -91,6 +91,12 @@ export class MemorySystem {
       
       // 使用独立的副API配置
       const summaryApiConfig = summaryApiService.get()
+      
+      // 🔥 检查副API是否已配置
+      if (!summaryApiConfig.baseUrl || !summaryApiConfig.apiKey || !summaryApiConfig.model) {
+        throw new Error('请先在系统设置中配置副API（智能总结API）')
+      }
+      
       const summarySettings = {
         baseUrl: summaryApiConfig.baseUrl,
         apiKey: summaryApiConfig.apiKey,
@@ -751,6 +757,12 @@ ${characterDescription}
       
       // 使用副API
       const summaryApiConfig = summaryApiService.get()
+      
+      // 🔥 检查副API是否已配置
+      if (!summaryApiConfig.baseUrl || !summaryApiConfig.apiKey || !summaryApiConfig.model) {
+        throw new Error('请先在系统设置中配置副API（智能总结API）')
+      }
+      
       const summarySettings = {
         baseUrl: summaryApiConfig.baseUrl,
         apiKey: summaryApiConfig.apiKey,

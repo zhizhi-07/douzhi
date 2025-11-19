@@ -612,7 +612,7 @@ const ChatDetail = () => {
         }}
         tokenStats={chatAI.tokenStats}
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
-        topBarImage={chatDecorations.topBar}
+        topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         customIcons={customIcons}
       />
       

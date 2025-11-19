@@ -894,11 +894,17 @@ export const useChatAI = (
       }
 
       // 🔥 提取并保存AI状态更新
-      const { extractStatusFromReply, setAIStatus } = await import('../../../utils/aiStatusManager')
+      const { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } = await import('../../../utils/aiStatusManager')
       const statusUpdate = extractStatusFromReply(cleanedMessage, aiId)
       if (statusUpdate) {
         setAIStatus(statusUpdate)
         console.log('💫 [AI状态] 已更新状态:', statusUpdate.action)
+        
+        // 如果有强制更新标记，清除它
+        if (getForceUpdateFlag(aiId)) {
+          clearForceUpdateFlag(aiId)
+          console.log('✅ [状态修正] AI已响应状态修正要求，清除标记')
+        }
       }
 
       // 如果有朋友圈互动指令，执行它们

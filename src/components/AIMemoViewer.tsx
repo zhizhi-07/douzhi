@@ -17,6 +17,11 @@ const AIMemoViewer = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [memos, setMemos] = useState<AIMemo[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
+  
+  // 备忘录背景
+  const [memoBg, setMemoBg] = useState(() => {
+    return localStorage.getItem('memo_background') || ''
+  })
 
   // 加载角色信息和日期列表
   useEffect(() => {
@@ -35,6 +40,16 @@ const AIMemoViewer = () => {
       setMemos(todayMemos)
     }
   }, [id])
+
+  // 监听备忘录背景更新
+  useEffect(() => {
+    const handleBgUpdate = () => {
+      const bg = localStorage.getItem('memo_background') || ''
+      setMemoBg(bg)
+    }
+    window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
+  }, [])
 
   // 加载指定日期的备忘录
   const loadMemosForDate = (dateIndex: number) => {
@@ -88,7 +103,15 @@ const AIMemoViewer = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex flex-col">
+    <div 
+      className="h-screen flex flex-col"
+      style={{
+        backgroundImage: memoBg ? `url(${memoBg})` : 'linear-gradient(to bottom right, rgb(255 251 235), rgb(255 247 237), rgb(254 249 195))',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       {/* 顶部导航 */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-amber-200/50 sticky top-0 z-10">
         <StatusBar />

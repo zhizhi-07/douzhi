@@ -21,7 +21,7 @@ import { getEmojis } from '../../../utils/emojiStorage'
 import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { callMinimaxTTS } from '../../../utils/voiceApi'
 import { addAIMemo } from '../../../utils/aiMemoManager'
-import { extractStatusFromReply, setAIStatus } from '../../../utils/aiStatusManager'
+import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } from '../../../utils/aiStatusManager'
 import { generateAvatarForAI } from '../../../utils/imageGenerator'
 import { getUserInfo } from '../../../utils/userUtils'
 
@@ -1686,6 +1686,12 @@ export const statusHandler: CommandHandler = {
     if (statusUpdate) {
       setAIStatus(statusUpdate)
       console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
+      
+      // 如果有强制更新标记，清除它
+      if (getForceUpdateFlag(character.id)) {
+        clearForceUpdateFlag(character.id)
+        console.log('✅ [状态修正] AI已响应状态修正要求，清除标记')
+      }
     }
 
     const remainingText = content.replace(match[0], '').trim()

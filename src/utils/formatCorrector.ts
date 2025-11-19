@@ -24,6 +24,38 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 1. 引用格式修正 ==========
   
+  // 🔥 放宽规则：只要中括号里包含"引用"就修正
+  // 匹配：[引用xxx] 或 [xxx引用xxx] 等各种变体
+  fixed = fixed.replace(/\[([^[\]]*?引用[^[\]]*?)\]/g, (match, content) => {
+    // 提取引用内容：去掉"引用了xx消息"之类的前缀，提取核心内容
+    let cleaned = content
+      .replace(/引用了?(?:我|你)的?消息[:\：]?\s*/g, '')
+      .replace(/^引用[:\：]?\s*/g, '')
+      .replace(/[""]([^""]+)[""]/, '$1')  // 去掉引号
+      .trim()
+    
+    if (cleaned) {
+      corrections.push(`引用格式：统一为标准格式`)
+      return `[引用:${cleaned}]`
+    }
+    return match
+  })
+
+  // 🔥 全角：【引用xxx】
+  fixed = fixed.replace(/【([^【】]*?引用[^【】]*?)】/g, (match, content) => {
+    let cleaned = content
+      .replace(/引用了?(?:我|你)的?消息[:\：]?\s*/g, '')
+      .replace(/^引用[:\：]?\s*/g, '')
+      .replace(/[""]([^""]+)[""]/, '$1')
+      .trim()
+    
+    if (cleaned) {
+      corrections.push(`引用格式：统一为标准格式（全角）`)
+      return `【引用：${cleaned}】`
+    }
+    return match
+  })
+
   // 修正：[引用:xxx]\n文本 → [引用:xxx 回复:文本]
   // 匹配：[引用:关键词] 后跟换行或空白，再跟非括号文本
   fixed = fixed.replace(/(\[引用[:\：]\s*[^\]]+\])[\s\n]+([^\[]+?)(?=\n\[|$)/g, (_match, quote, reply) => {
@@ -50,66 +82,77 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 2. 状态格式修正 ==========
   
-  // 修正：[状态xxx] → [状态:xxx]（缺冒号）
-  fixed = fixed.replace(/\[状态([^\]:\：]+)\]/g, (_match, status) => {
-    if (status.trim()) {
-      corrections.push(`状态格式：补充冒号`)
-      return `[状态:${status.trim()}]`
+  // 🔥 只要包含"状态"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?状态[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^状态[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`状态格式：统一为标准格式`)
+      return `[状态:${cleaned}]`
     }
-    return `[状态${status}]`
+    return match
   })
 
-  // 修正：【状态xxx】 → 【状态：xxx】
-  fixed = fixed.replace(/【状态([^】:\：]+)】/g, (_match, status) => {
-    if (status.trim()) {
-      corrections.push(`状态格式：补充冒号（全角）`)
-      return `【状态：${status.trim()}】`
+  fixed = fixed.replace(/【([^【】]*?状态[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^状态[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`状态格式：统一为标准格式（全角）`)
+      return `【状态：${cleaned}】`
     }
-    return `【状态${status}】`
+    return match
   })
 
   // ========== 3. 语音格式修正 ==========
   
-  // 修正：[语音xxx] → [语音:xxx]
-  fixed = fixed.replace(/\[语音([^\]:\：]+)\]/g, (_match, content) => {
-    if (content.trim()) {
-      corrections.push(`语音格式：补充冒号`)
-      return `[语音:${content.trim()}]`
+  // 🔥 只要包含"语音"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?语音[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^语音[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`语音格式：统一为标准格式`)
+      return `[语音:${cleaned}]`
     }
-    return `[语音${content}]`
+    return match
   })
 
   // ========== 4. 照片格式修正 ==========
   
-  // 修正：[照片xxx] → [照片:xxx]
-  fixed = fixed.replace(/\[照片([^\]:\：]+)\]/g, (_match, desc) => {
-    if (desc.trim()) {
-      corrections.push(`照片格式：补充冒号`)
-      return `[照片:${desc.trim()}]`
+  // 🔥 只要包含"照片"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?照片[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content
+      .replace(/(?:你|我)发了?照片[:\：]?\s*/g, '')
+      .replace(/^照片[:\：]?\s*/g, '')
+      .trim()
+    if (cleaned) {
+      corrections.push(`照片格式：统一为标准格式`)
+      return `[照片:${cleaned}]`
     }
-    return `[照片${desc}]`
+    return match
   })
 
   // ========== 5. 位置格式修正 ==========
   
-  // 修正：[位置xxx] → [位置:xxx]
-  fixed = fixed.replace(/\[位置([^\]:\：]+)\]/g, (_match, place) => {
-    if (place.trim()) {
-      corrections.push(`位置格式：补充冒号`)
-      return `[位置:${place.trim()}]`
+  // 🔥 只要包含"位置"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?位置[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^位置[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`位置格式：统一为标准格式`)
+      return `[位置:${cleaned}]`
     }
-    return `[位置${place}]`
+    return match
   })
 
   // ========== 6. 表情格式修正 ==========
   
-  // 修正：[表情xxx] → [表情:xxx]
-  fixed = fixed.replace(/\[表情([^\]:\：]+)\]/g, (_match, desc) => {
-    if (desc.trim()) {
-      corrections.push(`表情格式：补充冒号`)
-      return `[表情:${desc.trim()}]`
+  // 🔥 只要包含"表情"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?表情(?:包)?[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content
+      .replace(/(?:你|我)发了?表情(?:包)?[:\：]?\s*/g, '')
+      .replace(/^表情(?:包)?[:\：]?\s*/g, '')
+      .trim()
+    if (cleaned) {
+      corrections.push(`表情格式：统一为标准格式`)
+      return `[表情:${cleaned}]`
     }
-    return `[表情${desc}]`
+    return match
   })
 
   // ========== 7. 转账格式修正 ==========
@@ -120,36 +163,94 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
     return `[转账:${amount}:${note.trim() || ''}]`
   })
 
+  // ========== 7.5. 亲密付格式修正 ==========
+  
+  // 修正：[亲密付3000] → [亲密付:3000]（缺冒号）
+  // 支持：[亲密付:月额度3000] → [亲密付:月额度:3000]
+  fixed = fixed.replace(/\[亲密付([^\]:\：]*?)(\d+\.?\d*)\]/g, (_match, prefix, amount) => {
+    const trimmedPrefix = prefix.trim()
+    if (trimmedPrefix) {
+      // 有前缀（如"月额度"），确保两个冒号都存在
+      corrections.push(`亲密付格式：补充冒号`)
+      return `[亲密付:${trimmedPrefix}:${amount}]`
+    } else {
+      // 无前缀，只需一个冒号
+      corrections.push(`亲密付格式：补充冒号`)
+      return `[亲密付:${amount}]`
+    }
+  })
+  
+  // 修正：【亲密付3000】 → 【亲密付：3000】
+  fixed = fixed.replace(/【亲密付([^】:\：]*?)(\d+\.?\d*)】/g, (_match, prefix, amount) => {
+    const trimmedPrefix = prefix.trim()
+    if (trimmedPrefix) {
+      corrections.push(`亲密付格式：补充冒号（全角）`)
+      return `【亲密付：${trimmedPrefix}：${amount}】`
+    } else {
+      corrections.push(`亲密付格式：补充冒号（全角）`)
+      return `【亲密付：${amount}】`
+    }
+  })
+
   // ========== 8. 随笔格式修正 ==========
   
-  // 修正：[随笔xxx] → [随笔:xxx]
-  fixed = fixed.replace(/\[随笔([^\]:\：]+)\]/g, (_match, content) => {
-    if (content.trim()) {
-      corrections.push(`随笔格式：补充冒号`)
-      return `[随笔:${content.trim()}]`
+  // 🔥 只要包含"随笔"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?随笔[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^随笔[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`随笔格式：统一为标准格式`)
+      return `[随笔:${cleaned}]`
     }
-    return `[随笔${content}]`
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?随笔[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^随笔[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`随笔格式：统一为标准格式（全角）`)
+      return `【随笔：${cleaned}】`
+    }
+    return match
   })
 
   // ========== 9. 外卖格式修正 ==========
   
-  // 修正：[外卖商品,价格备注] → [外卖:商品,价格:备注]
-  // 注意：这个比较复杂，先简单处理缺冒号的情况
-  fixed = fixed.replace(/\[外卖([^\]:\：]+)\]/g, (match, content) => {
-    if (content.includes(',') && !content.includes(':')) {
-      corrections.push(`外卖格式：补充冒号`)
-      return `[外卖:${content}]`
+  // 🔥 只要包含"外卖"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?外卖[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^外卖[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`外卖格式：统一为标准格式`)
+      return `[外卖:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?外卖[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^外卖[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`外卖格式：统一为标准格式（全角）`)
+      return `【外卖：${cleaned}】`
     }
     return match
   })
 
   // ========== 10. 代付格式修正 ==========
   
-  // 类似外卖
-  fixed = fixed.replace(/\[代付([^\]:\：]+)\]/g, (match, content) => {
-    if (content.includes(',') && !content.includes(':')) {
-      corrections.push(`代付格式：补充冒号`)
-      return `[代付:${content}]`
+  // 🔥 只要包含"代付"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?代付[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^代付[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`代付格式：统一为标准格式`)
+      return `[代付:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?代付[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^代付[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`代付格式：统一为标准格式（全角）`)
+      return `【代付：${cleaned}】`
     }
     return match
   })
@@ -199,6 +300,98 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
   fixed = fixed.replace(/\[切歌([^-:\：\]]+)-([^\]]+)\]/g, (_match, song, artist) => {
     corrections.push(`切歌格式：补充冒号`)
     return `[切歌:${song.trim()}:${artist.trim()}]`
+  })
+
+  // ========== 16. 帖子格式修正 ==========
+  
+  // 🔥 只要包含"帖子"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?帖子[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^帖子[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`帖子格式：统一为标准格式`)
+      return `[帖子:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?帖子[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^帖子[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`帖子格式：统一为标准格式（全角）`)
+      return `【帖子：${cleaned}】`
+    }
+    return match
+  })
+
+  // ========== 17. 相册格式修正 ==========
+  
+  // 🔥 只要包含"相册"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?相册[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^相册[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`相册格式：统一为标准格式`)
+      return `[相册:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?相册[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^相册[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`相册格式：统一为标准格式（全角）`)
+      return `【相册：${cleaned}】`
+    }
+    return match
+  })
+
+  // ========== 18. 留言格式修正 ==========
+  
+  // 🔥 只要包含"留言"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?留言[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content.replace(/^留言[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`留言格式：统一为标准格式`)
+      return `[留言:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?留言[^【】]*?)】/g, (match, content) => {
+    let cleaned = content.replace(/^留言[:\：]?\s*/g, '').trim()
+    if (cleaned) {
+      corrections.push(`留言格式：统一为标准格式（全角）`)
+      return `【留言：${cleaned}】`
+    }
+    return match
+  })
+
+  // ========== 19. 撤回消息格式修正 ==========
+  
+  // 🔥 只要包含"撤回"就修正
+  fixed = fixed.replace(/\[([^\[\]]*?撤回[^\[\]]*?)\]/g, (match, content) => {
+    let cleaned = content
+      .replace(/(?:我)?撤回(?:了)?(?:一条)?消息[:\：]?\s*/g, '')
+      .replace(/^撤回消息[:\：]?\s*/g, '')
+      .replace(/[""]/g, '')
+      .trim()
+    if (cleaned) {
+      corrections.push(`撤回消息格式：统一为标准格式`)
+      return `[撤回消息:${cleaned}]`
+    }
+    return match
+  })
+
+  fixed = fixed.replace(/【([^【】]*?撤回[^【】]*?)】/g, (match, content) => {
+    let cleaned = content
+      .replace(/(?:我)?撤回(?:了)?(?:一条)?消息[:\：]?\s*/g, '')
+      .replace(/^撤回消息[:\：]?\s*/g, '')
+      .replace(/[""]/g, '')
+      .trim()
+    if (cleaned) {
+      corrections.push(`撤回消息格式：统一为标准格式（全角）`)
+      return `【撤回消息：${cleaned}】`
+    }
+    return match
   })
 
   // ========== 完成修正 ==========
