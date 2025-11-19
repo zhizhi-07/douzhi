@@ -39,6 +39,7 @@ const Desktop = () => {
   })
   const [isEditingMemo, setIsEditingMemo] = useState(false)
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const memoLongPressTimer = useRef<number | null>(null)
 
   // 更新时间
   useEffect(() => {
@@ -213,21 +214,50 @@ const Desktop = () => {
               {/* 蓝色 - 备忘录widget (右下角) */}
               <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
                 <div 
-                  className="w-full h-full flex flex-col"
+                  className={`w-full h-full flex flex-col ${!memoBg ? 'rounded-2xl' : ''}`}
                   style={{
                     backgroundImage: memoBg ? `url(${memoBg})` : 'none',
                     backgroundSize: 'contain',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
-                    backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)'
+                    backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: !memoBg ? 'blur(20px)' : 'none',
+                    WebkitBackdropFilter: !memoBg ? 'blur(20px)' : 'none',
+                    boxShadow: !memoBg ? '0 4px 16px rgba(0, 0, 0, 0.12)' : 'none',
+                    border: !memoBg ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
+                    overflow: 'hidden'
                   }}
-                  onDoubleClick={() => {
-                    const newValue = !showMemoHeader
-                    setShowMemoHeader(newValue)
-                    localStorage.setItem('show_memo_header', String(newValue))
+                  onMouseDown={() => {
+                    memoLongPressTimer.current = setTimeout(() => {
+                      const newValue = !showMemoHeader
+                      setShowMemoHeader(newValue)
+                      localStorage.setItem('show_memo_header', String(newValue))
+                    }, 500)
+                  }}
+                  onMouseUp={() => {
+                    if (memoLongPressTimer.current) {
+                      clearTimeout(memoLongPressTimer.current)
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (memoLongPressTimer.current) {
+                      clearTimeout(memoLongPressTimer.current)
+                    }
+                  }}
+                  onTouchStart={() => {
+                    memoLongPressTimer.current = setTimeout(() => {
+                      const newValue = !showMemoHeader
+                      setShowMemoHeader(newValue)
+                      localStorage.setItem('show_memo_header', String(newValue))
+                    }, 500)
+                  }}
+                  onTouchEnd={() => {
+                    if (memoLongPressTimer.current) {
+                      clearTimeout(memoLongPressTimer.current)
+                    }
                   }}
                 >
-                  {/* 顶部标题栏 - 可通过双击切换显示 */}
+                  {/* 顶部标题栏 - 可通过长按切换显示 */}
                   {showMemoHeader && (
                     <div 
                       className="flex items-center justify-between px-3 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -343,8 +373,8 @@ const Desktop = () => {
                   onClick={() => navigate('/decoration')}
                 >
                   {getCustomIcon('decoration') ? (
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <img src={getCustomIcon('decoration')!} alt="美化" className="w-full h-full object-contain" />
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden">
+                      <img src={getCustomIcon('decoration')!} alt="美化" className="w-full h-full object-cover" />
                     </div>
                   ) : (
                     <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
@@ -389,8 +419,8 @@ const Desktop = () => {
                     className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform"
                   >
                     {customIcon ? (
-                      <div className="w-14 h-14 flex items-center justify-center">
-                        <img src={customIcon} alt={app.name} className="w-full h-full object-contain" />
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden">
+                        <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
                       </div>
                     ) : isImageIcon ? (
                       <div className="w-14 h-14 flex items-center justify-center">
