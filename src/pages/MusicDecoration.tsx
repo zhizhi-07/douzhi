@@ -113,7 +113,7 @@ const MusicDecoration = () => {
         <StatusBar />
         <div className="flex items-center justify-between px-4 pb-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/decoration', { replace: true })}
             className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-700">

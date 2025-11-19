@@ -231,7 +231,7 @@ const PresetManager = () => {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 line-clamp-2 ml-6">
-                  系统默认小说叙事风格（含去八股规则 + 张爱玲文风）
+                  系统默认小说叙事风格，适合大多数场景
                 </p>
               </div>
               <button

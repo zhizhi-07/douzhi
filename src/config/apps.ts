@@ -5,8 +5,8 @@ import {
   PhoneIcon,
   ForumIcon,
   BookIcon,
-  MapIcon,
-  DecorationIcon
+  DecorationIcon,
+  MemoryIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -52,7 +52,7 @@ export const page1Apps: AppItem[] = [
     name: '美化', 
     icon: DecorationIcon, 
     color: 'glass-card', 
-    route: '/music-decoration' 
+    route: '/decoration' 
   },
 ]
 
@@ -91,11 +91,11 @@ export const dockApps: AppItem[] = [
     route: '/forum' 
   },
   { 
-    id: 'map', 
-    name: '地图', 
-    icon: MapIcon, 
+    id: 'global-memory', 
+    name: '记忆', 
+    icon: MemoryIcon, 
     color: 'glass-card', 
-    route: '/map' 
+    route: '/global-memory' 
   },
   { 
     id: 'aiphone', 

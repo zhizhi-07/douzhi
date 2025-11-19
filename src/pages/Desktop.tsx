@@ -302,7 +302,7 @@ const Desktop = () => {
                 {/* 美化图标 */}
                 <div 
                   className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
-                  onClick={() => navigate('/music-decoration')}
+                  onClick={() => navigate('/decoration')}
                 >
                   <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-300">

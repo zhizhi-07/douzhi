@@ -28,6 +28,7 @@ import PostGenerator from '../components/PostGenerator'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
+import { getAllUIIcons } from '../utils/iconStorage'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
@@ -56,6 +57,81 @@ const ChatDetail = () => {
 
   // 场景模式状态
   const [sceneMode, setSceneMode] = useState<'online' | 'offline'>('online')
+  
+  // 装饰图片状态
+  const [chatDecorations, setChatDecorations] = useState({
+    topBar: localStorage.getItem('chat_top_bar_image'),
+    bottomBar: localStorage.getItem('chat_bottom_bar_image'),
+    plusButton: localStorage.getItem('chat_plus_button_image'),
+    emojiButton: localStorage.getItem('chat_emoji_button_image'),
+    sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
+    sendButtonActive: localStorage.getItem('chat_send_button_active_image')
+  })
+  
+  // 自定义UI图标
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+  
+  // 监听装饰更新
+  useEffect(() => {
+    const handleDecorationUpdate = () => {
+      setChatDecorations({
+        topBar: localStorage.getItem('chat_top_bar_image'),
+        bottomBar: localStorage.getItem('chat_bottom_bar_image'),
+        plusButton: localStorage.getItem('chat_plus_button_image'),
+        emojiButton: localStorage.getItem('chat_emoji_button_image'),
+        sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
+        sendButtonActive: localStorage.getItem('chat_send_button_active_image')
+      })
+    }
+    window.addEventListener('globalDecorationUpdate', handleDecorationUpdate)
+    return () => window.removeEventListener('globalDecorationUpdate', handleDecorationUpdate)
+  }, [])
+
+  // 加载自定义UI图标
+  useEffect(() => {
+    const loadCustomIcons = async () => {
+      try {
+        // 优先从IndexedDB加载
+        let icons = await getAllUIIcons()
+        
+        // 如果IndexedDB为空，从localStorage恢复
+        if (Object.keys(icons).length === 0) {
+          const saved = localStorage.getItem('ui_custom_icons')
+          if (saved) {
+            icons = JSON.parse(saved)
+            console.log('📦 ChatDetail从localStorage恢复图标')
+          }
+        }
+        
+        setCustomIcons(icons)
+        console.log('✅ ChatDetail加载自定义图标:', Object.keys(icons).length, '个')
+      } catch (error) {
+        console.error('❌ 加载自定义图标失败:', error)
+        // 出错时从localStorage恢复
+        try {
+          const saved = localStorage.getItem('ui_custom_icons')
+          if (saved) {
+            setCustomIcons(JSON.parse(saved))
+            console.log('✅ 从localStorage备份恢复')
+          }
+        } catch (err) {
+          console.error('备份恢复失败:', err)
+        }
+      }
+    }
+    
+    loadCustomIcons()
+    
+    // 监听图标更新事件
+    const handleIconsChange = () => {
+      loadCustomIcons()
+    }
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    
+    return () => {
+      window.removeEventListener('uiIconsChanged', handleIconsChange)
+    }
+  }, [])
 
   // 备忘录弹窗状态
   const [showAIMemoModal, setShowAIMemoModal] = useState(false)
@@ -536,6 +612,8 @@ const ChatDetail = () => {
         }}
         tokenStats={chatAI.tokenStats}
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
+        topBarImage={chatDecorations.topBar}
+        customIcons={customIcons}
       />
       
       {/* Token 详情面板 - 显示在头部下方 */}
@@ -1070,9 +1148,19 @@ const ChatDetail = () => {
       
       {/* 底部输入栏 - 毛玻璃效果 */}
       {!multiSelect.isMultiSelectMode && (
-      <div className="bg-transparent">
+      <div className="relative bg-transparent">
+        {/* 底栏装饰背景 */}
+        {(customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar) && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <img 
+              src={customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar!} 
+              alt="底栏装饰" 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+        )}
         {modals.quotedMessage && (
-          <div className="px-4 py-2 bg-gray-100 flex items-center gap-2">
+          <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <div className="text-xs text-blue-600 font-medium">
                 {modals.quotedMessage.type === 'sent' ? '我' : character.nickname || character.realName}
@@ -1090,7 +1178,7 @@ const ChatDetail = () => {
           </div>
         )}
         
-        <div className="px-2 py-2 flex items-center gap-1">
+        <div className="relative z-10 px-2 py-2 flex items-center gap-1">
           <button
             onClick={() => {
               playMenuOpenSound() // 🎵 播放菜单音效
@@ -1098,11 +1186,22 @@ const ChatDetail = () => {
             }}
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
+              <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-6 h-6 object-contain" />
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )}
           </button>
-          <div className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0">
+          <div 
+            className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0"
+            style={customIcons['chat-input-bg'] ? {
+              backgroundImage: `url(${customIcons['chat-input-bg']})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : {}}
+          >
             <input
               type="text"
               value={chatState.inputValue}
@@ -1120,9 +1219,13 @@ const ChatDetail = () => {
             onClick={() => emoji.setShowEmojiPanel(true)}
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            {customIcons['chat-emoji'] ? (
+              <img src={customIcons['chat-emoji']} alt="表情" className="w-5 h-5 object-contain" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
           </button>
           {chatState.inputValue.trim() ? (
             <button
@@ -1130,13 +1233,17 @@ const ChatDetail = () => {
               disabled={chatAI.isAiTyping}
               className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-              </svg>
+              {customIcons['chat-send'] ? (
+                <img src={customIcons['chat-send']} alt="发送" className="w-4 h-4 object-contain" />
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              )}
             </button>
           ) : (
             <button 
-              onClick={chatAI.handleAIReply}
+              onClick={() => chatAI.handleAIReply()}
               disabled={chatAI.isAiTyping}
               className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
             >
@@ -1145,6 +1252,8 @@ const ChatDetail = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
+              ) : customIcons['chat-ai'] ? (
+                <img src={customIcons['chat-ai']} alt="AI回复" className="w-5 h-5 object-contain" />
               ) : (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -1182,6 +1291,7 @@ const ChatDetail = () => {
         onSelectPost={addMenu.handlers.handleSelectPost}
         onSelectFormatCorrector={addMenu.handlers.handleSelectFormatCorrector}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
+        customIcons={customIcons}
       />
 
       {/* 表情包面板 */}
@@ -1389,6 +1499,12 @@ const ChatDetail = () => {
             characterName={character.nickname || character.realName}
             characterAvatar={character.avatar}
             status={currentAIStatus}
+            onForceUpdate={async () => {
+              // 设置强制更新标记
+              const { setForceUpdateFlag } = await import('../utils/aiStatusManager')
+              setForceUpdateFlag(id || '')
+              alert('✅ 已标记状态修正，AI将在下一轮对话时强制更新状态')
+            }}
           />
         </>
       )}

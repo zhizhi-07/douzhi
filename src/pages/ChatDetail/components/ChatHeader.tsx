@@ -19,9 +19,11 @@ interface ChatHeaderProps {
   onAvatarClick?: () => void
   tokenStats?: TokenStats | null
   onTokenStatsClick?: () => void
+  topBarImage?: string | null
+  customIcons?: Record<string, string>
 }
 
-const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick, topBarImage, customIcons = {} }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
   const [fullStatus, setFullStatus] = useState<AIStatus | null>(null)
@@ -66,18 +68,30 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
   }
 
   return (
-    <div className="glass-effect rounded-b-[20px]">
-      <StatusBar />
-      <div className="px-4 py-3 flex items-center justify-between">
+    <div className="relative glass-effect rounded-b-[20px]">
+      {/* 顶栏装饰背景 */}
+      {topBarImage && (
+        <div className="absolute inset-0 pointer-events-none z-0 rounded-b-[20px] overflow-hidden">
+          <img src={topBarImage} alt="顶栏装饰" className="w-full h-full object-cover" />
+        </div>
+      )}
+      <div className="relative z-10">
+        <StatusBar />
+      </div>
+      <div className="relative z-10 px-4 py-3 flex items-center justify-between">
         {/* 左侧：返回按钮 + 头像 + 名字状态 */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
             onClick={handleBack}
             className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full flex-shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            {customIcons['chat-back'] ? (
+              <img src={customIcons['chat-back']} alt="返回" className="w-5 h-5 object-cover rounded-full" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            )}
           </button>
 
           {/* 头像 - 可点击 */}
@@ -126,9 +140,13 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
             }}
             className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            </svg>
+            {customIcons['chat-more'] ? (
+              <img src={customIcons['chat-more']} alt="更多" className="w-5 h-5 object-cover" />
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+              </svg>
+            )}
           </button>
         </div>
       </div>

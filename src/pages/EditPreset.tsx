@@ -378,7 +378,7 @@ const EditPreset = () => {
       <div className="p-4 bg-white/80 backdrop-blur-md border-t border-gray-200/50">
         <div className="text-xs text-gray-500 text-center">
           {id === 'default' 
-            ? '📖 这是系统默认预设，包含去八股规则和张爱玲文风，不可修改'
+            ? '📖 这是系统默认预设，不可修改'
             : '💡 修改后需要在线下模式中重新选择预设才能生效'
           }
         </div>

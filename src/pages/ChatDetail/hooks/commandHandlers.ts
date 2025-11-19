@@ -627,13 +627,11 @@ export const emojiHandler: CommandHandler = {
       // 验证保存
       console.log('🔍 验证表情包消息是否保存:', JSON.stringify(emojiMsg, null, 2))
     } else {
-      console.log(`⚠️ 未找到匹配"${emojiDesc}"的表情包`)
-      // 如果找不到匹配的表情包，转为普通文本
-      return {
-        handled: false
-      }
+      console.log(`⚠️ 未找到匹配"${emojiDesc}"的表情包，隐藏指令`)
+      // 如果找不到匹配的表情包，直接删除/隐藏这个指令，不显示任何内容
     }
 
+    // 移除表情包指令，继续处理剩余文本
     const remainingText = content.replace(match[0], '').trim()
     return { 
       handled: true, 

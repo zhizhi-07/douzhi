@@ -533,10 +533,16 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const isEarlyConversation = totalNonSystemMsgs < 6
 
   // 获取或生成AI状态
-  const { getOrCreateAIStatus, formatStatusShort } = await import('./aiStatusManager')
+  const { getOrCreateAIStatus, formatStatusShort, getForceUpdateFlag, clearForceUpdateFlag } = await import('./aiStatusManager')
   const aiStatus = getOrCreateAIStatus(character.id, charName)
   const statusText = aiStatus ? formatStatusShort(aiStatus) : '状态已过期'
   const statusExpired = !aiStatus // 标记状态是否过期
+  const forceUpdateStatus = getForceUpdateFlag(character.id) // 检查是否需要强制更新状态
+  
+  // 如果有强制更新标记，在AI回复后清除
+  if (forceUpdateStatus) {
+    setTimeout(() => clearForceUpdateFlag(character.id), 1000)
+  }
 
   // 获取世界书内容
   const { lorebookManager } = await import('./lorebookSystem')
@@ -670,7 +676,12 @@ ${isEarlyConversation && !isIntimateRelation ? `【边界与熟悉度】
 此刻你刚看到 ${userNickname} 发来的最新一条消息：
 
 - 你现在的状态：${statusText}
-${statusExpired ? `
+${forceUpdateStatus ? `
+⚠️ 【强制状态修正】：用户要求你必须更新状态，因为当前状态已经不符合实际时间和情境。
+- 现在是：${timeOfDay}${hour} 点，必须用 [状态:xxx] 更新一个符合此刻时间的合理状态。
+- 不要延续旧状态，要根据当前时间重新思考你应该在做什么。
+- 例如：现在是${timeOfDay}，更合理的状态是${getTimeBasedStatusHint(hour, charName).replace('用[状态:xxx]更新', '')}。
+- 必须在本次回复的第一句话就更新状态，不要拖到后面或忘记更新。` : statusExpired ? `
 你的状态已经很久没更新（超过 6 小时）了。先想一想此刻真实合理的状态，然后用 [状态:xxx] 更新，比如：[状态:躺在床上刷手机]。
 记得考虑现在是 ${timeOfDay}${hour} 点：这个时间你大概率会在做什么。
 例如：现在是${timeOfDay}，更自然的状态可能是${getTimeBasedStatusHint(hour, charName).replace('用[状态:xxx]更新', '')}。` : `- 距离上次对方发消息大概过去：${timeSinceLastMessage || '（刚刚）'}

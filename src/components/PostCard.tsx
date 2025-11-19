@@ -114,9 +114,9 @@ const PostCard = ({ message }: PostCardProps) => {
 
   return (
     <div className="max-w-sm">
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* 头部标识 */}
-        <div className="px-3 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 flex items-center gap-2">
+        <div className="px-3 py-2.5 bg-gradient-to-r from-gray-50 to-white flex items-center gap-2">
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
           </svg>
@@ -126,7 +126,7 @@ const PostCard = ({ message }: PostCardProps) => {
 
         {/* 主帖内容 */}
         {mainPost && (
-          <div className="px-4 py-3 bg-white border-b border-gray-100">
+          <div className="px-4 py-3 bg-white">
             <div className="flex items-start gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
                 楼
@@ -150,7 +150,7 @@ const PostCard = ({ message }: PostCardProps) => {
 
         {/* 展开/收起按钮 */}
         {(mainPost.length > 100 || comments.length > 0) && (
-          <div className="px-4 py-2 bg-white border-b border-gray-100">
+          <div className="px-4 py-2 bg-white">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-[11px] text-blue-500 font-medium flex items-center gap-1 active:opacity-70 transition-opacity"
@@ -194,10 +194,10 @@ const PostCard = ({ message }: PostCardProps) => {
                 <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-bold text-[10px] flex-shrink-0">
                   {comment.user.charAt(0)}
                 </div>
-                <div className={`flex-1 min-w-0 rounded-lg px-2.5 py-2 border shadow-sm ${
+                <div className={`flex-1 min-w-0 rounded-lg px-2.5 py-2 ${
                   comment.isNested 
-                    ? 'bg-gray-50 border-gray-200' 
-                    : 'bg-white border-gray-100'
+                    ? 'bg-gray-50' 
+                    : 'bg-white'
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[11px] font-semibold text-gray-800">

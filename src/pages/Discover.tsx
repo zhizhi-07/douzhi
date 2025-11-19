@@ -1,16 +1,40 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
+import { getAllUIIcons } from '../utils/iconStorage'
 
 const Discover = () => {
   const navigate = useNavigate()
   const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   
   // 监听背景更新
   useEffect(() => {
     const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
     window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
+  }, [])
+
+  // 加载自定义图标配置
+  useEffect(() => {
+    const loadCustomIcons = async () => {
+      try {
+        let icons = await getAllUIIcons()
+        if (Object.keys(icons).length === 0) {
+          const saved = localStorage.getItem('ui_custom_icons')
+          if (saved) {
+            icons = JSON.parse(saved)
+          }
+        }
+        setCustomIcons(icons)
+      } catch (error) {
+        console.error('加载自定义图标失败:', error)
+      }
+    }
+    loadCustomIcons()
+    const handleIconsChange = () => loadCustomIcons()
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    return () => window.removeEventListener('uiIconsChanged', handleIconsChange)
   }, [])
 
   const menuGroups = [

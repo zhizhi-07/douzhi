@@ -15,6 +15,7 @@ export interface AIStatus {
 }
 
 const STORAGE_KEY_PREFIX = 'ai_status_'
+const FORCE_UPDATE_FLAG_PREFIX = 'ai_status_force_update_'
 
 /**
  * 获取AI当前状态
@@ -231,6 +232,46 @@ export function formatStatusDetail(status: AIStatus): string {
   if (status.mood) parts.push(`心情：${status.mood}`)
   
   return parts.join('\n')
+}
+
+/**
+ * 设置强制更新状态标记
+ * 用于下一轮对话时强制要求AI更新状态
+ */
+export function setForceUpdateFlag(characterId: string): void {
+  try {
+    const key = FORCE_UPDATE_FLAG_PREFIX + characterId
+    localStorage.setItem(key, 'true')
+    console.log('🔄 [状态修正] 已标记强制更新状态')
+  } catch (error) {
+    console.error('设置强制更新标记失败:', error)
+  }
+}
+
+/**
+ * 获取强制更新状态标记
+ */
+export function getForceUpdateFlag(characterId: string): boolean {
+  try {
+    const key = FORCE_UPDATE_FLAG_PREFIX + characterId
+    return localStorage.getItem(key) === 'true'
+  } catch (error) {
+    console.error('获取强制更新标记失败:', error)
+    return false
+  }
+}
+
+/**
+ * 清除强制更新状态标记
+ */
+export function clearForceUpdateFlag(characterId: string): void {
+  try {
+    const key = FORCE_UPDATE_FLAG_PREFIX + characterId
+    localStorage.removeItem(key)
+    console.log('✅ [状态修正] 已清除强制更新标记')
+  } catch (error) {
+    console.error('清除强制更新标记失败:', error)
+  }
 }
 
 /**

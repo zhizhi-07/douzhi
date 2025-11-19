@@ -37,13 +37,15 @@ import MusicPlayer from './pages/MusicPlayer'
 import MusicSearch from './pages/MusicSearch'
 import UploadSong from './pages/UploadSong'
 import MusicDecoration from './pages/MusicDecoration'
+import DecorationHub from './pages/DecorationHub'
+import GlobalDecoration from './pages/GlobalDecoration'
 import Customize from './pages/Customize'
 import DataManager from './pages/DataManager'
 import StatusBarCustomize from './pages/StatusBarCustomize'
 import FontCustomizer from './pages/FontCustomizer'
 import BackgroundCustomizer from './pages/BackgroundCustomizer'
 import SoundCustomizer from './pages/SoundCustomizer'
-import IconCustomizer from './pages/IconCustomizer'
+// import IconCustomizer from './pages/IconCustomizer' // 已整合到GlobalDecoration
 import GroupChatDetail from './pages/GroupChatDetail'
 import GroupChatSettings from './pages/GroupChatSettings'
 import VoiceSettings from './pages/VoiceSettings'
@@ -54,6 +56,8 @@ import EditPreset from './pages/EditPreset'
 import Forum from './pages/Forum'
 import ForumPostDetail from './pages/ForumPostDetail'
 import ForumProfile from './pages/ForumProfile'
+import CharacterProfile from './pages/CharacterProfile'
+import MomentDetail from './pages/MomentDetail'
 import ForumMessages from './pages/ForumMessages'
 import ForumTopics from './pages/ForumTopics'
 import ForumTopicDetail from './pages/ForumTopicDetail'
@@ -62,6 +66,7 @@ import LocationHistory from './pages/LocationHistory'
 import PaymentRequest from './pages/PaymentRequest'
 import OnlineShopping from './pages/OnlineShopping'
 import AIPhoneSelect from './pages/AIPhoneSelect'
+import GlobalMemory from './pages/GlobalMemory'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -303,14 +308,16 @@ function App() {
       <Route path="/music-player" element={<MusicPlayer />} />
       <Route path="/music-search" element={<MusicSearch />} />
       <Route path="/upload-song" element={<UploadSong />} />
-      <Route path="/music-decoration" element={<MusicDecoration />} />
+      <Route path="/decoration" element={<DecorationHub />} />
+      <Route path="/decoration/music" element={<MusicDecoration />} />
+      <Route path="/decoration/global" element={<GlobalDecoration />} />
       <Route path="/customize" element={<Customize />} />
       <Route path="/data-manager" element={<DataManager />} />
       <Route path="/statusbar-customize" element={<StatusBarCustomize />} />
       <Route path="/font-customizer" element={<FontCustomizer />} />
       <Route path="/background-customizer" element={<BackgroundCustomizer />} />
       <Route path="/sound-customizer" element={<SoundCustomizer />} />
-      <Route path="/icon-customizer" element={<IconCustomizer />} />
+      {/* <Route path="/icon-customizer" element={<IconCustomizer />} /> */} {/* 已整合到GlobalDecoration */}
       <Route path="/voice-settings" element={<VoiceSettings />} />
       <Route path="/world-book" element={<WorldBook />} />
       <Route path="/edit-world-book/:id" element={<EditWorldBook />} />
@@ -319,6 +326,8 @@ function App() {
       <Route path="/forum" element={<Forum />} />
       <Route path="/forum/post/:id" element={<ForumPostDetail />} />
       <Route path="/forum/profile" element={<ForumProfile />} />
+      <Route path="/forum/character/:characterId" element={<CharacterProfile />} />
+      <Route path="/forum/moment/:momentId" element={<MomentDetail />} />
       <Route path="/forum/messages" element={<ForumMessages />} />
       <Route path="/forum/topics" element={<ForumTopics />} />
       <Route path="/forum/topic/:name" element={<ForumTopicDetail />} />
@@ -327,6 +336,7 @@ function App() {
       <Route path="/chat/:id/payment-request" element={<PaymentRequest />} />
       <Route path="/chat/:id/shopping" element={<OnlineShopping />} />
       <Route path="/ai-phone-select" element={<AIPhoneSelect />} />
+      <Route path="/global-memory" element={<GlobalMemory />} />
     </Routes>
     </ContactsProvider>
   )

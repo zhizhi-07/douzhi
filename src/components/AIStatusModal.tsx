@@ -7,6 +7,7 @@ interface AIStatusModalProps {
   characterName: string
   characterAvatar?: string
   status: AIStatus | null
+  onForceUpdate?: () => void
 }
 
 const AIStatusModal: React.FC<AIStatusModalProps> = ({
@@ -14,7 +15,8 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
   onClose,
   characterName,
   characterAvatar,
-  status
+  status,
+  onForceUpdate
 }) => {
   if (!isOpen || !status) return null
 
@@ -30,21 +32,36 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-          {/* 头部 - 名字和关闭按钮 */}
+          {/* 头部 - 名字和按钮 */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">{characterName} 的状态</h2>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 btn-press-fast"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              {/* 修正状态按钮 */}
+              {onForceUpdate && (
+                <button
+                  onClick={() => {
+                    onForceUpdate()
+                    onClose()
+                  }}
+                  className="px-2 py-1 rounded-lg bg-gray-100 text-xs text-gray-600 hover:bg-gray-200 btn-press-fast font-medium"
+                >
+                  修正
+                </button>
+              )}
+              {/* 关闭按钮 */}
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 btn-press-fast"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* 状态详情 */}
           <div className="space-y-3">
             {/* 动作 */}
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
               <span className="text-2xl flex-shrink-0">🎬</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500 mb-1">正在做什么</p>
@@ -54,7 +71,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
 
             {/* 地点 */}
             {status.location && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
                 <span className="text-2xl flex-shrink-0">📍</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 mb-1">所在位置</p>
@@ -65,7 +82,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
 
             {/* 服装 */}
             {status.outfit && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-purple-50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
                 <span className="text-2xl flex-shrink-0">👔</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 mb-1">穿着</p>
@@ -76,7 +93,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
 
             {/* 心情 */}
             {status.mood && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-pink-50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
                 <span className="text-2xl flex-shrink-0">💭</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 mb-1">心情</p>
