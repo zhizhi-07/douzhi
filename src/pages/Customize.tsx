@@ -87,8 +87,8 @@ const Customize = () => {
       </div>
 
       {/* 设置列表 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30">
+        <div className="max-w-2xl mx-auto space-y-3">
           {settingItems.map((item) => (
             <div
               key={item.id}
@@ -98,22 +98,22 @@ const Customize = () => {
                   navigate(item.route)
                 }
               }}
-              className="glass-card rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all backdrop-blur-md bg-white/80 border border-white/50"
+              className="bg-white rounded-xl p-4 cursor-pointer shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all active:scale-[0.98]"
             >
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
+                    <h3 className="text-base font-semibold text-slate-700">{item.name}</h3>
                     {item.badge && (
                       <span className="text-xs bg-red-500 text-white px-3 py-1 rounded-full">
                         {item.badge}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{item.description}</p>
                 </div>
                 <svg 
-                  className="w-5 h-5 text-gray-400" 
+                  className="w-5 h-5 text-slate-400" 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"

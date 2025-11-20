@@ -304,7 +304,7 @@ const SoundCustomizer = () => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => systemSoundInputRef.current?.click()}
-                        className="flex-1 px-2 py-1.5 bg-blue-500 text-white rounded-full text-xs active:opacity-80"
+                        className="flex-1 px-2 py-1.5 bg-slate-700 text-white rounded-full text-xs shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
                       >
                         更换
                       </button>

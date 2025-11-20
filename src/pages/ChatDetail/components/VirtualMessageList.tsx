@@ -27,6 +27,7 @@ interface VirtualMessageListProps {
   onRejectCoupleSpace: (messageId: number) => void
   onAcceptMusicInvite?: (messageId: number) => void
   onRejectMusicInvite?: (messageId: number) => void
+  onEditOfflineRecord?: (message: Message) => void  // 新增：编辑线下记录
   // 🔥 分页加载相关
   hasMoreMessages?: boolean
   isLoadingMessages?: boolean
@@ -53,6 +54,7 @@ const VirtualMessageList = ({
   onRejectCoupleSpace,
   onAcceptMusicInvite,
   onRejectMusicInvite,
+  onEditOfflineRecord,
   hasMoreMessages = false,
   isLoadingMessages = false,
   onLoadMore,
@@ -264,6 +266,7 @@ const VirtualMessageList = ({
           onRejectCoupleSpace={onRejectCoupleSpace}
           onAcceptMusicInvite={onAcceptMusicInvite}
           onRejectMusicInvite={onRejectMusicInvite}
+          onEditOfflineRecord={onEditOfflineRecord}
         />
       ))}
       

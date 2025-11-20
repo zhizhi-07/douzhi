@@ -343,7 +343,7 @@ const MomentDetail = () => {
           <button
             onClick={handleAddComment}
             disabled={!commentText.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 bg-slate-700 text-white rounded-full text-sm font-medium disabled:opacity-50 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
           >
             发送
           </button>

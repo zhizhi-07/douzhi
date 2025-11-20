@@ -82,10 +82,10 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
   }
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden">
+    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
       {/* 标题栏 */}
       <div 
-        className="p-4 cursor-pointer active:bg-gray-50 transition-colors flex items-center justify-between"
+        className="p-4 cursor-pointer active:bg-slate-50 transition-colors flex items-center justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div>
@@ -112,10 +112,10 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setAvatarShape('rounded')}
-            className={`p-3 rounded-lg border-2 transition-all ${
+            className={`p-3 rounded-xl transition-all ${
               avatarShape === 'rounded' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]' 
+                : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
             }`}
           >
             <div className="flex flex-col items-center gap-2">
@@ -125,10 +125,10 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
           </button>
           <button
             onClick={() => setAvatarShape('circle')}
-            className={`p-3 rounded-lg border-2 transition-all ${
+            className={`p-3 rounded-xl transition-all ${
               avatarShape === 'circle' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]' 
+                : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
             }`}
           >
             <div className="flex flex-col items-center gap-2">
@@ -263,7 +263,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
                 max="300"
                 value={frameSize}
                 onChange={(e) => setFrameSize(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
               />
             </div>
             
@@ -279,7 +279,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
                 max="50"
                 value={frameOffsetX}
                 onChange={(e) => setFrameOffsetX(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
               />
             </div>
             
@@ -295,7 +295,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
                 max="50"
                 value={frameOffsetY}
                 onChange={(e) => setFrameOffsetY(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
               />
             </div>
             

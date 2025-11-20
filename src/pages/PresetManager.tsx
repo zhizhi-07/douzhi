@@ -195,15 +195,15 @@ const PresetManager = () => {
       </div>
 
       {/* 搜索栏 */}
-      <div className="px-4 pt-3 pb-2 bg-gray-50">
-        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-sm">
-          <SearchIcon size={18} className="text-gray-400" />
+      <div className="px-4 pt-3 pb-2 bg-slate-50/50">
+        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(148,163,184,0.08)]">
+          <SearchIcon size={18} className="text-slate-400" />
           <input
             type="text"
             placeholder="搜索预设"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-400"
+            className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 placeholder-slate-400"
           />
         </div>
       </div>
@@ -213,7 +213,7 @@ const PresetManager = () => {
         {/* 默认预设 */}
         <div className="space-y-3 mt-3">
           <div
-            className="bg-white rounded-2xl p-4 relative shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1" onClick={() => handleEdit('default')}>
@@ -221,22 +221,22 @@ const PresetManager = () => {
                   <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                   </svg>
-                  <h3 className="text-base font-semibold text-gray-900">
+                  <h3 className="text-base font-semibold text-slate-700">
                     默认
                   </h3>
                   {activePreset === '默认' && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-white font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]">
                       使用中
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 line-clamp-2 ml-6">
+                <p className="text-xs text-slate-500 line-clamp-2 ml-6">
                   系统默认小说叙事风格，适合大多数场景
                 </p>
               </div>
               <button
                 onClick={() => handleSwitch('默认')}
-                className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors ml-2"
+                className="px-3 py-2 text-xs bg-slate-700 text-white rounded-xl hover:bg-slate-800 transition-all ml-2 font-medium shadow-[0_2px_6px_rgba(71,85,105,0.2)]"
               >
                 {activePreset === '默认' ? '使用中' : '切换使用'}
               </button>
@@ -272,7 +272,7 @@ const PresetManager = () => {
             return (
               <div
                 key={preset.id}
-                className="bg-white rounded-2xl p-4 relative shadow-sm hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1" onClick={() => handleEdit(preset.id)}>
@@ -280,20 +280,20 @@ const PresetManager = () => {
                       <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                       </svg>
-                      <h3 className="text-base font-semibold text-gray-900 truncate">
+                      <h3 className="text-base font-semibold text-slate-700 truncate">
                         {preset.name}
                       </h3>
                       {activePreset === preset.name && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium flex-shrink-0">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-white font-medium flex-shrink-0 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]">
                           使用中
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 line-clamp-2 ml-6">
+                    <p className="text-xs text-slate-500 line-clamp-2 ml-6">
                       {preview}
                     </p>
                     {presetData.temperature && (
-                      <div className="flex items-center gap-3 text-xs text-gray-400 ml-6 mt-1">
+                      <div className="flex items-center gap-3 text-xs text-slate-400 ml-6 mt-1">
                         <span>温度 {presetData.temperature}</span>
                         {presetData.max_tokens && <span>最大tokens {presetData.max_tokens}</span>}
                       </div>
@@ -309,7 +309,7 @@ const PresetManager = () => {
                     })
                     setShowMenu(showMenu === preset.id ? null : preset.id)
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors ml-2"
+                  className="p-2 hover:bg-slate-50 rounded-full transition-colors ml-2"
                 >
                   <MoreIcon size={20} className="text-gray-400" />
                 </button>

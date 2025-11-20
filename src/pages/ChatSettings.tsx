@@ -370,21 +370,23 @@ const ChatSettings = () => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* 聊天置顶 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">聊天置顶</h2>
-              <p className="text-xs text-gray-500 mt-0.5">在聊天列表中置顶显示</p>
+              <h2 className="text-sm font-semibold text-slate-700">聊天置顶</h2>
+              <p className="text-xs text-slate-500 mt-0.5">在聊天列表中置顶显示</p>
             </div>
             <button
               onClick={togglePin}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-                isPinned ? 'bg-black' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                isPinned 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                  isPinned ? 'translate-x-6' : 'translate-x-1'
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  isPinned ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -392,17 +394,19 @@ const ChatSettings = () => {
         </div>
         
         {/* 拉黑设置 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">拉黑此角色</span>
+            <span className="text-sm text-slate-600">拉黑此角色</span>
             <button
               onClick={toggleBlock}
-              className={`w-11 h-6 rounded-full relative transition-all ${
-                isBlocked ? 'bg-red-500' : 'bg-gray-200'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                isBlocked 
+                  ? 'bg-gradient-to-br from-red-400 to-red-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   isBlocked ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
@@ -411,11 +415,11 @@ const ChatSettings = () => {
         </div>
         
         {/* 语音设置 */}
-        <div className="bg-white rounded-[48px] p-4 space-y-3">
-          <div className="text-sm font-medium text-gray-900">语音设置</div>
+        <div className="bg-white rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+          <div className="text-sm font-semibold text-slate-700">语音设置</div>
           
           <div>
-            <label className="block text-sm text-gray-600 mb-2">音色ID</label>
+            <label className="block text-sm text-slate-600 mb-2">音色ID</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -457,13 +461,15 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, hideTokenStats: !settings.hideTokenStats })}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                settings.hideTokenStats ? 'bg-gray-900' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                settings.hideTokenStats 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  settings.hideTokenStats ? 'translate-x-6' : 'translate-x-0'
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.hideTokenStats ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -471,8 +477,8 @@ const ChatSettings = () => {
         </div>
         
         {/* AI 记忆 */}
-        <div className="bg-white rounded-[48px] p-4 space-y-2">
-          <div className="text-sm font-medium text-gray-900 mb-3">AI 记忆</div>
+        <div className="bg-white rounded-2xl p-4 space-y-2 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+          <div className="text-sm font-semibold text-slate-700 mb-3">AI 记忆</div>
           
           <button
             onClick={() => navigate(`/chat/${id}/memory-viewer`)}
@@ -518,13 +524,15 @@ const ChatSettings = () => {
                   const newSettings = { ...settings, autoMemorySummary: !settings.autoMemorySummary }
                   saveSettings(newSettings)
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  settings.autoMemorySummary ? 'bg-black' : 'bg-gray-300'
+                className={`relative w-11 h-6 rounded-full transition-all ${
+                  settings.autoMemorySummary 
+                    ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                    : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
                 }`}
               >
                 <div
-                  className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
-                    settings.autoMemorySummary ? 'translate-x-5' : 'translate-x-0.5'
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                    settings.autoMemorySummary ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
@@ -569,8 +577,8 @@ const ChatSettings = () => {
         </div>
         
         {/* 群聊消息同步 */}
-        <div className="bg-white rounded-[48px] p-4 space-y-3">
-          <div className="text-sm font-medium text-gray-900">群聊消息同步</div>
+        <div className="bg-white rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+          <div className="text-sm font-semibold text-slate-700">群聊消息同步</div>
           
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -588,13 +596,15 @@ const ChatSettings = () => {
                 }
                 saveSettings(newSettings)
               }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                settings.groupChatSync.enabled ? 'bg-black' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                settings.groupChatSync.enabled 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
-                  settings.groupChatSync.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.groupChatSync.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -637,8 +647,8 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发消息 */}
-        <div className="bg-white rounded-[48px] p-4 space-y-3">
-          <div className="text-sm font-medium text-gray-900">AI主动发消息</div>
+        <div className="bg-white rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+          <div className="text-sm font-semibold text-slate-700">AI主动发消息</div>
           
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -661,13 +671,15 @@ const ChatSettings = () => {
                 })
                 saveSettings(newSettings)
               }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                settings.aiProactiveMessage.enabled ? 'bg-black' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                settings.aiProactiveMessage.enabled 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
               <div
-                className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-200 ${
-                  settings.aiProactiveMessage.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.aiProactiveMessage.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -690,10 +702,10 @@ const ChatSettings = () => {
                       }
                       saveSettings(newSettings)
                     }}
-                    className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-medium transition-all ${
                       settings.aiProactiveMessage.mode === 'fixed'
-                        ? 'bg-black text-white'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                        : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                     }`}
                   >
                     固定时间
@@ -709,10 +721,10 @@ const ChatSettings = () => {
                       }
                       saveSettings(newSettings)
                     }}
-                    className={`py-2 px-3 rounded-[24px] text-xs transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-medium transition-all ${
                       settings.aiProactiveMessage.mode === 'thinking'
-                        ? 'bg-black text-white'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                        : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                     }`}
                   >
                     AI思考
@@ -793,7 +805,7 @@ const ChatSettings = () => {
         )}
         
         {/* 壁纸设置 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <button 
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
@@ -813,7 +825,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 消息条数设置 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -848,10 +860,10 @@ const ChatSettings = () => {
                 <button
                   key={num}
                   onClick={() => saveSettings({ ...settings, messageLimit: num })}
-                  className={`flex-1 py-1.5 px-3 rounded-[24px] text-xs transition-all active:scale-95 ${
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all ${
                     settings.messageLimit === num
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-600'
+                      ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                      : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                   }`}
                 >
                   {num}条
@@ -862,7 +874,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发朋友圈 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <h2 className="text-base font-semibold text-gray-900">
@@ -874,13 +886,17 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, aiCanPostMoments: !settings.aiCanPostMoments })}
-              className={`w-11 h-6 bg-gray-200 rounded-full relative active:scale-95 transition-all ${
-                settings.aiCanPostMoments ? 'bg-black' : 'bg-gray-200'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                settings.aiCanPostMoments 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5 transition-transform ${
-                settings.aiCanPostMoments ? 'translate-x-5' : ''
-              }`} />
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.aiCanPostMoments ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
             </button>
           </div>
           {settings.aiCanPostMoments && (
@@ -896,7 +912,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 朋友圈可见条数 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -931,10 +947,10 @@ const ChatSettings = () => {
                 <button
                   key={num}
                   onClick={() => saveSettings({ ...settings, momentsVisibleCount: num })}
-                  className={`flex-1 py-1.5 px-3 rounded-[24px] text-xs transition-all active:scale-95 ${
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium transition-all ${
                     settings.momentsVisibleCount === num
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-600'
+                      ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                      : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                   }`}
                 >
                   {num === 0 ? '不可见' : `${num}条`}
@@ -956,7 +972,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 导出角色数据 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-gray-900">
               导出角色完整数据
@@ -968,7 +984,7 @@ const ChatSettings = () => {
           
           <button
             onClick={handleExportData}
-            className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium rounded-[32px] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-slate-700 text-white font-medium rounded-[32px] shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -987,7 +1003,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 清空聊天记录 */}
-        <div className="bg-white rounded-[48px] p-4">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-gray-900">
               清空聊天记录

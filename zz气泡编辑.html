@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>zz气泡编辑</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: #f2f2f7;
+      padding-bottom: 70px;
+      font-size: 14px;
+    }
+    
+    .header {
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 12px 16px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #000;
+    }
+    
+    .preview-toggle {
+      background: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .preview-toggle:active {
+      background: #333;
+      transform: scale(0.96);
+    }
+    
+    .container {
+      padding: 12px;
+      max-width: 100%;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid #f0f0f0;
+    }
+    
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: "SF Mono", Monaco, monospace;
+      resize: vertical;
+      background: #fafafa;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 6px;
+      letter-spacing: -0.2px;
+    }
+    
+    .btn-primary {
+      background: #000;
+      color: white;
+    }
+    
+    .btn-primary:active {
+      background: #333;
+      transform: scale(0.98);
+    }
+    
+    .btn-success {
+      background: #666;
+      color: white;
+    }
+    
+    .btn-success:active {
+      background: #444;
+      transform: scale(0.98);
+    }
+    
+    .control-group {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 0.5px solid #e5e5e5;
+    }
+    
+    .control-label {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      color: #333;
+    }
+    
+    .control-value {
+      color: #666;
+      font-family: "SF Mono", Monaco, monospace;
+      font-size: 11px;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: #e5e5e5;
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #000;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    
+    input[type="color"] {
+      width: 100%;
+      height: 38px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 2px;
+    }
+    
+    .preview {
+      background: #f0f0f0;
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 300px;
+    }
+    
+    .message-row {
+      display: flex;
+      margin-bottom: 12px;
+    }
+    
+    .message-row.user {
+      justify-content: flex-end;
+    }
+    
+    .message-bubble {
+      max-width: 80%;
+      display: inline-block;
+      word-wrap: break-word;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    
+    .property-name {
+      font-family: "SF Mono", Monaco, monospace;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 10px 12px;
+      border-top: 0.5px solid rgba(0,0,0,0.1);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    
+    /* 悬浮预览窗口 */
+    .floating-preview {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 320px;
+      max-height: 400px;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      border: 0.5px solid rgba(0,0,0,0.1);
+    }
+    
+    .floating-preview.active {
+      display: flex;
+    }
+    
+    .floating-header {
+      padding: 12px 16px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: move;
+      background: rgba(255,255,255,0.5);
+    }
+    
+    .floating-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #000;
+    }
+    
+    .floating-close {
+      background: #f2f2f7;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #666;
+      font-size: 16px;
+    }
+    
+    .floating-close:active {
+      background: #e5e5ea;
+    }
+    
+    .floating-content {
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    @media (min-width: 768px) {
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+    }
+    
+    @media (max-width: 767px) {
+      .floating-preview {
+        width: calc(100vw - 40px);
+        max-height: 60vh;
+        top: 60px;
+        right: 10px;
+      }
+      
+      .bottom-bar {
+        padding: 8px 10px;
+      }
+      
+      .btn {
+        padding: 9px !important;
+        font-size: 12px !important;
+      }
+      
+      .card {
+        padding: 10px;
+        margin-bottom: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>zz气泡编辑</h1>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button onclick="showAddPropertyModal()" style="padding:6px 12px; background:#666; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">+ 添加属性</button>
+      <button class="preview-toggle" onclick="toggleFloatingPreview()">预览</button>
+    </div>
+  </div>
+  
+  <!-- 悬浮预览窗口 -->
+  <div id="floatingPreview" class="floating-preview">
+    <div class="floating-header" id="floatingHeader">
+      <span class="floating-title">实时预览</span>
+      <button class="floating-close" onclick="toggleFloatingPreview()">×</button>
+    </div>
+    <div class="floating-content">
+      <style id="floatingStyle"></style>
+      <div style="background:#f0f0f0; border-radius:12px; padding:16px;">
+        <div class="message-row user" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+          <div class="message-container sent">
+            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">你好！这是一条很长的用户消息，用来测试换行效果是否正常工作</div>
+          </div>
+        </div>
+        <div class="message-row" style="display:flex; justify-content:flex-start; margin-bottom:10px;">
+          <div class="message-container received">
+            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">你好！这是AI的回复消息，也用来测试文字换行</div>
+          </div>
+        </div>
+        <div class="message-row user" style="display:flex; justify-content:flex-end;">
+          <div class="message-container sent">
+            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">调整控件试试！</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div>
+      <!-- 气泡类型切换 -->
+      <div class="card">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button id="bubbleUserTab" onclick="switchBubbleType('user')" style="flex:1; padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500;">用户气泡</button>
+          <button id="bubbleAiTab" onclick="switchBubbleType('ai')" style="flex:1; padding:10px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:13px; font-weight:500;">AI气泡</button>
+        </div>
+        <div id="aiCopyTip" style="display:none; background:#f0f0f0; padding:8px; border-radius:6px; margin-bottom:12px;">
+          <button onclick="copyUserToAi()" style="width:100%; padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">复制用户气泡样式</button>
+        </div>
+      </div>
+
+      <!-- CSS输入 -->
+      <div class="card">
+        <div class="card-title">导入CSS</div>
+        <textarea id="cssInput" placeholder="粘贴CSS代码...&#10;支持 .sent 和 .received 选择器" style="min-height:100px;"></textarea>
+        <button class="btn btn-primary" onclick="smartParse()">解析CSS</button>
+      </div>
+
+      <!-- 解析后的动态控件 -->
+      <div class="card">
+        <div class="card-title">解析出的属性</div>
+        <div id="controls" style="min-height:40px;">
+          <div style="color:#999; font-size:12px; text-align:center; padding:20px;">
+            解析CSS后，属性控件会显示在这里
+          </div>
+        </div>
+      </div>
+
+      <!-- 自定义属性（隐藏显示） -->
+      <div id="customControls"></div>
+
+      <!-- 气泡形状 -->
+      <div class="card">
+        <div class="card-title">气泡形状</div>
+        
+        <select id="shapeTypeSelect" onchange="changeShapeType(this.value)" style="width:100%; padding:10px; border:1px solid #e5e5e5; border-radius:8px; font-size:13px; background:white; margin-bottom:12px;">
+          <option value="default">默认圆角</option>
+          <option value="circle">圆形</option>
+          <option value="ellipse">椭圆</option>
+          <option value="triangle">三角形</option>
+          <option value="pentagon">五边形</option>
+          <option value="hexagon">六边形</option>
+          <option value="octagon">八边形</option>
+          <option value="star">星形</option>
+          <option value="heart">心形</option>
+          <option value="speech">对话框</option>
+          <option value="custom">自定义</option>
+        </select>
+        
+        <!-- 自定义画板 -->
+        <div id="customShapeEditor" style="display:none;">
+          <canvas id="shapeCanvas" width="300" height="300" style="display:block; border:1px solid #e5e5e5; border-radius:8px; cursor:crosshair; margin-bottom:10px;"></canvas>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+            <button id="straightModeBtn" onclick="setDrawMode('straight')" style="padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">直线</button>
+            <button id="curveModeBtn" onclick="setDrawMode('curve')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:12px;">曲线</button>
+          </div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;">
+            <button onclick="clearShapePoints()" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:12px;">清空</button>
+            <button onclick="undoLastPoint()" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:12px;">撤销</button>
+            <button onclick="applyDrawnShape()" style="padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">应用</button>
+          </div>
+          
+          <button onclick="showShapeExamples()" style="width:100%; padding:8px; background:#fff; color:#333; border:1px solid #e5e5e5; border-radius:6px; font-size:12px;">预设形状</button>
+        </div>
+        
+        <!-- 圆角控制（仅在默认形状时显示） -->
+        <div id="radiusControl" style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>圆角大小</span>
+            <span id="shape-radius-val" style="color:#666; font-family:monospace;">18px</span>
+          </div>
+          <input type="range" min="0" max="50" value="18" 
+            oninput="updateShapeRadius(this.value)" 
+            style="width:100%;">
+        </div>
+        
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>透明度</span>
+            <span id="shape-opacity-val" style="color:#999;">100%</span>
+          </div>
+          <input type="range" min="0" max="100" value="100" oninput="updateShapeOpacity(this.value)" style="width:100%;">
+        </div>
+      </div>
+
+      <!-- 层级控制 -->
+      <div class="card">
+        <div class="card-title">层级与定位</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>Z-Index 层级</span>
+              <span id="zindex-val" style="color:#999;">10</span>
+            </div>
+            <input type="range" min="0" max="100" value="10" oninput="updateZIndex(this.value)" style="width:100%;">
+          </div>
+          
+          <div>
+            <div style="font-size:11px; margin-bottom:4px;">定位方式</div>
+            <select onchange="updatePosition(this.value)" style="width:100%; padding:6px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px;">
+              <option value="relative">相对定位</option>
+              <option value="absolute">绝对定位</option>
+              <option value="fixed">固定定位</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 贴纸 -->
+      <div class="card">
+        <div class="card-title">贴纸装饰</div>
+        <div id="stickerButtons" style="margin-bottom:10px;">
+          <!-- 贴纸按钮会根据当前tab动态显示 -->
+        </div>
+        
+        <!-- 图床上传选项 -->
+        <div style="background:#f9f9f9; padding:10px; border-radius:6px; margin-bottom:10px;">
+          <div style="font-size:11px; margin-bottom:6px; font-weight:500;">图床上传（可选）</div>
+          <input type="text" id="imageHostUrl" placeholder="粘贴图床链接（支持https://）" style="width:100%; padding:8px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px; margin-bottom:6px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <button onclick="applyImageHostBefore()" style="padding:6px; background:#f0f0f0; color:#666; border:none; border-radius:4px; font-size:11px;">应用到用户贴纸</button>
+            <button onclick="applyImageHostAfter()" style="padding:6px; background:#f0f0f0; color:#666; border:none; border-radius:4px; font-size:11px;">应用到AI贴纸</button>
+          </div>
+        </div>
+        
+        <div id="pseudoControls"></div>
+      </div>
+
+      <!-- 背景图 -->
+      <div class="card">
+        <div class="card-title">背景图片</div>
+        <input type="file" id="bgImageInput" accept="image/*" style="display:none;" onchange="handleBgImageUpload(event)">
+        <button class="btn btn-primary" onclick="document.getElementById('bgImageInput').click()">选择图片</button>
+        <div id="bgImagePreview" style="display:none; margin-top:10px;">
+          <img id="bgImageThumb" style="width:100%; border-radius:8px; margin-bottom:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button onclick="applyBgImage()" style="padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">应用</button>
+            <button onclick="removeBgImage()" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:12px;">删除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 特效增强 -->
+      <div class="card">
+        <div class="card-title">视觉特效</div>
+        
+        <!-- 边缘羽化 -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>边缘羽化</span>
+            <span id="edge-soft-val" style="color:#999;">0px</span>
+          </div>
+          <input type="range" min="0" max="25" value="0" oninput="updateEdgeSoft(this.value)" style="width:100%;">
+          <div style="font-size:10px; color:#999; margin-top:4px;">
+            边缘自然软化（无线框包裹）
+          </div>
+        </div>
+        
+        <!-- 外发光 -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>外发光强度</span>
+            <span id="outer-glow-val" style="color:#999;">0px</span>
+          </div>
+          <input type="range" min="0" max="30" value="0" id="outerGlowSlider" oninput="updateOuterGlow(this.value)" style="width:100%;">
+          <input type="color" id="outerGlowColor" value="#ffffff" onchange="updateOuterGlow()" style="width:100%; height:32px; margin-top:6px;">
+        </div>
+        
+        <!-- 内发光 -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>内发光强度</span>
+            <span id="inner-glow-val" style="color:#999;">0px</span>
+          </div>
+          <input type="range" min="0" max="20" value="0" id="innerGlowSlider" oninput="updateInnerGlow(this.value)" style="width:100%;">
+          <input type="color" id="innerGlowColor" value="#ffffff" onchange="updateInnerGlow()" style="width:100%; height:32px; margin-top:6px;">
+        </div>
+        
+        <!-- 斜面与浮雕 -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:6px;">斜面与浮雕</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+            <button onclick="applyBevel('none')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">无</button>
+            <button onclick="applyBevel('raised')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">凸起</button>
+            <button onclick="applyBevel('inset')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">内凹</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 渐变背景 -->
+      <div class="card">
+        <div class="card-title">渐变背景</div>
+        
+        <div style="font-size:11px; margin-bottom:6px;">渐变类型</div>
+        <select id="gradientType" onchange="updateGradientType(this.value)" style="width:100%; padding:8px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px; margin-bottom:12px;">
+          <option value="none">无渐变</option>
+          <option value="linear">线性渐变</option>
+          <option value="radial">径向渐变</option>
+        </select>
+        
+        <div id="gradientControls" style="display:none;">
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:6px;">起始颜色</div>
+            <input type="color" id="gradientColor1" value="#667eea" onchange="updateGradient()" style="width:100%; height:36px;">
+          </div>
+          
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:6px;">结束颜色</div>
+            <input type="color" id="gradientColor2" value="#764ba2" onchange="updateGradient()" style="width:100%; height:36px;">
+          </div>
+          
+          <div id="linearAngle" style="display:none; margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>渐变角度</span>
+              <span id="gradient-angle-val" style="color:#999;">45deg</span>
+            </div>
+            <input type="range" min="0" max="360" value="45" oninput="updateGradientAngle(this.value)" style="width:100%;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 高级滤镜 -->
+      <div class="card">
+        <div class="card-title">高级滤镜</div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div>
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>对比度</span>
+              <span id="contrast-val" style="color:#999;">100%</span>
+            </div>
+            <input type="range" min="0" max="200" value="100" oninput="updateContrast(this.value)" style="width:100%;">
+          </div>
+          
+          <div>
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>饱和度</span>
+              <span id="saturate-val" style="color:#999;">100%</span>
+            </div>
+            <input type="range" min="0" max="200" value="100" oninput="updateSaturate(this.value)" style="width:100%;">
+          </div>
+        </div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>亮度</span>
+              <span id="brightness-val" style="color:#999;">100%</span>
+            </div>
+            <input type="range" min="0" max="200" value="100" oninput="updateBrightness(this.value)" style="width:100%;">
+          </div>
+          
+          <div>
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>色相</span>
+              <span id="hue-val" style="color:#999;">0deg</span>
+            </div>
+            <input type="range" min="0" max="360" value="0" oninput="updateHue(this.value)" style="width:100%;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 文字特效 -->
+      <div class="card">
+        <div class="card-title">文字特效</div>
+        
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:6px;">文字颜色</div>
+          <input type="color" id="textColorPicker" value="#000000" onchange="updateTextColor(this.value)" style="width:100%; height:36px;">
+        </div>
+        
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>文字阴影强度</span>
+            <span id="text-shadow-val" style="color:#999;">0px</span>
+          </div>
+          <input type="range" min="0" max="10" value="0" id="textShadowSlider" oninput="updateTextShadow(this.value)" style="width:100%;">
+          <input type="color" id="textShadowColor" value="#000000" onchange="updateTextShadow()" style="width:100%; height:32px; margin-top:6px;">
+        </div>
+        
+        <div style="font-size:11px; margin-bottom:6px;">混合模式</div>
+        <select onchange="updateBlendMode(this.value)" style="width:100%; padding:8px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px;">
+          <option value="normal">正常</option>
+          <option value="multiply">正片叠底</option>
+          <option value="screen">滤色</option>
+          <option value="overlay">叠加</option>
+          <option value="darken">变暗</option>
+          <option value="lighten">变亮</option>
+          <option value="color-dodge">颜色减淡</option>
+          <option value="color-burn">颜色加深</option>
+          <option value="difference">差值</option>
+          <option value="exclusion">排除</option>
+        </select>
+      </div>
+
+      <!-- 动画效果 -->
+      <div class="card">
+        <div class="card-title">动画效果</div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+          <button onclick="applyAnimation('pulse')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">呼吸</button>
+          <button onclick="applyAnimation('bounce')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">弹跳</button>
+          <button onclick="applyAnimation('shake')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">抖动</button>
+          <button onclick="applyAnimation('glow')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">闪光</button>
+        </div>
+        
+        <button onclick="removeAnimation()" style="width:100%; padding:8px; background:#fff; color:#666; border:1px solid #e5e5e5; border-radius:6px; font-size:11px;">移除动画</button>
+      </div>
+
+      <!-- 预设模板 -->
+      <div class="card">
+        <div class="card-title">预设模板</div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+          <button onclick="loadPreset('glassmorphism')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">玻璃态</button>
+          <button onclick="loadPreset('neumorphism')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">新拟态</button>
+          <button onclick="loadPreset('neon')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">霓虹灯</button>
+          <button onclick="loadPreset('minimal')" style="padding:8px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:11px;">极简</button>
+        </div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button onclick="saveCurrentAsPreset()" style="padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:11px;">保存当前</button>
+          <button onclick="exportPreset()" style="padding:8px; background:#666; color:#fff; border:none; border-radius:6px; font-size:11px;">导出配置</button>
+        </div>
+      </div>
+
+      <!-- CSS输出 -->
+      <div class="card">
+        <div class="card-title">生成的CSS代码</div>
+        <textarea id="cssOutput" readonly style="min-height:120px;"></textarea>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+          <button onclick="promptSaveStyle()" style="padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer;">保存样式</button>
+          <button onclick="showStylesLibrary()" style="padding:10px; background:#666; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer;">样式库</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 样式库模态框 -->
+  <div id="stylesLibraryModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:14px; padding:20px; max-width:600px; width:90%; max-height:80vh; overflow:auto; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:18px; font-weight:600;">样式库</h3>
+        <button onclick="hideStylesLibrary()" style="padding:4px 12px; background:#f0f0f0; border:none; border-radius:6px; cursor:pointer;">关闭</button>
+      </div>
+      <div id="stylesLibraryList" style="margin-bottom:12px;">
+        <!-- 样式列表会动态生成 -->
+      </div>
+      <button onclick="promptSaveStyle()" style="width:100%; padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer;">+ 保存当前样式</button>
+    </div>
+  </div>
+  
+  <style id="dynamicStyle"></style>
+
+  <!-- 底部按钮 -->
+  <div class="bottom-bar">
+    <button onclick="copyCSS()" style="padding:12px; background:#000; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500;">复制CSS</button>
+    <button onclick="saveCSS()" style="padding:12px; background:#666; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500;">保存</button>
+  </div>
+
+  <!-- 添加属性弹窗 -->
+  <div id="addPropertyModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; padding:20px;">
+    <div style="background:white; border-radius:14px; padding:16px; max-width:360px; margin:80px auto; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <h3 style="margin-bottom:12px; font-size:15px; font-weight:600;">添加CSS属性</h3>
+      <select id="newPropertySelect" style="width:100%; padding:10px; border:1px solid #d1d1d6; border-radius:8px; margin-bottom:10px; font-size:13px; background:white;">
+        <option value="">-- 选择属性 --</option>
+        <optgroup label="布局">
+          <option value="display">display（显示方式）</option>
+          <option value="position">position（定位）</option>
+          <option value="top">top（上边距）</option>
+          <option value="left">left（左边距）</option>
+          <option value="right">right（右边距）</option>
+          <option value="bottom">bottom（下边距）</option>
+          <option value="z-index">z-index（层级）</option>
+          <option value="overflow">overflow（溢出）</option>
+          <option value="max-width">max-width（最大宽度）</option>
+          <option value="width">width（宽度）</option>
+          <option value="height">height（高度）</option>
+        </optgroup>
+        <optgroup label="间距">
+          <option value="padding">padding（内边距）</option>
+          <option value="margin">margin（外边距）</option>
+          <option value="padding-top">padding-top（上内边距）</option>
+          <option value="padding-bottom">padding-bottom（下内边距）</option>
+          <option value="padding-left">padding-left（左内边距）</option>
+          <option value="padding-right">padding-right（右内边距）</option>
+        </optgroup>
+        <optgroup label="边框">
+          <option value="border">border（边框）</option>
+          <option value="border-radius">border-radius（圆角）</option>
+          <option value="border-top">border-top（上边框）</option>
+          <option value="border-bottom">border-bottom（下边框）</option>
+          <option value="border-left">border-left（左边框）</option>
+          <option value="border-right">border-right（右边框）</option>
+        </optgroup>
+        <optgroup label="背景">
+          <option value="background-color">background-color（背景色）</option>
+          <option value="background">background（背景）</option>
+          <option value="background-image">background-image（背景图）</option>
+          <option value="background-size">background-size（背景尺寸）</option>
+          <option value="background-position">background-position（背景位置）</option>
+        </optgroup>
+        <optgroup label="文字">
+          <option value="color">color（文字颜色）</option>
+          <option value="font-size">font-size（字体大小）</option>
+          <option value="font-weight">font-weight（字体粗细）</option>
+          <option value="line-height">line-height（行高）</option>
+          <option value="text-align">text-align（对齐方式）</option>
+          <option value="word-break">word-break（换行）</option>
+        </optgroup>
+        <optgroup label="效果">
+          <option value="box-shadow">box-shadow（阴影）</option>
+          <option value="text-shadow">text-shadow（文字阴影）</option>
+          <option value="opacity">opacity（透明度）</option>
+          <option value="backdrop-filter">backdrop-filter（背景模糊）</option>
+        </optgroup>
+        <optgroup label="动画">
+          <option value="transform">transform（变换）</option>
+          <option value="transition">transition（过渡）</option>
+          <option value="animation">animation（动画）</option>
+        </optgroup>
+      </select>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-success" onclick="addNewProperty()" style="flex:1; padding:10px; font-size:13px;">添加</button>
+        <button class="btn" onclick="closeAddPropertyModal()" style="flex:1; padding:10px; font-size:13px; background:#f2f2f7; color:#000;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 存储解析的CSS属性
+    let parsedStyles = {};
+    let currentCSS = '';
+
+    // 存储额外的CSS（伪元素、动画等）
+    let extraCSS = {
+      beforePseudo: '',
+      afterPseudo: '',
+      animations: ''
+    };
+
+    // 智能解析CSS
+    function smartParse() {
+      const cssText = document.getElementById('cssInput').value;
+      if (!cssText.trim()) {
+        alert('请先粘贴CSS代码');
+        return;
+      }
+
+      // 提取 .sent 部分（处理多行嵌套）
+      const sentRegex = /\.sent[^{]*\.message-bubble\s*\{/;
+      const sentMatch = sentRegex.exec(cssText);
+      if (!sentMatch) {
+        alert('未找到 .sent 选择器');
+        return;
+      }
+
+      let braceCount = 1;
+      let endPos = sentMatch.index + sentMatch[0].length;
+      while (braceCount > 0 && endPos < cssText.length) {
+        if (cssText[endPos] === '{') braceCount++;
+        if (cssText[endPos] === '}') braceCount--;
+        endPos++;
+      }
+      
+      const cssContent = cssText.substring(sentMatch.index + sentMatch[0].length, endPos - 1);
+      currentCSS = cssContent;
+      
+      // 提取 ::before 伪元素（处理多行）
+      const beforeRegex = /\.sent[^{]*\.message-bubble::before\s*\{/;
+      const beforeMatch = beforeRegex.exec(cssText);
+      if (beforeMatch) {
+        let braceCount = 1;
+        let endPos = beforeMatch.index + beforeMatch[0].length;
+        while (braceCount > 0 && endPos < cssText.length) {
+          if (cssText[endPos] === '{') braceCount++;
+          if (cssText[endPos] === '}') braceCount--;
+          endPos++;
+        }
+        extraCSS.beforePseudo = cssText.substring(beforeMatch.index, endPos);
+        console.log('找到 ::before 伪元素');
+      }
+      
+      // 提取 ::after 伪元素（处理多行）
+      const afterRegex = /\.received[^{]*\.message-bubble::after\s*\{/;
+      const afterMatch = afterRegex.exec(cssText);
+      if (afterMatch) {
+        let braceCount = 1;
+        let endPos = afterMatch.index + afterMatch[0].length;
+        while (braceCount > 0 && endPos < cssText.length) {
+          if (cssText[endPos] === '{') braceCount++;
+          if (cssText[endPos] === '}') braceCount--;
+          endPos++;
+        }
+        extraCSS.afterPseudo = cssText.substring(afterMatch.index, endPos);
+        console.log('找到 ::after 伪元素');
+      }
+      
+      // 提取 @keyframes 动画（处理嵌套大括号）
+      const keyframesMatches = [];
+      let tempText = cssText;
+      let match;
+      const keyframesRegex = /@keyframes\s+[\w-]+\s*\{/g;
+      
+      while ((match = keyframesRegex.exec(tempText)) !== null) {
+        const startPos = match.index;
+        let braceCount = 1;
+        let endPos = match.index + match[0].length;
+        
+        // 手动解析嵌套大括号
+        while (braceCount > 0 && endPos < tempText.length) {
+          if (tempText[endPos] === '{') braceCount++;
+          if (tempText[endPos] === '}') braceCount--;
+          endPos++;
+        }
+        
+        keyframesMatches.push(tempText.substring(startPos, endPos));
+      }
+      
+      if (keyframesMatches.length > 0) {
+        extraCSS.animations = keyframesMatches.join('\n\n');
+        console.log('找到动画:', keyframesMatches.length, '个');
+      }
+      
+      // 解析所有CSS属性
+      parsedStyles = parseAllProperties(cssContent);
+      
+      // 生成控件
+      generateControls(parsedStyles);
+      
+      // 生成伪元素控件
+      generatePseudoControls();
+      
+      // 立即更新预览
+      setTimeout(() => {
+        updatePreview();
+      }, 100);
+      
+      const extras = [];
+      if (extraCSS.beforePseudo) extras.push('::before伪元素');
+      if (extraCSS.afterPseudo) extras.push('::after伪元素');
+      if (extraCSS.animations) extras.push('@keyframes动画');
+      
+      const extraMsg = extras.length > 0 ? `\n额外解析: ${extras.join('、')}` : '';
+      alert(`成功解析 ${Object.keys(parsedStyles).length} 个CSS属性！${extraMsg}\n现在可以调整控件了`);
+    }
+
+    // 解析所有CSS属性
+    function parseAllProperties(cssText) {
+      const styles = {};
+      
+      // 分割成单独的属性
+      const properties = cssText.split(';').filter(p => p.trim());
+      
+      properties.forEach(prop => {
+        const [name, value] = prop.split(':').map(s => s.trim());
+        if (name && value) {
+          const cleanName = name.replace(/^\s+|\s+$/g, '');
+          const cleanValue = value.replace(/!important/g, '').trim();
+          styles[cleanName] = parsePropertyValue(cleanName, cleanValue);
+        }
+      });
+      
+      return styles;
+    }
+
+    // CSS属性映射表（自动识别可编辑属性）
+    const editableProperties = {
+      // 颜色类
+      'color': {category: 'color', max: 100},
+      'background': {category: 'color', max: 100},
+      'background-color': {category: 'color', max: 100},
+      'border-color': {category: 'color', max: 100},
+      'text-shadow': {category: 'shadow'},
+      'box-shadow': {category: 'shadow'},
+      
+      // 尺寸类
+      'border-radius': {category: 'size', max: 50},
+      'border-width': {category: 'size', max: 10},
+      'font-size': {category: 'size', max: 30},
+      'padding': {category: 'size', max: 50},
+      'padding-top': {category: 'size', max: 50},
+      'padding-bottom': {category: 'size', max: 50},
+      'padding-left': {category: 'size', max: 50},
+      'padding-right': {category: 'size', max: 50},
+      'margin': {category: 'size', max: 50},
+      'width': {category: 'size', max: 500},
+      'height': {category: 'size', max: 500},
+      'line-height': {category: 'size', max: 50},
+      'letter-spacing': {category: 'size', max: 10},
+      
+      // 数值类
+      'opacity': {category: 'percent', max: 100},
+      'font-weight': {category: 'number', max: 900, step: 100}
+    };
+
+    // 深度解析CSS属性值 - 支持任何复杂CSS
+    function parsePropertyValue(name, value) {
+      const parsed = {
+        original: value,
+        type: 'text',
+        value: value,
+        editable: [],
+        rawParts: []  // 保存原始结构
+      };
+
+      // 1. 解析 backdrop-filter
+      if (name.includes('backdrop-filter') || name.includes('-webkit-backdrop-filter')) {
+        const blurMatch = value.match(/blur\((\d+)px\)/);
+        if (blurMatch) {
+          parsed.type = 'backdrop';
+          parsed.blurValue = parseInt(blurMatch[1]);
+          parsed.editable.push({type: 'range', label: '模糊强度', key: 'blurValue', min: 0, max: 50, unit: 'px'});
+        }
+        return parsed;
+      }
+
+      // 2. 解析多层 box-shadow
+      if (name === 'box-shadow') {
+        const shadows = [];
+        // 分割多层阴影（处理逗号分隔）
+        const parts = value.split(/,(?![^()]*\))/);
+        parts.forEach((shadow, idx) => {
+          const isInset = shadow.includes('inset');
+          const numbers = shadow.match(/(-?\d+(?:\.\d+)?)px/g);
+          if (numbers && numbers.length >= 2) {
+            const shadowData = {
+              isInset,
+              x: parseInt(numbers[0]),
+              y: parseInt(numbers[1]),
+              blur: numbers[2] ? parseInt(numbers[2]) : 0,
+              spread: numbers[3] ? parseInt(numbers[3]) : 0
+            };
+            shadows.push(shadowData);
+            
+            // 为每层阴影创建控件（包括X/Y偏移）
+            const prefix = isInset ? '内阴影' : '外阴影';
+            parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 左右偏移`, key: `shadow${idx}X`, min: -50, max: 50, unit: 'px', shadowIndex: idx});
+            parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 上下偏移`, key: `shadow${idx}Y`, min: -50, max: 50, unit: 'px', shadowIndex: idx});
+            parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 模糊`, key: `shadow${idx}Blur`, min: 0, max: 50, unit: 'px', shadowIndex: idx});
+            if (shadowData.spread !== undefined) {
+              parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 扩散`, key: `shadow${idx}Spread`, min: 0, max: 20, unit: 'px', shadowIndex: idx});
+            }
+          }
+        });
+        parsed.type = 'multishadow';
+        parsed.shadows = shadows;
+        return parsed;
+      }
+
+      // 3. 解析 linear-gradient
+      if (value.includes('linear-gradient')) {
+        const angleMatch = value.match(/(\d+)deg/);
+        const colorMatches = value.match(/rgba?\([^)]+\)/g);
+        
+        parsed.type = 'gradient';
+        parsed.gradientAngle = angleMatch ? parseInt(angleMatch[1]) : 135;
+        parsed.gradientColors = [];
+        
+        if (colorMatches) {
+          colorMatches.forEach((colorStr, idx) => {
+            const rgbaMatch = colorStr.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (rgbaMatch) {
+              const r = parseInt(rgbaMatch[1]);
+              const g = parseInt(rgbaMatch[2]);
+              const b = parseInt(rgbaMatch[3]);
+              const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+              const hex = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+              
+              parsed.gradientColors.push({hex, alpha: Math.round(a * 100)});
+              parsed.editable.push({type: 'color', label: `渐变色${idx+1}`, key: `gradColor${idx}`, colorIndex: idx});
+              parsed.editable.push({type: 'range', label: `渐变色${idx+1}透明度`, key: `gradAlpha${idx}`, min: 0, max: 100, unit: '%', colorIndex: idx});
+            }
+          });
+        }
+        
+        parsed.editable.push({type: 'range', label: '渐变角度', key: 'gradientAngle', min: 0, max: 360, unit: '°'});
+        return parsed;
+      }
+
+      // 4. 解析普通颜色
+      if (name.includes('color') || name === 'background' || name === 'background-color') {
+        // rgba/rgb
+        const rgbaMatch = value.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+          const r = parseInt(rgbaMatch[1]);
+          const g = parseInt(rgbaMatch[2]);
+          const b = parseInt(rgbaMatch[3]);
+          const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+          parsed.type = 'color';
+          parsed.color = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+          parsed.alpha = Math.round(a * 100);
+          parsed.editable.push({type: 'color', label: '颜色', key: 'color'});
+          parsed.editable.push({type: 'range', label: '透明度', key: 'alpha', min: 0, max: 100, unit: '%'});
+        }
+        
+        // hex
+        const hexMatch = value.match(/#([0-9a-f]{6})/i);
+        if (hexMatch) {
+          parsed.type = 'color';
+          parsed.color = '#' + hexMatch[1];
+          parsed.editable.push({type: 'color', label: '颜色', key: 'color'});
+        }
+
+        // linear-gradient
+        if (value.includes('linear-gradient')) {
+          parsed.type = 'gradient';
+          const colors = value.match(/#[0-9a-f]{6}/gi) || [];
+          const angle = value.match(/(\d+)deg/);
+          parsed.gradientColors = colors;
+          parsed.gradientAngle = angle ? parseInt(angle[1]) : 135;
+          parsed.editable.push({type: 'range', label: '渐变角度', key: 'gradientAngle', min: 0, max: 360, unit: '°'});
+        }
+      }
+
+      // 5. 解析border（复合属性）
+      if (name === 'border' || name.includes('border-') && !name.includes('radius')) {
+        const pxMatch = value.match(/(\d+)px/);
+        const colorMatch = value.match(/#[0-9a-f]{6}/i) || value.match(/rgba?\([^)]+\)/);
+        
+        if (pxMatch) {
+          parsed.type = 'border';
+          parsed.borderWidth = parseInt(pxMatch[1]);
+          parsed.borderColor = colorMatch ? colorMatch[0] : '#000000';
+          parsed.borderStyle = value.match(/solid|dashed|dotted|double/) ? value.match(/solid|dashed|dotted|double/)[0] : 'solid';
+          
+          parsed.editable.push({type: 'range', label: '边框宽度', key: 'borderWidth', min: 0, max: 10, unit: 'px'});
+          parsed.editable.push({type: 'color', label: '边框颜色', key: 'borderColor'});
+        }
+        return parsed;
+      }
+
+      // 6. 解析尺寸（通用）
+      if (name.includes('radius') || name.includes('width') || name.includes('size') || name.includes('padding') || name.includes('margin')) {
+        const pxMatch = value.match(/(\d+)px/);
+        if (pxMatch) {
+          parsed.type = 'size';
+          parsed.size = parseInt(pxMatch[1]);
+          const max = name.includes('radius') ? 50 : name.includes('size') ? 30 : 100;
+          parsed.editable.push({type: 'range', label: name, key: 'size', min: 0, max: max, unit: 'px'});
+        }
+        return parsed;
+      }
+
+      // 7. 解析opacity
+      if (name === 'opacity') {
+        parsed.type = 'opacity';
+        parsed.opacityValue = Math.round(parseFloat(value) * 100);
+        parsed.editable.push({type: 'range', label: '透明度', key: 'opacityValue', min: 0, max: 100, unit: '%'});
+        return parsed;
+      }
+
+      // 8. 解析font-weight
+      if (name === 'font-weight') {
+        parsed.type = 'weight';
+        parsed.weightValue = parseInt(value);
+        parsed.editable.push({type: 'range', label: '字体粗细', key: 'weightValue', min: 100, max: 900, unit: '', step: 100});
+        return parsed;
+      }
+
+      // 9. 解析transform（扩展支持）
+      if (name === 'transform') {
+        parsed.type = 'transform';
+        
+        // 解析 translateX
+        const translateXMatch = value.match(/translateX\((-?\d+)px\)/);
+        if (translateXMatch) {
+          parsed.translateX = parseInt(translateXMatch[1]);
+          parsed.editable.push({type: 'range', label: '左右位移', key: 'translateX', min: -100, max: 100, unit: 'px'});
+        }
+        
+        // 解析 translateY
+        const translateYMatch = value.match(/translateY\((-?\d+)px\)/);
+        if (translateYMatch) {
+          parsed.translateY = parseInt(translateYMatch[1]);
+          parsed.editable.push({type: 'range', label: '上下位移', key: 'translateY', min: -100, max: 100, unit: 'px'});
+        }
+        
+        // 解析 scale
+        const scaleMatch = value.match(/scale\(([\d.]+)\)/);
+        if (scaleMatch) {
+          parsed.scaleValue = Math.round(parseFloat(scaleMatch[1]) * 100);
+          parsed.editable.push({type: 'range', label: '缩放', key: 'scaleValue', min: 50, max: 150, unit: '%'});
+        }
+        
+        // 解析 rotate
+        const rotateMatch = value.match(/rotate\((-?\d+)deg\)/);
+        if (rotateMatch) {
+          parsed.rotateValue = parseInt(rotateMatch[1]);
+          parsed.editable.push({type: 'range', label: '旋转', key: 'rotateValue', min: -180, max: 180, unit: '°'});
+        }
+        
+        return parsed;
+      }
+
+      // 10. 解析line-height
+      if (name === 'line-height') {
+        const numMatch = value.match(/([\d.]+)/);
+        if (numMatch) {
+          parsed.type = 'lineheight';
+          parsed.lineHeightValue = Math.round(parseFloat(numMatch[1]) * 10);
+          parsed.editable.push({type: 'range', label: '行高', key: 'lineHeightValue', min: 5, max: 30, unit: ''});
+        }
+        return parsed;
+      }
+
+      // 11. 解析z-index
+      if (name === 'z-index') {
+        parsed.type = 'zindex';
+        parsed.zValue = parseInt(value);
+        parsed.editable.push({type: 'range', label: '层级', key: 'zValue', min: -10, max: 100, unit: ''});
+        return parsed;
+      }
+
+      // 12. 解析max-width (百分比)
+      if (name === 'max-width' && value.includes('%')) {
+        parsed.type = 'maxwidth';
+        parsed.maxWidthValue = parseInt(value);
+        parsed.editable.push({type: 'range', label: '最大宽度', key: 'maxWidthValue', min: 0, max: 100, unit: '%'});
+        return parsed;
+      }
+
+      // 13. 解析transition
+      if (name === 'transition') {
+        const secondsMatch = value.match(/([\d.]+)s/);
+        if (secondsMatch) {
+          parsed.type = 'transition';
+          parsed.transitionDuration = Math.round(parseFloat(secondsMatch[1]) * 10);
+          parsed.editable.push({type: 'range', label: '过渡时长', key: 'transitionDuration', min: 0, max: 30, unit: 's'});
+        }
+        return parsed;
+      }
+
+      // 14. 解析定位属性 (top/left/right/bottom)
+      if (name === 'top' || name === 'left' || name === 'right' || name === 'bottom') {
+        const pxMatch = value.match(/(-?\d+)px/);
+        if (pxMatch) {
+          parsed.type = 'position';
+          parsed.posValue = parseInt(pxMatch[1]);
+          parsed.editable.push({type: 'range', label: name, key: 'posValue', min: -100, max: 100, unit: 'px'});
+        }
+        return parsed;
+      }
+
+      // 15. 解析text-shadow
+      if (name === 'text-shadow') {
+        const numbers = value.match(/(-?\d+(?:\.\d+)?)px/g);
+        if (numbers && numbers.length >= 2) {
+          parsed.type = 'textshadow';
+          parsed.textShadowX = parseInt(numbers[0]);
+          parsed.textShadowY = parseInt(numbers[1]);
+          parsed.textShadowBlur = numbers[2] ? parseInt(numbers[2]) : 0;
+          
+          parsed.editable.push({type: 'range', label: '左右偏移', key: 'textShadowX', min: -20, max: 20, unit: 'px'});
+          parsed.editable.push({type: 'range', label: '上下偏移', key: 'textShadowY', min: -20, max: 20, unit: 'px'});
+          parsed.editable.push({type: 'range', label: '模糊', key: 'textShadowBlur', min: 0, max: 20, unit: 'px'});
+        }
+        return parsed;
+      }
+
+      // 默认：不可编辑，保持原样
+      return parsed;
+    }
+
+    // 生成控件
+    function generateControls(styles) {
+      const container = document.getElementById('controls');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      // 安全检查：确保styles是有效对象
+      if (!styles || typeof styles !== 'object') {
+        console.warn('generateControls: styles参数无效');
+        return;
+      }
+
+      Object.entries(styles).forEach(([name, data]) => {
+        if (data.editable && data.editable.length > 0) {
+          const group = document.createElement('div');
+          group.className = 'control-group';
+          
+          const title = document.createElement('div');
+          title.className = 'property-name';
+          title.textContent = name;
+          group.appendChild(title);
+
+          data.editable.forEach(control => {
+            const controlDiv = document.createElement('div');
+            controlDiv.style.marginBottom = '12px';
+
+            const label = document.createElement('div');
+            label.className = 'control-label';
+            
+            // 获取显示值
+            let displayValue = '';
+            if (control.colorIndex !== undefined && data.gradientColors && data.gradientColors[control.colorIndex]) {
+              displayValue = data.gradientColors[control.colorIndex].hex;
+            } else if (data.type === 'border' && control.key === 'borderColor') {
+              displayValue = data.borderColor || '#000000';
+            } else if (data.type === 'border' && control.key === 'borderWidth') {
+              displayValue = (data.borderWidth || 1) + (control.unit || '');
+            } else if (control.shadowIndex !== undefined) {
+              // 安全检查：确保shadows数组和对应索引的元素存在
+              if (data.shadows && data.shadows[control.shadowIndex]) {
+                const shadow = data.shadows[control.shadowIndex];
+                let val;
+                if (control.key.includes('X')) val = shadow.x;
+                else if (control.key.includes('Y')) val = shadow.y;
+                else if (control.key.includes('Blur')) val = shadow.blur;
+                else if (control.key.includes('Spread')) val = shadow.spread;
+                displayValue = val + (control.unit || '');
+              } else {
+                displayValue = '0' + (control.unit || '');
+              }
+            } else if (data.type === 'lineheight') {
+              displayValue = ((data.lineHeightValue || 15) / 10).toFixed(1);
+            } else if (data.type === 'transition') {
+              displayValue = ((data.transitionDuration || 3) / 10).toFixed(1) + 's';
+            } else {
+              displayValue = (data[control.key] || 0) + (control.unit || '');
+            }
+            
+            label.innerHTML = `
+              <span>${control.label}</span>
+              <span class="control-value" id="value-${name}-${control.key}">${displayValue}</span>
+            `;
+            controlDiv.appendChild(label);
+
+            if (control.type === 'color') {
+              const colorInput = document.createElement('input');
+              colorInput.type = 'color';
+              
+              // 处理渐变色
+              if (control.colorIndex !== undefined && data.gradientColors && data.gradientColors[control.colorIndex]) {
+                colorInput.value = data.gradientColors[control.colorIndex].hex;
+                colorInput.oninput = () => {
+                  data[control.key] = colorInput.value;
+                  console.log('渐变色改变:', control.colorIndex, colorInput.value);
+                  const valueEl = document.getElementById(`value-${name}-${control.key}`);
+                  if (valueEl) valueEl.textContent = colorInput.value;
+                  updatePreviewFromControls();
+                };
+              } 
+              // 处理border颜色
+              else if (data.type === 'border' && control.key === 'borderColor') {
+                colorInput.value = data.borderColor.includes('#') ? data.borderColor : '#000000';
+                colorInput.oninput = () => {
+                  data.borderColor = colorInput.value;
+                  console.log('边框颜色改变:', colorInput.value);
+                  const valueEl = document.getElementById(`value-${name}-${control.key}`);
+                  if (valueEl) valueEl.textContent = colorInput.value;
+                  updatePreviewFromControls();
+                };
+              }
+              // 普通颜色
+              else {
+                colorInput.value = data[control.key];
+                colorInput.oninput = () => {
+                  data[control.key] = colorInput.value;
+                  console.log('颜色改变:', name, colorInput.value);
+                  const valueEl = document.getElementById(`value-${name}-${control.key}`);
+                  if (valueEl) valueEl.textContent = colorInput.value;
+                  updatePreviewFromControls();
+                };
+              }
+              
+              colorInput.onchange = colorInput.oninput;
+              controlDiv.appendChild(colorInput);
+            } else if (control.type === 'range') {
+              const rangeInput = document.createElement('input');
+              rangeInput.type = 'range';
+              rangeInput.min = control.min;
+              rangeInput.max = control.max;
+              
+              // 处理渐变透明度
+              if (control.colorIndex !== undefined && control.key.includes('Alpha') && data.gradientColors && data.gradientColors[control.colorIndex]) {
+                rangeInput.value = data.gradientColors[control.colorIndex].alpha;
+                rangeInput.oninput = () => {
+                  data[control.key] = parseInt(rangeInput.value);
+                  console.log('渐变透明度改变:', control.colorIndex, rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = rangeInput.value + (control.unit || '');
+                  updatePreviewFromControls();
+                };
+              }
+              // 处理阴影
+              else if (control.shadowIndex !== undefined && data.shadows && data.shadows[control.shadowIndex]) {
+                const shadow = data.shadows[control.shadowIndex];
+                let initVal;
+                if (control.key.includes('X')) initVal = shadow.x;
+                else if (control.key.includes('Y')) initVal = shadow.y;
+                else if (control.key.includes('Blur')) initVal = shadow.blur;
+                else if (control.key.includes('Spread')) initVal = shadow.spread;
+                
+                rangeInput.value = initVal;
+                data[control.key] = initVal;  // 初始化
+                rangeInput.oninput = () => {
+                  data[control.key] = parseInt(rangeInput.value);
+                  console.log('阴影改变:', control.key, rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = rangeInput.value + (control.unit || '');
+                  updatePreviewFromControls();
+                };
+              }
+              // 处理border宽度
+              else if (data.type === 'border' && control.key === 'borderWidth') {
+                rangeInput.value = data.borderWidth || 1;
+                rangeInput.oninput = () => {
+                  data.borderWidth = parseInt(rangeInput.value);
+                  console.log('边框宽度改变:', rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = rangeInput.value + (control.unit || '');
+                  updatePreviewFromControls();
+                };
+              }
+              // 处理line-height
+              else if (data.type === 'lineheight') {
+                rangeInput.value = data.lineHeightValue || 15;
+                rangeInput.oninput = () => {
+                  data.lineHeightValue = parseInt(rangeInput.value);
+                  console.log('行高改变:', rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = (rangeInput.value / 10).toFixed(1);
+                  updatePreviewFromControls();
+                };
+              }
+              // 处理transition
+              else if (data.type === 'transition') {
+                rangeInput.value = data.transitionDuration || 3;
+                rangeInput.oninput = () => {
+                  data.transitionDuration = parseInt(rangeInput.value);
+                  console.log('过渡时长改变:', rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = (rangeInput.value / 10).toFixed(1) + 's';
+                  updatePreviewFromControls();
+                };
+              }
+              // 其他普通滑块
+              else {
+                rangeInput.value = data[control.key];
+                rangeInput.oninput = () => {
+                  data[control.key] = parseInt(rangeInput.value);
+                  console.log('滑块改变:', name, control.key, rangeInput.value);
+                  document.getElementById(`value-${name}-${control.key}`).textContent = rangeInput.value + (control.unit || '');
+                  updatePreviewFromControls();
+                };
+              }
+              
+              controlDiv.appendChild(rangeInput);
+            }
+
+            group.appendChild(controlDiv);
+          });
+
+          container.appendChild(group);
+        }
+      });
+
+      if (container.innerHTML === '') {
+        container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">请先解析CSS以生成控件</p>';
+      }
+    }
+
+    // 从控件更新预览
+    function updatePreviewFromControls() {
+      let css = '';
+      
+      // 生成用户气泡CSS
+      css += generateBubbleCSS('.message-container.sent .message-bubble', userStyles);
+      
+      // 生成AI气泡CSS  
+      css += generateBubbleCSS('.message-container.received .message-bubble', aiStyles);
+      
+      // 添加伪元素和动画（带HTML结构说明）
+      if (extraCSS.beforePseudo || extraCSS.afterPseudo) {
+        css += '/* ==================== 伪元素（贴纸装饰） ==================== */\n';
+        css += '/* 此CSS使用的HTML结构模式：';
+        
+        if (htmlStructureMode === 'full') {
+          css += '完整结构\n';
+          css += '   需要的HTML：\n';
+          css += '   <div class="message-container sent">\n';
+          css += '     <div class="message-bubble">用户消息</div>\n';
+          css += '   </div>\n';
+          css += '   <div class="message-container received">\n';
+          css += '     <div class="message-bubble">AI消息</div>\n';
+          css += '   </div>\n';
+        } else if (htmlStructureMode === 'simple') {
+          css += '简化结构\n';
+          css += '   需要的HTML：\n';
+          css += '   <div class="sent">用户消息</div>\n';
+          css += '   <div class="received">AI消息</div>\n';
+        } else if (htmlStructureMode === 'bubble') {
+          css += '仅气泡\n';
+          css += '   需要的HTML：\n';
+          css += '   <div class="message-bubble sent">用户消息</div>\n';
+          css += '   <div class="message-bubble received">AI消息</div>\n';
+        }
+        
+        css += '*/\n\n';
+      }
+      
+      if (extraCSS.beforePseudo) {
+        css += extraCSS.beforePseudo + '\n\n';
+      }
+      if (extraCSS.afterPseudo) {
+        css += extraCSS.afterPseudo + '\n\n';
+      }
+      if (extraCSS.animations) {
+        css += extraCSS.animations;
+      }
+
+      document.getElementById('dynamicStyle').textContent = css;
+      document.getElementById('floatingStyle').textContent = css;
+      document.getElementById('cssOutput').value = css;
+    }
+
+    // 生成HTML结构示例
+    function updateHtmlStructureExample() {
+      const htmlStructureEl = document.getElementById('htmlStructure');
+      if (!htmlStructureEl) return;
+      
+      let html = '';
+      
+      if (htmlStructureMode === 'full') {
+        html = `<!-- 用户消息 -->
+<div class="message-container sent">
+  <div class="message-bubble">这是用户发送的消息</div>
+</div>
+
+<!-- AI消息 -->
+<div class="message-container received">
+  <div class="message-bubble">这是AI的回复消息</div>
+</div>`;
+      } else if (htmlStructureMode === 'simple') {
+        html = `<!-- 用户消息 -->
+<div class="sent">这是用户发送的消息</div>
+
+<!-- AI消息 -->
+<div class="received">这是AI的回复消息</div>`;
+      } else if (htmlStructureMode === 'bubble') {
+        html = `<!-- 用户消息 -->
+<div class="message-bubble sent">这是用户发送的消息</div>
+
+<!-- AI消息 -->
+<div class="message-bubble received">这是AI的回复消息</div>`;
+      }
+      
+      htmlStructureEl.value = html;
+    }
+
+    // 复制HTML结构
+    function copyHtmlStructure() {
+      const htmlStructureEl = document.getElementById('htmlStructure');
+      if (!htmlStructureEl) return;
+      
+      navigator.clipboard.writeText(htmlStructureEl.value).then(() => {
+        alert('HTML结构已复制！\n把这个HTML结构粘贴到你的网页中，然后应用CSS就能看到效果了。');
+      });
+    }
+
+    // 生成单个气泡的CSS
+    function generateBubbleCSS(selector, styles) {
+      let css = `${selector} {\n`;
+      css += '  position: relative !important;\n';
+      
+      Object.entries(styles).forEach(([name, data]) => {
+        // backdrop-filter
+        if (data.type === 'backdrop' && data.blurValue !== undefined) {
+          css += `  ${name}: blur(${data.blurValue}px) !important;\n`;
+        }
+        // 多层阴影
+        else if (data.type === 'multishadow' && data.shadows) {
+          const shadowStrs = data.shadows.map((s, idx) => {
+            const x = data[`shadow${idx}X`] !== undefined ? data[`shadow${idx}X`] : s.x;
+            const y = data[`shadow${idx}Y`] !== undefined ? data[`shadow${idx}Y`] : s.y;
+            const blur = data[`shadow${idx}Blur`] !== undefined ? data[`shadow${idx}Blur`] : s.blur;
+            const spread = data[`shadow${idx}Spread`] !== undefined ? data[`shadow${idx}Spread`] : s.spread;
+            const inset = s.isInset ? 'inset ' : '';
+            return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(0,0,0,0.15)`;
+          });
+          css += `  ${name}: ${shadowStrs.join(', ')} !important;\n`;
+        }
+        // 渐变
+        else if (data.type === 'gradient') {
+          // 如果有gradientColors属性（旧格式）
+          if (data.gradientColors && Array.isArray(data.gradientColors)) {
+            const colors = data.gradientColors.map((c, idx) => {
+              const hex = data[`gradColor${idx}`] || c.hex;
+              const alpha = data[`gradAlpha${idx}`] !== undefined ? data[`gradAlpha${idx}`] : c.alpha;
+              const r = parseInt(hex.slice(1, 3), 16);
+              const g = parseInt(hex.slice(3, 5), 16);
+              const b = parseInt(hex.slice(5, 7), 16);
+              return `rgba(${r}, ${g}, ${b}, ${(alpha / 100).toFixed(2)})`;
+            });
+            const angle = data.gradientAngle || 135;
+            css += `  ${name}: linear-gradient(${angle}deg, ${colors.join(', ')}) !important;\n`;
+          }
+          // 如果直接是gradient字符串（新格式）
+          else if (data.value) {
+            css += `  ${name}: ${data.value} !important;\n`;
+          }
+        }
+        // 普通颜色
+        else if (data.type === 'color' && data.color) {
+          if (data.alpha !== undefined) {
+            const r = parseInt(data.color.slice(1, 3), 16);
+            const g = parseInt(data.color.slice(3, 5), 16);
+            const b = parseInt(data.color.slice(5, 7), 16);
+            const a = (data.alpha / 100).toFixed(2);
+            css += `  ${name}: rgba(${r}, ${g}, ${b}, ${a}) !important;\n`;
+          } else {
+            css += `  ${name}: ${data.color} !important;\n`;
+          }
+        }
+        // 尺寸
+        else if (data.type === 'size' && data.size !== undefined) {
+          css += `  ${name}: ${data.size}px !important;\n`;
+        }
+        // border
+        else if (data.type === 'border') {
+          const width = data.borderWidth || 1;
+          const color = data.borderColor || '#000000';
+          const style = data.borderStyle || 'solid';
+          css += `  ${name}: ${width}px ${style} ${color} !important;\n`;
+        }
+        // opacity
+        else if (data.type === 'opacity') {
+          const val = data.opacityValue !== undefined ? data.opacityValue : 100;
+          css += `  ${name}: ${(val / 100).toFixed(2)} !important;\n`;
+        }
+        // font-weight
+        else if (data.type === 'weight') {
+          css += `  ${name}: ${data.weightValue || 400} !important;\n`;
+        }
+        // transform
+        else if (data.type === 'transform') {
+          const transforms = [];
+          
+          if (data.translateX !== undefined) {
+            transforms.push(`translateX(${data.translateX}px)`);
+          }
+          if (data.translateY !== undefined) {
+            transforms.push(`translateY(${data.translateY}px)`);
+          }
+          if (data.scaleValue !== undefined) {
+            const scale = data.scaleValue / 100;
+            transforms.push(`scale(${scale.toFixed(2)})`);
+          }
+          if (data.rotateValue !== undefined) {
+            transforms.push(`rotate(${data.rotateValue}deg)`);
+          }
+          
+          if (transforms.length > 0) {
+            css += `  ${name}: ${transforms.join(' ')} !important;\n`;
+          }
+        }
+        // line-height
+        else if (data.type === 'lineheight') {
+          const val = data.lineHeightValue !== undefined ? data.lineHeightValue : 15;
+          css += `  ${name}: ${(val / 10).toFixed(1)} !important;\n`;
+        }
+        // z-index
+        else if (data.type === 'zindex') {
+          css += `  ${name}: ${data.zValue || 1} !important;\n`;
+        }
+        // max-width
+        else if (data.type === 'maxwidth') {
+          css += `  ${name}: ${data.maxWidthValue || 70}% !important;\n`;
+        }
+        // transition
+        else if (data.type === 'transition') {
+          const duration = data.transitionDuration !== undefined ? data.transitionDuration : 3;
+          css += `  ${name}: all ${(duration / 10).toFixed(1)}s ease !important;\n`;
+        }
+        // 定位属性
+        else if (data.type === 'position') {
+          css += `  ${name}: ${data.posValue || 0}px !important;\n`;
+        }
+        // text-shadow
+        else if (data.type === 'textshadow') {
+          const x = data.textShadowX || 0;
+          const y = data.textShadowY || 0;
+          const blur = data.textShadowBlur || 0;
+          css += `  ${name}: ${x}px ${y}px ${blur}px rgba(0,0,0,0.3) !important;\n`;
+        }
+        // filter
+        else if (data.type === 'filter') {
+          // 使用original或value，或者构建filter字符串
+          if (data.original) {
+            css += `  ${name}: ${data.original} !important;\n`;
+          } else if (data.value) {
+            css += `  ${name}: ${data.value} !important;\n`;
+          } else {
+            // 旧的方式，兼容
+            const blur = data.blur || 0;
+            if (blur > 0) {
+              css += `  ${name}: blur(${blur}px) !important;\n`;
+            }
+          }
+        }
+        // shadow (box-shadow单独处理)
+        else if (data.type === 'shadow') {
+          if (data.original) {
+            css += `  ${name}: ${data.original} !important;\n`;
+          } else if (data.value) {
+            css += `  ${name}: ${data.value} !important;\n`;
+          }
+        }
+        // text类型（普通文本值）
+        else if (data.type === 'text') {
+          if (data.original) {
+            css += `  ${name}: ${data.original} !important;\n`;
+          } else if (data.value) {
+            css += `  ${name}: ${data.value} !important;\n`;
+          }
+        }
+        // clip-path
+        else if (data.type === 'clippath') {
+          css += `  ${name}: ${data.value} !important;\n`;
+        }
+        // 其他保持原样（优先使用original，其次value）
+        else {
+          if (data.original) {
+            css += `  ${name}: ${data.original} !important;\n`;
+          } else if (data.value) {
+            css += `  ${name}: ${data.value} !important;\n`;
+          }
+        }
+      });
+      
+      css += '}\n\n';
+      
+      return css;
+    }
+
+    // 防抖定时器
+    let updatePreviewTimer = null;
+
+    // 更新预览（带防抖）
+    function updatePreview() {
+      // 同步保存当前编辑的样式
+      if (currentBubbleType === 'user') {
+        userStyles = JSON.parse(JSON.stringify(parsedStyles));
+      } else {
+        aiStyles = JSON.parse(JSON.stringify(parsedStyles));
+      }
+      
+      // 清除之前的定时器
+      if (updatePreviewTimer) {
+        clearTimeout(updatePreviewTimer);
+      }
+      
+      // 设置新的定时器（30ms防抖）
+      updatePreviewTimer = setTimeout(() => {
+        updatePreviewFromControls();
+        autoSaveCurrentState(); // 自动保存
+      }, 30);
+    }
+    
+    // 立即更新预览（不防抖）
+    function updatePreviewNow() {
+      updatePreviewFromControls();
+    }
+
+    // 切换悬浮预览窗口
+    function toggleFloatingPreview() {
+      const preview = document.getElementById('floatingPreview');
+      preview.classList.toggle('active');
+    }
+
+    // 悬浮窗拖动功能
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const dragHeader = document.getElementById('floatingHeader');
+      const dragElement = document.getElementById('floatingPreview');
+
+      dragHeader.addEventListener('mousedown', dragStart);
+      dragHeader.addEventListener('touchstart', dragStart);
+
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('touchmove', drag);
+
+      document.addEventListener('mouseup', dragEnd);
+      document.addEventListener('touchend', dragEnd);
+
+      function dragStart(e) {
+        if (e.type === 'touchstart') {
+          initialX = e.touches[0].clientX - xOffset;
+          initialY = e.touches[0].clientY - yOffset;
+        } else {
+          initialX = e.clientX - xOffset;
+          initialY = e.clientY - yOffset;
+        }
+
+        if (e.target === dragHeader || dragHeader.contains(e.target)) {
+          if (!e.target.classList.contains('floating-close')) {
+            isDragging = true;
+          }
+        }
+      }
+
+      function drag(e) {
+        if (isDragging) {
+          e.preventDefault();
+          
+          if (e.type === 'touchmove') {
+            currentX = e.touches[0].clientX - initialX;
+            currentY = e.touches[0].clientY - initialY;
+          } else {
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+          }
+
+          xOffset = currentX;
+          yOffset = currentY;
+
+          setTranslate(currentX, currentY, dragElement);
+        }
+      }
+
+      function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+      }
+
+      function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+      }
+      
+      // 恢复自动保存的数据
+      const restored = restoreFromAutoSave();
+      
+      // 初始化：立即更新预览，显示两个气泡
+      setTimeout(() => {
+        if (restored) {
+          // 如果恢复了数据，重新生成控件和预览
+          generateControls(parsedStyles);
+          generatePseudoControls();
+          updateStickerButtons();
+          updatePreviewNow();
+          console.log('已恢复上次编辑的数据');
+        } else {
+          // 否则正常初始化
+          updatePreviewNow();
+          updateStickerButtons();
+          generatePseudoControls();
+        }
+      }, 100);
+    });
+
+    // 复制CSS
+    function copyCSS() {
+      const css = document.getElementById('cssOutput').value;
+      navigator.clipboard.writeText(css).then(() => {
+        alert('CSS已复制');
+      });
+    }
+
+    // 保存CSS
+    function saveCSS() {
+      const css = document.getElementById('cssOutput').value;
+      localStorage.setItem('bubble_css', css);
+      alert('已保存到本地');
+    }
+
+    // 显示添加属性弹窗
+    function showAddPropertyModal() {
+      document.getElementById('addPropertyModal').style.display = 'block';
+    }
+
+    // 关闭添加属性弹窗
+    function closeAddPropertyModal() {
+      document.getElementById('addPropertyModal').style.display = 'none';
+    }
+
+    // 添加新属性
+    function addNewProperty() {
+      const select = document.getElementById('newPropertySelect');
+      const propName = select.value;
+      
+      if (!propName) {
+        alert('请选择一个属性！');
+        return;
+      }
+
+      // 创建默认值
+      let defaultValue = '';
+      // 布局类
+      if (propName === 'display') defaultValue = 'flex';
+      else if (propName === 'position') defaultValue = 'relative';
+      else if (propName === 'top') defaultValue = '0px';
+      else if (propName === 'left') defaultValue = '0px';
+      else if (propName === 'right') defaultValue = '0px';
+      else if (propName === 'bottom') defaultValue = '0px';
+      else if (propName === 'z-index') defaultValue = '1';
+      else if (propName === 'overflow') defaultValue = 'visible';
+      else if (propName === 'max-width') defaultValue = '70%';
+      else if (propName === 'width') defaultValue = '100px';
+      else if (propName === 'height') defaultValue = '100px';
+      // 间距类
+      else if (propName === 'padding') defaultValue = '10px';
+      else if (propName === 'margin') defaultValue = '10px';
+      else if (propName === 'padding-top') defaultValue = '10px';
+      else if (propName === 'padding-bottom') defaultValue = '10px';
+      else if (propName === 'padding-left') defaultValue = '10px';
+      else if (propName === 'padding-right') defaultValue = '10px';
+      // 边框类
+      else if (propName === 'border') defaultValue = '2px solid #000000';
+      else if (propName === 'border-radius') defaultValue = '10px';
+      else if (propName === 'border-top') defaultValue = '2px solid #000000';
+      else if (propName === 'border-bottom') defaultValue = '2px solid #000000';
+      else if (propName === 'border-left') defaultValue = '2px solid #000000';
+      else if (propName === 'border-right') defaultValue = '2px solid #000000';
+      // 背景类
+      else if (propName === 'background-color') defaultValue = '#ffffff';
+      else if (propName === 'background') defaultValue = 'linear-gradient(135deg, #ffffff, #f0f0f0)';
+      else if (propName === 'background-image') defaultValue = 'url(https://example.com/image.png)';
+      else if (propName === 'background-size') defaultValue = 'cover';
+      else if (propName === 'background-position') defaultValue = 'center';
+      // 文字类
+      else if (propName === 'color') defaultValue = '#000000';
+      else if (propName === 'font-size') defaultValue = '14px';
+      else if (propName === 'font-weight') defaultValue = '400';
+      else if (propName === 'line-height') defaultValue = '1.5';
+      else if (propName === 'text-align') defaultValue = 'left';
+      else if (propName === 'word-break') defaultValue = 'break-word';
+      // 效果类
+      else if (propName === 'box-shadow') defaultValue = '2px 2px 8px 0px rgba(0,0,0,0.15)';
+      else if (propName === 'text-shadow') defaultValue = '1px 1px 2px rgba(0,0,0,0.3)';
+      else if (propName === 'opacity') defaultValue = '1';
+      else if (propName === 'backdrop-filter') defaultValue = 'blur(10px)';
+      // 动画类
+      else if (propName === 'transform') defaultValue = 'translateX(0px) translateY(0px) scale(1) rotate(0deg)';
+      else if (propName === 'transition') defaultValue = 'all 0.3s ease';
+      else if (propName === 'animation') defaultValue = 'float 2s infinite';
+
+      // 添加到parsedStyles
+      parsedStyles[propName] = parsePropertyValue(propName, defaultValue);
+      
+      // 标记为自定义添加
+      if (!parsedStyles[propName].isCustom) {
+        parsedStyles[propName].isCustom = true;
+      }
+      
+      // 在自定义控件区显示
+      addCustomControl(propName, parsedStyles[propName]);
+      
+      // 更新预览
+      updatePreview();
+      
+      // 关闭弹窗
+      closeAddPropertyModal();
+      
+      alert(`已添加 ${propName} 属性！`);
+    }
+    
+    // 气泡类型切换
+    let currentBubbleType = 'user'; // 'user' or 'ai'
+    let userStyles = JSON.parse(JSON.stringify(parsedStyles)); // 保存用户气泡样式（初始化为当前样式）
+    let aiStyles = {}; // 保存AI气泡样式
+
+    // ==================== 自动保存和样式库 ====================
+    
+    // 自动保存当前编辑状态
+    function autoSaveCurrentState() {
+      const currentState = {
+        userStyles: userStyles,
+        aiStyles: aiStyles,
+        extraCSS: extraCSS,
+        currentBubbleType: currentBubbleType,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('bubble_editor_autosave', JSON.stringify(currentState));
+    }
+    
+    // 从自动保存恢复
+    function restoreFromAutoSave() {
+      try {
+        const saved = localStorage.getItem('bubble_editor_autosave');
+        if (saved) {
+          const state = JSON.parse(saved);
+          userStyles = state.userStyles || {};
+          aiStyles = state.aiStyles || {};
+          extraCSS = state.extraCSS || { beforePseudo: '', afterPseudo: '', animations: '' };
+          currentBubbleType = state.currentBubbleType || 'user';
+          
+          // 恢复当前编辑的样式
+          parsedStyles = JSON.parse(JSON.stringify(currentBubbleType === 'user' ? userStyles : aiStyles));
+          
+          return true;
+        }
+      } catch (e) {
+        console.error('恢复自动保存失败:', e);
+      }
+      return false;
+    }
+    
+    // 样式库管理
+    function getSavedStyles() {
+      try {
+        const saved = localStorage.getItem('bubble_styles_library');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    
+    function saveStylesToLibrary(name) {
+      if (!name || !name.trim()) {
+        alert('请输入样式名称');
+        return;
+      }
+      
+      const styles = getSavedStyles();
+      const newStyle = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        userStyles: JSON.parse(JSON.stringify(userStyles)),
+        aiStyles: JSON.parse(JSON.stringify(aiStyles)),
+        extraCSS: JSON.parse(JSON.stringify(extraCSS)),
+        timestamp: Date.now()
+      };
+      
+      styles.unshift(newStyle);
+      localStorage.setItem('bubble_styles_library', JSON.stringify(styles));
+      
+      showStylesLibrary();
+      alert('样式已保存！');
+    }
+    
+    function loadStyleFromLibrary(id) {
+      const styles = getSavedStyles();
+      const style = styles.find(s => s.id === id);
+      if (style) {
+        userStyles = JSON.parse(JSON.stringify(style.userStyles));
+        aiStyles = JSON.parse(JSON.stringify(style.aiStyles));
+        extraCSS = JSON.parse(JSON.stringify(style.extraCSS));
+        
+        // 恢复当前编辑的样式
+        parsedStyles = JSON.parse(JSON.stringify(currentBubbleType === 'user' ? userStyles : aiStyles));
+        
+        // 更新UI
+        switchBubbleType(currentBubbleType);
+        autoSaveCurrentState();
+        hideStylesLibrary();
+        alert('样式已加载！');
+      }
+    }
+    
+    function deleteStyleFromLibrary(id) {
+      if (!confirm('确定要删除这个样式吗？')) return;
+      
+      let styles = getSavedStyles();
+      styles = styles.filter(s => s.id !== id);
+      localStorage.setItem('bubble_styles_library', JSON.stringify(styles));
+      showStylesLibrary();
+    }
+    
+    function showStylesLibrary() {
+      const modal = document.getElementById('stylesLibraryModal');
+      const list = document.getElementById('stylesLibraryList');
+      const styles = getSavedStyles();
+      
+      if (styles.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:40px; color:#999;">暂无保存的样式<br><span style="font-size:12px;">点击下方"保存当前样式"创建第一个</span></div>';
+      } else {
+        list.innerHTML = styles.map(style => `
+          <div style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="font-weight:500; font-size:14px;">${style.name}</div>
+              <div style="font-size:11px; color:#999;">${new Date(style.timestamp).toLocaleString()}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button onclick="loadStyleFromLibrary('${style.id}')" style="flex:1; padding:6px; background:#000; color:#fff; border:none; border-radius:4px; font-size:12px; cursor:pointer;">加载</button>
+              <button onclick="deleteStyleFromLibrary('${style.id}')" style="padding:6px 12px; background:#999; color:#fff; border:none; border-radius:4px; font-size:12px; cursor:pointer;">删除</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      modal.style.display = 'flex';
+    }
+    
+    function hideStylesLibrary() {
+      document.getElementById('stylesLibraryModal').style.display = 'none';
+    }
+    
+    function promptSaveStyle() {
+      const name = prompt('请输入样式名称（如：梦幻粉、科技蓝等）');
+      if (name) {
+        saveStylesToLibrary(name);
+      }
+    }
+
+    function switchBubbleType(type) {
+      // 保存当前样式
+      if (currentBubbleType === 'user') {
+        userStyles = JSON.parse(JSON.stringify(parsedStyles));
+      } else {
+        aiStyles = JSON.parse(JSON.stringify(parsedStyles));
+      }
+      
+      // 切换类型
+      currentBubbleType = type;
+      
+      // 更新按钮样式
+      const userTab = document.getElementById('bubbleUserTab');
+      const aiTab = document.getElementById('bubbleAiTab');
+      const aiCopyTip = document.getElementById('aiCopyTip');
+      
+      if (type === 'user') {
+        userTab.style.background = '#000';
+        userTab.style.color = '#fff';
+        aiTab.style.background = '#f0f0f0';
+        aiTab.style.color = '#666';
+        aiCopyTip.style.display = 'none';
+        
+        // 加载用户样式
+        parsedStyles = JSON.parse(JSON.stringify(userStyles));
+      } else {
+        userTab.style.background = '#f0f0f0';
+        userTab.style.color = '#666';
+        aiTab.style.background = '#000';
+        aiTab.style.color = '#fff';
+        aiCopyTip.style.display = 'block';
+        
+        // 加载AI样式
+        parsedStyles = JSON.parse(JSON.stringify(aiStyles));
+      }
+      
+      // 重新生成控件和更新预览
+      generateControls(parsedStyles);
+      generatePseudoControls(); // 更新伪元素控件显示
+      updatePreview();
+    }
+
+    // 复制用户气泡到AI气泡
+    function copyUserToAi() {
+      if (Object.keys(userStyles).length === 0) {
+        alert('用户气泡还没有设置样式！请先设置用户气泡。');
+        return;
+      }
+      
+      // 复制用户样式到AI气泡
+      aiStyles = JSON.parse(JSON.stringify(userStyles));
+      parsedStyles = JSON.parse(JSON.stringify(aiStyles));
+      
+      // 重新生成控件和更新预览
+      generateControls(parsedStyles);
+      updatePreview();
+      
+      alert('已复制用户气泡样式到AI气泡！\n现在可以进行微调了。');
+    }
+
+    // 添加自定义控件到customControls区域
+    function addCustomControl(propName, propData) {
+      const container = document.getElementById('customControls');
+      if (!container) return;
+      
+      // 创建控件卡片（如果不存在）
+      let card = container.querySelector('.card');
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'card';
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = '自定义属性';
+        card.appendChild(title);
+        container.appendChild(card);
+      }
+      
+      // 创建控件组
+      const group = document.createElement('div');
+      group.style.marginBottom = '12px';
+      group.style.padding = '10px';
+      group.style.background = '#f9f9f9';
+      group.style.borderRadius = '6px';
+      
+      const titleDiv = document.createElement('div');
+      titleDiv.style.fontWeight = '500';
+      titleDiv.style.marginBottom = '8px';
+      titleDiv.style.fontSize = '12px';
+      titleDiv.style.display = 'flex';
+      titleDiv.style.justifyContent = 'space-between';
+      titleDiv.style.alignItems = 'center';
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = propName;
+      titleDiv.appendChild(nameSpan);
+      
+      // 删除按钮
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '×';
+      delBtn.style.cssText = 'background:#999; color:#fff; border:none; border-radius:4px; width:24px; height:24px; cursor:pointer; font-size:16px; line-height:1;';
+      delBtn.onclick = function() {
+        if (confirm(`确定删除 ${propName} 属性？`)) {
+          delete parsedStyles[propName];
+          group.remove();
+          updatePreview();
+          // 如果没有自定义属性了，删除卡片
+          if (card.children.length <= 1) {
+            card.remove();
+          }
+        }
+      };
+      titleDiv.appendChild(delBtn);
+      
+      group.appendChild(titleDiv);
+      
+      // 添加输入框
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = propData.original || '';
+      input.style.cssText = 'width:100%; padding:8px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px;';
+      input.oninput = function() {
+        parsedStyles[propName] = parsePropertyValue(propName, this.value);
+        updatePreview();
+      };
+      group.appendChild(input);
+      
+      card.appendChild(group);
+    }
+
+    // 背景图相关
+    let uploadedBgImage = '';
+
+    function handleBgImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // 检查文件大小（限制5MB）
+      if (file.size > 5 * 1024 * 1024) {
+        alert('图片太大！请选择小于5MB的图片');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        uploadedBgImage = e.target.result;
+        
+        // 显示预览
+        document.getElementById('bgImageThumb').src = uploadedBgImage;
+        document.getElementById('bgImagePreview').style.display = 'block';
+        
+        console.log('背景图已上传，大小:', (file.size / 1024).toFixed(2), 'KB');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function applyBgImage() {
+      if (!uploadedBgImage) {
+        alert('请先上传图片');
+        return;
+      }
+
+      // 添加或更新 background-image 属性
+      const bgImageProp = `url(${uploadedBgImage})`;
+      
+      // 如果已有 background-image，更新它
+      if (parsedStyles['background-image']) {
+        parsedStyles['background-image'].original = bgImageProp;
+      } else {
+        // 否则新增
+        parsedStyles['background-image'] = {
+          type: 'raw',
+          original: bgImageProp,
+          editable: []
+        };
+      }
+
+      // 同时设置 background-size 和 background-repeat（如果没有的话）
+      if (!parsedStyles['background-size']) {
+        parsedStyles['background-size'] = {
+          type: 'raw',
+          original: 'cover',
+          editable: []
+        };
+      }
+      if (!parsedStyles['background-repeat']) {
+        parsedStyles['background-repeat'] = {
+          type: 'raw',
+          original: 'no-repeat',
+          editable: []
+        };
+      }
+
+      // 只更新预览，不重新生成控件（保留现有控件和数值）
+      updatePreview();
+      
+      alert('背景图已应用！其他属性保持不变');
+    }
+
+    function removeBgImage() {
+      uploadedBgImage = '';
+      document.getElementById('bgImagePreview').style.display = 'none';
+      document.getElementById('bgImageInput').value = '';
+      
+      // 删除 background-image 属性
+      delete parsedStyles['background-image'];
+      delete parsedStyles['background-size'];
+      delete parsedStyles['background-repeat'];
+      
+      // 只更新预览，不重新生成控件（保留其他控件和数值）
+      updatePreview();
+      
+      alert('背景图已删除，其他属性保持不变');
+    }
+
+    // 伪元素图片上传（贴纸，可超出气泡框）
+    function handlePseudoImageUpload(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // 检查文件大小（限制2MB）
+      if (file.size > 2 * 1024 * 1024) {
+        alert('图片太大！请选择小于2MB的图片');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageData = e.target.result;
+        
+        const pseudoKey = type === 'before' ? 'beforePseudo' : 'afterPseudo';
+        let css = extraCSS[pseudoKey];
+        
+        // 检查是否有 content: url() 或 background-image: url()
+        const hasContentUrl = /content:\s*url\(/i.test(css);
+        const hasBgImage = /background-image:\s*url\(/i.test(css);
+        
+        if (hasContentUrl) {
+          // 如果有 content: url()，先删除它，改用background-image
+          css = css.replace(/content:\s*url\([^)]+\)\s*!important;?/gi, 'content: "" !important;');
+          // 添加或替换 background-image
+          if (hasBgImage) {
+            css = css.replace(/(background-image:\s*url\()([^)]+)(\))/gi, `$1${imageData}$3`);
+          } else {
+            const insertPos = css.lastIndexOf('}');
+            if (insertPos > 0) {
+              css = css.substring(0, insertPos) + 
+                `  background-image: url(${imageData}) !important;\n` +
+                `  background-size: cover !important;\n` +
+                `  background-position: center !important;\n` +
+                `  background-repeat: no-repeat !important;\n}`;
+            }
+          }
+        } else if (hasBgImage) {
+          // 如果只有 background-image，直接替换
+          css = css.replace(/(background-image:\s*url\()([^)]+)(\))/gi, `$1${imageData}$3`);
+        } else {
+          // 都没有，添加背景图方式（可调整大小）
+          const insertPos = css.lastIndexOf('}');
+          if (insertPos > 0) {
+            css = css.substring(0, insertPos) + 
+              `  content: "" !important;\n` +
+              `  position: absolute !important;\n` +
+              `  top: -15px !important;\n` +
+              `  ${type === 'before' ? 'left' : 'right'}: -15px !important;\n` +
+              `  width: 40px !important;\n` +
+              `  height: 40px !important;\n` +
+              `  background-image: url(${imageData}) !important;\n` +
+              `  background-size: cover !important;\n` +
+              `  background-position: center !important;\n` +
+              `  background-repeat: no-repeat !important;\n` +
+              `  pointer-events: none !important;\n` +
+              `  z-index: 10 !important;\n}`;
+          }
+        }
+        
+        extraCSS[pseudoKey] = css;
+        
+        // 同步更新pseudoProps的初始值
+        if (type === 'before') {
+          pseudoProps.before = { size: 40, top: -15, left: -15 };
+        } else {
+          pseudoProps.after = { size: 40, top: -15, right: -15 };
+        }
+        
+        generatePseudoControls();
+        updatePreview();
+        
+        alert(`贴纸已应用到 ::${type}（可超出气泡框）\n现在可以用滑块调整大小和位置`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 伪元素属性存储（默认在气泡角落）
+    let pseudoProps = {
+      before: { size: 40, top: -15, left: -15 },
+      after: { size: 40, top: -15, right: -15 }
+    };
+
+    // 更新伪元素CSS
+    function updatePseudoCSS(type) {
+      const pseudoKey = type === 'before' ? 'beforePseudo' : 'afterPseudo';
+      let css = extraCSS[pseudoKey];
+      
+      if (!css) {
+        console.error('CSS不存在:', type);
+        return;
+      }
+      
+      const props = pseudoProps[type];
+      
+      // 替换或添加宽度（使用size，保留!important）
+      if (/width\s*:\s*\d+px/i.test(css)) {
+        css = css.replace(/width\s*:\s*\d+px(\s*!important)?/gi, `width: ${props.size}px$1`);
+      } else {
+        css = css.replace(/}(\s*)$/, `  width: ${props.size}px !important;\n}$1`);
+      }
+      
+      // 替换或添加高度（使用size，保留!important）
+      if (/height\s*:\s*\d+px/i.test(css)) {
+        css = css.replace(/height\s*:\s*\d+px(\s*!important)?/gi, `height: ${props.size}px$1`);
+      } else {
+        css = css.replace(/}(\s*)$/, `  height: ${props.size}px !important;\n}$1`);
+      }
+      
+      // 替换或添加top（保留!important）
+      if (/top\s*:\s*-?\d+px/i.test(css)) {
+        css = css.replace(/top\s*:\s*-?\d+px(\s*!important)?/gi, `top: ${props.top}px$1`);
+      } else {
+        css = css.replace(/}(\s*)$/, `  top: ${props.top}px !important;\n}$1`);
+      }
+      
+      // 替换或添加left/right（保留!important）
+      if (type === 'before') {
+        if (/left\s*:\s*-?\d+px/i.test(css)) {
+          css = css.replace(/left\s*:\s*-?\d+px(\s*!important)?/gi, `left: ${props.left}px$1`);
+        } else {
+          css = css.replace(/}(\s*)$/, `  left: ${props.left}px !important;\n}$1`);
+        }
+      } else {
+        if (/right\s*:\s*-?\d+px/i.test(css)) {
+          css = css.replace(/right\s*:\s*-?\d+px(\s*!important)?/gi, `right: ${props.right}px$1`);
+        } else {
+          css = css.replace(/}(\s*)$/, `  right: ${props.right}px !important;\n}$1`);
+        }
+      }
+      
+      extraCSS[pseudoKey] = css;
+      
+      // 性能优化：使用防抖更新预览
+      clearTimeout(window.pseudoUpdateTimer);
+      window.pseudoUpdateTimer = setTimeout(() => {
+        updatePreview();
+      }, 50);
+      
+      // 同步更新textarea显示（不重新生成控件，避免失焦）
+      const textareaId = type === 'before' ? 'beforeTextarea' : 'afterTextarea';
+      const textarea = document.getElementById(textareaId);
+      if (textarea) {
+        textarea.value = css;
+      }
+    }
+
+    // 形状预设（使用CSS clip-path）
+    const shapePresets = {
+      'default': null,  // 使用border-radius
+      'circle': 'circle(50% at 50% 50%)',
+      'ellipse': 'ellipse(50% 40% at 50% 50%)',
+      'triangle': 'polygon(50% 0%, 0% 100%, 100% 100%)',
+      'pentagon': 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)',
+      'hexagon': 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+      'octagon': 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
+      'star': 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+      'heart': 'polygon(50% 15%, 61% 6%, 72% 4%, 82% 8%, 88% 17%, 91% 28%, 91% 39%, 88% 50%, 50% 95%, 12% 50%, 9% 39%, 9% 28%, 12% 17%, 18% 8%, 28% 4%, 39% 6%)',
+      'speech': 'polygon(0% 0%, 100% 0%, 100% 75%, 75% 75%, 70% 90%, 65% 75%, 0% 75%)',
+      'custom': null  // 用户自定义
+    };
+
+    // 切换形状类型
+    function changeShapeType(type) {
+      const customEditor = document.getElementById('customShapeEditor');
+      const radiusControl = document.getElementById('radiusControl');
+      
+      // 控制自定义编辑器和圆角控制的显示
+      if (type === 'custom') {
+        customEditor.style.display = 'block';
+        radiusControl.style.display = 'none';
+        
+        // 初始化画布
+        setTimeout(() => {
+          initShapeCanvas();
+        }, 100);
+      } else {
+        customEditor.style.display = 'none';
+        radiusControl.style.display = type === 'default' ? 'block' : 'none';
+      }
+      
+      // 应用形状
+      if (type === 'default') {
+        // 删除clip-path，使用border-radius
+        delete parsedStyles['clip-path'];
+      } else if (type !== 'custom') {
+        // 应用预设形状
+        const clipPath = shapePresets[type];
+        if (clipPath) {
+          parsedStyles['clip-path'] = { 
+            type: 'clippath', 
+            value: clipPath, 
+            original: clipPath 
+          };
+        }
+      }
+      
+      updatePreview();
+    }
+
+    // 可视化画板 - 存储点击的点
+    let shapePoints = [];
+    let canvas = null;
+    let ctx = null;
+    let drawMode = 'straight'; // 'straight' 或 'curve'
+
+    // 初始化画布
+    function initShapeCanvas() {
+      canvas = document.getElementById('shapeCanvas');
+      if (!canvas) return;
+      
+      ctx = canvas.getContext('2d');
+      
+      // 点击画布添加点（支持触摸）
+      const handleAddPoint = (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        
+        if (e.touches) {
+          // 触摸事件
+          x = e.touches[0].clientX - rect.left;
+          y = e.touches[0].clientY - rect.top;
+        } else {
+          // 鼠标事件
+          x = e.clientX - rect.left;
+          y = e.clientY - rect.top;
+        }
+        
+        // 转换为百分比
+        const xPercent = Math.round((x / canvas.width) * 100);
+        const yPercent = Math.round((y / canvas.height) * 100);
+        
+        shapePoints.push({ x: xPercent, y: yPercent, px: x, py: y });
+        drawShapeCanvas();
+      };
+      
+      canvas.addEventListener('click', handleAddPoint);
+      canvas.addEventListener('touchend', handleAddPoint);
+      
+      drawShapeCanvas();
+    }
+
+    // 切换绘制模式
+    function setDrawMode(mode) {
+      drawMode = mode;
+      
+      const straightBtn = document.getElementById('straightModeBtn');
+      const curveBtn = document.getElementById('curveModeBtn');
+      
+      if (mode === 'straight') {
+        straightBtn.style.background = '#000';
+        straightBtn.style.color = '#fff';
+        curveBtn.style.background = '#f0f0f0';
+        curveBtn.style.color = '#666';
+      } else {
+        straightBtn.style.background = '#f0f0f0';
+        straightBtn.style.color = '#666';
+        curveBtn.style.background = '#000';
+        curveBtn.style.color = '#fff';
+      }
+      
+      drawShapeCanvas();
+    }
+
+    // 绘制画布
+    function drawShapeCanvas() {
+      if (!ctx) return;
+      
+      // 清空画布
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 绘制网格（淡化）
+      ctx.strokeStyle = '#f5f5f5';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i++) {
+        const pos = (canvas.width / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(pos, 0);
+        ctx.lineTo(pos, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, pos);
+        ctx.lineTo(canvas.width, pos);
+        ctx.stroke();
+      }
+      
+      // 绘制中心十字线
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 1;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(centerX, 0);
+      ctx.lineTo(centerX, canvas.height);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(canvas.width, centerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      if (shapePoints.length === 0) return;
+      
+      // 绘制形状
+      ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 2;
+      
+      ctx.beginPath();
+      ctx.moveTo(shapePoints[0].px, shapePoints[0].py);
+      
+      if (drawMode === 'curve' && shapePoints.length >= 3) {
+        // 曲线模式：使用平滑曲线连接点
+        drawSmoothCurve(ctx, shapePoints);
+      } else {
+        // 直线模式：直接连接点
+        for (let i = 1; i < shapePoints.length; i++) {
+          ctx.lineTo(shapePoints[i].px, shapePoints[i].py);
+        }
+      }
+      
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // 绘制控制点
+      shapePoints.forEach((point, index) => {
+        ctx.fillStyle = '#666';
+        ctx.beginPath();
+        ctx.arc(point.px, point.py, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 绘制点的序号
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(index + 1, point.px, point.py);
+      });
+    }
+
+    // 绘制平滑曲线
+    function drawSmoothCurve(ctx, points) {
+      if (points.length < 3) {
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].px, points[i].py);
+        }
+        return;
+      }
+      
+      // 使用二次贝塞尔曲线平滑连接每两个点
+      for (let i = 0; i < points.length; i++) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+        
+        // 控制点在当前点和下一点之间
+        const cpx = (current.px + next.px) / 2;
+        const cpy = (current.py + next.py) / 2;
+        
+        if (i === 0) {
+          ctx.moveTo(current.px, current.py);
+        }
+        
+        // 从当前点到中点画曲线
+        ctx.quadraticCurveTo(current.px, current.py, cpx, cpy);
+        
+        // 如果是最后一个点，连回起点
+        if (i === points.length - 1) {
+          const first = points[0];
+          const lastCpx = (next.px + first.px) / 2;
+          const lastCpy = (next.py + first.py) / 2;
+          ctx.quadraticCurveTo(next.px, next.py, lastCpx, lastCpy);
+          ctx.quadraticCurveTo(first.px, first.py, points[0].px, points[0].py);
+        }
+      }
+    }
+
+    // 清空所有点
+    function clearShapePoints() {
+      shapePoints = [];
+      drawShapeCanvas();
+    }
+
+    // 撤销最后一个点
+    function undoLastPoint() {
+      if (shapePoints.length > 0) {
+        shapePoints.pop();
+        drawShapeCanvas();
+      }
+    }
+
+    // 应用绘制的形状
+    function applyDrawnShape() {
+      if (shapePoints.length < 3) {
+        alert('至少需要3个点才能形成多边形！');
+        return;
+      }
+      
+      let finalPoints = [];
+      
+      if (drawMode === 'curve' && shapePoints.length >= 3) {
+        // 曲线模式：生成密集的插值点来模拟平滑曲线
+        finalPoints = generateCurvePoints(shapePoints);
+      } else {
+        // 直线模式：直接使用原始点
+        finalPoints = shapePoints;
+      }
+      
+      // 转换为CSS坐标格式
+      const coords = finalPoints.map(p => `${p.x}% ${p.y}%`).join(', ');
+      
+      const clipPath = `polygon(${coords})`;
+      parsedStyles['clip-path'] = { 
+        type: 'clippath', 
+        value: clipPath, 
+        original: clipPath 
+      };
+      
+      updatePreview();
+      
+      const modeText = drawMode === 'curve' ? '曲线' : '直线';
+      alert(`${modeText}形状已应用！\n控制点：${shapePoints.length}个\nCSS点：${finalPoints.length}个`);
+    }
+
+    // 生成曲线的密集点（用于CSS polygon）
+    function generateCurvePoints(controlPoints) {
+      const curvePoints = [];
+      const segments = 20; // 每两个控制点之间生成20个点
+      
+      for (let i = 0; i < controlPoints.length; i++) {
+        const p0 = controlPoints[i];
+        const p1 = controlPoints[(i + 1) % controlPoints.length];
+        const p2 = controlPoints[(i + 2) % controlPoints.length];
+        
+        // 在p0到p1之间插值
+        for (let t = 0; t < segments; t++) {
+          const ratio = t / segments;
+          
+          // 使用二次贝塞尔插值
+          const cx = p1.x; // 控制点在p1位置
+          const cy = p1.y;
+          
+          // 贝塞尔公式：B(t) = (1-t)²P0 + 2(1-t)tC + t²P1
+          const x = Math.round(
+            (1 - ratio) * (1 - ratio) * p0.x +
+            2 * (1 - ratio) * ratio * cx +
+            ratio * ratio * p1.x
+          );
+          
+          const y = Math.round(
+            (1 - ratio) * (1 - ratio) * p0.y +
+            2 * (1 - ratio) * ratio * cy +
+            ratio * ratio * p1.y
+          );
+          
+          curvePoints.push({ x, y });
+        }
+      }
+      
+      return curvePoints;
+    }
+
+    // 应用自定义多边形（从文本输入）
+    function applyCustomShape(coords) {
+      if (!coords || coords.trim() === '') {
+        return;
+      }
+      
+      const clipPath = `polygon(${coords})`;
+      parsedStyles['clip-path'] = { 
+        type: 'clippath', 
+        value: clipPath, 
+        original: clipPath 
+      };
+      
+      // 输入时防抖更新
+      clearTimeout(window.customShapeTimer);
+      window.customShapeTimer = setTimeout(() => {
+        updatePreview();
+      }, 300);
+    }
+
+    // 常用形状库
+    const quickShapes = {
+      '三角形': '50% 0%, 0% 100%, 100% 100%',
+      '梯形': '30% 0%, 70% 0%, 100% 100%, 0% 100%',
+      '菱形': '50% 0%, 100% 50%, 50% 100%, 0% 50%',
+      '五角星（简化）': '50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%',
+      '箭头→': '0% 30%, 60% 30%, 60% 0%, 100% 50%, 60% 100%, 60% 70%, 0% 70%',
+      '心形': '50% 15%, 61% 6%, 72% 4%, 82% 8%, 88% 17%, 91% 28%, 91% 39%, 88% 50%, 50% 95%, 12% 50%, 9% 39%, 9% 28%, 12% 17%, 18% 8%, 28% 4%, 39% 6%',
+      '对话框': '10% 0%, 90% 0%, 90% 70%, 50% 70%, 45% 85%, 40% 70%, 10% 70%, 10% 0%',
+      '波浪边': '0% 20%, 10% 10%, 20% 15%, 30% 5%, 40% 10%, 50% 0%, 60% 10%, 70% 5%, 80% 15%, 90% 10%, 100% 20%, 100% 100%, 0% 100%'
+    };
+
+    // 显示形状示例
+    function showShapeExamples() {
+      const shapeNames = Object.keys(quickShapes);
+      let message = '选择要加载的形状：\n\n';
+      
+      shapeNames.forEach((name, index) => {
+        message += `${index + 1}. ${name}\n`;
+      });
+      
+      message += '\n输入数字（1-' + shapeNames.length + '）选择形状，或点击取消';
+      
+      const input = prompt(message);
+      
+      if (input) {
+        const index = parseInt(input) - 1;
+        if (index >= 0 && index < shapeNames.length) {
+          const shapeName = shapeNames[index];
+          const coords = quickShapes[shapeName];
+          
+          // 解析坐标并加载到画板
+          loadShapeToCanvas(coords);
+          
+          alert(`已加载"${shapeName}"到画板！\n你可以继续调整，或直接点击"应用形状"`);
+        } else {
+          alert('输入的数字无效！');
+        }
+      }
+    }
+
+    // 加载形状到画板
+    function loadShapeToCanvas(coordsString) {
+      // 清空现有点
+      shapePoints = [];
+      
+      if (!canvas || !ctx) {
+        initShapeCanvas();
+      }
+      
+      // 解析坐标字符串：格式 "50% 0%, 0% 100%, 100% 100%"
+      // 先按 ", " 分割出每个点对
+      const pointPairs = coordsString.split(',').map(s => s.trim());
+      
+      for (let i = 0; i < pointPairs.length; i++) {
+        const pair = pointPairs[i].trim();
+        // 再按空格分割x和y
+        const parts = pair.split(/\s+/);
+        
+        if (parts.length >= 2) {
+          const xPercent = parseInt(parts[0].replace(/%/g, ''));
+          const yPercent = parseInt(parts[1].replace(/%/g, ''));
+          
+          if (!isNaN(xPercent) && !isNaN(yPercent)) {
+            // 转换为画布像素坐标
+            const px = (xPercent / 100) * canvas.width;
+            const py = (yPercent / 100) * canvas.height;
+            
+            shapePoints.push({ x: xPercent, y: yPercent, px: px, py: py });
+          }
+        }
+      }
+      
+      drawShapeCanvas();
+    }
+
+    // 更新圆角
+    function updateShapeRadius(value) {
+      document.getElementById('shape-radius-val').textContent = value + 'px';
+      if (!parsedStyles['border-radius']) {
+        parsedStyles['border-radius'] = { type: 'size', value: parseInt(value), original: value + 'px' };
+      } else {
+        parsedStyles['border-radius'].value = parseInt(value);
+        parsedStyles['border-radius'].original = value + 'px';
+      }
+      
+      clearTimeout(window.shapeUpdateTimer);
+      window.shapeUpdateTimer = setTimeout(() => {
+        updatePreview();
+      }, 50);
+    }
+
+    // 边缘羽化（真正的软边缘效果）
+    function updateEdgeSoft(value) {
+      const valElement = document.getElementById('edge-soft-val');
+      if (valElement) valElement.textContent = value + 'px';
+      
+      if (value > 0) {
+        // 使用 filter: blur() + 轻微的brightness 实现真正的软边缘
+        // 这样可以让边缘自然羽化，而不是硬截断
+        const blurValue = Math.min(value * 0.8, 20); // 模糊强度
+        const brightnessValue = Math.max(1 - (value * 0.02), 0.85); // 轻微调暗边缘
+        
+        // 组合现有的filter效果
+        let filterParts = [];
+        if (parsedStyles['filter'] && parsedStyles['filter'].dropShadow) {
+          filterParts.push(parsedStyles['filter'].dropShadow);
+        }
+        
+        // 添加边缘羽化效果
+        filterParts.push(`blur(${blurValue}px)`);
+        filterParts.push(`brightness(${brightnessValue.toFixed(2)})`);
+        
+        const filterValue = filterParts.join(' ');
+        
+        if (!parsedStyles['filter']) {
+          parsedStyles['filter'] = { 
+            type: 'filter',
+            edgeBlur: true,
+            blurValue: blurValue,
+            brightnessValue: brightnessValue,
+            original: filterValue,
+            value: filterValue
+          };
+        } else {
+          parsedStyles['filter'].edgeBlur = true;
+          parsedStyles['filter'].blurValue = blurValue;
+          parsedStyles['filter'].brightnessValue = brightnessValue;
+          parsedStyles['filter'].original = filterValue;
+          parsedStyles['filter'].value = filterValue;
+        }
+      } else {
+        // 移除边缘羽化效果
+        if (parsedStyles['filter'] && parsedStyles['filter'].edgeBlur) {
+          // 保留其他filter效果（比如drop-shadow）
+          let filterParts = [];
+          if (parsedStyles['filter'].dropShadow) {
+            filterParts.push(parsedStyles['filter'].dropShadow);
+          }
+          
+          if (filterParts.length > 0) {
+            const filterValue = filterParts.join(' ');
+            parsedStyles['filter'].original = filterValue;
+            parsedStyles['filter'].value = filterValue;
+            delete parsedStyles['filter'].edgeBlur;
+            delete parsedStyles['filter'].blurValue;
+            delete parsedStyles['filter'].brightnessValue;
+          } else {
+            delete parsedStyles['filter'];
+          }
+        }
+      }
+      
+      updatePreview();
+    }
+
+    // 更新透明度
+    function updateShapeOpacity(value) {
+      const percent = value;
+      document.getElementById('shape-opacity-val').textContent = percent + '%';
+      if (!parsedStyles['opacity']) {
+        parsedStyles['opacity'] = { type: 'opacity', value: parseFloat(value / 100), original: (value / 100).toFixed(2) };
+      } else {
+        parsedStyles['opacity'].value = parseFloat(value / 100);
+        parsedStyles['opacity'].original = (value / 100).toFixed(2);
+      }
+      
+      clearTimeout(window.shapeUpdateTimer);
+      window.shapeUpdateTimer = setTimeout(() => {
+        updatePreview();
+      }, 50);
+    }
+
+    // 更新Z-Index层级
+    function updateZIndex(value) {
+      document.getElementById('zindex-val').textContent = value;
+      if (!parsedStyles['z-index']) {
+        parsedStyles['z-index'] = { type: 'number', value: parseInt(value), original: value };
+      } else {
+        parsedStyles['z-index'].value = parseInt(value);
+        parsedStyles['z-index'].original = value;
+      }
+      updatePreview();
+    }
+
+    // 更新定位方式
+    function updatePosition(value) {
+      if (!parsedStyles['position']) {
+        parsedStyles['position'] = { type: 'select', value: value, original: value };
+      } else {
+        parsedStyles['position'].value = value;
+        parsedStyles['position'].original = value;
+      }
+      updatePreview();
+    }
+
+    // 外发光效果存储
+    let outerGlowSettings = { size: 0, color: '#ffffff' };
+
+    // 更新外发光
+    function updateOuterGlow(size) {
+      const valElement = document.getElementById('outer-glow-val');
+      const colorElement = document.getElementById('outerGlowColor');
+      
+      // 如果传入了size参数（滑块调用），更新size
+      if (size !== undefined && size !== null && size !== '') {
+        outerGlowSettings.size = parseInt(size);
+        if (valElement) valElement.textContent = size + 'px';
+      }
+      
+      // 更新颜色（总是从选择器读取）
+      if (colorElement) {
+        outerGlowSettings.color = colorElement.value;
+      }
+      
+      // 使用保存的size，防止颜色更新时size丢失
+      const actualSize = outerGlowSettings.size;
+      
+      // 更新显示值
+      if (valElement && !size) {
+        valElement.textContent = actualSize + 'px';
+      }
+      
+      if (actualSize > 0) {
+        // 外发光特征：非inset的 0 0 Xpx 颜色
+        const shadow = `0 0 ${actualSize}px ${outerGlowSettings.color}`;
+        if (!parsedStyles['box-shadow']) {
+          parsedStyles['box-shadow'] = { type: 'text', value: shadow, original: shadow };
+        } else {
+          // 合并多个阴影
+          let existingShadow = parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value || '';
+          // 移除旧的外发光（特征：非inset的 0 0）
+          existingShadow = existingShadow.replace(/(?<!inset\s+)0\s+0\s+\d+px\s+[#\w(),.]+,?\s*/g, '').trim();
+          if (existingShadow.endsWith(',')) existingShadow = existingShadow.slice(0, -1);
+          if (existingShadow.startsWith(',')) existingShadow = existingShadow.slice(1).trim();
+          
+          parsedStyles['box-shadow'].original = existingShadow ? `${existingShadow}, ${shadow}` : shadow;
+          parsedStyles['box-shadow'].value = parsedStyles['box-shadow'].original;
+        }
+      } else {
+        if (parsedStyles['box-shadow']) {
+          let existingShadow = parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value || '';
+          existingShadow = existingShadow.replace(/(?<!inset\s+)0\s+0\s+\d+px\s+[#\w(),.]+,?\s*/g, '').trim();
+          if (existingShadow.endsWith(',')) existingShadow = existingShadow.slice(0, -1);
+          if (existingShadow.startsWith(',')) existingShadow = existingShadow.slice(1).trim();
+          
+          if (existingShadow) {
+            parsedStyles['box-shadow'].original = existingShadow;
+            parsedStyles['box-shadow'].value = existingShadow;
+          } else {
+            delete parsedStyles['box-shadow'];
+          }
+        }
+      }
+      updatePreview();
+    }
+
+    // 内发光效果存储
+    let innerGlowSettings = { size: 0, color: '#ffffff' };
+
+    // 更新内发光（使用inset box-shadow）
+    function updateInnerGlow(size) {
+      const valElement = document.getElementById('inner-glow-val');
+      const colorElement = document.getElementById('innerGlowColor');
+      
+      // 如果传入了size参数（滑块调用），更新size
+      if (size !== undefined && size !== null && size !== '') {
+        innerGlowSettings.size = parseInt(size);
+        if (valElement) valElement.textContent = size + 'px';
+      }
+      
+      // 更新颜色（总是从选择器读取）
+      if (colorElement) {
+        innerGlowSettings.color = colorElement.value;
+      }
+      
+      // 使用保存的size，防止颜色更新时size丢失
+      const actualSize = innerGlowSettings.size;
+      
+      // 更新显示值
+      if (valElement && !size) {
+        valElement.textContent = actualSize + 'px';
+      }
+      
+      if (actualSize > 0) {
+        // 内发光特征：inset 0 0 Xpx 颜色（单层）
+        const shadow = `inset 0 0 ${actualSize}px ${innerGlowSettings.color}`;
+        if (!parsedStyles['box-shadow']) {
+          parsedStyles['box-shadow'] = { type: 'text', value: shadow, original: shadow };
+        } else {
+          let existingShadow = parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value || '';
+          // 移除旧的内发光（特征：inset 0 0，但不是边缘柔化的双层）
+          // 内发光是单层的 inset 0 0
+          existingShadow = existingShadow.split(',').map(s => s.trim()).filter(s => {
+            // 保留：不是单层 inset 0 0 的阴影
+            return !(s.match(/^inset\s+0\s+0\s+\d+px\s+[#\w(),.]+$/) && !s.includes(','));
+          }).join(', ');
+          
+          if (existingShadow.endsWith(',')) existingShadow = existingShadow.slice(0, -1);
+          if (existingShadow.startsWith(',')) existingShadow = existingShadow.slice(1).trim();
+          
+          parsedStyles['box-shadow'].original = existingShadow ? `${existingShadow}, ${shadow}` : shadow;
+          parsedStyles['box-shadow'].value = parsedStyles['box-shadow'].original;
+        }
+      } else {
+        if (parsedStyles['box-shadow']) {
+          let existingShadow = parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value || '';
+          existingShadow = existingShadow.split(',').map(s => s.trim()).filter(s => {
+            return !(s.match(/^inset\s+0\s+0\s+\d+px\s+[#\w(),.]+$/) && !s.includes(','));
+          }).join(', ');
+          
+          if (existingShadow.endsWith(',')) existingShadow = existingShadow.slice(0, -1);
+          if (existingShadow.startsWith(',')) existingShadow = existingShadow.slice(1).trim();
+          
+          if (existingShadow) {
+            parsedStyles['box-shadow'].original = existingShadow;
+            parsedStyles['box-shadow'].value = existingShadow;
+          } else {
+            delete parsedStyles['box-shadow'];
+          }
+        }
+      }
+      updatePreview();
+    }
+
+    // 应用斜面与浮雕效果
+    let currentBevelType = 'none'; // 跟踪当前斜面类型
+    
+    function applyBevel(type) {
+      // 如果点击同一个按钮，直接返回
+      if (currentBevelType === type) {
+        return;
+      }
+      
+      // 移除旧的斜面效果（使用更精确的匹配）
+      const removeBevel = (shadowStr) => {
+        if (!shadowStr) return '';
+        // 分割成单个阴影
+        const shadows = shadowStr.split(',').map(s => s.trim());
+        // 过滤掉斜面特征的阴影
+        const filtered = shadows.filter(shadow => {
+          // 移除凸起效果的阴影
+          if (shadow.includes('2px 2px 4px rgba(0, 0, 0, 0.3)')) return false;
+          if (shadow.includes('-1px -1px 2px rgba(255, 255, 255, 0.5)')) return false;
+          // 移除凹陷效果的阴影
+          if (shadow.includes('inset 2px 2px 4px rgba(0, 0, 0, 0.3)')) return false;
+          if (shadow.includes('inset -1px -1px 2px rgba(255, 255, 255, 0.3)')) return false;
+          return true;
+        });
+        return filtered.join(', ');
+      };
+      
+      if (type === 'none') {
+        // 移除斜面效果
+        if (parsedStyles['box-shadow']) {
+          let existingShadow = removeBevel(parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value);
+          if (existingShadow) {
+            parsedStyles['box-shadow'].original = existingShadow;
+            parsedStyles['box-shadow'].value = existingShadow;
+          } else {
+            delete parsedStyles['box-shadow'];
+          }
+        }
+        currentBevelType = 'none';
+      } else if (type === 'raised') {
+        // 凸起效果：右下深色，左上浅色
+        const bevelShadow = '2px 2px 4px rgba(0, 0, 0, 0.3), -1px -1px 2px rgba(255, 255, 255, 0.5)';
+        if (!parsedStyles['box-shadow']) {
+          parsedStyles['box-shadow'] = { type: 'shadow', value: bevelShadow, original: bevelShadow };
+        } else {
+          let existingShadow = removeBevel(parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value);
+          parsedStyles['box-shadow'].original = existingShadow ? `${existingShadow}, ${bevelShadow}` : bevelShadow;
+          parsedStyles['box-shadow'].value = parsedStyles['box-shadow'].original;
+        }
+        currentBevelType = 'raised';
+      } else if (type === 'inset') {
+        // 内凹效果：右下浅色，左上深色
+        const bevelShadow = 'inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -1px -1px 2px rgba(255, 255, 255, 0.3)';
+        if (!parsedStyles['box-shadow']) {
+          parsedStyles['box-shadow'] = { type: 'shadow', value: bevelShadow, original: bevelShadow };
+        } else {
+          let existingShadow = removeBevel(parsedStyles['box-shadow'].original || parsedStyles['box-shadow'].value);
+          parsedStyles['box-shadow'].original = existingShadow ? `${existingShadow}, ${bevelShadow}` : bevelShadow;
+          parsedStyles['box-shadow'].value = parsedStyles['box-shadow'].original;
+        }
+        currentBevelType = 'inset';
+      }
+      updatePreview();
+      autoSaveCurrentState(); // 自动保存
+    }
+
+    // === 新增专业功能 ===
+    
+    // 渐变相关
+    let gradientSettings = { type: 'none', color1: '#667eea', color2: '#764ba2', angle: 45 };
+
+    function updateGradientType(type) {
+      gradientSettings.type = type;
+      const controls = document.getElementById('gradientControls');
+      const angleControl = document.getElementById('linearAngle');
+      
+      if (type === 'none') {
+        controls.style.display = 'none';
+        if (parsedStyles['background-image']) {
+          delete parsedStyles['background-image'];
+        }
+      } else {
+        controls.style.display = 'block';
+        angleControl.style.display = type === 'linear' ? 'block' : 'none';
+        updateGradient();
+      }
+      updatePreview();
+    }
+
+    function updateGradient() {
+      const color1Input = document.getElementById('gradientColor1');
+      const color2Input = document.getElementById('gradientColor2');
+      
+      if (!color1Input || !color2Input) return;
+      
+      gradientSettings.color1 = color1Input.value;
+      gradientSettings.color2 = color2Input.value;
+      
+      let gradient;
+      if (gradientSettings.type === 'linear') {
+        gradient = `linear-gradient(${gradientSettings.angle}deg, ${gradientSettings.color1}, ${gradientSettings.color2})`;
+      } else if (gradientSettings.type === 'radial') {
+        gradient = `radial-gradient(circle, ${gradientSettings.color1}, ${gradientSettings.color2})`;
+      }
+      
+      if (gradient) {
+        parsedStyles['background-image'] = { type: 'gradient', value: gradient, original: gradient };
+      }
+      updatePreview();
+    }
+
+    function updateGradientAngle(angle) {
+      document.getElementById('gradient-angle-val').textContent = angle + 'deg';
+      gradientSettings.angle = parseInt(angle);
+      updateGradient();
+    }
+
+    // 高级滤镜
+    let filterSettings = { contrast: 100, saturate: 100, brightness: 100, hue: 0 };
+
+    function updateContrast(value) {
+      document.getElementById('contrast-val').textContent = value + '%';
+      filterSettings.contrast = parseInt(value);
+      applyFilters();
+    }
+
+    function updateSaturate(value) {
+      document.getElementById('saturate-val').textContent = value + '%';
+      filterSettings.saturate = parseInt(value);
+      applyFilters();
+    }
+
+    function updateBrightness(value) {
+      document.getElementById('brightness-val').textContent = value + '%';
+      filterSettings.brightness = parseInt(value);
+      applyFilters();
+    }
+
+    function updateHue(value) {
+      document.getElementById('hue-val').textContent = value + 'deg';
+      filterSettings.hue = parseInt(value);
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const filters = [];
+      if (filterSettings.contrast !== 100) filters.push(`contrast(${filterSettings.contrast}%)`);
+      if (filterSettings.saturate !== 100) filters.push(`saturate(${filterSettings.saturate}%)`);
+      if (filterSettings.brightness !== 100) filters.push(`brightness(${filterSettings.brightness}%)`);
+      if (filterSettings.hue !== 0) filters.push(`hue-rotate(${filterSettings.hue}deg)`);
+      
+      if (filters.length > 0) {
+        const filterStr = filters.join(' ');
+        if (!parsedStyles['filter']) {
+          parsedStyles['filter'] = { type: 'filter', value: filterStr, original: filterStr };
+        } else {
+          parsedStyles['filter'].value = filterStr;
+          parsedStyles['filter'].original = filterStr;
+        }
+      } else if (parsedStyles['filter'] && !parsedStyles['filter'].original.includes('blur')) {
+        delete parsedStyles['filter'];
+      }
+      updatePreview();
+    }
+
+    // 文字颜色
+    function updateTextColor(color) {
+      if (!parsedStyles['color']) {
+        parsedStyles['color'] = { type: 'color', value: color, original: color };
+      } else {
+        parsedStyles['color'].value = color;
+        parsedStyles['color'].original = color;
+      }
+      updatePreview();
+    }
+
+    // 换行方式
+    function updateWordBreak(value) {
+      if (value === 'normal') {
+        delete parsedStyles['word-break'];
+      } else {
+        parsedStyles['word-break'] = { type: 'text', value: value, original: value };
+      }
+      updatePreview();
+    }
+
+    // 文字阴影效果存储
+    let textShadowSettings = { size: 0, color: '#000000' };
+
+    // 文字阴影
+    function updateTextShadow(size) {
+      const valElement = document.getElementById('text-shadow-val');
+      const colorElement = document.getElementById('textShadowColor');
+      
+      // 如果传入了size参数（滑块调用），更新size
+      if (size !== undefined && size !== null && size !== '') {
+        textShadowSettings.size = parseInt(size);
+        if (valElement) valElement.textContent = size + 'px';
+      }
+      
+      // 更新颜色（总是从选择器读取）
+      if (colorElement) {
+        textShadowSettings.color = colorElement.value;
+      }
+      
+      // 使用保存的size，防止颜色更新时size丢失
+      const actualSize = textShadowSettings.size;
+      
+      // 更新显示值
+      if (valElement && !size) {
+        valElement.textContent = actualSize + 'px';
+      }
+      
+      if (actualSize > 0) {
+        const shadow = `${actualSize}px ${actualSize}px ${actualSize * 2}px ${textShadowSettings.color}`;
+        parsedStyles['text-shadow'] = { type: 'text', value: shadow, original: shadow };
+      } else {
+        delete parsedStyles['text-shadow'];
+      }
+      updatePreview();
+    }
+
+    // 混合模式
+    function updateBlendMode(mode) {
+      if (mode === 'normal') {
+        delete parsedStyles['mix-blend-mode'];
+      } else {
+        parsedStyles['mix-blend-mode'] = { type: 'blend', value: mode, original: mode };
+      }
+      updatePreview();
+    }
+
+    // 动画效果
+    function applyAnimation(type) {
+      const animations = {
+        pulse: '@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }',
+        bounce: '@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }',
+        shake: '@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }',
+        glow: '@keyframes glow { 0%, 100% { box-shadow: 0 0 5px rgba(255,255,255,0.5); } 50% { box-shadow: 0 0 20px rgba(255,255,255,0.8); } }'
+      };
+      
+      extraCSS.animations = animations[type];
+      parsedStyles['animation'] = { 
+        type: 'animation', 
+        value: `${type} 2s ease-in-out infinite`, 
+        original: `${type} 2s ease-in-out infinite` 
+      };
+      updatePreview();
+    }
+
+    function removeAnimation() {
+      delete parsedStyles['animation'];
+      extraCSS.animations = '';
+      updatePreview();
+    }
+
+    // 预设模板
+    function loadPreset(preset) {
+      const presets = {
+        glassmorphism: {
+          'background-color': { type: 'color', value: 'rgba(255, 255, 255, 0.1)', original: 'rgba(255, 255, 255, 0.1)' },
+          'backdrop-filter': { type: 'text', value: 'blur(10px)', original: 'blur(10px)' },
+          'border': { type: 'text', value: '1px solid rgba(255, 255, 255, 0.2)', original: '1px solid rgba(255, 255, 255, 0.2)' },
+          'box-shadow': { type: 'text', value: '0 8px 32px 0 rgba(0, 0, 0, 0.1)', original: '0 8px 32px 0 rgba(0, 0, 0, 0.1)' }
+        },
+        neumorphism: {
+          'background': { type: 'color', value: '#e0e5ec', original: '#e0e5ec' },
+          'box-shadow': { type: 'text', value: '9px 9px 16px #a3b1c6, -9px -9px 16px #ffffff', original: '9px 9px 16px #a3b1c6, -9px -9px 16px #ffffff' },
+          'border-radius': { type: 'size', value: 20, original: '20px' }
+        },
+        neon: {
+          'background-color': { type: 'color', value: '#000000', original: '#000000' },
+          'color': { type: 'color', value: '#00ff00', original: '#00ff00' },
+          'box-shadow': { type: 'text', value: '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00', original: '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00' },
+          'text-shadow': { type: 'text', value: '0 0 10px #00ff00', original: '0 0 10px #00ff00' }
+        },
+        minimal: {
+          'background': { type: 'color', value: '#ffffff', original: '#ffffff' },
+          'color': { type: 'color', value: '#000000', original: '#000000' },
+          'border': { type: 'text', value: '1px solid #e5e5e5', original: '1px solid #e5e5e5' },
+          'border-radius': { type: 'size', value: 12, original: '12px' },
+          'padding': { type: 'text', value: '12px', original: '12px' }
+        }
+      };
+      
+      if (presets[preset]) {
+        // 应用预设样式（不清空现有样式，而是覆盖）
+        Object.assign(parsedStyles, presets[preset]);
+        // 直接更新预览，不重新生成控件（因为预设数据可能没有editable字段）
+        updatePreview();
+        alert(`已应用"${preset}"预设模板！\n提示：如需编辑，请先解析CSS后再应用预设。`);
+      }
+    }
+
+    function saveCurrentAsPreset() {
+      const presetName = prompt('请输入预设名称：');
+      if (presetName) {
+        localStorage.setItem(`bubble_preset_${presetName}`, JSON.stringify(parsedStyles));
+        alert('预设已保存到本地！');
+      }
+    }
+
+    function exportPreset() {
+      const data = {
+        styles: parsedStyles,
+        extraCSS: extraCSS,
+        timestamp: Date.now()
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bubble-config-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('配置已导出为JSON文件！');
+    }
+
+    // 图床URL应用到before伪元素
+    function applyImageHostBefore() {
+      const url = document.getElementById('imageHostUrl').value.trim();
+      if (!url) {
+        alert('请先粘贴图床链接');
+        return;
+      }
+      
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('请输入有效的URL（需要http://或https://）');
+        return;
+      }
+      
+      const pseudoKey = 'beforePseudo';
+      const type = 'before';
+      
+      if (!extraCSS[pseudoKey]) {
+        // 创建新的伪元素
+        const className = '.sent';
+        extraCSS[pseudoKey] = `${className} .message-bubble::${type} {
+  content: "" !important;
+  position: absolute !important;
+  top: -15px !important;
+  left: -15px !important;
+  width: 40px !important;
+  height: 40px !important;
+  background-image: url(${url}) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}`;
+      } else {
+        // 更新现有伪元素的图片
+        let css = extraCSS[pseudoKey];
+        if (/background-image:\s*url\([^)]+\)/i.test(css)) {
+          css = css.replace(/background-image:\s*url\([^)]+\)/gi, `background-image: url(${url})`);
+        } else {
+          const insertPos = css.lastIndexOf('}');
+          css = css.substring(0, insertPos) + `  background-image: url(${url}) !important;\n}`;
+        }
+        extraCSS[pseudoKey] = css;
+      }
+      
+      pseudoProps.before = { size: 40, top: -15, left: -15 };
+      generatePseudoControls();
+      updatePreview();
+      alert('图床链接已应用到用户贴纸！');
+    }
+
+    // 图床URL应用到after伪元素
+    function applyImageHostAfter() {
+      const url = document.getElementById('imageHostUrl').value.trim();
+      if (!url) {
+        alert('请先粘贴图床链接');
+        return;
+      }
+      
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('请输入有效的URL（需要http://或https://）');
+        return;
+      }
+      
+      const pseudoKey = 'afterPseudo';
+      const type = 'after';
+      
+      if (!extraCSS[pseudoKey]) {
+        // 创建新的伪元素
+        const className = '.received';
+        extraCSS[pseudoKey] = `${className} .message-bubble::${type} {
+  content: "" !important;
+  position: absolute !important;
+  top: -15px !important;
+  right: -15px !important;
+  width: 40px !important;
+  height: 40px !important;
+  background-image: url(${url}) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}`;
+      } else {
+        // 更新现有伪元素的图片
+        let css = extraCSS[pseudoKey];
+        if (/background-image:\s*url\([^)]+\)/i.test(css)) {
+          css = css.replace(/background-image:\s*url\([^)]+\)/gi, `background-image: url(${url})`);
+        } else {
+          const insertPos = css.lastIndexOf('}');
+          css = css.substring(0, insertPos) + `  background-image: url(${url}) !important;\n}`;
+        }
+        extraCSS[pseudoKey] = css;
+      }
+      
+      pseudoProps.after = { size: 40, top: -15, right: -15 };
+      generatePseudoControls();
+      updatePreview();
+      alert('图床链接已应用到AI贴纸！');
+    }
+
+    // HTML结构模式
+    let htmlStructureMode = 'full'; // 'full', 'simple', 'bubble'
+
+    function updateHtmlStructureMode(mode) {
+      htmlStructureMode = mode;
+      // 如果已有伪元素，重新生成
+      if (extraCSS.beforePseudo || extraCSS.afterPseudo) {
+        const confirmed = confirm('切换HTML结构模式会重新生成伪元素CSS，是否继续？');
+        if (confirmed) {
+          if (extraCSS.beforePseudo) {
+            delete extraCSS.beforePseudo;
+            createPseudoElement('before');
+          }
+          if (extraCSS.afterPseudo) {
+            delete extraCSS.afterPseudo;
+            createPseudoElement('after');
+          }
+        }
+      }
+    }
+
+    // 根据HTML结构模式生成选择器
+    function getPseudoSelector(type) {
+      const mode = htmlStructureMode;
+      
+      if (mode === 'full') {
+        // 完整结构：.message-container.sent .message-bubble::before
+        return type === 'before' 
+          ? '.message-container.sent .message-bubble'
+          : '.message-container.received .message-bubble';
+      } else if (mode === 'simple') {
+        // 简化结构：.sent::before
+        return type === 'before' ? '.sent' : '.received';
+      } else if (mode === 'bubble') {
+        // 仅气泡：.message-bubble.sent::before
+        return type === 'before' ? '.message-bubble.sent' : '.message-bubble.received';
+      }
+    }
+
+    // 快速创建伪元素
+    function createPseudoElement(type) {
+      const pseudoKey = type === 'before' ? 'beforePseudo' : 'afterPseudo';
+      
+      if (extraCSS[pseudoKey]) {
+        alert(`::${type} 伪元素已存在！`);
+        return;
+      }
+
+      // 创建基础伪元素CSS（贴纸模式，默认在左上角/右上角）
+      const selector = getPseudoSelector(type);
+      const defaultCSS = `${selector}::${type} {
+  content: "" !important;
+  position: absolute !important;
+  top: -10% !important;
+  ${type === 'before' ? 'left' : 'right'}: -10% !important;
+  width: 25% !important;
+  height: 25% !important;
+  max-width: 50px !important;
+  max-height: 50px !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}`;
+
+      extraCSS[pseudoKey] = defaultCSS;
+      
+      // 同步更新pseudoProps的初始值
+      if (type === 'before') {
+        pseudoProps.before = { size: 40, top: -15, left: -15 };
+      } else {
+        pseudoProps.after = { size: 40, top: -15, right: -15 };
+      }
+      
+      generatePseudoControls();
+      updatePreview();
+      
+      const typeText = type === 'before' ? '用户气泡' : 'AI气泡';
+      alert(`${typeText}的贴纸位置已创建！\n默认在气泡左上角，现在点击「选择贴纸图片文件」上传图片\n然后用滑块调整大小和位置`);
+    }
+
+    // 删除伪元素
+    function deletePseudoElement(type) {
+      if (!confirm(`确定要删除${type === 'before' ? '用户气泡' : 'AI气泡'}的贴纸吗？`)) {
+        return;
+      }
+      
+      if (type === 'before') {
+        delete extraCSS.beforePseudo;
+        pseudoProps.before = { size: 40, top: -15, left: -15 };
+      } else {
+        delete extraCSS.afterPseudo;
+        pseudoProps.after = { size: 40, top: -15, right: -15 };
+      }
+      
+      generatePseudoControls();
+      updatePreview();
+      alert('贴纸已删除！');
+    }
+
+    // 更新贴纸按钮显示
+    function updateStickerButtons() {
+      const container = document.getElementById('stickerButtons');
+      if (!container) return;
+      
+      if (currentBubbleType === 'user') {
+        container.innerHTML = `
+          <button onclick="createPseudoElement('before')" style="width:100%; padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">
+            ${extraCSS.beforePseudo ? '已创建用户贴纸' : '+ 创建用户贴纸'}
+          </button>
+        `;
+      } else {
+        container.innerHTML = `
+          <button onclick="createPseudoElement('after')" style="width:100%; padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">
+            ${extraCSS.afterPseudo ? '已创建AI贴纸' : '+ 创建AI贴纸'}
+          </button>
+        `;
+      }
+    }
+
+    // 生成伪元素控件
+    function generatePseudoControls() {
+      const container = document.getElementById('pseudoControls');
+      container.innerHTML = '';
+
+      // 根据当前气泡类型只显示对应的伪元素
+      // 用户tab只显示用户贴纸（::before），AI tab只显示AI贴纸（::after）
+      const showBefore = currentBubbleType === 'user' && extraCSS.beforePseudo;
+      const showAfter = currentBubbleType === 'ai' && extraCSS.afterPseudo;
+
+      if (!showBefore && !showAfter) {
+        container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无贴纸</p>';
+        return;
+      }
+      
+      // 同时更新贴纸按钮
+      updateStickerButtons();
+
+      // ::before (用户贴纸，只在用户tab显示)
+      if (showBefore) {
+        // 从CSS中提取当前值（取width作为size）
+        const widthMatch = extraCSS.beforePseudo.match(/width:\s*(\d+)px/i);
+        const topMatch = extraCSS.beforePseudo.match(/top:\s*(-?\d+)px/i);
+        const leftMatch = extraCSS.beforePseudo.match(/left:\s*(-?\d+)px/i);
+        
+        if (widthMatch) pseudoProps.before.size = parseInt(widthMatch[1]);
+        if (topMatch) pseudoProps.before.top = parseInt(topMatch[1]);
+        if (leftMatch) pseudoProps.before.left = parseInt(leftMatch[1]);
+        const beforeDiv = document.createElement('div');
+        beforeDiv.className = 'control-group';
+        beforeDiv.innerHTML = `
+          <div class="property-name" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>用户气泡贴纸 ::before</span>
+            <button onclick="deletePseudoElement('before')" style="background:#999; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">删除</button>
+          </div>
+          <div style="background:#f0f0f0; padding:6px 8px; border-radius:4px; margin-bottom:6px; font-size:10px; color:#666;">
+            点击下方按钮，选择电脑里的PNG/GIF文件，无需图床
+          </div>
+          <div style="margin-bottom:8px;">
+            <input type="file" id="beforeImageInput" accept="image/png,image/gif,image/jpeg" style="display:none;" onchange="handlePseudoImageUpload(event, 'before')">
+            <button class="btn" onclick="document.getElementById('beforeImageInput').click()" style="width:100%; padding:8px; font-size:12px; background:#000; color:#fff;">选择贴纸图片文件</button>
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>贴纸大小</span>
+              <span id="before-size-val" style="color:#666; font-family:monospace;">${pseudoProps.before.size}px</span>
+            </div>
+            <input type="range" min="10" max="100" value="${pseudoProps.before.size}" 
+              oninput="pseudoProps.before.size = parseInt(this.value); document.getElementById('before-size-val').textContent = this.value + 'px'; updatePseudoCSS('before');" 
+              style="width:100%;">
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>上下位置（负数向上）</span>
+              <span id="before-top-val" style="color:#666; font-family:monospace;">${pseudoProps.before.top}px</span>
+            </div>
+            <input type="range" min="-100" max="100" value="${pseudoProps.before.top}" 
+              oninput="pseudoProps.before.top = parseInt(this.value); document.getElementById('before-top-val').textContent = this.value + 'px'; updatePseudoCSS('before');" 
+              style="width:100%;">
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>左右位置（负数向左）</span>
+              <span id="before-left-val" style="color:#666; font-family:monospace;">${pseudoProps.before.left}px</span>
+            </div>
+            <input type="range" min="-100" max="100" value="${pseudoProps.before.left}" 
+              oninput="pseudoProps.before.left = parseInt(this.value); document.getElementById('before-left-val').textContent = this.value + 'px'; updatePseudoCSS('before');" 
+              style="width:100%;">
+          </div>
+          
+          <textarea id="beforeTextarea" style="width:100%; height:80px; font-family:'SF Mono', Monaco, monospace; font-size:10px; padding:8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; resize:vertical;"
+            onchange="extraCSS.beforePseudo = this.value; updatePreview();">${extraCSS.beforePseudo}</textarea>
+          <div style="font-size:10px; color:#999; margin-top:4px;">高级：可手动修改上方CSS调整位置和大小</div>
+        `;
+        container.appendChild(beforeDiv);
+      }
+
+      // ::after (AI贴纸，只在AI tab显示)
+      if (showAfter) {
+        // 从CSS中提取当前值（取width作为size）
+        const widthMatch = extraCSS.afterPseudo.match(/width:\s*(\d+)px/i);
+        const topMatch = extraCSS.afterPseudo.match(/top:\s*(-?\d+)px/i);
+        const rightMatch = extraCSS.afterPseudo.match(/right:\s*(-?\d+)px/i);
+        
+        if (widthMatch) pseudoProps.after.size = parseInt(widthMatch[1]);
+        if (topMatch) pseudoProps.after.top = parseInt(topMatch[1]);
+        if (rightMatch) pseudoProps.after.right = parseInt(rightMatch[1]);
+        
+        const afterDiv = document.createElement('div');
+        afterDiv.className = 'control-group';
+        afterDiv.innerHTML = `
+          <div class="property-name" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>AI气泡贴纸 ::after</span>
+            <button onclick="deletePseudoElement('after')" style="background:#999; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">删除</button>
+          </div>
+          <div style="background:#f0f0f0; padding:6px 8px; border-radius:4px; margin-bottom:6px; font-size:10px; color:#666;">
+            点击下方按钮，选择电脑里的PNG/GIF文件，无需图床
+          </div>
+          <div style="margin-bottom:8px;">
+            <input type="file" id="afterImageInput" accept="image/png,image/gif,image/jpeg" style="display:none;" onchange="handlePseudoImageUpload(event, 'after')">
+            <button class="btn" onclick="document.getElementById('afterImageInput').click()" style="width:100%; padding:8px; font-size:12px; background:#000; color:#fff;">选择贴纸图片文件</button>
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>贴纸大小</span>
+              <span id="after-size-val" style="color:#666; font-family:monospace;">${pseudoProps.after.size}px</span>
+            </div>
+            <input type="range" min="10" max="100" value="${pseudoProps.after.size}" 
+              oninput="pseudoProps.after.size = parseInt(this.value); document.getElementById('after-size-val').textContent = this.value + 'px'; updatePseudoCSS('after');" 
+              style="width:100%;">
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>上下位置（负数向上）</span>
+              <span id="after-top-val" style="color:#666; font-family:monospace;">${pseudoProps.after.top}px</span>
+            </div>
+            <input type="range" min="-100" max="100" value="${pseudoProps.after.top}" 
+              oninput="pseudoProps.after.top = parseInt(this.value); document.getElementById('after-top-val').textContent = this.value + 'px'; updatePseudoCSS('after');" 
+              style="width:100%;">
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>左右位置（负数向右）</span>
+              <span id="after-right-val" style="color:#666; font-family:monospace;">${pseudoProps.after.right}px</span>
+            </div>
+            <input type="range" min="-100" max="100" value="${pseudoProps.after.right}" 
+              oninput="pseudoProps.after.right = parseInt(this.value); document.getElementById('after-right-val').textContent = this.value + 'px'; updatePseudoCSS('after');" 
+              style="width:100%;">
+          </div>
+          
+          <textarea id="afterTextarea" style="width:100%; height:80px; font-family:'SF Mono', Monaco, monospace; font-size:10px; padding:8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; resize:vertical;"
+            onchange="extraCSS.afterPseudo = this.value; updatePreview();">${extraCSS.afterPseudo}</textarea>
+          <div style="font-size:10px; color:#999; margin-top:4px;">高级：可手动修改上方CSS调整位置和大小</div>
+        `;
+        container.appendChild(afterDiv);
+      }
+    }
+  </script>
+</body>
+</html>

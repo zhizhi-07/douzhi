@@ -303,7 +303,7 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => desktopFileRef.current?.click()}
                   disabled={desktopUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {desktopUploading ? '上传中...' : desktopBg ? '更换背景' : '上传背景'}
                 </button>
@@ -349,7 +349,7 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => musicFileRef.current?.click()}
                   disabled={musicUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {musicUploading ? '上传中...' : musicBg ? '更换背景' : '上传背景'}
                 </button>
@@ -395,7 +395,7 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => wechatFileRef.current?.click()}
                   disabled={wechatUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {wechatUploading ? '上传中...' : wechatBg ? '更换背景' : '上传背景'}
                 </button>
@@ -441,7 +441,7 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => memoFileRef.current?.click()}
                   disabled={memoUploading}
-                  className="w-full px-4 py-2.5 bg-blue-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {memoUploading ? '上传中...' : memoBg ? '更换背景' : '上传背景'}
                 </button>

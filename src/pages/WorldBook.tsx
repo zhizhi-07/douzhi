@@ -134,9 +134,9 @@ const WorldBook = () => {
       </div>
 
       {/* 搜索栏 */}
-      <div className="px-4 pt-3 pb-2 bg-gray-50">
-        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-sm">
-          <SearchIcon size={18} className="text-gray-400" />
+      <div className="px-4 pt-3 pb-2 bg-slate-50/50">
+        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(148,163,184,0.08)]">
+          <SearchIcon size={18} className="text-slate-400" />
           <input
             type="text"
             placeholder="搜索世界书"
@@ -160,13 +160,13 @@ const WorldBook = () => {
             <div className="flex gap-3">
               <button
                 onClick={handleCreate}
-                className="bg-blue-500 text-white rounded-xl px-6 py-2.5 text-sm font-medium shadow-sm hover:bg-blue-600 transition-colors"
+                className="bg-slate-700 text-white rounded-xl px-6 py-2.5 text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
               >
                 创建世界书
               </button>
               <button
                 onClick={handleImport}
-                className="bg-white text-gray-700 rounded-xl px-6 py-2.5 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+                className="bg-slate-50 text-slate-700 rounded-xl px-6 py-2.5 text-sm font-medium shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
               >
                 导入世界书
               </button>
@@ -177,7 +177,7 @@ const WorldBook = () => {
             {filteredLorebooks.map((lorebook) => (
               <div
                 key={lorebook.id}
-                className="bg-white rounded-2xl p-4 relative shadow-sm hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
                 onClick={() => handleEdit(lorebook.id)}
               >
                 <div className="flex items-start justify-between mb-2">

@@ -247,7 +247,7 @@ const FontCustomizer = () => {
             {customFont && (
               <button
                 onClick={resetToDefault}
-                className="text-xs bg-blue-500 text-white px-3 py-1 rounded-full hover:bg-blue-600 transition-colors"
+                className="text-xs bg-slate-700 text-white px-3 py-1 rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
               >
                 恢复默认
               </button>
@@ -322,7 +322,7 @@ const FontCustomizer = () => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors font-medium"
+            className="w-full py-3 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium"
           >
             选择字体文件
           </button>

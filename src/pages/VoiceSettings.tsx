@@ -159,7 +159,7 @@ const VoiceSettings = () => {
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600"
+              className="flex-1 py-3 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
             >
               保存配置
             </button>

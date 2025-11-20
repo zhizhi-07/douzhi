@@ -197,7 +197,7 @@ const AddApi = () => {
             <button
               onClick={handleFetchModels}
               disabled={fetchingModels}
-              className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 bg-slate-700 text-white text-xs rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {fetchingModels ? '拉取中...' : '拉取模型'}
             </button>

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { Message } from '../types/chat'
 import { generateAISummary } from '../utils/subApiManager'
+import { saveMessages } from '../utils/simpleMessageManager'
 
 interface MemoryItem {
   id: string
@@ -24,6 +25,8 @@ interface MemoryStorageProps {
   characterId: string
   characterName: string
   onLoadMemory?: (messages: Message[]) => void
+  allMessages?: Message[]  // 所有聊天消息（用于插入线下记录）
+  onUpdateMessages?: (messages: Message[]) => void  // 更新消息列表
 }
 
 const MemoryStorage: React.FC<MemoryStorageProps> = ({
@@ -32,7 +35,9 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
   currentMessages,
   characterId,
   characterName,
-  onLoadMemory
+  onLoadMemory,
+  allMessages,
+  onUpdateMessages
 }) => {
   const [memories, setMemories] = useState<MemoryItem[]>([])
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null)
@@ -70,6 +75,7 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
       return
     }
 
+    console.log('📝 开始生成总结，消息数量:', currentMessages.length)
     setIsGeneratingSummary(true)
     
     try {
@@ -79,24 +85,35 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
         return `${sender}: ${m.content || ''}`
       }).join('\n')
 
+      console.log('📝 对话文本长度:', conversationText.length, '字符')
+      console.log('📝 调用AI生成总结...')
+
       // 使用副API或主API生成总结
       const summary = await generateAISummary(conversationText, {
         maxLength: 200,
         style: 'brief'
       })
 
+      console.log('✅ 总结生成成功:', summary.substring(0, 50) + '...')
       setGeneratedSummary(summary)
       
     } catch (error) {
-      console.error('Failed to generate summary:', error)
+      console.error('❌ AI总结失败:', error)
+      
+      // 显示用户友好的错误信息
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      alert(`AI总结失败: ${errorMessage}\n\n将使用简单总结`)
+      
       // 备用：使用简单总结
       const messageCount = currentMessages.length
       const userMessages = currentMessages.filter(m => m.type === 'sent').length
       const aiMessages = currentMessages.filter(m => m.type === 'received').length
       
       const summary = `这段对话包含 ${messageCount} 条消息（用户 ${userMessages} 条，${characterName} ${aiMessages} 条）`
+      console.log('📝 使用备用总结:', summary)
       setGeneratedSummary(summary)
     } finally {
+      console.log('📝 总结流程结束，打开保存对话框')
       setIsGeneratingSummary(false)
       setShowSaveDialog(true)
     }
@@ -109,18 +126,51 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
       return
     }
 
+    const now = Date.now()
     const newMemory: MemoryItem = {
-      id: `memory-${Date.now()}`,
+      id: `memory-${now}`,
       title: memoryTitle,
       summary: generatedSummary || '暂无总结',
       messages: [...currentMessages],
       tags: memoryTags.split(',').map(tag => tag.trim()).filter(Boolean),
-      createdAt: Date.now(),
+      createdAt: now,
       importance: memoryImportance,
       characterId
     }
 
     saveMemories([...memories, newMemory])
+    
+    // 🔥 同时在线上聊天中创建一条线下记录消息
+    if (allMessages && onUpdateMessages) {
+      const offlineSummaryMessage: Message = {
+        id: now,
+        type: 'system',
+        messageType: 'offline-summary',
+        content: memoryTitle,
+        time: new Date(now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: now,
+        sceneMode: 'online',
+        offlineSummary: {
+          title: memoryTitle,
+          summary: generatedSummary || '暂无总结',
+          memoryId: newMemory.id
+        },
+        aiReadableContent: `[系统记录：线下经历 - ${memoryTitle}]
+总结：${generatedSummary || '暂无总结'}`
+      }
+      
+      // 插入到消息列表中，按时间排序
+      const updatedMessages = [...allMessages, offlineSummaryMessage]
+        .sort((a, b) => a.timestamp - b.timestamp)
+      
+      // 保存到IndexedDB
+      saveMessages(characterId, updatedMessages)
+      
+      // 更新UI
+      onUpdateMessages(updatedMessages)
+      
+      console.log('✅ 线下记录已插入线上聊天:', memoryTitle)
+    }
     
     // 重置表单
     setMemoryTitle('')
@@ -128,6 +178,8 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
     setMemoryImportance('normal')
     setGeneratedSummary('')
     setShowSaveDialog(false)
+    
+    alert('记忆已保存！并在线上聊天中创建了线下记录。')
   }
 
   // 删除记忆

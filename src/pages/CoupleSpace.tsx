@@ -293,8 +293,8 @@ const CoupleSpace = () => {
                   onClick={handlePrivacyToggle}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     privacyMode === 'public' 
-                      ? 'bg-gray-200 text-gray-900' 
-                      : 'bg-blue-500 text-white'
+                      ? 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]' 
+                      : 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]'
                   }`}
                 >
                   {privacyMode === 'public' ? '公开' : '私密'}

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记忆总结API测试</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+    }
+    h2 {
+      color: #666;
+      font-size: 18px;
+      margin-top: 0;
+    }
+    button {
+      background: #000;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #333;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .log {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .log div {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🧪 记忆总结API测试工具</h1>
+    <p>用于诊断"总结一直在总结中"的问题</p>
+  </div>
+
+  <div class="card">
+    <h2>1. 检查API配置</h2>
+    <button onclick="checkApiConfig()">检查配置</button>
+    <div id="configStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. 测试API连接</h2>
+    <button onclick="testApiConnection()">测试主API</button>
+    <button onclick="testSubApiConnection()">测试副API</button>
+    <div id="connectionStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. 模拟记忆总结</h2>
+    <button onclick="simulateSummary()">模拟总结（快速测试）</button>
+    <div id="summaryStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. 实时日志</h2>
+    <button onclick="clearLog()">清空日志</button>
+    <div id="log" class="log"></div>
+  </div>
+
+  <script>
+    const logDiv = document.getElementById('log')
+    
+    function addLog(message, type = 'info') {
+      const div = document.createElement('div')
+      const emoji = {
+        info: 'ℹ️',
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+      }[type] || 'ℹ️'
+      
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${emoji} ${message}`
+      logDiv.appendChild(div)
+      logDiv.scrollTop = logDiv.scrollHeight
+    }
+
+    function clearLog() {
+      logDiv.innerHTML = ''
+      addLog('日志已清空')
+    }
+
+    function checkApiConfig() {
+      addLog('开始检查API配置...')
+      const statusDiv = document.getElementById('configStatus')
+      statusDiv.innerHTML = ''
+      
+      try {
+        // 检查主API
+        const mainApi = localStorage.getItem('api_settings')
+        let mainApiConfig = null
+        if (mainApi) {
+          mainApiConfig = JSON.parse(mainApi)
+          addLog('主API配置存在', 'success')
+          addLog(`  baseUrl: ${mainApiConfig.baseUrl}`)
+          addLog(`  model: ${mainApiConfig.model}`)
+          addLog(`  apiKey: ${mainApiConfig.apiKey ? '已设置 (' + mainApiConfig.apiKey.substring(0, 8) + '...)' : '未设置'}`, mainApiConfig.apiKey ? 'success' : 'error')
+        } else {
+          addLog('主API未配置', 'error')
+        }
+        
+        // 检查副API
+        const subApi = localStorage.getItem('SUB_API_SETTINGS')
+        let subApiConfig = null
+        if (subApi) {
+          subApiConfig = JSON.parse(subApi)
+          addLog('副API配置存在', 'success')
+          addLog(`  baseUrl: ${subApiConfig.baseUrl}`)
+          addLog(`  model: ${subApiConfig.model}`)
+          addLog(`  apiKey: ${subApiConfig.apiKey ? '已设置 (' + subApiConfig.apiKey.substring(0, 8) + '...)' : '未设置'}`, subApiConfig.apiKey ? 'success' : 'error')
+        } else {
+          addLog('副API未配置（可选）', 'warning')
+        }
+        
+        // 显示状态
+        let html = ''
+        if (mainApiConfig) {
+          html += `<div class="status success">
+            ✅ 主API已配置<br>
+            模型: ${mainApiConfig.model}<br>
+            地址: ${mainApiConfig.baseUrl}
+          </div>`
+        } else {
+          html += `<div class="status error">
+            ❌ 主API未配置<br>
+            请前往系统设置 → API配置 进行设置
+          </div>`
+        }
+        
+        if (subApiConfig) {
+          html += `<div class="status success">
+            ✅ 副API已配置<br>
+            模型: ${subApiConfig.model}<br>
+            地址: ${subApiConfig.baseUrl}
+          </div>`
+        } else {
+          html += `<div class="status info">
+            ℹ️ 副API未配置（推荐配置以提高总结速度）
+          </div>`
+        }
+        
+        statusDiv.innerHTML = html
+        addLog('配置检查完成')
+        
+      } catch (error) {
+        addLog('检查配置时出错: ' + error.message, 'error')
+        statusDiv.innerHTML = `<div class="status error">❌ 错误: ${error.message}</div>`
+      }
+    }
+
+    async function testApiConnection() {
+      addLog('开始测试主API连接...')
+      const statusDiv = document.getElementById('connectionStatus')
+      statusDiv.innerHTML = '<div class="status info">测试中...</div>'
+      
+      try {
+        const apiSettings = localStorage.getItem('api_settings')
+        if (!apiSettings) {
+          throw new Error('主API未配置')
+        }
+        
+        const api = JSON.parse(apiSettings)
+        addLog(`正在连接: ${api.baseUrl}`)
+        
+        const testMessage = [
+          { role: 'user', content: '你好，这是一个测试消息，请简单回复"测试成功"' }
+        ]
+        
+        const response = await fetch(`${api.baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${api.apiKey}`
+          },
+          body: JSON.stringify({
+            model: api.model,
+            messages: testMessage,
+            max_tokens: 50
+          })
+        })
+        
+        if (!response.ok) {
+          const error = await response.text()
+          throw new Error(`HTTP ${response.status}: ${error}`)
+        }
+        
+        const data = await response.json()
+        const reply = data.choices[0].message.content
+        
+        addLog('主API连接成功', 'success')
+        addLog(`API回复: ${reply}`)
+        statusDiv.innerHTML = `<div class="status success">
+          ✅ 主API连接成功<br>
+          回复: ${reply}
+        </div>`
+        
+      } catch (error) {
+        addLog('主API连接失败: ' + error.message, 'error')
+        statusDiv.innerHTML = `<div class="status error">
+          ❌ 连接失败<br>
+          错误: ${error.message}
+        </div>`
+      }
+    }
+
+    async function testSubApiConnection() {
+      addLog('开始测试副API连接...')
+      const statusDiv = document.getElementById('connectionStatus')
+      statusDiv.innerHTML = '<div class="status info">测试中...</div>'
+      
+      try {
+        const apiSettings = localStorage.getItem('SUB_API_SETTINGS')
+        if (!apiSettings) {
+          throw new Error('副API未配置')
+        }
+        
+        const api = JSON.parse(apiSettings)
+        addLog(`正在连接: ${api.baseUrl}`)
+        
+        const testMessage = [
+          { role: 'user', content: '你好，这是一个测试消息，请简单回复"测试成功"' }
+        ]
+        
+        const response = await fetch(`${api.baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${api.apiKey}`
+          },
+          body: JSON.stringify({
+            model: api.model,
+            messages: testMessage,
+            max_tokens: 50
+          })
+        })
+        
+        if (!response.ok) {
+          const error = await response.text()
+          throw new Error(`HTTP ${response.status}: ${error}`)
+        }
+        
+        const data = await response.json()
+        const reply = data.choices[0].message.content
+        
+        addLog('副API连接成功', 'success')
+        addLog(`API回复: ${reply}`)
+        statusDiv.innerHTML = `<div class="status success">
+          ✅ 副API连接成功<br>
+          回复: ${reply}
+        </div>`
+        
+      } catch (error) {
+        addLog('副API连接失败: ' + error.message, 'error')
+        statusDiv.innerHTML = `<div class="status error">
+          ❌ 连接失败<br>
+          错误: ${error.message}
+        </div>`
+      }
+    }
+
+    async function simulateSummary() {
+      addLog('开始模拟记忆总结流程...')
+      const statusDiv = document.getElementById('summaryStatus')
+      statusDiv.innerHTML = '<div class="status info">正在总结...</div>'
+      
+      const testMessages = [
+        { type: 'sent', content: '你好，今天天气真不错' },
+        { type: 'received', content: '是啊，阳光明媚，很适合出去走走' },
+        { type: 'sent', content: '要不要一起去公园？' },
+        { type: 'received', content: '好啊，我正想出去放松一下呢' }
+      ]
+      
+      try {
+        addLog(`消息数量: ${testMessages.length}`)
+        
+        const conversationText = testMessages.map(m => {
+          const sender = m.type === 'sent' ? '用户' : '角色'
+          return `${sender}: ${m.content}`
+        }).join('\n')
+        
+        addLog('对话文本:')
+        addLog(conversationText)
+        
+        // 选择API
+        let apiConfig = null
+        let apiType = ''
+        
+        const subApi = localStorage.getItem('SUB_API_SETTINGS')
+        if (subApi) {
+          apiConfig = JSON.parse(subApi)
+          apiType = '副API'
+          addLog('使用副API进行总结', 'success')
+        } else {
+          const mainApi = localStorage.getItem('api_settings')
+          if (mainApi) {
+            apiConfig = JSON.parse(mainApi)
+            apiType = '主API'
+            addLog('使用主API进行总结', 'warning')
+          }
+        }
+        
+        if (!apiConfig) {
+          throw new Error('未配置API')
+        }
+        
+        addLog(`调用${apiType}: ${apiConfig.baseUrl}`)
+        addLog(`模型: ${apiConfig.model}`)
+        
+        const prompt = `请为以下内容生成一个简洁的总结（不超过200字）：
+
+${conversationText}
+
+要求：
+1. 提取关键信息和主要事件
+2. 保持客观准确
+3. 语言精炼`
+
+        const response = await fetch(`${apiConfig.baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: apiConfig.model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 400,
+            temperature: 0.5
+          })
+        })
+        
+        if (!response.ok) {
+          const error = await response.text()
+          throw new Error(`HTTP ${response.status}: ${error}`)
+        }
+        
+        const data = await response.json()
+        const summary = data.choices[0].message.content
+        
+        addLog('总结生成成功', 'success')
+        addLog(`总结内容: ${summary}`)
+        
+        statusDiv.innerHTML = `<div class="status success">
+          ✅ 总结成功<br><br>
+          <strong>总结内容：</strong><br>
+          ${summary}
+        </div>`
+        
+      } catch (error) {
+        addLog('总结失败: ' + error.message, 'error')
+        
+        const fallbackSummary = `这段对话包含 ${testMessages.length} 条消息（用户 2 条，角色 2 条）`
+        addLog('使用备用总结: ' + fallbackSummary, 'warning')
+        
+        statusDiv.innerHTML = `<div class="status error">
+          ❌ AI总结失败<br>
+          错误: ${error.message}<br><br>
+          <div class="status warning">
+            使用备用总结：<br>
+            ${fallbackSummary}
+          </div>
+        </div>`
+      }
+    }
+
+    // 页面加载时自动检查配置
+    window.addEventListener('load', () => {
+      addLog('测试工具已加载')
+      addLog('建议先点击"检查配置"按钮')
+    })
+  </script>
+</body>
+</html>

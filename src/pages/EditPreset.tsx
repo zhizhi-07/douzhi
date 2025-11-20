@@ -187,20 +187,20 @@ const EditPreset = () => {
         <div className="flex gap-2">
           <button
             onClick={() => setEditMode('simple')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-all ${
               editMode === 'simple'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-gray-700'
+                ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
             }`}
           >
             简单模式
           </button>
           <button
             onClick={() => setEditMode('advanced')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-all ${
               editMode === 'advanced'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-gray-700'
+                ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
             }`}
           >
             高级模式

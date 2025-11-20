@@ -67,6 +67,7 @@ import PaymentRequest from './pages/PaymentRequest'
 import OnlineShopping from './pages/OnlineShopping'
 import AIPhoneSelect from './pages/AIPhoneSelect'
 import GlobalMemory from './pages/GlobalMemory'
+import BubbleEditor from './pages/BubbleEditor'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -337,6 +338,7 @@ function App() {
       <Route path="/chat/:id/shopping" element={<OnlineShopping />} />
       <Route path="/ai-phone-select" element={<AIPhoneSelect />} />
       <Route path="/global-memory" element={<GlobalMemory />} />
+      <Route path="/bubble-editor" element={<BubbleEditor />} />
     </Routes>
     </ContactsProvider>
   )

@@ -195,8 +195,8 @@ export default function PublishMoment() {
                   }}
                   className={`px-3 py-1.5 rounded-full text-sm transition-all ${
                     mentions.includes(char.realName)
-                      ? 'bg-blue-500 text-white'
-                      : 'glass-card text-gray-700 hover:bg-white/60'
+                      ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
+                      : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                   }`}
                 >
                   {char.avatar} {char.realName}

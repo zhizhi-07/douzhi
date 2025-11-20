@@ -459,6 +459,16 @@ export const useChatAI = (
       
       let aiReply = apiResult.content
       
+      // 🔍 检查API返回的finish_reason，诊断是否被截断
+      if (apiResult.usage && (apiResult as any).finish_reason) {
+        const finishReason = (apiResult as any).finish_reason
+        console.log(`🏁 [完成原因] finish_reason: ${finishReason}`)
+        if (finishReason === 'length') {
+          console.warn('⚠️ [截断警告] AI回复因达到长度限制而被截断！')
+          console.warn('💡 当前max_tokens设置:', localStorage.getItem('current-scene-mode') === 'offline' ? '未设置（应该不限制）' : '默认限制')
+        }
+      }
+      
       // 🚧 早期对话边界：非亲密关系下，禁止主动使用[表情]/[状态]/[随笔]
       try {
         const allMsgs = messages
@@ -515,15 +525,18 @@ export const useChatAI = (
               const { done, value } = await reader.read()
               
               if (done) {
-                console.log(`🏁 [流式] 读取完成，共处理 ${chunkCount} 个数据块`)
+                console.log(`🏁 [流式] reader返回done=true，读取结束`)
+                console.log(`📊 [流式] 统计: 共处理 ${chunkCount} 个数据块，累积文本长度: ${accumulatedText.length}`)
                 break
               }
               
               chunkCount++
               const chunk = decoder.decode(value, { stream: true })
               console.log(`📦 [流式] 收到数据块 #${chunkCount}，大小: ${chunk.length}`)
+              console.log(`📄 [流式] 原始数据:`, chunk)
               
               const lines = chunk.split('\n')
+              console.log(`📋 [流式] 分割成 ${lines.length} 行`)
               
               for (const line of lines) {
                 if (line.startsWith('data: ')) {
@@ -536,10 +549,25 @@ export const useChatAI = (
                   
                   try {
                     const parsed = JSON.parse(data)
-                    const content = parsed.choices?.[0]?.delta?.content || ''
+                    console.log('🔍 [流式] 解析后的数据:', parsed)
+                    
+                    // 🔥 尝试多种格式提取内容
+                    let content = ''
+                    
+                    // OpenAI格式
+                    if (parsed.choices?.[0]?.delta?.content) {
+                      content = parsed.choices[0].delta.content
+                      console.log(`✅ [流式] OpenAI格式提取: "${content}"`)
+                    }
+                    // Gemini格式
+                    else if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
+                      content = parsed.candidates[0].content.parts[0].text
+                      console.log(`✅ [流式] Gemini格式提取: "${content}"`)
+                    }
                     
                     if (content) {
                       accumulatedText += content
+                      console.log(`📝 [流式] 累积文本长度: ${accumulatedText.length}`)
                       
                       // 更新临时消息
                       setMessages(prev => prev.map(m => 
@@ -550,13 +578,17 @@ export const useChatAI = (
                     }
                     
                     // 检查是否有 finish_reason
-                    const finishReason = parsed.choices?.[0]?.finish_reason
+                    const finishReason = parsed.choices?.[0]?.finish_reason || parsed.candidates?.[0]?.finishReason
                     if (finishReason) {
                       console.log(`🛑 [流式] 收到停止信号: ${finishReason}`)
+                      // 🔥 不要在这里break！让它继续读取直到done=true
+                      // 因为可能还有剩余的数据块没读完
                     }
                   } catch (e) {
                     console.warn('⚠️ [流式] 解析错误:', e, '原始数据:', data.substring(0, 100))
                   }
+                } else if (line.trim()) {
+                  console.log(`⚠️ [流式] 非data行:`, line)
                 }
               }
             }

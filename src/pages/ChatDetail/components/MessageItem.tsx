@@ -12,6 +12,7 @@ import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
 import PostCard from '../../../components/PostCard'
+import OfflineSummaryCard from './OfflineSummaryCard'
 
 interface MessageItemProps {
   message: Message
@@ -32,6 +33,7 @@ interface MessageItemProps {
   onRejectCoupleSpace: (messageId: number) => void
   onAcceptMusicInvite?: (messageId: number) => void
   onRejectMusicInvite?: (messageId: number) => void
+  onEditOfflineRecord?: (message: Message) => void  // 新增：编辑线下记录
 }
 
 import { memo } from 'react'
@@ -54,7 +56,8 @@ const MessageItemContent = ({
   onAcceptCoupleSpace,
   onRejectCoupleSpace,
   onAcceptMusicInvite,
-  onRejectMusicInvite
+  onRejectMusicInvite,
+  onEditOfflineRecord
 }: MessageItemProps) => {
   // 过滤特殊标签的函数
   const filterSpecialTags = (content: string): string => {
@@ -123,6 +126,11 @@ const MessageItemContent = ({
           </div>
         </div>
       )
+    }
+    
+    // 线下记录
+    if (message.messageType === 'offline-summary' && message.offlineSummary) {
+      return <OfflineSummaryCard message={message} onEdit={onEditOfflineRecord} />
     }
     
     // AI随笔消息

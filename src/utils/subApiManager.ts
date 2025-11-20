@@ -67,6 +67,11 @@ export const callApiWithFallback = async (
 ): Promise<{ content: string; usedSubApi: boolean }> => {
   const { preferSubApi = true, maxTokens, temperature } = options || {}
   
+  console.log('📡 callApiWithFallback 开始')
+  console.log('  - preferSubApi:', preferSubApi)
+  console.log('  - maxTokens:', maxTokens)
+  console.log('  - temperature:', temperature)
+  
   // 尝试获取副API设置
   let apiSettings: ApiSettings | null = null
   let usedSubApi = false
@@ -76,7 +81,11 @@ export const callApiWithFallback = async (
     if (subApi) {
       apiSettings = subApi
       usedSubApi = true
-      console.log('📡 使用副API进行调用')
+      console.log('✅ 找到副API配置')
+      console.log('  - baseUrl:', subApi.baseUrl)
+      console.log('  - model:', subApi.model)
+    } else {
+      console.log('⚠️ 未找到副API配置，将使用主API')
     }
   }
   
@@ -84,13 +93,18 @@ export const callApiWithFallback = async (
   if (!apiSettings) {
     const mainApiJson = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
     if (mainApiJson) {
-      apiSettings = JSON.parse(mainApiJson)
-      console.log('📡 使用主API进行调用')
+      const mainApi: ApiSettings = JSON.parse(mainApiJson)
+      apiSettings = mainApi
+      console.log('✅ 使用主API进行调用')
+      console.log('  - baseUrl:', mainApi.baseUrl)
+      console.log('  - model:', mainApi.model)
     }
   }
   
   if (!apiSettings) {
-    throw new Error('未配置API（主API和副API都未设置）')
+    const error = new Error('未配置API（主API和副API都未设置）')
+    console.error('❌', error.message)
+    throw error
   }
   
   // 合并选项
@@ -100,24 +114,31 @@ export const callApiWithFallback = async (
     temperature: temperature || apiSettings.temperature || 0.7
   }
   
+  console.log('🚀 开始调用 callAIApi...')
+  
   try {
     const response = await callAIApi(messages, finalSettings)
+    console.log('✅ API调用成功')
     return {
       content: response.content,
       usedSubApi
     }
   } catch (error) {
+    console.error('❌ API调用失败:', error)
+    
     // 如果副API失败，尝试主API
     if (usedSubApi) {
-      console.warn('副API调用失败，尝试使用主API', error)
+      console.warn('⚠️ 副API调用失败，尝试使用主API降级')
       const mainApiJson = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
       if (mainApiJson) {
         const mainApi = JSON.parse(mainApiJson)
+        console.log('🔄 使用主API重试...')
         const response = await callAIApi(messages, {
           ...mainApi,
           maxTokens: maxTokens || mainApi.maxTokens || 500,
           temperature: temperature || mainApi.temperature || 0.7
         })
+        console.log('✅ 主API调用成功（降级）')
         return {
           content: response.content,
           usedSubApi: false
@@ -139,6 +160,11 @@ export const generateAISummary = async (
   }
 ): Promise<string> => {
   const { maxLength = 200, style = 'brief' } = options || {}
+  
+  console.log('🤖 generateAISummary 开始')
+  console.log('  - 内容长度:', content.length, '字符')
+  console.log('  - 最大长度:', maxLength)
+  console.log('  - 风格:', style)
   
   let prompt = ''
   switch (style) {
@@ -176,16 +202,24 @@ ${content}
       break
   }
   
-  const { content: summary } = await callApiWithFallback(
-    [{ role: 'user', content: prompt }],
-    {
-      preferSubApi: true,
-      maxTokens: maxLength * 2,
-      temperature: 0.5 // 总结任务使用较低温度
-    }
-  )
+  console.log('🤖 调用 callApiWithFallback...')
   
-  return summary
+  try {
+    const { content: summary } = await callApiWithFallback(
+      [{ role: 'user', content: prompt }],
+      {
+        preferSubApi: true,
+        maxTokens: maxLength * 2,
+        temperature: 0.5 // 总结任务使用较低温度
+      }
+    )
+    
+    console.log('✅ AI总结生成成功，长度:', summary.length)
+    return summary
+  } catch (error) {
+    console.error('❌ generateAISummary 失败:', error)
+    throw error
+  }
 }
 
 /**

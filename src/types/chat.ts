@@ -9,12 +9,17 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
     time?: string                    // 时间
     weather?: string                 // 天气
+  }
+  offlineSummary?: {                 // 线下记录信息
+    title: string                    // 标题
+    summary: string                  // 摘要
+    memoryId?: string                // 关联的记忆ID
   }
   blocked?: boolean  // 是否被拉黑（AI消息显示警告图标）
   blockedByReceiver?: boolean  // 用户被AI拉黑（用户消息显示警告图标和拒收提示）

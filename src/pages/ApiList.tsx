@@ -118,7 +118,7 @@ const ApiList = () => {
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-gray-900 text-sm">{api.name}</h3>
                         {isCurrent && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-500 text-white rounded-full">
+                          <span className="text-xs px-2 py-0.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]">
                             当前
                           </span>
                         )}

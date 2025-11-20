@@ -225,7 +225,7 @@ const IconCustomizer = () => {
               <p>加载失败，请刷新重试</p>
               <button
                 onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg"
+                className="mt-4 px-4 py-2 bg-slate-700 text-white rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
               >
                 刷新页面
               </button>
@@ -284,7 +284,7 @@ const IconCustomizer = () => {
                       setSelectedAppId(config.appId)
                       fileInputRef.current?.click()
                     }}
-                    className="px-3 py-1.5 bg-blue-500 text-white rounded-full text-sm font-medium active:opacity-80 transition-opacity"
+                    className="px-3 py-1.5 bg-slate-700 text-white rounded-full text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
                   >
                     {config.customIcon ? '更换' : '上传'}
                   </button>

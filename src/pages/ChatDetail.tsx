@@ -35,6 +35,8 @@ import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
 import VirtualMessageList from './ChatDetail/components/VirtualMessageList'
 import LoadingSkeleton from './ChatDetail/components/LoadingSkeleton'
+import OfflineRecordDialog from './ChatDetail/components/OfflineRecordDialog'
+import OfflineSummaryCard from './ChatDetail/components/OfflineSummaryCard'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
@@ -57,6 +59,10 @@ const ChatDetail = () => {
 
   // 场景模式状态
   const [sceneMode, setSceneMode] = useState<'online' | 'offline'>('online')
+  
+  // 线下记录对话框状态
+  const [showOfflineRecordDialog, setShowOfflineRecordDialog] = useState(false)
+  const [editingOfflineRecord, setEditingOfflineRecord] = useState<Message | null>(null)
   
   // 装饰图片状态
   const [chatDecorations, setChatDecorations] = useState({
@@ -320,6 +326,48 @@ const ChatDetail = () => {
   const handleBack = useCallback(() => {
     navigate('/wechat')
   }, [navigate])
+
+  // 处理添加/编辑线下记录
+  const handleSaveOfflineRecord = useCallback((title: string, summary: string, timestamp: number) => {
+    const offlineSummaryMessage: Message = {
+      id: editingOfflineRecord ? editingOfflineRecord.id : Date.now(), // 🔥 修复：编辑时保持原ID，新建时使用唯一ID
+      type: 'system',
+      messageType: 'offline-summary',
+      content: title,
+      time: new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: timestamp,
+      sceneMode: 'online',
+      offlineSummary: {
+        title,
+        summary,
+        memoryId: editingOfflineRecord?.offlineSummary?.memoryId || `offline-${Date.now()}` // 🔥 保持原memoryId
+      },
+      aiReadableContent: `[系统记录：线下经历 - ${title}]\n总结：${summary}`
+    }
+
+    if (editingOfflineRecord) {
+      // 编辑模式：替换原有消息，保持ID不变
+      const updatedMessages = chatState.messages.map(m =>
+        m.id === editingOfflineRecord.id ? offlineSummaryMessage : m
+      ).sort((a, b) => a.timestamp - b.timestamp)
+      
+      chatState.setMessages(updatedMessages)
+      saveMessages(id || '', updatedMessages)
+      console.log('✅ 线下记录已更新')
+    } else {
+      // 新建模式：添加新消息
+      const updatedMessages = [...chatState.messages, offlineSummaryMessage]
+        .sort((a, b) => a.timestamp - b.timestamp)
+      
+      chatState.setMessages(updatedMessages)
+      saveMessages(id || '', updatedMessages)
+      console.log('✅ 线下记录已添加')
+    }
+
+    // 关闭对话框
+    setShowOfflineRecordDialog(false)
+    setEditingOfflineRecord(null)
+  }, [chatState, editingOfflineRecord, id])
 
   // 🔥 优化：输入框处理函数，避免重复创建
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -614,6 +662,10 @@ const ChatDetail = () => {
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         customIcons={customIcons}
+        onAddOfflineRecord={() => {
+          setEditingOfflineRecord(null)
+          setShowOfflineRecordDialog(true)
+        }}
       />
       
       {/* Token 详情面板 - 显示在头部下方 */}
@@ -707,8 +759,9 @@ const ChatDetail = () => {
           <LoadingSkeleton />
         ) : shouldUseVirtualization ? (
           <VirtualMessageList
-            messages={chatState.messages}
+            messages={chatState.messages.filter(m => m.sceneMode !== 'offline')}
             character={character}
+            isAiTyping={chatAI.isAiTyping}
             onMessageLongPress={longPress.handleLongPressStart}
             onMessageLongPressEnd={longPress.handleLongPressEnd}
             onViewRecalledMessage={modals.setViewingRecalledMessage}
@@ -739,6 +792,10 @@ const ChatDetail = () => {
             onRejectCoupleSpace={coupleSpace.rejectInvite}
             onAcceptMusicInvite={musicInvite.acceptInvite}
             onRejectMusicInvite={musicInvite.rejectInvite}
+            onEditOfflineRecord={(message) => {
+              setEditingOfflineRecord(message)
+              setShowOfflineRecordDialog(true)
+            }}
             hasMoreMessages={chatState.hasMoreMessages}
             isLoadingMessages={chatState.isLoadingMessages}
             onLoadMore={chatState.loadMoreMessages}
@@ -871,6 +928,21 @@ const ChatDetail = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              )
+            }
+            
+            // 🔥 线下记录
+            if (message.messageType === 'offline-summary' && message.offlineSummary) {
+              return (
+                <div key={message.id}>
+                  <OfflineSummaryCard 
+                    message={message} 
+                    onEdit={(msg: Message) => {
+                      setEditingOfflineRecord(msg)
+                      setShowOfflineRecordDialog(true)
+                    }}
+                  />
                 </div>
               )
             }
@@ -1508,6 +1580,17 @@ const ChatDetail = () => {
           />
         </>
       )}
+
+      {/* 线下记录对话框 */}
+      <OfflineRecordDialog
+        isOpen={showOfflineRecordDialog}
+        onClose={() => {
+          setShowOfflineRecordDialog(false)
+          setEditingOfflineRecord(null)
+        }}
+        onSave={handleSaveOfflineRecord}
+        editingMessage={editingOfflineRecord}
+      />
     </div>
   )
 }

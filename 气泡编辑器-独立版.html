@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>气泡编辑器 - 独立版</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #F5F5F0;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1A1A1A;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: #FF6B35;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #FF5520;
+      transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+      background: #1A1A1A;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #2A2A2A;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 350px 1fr 400px;
+      gap: 24px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    
+    .card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #1A1A1A;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #f0f0f0;
+      border-radius: 12px;
+      resize: vertical;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.3s;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #FF6B35;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+    }
+    
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .control-value {
+      font-weight: 600;
+      color: #1A1A1A;
+    }
+    
+    input[type="color"] {
+      width: 50px;
+      height: 50px;
+      border: 2px solid #e5e5e5;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: #e5e5e5;
+      border-radius: 3px;
+      outline: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      width: 18px;
+      height: 18px;
+      background: #FF6B35;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    .switch {
+      width: 50px;
+      height: 26px;
+      background: #ccc;
+      border-radius: 13px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .switch.active {
+      background: #FF6B35;
+    }
+    
+    .switch-thumb {
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+    }
+    
+    .switch.active .switch-thumb {
+      transform: translateX(24px);
+    }
+    
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      background: #f0f0f0;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .tab.active {
+      background: #FF6B35;
+      color: white;
+    }
+    
+    .preview-area {
+      background: #f8f8f8;
+      border-radius: 12px;
+      padding: 24px;
+      min-height: 500px;
+    }
+    
+    .preview-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .message-row {
+      display: flex;
+    }
+    
+    .message-row.user {
+      justify-content: flex-end;
+    }
+    
+    .message-bubble {
+      max-width: 70%;
+      display: inline-block;
+    }
+    
+    .controls-column {
+      max-height: 800px;
+      overflow-y: auto;
+    }
+    
+    .controls-column::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .controls-column::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 3px;
+    }
+    
+    pre {
+      background: #1A1A1A;
+      color: #F5F5F0;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    @media (max-width: 1200px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <div class="header">
+    <h1>🎨 气泡编辑器</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="copyCSS()">复制CSS</button>
+      <button class="btn btn-primary" onclick="saveStyle()">保存样式</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- 左侧：输入区 -->
+    <div>
+      <!-- 粘贴CSS -->
+      <div class="card">
+        <h2>📋 粘贴CSS代码</h2>
+        <textarea id="cssInput" rows="8" placeholder=".message-container.sent .message-bubble {&#10;  background: #FF6B9D;&#10;  color: white;&#10;  border-radius: 20px;&#10;  ...&#10;}"></textarea>
+        <button class="btn btn-secondary" onclick="parseCSS()" style="width: 100%; margin-top: 12px;">解析CSS</button>
+      </div>
+
+      <!-- 切换标签 -->
+      <div class="card" style="margin-top: 20px;">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('user')">用户气泡</button>
+          <button class="tab" onclick="switchTab('ai')">AI气泡</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中间：可视化控制器 -->
+    <div class="controls-column">
+      <!-- 背景 -->
+      <div class="card">
+        <h2>🎨 背景</h2>
+        
+        <div class="control-group">
+          <div class="control-label">
+            <span>启用渐变</span>
+            <div class="switch" id="gradientSwitch" onclick="toggleGradient()">
+              <div class="switch-thumb"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="solidBgControls">
+          <div class="control-group">
+            <div class="control-label">
+              <span>背景颜色</span>
+              <input type="color" id="bgColor" value="#1F2937" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>背景透明度</span>
+              <span class="control-value" id="bgOpacityValue">100%</span>
+            </div>
+            <input type="range" id="bgOpacity" min="0" max="100" value="100" oninput="updateOpacityValue('bgOpacity')">
+          </div>
+        </div>
+
+        <div id="gradientControls" style="display: none;">
+          <div class="control-group">
+            <div class="control-label">
+              <span>渐变起始色</span>
+              <input type="color" id="gradientColor1" value="#667eea" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>渐变结束色</span>
+              <input type="color" id="gradientColor2" value="#764ba2" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>渐变角度</span>
+              <span class="control-value" id="gradientAngleValue">135°</span>
+            </div>
+            <input type="range" id="gradientAngle" min="0" max="360" value="135" oninput="updateAngleValue()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 文字 -->
+      <div class="card" style="margin-top: 20px;">
+        <h2>📝 文字</h2>
+        
+        <div class="control-group">
+          <div class="control-label">
+            <span>文字颜色</span>
+            <input type="color" id="textColor" value="#FFFFFF" onchange="updatePreview()">
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>文字透明度</span>
+            <span class="control-value" id="textOpacityValue">100%</span>
+          </div>
+          <input type="range" id="textOpacity" min="0" max="100" value="100" oninput="updateOpacityValue('textOpacity')">
+        </div>
+      </div>
+
+      <!-- 边框 -->
+      <div class="card" style="margin-top: 20px;">
+        <h2>🔲 边框</h2>
+        
+        <div class="control-group">
+          <div class="control-label">
+            <span>圆角大小</span>
+            <span class="control-value" id="borderRadiusValue">18px</span>
+          </div>
+          <input type="range" id="borderRadius" min="0" max="50" value="18" oninput="updatePixelValue('borderRadius')">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>边框宽度</span>
+            <span class="control-value" id="borderWidthValue">0px</span>
+          </div>
+          <input type="range" id="borderWidth" min="0" max="5" value="0" oninput="updatePixelValue('borderWidth')">
+        </div>
+
+        <div id="borderColorControl" style="display: none;">
+          <div class="control-group">
+            <div class="control-label">
+              <span>边框颜色</span>
+              <input type="color" id="borderColor" value="#000000" onchange="updatePreview()">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 阴影 -->
+      <div class="card" style="margin-top: 20px;">
+        <h2>🌑 阴影</h2>
+        
+        <div class="control-group">
+          <div class="control-label">
+            <span>模糊半径</span>
+            <span class="control-value" id="shadowBlurValue">8px</span>
+          </div>
+          <input type="range" id="shadowBlur" min="0" max="50" value="8" oninput="updatePixelValue('shadowBlur')">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>阴影透明度</span>
+            <span class="control-value" id="shadowOpacityValue">8%</span>
+          </div>
+          <input type="range" id="shadowOpacity" min="0" max="100" value="8" oninput="updatePercentValue('shadowOpacity')">
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：预览区 -->
+    <div>
+      <div class="card">
+        <h2>👁️ 实时预览</h2>
+        <div class="preview-area">
+          <div class="preview-messages">
+            <div class="message-row user">
+              <div class="message-bubble" id="userBubble1">你好！这是用户消息</div>
+            </div>
+            <div class="message-row">
+              <div class="message-bubble" id="aiBubble1">你好！这是AI回复</div>
+            </div>
+            <div class="message-row user">
+              <div class="message-bubble" id="userBubble2">这个气泡样式怎么样？</div>
+            </div>
+            <div class="message-row">
+              <div class="message-bubble" id="aiBubble2">看起来很不错！✨</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2>📝 生成的CSS</h2>
+        <pre id="cssOutput"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 当前编辑的气泡类型
+    let currentTab = 'user';
+    
+    // 用户气泡样式
+    let userStyle = {
+      useGradient: false,
+      bgColor: '#1F2937',
+      bgOpacity: 100,
+      gradientColor1: '#667eea',
+      gradientColor2: '#764ba2',
+      gradientAngle: 135,
+      textColor: '#FFFFFF',
+      textOpacity: 100,
+      borderRadius: 18,
+      borderWidth: 0,
+      borderColor: '#000000',
+      shadowBlur: 8,
+      shadowOpacity: 8
+    };
+    
+    // AI气泡样式
+    let aiStyle = {
+      useGradient: false,
+      bgColor: '#FFFFFF',
+      bgOpacity: 100,
+      gradientColor1: '#667eea',
+      gradientColor2: '#764ba2',
+      gradientAngle: 135,
+      textColor: '#1F2937',
+      textOpacity: 100,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: '#000000',
+      shadowBlur: 8,
+      shadowOpacity: 8
+    };
+    
+    // 切换标签
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // 更新标签样式
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // 加载对应样式到控制器
+      loadStyleToControls();
+    }
+    
+    // 加载样式到控制器
+    function loadStyleToControls() {
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      
+      document.getElementById('gradientSwitch').classList.toggle('active', style.useGradient);
+      document.getElementById('solidBgControls').style.display = style.useGradient ? 'none' : 'block';
+      document.getElementById('gradientControls').style.display = style.useGradient ? 'block' : 'none';
+      
+      document.getElementById('bgColor').value = style.bgColor;
+      document.getElementById('bgOpacity').value = style.bgOpacity;
+      document.getElementById('gradientColor1').value = style.gradientColor1;
+      document.getElementById('gradientColor2').value = style.gradientColor2;
+      document.getElementById('gradientAngle').value = style.gradientAngle;
+      document.getElementById('textColor').value = style.textColor;
+      document.getElementById('textOpacity').value = style.textOpacity;
+      document.getElementById('borderRadius').value = style.borderRadius;
+      document.getElementById('borderWidth').value = style.borderWidth;
+      document.getElementById('borderColor').value = style.borderColor;
+      document.getElementById('shadowBlur').value = style.shadowBlur;
+      document.getElementById('shadowOpacity').value = style.shadowOpacity;
+      
+      updateAllValues();
+      updatePreview();
+    }
+    
+    // 切换渐变
+    function toggleGradient() {
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      style.useGradient = !style.useGradient;
+      loadStyleToControls();
+    }
+    
+    // 更新所有显示值
+    function updateAllValues() {
+      updateOpacityValue('bgOpacity');
+      updateOpacityValue('textOpacity');
+      updateAngleValue();
+      updatePixelValue('borderRadius');
+      updatePixelValue('borderWidth');
+      updatePixelValue('shadowBlur');
+      updatePercentValue('shadowOpacity');
+    }
+    
+    // 更新透明度值显示
+    function updateOpacityValue(id) {
+      const value = document.getElementById(id).value;
+      document.getElementById(id + 'Value').textContent = value + '%';
+      
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      const key = id.replace('Value', '');
+      style[key] = parseInt(value);
+      
+      updatePreview();
+    }
+    
+    // 更新像素值显示
+    function updatePixelValue(id) {
+      const value = document.getElementById(id).value;
+      document.getElementById(id + 'Value').textContent = value + 'px';
+      
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      const key = id.replace('Value', '');
+      style[key] = parseInt(value);
+      
+      if (id === 'borderWidth') {
+        document.getElementById('borderColorControl').style.display = value > 0 ? 'block' : 'none';
+      }
+      
+      updatePreview();
+    }
+    
+    // 更新百分比值显示
+    function updatePercentValue(id) {
+      const value = document.getElementById(id).value;
+      document.getElementById(id + 'Value').textContent = value + '%';
+      
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      const key = id.replace('Value', '');
+      style[key] = parseInt(value);
+      
+      updatePreview();
+    }
+    
+    // 更新角度值显示
+    function updateAngleValue() {
+      const value = document.getElementById('gradientAngle').value;
+      document.getElementById('gradientAngleValue').textContent = value + '°';
+      
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      style.gradientAngle = parseInt(value);
+      
+      updatePreview();
+    }
+    
+    // 生成CSS
+    function generateCSS(style, isUser) {
+      let background = '';
+      if (style.useGradient) {
+        background = `linear-gradient(${style.gradientAngle}deg, ${style.gradientColor1}, ${style.gradientColor2})`;
+      } else {
+        const opacity = (style.bgOpacity / 100).toFixed(2);
+        const r = parseInt(style.bgColor.slice(1, 3), 16);
+        const g = parseInt(style.bgColor.slice(3, 5), 16);
+        const b = parseInt(style.bgColor.slice(5, 7), 16);
+        background = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      }
+      
+      const textOpacity = (style.textOpacity / 100).toFixed(2);
+      const tr = parseInt(style.textColor.slice(1, 3), 16);
+      const tg = parseInt(style.textColor.slice(3, 5), 16);
+      const tb = parseInt(style.textColor.slice(5, 7), 16);
+      const textColor = `rgba(${tr}, ${tg}, ${tb}, ${textOpacity})`;
+      
+      const shadowOpacity = (style.shadowOpacity / 100).toFixed(2);
+      const boxShadow = `0 2px ${style.shadowBlur}px rgba(0, 0, 0, ${shadowOpacity})`;
+      
+      return `${isUser ? '.user-bubble' : '.ai-bubble'} {
+  background: ${background};
+  color: ${textColor};
+  border-radius: ${style.borderRadius}px;
+  padding: 10px 14px;
+  box-shadow: ${boxShadow};${style.borderWidth > 0 ? `\n  border: ${style.borderWidth}px solid ${style.borderColor};` : ''}
+}`;
+    }
+    
+    // 更新预览
+    function updatePreview() {
+      // 更新用户气泡
+      const userCSS = generateCSSProperties(userStyle);
+      document.getElementById('userBubble1').setAttribute('style', userCSS);
+      document.getElementById('userBubble2').setAttribute('style', userCSS);
+      
+      // 更新AI气泡
+      const aiCSS = generateCSSProperties(aiStyle);
+      document.getElementById('aiBubble1').setAttribute('style', aiCSS);
+      document.getElementById('aiBubble2').setAttribute('style', aiCSS);
+      
+      // 更新CSS代码显示
+      const fullCSS = generateCSS(userStyle, true) + '\n\n' + generateCSS(aiStyle, false);
+      document.getElementById('cssOutput').textContent = fullCSS;
+    }
+    
+    // 生成CSS属性
+    function generateCSSProperties(style) {
+      let background = '';
+      if (style.useGradient) {
+        background = `linear-gradient(${style.gradientAngle}deg, ${style.gradientColor1}, ${style.gradientColor2})`;
+      } else {
+        const opacity = (style.bgOpacity / 100).toFixed(2);
+        const r = parseInt(style.bgColor.slice(1, 3), 16);
+        const g = parseInt(style.bgColor.slice(3, 5), 16);
+        const b = parseInt(style.bgColor.slice(5, 7), 16);
+        background = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      }
+      
+      const textOpacity = (style.textOpacity / 100).toFixed(2);
+      const tr = parseInt(style.textColor.slice(1, 3), 16);
+      const tg = parseInt(style.textColor.slice(3, 5), 16);
+      const tb = parseInt(style.textColor.slice(5, 7), 16);
+      const textColor = `rgba(${tr}, ${tg}, ${tb}, ${textOpacity})`;
+      
+      const shadowOpacity = (style.shadowOpacity / 100).toFixed(2);
+      const boxShadow = `0 2px ${style.shadowBlur}px rgba(0, 0, 0, ${shadowOpacity})`;
+      
+      let css = `background: ${background}; color: ${textColor}; border-radius: ${style.borderRadius}px; padding: 10px 14px; box-shadow: ${boxShadow};`;
+      if (style.borderWidth > 0) {
+        css += ` border: ${style.borderWidth}px solid ${style.borderColor};`;
+      }
+      
+      return css;
+    }
+    
+    // 解析CSS
+    function parseCSS() {
+      const cssText = document.getElementById('cssInput').value;
+      if (!cssText.trim()) {
+        alert('请先粘贴CSS代码');
+        return;
+      }
+      
+      const style = currentTab === 'user' ? userStyle : aiStyle;
+      
+      // 解析背景
+      const bgMatch = cssText.match(/background:\s*([^;]+)/i);
+      if (bgMatch) {
+        const bg = bgMatch[1].trim();
+        if (bg.includes('gradient')) {
+          style.useGradient = true;
+          const colors = bg.match(/#[0-9a-f]{6}/gi);
+          if (colors && colors.length >= 2) {
+            style.gradientColor1 = colors[0];
+            style.gradientColor2 = colors[1];
+          }
+          const angleMatch = bg.match(/(\d+)deg/);
+          if (angleMatch) {
+            style.gradientAngle = parseInt(angleMatch[1]);
+          }
+        } else {
+          style.useGradient = false;
+          const colorMatch = bg.match(/#[0-9a-f]{6}/i);
+          if (colorMatch) {
+            style.bgColor = colorMatch[0];
+          }
+        }
+      }
+      
+      // 解析颜色
+      const colorMatch = cssText.match(/color:\s*([^;]+)/i);
+      if (colorMatch) {
+        const color = colorMatch[1].trim();
+        const hexMatch = color.match(/#[0-9a-f]{6}/i);
+        if (hexMatch) {
+          style.textColor = hexMatch[0];
+        }
+      }
+      
+      // 解析圆角
+      const radiusMatch = cssText.match(/border-radius:\s*(\d+)px/i);
+      if (radiusMatch) {
+        style.borderRadius = parseInt(radiusMatch[1]);
+      }
+      
+      // 解析边框
+      const borderMatch = cssText.match(/border:\s*(\d+)px/i);
+      if (borderMatch) {
+        style.borderWidth = parseInt(borderMatch[1]);
+      }
+      
+      loadStyleToControls();
+      alert('✅ CSS解析成功！');
+    }
+    
+    // 复制CSS
+    function copyCSS() {
+      const cssText = document.getElementById('cssOutput').textContent;
+      navigator.clipboard.writeText(cssText).then(() => {
+        alert('✅ CSS已复制到剪贴板！');
+      });
+    }
+    
+    // 保存样式
+    function saveStyle() {
+      const userCSS = generateCSS(userStyle, true);
+      const aiCSS = generateCSS(aiStyle, false);
+      
+      localStorage.setItem('user_bubble_css', userCSS);
+      localStorage.setItem('ai_bubble_css', aiCSS);
+      
+      alert('✅ 样式已保存到localStorage！\n\n你可以在项目中读取这些CSS应用到聊天气泡。');
+    }
+    
+    // 初始化
+    updatePreview();
+  </script>
+</body>
+</html>

@@ -233,17 +233,17 @@ const CharacterProfile = () => {
         <div className="flex gap-2">
           <button
             onClick={handleFollow}
-            className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-all ${
               isFollowing
-                ? 'bg-gray-100 text-gray-700'
-                : 'bg-blue-500 text-white'
+                ? 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
+                : 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]'
             }`}
           >
             {isFollowing ? '已关注' : '关注'}
           </button>
           <button
             onClick={() => navigate(`/chat/${character.id}`)}
-            className="flex-1 py-2 px-4 rounded-xl bg-gray-100 text-sm font-medium text-gray-700"
+            className="flex-1 py-2 px-4 rounded-xl bg-slate-50 text-sm font-medium text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
           >
             发消息
           </button>

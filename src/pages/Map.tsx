@@ -439,7 +439,7 @@ const AIMap = () => {
               <p className="text-gray-400 text-xs mt-2 mb-4">添加AI位置后将显示在地图上</p>
               <button
                 onClick={handleAddTestData}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 active:scale-95 transition-all shadow-md"
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] active:scale-95 transition-all"
               >
                 添加测试数据
               </button>

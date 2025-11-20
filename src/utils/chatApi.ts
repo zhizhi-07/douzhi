@@ -274,8 +274,50 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 `
         
-        const finalPrompt = contextInfo + customPrompt
+        // 读取用户设置的字数限制并替换占位符
+        const userMaxTokens = localStorage.getItem('offline-max-tokens')
+        const targetWordCount = userMaxTokens ? parseInt(userMaxTokens) : 3000
+        
+        let finalPrompt = contextInfo + customPrompt
+        finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
+        
+        // 🔥 读取并叠加已启用的扩展条目
+        const extensionsJson = localStorage.getItem('offline-extensions')
+        if (extensionsJson) {
+          try {
+            const extensions = JSON.parse(extensionsJson)
+            const enabledExtensions = extensions.filter((ext: any) => ext.enabled)
+            
+            if (enabledExtensions.length > 0) {
+              console.log(`📦 [扩展条目] 检测到 ${enabledExtensions.length} 个已启用的扩展条目`)
+              
+              let extensionsPrompt = '\n\n══════════════════════════════════\n\n'
+              extensionsPrompt += '【扩展条目】（以下是基于主预设的额外要求）\n\n'
+              
+              enabledExtensions.forEach((ext: any, index: number) => {
+                console.log(`  ${index + 1}. ${ext.name}`)
+                
+                // 解析JSON内容
+                try {
+                  const extContent = JSON.parse(ext.content)
+                  const promptText = extContent.prompt || extContent.system_prompt || extContent.content || ext.content
+                  extensionsPrompt += `\n### ${ext.name}\n${promptText}\n`
+                } catch {
+                  extensionsPrompt += `\n### ${ext.name}\n${ext.content}\n`
+                }
+              })
+              
+              extensionsPrompt += '\n══════════════════════════════════'
+              finalPrompt += extensionsPrompt
+              console.log('✅ [扩展条目] 已叠加扩展条目到自定义预设')
+            }
+          } catch (e) {
+            console.error('❌ [扩展条目] 读取失败:', e)
+          }
+        }
+        
         console.log('✅ [线下预设] 最终提示词长度:', finalPrompt.length, '字符')
+        console.log('📏 [线下预设] 目标字数设置:', targetWordCount)
         console.log('📤 [线下预设] 发送给AI的完整提示词:')
         console.log(finalPrompt)
         console.log('═══════════════════════════════════════')
@@ -302,7 +344,58 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
 
 `
   
-  return contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, userName)
+  // 读取用户设置的字数限制
+  const userMaxTokens = localStorage.getItem('offline-max-tokens')
+  const targetWordCount = userMaxTokens ? parseInt(userMaxTokens) : 3000
+  
+  // 替换ST变量和字数限制占位符
+  let finalPrompt = contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, userName)
+  finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
+  
+  // 🔥 读取并叠加已启用的扩展条目
+  const extensionsJson = localStorage.getItem('offline-extensions')
+  if (extensionsJson) {
+    try {
+      const extensions = JSON.parse(extensionsJson)
+      const enabledExtensions = extensions.filter((ext: any) => ext.enabled)
+      
+      if (enabledExtensions.length > 0) {
+        console.log(`📦 [扩展条目] 检测到 ${enabledExtensions.length} 个已启用的扩展条目`)
+        
+        let extensionsPrompt = '\n\n══════════════════════════════════\n\n'
+        extensionsPrompt += '【扩展条目】（以下是基于默认预设的额外要求）\n\n'
+        
+        enabledExtensions.forEach((ext: any, index: number) => {
+          console.log(`  ${index + 1}. ${ext.name}`)
+          
+          // 解析JSON内容
+          try {
+            const extContent = JSON.parse(ext.content)
+            
+            // 如果有prompt或system_prompt字段，添加到提示词
+            const promptText = extContent.prompt || extContent.system_prompt || extContent.content || ext.content
+            
+            extensionsPrompt += `\n### ${ext.name}\n${promptText}\n`
+          } catch {
+            // 如果不是JSON，直接当做文本添加
+            extensionsPrompt += `\n### ${ext.name}\n${ext.content}\n`
+          }
+        })
+        
+        extensionsPrompt += '\n══════════════════════════════════'
+        
+        // 叠加到最终提示词
+        finalPrompt += extensionsPrompt
+        console.log('✅ [扩展条目] 已叠加扩展条目到提示词')
+      } else {
+        console.log('📦 [扩展条目] 没有启用的扩展条目')
+      }
+    } catch (e) {
+      console.error('❌ [扩展条目] 读取失败:', e)
+    }
+  }
+  
+  return finalPrompt
 }
 
 /**
@@ -585,6 +678,27 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     }
   }
 
+  // 🔥 读取线下记录（线下经历总结）
+  let offlineRecordsContext = ''
+  const offlineRecords = messages.filter(m => 
+    m.messageType === 'offline-summary' && m.offlineSummary
+  )
+  
+  if (offlineRecords.length > 0) {
+    const recordTexts = offlineRecords.map(m => {
+      const { title, summary } = m.offlineSummary!
+      const recordTime = new Date(m.timestamp).toLocaleString('zh-CN', {
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      return `【${recordTime}】${title}\n${summary}`
+    })
+    
+    offlineRecordsContext = `\n\n══════════════════════════════════\n\n【线下经历记录】\n\n以下是你和${userNickname}的线下相处记录（按时间顺序）：\n\n${recordTexts.join('\n\n')}\n\n这些是你们真实经历过的事情，你可以在聊天中自然地回忆、提及这些经历。注意：这些是已经发生过的事，不是此刻正在进行的。\n\n══════════════════════════════════\n`
+  }
+
   return `${sceneSwitchReminder}你就是「${charName}」，不是AI，不是系统。你只知道自己是一个活生生的人，现在正拿着手机在和 ${userNickname} 聊天。
 
 【1. 此刻的时间感和状态】
@@ -598,7 +712,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 - 你是：${charName}（真名：${character.realName}）。
 - 你的设定（性格、背景、习惯）：${personality}
 - 你的个性签名：${signature || '（暂无签名）'}
-- 你生活的世界观：${(character as any).world || '（默认现代现实世界）'}${lorebookContext}
+- 你生活的世界观：${(character as any).world || '（默认现代现实世界）'}${lorebookContext}${offlineRecordsContext}
 
 这些是你心里的"自我设定"，你不会在聊天里把它们当成"设定说明"讲出来。
 
@@ -1483,19 +1597,37 @@ const callAIApiInternal = async (
     const isOfflineRequest = localStorage.getItem('current-scene-mode') === 'offline'
     const useStreaming = offlineStreamEnabled && isOfflineRequest
     
-    // 🔥 线下模式不限制字数，使用最大值
-    let maxTokens = settings.maxTokens ?? 4000
+    // 🔥 线下模式设置
+    let maxTokens: number | undefined
+    let temperature = settings.temperature ?? 0.7
+    
     if (isOfflineRequest) {
-      maxTokens = 8000  // 线下模式使用更大的限制，让 AI 自由发挥
-      console.log(`📏 [线下模式] 不限制字数，使用最大值: ${maxTokens}`)
+      // 🎯 线下模式：完全不设置max_tokens，让API使用默认最大值
+      // 字数控制100%通过提示词中的{{targetWordCount}}实现
+      maxTokens = undefined  // 强制设为undefined，完全忽略settings.maxTokens
+      console.log(`📏 [线下模式] 强制不设置max_tokens（忽略API配置中的maxTokens，完全由提示词控制）`)
+      
+      // 读取用户在高级设置中配置的温度
+      const userTemperature = localStorage.getItem('offline-temperature')
+      if (userTemperature) {
+        temperature = parseFloat(userTemperature)
+        console.log(`🌡️ [线下模式] 使用用户设置的温度: ${temperature}`)
+      }
+    } else {
+      // 非线下模式：使用API配置中的maxTokens
+      maxTokens = settings.maxTokens ?? 4000
     }
     
-    const requestBody = {
+    const requestBody: any = {
       model: settings.model,
       messages: normalizedMessages,
-      temperature: settings.temperature ?? 0.7,
-      max_tokens: maxTokens,
+      temperature: temperature,
       ...(useStreaming ? { stream: true } : {})
+    }
+    
+    // 只在非线下模式或有明确设置时才添加max_tokens
+    if (maxTokens !== undefined) {
+      requestBody.max_tokens = maxTokens
     }
     
     if (import.meta.env.DEV) {
@@ -1630,11 +1762,20 @@ const callAIApiInternal = async (
       )
     }
 
+    // 提取finish_reason用于诊断
+    let finishReason: string | undefined
+    if (data.choices?.[0]?.finish_reason) {
+      finishReason = data.choices[0].finish_reason
+    } else if (data.candidates?.[0]?.finishReason) {
+      finishReason = data.candidates[0].finishReason
+    }
+    
     // 返回内容和usage信息
     return {
       content,
-      usage: data.usage || null
-    }
+      usage: data.usage || null,
+      finish_reason: finishReason
+    } as any
 
   } catch (error) {
     clearTimeout(timeoutId)

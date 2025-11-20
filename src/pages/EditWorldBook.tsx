@@ -501,7 +501,7 @@ const EntryEditor = ({ entry: initialEntry, onSave, onCancel }: EntryEditorProps
               />
               <button
                 onClick={handleAddKey}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
               >
                 添加
               </button>
@@ -620,13 +620,13 @@ const EntryEditor = ({ entry: initialEntry, onSave, onCancel }: EntryEditorProps
         <div className="px-4 py-3 border-t border-gray-200 flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-xl text-sm font-medium shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
           >
             取消
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
           >
             保存
           </button>
@@ -724,13 +724,13 @@ const CharacterSelector = ({ selectedIds, onConfirm, onCancel }: CharacterSelect
         <div className="px-4 py-3 border-t border-gray-200 flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-xl text-sm font-medium shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
           >
             取消
           </button>
           <button
             onClick={() => onConfirm(selected)}
-            className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
           >
             确定 {selected.length > 0 && `(${selected.length})`}
           </button>

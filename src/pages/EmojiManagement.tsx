@@ -410,13 +410,13 @@ const EmojiManagement = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowAddDialog(false)}
-                className="flex-1 py-2 bg-gray-200 rounded-lg"
+                className="flex-1 py-2 bg-slate-50 text-slate-700 rounded-lg shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
               >
                 取消
               </button>
               <button
                 onClick={handleAddEmoji}
-                className="flex-1 py-2 bg-blue-500 text-white rounded-lg"
+                className="flex-1 py-2 bg-slate-700 text-white rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
               >
                 添加
               </button>

@@ -141,10 +141,10 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
   }
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden">
+    <div className="bg-white rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
       {/* 标题栏（可点击折叠/展开） */}
       <div 
-        className="p-4 cursor-pointer active:bg-gray-50 transition-colors flex items-center justify-between"
+        className="p-4 cursor-pointer active:bg-slate-50 transition-colors flex items-center justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div>

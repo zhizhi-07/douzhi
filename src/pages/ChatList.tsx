@@ -428,7 +428,7 @@ const ChatList = () => {
           <>
             {/* 置顶聊天区块 */}
             {chats.some(chat => chat.isPinned) && (
-              <div className="glass-card rounded-[32px] overflow-hidden mb-3">
+              <div className="glass-card rounded-[48px] overflow-hidden mb-3">
                 {chats.filter(chat => chat.isPinned).map((chat, chatIndex) => (
                   <div
                     key={chat.id}
@@ -470,7 +470,7 @@ const ChatList = () => {
             
             {/* 未置顶聊天区块 */}
             {chats.some(chat => !chat.isPinned) && (
-              <div className="glass-card rounded-[32px] overflow-hidden">
+              <div className="glass-card rounded-[48px] overflow-hidden">
                 {chats.filter(chat => !chat.isPinned).map((chat, chatIndex) => (
                   <div
                     key={chat.id}
@@ -516,14 +516,14 @@ const ChatList = () => {
       {/* 底部导航栏 */}
       <div className="pb-3 px-4">
         <div 
-          className="glass-card rounded-[48px] shadow-lg relative overflow-hidden"
+          className="glass-card rounded-[48px] shadow-lg"
           style={customIcons['main-bottombar-bg'] ? {
             backgroundImage: `url(${customIcons['main-bottombar-bg']})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           } : {}}
         >
-          <div className="grid grid-cols-4 h-14 px-2 relative z-10">
+          <div className="grid grid-cols-4 h-14 px-2">
             <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
               {customIcons['nav-chat'] ? (
                 <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover" />
@@ -576,7 +576,7 @@ const ChatList = () => {
             onClick={() => setShowAddModal(false)}
           />
           <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-            <div className="glass-card rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto">
+            <div className="bg-white/95 backdrop-blur-sm rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto shadow-[0_-4px_24px_rgba(148,163,184,0.2)] border-t border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">添加角色</h2>
                 <button
@@ -605,7 +605,7 @@ const ChatList = () => {
                     <div
                       key={character.id}
                       onClick={() => handleAddCharacter(character.id)}
-                      className="flex items-center p-4 glass-card rounded-2xl cursor-pointer hover:bg-gray-50 active:scale-[0.98] transition-transform"
+                      className="flex items-center p-4 bg-white rounded-xl cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all shadow-[0_2px_8px_rgba(148,163,184,0.08)]"
                     >
                       <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden">
                         {character.avatar ? (
@@ -644,7 +644,7 @@ const ChatList = () => {
             }}
           />
           <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-            <div className="bg-white rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto shadow-2xl">
+            <div className="bg-white/95 backdrop-blur-sm rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto shadow-[0_-4px_24px_rgba(148,163,184,0.2)] border-t border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">创建群聊</h2>
                 <button

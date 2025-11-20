@@ -62,6 +62,27 @@ const GroupChatSettings = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
+      <style>{`
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+      `}</style>
       {/* 顶部 */}
       <div className="glass-effect border-b border-gray-200/30">
         <StatusBar />
@@ -262,12 +283,14 @@ const GroupChatSettings = () => {
                   })
                 }
               }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                smartSummaryEnabled ? 'bg-gray-900' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                smartSummaryEnabled 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   smartSummaryEnabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
@@ -302,7 +325,10 @@ const GroupChatSettings = () => {
                       })
                     }
                   }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                  className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
+                  style={{
+                    background: `linear-gradient(to right, #64748b 0%, #64748b ${((smartSummaryInterval - 5) / 25) * 100}%, #e2e8f0 ${((smartSummaryInterval - 5) / 25) * 100}%, #e2e8f0 100%)`
+                  }}
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>5轮</span>
@@ -360,7 +386,10 @@ const GroupChatSettings = () => {
                   })
                 }
               }}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+              className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
+              style={{
+                background: `linear-gradient(to right, #64748b 0%, #64748b ${((minReplyCount - 5) / 45) * 100}%, #e2e8f0 ${((minReplyCount - 5) / 45) * 100}%, #e2e8f0 100%)`
+              }}
             />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>5条</span>
@@ -417,8 +446,8 @@ const GroupChatSettings = () => {
         <div className="bg-white rounded-2xl p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">置顶聊天</span>
-            <button className="w-11 h-6 bg-gray-200 rounded-full relative active:scale-95 transition-all">
-              <div className="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5" />
+            <button className="relative w-11 h-6 rounded-full bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] active:scale-95 transition-all">
+              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]" />
             </button>
           </div>
         </div>
@@ -506,12 +535,14 @@ const GroupChatSettings = () => {
                           setManagingMember({ ...managingMember, role: isAdmin ? 'member' : 'admin' })
                         }
                       }}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${
-                        managingMember.role === 'admin' ? 'bg-gray-900' : 'bg-gray-300'
+                      className={`relative w-11 h-6 rounded-full transition-all ${
+                        managingMember.role === 'admin' 
+                          ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                          : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
                       }`}
                     >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                      <div
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                           managingMember.role === 'admin' ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
