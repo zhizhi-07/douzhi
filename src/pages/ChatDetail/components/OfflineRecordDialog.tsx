@@ -20,8 +20,10 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
 }) => {
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
+  const [tags, setTags] = useState('')
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // 编辑模式：填充现有数据
   useEffect(() => {
@@ -41,6 +43,45 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
     }
   }, [editingMessage, isOpen])
 
+  // AI 自动生成标题和标签
+  const handleGenerateTitleAndTags = async () => {
+    if (!summary.trim()) {
+      alert('请先输入经历内容')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const { memoryManager } = await import('../../../utils/memorySystem')
+      const memorySystem = memoryManager.getSystem('offline-temp')
+      
+      // 调用记忆提取 API
+      const result = await memorySystem.extractMemoriesFromConversation(
+        summary.trim(),
+        '',
+        'AI',
+        '',
+        '用户'
+      )
+
+      // 填充标题和标签
+      if (result.title) {
+        setTitle(result.title)
+      }
+      if (result.tags && result.tags.length > 0) {
+        setTags(result.tags.join(', '))
+      }
+
+      console.log('✅ AI 生成标题:', result.title)
+      console.log('✅ AI 生成标签:', result.tags)
+    } catch (error) {
+      console.error('❌ AI 生成失败:', error)
+      alert('AI 生成失败，请检查副 API 配置')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleSave = () => {
     if (!title.trim()) {
       alert('请输入标题')
@@ -56,9 +97,15 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
     
     onSave(title.trim(), summary.trim(), timestamp)
     
-    // 重置表单
+    // 🔥 保存后清空表单，但不关闭对话框
     setTitle('')
     setSummary('')
+    setTags('')
+    
+    // 重置时间为当前时间
+    const now = new Date()
+    setSelectedDate(now.toISOString().split('T')[0])
+    setSelectedTime(now.toTimeString().slice(0, 5))
   }
 
   if (!isOpen) return null
@@ -87,14 +134,30 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* 标题 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              标题
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                标题
+              </label>
+              <button
+                onClick={handleGenerateTitleAndTags}
+                disabled={isGenerating || !summary.trim()}
+                className="text-xs px-3 py-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isGenerating ? (
+                  <span className="flex items-center gap-1">
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                    生成中...
+                  </span>
+                ) : (
+                  '✨ AI生成'
+                )}
+              </button>
+            </div>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例如：下午一起看了电影"
+              placeholder="给这段记忆起个名字..."
               className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               maxLength={50}
             />
@@ -136,6 +199,20 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
               maxLength={500}
             />
             <div className="text-xs text-gray-400 mt-1">{summary.length}/500</div>
+          </div>
+
+          {/* 标签 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              标签（逗号分隔）
+            </label>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="例如：重要对话, 剧情转折, 感情发展"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            />
           </div>
 
           {/* 提示 */}

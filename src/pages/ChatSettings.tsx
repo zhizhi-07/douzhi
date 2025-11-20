@@ -273,10 +273,14 @@ const ChatSettings = () => {
     reader.onload = (e) => {
       const imageUrl = e.target?.result as string
       const customWallpaper = createCustomWallpaper(imageUrl)
-      setChatWallpaper(id, customWallpaper)
-      // 触发自定义事件通知聊天页面更新背景
-      window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
-      alert('壁纸已设置！')
+      const success = setChatWallpaper(id, customWallpaper)
+      if (success) {
+        // 触发自定义事件通知聊天页面更新背景
+        window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
+        alert('壁纸已设置！')
+      } else {
+        alert('壁纸保存失败：浏览器存储空间可能已满，请尝试删减部分数据后重试')
+      }
     }
     reader.readAsDataURL(file)
   }

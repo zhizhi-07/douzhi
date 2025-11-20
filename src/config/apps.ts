@@ -3,10 +3,10 @@ import {
   MusicIcon, 
   SettingsIcon, 
   PhoneIcon,
-  ForumIcon,
   BookIcon,
   DecorationIcon,
-  MemoryIcon
+  MemoryIcon,
+  InstagramIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -59,11 +59,11 @@ export const page1Apps: AppItem[] = [
 // 第二页应用配置
 export const page2Apps: AppItem[] = [
   { 
-    id: 'forum', 
-    name: '论坛', 
-    icon: ForumIcon, 
+    id: 'instagram', 
+    name: 'Forum', 
+    icon: InstagramIcon, 
     color: 'glass-card', 
-    route: '/forum' 
+    route: '/instagram' 
   },
   { 
     id: 'aiphone', 
@@ -84,11 +84,11 @@ export const dockApps: AppItem[] = [
     route: '/api-list' 
   },
   { 
-    id: 'forum', 
-    name: '论坛', 
-    icon: ForumIcon, 
+    id: 'instagram', 
+    name: 'Forum', 
+    icon: InstagramIcon, 
     color: 'glass-card', 
-    route: '/forum' 
+    route: '/instagram' 
   },
   { 
     id: 'global-memory', 

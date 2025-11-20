@@ -81,11 +81,13 @@ export function getChatWallpaper(chatId: string): Wallpaper {
 /**
  * 设置聊天壁纸
  */
-export function setChatWallpaper(chatId: string, wallpaper: Wallpaper): void {
+export function setChatWallpaper(chatId: string, wallpaper: Wallpaper): boolean {
   try {
     localStorage.setItem(WALLPAPER_KEY_PREFIX + chatId, JSON.stringify(wallpaper))
+    return true
   } catch (error) {
     console.error('保存壁纸失败:', error)
+    return false
   }
 }
 

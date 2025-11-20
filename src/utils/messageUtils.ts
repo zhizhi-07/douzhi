@@ -84,6 +84,15 @@ export const createSystemMessage = (content: string): Message => {
  */
 export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
   return messages
+    .filter(msg => {
+      // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
+      // 线下总结（messageType === 'offline-summary'）会在后面单独处理
+      if (msg.sceneMode === 'offline' && msg.messageType !== 'offline-summary') {
+        console.log('🚫 [线下消息过滤] 跳过原始线下对话:', msg.content?.substring(0, 30))
+        return false
+      }
+      return true
+    })
     .map(msg => {
       // 处理撤回的消息
       if (msg.isRecalled && msg.recalledContent) {

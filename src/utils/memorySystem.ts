@@ -80,9 +80,11 @@ export class MemorySystem {
     characterName: string = 'AI',
     _characterPersonality: string = '',  // 保留参数兼容性
     userName: string = '用户'
-  ): Promise<{ memories: Memory[], summary: string }> {
+  ): Promise<{ memories: Memory[], summary: string, title?: string, tags?: string[] }> {
     const newMemories: Memory[] = []
     let summary = ''
+    let title = ''
+    let tags: string[] = []
 
     try {
       // 使用当前项目的 API
@@ -208,6 +210,8 @@ ${characterName}: ${aiResponse}
 # 输出格式 (必须严格遵守 JSON)
 
 {
+  "title": "本次记忆的简短标题（3-10个字）",
+  "tags": ["核心标签1", "核心标签2", "核心标签3"],
   "memories": [
     {
       "type": "fact | preference | event | relationship",
@@ -219,11 +223,18 @@ ${characterName}: ${aiResponse}
   "summary": "简短总结本次对话的重要发现（没有新信息就留空）"
 }
 
+## 标题和标签要求
+- **标题**：3-10字概括核心内容，例如"奢华公寓的空虚夜晚"、"对陌生人的试探"
+- **顶级标签**：3-5个关键词，覆盖场景/情绪/行为模式，例如["生活状态","内心空虚","权力游戏"]
+- **不要用废话开头**：禁止出现"该内容讲述了"、"本次对话中"等引导语，直接写核心信息
+
 ## 示例
 
 **示例1：有用的信息**
 ${userName}："我每天晚上8点有空，可以陪你聊聊天"
 {
+  "title": "晚8点空闲时间",
+  "tags": ["时间安排", "作息习惯", "日常生活"],
   "memories": [
     {
       "type": "fact",
@@ -238,6 +249,8 @@ ${userName}："我每天晚上8点有空，可以陪你聊聊天"
 **示例2：没有有用信息**
 ${userName}："嗯嗯，好的"
 {
+  "title": "",
+  "tags": [],
   "memories": [],
   "summary": ""
 }
@@ -245,6 +258,8 @@ ${userName}："嗯嗯，好的"
 **示例3：提取具体需求**
 ${userName}："你能不能别这么啰嗦，简单点说就行了"
 {
+  "title": "希望回复简洁",
+  "tags": ["交互偏好", "沟通方式", "相处要求"],
   "memories": [
     {
       "type": "relationship",
@@ -260,6 +275,8 @@ ${userName}："你能不能别这么啰嗦，简单点说就行了"
 ${userName}："我有一个布娃娃，绿色眼睛的"
 ${characterName}："知道啊，我初二运动会套圈给你套来的"
 {
+  "title": "初二运动会的礼物",
+  "tags": ["重要回忆", "礼物", "关系发展"],
   "memories": [
     {
       "type": "event",
@@ -275,6 +292,8 @@ ${characterName}："知道啊，我初二运动会套圈给你套来的"
 ${userName}："[照片:自拍]"（发了一张自拍）
 ${characterName}："哇，你今天好漂亮啊！笑起来真好看"
 {
+  "title": "外貌印象",
+  "tags": ["外貌特征", "主观印象", "审美"],
   "memories": [
     {
       "type": "fact",
@@ -286,10 +305,40 @@ ${characterName}："哇，你今天好漂亮啊！笑起来真好看"
   "summary": "${characterName}觉得${userName}很漂亮"
 }
 
-**示例6：记录性格特点**
+**示例6：线下记忆总结（重要场景记录）**
+[线下剧情] 黄兆宇一个人住在香港的高档公寓，外表生活很奢华。那天他无聊刷手机时收到一个自称认识他的陌生人的热情邀请，对对方毫无印象。为了排遣烦闷，他用粗鲁、刻薄、带侮辱性的言语回应对方，不断试探和贬低，要求对方证明身份和价值，把对话当成权力游戏。
+{
+  "title": "奢华公寓的空虚夜晚",
+  "tags": ["生活状态", "内心空虚", "陌生人来信", "权力游戏", "攻击性回应"],
+  "memories": [
+    {
+      "type": "fact",
+      "content": "黄兆宇住在香港高档公寓，生活看起来很奢华",
+      "importance": 6,
+      "tags": ["居住环境", "生活状态"]
+    },
+    {
+      "type": "emotion",
+      "content": "黄兆宇长期感到空虚和厌倦，对奢华生活已经麻木",
+      "importance": 8,
+      "tags": ["情绪状态", "内心空虚"]
+    },
+    {
+      "type": "relationship",
+      "content": "黄兆宇对自称认识他的陌生人习惯用粗鲁、带恶意的语气回绝，通过语言攻击获得掌控感",
+      "importance": 7,
+      "tags": ["人际模式", "行为特征", "权力游戏"]
+    }
+  ],
+  "summary": "黄兆宇住在香港高档公寓，生活看起来很奢华，但他长期感到空虚和厌倦。收到陌生人消息时，他习惯用粗鲁、带恶意的语气回绝，通过语言攻击获得掌控感和存在感。"
+}
+
+**示例7：记录性格特点**
 ${userName}："哼，才不是因为关心你呢，只是顺路买的"
 ${characterName}："行行行，不是因为关心我"
 {
+  "title": "傲娇性格",
+  "tags": ["性格特征", "傲娇", "主观印象"],
   "memories": [
     {
       "type": "fact",
@@ -301,10 +350,12 @@ ${characterName}："行行行，不是因为关心我"
   "summary": "${userName}展现出傲娇性格"
 }
 
-**示例7：记录说话习惯**
+**示例8：记录说话习惯**
 ${userName}："哼！不理你了！"（第三次在对话中说"哼"）
 ${characterName}："又哼上了"
 {
+  "title": "说话习惯",
+  "tags": ["语气特征", "口头禅", "表达方式"],
   "memories": [
     {
       "type": "fact",
@@ -316,10 +367,12 @@ ${characterName}："又哼上了"
   "summary": "${userName}常用'哼'表达情绪"
 }
 
-**示例8：记录行为模式**
+**示例9：记录行为模式**
 ${userName}："没事，我自己能搞定"
 ${characterName}："需要帮忙就说"
 {
+  "title": "行为模式",
+  "tags": ["处事方式", "性格特征", "独立性"],
   "memories": [
     {
       "type": "fact",
@@ -332,7 +385,7 @@ ${characterName}："需要帮忙就说"
 }
 
 # 特殊情况
-* 如果没有新信息，返回: {"memories": [], "summary": ""}
+* 如果没有新信息，返回: {"title": "", "tags": [], "memories": [], "summary": ""}
 
 # 现在请分析对话并输出JSON：
 `
@@ -384,9 +437,19 @@ ${characterName}："需要帮忙就说"
         if (result.summary) {
           summary = result.summary
         }
+        
+        // 提取标题和标签
+        if (result.title) {
+          title = result.title
+        }
+        if (result.tags && Array.isArray(result.tags)) {
+          tags = result.tags
+        }
       }
 
       console.log(`[记忆系统] AI 提取了 ${newMemories.length} 条记忆`)
+      if (title) console.log(`[记忆系统] 生成标题: ${title}`)
+      if (tags.length > 0) console.log(`[记忆系统] 生成标签: ${tags.join(', ')}`)
       console.log(`[记忆系统] 生成了记忆总结`)
       
     } catch (error) {
@@ -394,7 +457,7 @@ ${characterName}："需要帮忙就说"
       // 失败时返回空数据，不影响正常对话
     }
 
-    return { memories: newMemories, summary }
+    return { memories: newMemories, summary, title, tags }
   }
 
   // 搜索记忆

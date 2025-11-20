@@ -327,15 +327,32 @@ export function convertCharacterCardToInternal(
   ].filter(Boolean).join('').trim()
   
   // 清理 character_book 中的循环引用
+  // 支持多种命名方式：character_book、characterBook、extensions.character_book
   let cleanedCharacterBook = undefined
+  let characterBook = null
+  
+  // 尝试多种可能的字段名
   if ('character_book' in data && data.character_book) {
-    console.log('✅ 检测到世界书，条目数:', data.character_book.entries?.length || 0)
+    characterBook = data.character_book
+  } else if ('characterBook' in data && (data as any).characterBook) {
+    characterBook = (data as any).characterBook
+  } else if ('extensions' in data && (data as any).extensions?.character_book) {
+    characterBook = (data as any).extensions.character_book
+  }
+  
+  if (characterBook && Array.isArray(characterBook.entries) && characterBook.entries.length > 0) {
+    console.log('✅ 检测到世界书，条目数:', characterBook.entries.length)
     try {
-      cleanedCharacterBook = cleanObject(data.character_book, 15)
+      cleanedCharacterBook = cleanObject(characterBook, 15)
     } catch (error) {
       console.warn('清理世界书失败，使用原始数据:', error)
-      cleanedCharacterBook = data.character_book
+      cleanedCharacterBook = characterBook
     }
+  } else {
+    const reason = !characterBook ? '未找到世界书字段' : 
+                   !Array.isArray(characterBook.entries) ? 'entries不是数组' :
+                   'entries为空数组'
+    console.log('❌ 未导入世界书:', reason)
   }
   
   const result = {
