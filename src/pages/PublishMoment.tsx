@@ -10,6 +10,7 @@ import { triggerAIMomentsInteraction } from '../utils/momentsAI'
 import { getUserInfo } from '../utils/userUtils'
 import type { MomentImage } from '../types/moments'
 import { characterService } from '../services/characterService'
+import { compressAndConvertToBase64 } from '../utils/imageUtils'
 
 export default function PublishMoment() {
   const navigate = useNavigate()
@@ -51,16 +52,17 @@ export default function PublishMoment() {
       return
     }
     
-    Array.from(files).forEach((file) => {
+    Array.from(files).forEach(async (file) => {
       // 检查文件大小（限制5MB）
       if (file.size > 5 * 1024 * 1024) {
         alert('图片大小不能超过5MB')
         return
       }
       
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const url = event.target?.result as string
+      try {
+        // 压缩图片并转换为base64（最大1200x1200，质量0.7）
+        const base64 = await compressAndConvertToBase64(file)
+        const url = `data:image/jpeg;base64,${base64}`
         setImages(prev => [
           ...prev,
           {
@@ -68,8 +70,10 @@ export default function PublishMoment() {
             url
           }
         ])
+      } catch (error) {
+        console.error('压缩图片失败:', error)
+        alert('图片处理失败，请重试')
       }
-      reader.readAsDataURL(file)
     })
   }
   
@@ -79,24 +83,32 @@ export default function PublishMoment() {
   }
   
   // 发布
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!content.trim() && images.length === 0) {
       alert('请输入内容或选择图片')
       return
     }
     
-    const newMoment = publishMoment(
-      currentUser,
-      content.trim(),
-      images,
-      location.trim() || undefined,
-      mentions.length > 0 ? mentions : undefined
-    )
-    
-    // 触发AI角色查看和互动
-    triggerAIMomentsInteraction(newMoment)
-    
-    navigate('/moments')
+    try {
+      console.log('🚀 开始发布朋友圈...')
+      const newMoment = await publishMoment(
+        currentUser,
+        content.trim(),
+        images,
+        location.trim() || undefined,
+        mentions.length > 0 ? mentions : undefined
+      )
+      
+      console.log('✅ 朋友圈发布成功，触发AI互动')
+      
+      // 触发AI角色查看和互动
+      triggerAIMomentsInteraction(newMoment)
+      
+      navigate('/moments')
+    } catch (error) {
+      console.error('❌ 发布朋友圈失败:', error)
+      // 错误提示已由 saveMoments 显示，这里不重复提示
+    }
   }
   
   return (

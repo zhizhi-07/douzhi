@@ -7,6 +7,7 @@ import { useState, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
+import { compressAndConvertToBase64 } from '../utils/imageUtils'
 
 const UserProfile = () => {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ const UserProfile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 处理图片上传
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       // 检查文件类型
@@ -29,12 +30,15 @@ const UserProfile = () => {
         return
       }
       
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string
-        setUserInfo({ ...userInfo, avatar: base64 })
+      try {
+        // 压缩图片（头像使用较小尺寸：800x800，质量0.8）
+        const base64 = await compressAndConvertToBase64(file, 800, 800, 0.8)
+        const dataUrl = `data:image/jpeg;base64,${base64}`
+        setUserInfo({ ...userInfo, avatar: dataUrl })
+      } catch (error) {
+        console.error('压缩头像失败:', error)
+        alert('图片处理失败，请重试')
       }
-      reader.readAsDataURL(file)
     }
   }
 

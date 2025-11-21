@@ -170,7 +170,7 @@ export function parseAIMomentsPost(
  * @param post 朋友圈发布指令
  * @returns 是否成功发布
  */
-export function executeAIMomentsPost(post: AIMomentsPost): boolean {
+export async function executeAIMomentsPost(post: AIMomentsPost): Promise<boolean> {
   console.log('🚀 [AI发朋友圈] 开始发布朋友圈...', post)
   
   try {
@@ -200,18 +200,15 @@ export function executeAIMomentsPost(post: AIMomentsPost): boolean {
     console.log(`📚 [AI发朋友圈] 添加后朋友圈数量: ${moments.length}`)
     
     // 保存更新后的朋友圈列表
-    saveMoments(moments)
-    console.log('💾 [AI发朋友圈] 已保存到localStorage')
-    
-    // 触发朋友圈更新事件
-    window.dispatchEvent(new Event('storage'))
-    console.log('🔔 [AI发朋友圈] 已触发storage更新事件')
+    await saveMoments(moments)
+    console.log('💾 [AI发朋友圈] 已保存到IndexedDB')
     
     console.log(`✅ [AI发朋友圈] ${post.aiName} 发布了朋友圈: ${post.content}`)
     
     return true
   } catch (error) {
     console.error('❌ [AI发朋友圈] 发布失败:', error)
+    // 错误提示已由 saveMoments 显示
     return false
   }
 }
@@ -315,7 +312,7 @@ export function parseAIMomentsDelete(
  * @param deleteCmd 删除指令
  * @returns 删除的朋友圈内容（用于系统消息）
  */
-export function executeAIMomentsDelete(deleteCmd: AIMomentsDelete): string | null {
+export async function executeAIMomentsDelete(deleteCmd: AIMomentsDelete): Promise<string | null> {
   console.log('🗑️ [AI删除朋友圈] 开始删除...', deleteCmd)
   
   try {
@@ -332,12 +329,8 @@ export function executeAIMomentsDelete(deleteCmd: AIMomentsDelete): string | nul
     moment.deletedAt = Date.now()
     
     // 保存
-    saveMoments(moments)
+    await saveMoments(moments)
     console.log('💾 [AI删除朋友圈] 已标记为删除')
-    
-    // 触发更新事件
-    window.dispatchEvent(new Event('storage'))
-    console.log('🔔 [AI删除朋友圈] 已触发storage更新事件')
     
     console.log(`✅ [AI删除朋友圈] ${deleteCmd.aiName} 删除了朋友圈: ${moment.content}`)
     
@@ -345,6 +338,7 @@ export function executeAIMomentsDelete(deleteCmd: AIMomentsDelete): string | nul
     return moment.content
   } catch (error) {
     console.error('❌ [AI删除朋友圈] 删除失败:', error)
+    // 错误提示已由 saveMoments 显示
     return null
   }
 }

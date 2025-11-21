@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { compressAndConvertToBase64 } from '../../utils/imageUtils'
 
 interface AvatarFrameSettingsProps {
   chatId: string
@@ -53,15 +54,18 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
   }
 
   // 处理图片上传
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const imageUrl = event.target?.result as string
+      try {
+        // 压缩图片（头像框使用较小尺寸：600x600，质量0.8）
+        const base64 = await compressAndConvertToBase64(file, 600, 600, 0.8)
+        const imageUrl = `data:image/jpeg;base64,${base64}`
         setFrameImage(imageUrl)
+      } catch (error) {
+        console.error('压缩头像框图片失败:', error)
+        alert('图片处理失败，请重试')
       }
-      reader.readAsDataURL(file)
     }
   }
 

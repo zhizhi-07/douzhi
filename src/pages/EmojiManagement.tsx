@@ -14,6 +14,7 @@ import {
   clearAllEmojis,
   type Emoji
 } from '../utils/emojiStorage'
+import { compressAndConvertToBase64 } from '../utils/imageUtils'
 
 const EmojiManagement = () => {
   const navigate = useNavigate()
@@ -34,7 +35,7 @@ const EmojiManagement = () => {
     setEmojis(loaded)
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -43,12 +44,15 @@ const EmojiManagement = () => {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string
+    try {
+      // 压缩表情包（较小尺寸：400x400，质量0.8）
+      const base64 = await compressAndConvertToBase64(file, 400, 400, 0.8)
+      const dataUrl = `data:image/jpeg;base64,${base64}`
       setNewEmojiUrl(dataUrl)
+    } catch (error) {
+      console.error('压缩表情包图片失败:', error)
+      alert('图片处理失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleAddEmoji = async () => {
@@ -119,12 +123,9 @@ const EmojiManagement = () => {
         }
 
         try {
-          const reader = new FileReader()
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = (e) => resolve(e.target?.result as string)
-            reader.onerror = reject
-            reader.readAsDataURL(file)
-          })
+          // 压缩表情包（较小尺寸：400x400，质量0.8）
+          const base64 = await compressAndConvertToBase64(file, 400, 400, 0.8)
+          const dataUrl = `data:image/jpeg;base64,${base64}`
 
           // 使用文件名（去掉扩展名）作为描述
           const fileName = file.name.replace(/\.[^/.]+$/, '')

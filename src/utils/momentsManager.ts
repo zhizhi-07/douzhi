@@ -48,37 +48,54 @@ export function loadMoments(): Moment[] {
 /**
  * 保存朋友圈（同步更新缓存，异步保存到IndexedDB）
  */
-export function saveMoments(moments: Moment[]): void {
-  try {
-    // 立即更新缓存
-    momentsCache = moments
-    
-    // 异步保存到IndexedDB（无需压缩，IndexedDB空间大）
-    IDB.setItem(IDB.STORES.MOMENTS, 'moments', moments).then(() => {
-      console.log(`💾 保存朋友圈到IndexedDB: ${moments.length} 条`)
-    }).catch(err => {
-      console.error('IndexedDB保存失败:', err)
-      // IndexedDB空间极大，基本不会超出
-    })
-    
-    // 🔥 触发更新事件，让页面实时刷新
-    window.dispatchEvent(new CustomEvent('moments-updated'))
-    window.dispatchEvent(new Event('storage'))
-  } catch (error) {
-    console.error('保存朋友圈失败:', error)
-  }
+export function saveMoments(moments: Moment[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // 立即更新缓存
+      momentsCache = moments
+      
+      // 异步保存到IndexedDB
+      IDB.setItem(IDB.STORES.MOMENTS, 'moments', moments).then(() => {
+        console.log(`💾 保存朋友圈到IndexedDB: ${moments.length} 条`)
+        
+        // 🔥 触发更新事件，让页面实时刷新
+        window.dispatchEvent(new CustomEvent('moments-updated'))
+        window.dispatchEvent(new Event('storage'))
+        
+        resolve()
+      }).catch(err => {
+        console.error('❌ IndexedDB保存失败:', err)
+        
+        // 检查是否是存储空间不足
+        if (err.name === 'QuotaExceededError' || err.message?.includes('quota')) {
+          const errorMsg = '存储空间不足！请删除一些旧朋友圈或清理浏览器数据。'
+          console.error('🚨', errorMsg)
+          alert(errorMsg)
+          reject(new Error(errorMsg))
+        } else {
+          const errorMsg = '保存朋友圈失败，请重试'
+          console.error('🚨', errorMsg, err)
+          alert(errorMsg)
+          reject(err)
+        }
+      })
+    } catch (error) {
+      console.error('❌ 保存朋友圈失败:', error)
+      reject(error)
+    }
+  })
 }
 
 /**
  * 发布朋友圈
  */
-export function publishMoment(
+export async function publishMoment(
   user: User,
   content: string,
   images: MomentImage[] = [],
   location?: string,
   mentions?: string[]
-): Moment {
+): Promise<Moment> {
   const newMoment: Moment = {
     id: Date.now().toString(),
     userId: user.id,
@@ -93,14 +110,22 @@ export function publishMoment(
     mentions
   }
   
-  const moments = loadMoments()
-  moments.unshift(newMoment)  // 添加到开头
-  saveMoments(moments)
-  
-  console.log('📱 发布朋友圈:', content.substring(0, 20) || '[纯图片]')
+  console.log('📱 准备发布朋友圈:', content.substring(0, 20) || '[纯图片]')
   console.log('📱 完整朋友圈对象:', newMoment)
   
-  return newMoment
+  const moments = loadMoments()
+  moments.unshift(newMoment)  // 添加到开头
+  
+  try {
+    await saveMoments(moments)
+    console.log('✅ 朋友圈发布成功')
+    return newMoment
+  } catch (error) {
+    console.error('❌ 朋友圈发布失败:', error)
+    // 恢复缓存（移除刚添加的朋友圈）
+    momentsCache = loadMoments().filter(m => m.id !== newMoment.id)
+    throw error
+  }
 }
 
 /**

@@ -2017,6 +2017,507 @@ export const theatreTemplates: TheatreTemplate[] = [
     htmlTemplate: `
 <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#e3f2fd;font-family:SimSun,serif;padding:10px}.qq-window{width:100%;max-width:380px;margin:0 auto;background:#fff;border:2px solid #4169e1;box-shadow:3px 3px 0 rgba(0,0,0,0.2);opacity:0.85}.title-bar{background:linear-gradient(180deg,#6495ed 0%,#4169e1 100%);padding:4px 8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e3a8a}.title-text{color:#fff;font-size:12px;font-weight:bold}.title-buttons{display:flex;gap:4px}.title-btn{width:16px;height:16px;background:#ddd;border:1px solid #999;font-size:10px;line-height:14px;text-align:center;cursor:pointer}.menu-bar{background:#f0f0f0;padding:2px 4px;border-bottom:1px solid #ccc;font-size:11px;color:#333}.chat-info{background:#fffacd;padding:6px 8px;border-bottom:1px solid #ddd;font-size:11px;color:#666}.chat-content{background:#fff;padding:8px;min-height:200px;max-height:300px;overflow-y:auto}.msg{margin-bottom:8px;font-size:12px;line-height:1.6;text-align:left}.msg-time{color:#999;font-size:10px;text-align:center;margin:8px 0}.msg-sender{color:#00f;font-weight:bold}.msg-text{color:#000;margin-left:4px}.msg-unread{color:#f44336;font-size:10px;margin-left:6px;font-weight:bold}.input-bar{background:#f5f5f5;border-top:2px solid #ccc;padding:6px}.input-tools{background:#e8e8e8;padding:3px;border:1px solid #ccc;margin-bottom:4px;font-size:10px;color:#666}.input-box{background:#fff;border:1px solid #999;padding:6px;min-height:50px;font-size:12px;font-family:SimSun,serif}.send-btn{background:linear-gradient(180deg,#f0f0f0 0%,#d0d0d0 100%);border:1px solid #999;padding:4px 16px;font-size:12px;margin-top:4px;cursor:pointer;float:right}</style></head><body><div class="qq-window"><div class="title-bar"><div class="title-text">与 {{CHARACTER_NAME}} 聊天中</div><div class="title-buttons"><div class="title-btn">_</div><div class="title-btn">□</div><div class="title-btn">×</div></div></div><div class="menu-bar">消息(M) 查看(V) 工具(T) 帮助(H)</div><div class="chat-info">{{CHARACTER_NAME}} ({{DATE}} {{TIME}})</div><div class="chat-content"><div class="msg-time">{{DATE}} {{TIME}}</div><div class="msg"><span class="msg-sender">{{CHARACTER_NAME}}:</span><span class="msg-text">{{MSG1}}</span><span class="msg-unread">未读</span></div><div class="msg"><span class="msg-sender">{{CHARACTER_NAME}}:</span><span class="msg-text">{{MSG2}}</span><span class="msg-unread">未读</span></div><div class="msg"><span class="msg-sender">{{CHARACTER_NAME}}:</span><span class="msg-text">{{MSG3}}</span><span class="msg-unread">未读</span></div><div class="msg"><span class="msg-sender">{{CHARACTER_NAME}}:</span><span class="msg-text">{{MSG4}}</span><span class="msg-unread">未读</span></div></div><div class="input-bar"><div class="input-tools">字体 表情 截图 抖动窗口 发送文件</div><div class="input-box">对方长时间未回复...</div><button class="send-btn">发送(S)</button></div></div></body></html>
     `.trim()
+  },
+
+  {
+    id: 'incognito_mode',
+    name: '隐私浏览',
+    keywords: ['无痕浏览', '隐私模式', '隐私浏览', '私密浏览'],
+    fields: [
+      { key: 'SITE1_TITLE', label: '网站1标题', placeholder: '成人内容网站' },
+      { key: 'SITE1_URL', label: '网站1地址', placeholder: 'adult-site.com' },
+      { key: 'SITE1_TIME', label: '访问时间1', placeholder: '23:15' },
+      { key: 'SITE1_THOUGHT', label: '网站1心理活动', placeholder: '心跳加速，偷偷看了一眼门口，确认没人后点开...' },
+      { key: 'SITE2_TITLE', label: '网站2标题', placeholder: '在线视频' },
+      { key: 'SITE2_URL', label: '网站2地址', placeholder: 'video.com' },
+      { key: 'SITE2_TIME', label: '访问时间2', placeholder: '23:42' },
+      { key: 'SITE2_THOUGHT', label: '网站2心理活动', placeholder: '手心出汗，音量调到最低，耳朵警惕地听着外面的动静' },
+      { key: 'SITE3_TITLE', label: '网站3标题', placeholder: '私密社区' },
+      { key: 'SITE3_URL', label: '网站3地址', placeholder: 'secret.com' },
+      { key: 'SITE3_TIME', label: '访问时间3', placeholder: '00:18' },
+      { key: 'SITE3_THOUGHT', label: '网站3心理活动', placeholder: '呼吸变得急促，身体开始发热，手指颤抖着滑动屏幕' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#f2f2f7;border-radius:12px;overflow:hidden;font-family:-apple-system,'SF Pro Text','PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
+  <div style="background:#fff;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="width:24px;height:24px;background:#ffd60a;border-radius:6px;display:flex;align-items:center;justify-content:center">
+        <div style="width:10px;height:10px;border:2px solid #000;border-radius:2px"></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:17px;font-weight:600;color:#000">隐私浏览</div>
+      </div>
+      <div style="font-size:13px;color:#007aff;font-weight:500;cursor:pointer">清除</div>
+    </div>
+    <div style="background:#fff9e6;padding:10px;border-radius:8px;border-left:3px solid #ffd60a">
+      <div style="font-size:12px;color:#8e8e93;line-height:1.5">Safari 不会记住你访问的网站、搜索历史或自动填充信息</div>
+    </div>
+  </div>
+  
+  <div style="background:#fff">
+    <div style="padding:10px 16px;background:#f2f2f7">
+      <div style="font-size:13px;font-weight:600;color:#8e8e93;text-transform:uppercase;letter-spacing:0.5px">今天晚上</div>
+    </div>
+    
+    <div style="padding:12px 16px;border-bottom:0.5px solid #c6c6c8;cursor:pointer" onclick="this.querySelector('.thought').style.display=this.querySelector('.thought').style.display==='block'?'none':'block'">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="width:32px;height:32px;background:#ff3b30;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:600">A</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;color:#000;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE1_TITLE}}</div>
+          <div style="font-size:13px;color:#8e8e93;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE1_URL}}</div>
+        </div>
+        <div style="font-size:13px;color:#8e8e93;flex-shrink:0">{{SITE1_TIME}}</div>
+      </div>
+      <div class="thought" style="display:none;background:#fff9e6;padding:10px;border-radius:6px;margin-top:8px;border-left:2px solid #ff3b30">
+        <div style="font-size:11px;color:#ff3b30;font-weight:600;margin-bottom:4px">💭 心理活动</div>
+        <div style="font-size:13px;color:#000;line-height:1.5">{{SITE1_THOUGHT}}</div>
+      </div>
+    </div>
+    
+    <div style="padding:12px 16px;border-bottom:0.5px solid #c6c6c8;cursor:pointer" onclick="this.querySelector('.thought').style.display=this.querySelector('.thought').style.display==='block'?'none':'block'">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="width:32px;height:32px;background:#ff9500;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:600">V</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;color:#000;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE2_TITLE}}</div>
+          <div style="font-size:13px;color:#8e8e93;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE2_URL}}</div>
+        </div>
+        <div style="font-size:13px;color:#8e8e93;flex-shrink:0">{{SITE2_TIME}}</div>
+      </div>
+      <div class="thought" style="display:none;background:#fff9e6;padding:10px;border-radius:6px;margin-top:8px;border-left:2px solid #ff9500">
+        <div style="font-size:11px;color:#ff9500;font-weight:600;margin-bottom:4px">💭 心理活动</div>
+        <div style="font-size:13px;color:#000;line-height:1.5">{{SITE2_THOUGHT}}</div>
+      </div>
+    </div>
+    
+    <div style="padding:12px 16px;cursor:pointer" onclick="this.querySelector('.thought').style.display=this.querySelector('.thought').style.display==='block'?'none':'block'">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="width:32px;height:32px;background:#af52de;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:600">S</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;color:#000;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE3_TITLE}}</div>
+          <div style="font-size:13px;color:#8e8e93;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{SITE3_URL}}</div>
+        </div>
+        <div style="font-size:13px;color:#8e8e93;flex-shrink:0">{{SITE3_TIME}}</div>
+      </div>
+      <div class="thought" style="display:none;background:#fff9e6;padding:10px;border-radius:6px;margin-top:8px;border-left:2px solid #af52de">
+        <div style="font-size:11px;color:#af52de;font-weight:600;margin-bottom:4px">💭 心理活动</div>
+        <div style="font-size:13px;color:#000;line-height:1.5">{{SITE3_THOUGHT}}</div>
+      </div>
+    </div>
+  </div>
+  
+  <div style="background:#f2f2f7;padding:12px 16px;text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:#fff;padding:8px 16px;border-radius:20px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+      <div style="font-size:13px;color:#ff3b30;font-weight:500">⚠</div>
+      <div style="font-size:13px;color:#8e8e93">点击网站查看心理活动</div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'xiaohongshu_post',
+    name: '小红书分享',
+    keywords: ['小红书', '分享', '种草', '笔记'],
+    fields: [
+      { key: 'TITLE', label: '标题', placeholder: '今天分享一个超好用的东西' },
+      { key: 'CONTENT', label: '正文', placeholder: '姐妹们，这个真的太好用了...' },
+      { key: 'AUTHOR', label: '作者', placeholder: '小红薯' },
+      { key: 'LIKES', label: '点赞数', placeholder: '2.3万' },
+      { key: 'COLLECTS', label: '收藏数', placeholder: '5678' },
+      { key: 'COMMENTS_COUNT', label: '评论数', placeholder: '892' },
+      { key: 'TIME', label: '发布时间', placeholder: '2小时前' },
+      { key: 'COMMENT1_USER', label: '评论1用户', placeholder: '用户A' },
+      { key: 'COMMENT1_TEXT', label: '评论1内容', placeholder: '太实用了姐妹！' },
+      { key: 'COMMENT2_USER', label: '评论2用户', placeholder: '用户B' },
+      { key: 'COMMENT2_TEXT', label: '评论2内容', placeholder: '已下单' },
+      { key: 'COMMENT3_USER', label: '评论3用户', placeholder: '用户C' },
+      { key: 'COMMENT3_TEXT', label: '评论3内容', placeholder: '求链接' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
+  <div style="background:#fff;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#ff2442;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600;flex-shrink:0">{{AUTHOR_INITIAL}}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:#000">{{AUTHOR}}</div>
+        <div style="font-size:12px;color:#8e8e93">{{TIME}}</div>
+      </div>
+      <div style="padding:4px 12px;background:#ff2442;border-radius:14px;font-size:12px;color:#fff;font-weight:500;cursor:pointer">+ 关注</div>
+    </div>
+  </div>
+  
+  <div style="padding:0 16px 12px 16px">
+    <div style="font-size:16px;font-weight:600;color:#000;margin-bottom:8px;line-height:1.4">{{TITLE}}</div>
+    <div style="font-size:14px;color:#000;line-height:1.6">{{CONTENT}}</div>
+  </div>
+  
+  <div style="position:relative;padding-top:100%;background:#f5f5f5;margin:0 16px 12px 16px;border-radius:8px">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8e8e93;font-size:14px">
+      [图片内容]
+    </div>
+  </div>
+  
+  <div style="padding:12px 16px;display:flex;justify-content:space-around;align-items:center;border-top:0.5px solid #f2f2f7">
+    <div class="like-btn" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px" onclick="var icon=this.querySelector('.like-icon');var count=this.querySelector('.like-count');if(icon.style.color==='rgb(255, 36, 66)'){icon.style.color='#8e8e93';icon.textContent='♡'}else{icon.style.color='#ff2442';icon.textContent='♥'}">
+      <div class="like-icon" style="font-size:20px;color:#8e8e93;transition:all 0.2s">♡</div>
+      <div class="like-count" style="font-size:13px;color:#8e8e93">{{LIKES}}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z" fill="#8e8e93"/></svg>
+      <div style="font-size:13px;color:#8e8e93">{{COLLECTS}}</div>
+    </div>
+    <div class="comment-btn" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='block'?'none':'block'">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 4C2 2.89543 2.89543 2 4 2H16C17.1046 2 18 2.89543 18 4V12C18 13.1046 17.1046 14 16 14H11L6 18V14H4C2.89543 14 2 13.1046 2 12V4Z" fill="#8e8e93"/></svg>
+      <div style="font-size:13px;color:#8e8e93">{{COMMENTS_COUNT}}</div>
+    </div>
+    <div style="cursor:pointer;padding:8px">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 3L17 10L13 17M3 10H16" stroke="#8e8e93" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+  
+  <div class="comments-section" style="display:none;background:#f9f9f9;padding:12px 16px;border-top:0.5px solid #e5e5e7">
+    <div style="font-size:13px;font-weight:600;color:#000;margin-bottom:10px">评论</div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT1_USER}}:</div>
+        <div style="font-size:13px;color:#000">{{COMMENT1_TEXT}}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT2_USER}}:</div>
+        <div style="font-size:13px;color:#000">{{COMMENT2_TEXT}}</div>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;gap:8px">
+        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT3_USER}}:</div>
+        <div style="font-size:13px;color:#000">{{COMMENT3_TEXT}}</div>
+      </div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'sex_timer',
+    name: '性爱时长',
+    keywords: ['性爱时长', '性爱记录', '时长统计', '性生活'],
+    fields: [
+      { key: 'DATE', label: '日期', placeholder: '2025年11月21日' },
+      { key: 'START_TIME', label: '开始时间', placeholder: '23:15' },
+      { key: 'END_TIME', label: '结束时间', placeholder: '00:48' },
+      { key: 'DURATION', label: '总时长', placeholder: '1小时33分' },
+      { key: 'FOREPLAY', label: '前戏时长', placeholder: '18分钟' },
+      { key: 'MAIN', label: '主要时长', placeholder: '45分钟' },
+      { key: 'AFTERCARE', label: '后戏时长', placeholder: '30分钟' },
+      { key: 'POSITION_COUNT', label: '体位数', placeholder: '5' },
+      { key: 'RATING', label: '体验评分', placeholder: '9.5' },
+      { key: 'PARTNER_RATING', label: '对方评分', placeholder: '9.8' },
+      { key: 'CLIMAX', label: '高潮次数', placeholder: '3' },
+      { key: 'LOCATION', label: '地点', placeholder: '卧室' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
+  <div style="background:#ff3b30;padding:20px;text-align:center">
+    <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:6px;font-weight:500">性爱记录</div>
+    <div style="font-size:48px;font-weight:700;color:#fff;line-height:1;margin-bottom:10px;font-variant-numeric:tabular-nums">{{DURATION}}</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.85)">{{DATE}}</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px">{{START_TIME}} - {{END_TIME}}</div>
+  </div>
+  
+  <div style="padding:16px;background:#1c1c1e">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:#2c2c2e;padding:14px;border-radius:10px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:#ff3b30;margin-bottom:4px;font-variant-numeric:tabular-nums">{{RATING}}</div>
+        <div style="font-size:11px;color:#8e8e93;font-weight:500">我的评分</div>
+      </div>
+      <div style="background:#2c2c2e;padding:14px;border-radius:10px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:#ff3b30;margin-bottom:4px;font-variant-numeric:tabular-nums">{{PARTNER_RATING}}</div>
+        <div style="font-size:11px;color:#8e8e93;font-weight:500">对方评分</div>
+      </div>
+    </div>
+    
+    <div style="background:#2c2c2e;padding:14px;border-radius:10px;margin-bottom:16px">
+      <div style="font-size:12px;color:#8e8e93;margin-bottom:10px;font-weight:600">时长分布</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;color:#fff">前戏</div>
+        <div style="font-size:15px;color:#ff9500;font-weight:600">{{FOREPLAY}}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;color:#fff">主要过程</div>
+        <div style="font-size:15px;color:#ff3b30;font-weight:600">{{MAIN}}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;color:#fff">后戏</div>
+        <div style="font-size:15px;color:#af52de;font-weight:600">{{AFTERCARE}}</div>
+      </div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:#2c2c2e;padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:2px">{{POSITION_COUNT}}</div>
+        <div style="font-size:10px;color:#8e8e93">体位</div>
+      </div>
+      <div style="background:#2c2c2e;padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:2px">{{CLIMAX}}</div>
+        <div style="font-size:10px;color:#8e8e93">高潮</div>
+      </div>
+      <div style="background:#2c2c2e;padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:11px;font-weight:600;color:#fff;margin-bottom:2px">{{LOCATION}}</div>
+        <div style="font-size:10px;color:#8e8e93">地点</div>
+      </div>
+    </div>
+    
+    <div style="background:#2c2c2e;padding:10px;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:#8e8e93">数据已加密保存</div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'private_album',
+    name: '私密相册',
+    keywords: ['私密相册', '加密相册', '隐藏相册', '私密照片'],
+    fields: [
+      { key: 'ALBUM_NAME', label: '相册名称', placeholder: '私密回忆' },
+      { key: 'COUNT', label: '照片数量', placeholder: '18' },
+      { key: 'DATE', label: '最后更新', placeholder: '昨天 23:42' },
+      { key: 'SECRET_TEXT', label: '私密描述', placeholder: '与她的亲密瞬间' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
+  <div style="background:#1c1c1e;padding:14px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:22px;font-weight:700;color:#fff">{{ALBUM_NAME}}</div>
+      <div style="width:28px;height:28px;background:rgba(255,255,255,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center">
+        <div style="width:12px;height:12px;border:2px solid #fff;border-radius:2px"></div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#8e8e93">{{COUNT}} 张照片 · {{DATE}}</div>
+  </div>
+  
+  <div style="padding:12px;background:#000">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:12px">
+      <div style="position:relative;padding-top:100%;background:#2c2c2e;border-radius:4px;overflow:hidden">
+        <div style="position:absolute;inset:0;background:rgba(255,59,48,0.3);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center">
+          <div style="text-align:center">
+            <div style="width:32px;height:32px;border:2px solid #fff;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center">
+              <div style="width:12px;height:12px;border:2px solid #fff;border-radius:2px"></div>
+            </div>
+            <div style="font-size:10px;color:#fff;font-weight:500">点击查看</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding-top:100%;background:#2c2c2e;border-radius:4px"></div>
+      <div style="padding-top:100%;background:#2c2c2e;border-radius:4px"></div>
+      <div style="padding-top:100%;background:#2c2c2e;border-radius:4px"></div>
+      <div style="padding-top:100%;background:#2c2c2e;border-radius:4px"></div>
+      <div style="padding-top:100%;background:#2c2c2e;border-radius:4px"></div>
+    </div>
+  </div>
+  
+  <div style="padding:12px 16px;background:#1c1c1e">
+    <div style="font-size:12px;color:#8e8e93;line-height:1.6;text-align:center">{{SECRET_TEXT}}</div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'hotel_booking',
+    name: '酒店订单',
+    keywords: ['酒店订单', '酒店预订', '开房记录', '订房'],
+    fields: [
+      { key: 'HOTEL_NAME', label: '酒店名称', placeholder: '希尔顿酒店' },
+      { key: 'ROOM_TYPE', label: '房型', placeholder: '豪华大床房' },
+      { key: 'CHECK_IN', label: '入住日期', placeholder: '11月21日' },
+      { key: 'CHECK_OUT', label: '离店日期', placeholder: '11月22日' },
+      { key: 'NIGHTS', label: '住宿晚数', placeholder: '1' },
+      { key: 'GUEST_NAME', label: '入住人', placeholder: '张三' },
+      { key: 'GUEST_PHONE', label: '手机号', placeholder: '138****1234' },
+      { key: 'TOTAL_PRICE', label: '总价', placeholder: '599' },
+      { key: 'ORDER_NO', label: '订单号', placeholder: 'HT20251121001' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
+  <div style="background:#007aff;padding:20px 16px;text-align:center">
+    <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-bottom:8px;font-weight:500;letter-spacing:0.5px">预订成功</div>
+    <div style="font-size:20px;font-weight:600;color:#fff;margin-bottom:8px">{{HOTEL_NAME}}</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.9)">{{ROOM_TYPE}}</div>
+  </div>
+  
+  <div style="padding:16px">
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:10px;font-weight:600">入住信息</div>
+      <div style="background:#f2f2f7;padding:12px;border-radius:8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:14px;color:#000">入住日期</div>
+          <div style="font-size:14px;font-weight:500;color:#000">{{CHECK_IN}}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:14px;color:#000">离店日期</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:14px;font-weight:500;color:#000">{{CHECK_OUT}}</div>
+            <div style="background:#ff3b30;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:500">{{NIGHTS}}晚</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="background:#f2f2f7;padding:12px;border-radius:8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;color:#8e8e93">入住人</div>
+          <div style="font-size:14px;font-weight:500;color:#000">{{GUEST_NAME}}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-size:13px;color:#8e8e93">手机号</div>
+          <div style="font-size:14px;font-weight:500;color:#000">{{GUEST_PHONE}}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background:#f2f2f7;padding:14px;border-radius:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;color:#8e8e93">订单总价</div>
+        <div style="font-size:24px;font-weight:700;color:#ff3b30;font-variant-numeric:tabular-nums">¥{{TOTAL_PRICE}}</div>
+      </div>
+      <div style="font-size:11px;color:#8e8e93;text-align:right">订单号：{{ORDER_NO}}</div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'confession_board',
+    name: '表白墙',
+    keywords: ['表白墙', '表白', '告白墙', '论坛'],
+    fields: [
+      { key: 'TITLE', label: '标题', placeholder: '致我喜欢的女孩' },
+      { key: 'CONTENT', label: '内容', placeholder: '我一直默默关注你很久了...' },
+      { key: 'AUTHOR', label: '发帖人', placeholder: '匿名用户' },
+      { key: 'TIME', label: '时间', placeholder: '2小时前' },
+      { key: 'LIKE', label: '点赞数', placeholder: '128' },
+      { key: 'COMMENT1', label: '评论1', placeholder: '祝福你们' },
+      { key: 'COMMENT2', label: '评论2', placeholder: '好甜' },
+      { key: 'COMMENT3', label: '评论3', placeholder: '加油！' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
+  <div style="background:#fff;padding:16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:38px;height:38px;border-radius:50%;background:#ff3b30;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:600;flex-shrink:0">匿</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;color:#000">{{AUTHOR}}</div>
+        <div style="font-size:12px;color:#8e8e93">{{TIME}}</div>
+      </div>
+    </div>
+    
+    <div style="font-size:17px;font-weight:600;color:#000;margin-bottom:10px">{{TITLE}}</div>
+    <div style="font-size:15px;color:#000;line-height:1.6">{{CONTENT}}</div>
+    
+    <div style="display:flex;gap:20px;margin-top:14px;padding-top:12px">
+      <div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#8e8e93">
+        <span style="color:#ff3b30">♡</span>
+        <span>{{LIKE}}</span>
+      </div>
+      <div style="font-size:13px;color:#8e8e93">评论 3</div>
+    </div>
+  </div>
+  
+  <div style="background:#f9f9f9;padding:12px 16px">
+    <div style="font-size:13px;font-weight:600;color:#000;margin-bottom:10px">评论</div>
+    <div style="margin-bottom:8px;padding:10px;background:#fff;border-radius:8px">
+      <div style="font-size:13px;color:#000;line-height:1.5">{{COMMENT1}}</div>
+    </div>
+    <div style="margin-bottom:8px;padding:10px;background:#fff;border-radius:8px">
+      <div style="font-size:13px;color:#000;line-height:1.5">{{COMMENT2}}</div>
+    </div>
+    <div style="padding:10px;background:#fff;border-radius:8px">
+      <div style="font-size:13px;color:#000;line-height:1.5">{{COMMENT3}}</div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'overtime_record',
+    name: '加班记录',
+    keywords: ['加班', '加班记录', '加班时长', '加班申请'],
+    fields: [
+      { key: 'APPLICANT', label: '申请人', placeholder: '张三' },
+      { key: 'DEPARTMENT', label: '部门', placeholder: '技术部' },
+      { key: 'DATE', label: '日期', placeholder: '2025年11月21日' },
+      { key: 'START_TIME', label: '开始时间', placeholder: '18:30' },
+      { key: 'END_TIME', label: '结束时间', placeholder: '22:00' },
+      { key: 'HOURS', label: '加班时长', placeholder: '3.5小时' },
+      { key: 'REASON', label: '加班事由', placeholder: '紧急项目上线需要完成代码部署及测试工作' },
+      { key: 'APPROVER', label: '审批人', placeholder: '李经理' },
+      { key: 'APPROVE_TIME', label: '审批时间', placeholder: '11-21 19:05' }
+    ],
+    htmlTemplate: `
+<div style="max-width:320px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
+  <div style="background:#007aff;padding:16px;text-align:center">
+    <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:6px">加班申请单</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.85)">Overtime Application</div>
+  </div>
+  
+  <div style="padding:16px">
+    <div style="background:#f2f2f7;padding:12px;border-radius:10px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;background:#007aff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:600;flex-shrink:0">{{APPLICANT_INITIAL}}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600;color:#000;margin-bottom:2px">{{APPLICANT}}</div>
+          <div style="font-size:12px;color:#8e8e93">{{DEPARTMENT}}</div>
+        </div>
+        <div style="background:#34c759;color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600">已批准</div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:8px;font-weight:600">加班时间</div>
+      <div style="background:#f2f2f7;border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;color:#8e8e93">{{DATE}}</div>
+          <div style="font-size:14px;color:#000;font-weight:500">{{START_TIME}} - {{END_TIME}}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:14px;color:#000;font-weight:600">时长</div>
+          <div style="font-size:20px;color:#007aff;font-weight:700;font-variant-numeric:tabular-nums">{{HOURS}}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:8px;font-weight:600">加班事由</div>
+      <div style="background:#f2f2f7;border-radius:8px;padding:12px">
+        <div style="font-size:14px;color:#000;line-height:1.6">{{REASON}}</div>
+      </div>
+    </div>
+    
+    <div style="background:#f2f2f7;padding:12px;border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;color:#8e8e93">审批人</div>
+        <div style="font-size:14px;color:#000;font-weight:500">{{APPROVER}}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;color:#8e8e93">{{APPROVE_TIME}}</div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div style="width:16px;height:16px;background:#34c759;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">✓</div>
+          <div style="font-size:13px;color:#34c759;font-weight:500">已批准</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    `.trim()
   }
 ]
 

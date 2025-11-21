@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect } from 'react'
-import { fileToBase64 } from '../utils/imageUtils'
+import { compressAndConvertToBase64 } from '../utils/imageUtils'
 
 interface AlbumSelectorProps {
   isOpen: boolean
@@ -40,7 +40,8 @@ const AlbumSelector = ({ isOpen, onClose, onConfirm }: AlbumSelectorProps) => {
       const file = files[i]
       if (file.type.startsWith('image/')) {
         try {
-          const base64 = await fileToBase64(file)
+          // 使用压缩版本，大幅减少存储空间（最大1200x1200，质量0.7）
+          const base64 = await compressAndConvertToBase64(file)
           newPhotos.push({
             base64: base64,
             name: file.name

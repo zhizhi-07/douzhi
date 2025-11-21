@@ -819,7 +819,7 @@ export const useChatAI = (
       // 如果AI发布了朋友圈，执行发布操作
       if (aiMomentsPost) {
         console.log('📱 [AI发朋友圈] 检测到AI发朋友圈指令:', aiMomentsPost)
-        const success = executeAIMomentsPost(aiMomentsPost)
+        const success = await executeAIMomentsPost(aiMomentsPost)
         
         if (success) {
           // 创建系统消息
@@ -877,7 +877,7 @@ export const useChatAI = (
       // 如果AI删除了朋友圈，执行删除操作
       if (deleteCmd) {
         console.log('🗑️ [AI删除朋友圈] 检测到AI删除朋友圈指令:', deleteCmd)
-        const deletedContent = executeAIMomentsDelete(deleteCmd)
+        const deletedContent = await executeAIMomentsDelete(deleteCmd)
         
         if (deletedContent) {
           // 创建系统消息

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { theatreTemplates, fillTemplate } from '../data/theatreTemplates'
+import { theatreTemplates, fillTemplate } from '../data/templates'
 import StatusBar from '../components/StatusBar'
 
 export default function TheatreApp() {
