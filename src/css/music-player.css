@@ -1,0 +1,52 @@
+/* Music Player Styles */
+
+.music-player-container {
+  position: relative;
+  min-height: 100vh;
+}
+
+.album-cover-rotation {
+  animation: rotate 20s linear infinite;
+}
+
+.album-cover-rotation.paused {
+  animation-play-state: paused;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Lyrics scrolling */
+.lyrics-container {
+  max-height: 400px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.lyric-line {
+  transition: all 0.3s ease;
+}
+
+.lyric-line.active {
+  font-weight: 600;
+  transform: scale(1.1);
+}
+
+/* Progress bar */
+.progress-bar {
+  transition: width 0.1s linear;
+}
+
+/* Glass effect for music player */
+.music-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

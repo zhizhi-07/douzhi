@@ -12,8 +12,7 @@ interface ScheduledAction {
   action: AIAction
   momentId: string
   executeAt: number // 执行时间戳
-  characters: any[]
-  allActions: AIAction[]
+  // 移除 characters 和 allActions，减少存储空间占用
 }
 
 const STORAGE_KEY = 'moments_scheduled_actions'
@@ -53,18 +52,15 @@ function saveScheduledActions(actions: ScheduledAction[]): void {
 export function scheduleAction(
   action: AIAction,
   moment: Moment,
-  delaySeconds: number,
-  characters: any[],
-  allActions: AIAction[]
+  delaySeconds: number
 ): void {
   const executeAt = Date.now() + delaySeconds * 1000
   const scheduledAction: ScheduledAction = {
     id: `${action.characterId}_${moment.id}_${Date.now()}`,
     action,
     momentId: moment.id,
-    executeAt,
-    characters,
-    allActions
+    executeAt
+    // 不再存储 characters 和 allActions，减少存储空间
   }
 
   const actions = getScheduledActions()
@@ -81,7 +77,7 @@ export function scheduleAction(
  * 执行单个动作
  */
 async function executeScheduledAction(scheduledAction: ScheduledAction): Promise<void> {
-  const { action, momentId, characters, allActions } = scheduledAction
+  const { action, momentId } = scheduledAction
   
   console.log(`\n${'▶️'.repeat(20)}`)
   console.log(`▶️  执行调度动作: ${action.characterName} ${getActionText(action.action)}`)
@@ -97,6 +93,10 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
     console.error(`❌ 找不到朋友圈: ${momentId}`)
     return
   }
+
+  // 重新获取角色数据（不从存储中读取，避免数据过大）
+  const { characterService } = await import('../../services/characterService')
+  const characters = characterService.getAll()
 
   // 检查是否是NPC
   const isNPC = action.characterId.startsWith('npc-')
@@ -117,7 +117,8 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
         executeLikeAction(action, moment, virtualCharacter)
         break
       case 'comment':
-        executeCommentAction(action, moment, virtualCharacter, allActions)
+        // 评论时不需要 allActions，actionExecutor 会自动处理
+        executeCommentAction(action, moment, virtualCharacter, [])
         break
       case 'none':
         console.log(`👀 NPC ${npcName} 选择沉默`)
@@ -129,10 +130,10 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
   }
 
   // 普通角色处理
-  let character = characters.find(c => c.id === action.characterId)
+  let character = characters.find((c: any) => c.id === action.characterId)
   
   if (!character) {
-    character = characters.find(c => 
+    character = characters.find((c: any) => 
       c.nickname === action.characterName || 
       c.realName === action.characterName
     )
@@ -150,7 +151,8 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
       executeLikeAction(action, moment, character)
       break
     case 'comment':
-      executeCommentAction(action, moment, character, allActions)
+      // 评论时不需要 allActions，actionExecutor 会自动处理
+      executeCommentAction(action, moment, character, [])
       break
     case 'dm':
       executeDMAction(action, character, moment)

@@ -177,7 +177,6 @@ export const useChatState = (chatId: string) => {
     // 🔥 确保预加载完成后再加载消息，避免返回空数组
     const savedMessages = await ensureMessagesLoaded(chatId)
     
-    // 🔥 优化：移除console.table，避免性能问题
     if (import.meta.env.DEV) {
       console.log(`📨 [useChatState] 加载消息: chatId=${chatId}, 总数=${savedMessages.length}`)
     }

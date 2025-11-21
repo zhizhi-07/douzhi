@@ -9,7 +9,7 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -111,6 +111,12 @@ export interface Message {
   post?: {                    // 帖子卡片
     content: string           // 帖子内容（完整的帖子文本）
     prompt: string            // 用户的生成描述
+  }
+  theatre?: {                 // 小剧场HTML
+    templateId: string        // 模板ID
+    templateName: string      // 模板名称
+    htmlContent: string       // 渲染后的HTML内容
+    rawData: string           // AI输出的原始数据
   }
 }
 

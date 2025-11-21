@@ -94,21 +94,40 @@ export class MemorySystem {
       // 使用独立的副API配置
       const summaryApiConfig = summaryApiService.get()
       
-      // 🔥 检查副API是否已配置
+      // 🔥 如果副API没配置，降级使用主API
+      let summarySettings: any
+      let usingMainApi = false
+      
       if (!summaryApiConfig.baseUrl || !summaryApiConfig.apiKey || !summaryApiConfig.model) {
-        throw new Error('请先在系统设置中配置副API（智能总结API）')
+        console.warn('[记忆系统] 副API未配置，降级使用主API')
+        const { getApiSettings } = await import('./chatApi')
+        const mainApiConfig = getApiSettings()
+        
+        if (!mainApiConfig) {
+          throw new Error('主API和副API都未配置，请先配置API')
+        }
+        
+        summarySettings = {
+          baseUrl: mainApiConfig.baseUrl,
+          apiKey: mainApiConfig.apiKey,
+          model: mainApiConfig.model,
+          provider: mainApiConfig.provider,
+          temperature: 0.3,
+          maxTokens: 2000
+        }
+        usingMainApi = true
+      } else {
+        summarySettings = {
+          baseUrl: summaryApiConfig.baseUrl,
+          apiKey: summaryApiConfig.apiKey,
+          model: summaryApiConfig.model,
+          provider: summaryApiConfig.provider,
+          temperature: 0.3,  // 记忆提取用较低温度
+          maxTokens: 2000
+        }
       }
       
-      const summarySettings = {
-        baseUrl: summaryApiConfig.baseUrl,
-        apiKey: summaryApiConfig.apiKey,
-        model: summaryApiConfig.model,
-        provider: summaryApiConfig.provider,
-        temperature: 0.3,  // 记忆提取用较低温度
-        maxTokens: 2000
-      }
-      
-      console.log(`[记忆系统] 使用副API: ${summarySettings.model}`)
+      console.log(`[记忆系统] 使用${usingMainApi ? '主' : '副'}API: ${summarySettings.model}`)
       
       // 客观总结风格的提示词
       const prompt = `你是一个记忆提取助手。请分析以下对话，提取对话中**双方**的具体、有用信息。
@@ -149,6 +168,7 @@ ${characterName}: ${aiResponse}
 - 兴趣爱好（喜欢什么、不喜欢什么）
 - 身体和健康状态（例如：来姨妈、生理期、肚子痛、生病、住院等）——这类信息通常很重要
 - 重要经历（谁做过什么事、发生过什么）
+- **时间约定和计划**（什么时候见面、什么时候回来、重要节日、截止日期等）——这类信息很重要，一定要记录
 
 **主观印象：**
 - 性格特点（温柔/直爽/傲娇/害羞/大大咧咧...）——**优先记录${userName}的性格，不要单独记录${characterName}自己的性格**
@@ -180,6 +200,7 @@ ${characterName}: ${aiResponse}
 
 **好的记忆（要这样）：**
 - "${userName}每天晚上8点有空闲时间"（生活作息）
+- "${userName}要等到过年才回来"（时间约定）
 - "${userName}很漂亮，笑起来特别好看"（外貌印象）
 - "${userName}有点傲娇，嘴硬心软"（性格特点）
 - "${userName}说话喜欢用'哼'来表达不满"（说话习惯）
@@ -195,15 +216,17 @@ ${characterName}: ${aiResponse}
 * **preference**: 明确的喜好、厌恶
    * 例如: "${userName}不喜欢吃辣", "${characterName}喜欢看科幻片"
    
-* **event**: 重要经历、计划、互动事件
-   * 例如: "${userName}下周三要面试", "${characterName}初中送了一个娃娃给${userName}", "${userName}和${characterName}约定周末去看电影"
+* **event**: 重要经历、计划、互动事件、时间约定
+   * 例如: "${userName}下周三要面试", "${characterName}初中送了一个娃娃给${userName}", "${userName}和${characterName}约定周末去看电影", "${userName}要等到过年才回来", "${characterName}下个月要出差一周"
+   * ⚠️ 特别注意：时间约定、见面计划、重要节点（过年/生日/节假日等）都要记录
    
 * **relationship**: 双方关系、要求或期望、相处模式
    * 例如: "${userName}希望${characterName}回复简洁一些", "${characterName}很在意${userName}的感受", "${characterName}觉得${userName}很可爱"
 
 # 重要度评估 (1-10)
 
-* **7-10**: 长期有效的重要信息（职业、住址、作息、核心喜好、重要计划）
+* **7-10**: 长期有效的重要信息（职业、住址、作息、核心喜好、重要计划、时间约定）
+  * ⚠️ 时间约定和见面计划通常是7-9分，例如"过年回来"、"下周见面"、"生日约定"等
 * **4-6**: 一般信息（普通喜好、日常活动、对AI的要求）
 * **1-3**: 次要信息（临时计划、不太重要的细节）
 
@@ -288,7 +311,24 @@ ${characterName}："知道啊，我初二运动会套圈给你套来的"
   "summary": "${characterName}初二时送了布娃娃给${userName}"
 }
 
-**示例5：记录主观印象**
+**示例5：记录时间约定（重要！）**
+${userName}："我要等到过年才回来"
+${characterName}："好，那我等你过年回来"
+{
+  "title": "过年回来约定",
+  "tags": ["时间约定", "见面计划", "重要节点"],
+  "memories": [
+    {
+      "type": "event",
+      "content": "${userName}要等到过年才能回来，${characterName}答应等到那时候",
+      "importance": 8,
+      "tags": ["约定", "时间", "过年"]
+    }
+  ],
+  "summary": "${userName}和${characterName}约定过年见面"
+}
+
+**示例6：记录主观印象**
 ${userName}："[照片:自拍]"（发了一张自拍）
 ${characterName}："哇，你今天好漂亮啊！笑起来真好看"
 {
@@ -305,7 +345,7 @@ ${characterName}："哇，你今天好漂亮啊！笑起来真好看"
   "summary": "${characterName}觉得${userName}很漂亮"
 }
 
-**示例6：线下记忆总结（重要场景记录）**
+**示例7：线下记忆总结（重要场景记录）**
 [线下剧情] 黄兆宇一个人住在香港的高档公寓，外表生活很奢华。那天他无聊刷手机时收到一个自称认识他的陌生人的热情邀请，对对方毫无印象。为了排遣烦闷，他用粗鲁、刻薄、带侮辱性的言语回应对方，不断试探和贬低，要求对方证明身份和价值，把对话当成权力游戏。
 {
   "title": "奢华公寓的空虚夜晚",
@@ -821,19 +861,40 @@ ${characterDescription}
       // 使用副API
       const summaryApiConfig = summaryApiService.get()
       
-      // 🔥 检查副API是否已配置
+      // 🔥 如果副API没配置，降级使用主API
+      let summarySettings: any
+      let usingMainApi = false
+      
       if (!summaryApiConfig.baseUrl || !summaryApiConfig.apiKey || !summaryApiConfig.model) {
-        throw new Error('请先在系统设置中配置副API（智能总结API）')
+        console.warn('[时间线生成] 副API未配置，降级使用主API')
+        const { getApiSettings } = await import('./chatApi')
+        const mainApiConfig = getApiSettings()
+        
+        if (!mainApiConfig) {
+          throw new Error('主API和副API都未配置，请先配置API')
+        }
+        
+        summarySettings = {
+          baseUrl: mainApiConfig.baseUrl,
+          apiKey: mainApiConfig.apiKey,
+          model: mainApiConfig.model,
+          provider: mainApiConfig.provider,
+          temperature: 0.3,
+          maxTokens: 4000
+        }
+        usingMainApi = true
+      } else {
+        summarySettings = {
+          baseUrl: summaryApiConfig.baseUrl,
+          apiKey: summaryApiConfig.apiKey,
+          model: summaryApiConfig.model,
+          provider: summaryApiConfig.provider,
+          temperature: 0.3,
+          maxTokens: 4000  // 增加token限制
+        }
       }
       
-      const summarySettings = {
-        baseUrl: summaryApiConfig.baseUrl,
-        apiKey: summaryApiConfig.apiKey,
-        model: summaryApiConfig.model,
-        provider: summaryApiConfig.provider,
-        temperature: 0.3,
-        maxTokens: 4000  // 增加token限制
-      }
+      console.log(`[时间线生成] 使用${usingMainApi ? '主' : '副'}API: ${summarySettings.model}`)
 
       console.log('[时间线生成] 开始分析消息记录...')
       console.log(`[时间线生成] 总消息数: ${messages.length}`)
@@ -873,8 +934,26 @@ ${characterDescription}
       }
 
       // 消息不多，一次性处理
+      // 🔥 先过滤掉无效消息
+      const validMessages = messages.filter(m => {
+        const content = m.content || m.voiceText || ''
+        // 跳过空消息
+        if (!content.trim()) return false
+        // 跳过明显的CSS/HTML代码
+        if (content.includes('.message-container') || content.includes('position: relative')) return false
+        // 跳过过长的无意义内容（可能是错误数据）
+        if (content.length > 5000) return false
+        return true
+      })
+      
+      console.log(`[时间线生成] 过滤后有效消息: ${validMessages.length}/${messages.length}`)
+      
+      if (validMessages.length === 0) {
+        return '暂无有效聊天记录'
+      }
+      
       // 格式化所有消息为可读文本
-      const formattedMessages = messages.map((m, idx) => {
+      const formattedMessages = validMessages.map((m, idx) => {
         const time = new Date(m.timestamp).toLocaleString('zh-CN', {
           month: '2-digit',
           day: '2-digit',
@@ -882,7 +961,7 @@ ${characterDescription}
           minute: '2-digit'
         })
         const sender = m.type === 'sent' ? userName : characterName
-        let content = m.content || ''
+        let content = m.content || m.voiceText || ''
         
         // 处理视频通话记录
         if (m.videoCallRecord) {
@@ -929,15 +1008,48 @@ ${characterDescription}
       ], summarySettings)
 
       console.log('[时间线生成] AI返回结果')
+      console.log('[时间线生成] 原始返回内容:', response.content.substring(0, 500))
       
-      // 解析AI返回的JSON
+      // 🔥 智能解析JSON：支持多种格式
+      let events: any[] = []
+      let jsonText = ''
+      
+      // 1. 尝试匹配 ```json ... ``` 格式
       const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/)
-      if (!jsonMatch) {
-        console.error('[时间线生成] AI返回格式错误，未找到JSON')
-        return '时间线生成失败：AI返回格式错误'
+      if (jsonMatch) {
+        jsonText = jsonMatch[1]
+        console.log('[时间线生成] 找到markdown格式的JSON')
+      } 
+      // 2. 尝试匹配 ``` ... ``` 格式（没有json标记）
+      else {
+        const codeMatch = response.content.match(/```\s*([\s\S]*?)\s*```/)
+        if (codeMatch) {
+          jsonText = codeMatch[1]
+          console.log('[时间线生成] 找到代码块格式的JSON')
+        }
+        // 3. 尝试直接提取数组 [...]
+        else {
+          const arrayMatch = response.content.match(/\[\s*[\s\S]*?\]/)
+          if (arrayMatch) {
+            jsonText = arrayMatch[0]
+            console.log('[时间线生成] 找到纯数组格式的JSON')
+          }
+          // 4. 最后尝试直接解析整个内容
+          else {
+            jsonText = response.content.trim()
+            console.log('[时间线生成] 尝试直接解析整个返回内容')
+          }
+        }
       }
       
-      const events = JSON.parse(jsonMatch[1])
+      // 解析JSON
+      try {
+        events = JSON.parse(jsonText)
+      } catch (e) {
+        console.error('[时间线生成] JSON解析失败:', e)
+        console.error('[时间线生成] 尝试解析的文本:', jsonText)
+        return '时间线生成失败：AI返回内容无法解析为JSON'
+      }
       
       if (!Array.isArray(events)) {
         console.error('[时间线生成] AI返回格式错误，不是数组')

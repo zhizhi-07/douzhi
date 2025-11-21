@@ -1070,6 +1070,7 @@ const ChatDetail = () => {
                  message.messageType === 'paymentRequest' ||
                  message.messageType === 'productCard' ||
                  message.messageType === 'post' ||
+                 message.messageType === 'theatre' ||
                  (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}

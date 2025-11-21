@@ -5,6 +5,8 @@ import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
 import { cleanupOldMessages } from './utils/cleanupLocalStorage'
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
+import { migrateFromLocalStorage } from './utils/unifiedStorage'
+import { getAllUIIcons } from './utils/iconStorage'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -73,6 +75,7 @@ import OnlineShopping from './pages/OnlineShopping'
 import AIPhoneSelect from './pages/AIPhoneSelect'
 import GlobalMemory from './pages/GlobalMemory'
 import BubbleEditor from './pages/BubbleEditor'
+import TheatreApp from './pages/TheatreApp'
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -84,6 +87,11 @@ function App() {
   
   // 🔥 后台静默迁移（不阻塞UI）
   useEffect(() => {
+    // 自动迁移 localStorage 到 IndexedDB
+    migrateFromLocalStorage().catch(err => {
+      console.error('❌ 迁移失败:', err)
+    })
+    
     if (needsMigration()) {
       console.log('🚀 开始后台迁移数据到IndexedDB...')
       migrateAllData().then(() => {
@@ -97,6 +105,34 @@ function App() {
       // 即使不需要迁移，也清理一次旧数据
       cleanupOldMessages()
     }
+
+    // 🎨 预加载所有自定义图标到内存，避免切换页面时闪烁
+    getAllUIIcons().then(icons => {
+      if (Object.keys(icons).length > 0) {
+        sessionStorage.setItem('__preloaded_icons__', JSON.stringify(icons))
+        console.log('✅ 预加载', Object.keys(icons).length, '个自定义图标到缓存')
+      }
+    }).catch(err => {
+      console.error('❌ 预加载图标失败:', err)
+    })
+
+    // 🖼️ 预加载背景图片到内存，避免闪烁
+    import('./utils/unifiedStorage').then(({ getImage }) => {
+      Promise.all([
+        getImage('desktop_bg'),
+        getImage('wechat_bg')
+      ]).then(([desktop, wechat]) => {
+        const backgrounds: Record<string, string> = {}
+        if (desktop) backgrounds.desktop_bg = desktop
+        if (wechat) backgrounds.wechat_bg = wechat
+        if (Object.keys(backgrounds).length > 0) {
+          sessionStorage.setItem('__preloaded_backgrounds__', JSON.stringify(backgrounds))
+          console.log('✅ 预加载', Object.keys(backgrounds).length, '个背景图片到缓存')
+        }
+      }).catch(err => {
+        console.error('❌ 预加载背景失败:', err)
+      })
+    })
 
     // 🎵 初始化音效系统，预加载常用音效
     initSoundSystem()
@@ -350,6 +386,7 @@ function App() {
       <Route path="/ai-phone-select" element={<AIPhoneSelect />} />
       <Route path="/global-memory" element={<GlobalMemory />} />
       <Route path="/bubble-editor" element={<BubbleEditor />} />
+      <Route path="/theatre" element={<TheatreApp />} />
     </Routes>
     </ContactsProvider>
   )

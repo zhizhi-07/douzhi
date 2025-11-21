@@ -358,26 +358,106 @@ export const useChatAI = (
         }
       }
       
+      // 🔥 检测拉黑状态变化：如果上次被拉黑，这次解除了，需要主动告知AI
+      const lastBlockedStateKey = `last_blocked_${chatId}`
+      const wasBlockedBefore = localStorage.getItem(lastBlockedStateKey) === 'true'
+      
       // 如果用户拉黑了AI，在最前面添加警告提示（确保AI优先看到）
       if (isBlocked) {
         const blacklistWarning = buildBlacklistPrompt('用户')
         systemPrompt = blacklistWarning + '\n\n' + systemPrompt
         console.log('🚨 AI被用户拉黑，已在提示词最前面添加警告')
         console.log('警告内容：', blacklistWarning.substring(0, 200))
+        localStorage.setItem(lastBlockedStateKey, 'true')
+      } else if (wasBlockedBefore) {
+        // 🔥 关键修复：如果上次被拉黑，这次解除了，主动告知AI
+        const unblockNotice = `
+✅ 系统通知：用户已经将你从黑名单中移除了！
+
+现在你们的关系已经恢复正常，你可以：
+- 正常回复用户的消息
+- 不需要再道歉或提及之前被拉黑的事情（除非用户主动提起）
+- 像往常一样自然地聊天
+
+请自然地继续对话，不要刻意强调这个状态变化。
+`
+        systemPrompt = unblockNotice + '\n\n' + systemPrompt
+        console.log('✅ 用户已解除拉黑，已通知AI恢复正常状态')
+        localStorage.setItem(lastBlockedStateKey, 'false')
+      } else {
+        // 正常状态，确保标记为未拉黑
+        localStorage.setItem(lastBlockedStateKey, 'false')
       }
+      
+      // 🔥 检测AI拉黑用户的状态变化
+      const lastAIBlockedStateKey = `last_ai_blocked_${chatId}`
+      const wasAIBlockedBefore = localStorage.getItem(lastAIBlockedStateKey) === 'true'
       
       // 如果AI拉黑了用户，添加状态提醒（让AI记住这个状态）
       if (hasAIBlockedUser) {
         const aiBlockedReminder = buildAIBlockedUserPrompt('用户')
         systemPrompt = aiBlockedReminder + '\n\n' + systemPrompt
-        console.log('🚫 AI已拉黑用户，已在提示词中添加状态提醒')
+        console.log('🔥 AI已拉黑用户，已在提示词中添加状态提醒')
         console.log('提醒内容：', aiBlockedReminder.substring(0, 200))
+        localStorage.setItem(lastAIBlockedStateKey, 'true')
+      } else if (wasAIBlockedBefore) {
+        // 🔥 关键修复：如果AI之前拉黑了用户，现在解除了，主动告知AI
+        const aiUnblockNotice = `
+✅ 系统通知：你已经将用户从黑名单中移除了！
+
+现在你们的关系已经恢复正常，你可以：
+- 正常回复用户的消息
+- 不需要再提及之前拉黑的事情（除非用户主动提起）
+- 像往常一样自然地聊天
+
+请自然地继续对话。
+`
+        systemPrompt = aiUnblockNotice + '\n\n' + systemPrompt
+        console.log('✅ AI已解除对用户的拉黑，已通知AI恢复正常状态')
+        localStorage.setItem(lastAIBlockedStateKey, 'false')
+      } else {
+        // 正常状态，确保标记为未拉黑
+        localStorage.setItem(lastAIBlockedStateKey, 'false')
       }
       
-      // 从localStorage读取最新消息，避免闭包问题
-      const currentMessages = loadMessages(chatId)
+      // 🔥 关键修复：AI应该读取所有消息，而不是只读当前显示的分页消息
+      // 从 IndexedDB 读取所有消息，而不是从缓存读取
+      const { ensureMessagesLoaded } = await import('../../../utils/simpleMessageManager')
+      const currentMessages = await ensureMessagesLoaded(chatId)
       const recentMessages = getRecentMessages(currentMessages, chatId)
       let apiMessages = convertToApiMessages(recentMessages)
+      
+      // 🔥 详细日志：显示AI实际读取的所有消息
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log(`📖 [AI读取消息] 总消息数: ${currentMessages.length}条`)
+      console.log(`📖 [AI读取消息] 实际读取: ${recentMessages.length}条 (根据设置)`)
+      console.log(`📖 [AI读取消息] 转为API消息: ${apiMessages.length}条`)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      
+      // 输出读取的消息详情
+      console.table(recentMessages.map((msg, i) => ({
+        序号: i + 1,
+        角色: msg.type === 'sent' ? '用户' : 'AI',
+        时间: new Date(msg.timestamp).toLocaleString('zh-CN', {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        内容预览: (msg.content || msg.voiceText || '[特殊消息]').substring(0, 50),
+        类型: msg.messageType || 'text'
+      })))
+      
+      // 输出转换后的API消息
+      console.log('\n📤 [API消息格式] 发送给AI的消息列表:')
+      apiMessages.forEach((msg, i) => {
+        const contentPreview = typeof msg.content === 'string' 
+          ? msg.content.substring(0, 100)
+          : '[多模态消息]'
+        console.log(`  ${i + 1}. [${msg.role}] ${contentPreview}${contentPreview.length >= 100 ? '...' : ''}`)
+      })
+      
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
       // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
       if (needsAvatarRecognition && userInfo.avatar) {
@@ -431,20 +511,14 @@ export const useChatAI = (
         isBlocked
       })
       
-      // 🔥 优化：仅在开发环境输出详细日志
-      if (import.meta.env.DEV) {
-        console.group('🤖 [私信聊天] AI读取的提示词和记忆')
-        console.log('📊 统计信息：', {
-          系统提示词长度: systemPrompt.length,
-          聊天记录条数: apiMessages.length,
-          总消息数: apiMessages.length + 1,
-          用户拉黑了AI: isBlocked,
-          AI拉黑了用户: hasAIBlockedUser
-        })
-        console.groupEnd()
-      } else {
-        console.log(`📤 发送API请求: ${apiMessages.length}条消息`)
-      }
+      // 🔥 输出系统提示词完整内容
+      console.log('\n📝 [系统提示词] AI读取的完整提示词:')
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log(systemPrompt)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log(`📏 [提示词长度] ${systemPrompt.length} 字符`)
+      console.log(`📊 [统计信息] 消息条数: ${apiMessages.length}, 用户拉黑AI: ${isBlocked}, AI拉黑用户: ${hasAIBlockedUser}`)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
       // ⏱ 开始计时
       const startTime = Date.now()

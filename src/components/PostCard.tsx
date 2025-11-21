@@ -13,15 +13,11 @@ interface PostCardProps {
 const PostCard = ({ message }: PostCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   
-  console.log('🎴 [PostCard] 渲染帖子:', message)
-  
   if (!message.post) {
-    console.log('❌ [PostCard] message.post 不存在')
     return null
   }
 
   const { content, prompt } = message.post
-  console.log('📝 [PostCard] 帖子内容:', { content, prompt })
 
   // 智能识别论坛类型
   const detectForumType = () => {

@@ -1,13 +1,23 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
-import { getUserInfo, type UserInfo } from '../utils/userUtils'
+import { UserInfo, getUserInfo } from '../utils/userUtils'
+import { getImage } from '../utils/unifiedStorage'
 import { getAllUIIcons } from '../utils/iconStorage'
 
 const Me = () => {
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
-  const [wechatBg, setWechatBg] = useState(() => localStorage.getItem('wechat_background') || '')
+  const [wechatBg, setWechatBg] = useState(() => {
+    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
+    if (preloaded) {
+      try {
+        const backgrounds = JSON.parse(preloaded)
+        return backgrounds.wechat_bg || ''
+      } catch { return '' }
+    }
+    return ''
+  })
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
 
   // 监听storage变化，实时更新用户信息
@@ -29,9 +39,20 @@ const Me = () => {
     }
   }, [])
   
-  // 监听背景更新
+  // 加载微信背景
   useEffect(() => {
-    const handleBgUpdate = () => setWechatBg(localStorage.getItem('wechat_background') || '')
+    const loadWechatBg = async () => {
+      if (wechatBg) return
+      const bg = await getImage('wechat_bg')
+      if (bg) setWechatBg(bg)
+    }
+    loadWechatBg()
+    
+    const handleBgUpdate = async () => {
+      console.log('📡 Me: 收到背景更新事件')
+      const bg = await getImage('wechat_bg')
+      setWechatBg(bg || '')
+    }
     window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
   }, [])
@@ -39,8 +60,21 @@ const Me = () => {
   // 加载自定义图标
   useEffect(() => {
     const loadIcons = async () => {
-      const icons = await getAllUIIcons()
-      setCustomIcons(icons)
+      try {
+        // 🔥 优先从 sessionStorage 读取预加载的图标（同步，无延迟）
+        const preloaded = sessionStorage.getItem('__preloaded_icons__')
+        if (preloaded) {
+          const icons = JSON.parse(preloaded)
+          setCustomIcons(icons)
+          console.log('⚡ 从缓存加载图标', Object.keys(icons).length, '个')
+          return
+        }
+        
+        let icons = await getAllUIIcons()
+        setCustomIcons(icons)
+      } catch (error) {
+        console.error('🚨 加载图标失败：', error)
+      }
     }
     loadIcons()
     
@@ -87,17 +121,26 @@ const Me = () => {
 
   return (
     <div
-      className="h-screen flex flex-col bg-[#f5f7fa] bg-cover bg-center page-fade-in"
-      style={wechatBg ? { backgroundImage: `url(${wechatBg})` } : {}}
+      className="h-screen flex flex-col bg-cover bg-center page-fade-in"
+      style={wechatBg ? { 
+        backgroundImage: `url(${wechatBg})`,
+        backgroundColor: '#f5f7fa'
+      } : { 
+        backgroundColor: '#f5f7fa' 
+      }}
     >
       {/* 顶部 */}
       <div 
-        className="glass-effect relative"
+        className="relative"
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
-        } : {}}
+        } : { 
+          background: 'rgba(255, 255, 255, 0.7)', 
+          backdropFilter: 'blur(20px) saturate(180%)', 
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)' 
+        }}
       >
         <StatusBar />
         <div className="px-5 py-3">
@@ -193,7 +236,7 @@ const Me = () => {
           <div className="grid grid-cols-4 h-14 px-2">
             <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-chat'] ? (
-                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover" />
+                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
@@ -203,7 +246,7 @@ const Me = () => {
             </button>
             <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-contacts'] ? (
-                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover" />
+                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
@@ -213,7 +256,7 @@ const Me = () => {
             </button>
             <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-discover'] ? (
-                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover" />
+                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -223,7 +266,7 @@ const Me = () => {
             </button>
             <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
               {customIcons['nav-me'] ? (
-                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover" />
+                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>

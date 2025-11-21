@@ -352,6 +352,11 @@ export const getRecentMessages = (
     limit = MESSAGE_CONFIG.MAX_HISTORY_COUNT
   }
   
+  // 🔥 输出实际使用的消息条数限制
+  console.log(`📊 [消息读取] 设置的限制: ${limit === 0 ? '无限制(读取全部)' : limit + '条'}`)
+  console.log(`📊 [消息读取] 总消息数: ${messages.length}条`)
+  console.log(`📊 [消息读取] 将返回: ${limit === 0 ? messages.length : Math.min(limit, messages.length)}条`)
+  
   // 0 表示全部消息
   if (limit === 0) {
     return messages

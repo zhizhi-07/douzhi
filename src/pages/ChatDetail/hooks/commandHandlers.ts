@@ -24,6 +24,7 @@ import { addAIMemo } from '../../../utils/aiMemoManager'
 import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } from '../../../utils/aiStatusManager'
 import { generateAvatarForAI } from '../../../utils/imageGenerator'
 import { getUserInfo } from '../../../utils/userUtils'
+import { fillTemplate } from '../../../data/theatreTemplates'
 
 /**
  * 指令处理器接口
@@ -2610,6 +2611,129 @@ export const postHandler: CommandHandler = {
 }
 
 /**
+ * 小剧场处理器
+ * 支持多种格式：
+ * 1. [小剧场:模板名|字段1:值1|字段2:值2]
+ * 2. [小剧场:模板名] 后面跟随多行数据
+ */
+export const theatreHandler: CommandHandler = {
+  pattern: /[\[【]小剧场[:：]([^\]】]+)[\]】]/,
+  handler: async (match, content, { setMessages, chatId, messages }) => {
+    console.log('🎭🎭🎭 [小剧场] 处理器被调用！！！')
+    console.log('🎭 [小剧场] match:', match)
+    console.log('🎭 [小剧场] content:', content)
+    
+    const fullMatch = match[1].trim()
+    console.log('🎭 [小剧场] 完整匹配:', fullMatch)
+    
+    // 从指令中提取模板名（第一个|之前的部分）
+    const templateNameInCommand = fullMatch.split('|')[0].trim()
+    console.log('🎭 [小剧场] 指令中的模板名:', templateNameInCommand)
+    
+    // 获取所有模板（内置+自定义）
+    const customTemplatesStr = localStorage.getItem('theatre_custom_templates')
+    const customTemplates = customTemplatesStr ? JSON.parse(customTemplatesStr) : []
+    const allTemplates = [...(await import('../../../data/theatreTemplates')).theatreTemplates, ...customTemplates]
+    
+    // 根据模板名查找（不再依赖用户消息关键词）
+    const template = allTemplates.find(t => t.name === templateNameInCommand)
+    if (!template) {
+      console.warn('⚠️ [小剧场] 未找到匹配的模板:', templateNameInCommand)
+      return { handled: false }
+    }
+    
+    console.log('✅ [小剧场] 找到模板:', template.name)
+    
+    let rawData = ''
+    
+    // 检查是否有 | 分隔的数据（单行格式）
+    if (fullMatch.includes('|')) {
+      const parts = fullMatch.split('|')
+      const fieldsData = parts.slice(1).join('|') // 跳过模板名
+      
+      const fields = fieldsData.split('|').filter(f => f.trim())
+      rawData = fields.map(field => {
+        const colonIndex = field.indexOf(':')
+        if (colonIndex > 0) {
+          const key = field.substring(0, colonIndex).trim()
+          const value = field.substring(colonIndex + 1).trim()
+          return `${key}：${value}`
+        }
+        return ''
+      }).filter(f => f).join('\n')
+    } else {
+      // 多行格式：从指令后面提取数据
+      const afterMatch = content.substring(content.indexOf(match[0]) + match[0].length)
+      
+      // 找到下一个指令的位置
+      const nextCommandIndex = afterMatch.search(/[\[【]/)
+      const dataText = nextCommandIndex >= 0 
+        ? afterMatch.substring(0, nextCommandIndex).trim()
+        : afterMatch.trim()
+      
+      // 提取前几行作为数据（最多10行）
+      const lines = dataText.split('\n').slice(0, 10).filter(line => {
+        const trimmed = line.trim()
+        return trimmed && trimmed.includes(':') || trimmed.includes('：')
+      })
+      
+      rawData = lines.join('\n')
+    }
+    
+    console.log('🎭 [小剧场] 解析数据:', rawData)
+    
+    if (!rawData) {
+      console.warn('⚠️ [小剧场] 数据为空')
+      return { handled: false }
+    }
+    
+    // 使用fillTemplate生成HTML
+    const htmlContent = fillTemplate(template, rawData)
+    console.log('🎭 [小剧场] 生成的HTML长度:', htmlContent.length)
+    console.log('🎭 [小剧场] HTML前100字符:', htmlContent.substring(0, 100))
+    
+    // 生成唯一ID
+    const theatreMessageId = generateMessageId()
+    
+    // 创建小剧场消息
+    const theatreMsg: Message = {
+      id: theatreMessageId,
+      type: 'received',
+      content: `[小剧场] ${template.name}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      messageType: 'theatre',
+      theatre: {
+        templateId: template.id,
+        templateName: template.name,
+        htmlContent,
+        rawData
+      }
+    }
+    
+    await addMessage(theatreMsg, setMessages, chatId)
+    
+    // 移除已处理的部分（指令 + 数据行）
+    let processedText = match[0]
+    if (!fullMatch.includes('|')) {
+      // 多行格式：需要移除后续的数据行
+      const afterMatch = content.substring(content.indexOf(match[0]) + match[0].length)
+      const dataLines = rawData.split('\n').length
+      const linesToRemove = afterMatch.split('\n').slice(0, dataLines + 2).join('\n')
+      processedText = match[0] + linesToRemove
+    }
+    
+    const remainingText = content.replace(processedText, '').trim()
+    
+    return { 
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -2653,5 +2777,6 @@ export const commandHandlers: CommandHandler[] = [
   coupleSpaceEndHandler,  // 解除情侣空间
   aiMemoHandler,  // AI备忘录
   quoteHandler,
-  changeAvatarHandler  // AI换头像
+  changeAvatarHandler,  // AI换头像
+  theatreHandler  // 小剧场
 ]

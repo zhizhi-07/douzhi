@@ -11,6 +11,7 @@ import MusicInviteCard from '../../../components/MusicInviteCard'
 import PaymentRequestCard from '../../../components/PaymentRequestCard'
 import ProductCard from '../../../components/ProductCard'
 import PostCard from '../../../components/PostCard'
+import TheatreMessage from '../../../components/TheatreMessage'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -186,6 +187,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   // 帖子卡片
   if (message.messageType === 'post' && message.post) {
     return <PostCard message={message} />
+  }
+
+  // 小剧场
+  if (message.messageType === 'theatre' && message.theatre) {
+    return <TheatreMessage message={message} />
   }
 
   return null

@@ -416,7 +416,7 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
       }
       
       // 🔥 使用持久化调度器，防止页面刷新导致定时器丢失
-      scheduleAction(action, newMoment, delay, characters, scene.actions)
+      scheduleAction(action, newMoment, delay)
     })
   }, 3000)  // 3秒后让导演开始工作
 }

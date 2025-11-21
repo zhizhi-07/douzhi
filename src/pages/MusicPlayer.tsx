@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import StatusBar from '../components/StatusBar'
-import DynamicIsland from '../components/DynamicIsland'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
+import StatusBar from '../components/StatusBar'
+import { getImage } from '../utils/unifiedStorage'
+import '../css/music-player.css'
+import DynamicIsland from '../components/DynamicIsland'
 import { characterService } from '../services/characterService'
 import { getUserInfo } from '../utils/userUtils'
 
@@ -28,9 +30,24 @@ const MusicPlayer = () => {
   const [listeningTogether, setListeningTogether] = useState<any>(null)
   const [listeningDuration, setListeningDuration] = useState('')
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0)
-  const [customBackground, setCustomBackground] = useState<string>(() => {
-    return localStorage.getItem('music_background') || ''
-  })
+  const [customBackground, setCustomBackground] = useState<string>('')
+  
+  // 加载音乐背景
+  useEffect(() => {
+    const loadMusicBg = async () => {
+      const bg = await getImage('music_bg')
+      if (bg) setCustomBackground(bg)
+    }
+    loadMusicBg()
+    
+    // 监听背景更新事件
+    const handleBgUpdate = async () => {
+      const bg = await getImage('music_bg')
+      setCustomBackground(bg || '')
+    }
+    window.addEventListener('musicBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('musicBackgroundUpdate', handleBgUpdate)
+  }, [])
   const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
   
   // 检查一起听状态和计算时长

@@ -1,5 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import StatusBar from './StatusBar'
+import { getAllUIIcons } from '../utils/iconStorage'
 
 interface ForumLayoutProps {
   children: React.ReactNode
@@ -8,6 +10,41 @@ interface ForumLayoutProps {
 const ForumLayout = ({ children }: ForumLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+  const [iconRefresh, setIconRefresh] = useState(0)
+  
+  // 加载自定义图标
+  useEffect(() => {
+    const loadCustomIcons = async () => {
+      try {
+        let icons = await getAllUIIcons()
+        if (Object.keys(icons).length === 0) {
+          const saved = localStorage.getItem('ui_custom_icons')
+          if (saved) {
+            icons = JSON.parse(saved)
+            console.log('📦 ForumLayout: 从localStorage恢复图标')
+          }
+        }
+        setCustomIcons(icons)
+        console.log('✅ ForumLayout: 加载自定义图标:', Object.keys(icons).length, '个', icons)
+      } catch (error) {
+        console.error('❌ ForumLayout: 加载自定义图标失败:', error)
+      }
+    }
+    
+    loadCustomIcons()
+    
+    const handleIconsChange = () => {
+      console.log('📡 ForumLayout: 收到图标更新事件，强制刷新')
+      setIconRefresh(prev => prev + 1)
+      loadCustomIcons()
+    }
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    
+    return () => {
+      window.removeEventListener('uiIconsChanged', handleIconsChange)
+    }
+  }, [iconRefresh])
   
   // 根据当前路径确定活动标签
   const getActiveTab = () => {
@@ -47,9 +84,13 @@ const ForumLayout = ({ children }: ForumLayoutProps) => {
             onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            {customIcons['chat-back'] ? (
+              <img src={customIcons['chat-back']} alt="返回" className="w-5 h-5 object-cover" />
+            ) : (
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            )}
           </button>
           <h1 className="flex-1 text-center text-base font-semibold text-gray-800">论坛</h1>
           <div className="w-9" />
@@ -99,7 +140,11 @@ const ForumLayout = ({ children }: ForumLayoutProps) => {
         <button
           className="w-12 h-12 rounded-full flex items-center justify-center bg-white text-gray-700 font-medium text-lg shadow-lg border border-gray-200"
         >
-          +
+          {customIcons['chat-add-btn'] ? (
+            <img src={customIcons['chat-add-btn']} alt="发帖" className="w-6 h-6 object-cover" />
+          ) : (
+            '+'
+          )}
         </button>
       </div>
     </div>

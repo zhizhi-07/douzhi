@@ -2,10 +2,11 @@
  * 背景设置页面
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { getBackground, saveBackground, deleteBackground, migrateFromLocalStorage } from '../utils/backgroundStorage'
+import { saveImage, getImage, deleteFromIndexedDB } from '../utils/unifiedStorage'
 
 const BackgroundCustomizer = () => {
   const navigate = useNavigate()
@@ -27,16 +28,14 @@ const BackgroundCustomizer = () => {
       await migrateFromLocalStorage()
       
       // 加载所有背景
-      const [desktop, music, wechat, memo] = await Promise.all([
-        getBackground('desktop'),
-        getBackground('music'),
-        getBackground('wechat'),
-        getBackground('memo')
-      ])
+      const savedDesktopBg = await getImage('desktop_bg')
+      const savedMusicBg = await getImage('music_bg')
+      const savedWechatBg = await getImage('wechat_bg')
+      const memo = await getBackground('memo')
       
-      if (desktop) setDesktopBg(desktop)
-      if (music) setMusicBg(music)
-      if (wechat) setWechatBg(wechat)
+      if (savedDesktopBg) setDesktopBg(savedDesktopBg)
+      if (savedMusicBg) setMusicBg(savedMusicBg)
+      if (savedWechatBg) setWechatBg(savedWechatBg)
       if (memo) setMemoBg(memo)
     }
     
@@ -66,10 +65,10 @@ const BackgroundCustomizer = () => {
     setDesktopUploading(true)
 
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setDesktopBg(base64String)
-      localStorage.setItem('desktop_background', base64String)
+      await saveImage('desktop_bg', base64String)
       setDesktopUploading(false)
       
       // 立即应用
@@ -101,13 +100,13 @@ const BackgroundCustomizer = () => {
     setMusicUploading(true)
 
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setMusicBg(base64String)
-      localStorage.setItem('music_background', base64String)
+      await saveImage('music_bg', base64String)
       setMusicUploading(false)
       window.dispatchEvent(new Event('musicBackgroundUpdate'))
-      console.log('✅ 音乐背景已保存')
+      console.log('✅ 音乐背景已保存到IndexedDB')
     }
     reader.onerror = () => {
       alert('图片读取失败')
@@ -117,10 +116,10 @@ const BackgroundCustomizer = () => {
   }
 
   // 删除桌面背景
-  const handleRemoveDesktop = () => {
+  const handleRemoveDesktop = async () => {
     if (confirm('确定要删除桌面背景吗？')) {
       setDesktopBg('')
-      localStorage.removeItem('desktop_background')
+      await deleteFromIndexedDB('IMAGES', 'desktop_bg')
       
       const desktopEl = document.querySelector('.desktop-background') as HTMLElement
       if (desktopEl) {
@@ -128,17 +127,17 @@ const BackgroundCustomizer = () => {
       }
       
       window.dispatchEvent(new Event('desktopBackgroundUpdate'))
-      console.log('✅ 桌面背景已删除')
+      console.log('✅ 桌面背景已从 IndexedDB 删除')
     }
   }
 
   // 删除音乐背景
-  const handleRemoveMusic = () => {
+  const handleRemoveMusic = async () => {
     if (confirm('确定要删除音乐背景吗？')) {
       setMusicBg('')
-      localStorage.removeItem('music_background')
+      await deleteFromIndexedDB('IMAGES', 'music_bg')
       window.dispatchEvent(new Event('musicBackgroundUpdate'))
-      console.log('✅ 音乐背景已删除')
+      console.log('✅ 音乐背景已从 IndexedDB 删除')
     }
   }
 
@@ -146,6 +145,8 @@ const BackgroundCustomizer = () => {
   const handleWechatUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    console.log('📤 开始上传微信背景:', file.name)
 
     if (!file.type.startsWith('image/')) {
       alert('请选择图片文件')
@@ -155,15 +156,22 @@ const BackgroundCustomizer = () => {
     setWechatUploading(true)
 
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
+      console.log('📊 图片读取完成，大小:', Math.round(base64String.length / 1024), 'KB')
+      
       setWechatBg(base64String)
-      localStorage.setItem('wechat_background', base64String)
+      console.log('📝 状态已更新')
+      
+      await saveImage('wechat_bg', base64String)
+      console.log('💾 已保存到 IndexedDB')
+      
       setWechatUploading(false)
       window.dispatchEvent(new Event('wechatBackgroundUpdate'))
-      console.log('✅ 微信背景已保存')
+      console.log('✅ 微信背景上传完成！事件已触发')
     }
     reader.onerror = () => {
+      console.error('❌ 图片读取失败')
       alert('图片读取失败')
       setWechatUploading(false)
     }
@@ -171,12 +179,12 @@ const BackgroundCustomizer = () => {
   }
 
   // 删除微信背景
-  const handleRemoveWechat = () => {
+  const handleRemoveWechat = async () => {
     if (confirm('确定要删除微信背景吗？')) {
       setWechatBg('')
-      localStorage.removeItem('wechat_background')
+      await deleteFromIndexedDB('IMAGES', 'wechat_bg')
       window.dispatchEvent(new Event('wechatBackgroundUpdate'))
-      console.log('✅ 微信背景已删除')
+      console.log('✅ 微信背景已从 IndexedDB 删除')
     }
   }
 

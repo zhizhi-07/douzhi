@@ -17,6 +17,7 @@ import {
   clearAllDesktopIcons,
   getStorageUsage
 } from '../utils/iconStorage'
+import { getImage, saveImage } from '../utils/unifiedStorage'
 
 // 图标名称映射表
 const iconNameMap: Record<string, string> = {
@@ -66,10 +67,15 @@ const iconNameMap: Record<string, string> = {
   'music-app': '音乐',
   'customize': '系统设置',
   'decoration': '美化',
-  'forum': '论坛',
+  'instagram': '论坛',
   'aiphone': '查手机',
   'api-config': 'API',
-  'global-memory': '记忆'
+  'global-memory': '记忆',
+  // 桌面第二页图标
+  'desktop-calendar': '桌面-日历',
+  'desktop-theater': '桌面-小剧场',
+  'desktop-phone': '桌面-电话',
+  'desktop-game': '桌面-游戏'
 }
 
 const GlobalDecoration = () => {
@@ -82,6 +88,29 @@ const GlobalDecoration = () => {
   const [currentEditingIcon, setCurrentEditingIcon] = useState<string | null>(null)
   const [hasInput, setHasInput] = useState(false) // 控制发送/AI按钮状态
   const [showAddMenu, setShowAddMenu] = useState(true) // 控制加号菜单显示，默认显示
+  
+  // 背景状态 - 从缓存同步初始化，避免闪烁
+  const [desktopBg, setDesktopBg] = useState(() => {
+    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
+    if (preloaded) {
+      try {
+        const backgrounds = JSON.parse(preloaded)
+        return backgrounds.desktop_bg || ''
+      } catch { return '' }
+    }
+    return ''
+  })
+  
+  const [wechatBg, setWechatBg] = useState(() => {
+    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
+    if (preloaded) {
+      try {
+        const backgrounds = JSON.parse(preloaded)
+        return backgrounds.wechat_bg || ''
+      } catch { return '' }
+    }
+    return ''
+  })
   
   // 计算存储使用量
   const updateStorageUsage = async () => {
@@ -114,6 +143,9 @@ const GlobalDecoration = () => {
               await saveUIIcon(key, value)
             }
             console.log('✅ 已从localStorage恢复', Object.keys(icons).length, '个UI图标')
+            // 迁移完成后删除localStorage数据，释放空间
+            localStorage.removeItem('ui_custom_icons')
+            console.log('🗑️ 已清理localStorage备份，释放空间')
           }
         }
         
@@ -156,6 +188,9 @@ const GlobalDecoration = () => {
               await saveDesktopIcon(item.appId, item.icon)
             }
             console.log('✅ 已从localStorage恢复', icons.length, '个桌面图标')
+            // 迁移完成后删除localStorage数据，释放空间
+            localStorage.removeItem('custom_icons')
+            console.log('🗑️ 已清理localStorage备份，释放空间')
           }
         }
         
@@ -177,6 +212,22 @@ const GlobalDecoration = () => {
       }
     }
     loadIcons()
+  }, [])
+
+  // 加载背景图片（仅在缓存不存在时）
+  useEffect(() => {
+    const loadBackgrounds = async () => {
+      // 只在当前状态为空时才异步加载
+      if (!desktopBg) {
+        const desktop = await getImage('desktop_bg')
+        if (desktop) setDesktopBg(desktop)
+      }
+      if (!wechatBg) {
+        const wechat = await getImage('wechat_bg')
+        if (wechat) setWechatBg(wechat)
+      }
+    }
+    loadBackgrounds()
   }, [])
 
   // 保存UI图标配置到IndexedDB
@@ -295,10 +346,24 @@ const GlobalDecoration = () => {
       const result = compressedBase64
       console.log('✅ 文件读取成功，更新图标:', currentEditingIcon)
       
-      // 判断是桌面应用图标还是UI图标
-      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'forum', 'aiphone', 'api-config', 'global-memory']
+      // 判断是背景、桌面应用图标还是UI图标
+      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'instagram', 'aiphone', 'api-config', 'global-memory', 'desktop-calendar', 'desktop-theater', 'desktop-phone', 'desktop-game']
+      const backgroundIds = ['desktop-wallpaper', 'wechat-wallpaper']
       
-      if (desktopAppIds.includes(currentEditingIcon)) {
+      if (backgroundIds.includes(currentEditingIcon)) {
+        // 背景图片
+        const key = currentEditingIcon === 'desktop-wallpaper' ? 'desktop_bg' : 'wechat_bg'
+        await saveImage(key, result)
+        
+        if (currentEditingIcon === 'desktop-wallpaper') {
+          setDesktopBg(result)
+          window.dispatchEvent(new Event('desktopBackgroundUpdate'))
+        } else {
+          setWechatBg(result)
+          window.dispatchEvent(new Event('wechatBackgroundUpdate'))
+        }
+        console.log('✅ 背景图片已上传:', currentEditingIcon)
+      } else if (desktopAppIds.includes(currentEditingIcon)) {
         // 桌面应用图标
         await saveDesktopIcon(currentEditingIcon, result)
         
@@ -330,9 +395,6 @@ const GlobalDecoration = () => {
           [currentEditingIcon]: result
         }
         setCustomIcons(newIcons)
-        
-        // 同时备份到localStorage
-        localStorage.setItem('ui_custom_icons', JSON.stringify(newIcons))
         
         // 触发事件
         await saveIconsToStorage(newIcons)
@@ -378,9 +440,6 @@ const GlobalDecoration = () => {
     delete newIcons[iconId]
     setCustomIcons(newIcons)
     
-    // 同时更新localStorage备份
-    localStorage.setItem('ui_custom_icons', JSON.stringify(newIcons))
-    
     await saveIconsToStorage(newIcons)
   }
 
@@ -390,15 +449,27 @@ const GlobalDecoration = () => {
     const newDesktopIcons = desktopIcons.filter(item => item.appId !== appId)
     setDesktopIcons(newDesktopIcons)
     
-    // 同时更新localStorage备份
-    localStorage.setItem('custom_icons', JSON.stringify(newDesktopIcons))
-    
     await saveDesktopIconsToStorage()
   }
 
   // 主界面预览（ChatList）
   const MainView = () => (
-    <div className="w-full h-full bg-gray-100 flex flex-col">
+    <div 
+      className="w-full h-full bg-gray-100 flex flex-col relative cursor-pointer group"
+      onClick={(e) => {
+        // 只有点击空白区域才上传背景
+        if ((e.target as HTMLElement).className.includes('bg-gray-100')) {
+          e.stopPropagation()
+          handleIconClick('wechat-wallpaper')
+        }
+      }}
+      style={wechatBg ? {
+        backgroundImage: `url(${wechatBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      } : {}}
+      title="点击空白处上传微信背景"
+    >
       {/* 顶部栏 */}
       <div 
         className="bg-white px-4 pt-3 pb-2 relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
@@ -579,7 +650,22 @@ const GlobalDecoration = () => {
       </div>
 
       {/* 聊天内容区 */}
-      <div className="flex-1 bg-gray-50 p-4 space-y-3">
+      <div 
+        className="flex-1 bg-gray-50 p-4 space-y-3 relative cursor-pointer"
+        onClick={(e) => {
+          // 只有点击空白区域才上传背景
+          if ((e.target as HTMLElement).className.includes('bg-gray-50')) {
+            e.stopPropagation()
+            handleIconClick('wechat-wallpaper')
+          }
+        }}
+        style={wechatBg ? {
+          backgroundImage: `url(${wechatBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        } : {}}
+        title="点击空白处上传微信背景"
+      >
         <div className="flex gap-2">
           <div 
             className="w-10 h-10 bg-gray-200 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
@@ -793,10 +879,14 @@ const GlobalDecoration = () => {
       { id: 'music-app', name: '音乐' },
       { id: 'customize', name: '系统设置' },
       { id: 'decoration', name: '美化' },
-      { id: 'forum', name: '论坛' },
+      { id: 'instagram', name: '论坛' },
       { id: 'aiphone', name: '查手机' },
       { id: 'api-config', name: 'API' },
       { id: 'global-memory', name: '记忆' },
+      { id: 'desktop-calendar', name: '桌面-日历' },
+      { id: 'desktop-theater', name: '桌面-小剧场' },
+      { id: 'desktop-phone', name: '桌面-电话' },
+      { id: 'desktop-game', name: '桌面-游戏' },
     ]
     
     const getDesktopIcon = (appId: string) => {
@@ -808,7 +898,23 @@ const GlobalDecoration = () => {
     }
     
     return (
-      <div className="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col p-4">
+      <div 
+        className="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col p-4 relative cursor-pointer"
+        onClick={(e) => {
+          // 只有点击空白区域才上传背景
+          const target = e.target as HTMLElement
+          if (target.className.includes('from-blue-50') || target.className.includes('text-center')) {
+            e.stopPropagation()
+            handleIconClick('desktop-wallpaper')
+          }
+        }}
+        style={desktopBg ? {
+          backgroundImage: `url(${desktopBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        } : {}}
+        title="点击空白处上传桌面背景"
+      >
         <div className="text-center mb-4">
           <h3 className="text-sm font-medium text-gray-700">桌面应用 ({desktopIcons.length}个已自定义)</h3>
         </div>
@@ -944,7 +1050,7 @@ const GlobalDecoration = () => {
             <div className="flex-shrink-0">
               <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">自定义图标</h2>
               <p className="text-xs md:text-sm text-gray-600 mb-2">
-                点击预览中的任意<strong>灰色图标</strong>即可上传图片进行替换。支持 PNG、JPG、GIF 格式。
+                点击预览中的<strong>灰色图标</strong>或<strong>空白背景</strong>即可上传图片。支持 PNG、JPG、GIF 格式。
               </p>
               
               {/* 控制按钮 */}
@@ -1058,10 +1164,14 @@ const GlobalDecoration = () => {
                           'music-app': '音乐',
                           'customize': '系统设置',
                           'decoration': '美化',
-                          'forum': '论坛',
+                          'instagram': '论坛',
                           'aiphone': '查手机',
                           'api-config': 'API',
-                          'global-memory': '记忆'
+                          'global-memory': '记忆',
+                          'desktop-calendar': '桌面-日历',
+                          'desktop-theater': '桌面-小剧场',
+                          'desktop-phone': '桌面-电话',
+                          'desktop-game': '桌面-游戏'
                         }
                         return (
                           <div key={`desktop-${item.appId}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">

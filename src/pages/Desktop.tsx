@@ -8,6 +8,8 @@ import { AppItem } from '../components/AppGrid'
 import { getCustomIcon } from '../utils/iconManager'
 import { playSystemSound } from '../utils/soundManager'
 import { getBackground } from '../utils/backgroundStorage'
+import { getImage } from '../utils/unifiedStorage'
+import { ContactIcon, GameIcon, ImageIcon, CalendarIcon, PhoneIcon } from '../components/Icons'
 import '../css/character-card.css'
 
 const Desktop = () => {
@@ -21,10 +23,50 @@ const Desktop = () => {
   const touchEndY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  // 桌面背景
-  const [desktopBg, setDesktopBg] = useState(() => {
-    return localStorage.getItem('desktop_background') || null
+  // 桌面背景 - 在初始化时同步读取缓存
+  const [desktopBg, setDesktopBg] = useState<string | null>(() => {
+    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
+    if (preloaded) {
+      try {
+        const backgrounds = JSON.parse(preloaded)
+        if (backgrounds.desktop_bg) {
+          console.log('⚡ 桌面: 初始化时从缓存加载背景 (同步)')
+          return backgrounds.desktop_bg
+        }
+      } catch (err) {
+        console.error('解析缓存失败:', err)
+      }
+    }
+    return null
   })
+  
+  // 加载桌面背景
+  useEffect(() => {
+    const loadDesktopBg = async () => {
+      // 如果已经有缓存，跳过
+      if (desktopBg) return
+      
+      // 从 IndexedDB 加载
+      const bg = await getImage('desktop_bg')
+      if (bg) setDesktopBg(bg)
+    }
+    loadDesktopBg()
+    
+    // 监听背景更新事件
+    const handleBgUpdate = async () => {
+      const bg = await getImage('desktop_bg')
+      setDesktopBg(bg || null)
+      // 更新缓存
+      const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
+      if (preloaded) {
+        const backgrounds = JSON.parse(preloaded)
+        backgrounds.desktop_bg = bg || ''
+        sessionStorage.setItem('__preloaded_backgrounds__', JSON.stringify(backgrounds))
+      }
+    }
+    window.addEventListener('desktopBackgroundUpdate', handleBgUpdate)
+    return () => window.removeEventListener('desktopBackgroundUpdate', handleBgUpdate)
+  }, [])
   
   // 强制刷新图标
   const [iconRefresh, setIconRefresh] = useState(0)
@@ -40,6 +82,29 @@ const Desktop = () => {
   const [isEditingMemo, setIsEditingMemo] = useState(false)
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
   const memoLongPressTimer = useRef<number | null>(null)
+
+  // 第二页状态
+  const [bubble1Text, setBubble1Text] = useState(() => {
+    return localStorage.getItem('desktop_bubble1') || ''
+  })
+  const [bubble2Text, setBubble2Text] = useState(() => {
+    return localStorage.getItem('desktop_bubble2') || ''
+  })
+  const [isEditingBubble1, setIsEditingBubble1] = useState(false)
+  const [isEditingBubble2, setIsEditingBubble2] = useState(false)
+  const bubble1Ref = useRef<HTMLTextAreaElement>(null)
+  const bubble2Ref = useRef<HTMLTextAreaElement>(null)
+  const [avatarImage, setAvatarImage] = useState(() => {
+    return localStorage.getItem('desktop_page2_avatar') || ''
+  })
+  const [labelText, setLabelText] = useState(() => {
+    return localStorage.getItem('desktop_label_text') || '𓋫 ˚ ⑅₊⁺₊☆✞𓋫⁺𓏴𓏴𓏴✞𓏴𓏵𓏴☆₊⁺♬ᐝ๑𓋫 ˚ ⑅₊⁺₊☆✞𓋫⁺𓏴𓏴𓏴✞𓏴𓏵𓏴'
+  })
+  const [isEditingLabel, setIsEditingLabel] = useState(false)
+  const labelRef = useRef<HTMLInputElement>(null)
+  const [gridPhoto, setGridPhoto] = useState(() => {
+    return localStorage.getItem('desktop_grid_photo') || ''
+  })
 
   // 更新时间
   useEffect(() => {
@@ -102,27 +167,30 @@ const Desktop = () => {
 
   // 触摸结束
   const handleTouchEnd = () => {
-    // 暂时禁用第二页，不响应滑动
-    return
-    // const diffX = touchStartX.current - touchEndX.current
-    // const diffY = Math.abs(touchEndY.current - touchStartY.current)
-    // const minSwipeDistance = 50
+    const diffX = touchStartX.current - touchEndX.current
+    const diffY = Math.abs(touchEndY.current - touchStartY.current)
+    const minSwipeDistance = 50
 
-    // if (Math.abs(diffX) > minSwipeDistance && Math.abs(diffX) > diffY) {
-    //   if (diffX > 0 && currentPage < 1) {
-    //     setCurrentPage(1)
-    //   } else if (diffX < 0 && currentPage > 0) {
-    //     setCurrentPage(0)
-    //   }
-    // }
+    if (Math.abs(diffX) > minSwipeDistance && Math.abs(diffX) > diffY) {
+      if (diffX > 0 && currentPage < 1) {
+        setCurrentPage(1)
+      } else if (diffX < 0 && currentPage > 0) {
+        setCurrentPage(0)
+      }
+    }
   }
 
   return (
-    <div className="h-screen w-full relative overflow-hidden bg-[#f5f7fa]" style={{ touchAction: 'pan-y pinch-zoom' }}>
+    <div className="h-screen w-full relative overflow-hidden bg-[#f5f7fa] page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
       {/* 背景 */}
       <div 
-        className="desktop-background absolute inset-0 bg-gradient-to-b from-white/50 to-gray-100/30 bg-cover bg-center"
-        style={desktopBg ? { backgroundImage: `url(${desktopBg})` } : {}}
+        className="desktop-background absolute inset-0 bg-gradient-to-b from-white/50 to-gray-100/30 bg-cover bg-center transition-opacity duration-300"
+        style={desktopBg ? { 
+          backgroundImage: `url(${desktopBg})`,
+          opacity: 1
+        } : {
+          opacity: 1
+        }}
       />
       
       {/* 内容容器 */}
@@ -388,11 +456,241 @@ const Desktop = () => {
               </div>
             </div>
 
-            {/* 第二页暂时禁用 */}
+            {/* ========== 第二页 ========== */}
+            <div className="min-w-full h-full relative overflow-hidden pb-20">
+              {/* 红色圆形头像 - 左上 */}
+              <div 
+                className="absolute cursor-pointer"
+                style={{ top: '2%', left: '17%' }}
+                onClick={() => {
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  input.accept = 'image/*'
+                  input.onchange = (e: Event) => {
+                    const file = (e.target as HTMLInputElement).files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (e) => {
+                        const result = e.target?.result as string
+                        setAvatarImage(result)
+                        localStorage.setItem('desktop_page2_avatar', result)
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }
+                  input.click()
+                }}
+              >
+                <div 
+                  className="w-18 h-18 rounded-full overflow-hidden flex items-center justify-center shadow-md"
+                  style={{
+                    backgroundColor: avatarImage ? 'transparent' : '#FFFFFF',
+                    backgroundImage: avatarImage ? `url(${avatarImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    width: '72px',
+                    height: '72px'
+                  }}
+                >
+                  {!avatarImage && (
+                    <ContactIcon size={36} className="text-gray-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* 气泡1 - 右上，与头像同行 */}
+              <div 
+                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden shadow-md"
+                style={{
+                  top: '8%',
+                  left: '42%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  height: '38px',
+                  width: '170px'
+                }}
+                onClick={() => {
+                  setIsEditingBubble1(true)
+                  setTimeout(() => bubble1Ref.current?.focus(), 0)
+                }}
+              >
+                {isEditingBubble1 ? (
+                  <textarea
+                    ref={bubble1Ref}
+                    value={bubble1Text}
+                    onChange={(e) => setBubble1Text(e.target.value)}
+                    onBlur={() => {
+                      setIsEditingBubble1(false)
+                      localStorage.setItem('desktop_bubble1', bubble1Text)
+                    }}
+                    className="w-full h-full bg-transparent text-gray-900 text-xs leading-relaxed resize-none outline-none placeholder-gray-500"
+                    placeholder="写点什么..."
+                  />
+                ) : (
+                  <div className="text-gray-900 text-xs leading-relaxed whitespace-pre-wrap overflow-hidden">
+                    {bubble1Text || '写点什么...'}
+                  </div>
+                )}
+              </div>
+
+              {/* 气泡2 - 错位到下方 */}
+              <div 
+                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden shadow-md"
+                style={{
+                  top: '16%',
+                  left: '24%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  height: '38px',
+                  width: '180px'
+                }}
+                onClick={() => {
+                  setIsEditingBubble2(true)
+                  setTimeout(() => bubble2Ref.current?.focus(), 0)
+                }}
+              >
+                {isEditingBubble2 ? (
+                  <textarea
+                    ref={bubble2Ref}
+                    value={bubble2Text}
+                    onChange={(e) => setBubble2Text(e.target.value)}
+                    onBlur={() => {
+                      setIsEditingBubble2(false)
+                      localStorage.setItem('desktop_bubble2', bubble2Text)
+                    }}
+                    className="w-full h-full bg-transparent text-gray-900 text-xs leading-relaxed resize-none outline-none placeholder-gray-500"
+                    placeholder="写点什么..."
+                  />
+                ) : (
+                  <div className="text-gray-900 text-xs leading-relaxed whitespace-pre-wrap overflow-hidden">
+                    {bubble2Text || '写点什么...'}
+                  </div>
+                )}
+              </div>
+
+              {/* 纯文字标注 - 靠左上方 */}
+              <div 
+                className="absolute cursor-text"
+                style={{ top: '25%', left: '10%' }}
+                onClick={() => {
+                  setIsEditingLabel(true)
+                  setTimeout(() => labelRef.current?.focus(), 0)
+                }}
+              >
+                {isEditingLabel ? (
+                  <input
+                    ref={labelRef}
+                    type="text"
+                    value={labelText}
+                    onChange={(e) => setLabelText(e.target.value)}
+                    onBlur={() => {
+                      setIsEditingLabel(false)
+                      localStorage.setItem('desktop_label_text', labelText)
+                    }}
+                    className="text-xs text-gray-700 bg-transparent outline-none border-b border-gray-300"
+                    style={{ width: '200px' }}
+                  />
+                ) : (
+                  <div className="text-xs text-gray-700">
+                    {labelText}
+                  </div>
+                )}
+              </div>
+
+              {/* 底部区域：4个应用图标 + 4x4照片网格 */}
+              <div className="absolute bottom-[30%] left-[6%] right-[6%] flex items-start justify-between gap-4">
+                {/* 左侧：2x2 应用图标 */}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { id: 'desktop-calendar', Icon: CalendarIcon, label: '日历', route: null },
+                    { id: 'desktop-theater', Icon: ImageIcon, label: '小剧场', route: '/theatre' },
+                    { id: 'desktop-phone', Icon: PhoneIcon, label: '电话', route: null },
+                    { id: 'desktop-game', Icon: GameIcon, label: '游戏', route: null }
+                  ].map((app, index) => {
+                    const customIcon = getCustomIcon(app.id)
+                    return (
+                      <div key={index} className="flex flex-col items-center gap-1">
+                        <div 
+                          className={`w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${customIcon ? '' : 'glass-card shadow-lg border border-white/30'}`}
+                          onClick={() => app.route && navigate(app.route)}
+                        >
+                          {customIcon ? (
+                            <img src={customIcon} alt={app.label} className="w-full h-full object-contain" />
+                          ) : (
+                            <app.Icon className="w-8 h-8 text-gray-300" />
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-700 text-center font-medium">
+                          {app.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* 右侧：4x4照片网格 */}
+                <div 
+                  className="cursor-pointer"
+                  style={{
+                    width: '140px',
+                    height: '140px',
+                    border: gridPhoto ? 'none' : '2px dashed #ccc',
+                    backgroundColor: gridPhoto ? 'transparent' : 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: gridPhoto ? '0' : '16px',
+                    padding: gridPhoto ? '0' : '4px',
+                    marginTop: '16px'
+                  }}
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/*'
+                    input.onchange = (e: Event) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = (e) => {
+                          const result = e.target?.result as string
+                          setGridPhoto(result)
+                          localStorage.setItem('desktop_grid_photo', result)
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                >
+                  {gridPhoto ? (
+                    <div className="w-full h-full relative">
+                      <img src={gridPhoto} alt="" className="absolute inset-0 w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+                        <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 页面指示器暂时禁用 */}
+        {/* 页面指示器 */}
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {[0, 1].map((page) => (
+            <div
+              key={page}
+              className="w-2 h-2 rounded-full transition-all duration-300 cursor-pointer active:scale-125"
+              style={{
+                backgroundColor: currentPage === page ? '#666' : '#CCC'
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setCurrentPage(page)
+                playSystemSound()
+              }}
+            />
+          ))}
+        </div>
 
         {/* Dock 栏 */}
         <div className="pb-6 px-4">

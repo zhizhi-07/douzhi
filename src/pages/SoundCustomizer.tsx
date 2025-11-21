@@ -2,8 +2,9 @@
  * 系统声音设置页面
  */
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { saveAudio, getAudio } from '../utils/unifiedStorage'
 import StatusBar from '../components/StatusBar'
 
 const SoundCustomizer = () => {
@@ -20,18 +21,25 @@ const SoundCustomizer = () => {
   })
   
   // 自定义音效状态
-  const [customSound, setCustomSound] = useState(() => {
-    return localStorage.getItem('custom_sound') || ''
-  })
-  const [customSendSound, setCustomSendSound] = useState(() => {
-    return localStorage.getItem('custom_send_sound') || ''
-  })
-  const [customNotifySound, setCustomNotifySound] = useState(() => {
-    return localStorage.getItem('custom_notify_sound') || ''
-  })
-  const [customCallSound, setCustomCallSound] = useState(() => {
-    return localStorage.getItem('custom_call_sound') || ''
-  })
+  const [customSound, setCustomSound] = useState('')
+  const [customSendSound, setCustomSendSound] = useState('')
+  const [customNotifySound, setCustomNotifySound] = useState('')
+  const [customCallSound, setCustomCallSound] = useState('')
+  
+  useEffect(() => {
+    const loadSounds = async () => {
+      const savedSound = await getAudio('custom_sound')
+      const savedSendSound = await getAudio('send_sound')
+      const savedNotifySound = await getAudio('notify_sound')
+      const savedCallSound = await getAudio('call_sound')
+      
+      if (savedSound) setCustomSound(savedSound)
+      if (savedSendSound) setCustomSendSound(savedSendSound)
+      if (savedNotifySound) setCustomNotifySound(savedNotifySound)
+      if (savedCallSound) setCustomCallSound(savedCallSound)
+    }
+    loadSounds()
+  }, [])
   
   // 文件输入引用
   const systemSoundInputRef = useRef<HTMLInputElement>(null)
@@ -83,12 +91,12 @@ const SoundCustomizer = () => {
     }
     
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setCustomSound(base64String)
-      localStorage.setItem('custom_sound', base64String)
+      await saveAudio('custom_sound', base64String)
       playSound(base64String)
-      console.log('✅ 自定义音效已保存')
+      console.log('✅ 自定义音效已保存到IndexedDB')
     }
     reader.onerror = () => {
       alert('音频读取失败')
@@ -120,10 +128,10 @@ const SoundCustomizer = () => {
     }
     
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setCustomSendSound(base64String)
-      localStorage.setItem('custom_send_sound', base64String)
+      await saveAudio('send_sound', base64String)
       playSound(base64String)
     }
     reader.readAsDataURL(file)
@@ -152,10 +160,10 @@ const SoundCustomizer = () => {
     }
     
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setCustomNotifySound(base64String)
-      localStorage.setItem('custom_notify_sound', base64String)
+      await saveAudio('notify_sound', base64String)
       playSound(base64String)
     }
     reader.readAsDataURL(file)
@@ -184,10 +192,10 @@ const SoundCustomizer = () => {
     }
     
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string
       setCustomCallSound(base64String)
-      localStorage.setItem('custom_call_sound', base64String)
+      await saveAudio('call_sound', base64String)
       playSound(base64String)
     }
     reader.readAsDataURL(file)

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>古早QQ聊天</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #e3f2fd;
+  font-family: SimSun, serif;
+  padding: 10px;
+}
+.qq-window {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  background: #fff;
+  border: 2px solid #4169e1;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+}
+.title-bar {
+  background: linear-gradient(180deg, #6495ed 0%, #4169e1 100%);
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1e3a8a;
+}
+.title-text {
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+}
+.title-buttons {
+  display: flex;
+  gap: 4px;
+}
+.title-btn {
+  width: 16px;
+  height: 16px;
+  background: #ddd;
+  border: 1px solid #999;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  cursor: pointer;
+}
+.menu-bar {
+  background: #f0f0f0;
+  padding: 2px 4px;
+  border-bottom: 1px solid #ccc;
+  font-size: 11px;
+  color: #333;
+}
+.chat-info {
+  background: #fffacd;
+  padding: 6px 8px;
+  border-bottom: 1px solid #ddd;
+  font-size: 11px;
+  color: #666;
+}
+.chat-content {
+  background: #fff;
+  padding: 8px;
+  min-height: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.msg {
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.msg-time {
+  color: #999;
+  font-size: 10px;
+  text-align: center;
+  margin: 8px 0;
+}
+.msg-sender {
+  color: #00f;
+  font-weight: bold;
+}
+.msg-text {
+  color: #000;
+  margin-left: 4px;
+}
+.msg-received {
+  text-align: left;
+}
+.msg-sent {
+  text-align: right;
+}
+.msg-sent .msg-sender {
+  color: #f00;
+}
+.input-bar {
+  background: #f5f5f5;
+  border-top: 2px solid #ccc;
+  padding: 6px;
+}
+.input-tools {
+  background: #e8e8e8;
+  padding: 3px;
+  border: 1px solid #ccc;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: #666;
+}
+.input-box {
+  background: #fff;
+  border: 1px solid #999;
+  padding: 6px;
+  min-height: 50px;
+  font-size: 12px;
+  font-family: SimSun, serif;
+}
+.send-btn {
+  background: linear-gradient(180deg, #f0f0f0 0%, #d0d0d0 100%);
+  border: 1px solid #999;
+  padding: 4px 16px;
+  font-size: 12px;
+  margin-top: 4px;
+  cursor: pointer;
+  float: right;
+}
+.send-btn:active {
+  background: #c0c0c0;
+}
+</style>
+</head>
+<body>
+<div class="qq-window">
+  <div class="title-bar">
+    <div class="title-text">与 网恋对象 聊天中</div>
+    <div class="title-buttons">
+      <div class="title-btn">_</div>
+      <div class="title-btn">□</div>
+      <div class="title-btn">×</div>
+    </div>
+  </div>
+  
+  <div class="menu-bar">
+    消息(M) 查看(V) 工具(T) 帮助(H)
+  </div>
+  
+  <div class="chat-info">
+    网恋对象 (2009-08-15 20:30)
+  </div>
+  
+  <div class="chat-content">
+    <div class="msg-time">2009-08-15 20:30</div>
+    
+    <div class="msg msg-received">
+      <span class="msg-sender">网恋对象:</span>
+      <span class="msg-text">在吗</span>
+    </div>
+    
+    <div class="msg msg-sent">
+      <span class="msg-sender">孤独的狼:</span>
+      <span class="msg-text">在</span>
+    </div>
+    
+    <div class="msg msg-received">
+      <span class="msg-sender">网恋对象:</span>
+      <span class="msg-text">干嘛呢</span>
+    </div>
+    
+    <div class="msg msg-sent">
+      <span class="msg-sender">孤独的狼:</span>
+      <span class="msg-text">没事，你呢</span>
+    </div>
+    
+    <div class="msg msg-received">
+      <span class="msg-sender">网恋对象:</span>
+      <span class="msg-text">...</span>
+    </div>
+    
+    <div class="msg msg-sent">
+      <span class="msg-sender">孤独的狼:</span>
+      <span class="msg-text">怎么了？</span>
+    </div>
+  </div>
+  
+  <div class="input-bar">
+    <div class="input-tools">
+      字体 表情 截图 抖动窗口 发送文件
+    </div>
+    <div class="input-box">
+      正在输入...
+    </div>
+    <button class="send-btn">发送(S)</button>
+  </div>
+</div>
+</body>
+</html>
