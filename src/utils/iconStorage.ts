@@ -29,12 +29,20 @@ const initDB = (): Promise<IDBDatabase> => {
 }
 
 // 保存UI图标
-export const saveUIIcon = async (iconId: string, imageData: string): Promise<void> => {
+export const saveUIIcon = async (iconId: string, imageData: Blob | string): Promise<void> => {
   const db = await initDB()
+  
+  // 如果是base64字符串，转为Blob（兼容旧代码）
+  let dataToStore = imageData
+  if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+    const res = await fetch(imageData)
+    dataToStore = await res.blob()
+  }
+  
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([UI_ICONS_STORE], 'readwrite')
     const store = transaction.objectStore(UI_ICONS_STORE)
-    const request = store.put(imageData, iconId)
+    const request = store.put(dataToStore, iconId)
     
     request.onsuccess = () => {
       console.log(`✅ UI图标已保存: ${iconId}`)
@@ -52,7 +60,23 @@ export const getUIIcon = async (iconId: string): Promise<string | null> => {
     const store = transaction.objectStore(UI_ICONS_STORE)
     const request = store.get(iconId)
     
-    request.onsuccess = () => resolve(request.result || null)
+    request.onsuccess = () => {
+      const data = request.result
+      if (!data) {
+        resolve(null)
+        return
+      }
+      
+      // 如果存的是Blob，创建ObjectURL
+      if (data instanceof Blob) {
+        resolve(URL.createObjectURL(data))
+      } else if (typeof data === 'string') {
+        // 兼容旧的base64数据
+        resolve(data)
+      } else {
+        resolve(null)
+      }
+    }
     request.onerror = () => reject(request.error)
   })
 }
@@ -111,13 +135,21 @@ export const clearAllUIIcons = async (): Promise<void> => {
   })
 }
 
-// 保存桌面图标
-export const saveDesktopIcon = async (appId: string, imageData: string): Promise<void> => {
+// 保存桌面图标  
+export const saveDesktopIcon = async (appId: string, imageData: Blob | string): Promise<void> => {
   const db = await initDB()
+  
+  // 如果是base64字符串，转为Blob（兼容旧代码）
+  let dataToStore = imageData
+  if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+    const res = await fetch(imageData)
+    dataToStore = await res.blob()
+  }
+  
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([DESKTOP_ICONS_STORE], 'readwrite')
     const store = transaction.objectStore(DESKTOP_ICONS_STORE)
-    const request = store.put(imageData, appId)
+    const request = store.put(dataToStore, appId)
     
     request.onsuccess = () => {
       console.log(`✅ 桌面图标已保存: ${appId}`)
@@ -135,7 +167,23 @@ export const getDesktopIcon = async (appId: string): Promise<string | null> => {
     const store = transaction.objectStore(DESKTOP_ICONS_STORE)
     const request = store.get(appId)
     
-    request.onsuccess = () => resolve(request.result || null)
+    request.onsuccess = () => {
+      const data = request.result
+      if (!data) {
+        resolve(null)
+        return
+      }
+      
+      // 如果存的是Blob，创建ObjectURL
+      if (data instanceof Blob) {
+        resolve(URL.createObjectURL(data))
+      } else if (typeof data === 'string') {
+        // 兼容旧的base64数据
+        resolve(data)
+      } else {
+        resolve(null)
+      }
+    }
     request.onerror = () => reject(request.error)
   })
 }

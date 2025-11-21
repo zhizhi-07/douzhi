@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
+import { saveImage, getImage } from '../utils/unifiedStorage'
 
 const MusicDecoration = () => {
   const navigate = useNavigate()
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [frameImage, setFrameImage] = useState<string | null>(
-    localStorage.getItem('music_frame_image') || null
-  )
+  const [frameImage, setFrameImage] = useState<string | null>(null)
+  const [coverBgImage, setCoverBgImage] = useState<string | null>(null)
 
   // 更新时间
   useEffect(() => {
@@ -26,10 +26,18 @@ const MusicDecoration = () => {
   const [discColor, setDiscColor] = useState<string>(
     localStorage.getItem('music_disc_color') || '#1a1a1a'
   )
-  const [coverBgImage, setCoverBgImage] = useState<string | null>(
-    localStorage.getItem('music_cover_bg_image') || null
-  )
   const [showColorPanel, setShowColorPanel] = useState(false)
+
+  // 从IndexedDB加载图片
+  useEffect(() => {
+    const loadImages = async () => {
+      const frame = await getImage('music_frame_image')
+      const coverBg = await getImage('music_cover_bg_image')
+      if (frame) setFrameImage(frame)
+      if (coverBg) setCoverBgImage(coverBg)
+    }
+    loadImages()
+  }, [])
 
   const handleDiscColorChange = (color: string) => {
     setDiscColor(color)
@@ -41,28 +49,34 @@ const MusicDecoration = () => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const imageUrl = event.target?.result as string
-          localStorage.setItem('music_cover_bg_image', imageUrl)
+        try {
+          // 直接存储Blob到IndexedDB
+          await saveImage('music_cover_bg_image', file)
+          const imageUrl = URL.createObjectURL(file)
           setCoverBgImage(imageUrl)
           window.dispatchEvent(new Event('musicFrameUpdate'))
           alert('封面背景已设置！')
+        } catch (error) {
+          console.error('保存封面背景失败:', error)
+          alert('保存失败，请重试')
         }
-        reader.readAsDataURL(file)
       }
     }
     input.click()
   }
 
-  const handleRemoveCoverBg = () => {
-    localStorage.removeItem('music_cover_bg_image')
-    setCoverBgImage(null)
-    window.dispatchEvent(new Event('musicFrameUpdate'))
-    alert('封面背景已移除！')
+  const handleRemoveCoverBg = async () => {
+    try {
+      await saveImage('music_cover_bg_image', '')
+      setCoverBgImage(null)
+      window.dispatchEvent(new Event('musicFrameUpdate'))
+      alert('封面背景已移除！')
+    } catch (error) {
+      console.error('移除封面背景失败:', error)
+    }
   }
 
   const handleScaleChange = (newScale: number) => {
@@ -82,28 +96,34 @@ const MusicDecoration = () => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const imageUrl = event.target?.result as string
-          localStorage.setItem('music_frame_image', imageUrl)
+        try {
+          // 直接存储Blob到IndexedDB
+          await saveImage('music_frame_image', file)
+          const imageUrl = URL.createObjectURL(file)
           setFrameImage(imageUrl)
           window.dispatchEvent(new Event('musicFrameUpdate'))
           alert('装饰框已设置！')
+        } catch (error) {
+          console.error('保存装饰框失败:', error)
+          alert('保存失败，请重试')
         }
-        reader.readAsDataURL(file)
       }
     }
     input.click()
   }
 
-  const handleRemoveFrame = () => {
-    localStorage.removeItem('music_frame_image')
-    setFrameImage(null)
-    window.dispatchEvent(new Event('musicFrameUpdate'))
-    alert('装饰框已移除！')
+  const handleRemoveFrame = async () => {
+    try {
+      await saveImage('music_frame_image', '')
+      setFrameImage(null)
+      window.dispatchEvent(new Event('musicFrameUpdate'))
+      alert('装饰框已移除！')
+    } catch (error) {
+      console.error('移除装饰框失败:', error)
+    }
   }
 
   return (

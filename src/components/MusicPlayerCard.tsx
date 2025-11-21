@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getImage } from '../utils/unifiedStorage'
 
 interface MusicPlayerCardProps {
   currentSong?: {
@@ -27,9 +28,7 @@ const MusicPlayerCard: React.FC<MusicPlayerCardProps> = ({
   }
 
   // 获取装饰框和颜色
-  const [frameImage, setFrameImage] = useState<string | null>(
-    localStorage.getItem('music_frame_image') || null
-  )
+  const [frameImage, setFrameImage] = useState<string | null>(null)
   const [frameScale, setFrameScale] = useState<number>(
     parseFloat(localStorage.getItem('music_frame_scale') || '1')
   )
@@ -40,19 +39,30 @@ const MusicPlayerCard: React.FC<MusicPlayerCardProps> = ({
   const [discColor, setDiscColor] = useState<string>(
     localStorage.getItem('music_disc_color') || '#1a1a1a'
   )
-  const [coverBgImage, setCoverBgImage] = useState<string | null>(
-    localStorage.getItem('music_cover_bg_image') || null
-  )
+  const [coverBgImage, setCoverBgImage] = useState<string | null>(null)
+
+  // 从IndexedDB加载图片
+  useEffect(() => {
+    const loadImages = async () => {
+      const frame = await getImage('music_frame_image')
+      const coverBg = await getImage('music_cover_bg_image')
+      if (frame) setFrameImage(frame)
+      if (coverBg) setCoverBgImage(coverBg)
+    }
+    loadImages()
+  }, [])
 
   // 监听装饰框更新
   useEffect(() => {
-    const handleUpdate = () => {
-      setFrameImage(localStorage.getItem('music_frame_image') || null)
+    const handleUpdate = async () => {
+      const frame = await getImage('music_frame_image')
+      const coverBg = await getImage('music_cover_bg_image')
+      setFrameImage(frame)
       setFrameScale(parseFloat(localStorage.getItem('music_frame_scale') || '1'))
       const saved = localStorage.getItem('music_frame_position')
       setFramePosition(saved ? JSON.parse(saved) : {x: 0, y: 0})
       setDiscColor(localStorage.getItem('music_disc_color') || '#1a1a1a')
-      setCoverBgImage(localStorage.getItem('music_cover_bg_image') || null)
+      setCoverBgImage(coverBg)
     }
     window.addEventListener('musicFrameUpdate', handleUpdate)
     return () => window.removeEventListener('musicFrameUpdate', handleUpdate)

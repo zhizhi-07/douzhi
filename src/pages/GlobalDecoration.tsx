@@ -251,8 +251,8 @@ const GlobalDecoration = () => {
     window.dispatchEvent(new CustomEvent('iconChanged'))
   }
 
-  // 压缩图片
-  const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number): Promise<string> => {
+  // 压缩图片（返回Blob，节省30%存储空间）
+  const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = (e) => {
@@ -291,8 +291,13 @@ const GlobalDecoration = () => {
           // 根据原始格式选择输出格式
           // PNG保留透明通道，其他格式转JPEG
           const outputFormat = isPNG ? 'image/png' : 'image/jpeg'
-          const compressedBase64 = canvas.toDataURL(outputFormat, quality)
-          resolve(compressedBase64)
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error('图片压缩失败'))
+            }
+          }, outputFormat, quality)
         }
         img.onerror = () => reject(new Error('图片加载失败'))
         img.src = e.target?.result as string
@@ -337,13 +342,15 @@ const GlobalDecoration = () => {
       const maxHeight = isBackground ? 400 : 200
       const quality = 0.8
       
-      const compressedBase64 = await compressImage(file, maxWidth, maxHeight, quality)
-      const compressedSize = compressedBase64.length
-      const compressionRatio = ((1 - compressedSize / (file.size * 1.37)) * 100).toFixed(1) // base64比原文件大约37%
+      const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality)
+      const compressedSize = compressedBlob.size
+      const compressionRatio = ((1 - compressedSize / file.size) * 100).toFixed(1)
       
-      console.log(`✅ 压缩完成: ${(file.size / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (减少${compressionRatio}%)`)
+      console.log(`✅ 压缩完成: ${(file.size / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (减少${compressionRatio}%)`)  
+      console.log(`💾 使用Blob存储，相比base64节省约30%空间`)
       
-      const result = compressedBase64
+      // 创建预览URL
+      const result = URL.createObjectURL(compressedBlob)
       console.log('✅ 文件读取成功，更新图标:', currentEditingIcon)
       
       // 判断是背景、桌面应用图标还是UI图标
@@ -351,9 +358,9 @@ const GlobalDecoration = () => {
       const backgroundIds = ['desktop-wallpaper', 'wechat-wallpaper']
       
       if (backgroundIds.includes(currentEditingIcon)) {
-        // 背景图片
+        // 背景图片 - 直接存储Blob
         const key = currentEditingIcon === 'desktop-wallpaper' ? 'desktop_bg' : 'wechat_bg'
-        await saveImage(key, result)
+        await saveImage(key, compressedBlob)
         
         if (currentEditingIcon === 'desktop-wallpaper') {
           setDesktopBg(result)
@@ -364,10 +371,10 @@ const GlobalDecoration = () => {
         }
         console.log('✅ 背景图片已上传:', currentEditingIcon)
       } else if (desktopAppIds.includes(currentEditingIcon)) {
-        // 桌面应用图标
-        await saveDesktopIcon(currentEditingIcon, result)
+        // 桌面应用图标 - 直接存储Blob
+        await saveDesktopIcon(currentEditingIcon, compressedBlob)
         
-        // 更新state
+        // 更新state（使用ObjectURL作为预览）
         const existingIndex = desktopIcons.findIndex(item => item.appId === currentEditingIcon)
         let newDesktopIcons
         if (existingIndex >= 0) {
@@ -378,16 +385,14 @@ const GlobalDecoration = () => {
         }
         setDesktopIcons(newDesktopIcons)
         
-        // 同时备份到localStorage
-        localStorage.setItem('custom_icons', JSON.stringify(newDesktopIcons))
-        console.log('💾 已保存到localStorage custom_icons:', newDesktopIcons)
+        // 不再备份到localStorage，已经通过IndexedDB存储
         
         // 触发事件通知Desktop更新
         window.dispatchEvent(new CustomEvent('iconChanged'))
         console.log('✅ 桌面图标已上传并触发事件:', currentEditingIcon)
       } else {
-        // UI图标
-        await saveUIIcon(currentEditingIcon, result)
+        // UI图标 - 直接存储Blob
+        await saveUIIcon(currentEditingIcon, compressedBlob)
         
         // 更新state
         const newIcons = {

@@ -139,16 +139,37 @@ export const clearIndexedDBStore = async (
 
 /**
  * 保存图片（壁纸、图标等）
+ * @param key 图片key
+ * @param data Blob对象或base64字符串
  */
-export const saveImage = (key: string, base64Data: string) => {
-  return saveToIndexedDB('IMAGES', key, base64Data)
+export const saveImage = async (key: string, data: Blob | string) => {
+  // 如果是base64字符串，转为Blob（兼容旧代码）
+  if (typeof data === 'string' && data.startsWith('data:')) {
+    const res = await fetch(data)
+    data = await res.blob()
+  }
+  return saveToIndexedDB('IMAGES', key, data)
 }
 
 /**
  * 获取图片
+ * @returns ObjectURL或null
  */
-export const getImage = (key: string) => {
-  return getFromIndexedDB('IMAGES', key)
+export const getImage = async (key: string): Promise<string | null> => {
+  const data = await getFromIndexedDB('IMAGES', key)
+  if (!data) return null
+  
+  // 如果存的是Blob，创建ObjectURL
+  if (data instanceof Blob) {
+    return URL.createObjectURL(data)
+  }
+  
+  // 如果存的是base64字符串（兼容旧数据），直接返回
+  if (typeof data === 'string') {
+    return data
+  }
+  
+  return null
 }
 
 /**

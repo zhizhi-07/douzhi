@@ -17,11 +17,16 @@ const AIMemoViewer = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [memos, setMemos] = useState<AIMemo[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isBlankMode, setIsBlankMode] = useState(false) // 空白模式
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   
   // 备忘录背景
   const [memoBg, setMemoBg] = useState(() => {
     return localStorage.getItem('memo_background') || ''
   })
+  
+  // 检测背景是否为PNG（透明背景不显示阴影）
+  const isPngBackground = memoBg.includes('data:image/png') || memoBg.includes('.png')
 
   // 加载角色信息和日期列表
   useEffect(() => {
@@ -80,6 +85,22 @@ const AIMemoViewer = () => {
     }, 300)
   }
 
+  // 长按开始
+  const handleLongPressStart = () => {
+    const timer = setTimeout(() => {
+      setIsBlankMode(prev => !prev)
+    }, 800) // 长按800ms触发
+    setLongPressTimer(timer)
+  }
+
+  // 长按结束/取消
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
   const currentDate = allDates[currentIndex]
   const canGoPrev = currentIndex < allDates.length - 1
   const canGoNext = currentIndex > 0
@@ -131,8 +152,19 @@ const AIMemoViewer = () => {
       </div>
 
       {/* 主内容区 */}
-      <div className="flex-1 overflow-hidden flex flex-col items-center justify-center p-4">
-        {allDates.length === 0 ? (
+      <div 
+        className="flex-1 overflow-hidden flex flex-col items-center justify-center p-4"
+        onMouseDown={handleLongPressStart}
+        onMouseUp={handleLongPressEnd}
+        onMouseLeave={handleLongPressEnd}
+        onTouchStart={handleLongPressStart}
+        onTouchEnd={handleLongPressEnd}
+        onTouchCancel={handleLongPressEnd}
+      >
+        {isBlankMode ? (
+          // 空白模式 - 只显示背景
+          <div className="w-full h-full"></div>
+        ) : allDates.length === 0 ? (
           // 空状态
           <div className="text-center">
             <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
@@ -163,9 +195,9 @@ const AIMemoViewer = () => {
 
             {/* 纸张主体 */}
             <div
-              className={`bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg shadow-2xl p-6 min-h-[500px] border-4 border-amber-200 relative transition-all duration-300 ${
+              className={`bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-6 min-h-[500px] border-4 border-amber-200 relative transition-all duration-300 ${
                 isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
-              }`}
+              } ${isPngBackground ? '' : 'shadow-2xl'}`}
               style={{
                 backgroundImage: `repeating-linear-gradient(transparent, transparent 35px, #f59e0b15 35px, #f59e0b15 36px)`,
               }}
@@ -189,7 +221,9 @@ const AIMemoViewer = () => {
                 {memos.map((memo, index) => (
                   <div
                     key={memo.id}
-                    className="bg-white/50 backdrop-blur-sm rounded-lg p-4 border-l-4 border-amber-400 shadow-sm hover:shadow-md transition-shadow"
+                    className={`bg-white/50 backdrop-blur-sm rounded-lg p-4 border-l-4 border-amber-400 transition-shadow ${
+                      isPngBackground ? '' : 'shadow-sm hover:shadow-md'
+                    }`}
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold">
@@ -238,10 +272,10 @@ const AIMemoViewer = () => {
       </div>
 
       {/* 底部提示 */}
-      {allDates.length > 0 && (
+      {!isBlankMode && allDates.length > 0 && (
         <div className="px-4 pb-4 text-center">
           <p className="text-xs text-amber-500">
-            💡 向左翻页查看昨天，向右翻页查看明天
+            💡 向左翻页查看昨天，向右翻页查看明天 | 长按切换空白模式
           </p>
         </div>
       )}
