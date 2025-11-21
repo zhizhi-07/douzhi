@@ -1141,13 +1141,21 @@ export const quoteOnlyHandler: CommandHandler = {
     }
 
     if (quoted) {
-      let quotedContent = quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息'
+      // 🔥 如果是表情包消息，优先使用emoji.description
+      let quotedContent = quoted.emoji?.description || quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || '特殊消息'
       quotedContent = quotedContent
         .replace(/\[用户发了表情包\]\s*/g, '')
         .replace(/\[AI发了表情包\]\s*/g, '')
+        .replace(/\[表情[:\：][^\]]*?\]/g, '')  // 🔥 清理表情包指令标记
+        .replace(/【表情[:\：][^】]*?】/g, '')  // 🔥 清理全角表情包指令标记
         .replace(/\[引用了?[^\]]*?\]/g, '')
         .replace(/【引用了?[^】]*?】/g, '')
         .trim()
+      
+      // 🔥 如果清理后为空，说明是纯表情包消息，显示[表情包]
+      if (!quotedContent && quoted.messageType === 'emoji') {
+        quotedContent = '[表情包]'
+      }
 
       const MAX_QUOTE_LENGTH = 100
       if (quotedContent.length > MAX_QUOTE_LENGTH) {
@@ -1289,17 +1297,24 @@ export const quoteHandler: CommandHandler = {
     }
 
     if (quoted) {
-      // 🔥 获取引用内容，优先使用实际内容而非AI可读内容
-      let quotedContent = quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || quoted.emoji?.description || '特殊消息'
+      // 🔥 如果是表情包消息，优先使用emoji.description
+      let quotedContent = quoted.emoji?.description || quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || '特殊消息'
       
       // 🔥 清理系统提示标签和嵌套引用
       quotedContent = quotedContent
         .replace(/\[用户发了表情包\]\s*/g, '')
         .replace(/\[AI发了表情包\]\s*/g, '')
+        .replace(/\[表情[:\：][^\]]*?\]/g, '')  // 🔥 清理表情包指令标记
+        .replace(/【表情[:\：][^】]*?】/g, '')  // 🔥 清理全角表情包指令标记
         // 清理嵌套的引用指令（避免引用中包含引用）
         .replace(/\[引用了?[^\]]*?\]/g, '')
         .replace(/【引用了?[^】]*?】/g, '')
         .trim()
+      
+      // 🔥 如果清理后为空，说明是纯表情包消息，显示[表情包]
+      if (!quotedContent && quoted.messageType === 'emoji') {
+        quotedContent = '[表情包]'
+      }
       
       // 🔥 限制引用内容长度，避免显示混乱（最多100字）
       const MAX_QUOTE_LENGTH = 100

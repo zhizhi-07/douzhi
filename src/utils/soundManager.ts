@@ -196,50 +196,6 @@ export const playBackSound = () => {
   currentAudio = playSound(CUTE_SOUNDS.pageBack, 0.25)
 }
 
-/**
- * 🎵 播放明亮点击音效
- */
-export const playClickBrightSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.clickBright, 0.3)
-}
-
-/**
- * 🎵 播放弹出点击音效
- */
-export const playClickPopSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.clickPop, 0.3)
-}
-
-/**
- * 🎵 播放轻敲点击音效
- */
-export const playClickTapSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.clickTap, 0.25)
-}
 
 /**
  * 🎵 播放消息发送音效
@@ -364,70 +320,7 @@ export const playLoadMoreSound = () => {
   currentAudio = playSound(CUTE_SOUNDS.loadMore, 0.25)
 }
 
-/**
- * 🎵 播放菜单打开音效
- */
-export const playMenuOpenSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
 
-  playSound(CUTE_SOUNDS.menuOpen, 0.3)
-}
-
-/**
- * 🎵 播放菜单关闭音效
- */
-export const playMenuCloseSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  playSound(CUTE_SOUNDS.menuClose, 0.25)
-}
-
-/**
- * 🎵 播放菜单选择音效
- */
-export const playMenuSelectSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.menuSelect, 0.3)
-}
-
-/**
- * 🎵 播放关闭音效（通用）
- */
-export const playCloseSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.menuClose, 0.25)
-}
-
-/**
- * 🎵 播放模态框打开音效
- */
-export const playModalOpenSound = () => {
-  const enabled = localStorage.getItem('system_sound_enabled')
-  if (enabled === 'false') return
-
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-  }
-
-  currentAudio = playSound(CUTE_SOUNDS.modalOpen, 0.3)
-}
 
 /**
  * 🎵 播放模态框关闭音效

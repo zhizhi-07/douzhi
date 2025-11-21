@@ -40,7 +40,7 @@ import OfflineSummaryCard from './ChatDetail/components/OfflineSummaryCard'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
-import { playLoadMoreSound, playMenuOpenSound, playCloseSound } from '../utils/soundManager'
+import { playLoadMoreSound, playSystemSound } from '../utils/soundManager'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -1253,7 +1253,7 @@ const ChatDetail = () => {
         <div className="relative z-10 px-2 py-2 flex items-center gap-1">
           <button
             onClick={() => {
-              playMenuOpenSound() // 🎵 播放菜单音效
+              playSystemSound() // 🎵 统一使用系统点击音效
               addMenu.setShowAddMenu(true)
             }}
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
@@ -1343,7 +1343,7 @@ const ChatDetail = () => {
       <AddMenu
         isOpen={addMenu.showAddMenu}
         onClose={() => {
-          playCloseSound() // 🎵 关闭时播放音效
+          playSystemSound() // 🎵 统一使用系统点击音效
           addMenu.setShowAddMenu(false)
         }}
         onSelectRecall={addMenu.handlers.handleSelectRecall}
