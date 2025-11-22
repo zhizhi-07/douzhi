@@ -21,10 +21,19 @@ import { getImage, saveImage } from '../utils/unifiedStorage'
 
 // 图标名称映射表
 const iconNameMap: Record<string, string> = {
+  'desktop-time-bg': '桌面时间背景',
+  'main-topbar-bg': '主界面顶栏',
+  'main-bottombar-bg': '主界面底栏',
+  'chat-topbar-bg': '聊天顶栏',
+  'chat-bottombar-bg': '聊天底栏',
+  'avatar-2': '头像2',
+  'nav-chat': '微信',
+  'nav-contacts': '通讯录',
+  'nav-discover': '发现',
+  'nav-me': '我',
   'main-group': '群聊',
   'main-add': '添加',
   'avatar-1': '头像1',
-  'avatar-2': '头像2',
   'nav-chat': '微信',
   'nav-contacts': '通讯录',
   'nav-discover': '发现',
@@ -96,6 +105,8 @@ const GlobalDecoration = () => {
   const [adjustParams, setAdjustParams] = useState<Record<string, {scale: number, x: number, y: number}>>({
     'main-topbar-bg': {scale: 100, x: 0, y: 0},
     'main-bottombar-bg': {scale: 100, x: 0, y: 0},
+    'chat-topbar-bg': {scale: 100, x: 0, y: 0},
+    'chat-bottombar-bg': {scale: 100, x: 0, y: 0},
     'desktop-time-bg': {scale: 100, x: 0, y: 0}
   })
   const [hasInput, setHasInput] = useState(false) // 控制发送/AI按钮状态
@@ -174,6 +185,16 @@ const GlobalDecoration = () => {
             scale: parseInt(localStorage.getItem('main-bottombar-bg-scale') || '100'),
             x: parseInt(localStorage.getItem('main-bottombar-bg-x') || '0'),
             y: parseInt(localStorage.getItem('main-bottombar-bg-y') || '0')
+          },
+          'chat-topbar-bg': {
+            scale: parseInt(localStorage.getItem('chat-topbar-bg-scale') || '100'),
+            x: parseInt(localStorage.getItem('chat-topbar-bg-x') || '0'),
+            y: parseInt(localStorage.getItem('chat-topbar-bg-y') || '0')
+          },
+          'chat-bottombar-bg': {
+            scale: parseInt(localStorage.getItem('chat-bottombar-bg-scale') || '100'),
+            x: parseInt(localStorage.getItem('chat-bottombar-bg-x') || '0'),
+            y: parseInt(localStorage.getItem('chat-bottombar-bg-y') || '0')
           },
           'desktop-time-bg': {
             scale: parseInt(localStorage.getItem('desktop-time-bg-scale') || '100'),
@@ -665,9 +686,9 @@ const GlobalDecoration = () => {
   // 聊天界面预览
   const ChatView = () => (
     <div className="w-full h-full bg-gray-100 flex flex-col">
-      {/* 顶部栏 */}
+      {/* 顶部栏 - 增加高度匹配实际（StatusBar + 内容） */}
       <div 
-        className="bg-white h-14 flex items-center px-4 gap-3 relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
+        className="bg-white relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
         onClick={(e) => {
           // 检查是否点击了子元素（返回按钮、更多按钮）
           const target = e.target as HTMLElement
@@ -675,22 +696,30 @@ const GlobalDecoration = () => {
             return // 点击了按钮，不处理
           }
           e.stopPropagation()
-          console.log('🖱️ 点击聊天顶栏背景区域')
-          handleIconClick('chat-topbar-bg')
+          if (customIcons['chat-topbar-bg']) {
+            setSelectedIcon('chat-topbar-bg')
+            const scale = localStorage.getItem('chat-topbar-bg-scale')
+            const x = localStorage.getItem('chat-topbar-bg-x')
+            const y = localStorage.getItem('chat-topbar-bg-y')
+            setIconScale(scale ? parseInt(scale) : 100)
+            setIconX(x ? parseInt(x) : 0)
+            setIconY(y ? parseInt(y) : 0)
+          } else {
+            handleIconClick('chat-topbar-bg')
+          }
         }}
         style={customIcons['chat-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['chat-topbar-bg']})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: `${adjustParams['chat-topbar-bg']?.scale || 100}%`,
+          backgroundPosition: `calc(50% + ${adjustParams['chat-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-topbar-bg']?.y || 0}px)`
         } : {}}
         title="点击空白处更换顶栏背景"
       >
-        {!customIcons['chat-topbar-bg'] && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded">点击上传背景</span>
-          </div>
-        )}
-        <div 
+        {/* StatusBar占位 */}
+        <div className="h-6 bg-transparent"></div>
+        {/* 实际内容区 */}
+        <div className="flex items-center px-4 gap-3 py-3">
+          <div 
           className="w-6 h-6 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
           onClick={(e) => {
             e.stopPropagation()
@@ -719,6 +748,7 @@ const GlobalDecoration = () => {
           } : {}}
           title="点击更换更多按钮"
         />
+        </div>
       </div>
 
       {/* 聊天内容区 */}
@@ -779,12 +809,32 @@ const GlobalDecoration = () => {
 
       {/* 底部输入栏 */}
       <div 
-        className="bg-white h-14 flex items-center px-3 gap-2 border-t border-gray-100 relative"
+        className="bg-white h-14 flex items-center px-3 gap-2 border-t border-gray-100 relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
+        onClick={(e) => {
+          // 检查是否点击了按钮
+          const target = e.target as HTMLElement
+          if (target.closest('.w-7') || target.closest('.flex-1')) {
+            return
+          }
+          e.stopPropagation()
+          if (customIcons['chat-bottombar-bg']) {
+            setSelectedIcon('chat-bottombar-bg')
+            const scale = localStorage.getItem('chat-bottombar-bg-scale')
+            const x = localStorage.getItem('chat-bottombar-bg-x')
+            const y = localStorage.getItem('chat-bottombar-bg-y')
+            setIconScale(scale ? parseInt(scale) : 100)
+            setIconX(x ? parseInt(x) : 0)
+            setIconY(y ? parseInt(y) : 0)
+          } else {
+            handleIconClick('chat-bottombar-bg')
+          }
+        }}
         style={customIcons['chat-bottombar-bg'] ? {
           backgroundImage: `url(${customIcons['chat-bottombar-bg']})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: `${adjustParams['chat-bottombar-bg']?.scale || 100}%`,
+          backgroundPosition: `calc(50% + ${adjustParams['chat-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-bottombar-bg']?.y || 0}px)`
         } : {}}
+        title="点击空白处更换底栏背景"
       >
         {/* 加号按钮 */}
         <div 

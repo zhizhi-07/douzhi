@@ -78,6 +78,14 @@ const ChatDetail = () => {
   // 自定义UI图标
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   
+  // 顶栏底栏调整参数
+  const [topBarScale, setTopBarScale] = useState(100)
+  const [topBarX, setTopBarX] = useState(0)
+  const [topBarY, setTopBarY] = useState(0)
+  const [bottomBarScale, setBottomBarScale] = useState(100)
+  const [bottomBarX, setBottomBarX] = useState(0)
+  const [bottomBarY, setBottomBarY] = useState(0)
+  
   // 监听装饰更新
   useEffect(() => {
     const handleDecorationUpdate = () => {
@@ -129,14 +137,37 @@ const ChatDetail = () => {
     
     loadCustomIcons()
     
+    // 加载调整参数
+    const loadAdjustParams = () => {
+      const tScale = localStorage.getItem('chat-topbar-bg-scale')
+      const tX = localStorage.getItem('chat-topbar-bg-x')
+      const tY = localStorage.getItem('chat-topbar-bg-y')
+      const bScale = localStorage.getItem('chat-bottombar-bg-scale')
+      const bX = localStorage.getItem('chat-bottombar-bg-x')
+      const bY = localStorage.getItem('chat-bottombar-bg-y')
+      
+      if (tScale) setTopBarScale(parseInt(tScale))
+      if (tX) setTopBarX(parseInt(tX))
+      if (tY) setTopBarY(parseInt(tY))
+      if (bScale) setBottomBarScale(parseInt(bScale))
+      if (bX) setBottomBarX(parseInt(bX))
+      if (bY) setBottomBarY(parseInt(bY))
+    }
+    loadAdjustParams()
+    
     // 监听图标更新事件
     const handleIconsChange = () => {
       loadCustomIcons()
     }
+    const handleAdjust = () => {
+      loadAdjustParams()
+    }
     window.addEventListener('uiIconsChanged', handleIconsChange)
+    window.addEventListener('iconAdjust', handleAdjust)
     
     return () => {
       window.removeEventListener('uiIconsChanged', handleIconsChange)
+      window.removeEventListener('iconAdjust', handleAdjust)
     }
   }, [])
 
@@ -691,6 +722,9 @@ const ChatDetail = () => {
         tokenStats={chatAI.tokenStats}
         onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
+        topBarScale={topBarScale}
+        topBarX={topBarX}
+        topBarY={topBarY}
         customIcons={customIcons}
         onAddOfflineRecord={() => {
           setEditingOfflineRecord(null)
@@ -1253,13 +1287,14 @@ const ChatDetail = () => {
       <div className="relative bg-transparent">
         {/* 底栏装饰背景 */}
         {(customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar) && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <img 
-              src={customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar!} 
-              alt="底栏装饰" 
-              className="w-full h-full object-cover" 
-            />
-          </div>
+          <div 
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{
+              backgroundImage: `url(${customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar})`,
+              backgroundSize: `${bottomBarScale}%`,
+              backgroundPosition: `calc(50% + ${bottomBarX}px) calc(50% + ${bottomBarY}px)`
+            }}
+          />
         )}
         {modals.quotedMessage && (
           <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">

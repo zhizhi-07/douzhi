@@ -11,9 +11,9 @@ import { formatStatusShort, AIStatus } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
   characterName: string
-  characterId?: string
-  characterAvatar?: string
-  isAiTyping: boolean
+  characterId: string
+  characterAvatar: string
+  isAiTyping?: boolean
   onBack?: () => void
   onMenuClick?: () => void
   onAvatarClick?: () => void
@@ -22,9 +22,12 @@ interface ChatHeaderProps {
   topBarImage?: string | null
   customIcons?: Record<string, string>
   onAddOfflineRecord?: () => void  // 新增：添加线下记录
+  topBarScale?: number
+  topBarX?: number
+  topBarY?: number
 }
 
-const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick, topBarImage, customIcons = {}, onAddOfflineRecord }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick, topBarImage, customIcons = {}, onAddOfflineRecord, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
   const [fullStatus, setFullStatus] = useState<AIStatus | null>(null)
@@ -72,9 +75,14 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
     <div className="relative glass-effect rounded-b-[20px]">
       {/* 顶栏装饰背景 */}
       {topBarImage && (
-        <div className="absolute inset-0 pointer-events-none z-0 rounded-b-[20px] overflow-hidden">
-          <img src={topBarImage} alt="顶栏装饰" className="w-full h-full object-cover" />
-        </div>
+        <div 
+          className="absolute inset-0 pointer-events-none z-0 rounded-b-[20px] overflow-hidden"
+          style={{
+            backgroundImage: `url(${topBarImage})`,
+            backgroundSize: `${topBarScale || 100}%`,
+            backgroundPosition: `calc(50% + ${topBarX || 0}px) calc(50% + ${topBarY || 0}px)`
+          }}
+        />
       )}
       <div className="relative z-10">
         <StatusBar />
