@@ -489,7 +489,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const emojiListPrompt = await buildEmojiListPrompt()
   
   // 🔥 检测用户消息中是否包含小剧场关键词
-  const { findTemplateByKeyword } = await import('../data/templates')
+  const { findTemplateByKeyword } = await import('../data/theatreTemplates')
   const lastUserMessage = messages.filter(m => m.type === 'sent').slice(-1)[0]
   const matchedTemplate = lastUserMessage ? findTemplateByKeyword(lastUserMessage.content || '') : null
   

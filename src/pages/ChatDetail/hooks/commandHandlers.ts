@@ -24,7 +24,7 @@ import { addAIMemo } from '../../../utils/aiMemoManager'
 import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } from '../../../utils/aiStatusManager'
 import { generateAvatarForAI } from '../../../utils/imageGenerator'
 import { getUserInfo } from '../../../utils/userUtils'
-import { fillTemplate } from '../../../data/templates'
+import { fillTemplate } from '../../../data/theatreTemplates'
 
 /**
  * 指令处理器接口
@@ -2633,7 +2633,7 @@ export const theatreHandler: CommandHandler = {
     // 获取所有模板（内置+自定义）
     const customTemplatesStr = localStorage.getItem('theatre_custom_templates')
     const customTemplates = customTemplatesStr ? JSON.parse(customTemplatesStr) : []
-    const allTemplates = [...(await import('../../../data/templates')).theatreTemplates, ...customTemplates]
+    const allTemplates = [...(await import('../../../data/theatreTemplates')).theatreTemplates, ...customTemplates]
     
     // 根据模板名查找（不再依赖用户消息关键词）
     const template = allTemplates.find(t => t.name === templateNameInCommand)
