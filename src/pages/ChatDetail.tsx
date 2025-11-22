@@ -723,10 +723,6 @@ const ChatDetail = () => {
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}
-        onAddOfflineRecord={() => {
-          setEditingOfflineRecord(null)
-          setShowOfflineRecordDialog(true)
-        }}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         topBarScale={topBarScale}
         topBarX={topBarX}

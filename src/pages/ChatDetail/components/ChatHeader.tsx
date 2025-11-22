@@ -14,7 +14,6 @@ interface ChatHeaderProps {
   isAiTyping?: boolean
   onBack?: () => void
   onMenuClick?: () => void
-  onAddOfflineRecord?: () => void
   topBarImage?: string | null
   customIcons?: Record<string, string>
   topBarScale?: number
@@ -22,7 +21,7 @@ interface ChatHeaderProps {
   topBarY?: number
 }
 
-const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, onAddOfflineRecord, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
 
@@ -104,22 +103,6 @@ const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClic
 
         {/* 右侧：功能按钮 */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* 添加线下记录按钮 */}
-          {onAddOfflineRecord && (
-            <button
-              onClick={() => {
-                playSystemSound()
-                onAddOfflineRecord()
-              }}
-              className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"
-              title="添加线下记录"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          )}
-          
           {/* 更多菜单按钮 */}
           <button
             onClick={() => {
