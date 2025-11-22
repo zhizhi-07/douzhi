@@ -159,16 +159,25 @@ const ChatList = () => {
         }
         
         let icons = await getAllUIIcons()
-        if (Object.keys(icons).length === 0) {
-          const saved = localStorage.getItem('ui_custom_icons')
-          if (saved) {
-            icons = JSON.parse(saved)
-            console.log('📦 从localStorage恢复图标')
-          }
+        
+        // 🌍 全局设置优先：如果有全局背景/顶栏，覆盖各界面的独立设置
+        if (icons['global-background']) {
+          // 全局背景应用到所有界面
+          console.log('🌍 应用全局背景')
         }
+        if (icons['global-topbar']) {
+          // 全局顶栏覆盖主界面顶栏
+          icons['main-topbar-bg'] = icons['global-topbar']
+          console.log('🌍 应用全局顶栏到主界面')
+        }
+        
+        // 🔥 同步更新到sessionStorage缓存
+        sessionStorage.setItem('__preloaded_icons__', JSON.stringify(icons))
         
         setCustomIcons(icons)
         console.log('✅ ChatList加载自定义图标:', Object.keys(icons).length, '个')
+        
+        // 调试输出
         if (icons['main-topbar-bg']) {
           console.log('  - 主界面顶栏背景: 已加载')
         }

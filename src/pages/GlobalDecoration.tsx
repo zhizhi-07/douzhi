@@ -1178,6 +1178,14 @@ const GlobalDecoration = () => {
           >
             调整位置
           </button>
+          
+          {/* 全局设置按钮 */}
+          <button
+            onClick={() => setCurrentView('main')}
+            className="text-xs md:text-sm px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+          >
+            🌍 全局设置
+          </button>
         </div>
       </div>
 
@@ -1198,6 +1206,26 @@ const GlobalDecoration = () => {
               <p className="text-xs md:text-sm text-gray-600 mb-2">
                 点击预览中的<strong>灰色图标</strong>或<strong>空白背景</strong>即可上传图片。支持 PNG、JPG、GIF 格式。
               </p>
+              
+              {/* 全局设置 */}
+              <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 className="text-sm font-semibold text-purple-800 mb-2">🌍 全局设置</h3>
+                <p className="text-xs text-purple-600 mb-3">应用于所有界面的背景和顶栏</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => handleIconClick('global-background')}
+                    className="w-full px-3 py-2 text-xs bg-white hover:bg-purple-50 border border-purple-300 rounded-lg transition-colors text-left"
+                  >
+                    📷 上传全局背景
+                  </button>
+                  <button
+                    onClick={() => handleIconClick('global-topbar')}
+                    className="w-full px-3 py-2 text-xs bg-white hover:bg-purple-50 border border-purple-300 rounded-lg transition-colors text-left"
+                  >
+                    🎨 上传全局顶栏
+                  </button>
+                </div>
+              </div>
               
               {/* 控制按钮 */}
               {currentView === 'chat' && (

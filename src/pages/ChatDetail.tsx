@@ -118,6 +118,17 @@ const ChatDetail = () => {
           }
         }
         
+        // 🌍 全局设置优先：如果有全局背景/顶栏，覆盖各界面的独立设置
+        if (icons['global-background']) {
+          // 全局背景应用到所有界面
+          console.log('🌍 应用全局背景到聊天界面')
+        }
+        if (icons['global-topbar']) {
+          // 全局顶栏覆盖聊天顶栏
+          icons['chat-topbar-bg'] = icons['global-topbar']
+          console.log('🌍 应用全局顶栏到聊天界面')
+        }
+        
         setCustomIcons(icons)
         console.log('✅ ChatDetail加载自定义图标:', Object.keys(icons).length, '个')
       } catch (error) {
