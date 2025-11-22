@@ -497,7 +497,7 @@ const GlobalDecoration = () => {
           <div className="flex items-center gap-3">
             {/* 群聊按钮 */}
             <div 
-              className="w-5 h-5 bg-gray-300 rounded cursor-pointer hover:ring-2 hover:ring-blue-400"
+              className="w-8 h-8 bg-gray-300 rounded cursor-pointer hover:ring-2 hover:ring-blue-400"
               onClick={(e) => {
                 e.stopPropagation()
                 handleIconClick('main-group')
@@ -511,7 +511,7 @@ const GlobalDecoration = () => {
             />
             {/* 加号按钮 */}
             <div 
-              className="w-5 h-5 bg-gray-300 rounded cursor-pointer hover:ring-2 hover:ring-blue-400"
+              className="w-8 h-8 bg-gray-300 rounded cursor-pointer hover:ring-2 hover:ring-blue-400"
               onClick={(e) => {
                 e.stopPropagation()
                 handleIconClick('main-add')
@@ -578,7 +578,7 @@ const GlobalDecoration = () => {
         ].map(item => (
           <div key={item.id} className="flex flex-col items-center gap-1">
             <div 
-              className="w-6 h-6 bg-gray-300 rounded-lg cursor-pointer hover:ring-2 hover:ring-blue-400"
+              className="w-10 h-10 bg-gray-300 rounded-lg cursor-pointer hover:ring-2 hover:ring-blue-400"
               onClick={(e) => {
                 e.stopPropagation()
                 handleIconClick(item.id)
@@ -626,7 +626,7 @@ const GlobalDecoration = () => {
           </div>
         )}
         <div 
-          className="w-6 h-6 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
+          className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-back')
@@ -642,7 +642,7 @@ const GlobalDecoration = () => {
           <span className="text-sm font-medium text-gray-700">联系人名称</span>
         </div>
         <div 
-          className="w-6 h-6 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
+          className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-more')
@@ -723,7 +723,7 @@ const GlobalDecoration = () => {
       >
         {/* 加号按钮 */}
         <div 
-          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center"
+          className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-add-btn')
@@ -762,7 +762,7 @@ const GlobalDecoration = () => {
         
         {/* 底栏背景上传按钮 */}
         <div
-          className="w-7 h-7 bg-blue-50 rounded-full cursor-pointer hover:bg-blue-100 flex items-center justify-center"
+          className="w-10 h-10 bg-blue-50 rounded-full cursor-pointer hover:bg-blue-100 flex items-center justify-center"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-bottombar-bg')
@@ -776,7 +776,7 @@ const GlobalDecoration = () => {
         
         {/* 表情按钮 */}
         <div 
-          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
+          className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-emoji')
