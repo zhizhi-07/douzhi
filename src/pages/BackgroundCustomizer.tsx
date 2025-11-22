@@ -253,18 +253,25 @@ const BackgroundCustomizer = () => {
     setBubble1Uploading(true)
 
     try {
-      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
-      const base64 = await compressAndConvertToBase64(file, 800, 800, 0.75)
-      const base64String = `data:image/jpeg;base64,${base64}`
-      
-      setBubble1Bg(base64String)
-      await saveImage('desktop_bubble1_bg', base64String)
-      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
-      console.log('✅ 气泡1背景已保存到IndexedDB')
+      // 直接读取文件为DataURL，保留PNG透明
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string
+        setBubble1Bg(base64String)
+        await saveImage('desktop_bubble1_bg', base64String)
+        window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+        console.log('✅ 气泡1背景已保存到IndexedDB（保留透明通道）')
+        setBubble1Uploading(false)
+      }
+      reader.onerror = () => {
+        console.error('文件读取失败')
+        alert('图片处理失败，请重试')
+        setBubble1Uploading(false)
+      }
+      reader.readAsDataURL(file)
     } catch (error) {
-      console.error('背景压缩失败:', error)
+      console.error('背景处理失败:', error)
       alert('图片处理失败，请重试')
-    } finally {
       setBubble1Uploading(false)
     }
   }
@@ -282,18 +289,25 @@ const BackgroundCustomizer = () => {
     setBubble2Uploading(true)
 
     try {
-      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
-      const base64 = await compressAndConvertToBase64(file, 800, 800, 0.75)
-      const base64String = `data:image/jpeg;base64,${base64}`
-      
-      setBubble2Bg(base64String)
-      await saveImage('desktop_bubble2_bg', base64String)
-      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
-      console.log('✅ 气泡2背景已保存到IndexedDB')
+      // 直接读取文件为DataURL，保留PNG透明
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string
+        setBubble2Bg(base64String)
+        await saveImage('desktop_bubble2_bg', base64String)
+        window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+        console.log('✅ 气泡2背景已保存到IndexedDB（保留透明通道）')
+        setBubble2Uploading(false)
+      }
+      reader.onerror = () => {
+        console.error('文件读取失败')
+        alert('图片处理失败，请重试')
+        setBubble2Uploading(false)
+      }
+      reader.readAsDataURL(file)
     } catch (error) {
-      console.error('背景压缩失败:', error)
+      console.error('背景处理失败:', error)
       alert('图片处理失败，请重试')
-    } finally {
       setBubble2Uploading(false)
     }
   }
