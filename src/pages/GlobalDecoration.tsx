@@ -1384,9 +1384,14 @@ const GlobalDecoration = () => {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-2xl p-4 z-50">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-gray-700">调整: {selectedIcon ? iconNameMap[selectedIcon] || selectedIcon : ''}</span>
-                <button onClick={() => setSelectedIcon(null)} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
+                <button 
+                  onClick={() => setSelectedIcon(null)} 
+                  className="px-3 py-1.5 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-colors font-medium"
+                >
+                  ✕ 关闭调整
+                </button>
               </div>
               <button
                 onClick={() => {
