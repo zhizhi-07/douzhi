@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>气泡切图工具 - 九宫格切片 + 伪元素贴纸</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 20px;
+    }
+    
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .panel h2 {
+      font-size: 18px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #007AFF;
+    }
+    
+    .section {
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .section:last-child {
+      border-bottom: none;
+    }
+    
+    .section h3 {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+      border-color: #007AFF;
+      background: #f0f8ff;
+    }
+    
+    .upload-area input {
+      display: none;
+    }
+    
+    .slice-control {
+      margin-bottom: 12px;
+    }
+    
+    .slice-control label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    
+    .slice-control input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      background: #ddd;
+    }
+    
+    .slice-control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #007AFF;
+      cursor: pointer;
+    }
+    
+    .value-display {
+      display: inline-block;
+      min-width: 40px;
+      text-align: right;
+      font-weight: 600;
+      color: #007AFF;
+    }
+    
+    .preview-area {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 40px;
+      min-height: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .preview-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    
+    .slice-preview {
+      position: relative;
+      margin-bottom: 30px;
+    }
+    
+    .slice-preview img {
+      max-width: 100%;
+      display: block;
+      border: 1px solid #ddd;
+    }
+    
+    .slice-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    
+    .bubble-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .message-bubble {
+      padding: 12px 16px;
+      max-width: 70%;
+      word-wrap: break-word;
+      position: relative;
+    }
+    
+    .message-bubble.sent {
+      align-self: flex-end;
+      background: #007AFF;
+      color: white;
+    }
+    
+    .message-bubble.received {
+      align-self: flex-start;
+      background: #E5E5EA;
+      color: black;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: #007AFF;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+    
+    .btn-secondary {
+      background: #34C759;
+      color: white;
+      margin-top: 10px;
+    }
+    
+    .btn-secondary:hover {
+      background: #28a745;
+    }
+    
+    .sticker-control {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .control-row label {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 4px;
+      display: block;
+    }
+    
+    .control-row input[type="number"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .sticker-preview {
+      margin-top: 10px;
+      padding: 10px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      overflow-x: auto;
+    }
+    
+    .code-output {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+    
+    .copy-btn {
+      margin-top: 10px;
+      background: #FF9500;
+      color: white;
+    }
+    
+    .copy-btn:hover {
+      background: #e68600;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.3s;
+    }
+    
+    .tab.active {
+      background: #007AFF;
+      color: white;
+      border-color: #007AFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 左侧控制面板 -->
+    <div class="panel">
+      <h2>🎨 气泡切图工具</h2>
+      
+      <!-- 1. 上传图片 -->
+      <div class="section">
+        <h3>📤 上传气泡底图</h3>
+        <div class="upload-area" onclick="document.getElementById('imageUpload').click()">
+          <input type="file" id="imageUpload" accept="image/*">
+          <div>点击上传图片</div>
+          <div style="font-size:11px; color:#999; margin-top:8px;">支持 PNG, JPG, SVG</div>
+        </div>
+        <div id="imageInfo" style="margin-top:10px; font-size:11px; color:#666;"></div>
+      </div>
+      
+      <!-- 2. 九宫格切片 -->
+      <div class="section">
+        <h3>✂️ 九宫格切片位置</h3>
+        <div class="slice-control">
+          <label>上 (Top): <span class="value-display" id="topVal">30</span>px</label>
+          <input type="range" id="sliceTop" min="0" max="200" value="30">
+        </div>
+        <div class="slice-control">
+          <label>右 (Right): <span class="value-display" id="rightVal">30</span>px</label>
+          <input type="range" id="sliceRight" min="0" max="200" value="30">
+        </div>
+        <div class="slice-control">
+          <label>下 (Bottom): <span class="value-display" id="bottomVal">30</span>px</label>
+          <input type="range" id="sliceBottom" min="0" max="200" value="30">
+        </div>
+        <div class="slice-control">
+          <label>左 (Left): <span class="value-display" id="leftVal">30</span>px</label>
+          <input type="range" id="sliceLeft" min="0" max="200" value="30">
+        </div>
+      </div>
+      
+      <!-- 3. 边框宽度 -->
+      <div class="section">
+        <h3>📏 边框渲染宽度</h3>
+        <div class="slice-control">
+          <label>宽度: <span class="value-display" id="widthVal">20</span>px</label>
+          <input type="range" id="borderWidth" min="5" max="80" value="20">
+        </div>
+      </div>
+      
+      <!-- 4. 基础样式调整 -->
+      <div class="section">
+        <h3>⚙️ 基础样式</h3>
+        
+        <div class="slice-control">
+          <label>内边距: <span class="value-display" id="paddingVal">12</span>px</label>
+          <input type="range" id="padding" min="0" max="40" value="12">
+        </div>
+        
+        <div class="slice-control">
+          <label>最大宽度: <span class="value-display" id="maxWidthVal">70</span>%</label>
+          <input type="range" id="maxWidth" min="30" max="100" value="70">
+        </div>
+        
+        <div class="slice-control">
+          <label>最小宽度: <span class="value-display" id="minWidthVal">0</span>px</label>
+          <input type="range" id="minWidth" min="0" max="200" value="0">
+        </div>
+        
+        <div class="slice-control">
+          <label>宽度模式:</label>
+          <select id="widthMode" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+            <option value="auto" selected>自动 (推荐)</option>
+            <option value="fixed-min">固定最小宽度</option>
+          </select>
+        </div>
+        
+        <div class="slice-control">
+          <label>圆角: <span class="value-display" id="radiusVal">0</span>px</label>
+          <input type="range" id="borderRadius" min="0" max="30" value="0">
+        </div>
+        
+        <div class="slice-control">
+          <label>拉伸模式:</label>
+          <select id="repeatMode" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+            <option value="stretch">拉伸 (stretch)</option>
+            <option value="repeat">重复 (repeat)</option>
+            <option value="round">圆角重复 (round)</option>
+            <option value="space">间隔 (space)</option>
+          </select>
+        </div>
+        
+        <div class="slice-control">
+          <label>文字对齐:</label>
+          <select id="textAlign" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+            <option value="left">左对齐</option>
+            <option value="center">居中</option>
+            <option value="right">右对齐</option>
+          </select>
+        </div>
+        
+        <div class="slice-control">
+          <label>行高: <span class="value-display" id="lineHeightVal">1.5</span></label>
+          <input type="range" id="lineHeight" min="1" max="2.5" step="0.1" value="1.5">
+        </div>
+        
+        <div class="slice-control">
+          <label>字体大小: <span class="value-display" id="fontSizeVal">14</span>px</label>
+          <input type="range" id="fontSize" min="10" max="20" value="14">
+        </div>
+        
+        <div class="slice-control">
+          <label>垂直对齐:</label>
+          <select id="verticalAlign" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+            <option value="baseline">基线对齐 (baseline)</option>
+            <option value="top">顶部对齐 (top)</option>
+            <option value="middle">中间对齐 (middle)</option>
+            <option value="bottom">底部对齐 (bottom)</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- 4. 伪元素贴纸 -->
+      <div class="section">
+        <h3>🎭 伪元素装饰（贴纸）</h3>
+        <div class="tabs">
+          <div class="tab active" onclick="switchSticker('before')">::before</div>
+          <div class="tab" onclick="switchSticker('after')">::after</div>
+        </div>
+        
+        <div id="stickerBefore" class="sticker-control">
+          <label style="margin-bottom:8px; display:block;">贴纸图片:</label>
+          <div class="upload-area" onclick="document.getElementById('beforeUpload').click()" style="padding:20px; margin-bottom:12px;">
+            <input type="file" id="beforeUpload" accept="image/*" style="display:none;">
+            <div id="beforePreview" style="font-size:12px; color:#666;">点击上传贴纸图片</div>
+          </div>
+          
+          <div class="control-row">
+            <div>
+              <label>宽度 (width)</label>
+              <input type="number" id="beforeWidth" value="60" min="10" max="300">
+            </div>
+            <div>
+              <label>高度 (height)</label>
+              <input type="number" id="beforeHeight" value="40" min="10" max="300">
+            </div>
+          </div>
+          
+          <div class="slice-control">
+            <label>上偏移 (top): <span class="value-display" id="beforeTopVal">-30</span>px</label>
+            <input type="range" id="beforeTop" min="-200" max="200" value="-30">
+          </div>
+          
+          <div class="slice-control">
+            <label>定位方式:</label>
+            <select id="beforePosition" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+              <option value="left">从左边缘定位</option>
+              <option value="right" selected>从右边缘定位</option>
+            </select>
+          </div>
+          
+          <div class="slice-control">
+            <label>距离边缘: <span class="value-display" id="beforeOffsetVal">20</span>px</label>
+            <input type="range" id="beforeOffset" min="-50" max="200" value="20">
+          </div>
+          
+          <div class="slice-control">
+            <label>水平微调: <span class="value-display" id="beforeXVal">0</span>px</label>
+            <input type="range" id="beforeX" min="-100" max="100" value="0">
+          </div>
+          
+          <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px;">
+            <input type="checkbox" id="beforeEnable" checked>
+            启用 ::before 贴纸
+          </label>
+        </div>
+        
+        <div id="stickerAfter" class="sticker-control" style="display:none;">
+          <label style="margin-bottom:8px; display:block;">贴纸图片:</label>
+          <div class="upload-area" onclick="document.getElementById('afterUpload').click()" style="padding:20px; margin-bottom:12px;">
+            <input type="file" id="afterUpload" accept="image/*" style="display:none;">
+            <div id="afterPreview" style="font-size:12px; color:#666;">点击上传贴纸图片</div>
+          </div>
+          
+          <div class="control-row">
+            <div>
+              <label>宽度 (width)</label>
+              <input type="number" id="afterWidth" value="40" min="10" max="300">
+            </div>
+            <div>
+              <label>高度 (height)</label>
+              <input type="number" id="afterHeight" value="40" min="10" max="300">
+            </div>
+          </div>
+          
+          <div class="slice-control">
+            <label>上偏移 (top): <span class="value-display" id="afterTopVal">10</span>px</label>
+            <input type="range" id="afterTop" min="-200" max="200" value="10">
+          </div>
+          
+          <div class="slice-control">
+            <label>定位方式:</label>
+            <select id="afterPosition" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+              <option value="left" selected>从左边缘定位</option>
+              <option value="right">从右边缘定位</option>
+            </select>
+          </div>
+          
+          <div class="slice-control">
+            <label>距离边缘: <span class="value-display" id="afterOffsetVal">20</span>px</label>
+            <input type="range" id="afterOffset" min="-50" max="200" value="20">
+          </div>
+          
+          <div class="slice-control">
+            <label>水平微调: <span class="value-display" id="afterXVal">0</span>px</label>
+            <input type="range" id="afterX" min="-100" max="100" value="0">
+          </div>
+          
+          <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px;">
+            <input type="checkbox" id="afterEnable">
+            启用 ::after 贴纸
+          </label>
+        </div>
+      </div>
+      
+      <!-- 生成按钮 -->
+      <button class="btn btn-primary" onclick="generateCSS()">生成 CSS 代码</button>
+    </div>
+    
+    <!-- 右侧预览和代码 -->
+    <div>
+      <!-- 切片预览 -->
+      <div class="panel" style="margin-bottom:20px;">
+        <h2>👁️ 切片预览</h2>
+        <div class="slice-preview" id="slicePreview">
+          <div style="text-align:center; color:#999; padding:60px 0;">请先上传图片</div>
+        </div>
+      </div>
+      
+      <!-- 气泡预览 -->
+      <div class="panel" style="margin-bottom:20px;">
+        <h2>💬 气泡效果预览</h2>
+        <div class="bubble-preview">
+          <!-- 完全匹配实际项目结构 -->
+          <div class="message-container sent" style="display:flex; align-items:flex-start; gap:8px; margin:8px 0; flex-direction:row-reverse;">
+            <div class="message-bubble" id="bubbleSent" style="display:inline-block;">
+              <div class="leading-relaxed" style="line-height:1.5;">短消息测试</div>
+            </div>
+          </div>
+          
+          <div class="message-container received" style="display:flex; align-items:flex-start; gap:8px; margin:8px 0; flex-direction:row;">
+            <div class="message-bubble" id="bubbleReceived" style="display:inline-block;">
+              <div class="leading-relaxed" style="line-height:1.5;">这是一条比较长的消息，用来测试气泡的换行效果和九宫格拉伸是否正常显示。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CSS 代码输出 -->
+      <div class="panel">
+        <h2>📋 CSS 代码</h2>
+        <div class="code-output" id="cssOutput">// 点击"生成 CSS 代码"按钮</div>
+        <button class="btn copy-btn" onclick="copyCSS()">📋 复制 CSS</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let imageData = {
+      url: '',
+      width: 0,
+      height: 0
+    };
+    
+    let sliceData = {
+      top: 30,
+      right: 30,
+      bottom: 30,
+      left: 30,
+      borderWidth: 20,
+      padding: 12,
+      maxWidth: 70,
+      minWidth: 0,
+      widthMode: 'auto',
+      borderRadius: 0,
+      repeatMode: 'stretch',
+      textAlign: 'left',
+      lineHeight: 1.5,
+      fontSize: 14,
+      verticalAlign: 'baseline'
+    };
+    
+    let stickerData = {
+      before: {
+        enabled: true,
+        url: '',
+        width: 60,
+        height: 40,
+        top: -30,
+        position: 'right',  // 定位方式：left 或 right
+        offset: 20,  // 距离边缘的像素距离
+        x: 0  // 额外的水平微调
+      },
+      after: {
+        enabled: false,
+        url: '',
+        width: 40,
+        height: 40,
+        top: 10,
+        position: 'left',  // 定位方式
+        offset: 20,  // 距离边缘的像素距离
+        x: 0  // 额外的水平微调
+      }
+    };
+    
+    // 上传图片
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            imageData.url = event.target.result;
+            imageData.width = img.width;
+            imageData.height = img.height;
+            
+            document.getElementById('imageInfo').innerHTML = 
+              `✅ 已上传: ${img.width}×${img.height}px`;
+            
+            updateSlicePreview();
+            applyPreview(); // 自动应用预览
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // 切片滑块事件
+    ['Top', 'Right', 'Bottom', 'Left'].forEach(dir => {
+      const slider = document.getElementById('slice' + dir);
+      const display = document.getElementById(dir.toLowerCase() + 'Val');
+      slider.addEventListener('input', function() {
+        sliceData[dir.toLowerCase()] = parseInt(this.value);
+        display.textContent = this.value;
+        updateSlicePreview();
+        applyPreview(); // 实时更新预览
+      });
+    });
+    
+    // 边框宽度滑块
+    document.getElementById('borderWidth').addEventListener('input', function() {
+      sliceData.borderWidth = parseInt(this.value);
+      document.getElementById('widthVal').textContent = this.value;
+      applyPreview(); // 实时更新预览
+    });
+    
+    // 内边距滑块
+    document.getElementById('padding').addEventListener('input', function() {
+      sliceData.padding = parseInt(this.value);
+      document.getElementById('paddingVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 最大宽度滑块
+    document.getElementById('maxWidth').addEventListener('input', function() {
+      sliceData.maxWidth = parseInt(this.value);
+      document.getElementById('maxWidthVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 最小宽度滑块
+    document.getElementById('minWidth').addEventListener('input', function() {
+      sliceData.minWidth = parseInt(this.value);
+      document.getElementById('minWidthVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 宽度模式选择
+    document.getElementById('widthMode').addEventListener('change', function() {
+      sliceData.widthMode = this.value;
+      applyPreview();
+    });
+    
+    // 圆角滑块
+    document.getElementById('borderRadius').addEventListener('input', function() {
+      sliceData.borderRadius = parseInt(this.value);
+      document.getElementById('radiusVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 拉伸模式选择
+    document.getElementById('repeatMode').addEventListener('change', function() {
+      sliceData.repeatMode = this.value;
+      applyPreview();
+    });
+    
+    // 文字对齐选择
+    document.getElementById('textAlign').addEventListener('change', function() {
+      sliceData.textAlign = this.value;
+      applyPreview();
+    });
+    
+    // 行高滑块
+    document.getElementById('lineHeight').addEventListener('input', function() {
+      sliceData.lineHeight = parseFloat(this.value);
+      document.getElementById('lineHeightVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 字体大小滑块
+    document.getElementById('fontSize').addEventListener('input', function() {
+      sliceData.fontSize = parseInt(this.value);
+      document.getElementById('fontSizeVal').textContent = this.value;
+      applyPreview();
+    });
+    
+    // 垂直对齐选择
+    document.getElementById('verticalAlign').addEventListener('change', function() {
+      sliceData.verticalAlign = this.value;
+      applyPreview();
+    });
+    
+    // 贴纸图片上传
+    document.getElementById('beforeUpload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          stickerData.before.url = event.target.result;
+          document.getElementById('beforePreview').innerHTML = `✅ 已上传: ${file.name}`;
+          applyPreview();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    document.getElementById('afterUpload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          stickerData.after.url = event.target.result;
+          document.getElementById('afterPreview').innerHTML = `✅ 已上传: ${file.name}`;
+          applyPreview();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // 贴纸输入事件
+    ['before', 'after'].forEach(type => {
+      ['Width', 'Height', 'Top'].forEach(prop => {
+        const id = type + prop;
+        const elem = document.getElementById(id);
+        if (elem) {
+          elem.addEventListener('input', function() {
+            const key = prop.toLowerCase();
+            stickerData[type][key] = parseInt(this.value);
+            applyPreview(); // 实时更新预览
+          });
+        }
+      });
+      
+      // 特殊处理
+      if (type === 'before') {
+        document.getElementById('beforeTop').addEventListener('input', function() {
+          stickerData.before.top = parseInt(this.value);
+          document.getElementById('beforeTopVal').textContent = this.value;
+          applyPreview();
+        });
+        document.getElementById('beforePosition').addEventListener('change', function() {
+          stickerData.before.position = this.value;
+          applyPreview();
+        });
+        document.getElementById('beforeOffset').addEventListener('input', function() {
+          stickerData.before.offset = parseInt(this.value);
+          document.getElementById('beforeOffsetVal').textContent = this.value;
+          applyPreview();
+        });
+        document.getElementById('beforeX').addEventListener('input', function() {
+          stickerData.before.x = parseInt(this.value);
+          document.getElementById('beforeXVal').textContent = this.value;
+          applyPreview();
+        });
+      } else {
+        document.getElementById('afterTop').addEventListener('input', function() {
+          stickerData.after.top = parseInt(this.value);
+          document.getElementById('afterTopVal').textContent = this.value;
+          applyPreview();
+        });
+        document.getElementById('afterPosition').addEventListener('change', function() {
+          stickerData.after.position = this.value;
+          applyPreview();
+        });
+        document.getElementById('afterOffset').addEventListener('input', function() {
+          stickerData.after.offset = parseInt(this.value);
+          document.getElementById('afterOffsetVal').textContent = this.value;
+          applyPreview();
+        });
+        document.getElementById('afterX').addEventListener('input', function() {
+          stickerData.after.x = parseInt(this.value);
+          document.getElementById('afterXVal').textContent = this.value;
+          applyPreview();
+        });
+      }
+      
+      // 启用checkbox
+      document.getElementById(type + 'Enable').addEventListener('change', function() {
+        stickerData[type].enabled = this.checked;
+        applyPreview(); // 实时更新预览
+      });
+    });
+    
+    // 切换贴纸标签
+    function switchSticker(type) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      document.getElementById('stickerBefore').style.display = type === 'before' ? 'block' : 'none';
+      document.getElementById('stickerAfter').style.display = type === 'after' ? 'block' : 'none';
+    }
+    
+    // 更新切片预览
+    function updateSlicePreview() {
+      if (!imageData.url) return;
+      
+      const preview = document.getElementById('slicePreview');
+      preview.innerHTML = `
+        <img src="${imageData.url}" style="max-width:100%; display:block;">
+        <svg class="slice-lines" viewBox="0 0 ${imageData.width} ${imageData.height}" xmlns="http://www.w3.org/2000/svg">
+          <!-- 横线 -->
+          <line x1="0" y1="${sliceData.top}" x2="${imageData.width}" y2="${sliceData.top}" stroke="#FF3B30" stroke-width="2" stroke-dasharray="5,5"/>
+          <line x1="0" y1="${imageData.height - sliceData.bottom}" x2="${imageData.width}" y2="${imageData.height - sliceData.bottom}" stroke="#FF3B30" stroke-width="2" stroke-dasharray="5,5"/>
+          
+          <!-- 竖线 -->
+          <line x1="${sliceData.left}" y1="0" x2="${sliceData.left}" y2="${imageData.height}" stroke="#FF3B30" stroke-width="2" stroke-dasharray="5,5"/>
+          <line x1="${imageData.width - sliceData.right}" y1="0" x2="${imageData.width - sliceData.right}" y2="${imageData.height}" stroke="#FF3B30" stroke-width="2" stroke-dasharray="5,5"/>
+          
+          <!-- 标注 -->
+          <text x="${sliceData.left / 2}" y="20" fill="#FF3B30" font-size="14" font-weight="bold">↔ ${sliceData.left}px</text>
+          <text x="10" y="${sliceData.top / 2 + 10}" fill="#FF3B30" font-size="14" font-weight="bold">↕ ${sliceData.top}px</text>
+        </svg>
+      `;
+    }
+    
+    // 生成CSS
+    function generateCSS() {
+      if (!imageData.url) {
+        alert('请先上传图片！');
+        return;
+      }
+      
+      let css = `/* 用户发送的消息（右侧） */\n`;
+      css += `.message-container.sent .message-bubble {\n`;
+      css += `  /* 九宫格切片 */\n`;
+      css += `  border-image-source: url('${imageData.url}') !important;\n`;
+      css += `  border-image-slice: ${sliceData.top} ${sliceData.right} ${sliceData.bottom} ${sliceData.left} fill !important;\n`;
+      css += `  border-image-width: ${sliceData.borderWidth}px !important;\n`;
+      css += `  border-image-repeat: ${sliceData.repeatMode} !important;\n`;
+      css += `  border-style: solid !important;\n`;
+      css += `  border-color: transparent !important;\n`;
+      css += `  border-width: 0 !important;\n`;
+      css += `  \n`;
+      css += `  /* 基础样式 */\n`;
+      css += `  padding: ${sliceData.padding}px !important;\n`;
+      css += `  max-width: ${sliceData.maxWidth}% !important;\n`;
+      if (sliceData.widthMode === 'fixed-min' && sliceData.minWidth > 0) {
+        css += `  min-width: ${sliceData.minWidth}px !important;\n`;
+      }
+      css += `  border-radius: ${sliceData.borderRadius}px !important;\n`;
+      css += `  display: inline-block !important;\n`;
+      css += `  box-sizing: border-box !important;\n`;
+      css += `  word-wrap: break-word !important;\n`;
+      css += `  word-break: break-word !important;\n`;
+      css += `  white-space: pre-wrap !important;\n`;
+      css += `  position: relative !important;\n`;
+      css += `  background: transparent !important;\n`;
+      css += `  text-align: ${sliceData.textAlign} !important;\n`;
+      css += `  line-height: ${sliceData.lineHeight} !important;\n`;
+      css += `  font-size: ${sliceData.fontSize}px !important;\n`;
+      css += `  vertical-align: ${sliceData.verticalAlign} !important;\n`;
+      css += `}\n\n`;
+      
+      css += `/* AI接收的消息（左侧） */\n`;
+      css += `.message-container.received .message-bubble {\n`;
+      css += `  border-image-source: url('${imageData.url}') !important;\n`;
+      css += `  border-image-slice: ${sliceData.top} ${sliceData.right} ${sliceData.bottom} ${sliceData.left} fill !important;\n`;
+      css += `  border-image-width: ${sliceData.borderWidth}px !important;\n`;
+      css += `  border-image-repeat: ${sliceData.repeatMode} !important;\n`;
+      css += `  border-style: solid !important;\n`;
+      css += `  border-color: transparent !important;\n`;
+      css += `  border-width: 0 !important;\n`;
+      css += `  padding: ${sliceData.padding}px !important;\n`;
+      css += `  max-width: ${sliceData.maxWidth}% !important;\n`;
+      if (sliceData.widthMode === 'fixed-min' && sliceData.minWidth > 0) {
+        css += `  min-width: ${sliceData.minWidth}px !important;\n`;
+      }
+      css += `  border-radius: ${sliceData.borderRadius}px !important;\n`;
+      css += `  display: inline-block !important;\n`;
+      css += `  box-sizing: border-box !important;\n`;
+      css += `  word-wrap: break-word !important;\n`;
+      css += `  word-break: break-word !important;\n`;
+      css += `  white-space: pre-wrap !important;\n`;
+      css += `  position: relative !important;\n`;
+      css += `  background: transparent !important;\n`;
+      css += `  text-align: ${sliceData.textAlign} !important;\n`;
+      css += `  line-height: ${sliceData.lineHeight} !important;\n`;
+      css += `  font-size: ${sliceData.fontSize}px !important;\n`;
+      css += `  vertical-align: ${sliceData.verticalAlign} !important;\n`;
+      css += `}\n`;
+      
+      // ::before 贴纸（用户消息）
+      if (stickerData.before.enabled && stickerData.before.url) {
+        css += `\n/* 用户消息贴纸装饰 */\n`;
+        css += `.message-container.sent .message-bubble::before {\n`;
+        css += `  content: '';\n`;
+        css += `  position: absolute;\n`;
+        css += `  top: ${stickerData.before.top}px;\n`;
+        // 根据定位方式生成left或right
+        if (stickerData.before.position === 'left') {
+          const totalOffset = stickerData.before.offset + stickerData.before.x;
+          css += `  left: ${totalOffset}px;\n`;
+        } else {
+          const totalOffset = stickerData.before.offset + stickerData.before.x;
+          css += `  right: ${totalOffset}px;\n`;
+        }
+        css += `  width: ${stickerData.before.width}px;\n`;
+        css += `  height: ${stickerData.before.height}px;\n`;
+        css += `  background-image: url('${stickerData.before.url}');\n`;
+        css += `  background-size: contain;\n`;
+        css += `  background-repeat: no-repeat;\n`;
+        css += `  pointer-events: none;\n`;
+        css += `  z-index: 1;\n`;
+        css += `}\n`;
+      }
+      
+      // ::after 贴纸（AI消息）
+      if (stickerData.after.enabled && stickerData.after.url) {
+        css += `\n/* AI消息贴纸装饰 */\n`;
+        css += `.message-container.received .message-bubble::after {\n`;
+        css += `  content: '';\n`;
+        css += `  position: absolute;\n`;
+        css += `  top: ${stickerData.after.top}px;\n`;
+        // 根据定位方式生成left或right
+        if (stickerData.after.position === 'left') {
+          const totalOffset = stickerData.after.offset + stickerData.after.x;
+          css += `  left: ${totalOffset}px;\n`;
+        } else {
+          const totalOffset = stickerData.after.offset + stickerData.after.x;
+          css += `  right: ${totalOffset}px;\n`;
+        }
+        css += `  width: ${stickerData.after.width}px;\n`;
+        css += `  height: ${stickerData.after.height}px;\n`;
+        css += `  background-image: url('${stickerData.after.url}');\n`;
+        css += `  background-size: contain;\n`;
+        css += `  background-repeat: no-repeat;\n`;
+        css += `  pointer-events: none;\n`;
+        css += `  z-index: 1;\n`;
+        css += `}\n`;
+      }
+      
+      document.getElementById('cssOutput').textContent = css;
+    }
+    
+    // 应用到预览
+    function applyPreview() {
+      if (!imageData.url) {
+        return; // 没有图片时静默返回
+      }
+      
+      const bubbles = [
+        document.getElementById('bubbleSent'),
+        document.getElementById('bubbleReceived')
+      ];
+      
+      bubbles.forEach(bubble => {
+        bubble.style.borderImageSource = `url(${imageData.url})`;
+        bubble.style.borderImageSlice = `${sliceData.top} ${sliceData.right} ${sliceData.bottom} ${sliceData.left} fill`;
+        bubble.style.borderImageWidth = `${sliceData.borderWidth}px`;
+        bubble.style.borderImageRepeat = sliceData.repeatMode;
+        bubble.style.borderStyle = 'solid';
+        bubble.style.borderColor = 'transparent';
+        bubble.style.borderWidth = '0';
+        bubble.style.background = 'transparent';
+        bubble.style.color = '#000';
+        bubble.style.position = 'relative';
+        bubble.style.padding = `${sliceData.padding}px`;
+        bubble.style.maxWidth = `${sliceData.maxWidth}%`;
+        if (sliceData.widthMode === 'fixed-min' && sliceData.minWidth > 0) {
+          bubble.style.minWidth = `${sliceData.minWidth}px`;
+        } else {
+          bubble.style.minWidth = '0';
+        }
+        bubble.style.borderRadius = `${sliceData.borderRadius}px`;
+        bubble.style.textAlign = sliceData.textAlign;
+        bubble.style.lineHeight = sliceData.lineHeight;
+        bubble.style.fontSize = `${sliceData.fontSize}px`;
+        bubble.style.verticalAlign = sliceData.verticalAlign;
+        
+        // 清除旧的伪元素样式
+        bubble.style.setProperty('--before-display', 'none');
+        bubble.style.setProperty('--after-display', 'none');
+        
+        // 应用 ::before
+        if (stickerData.before.enabled && stickerData.before.url) {
+          const style = document.createElement('style');
+          style.id = 'before-style';
+          document.head.querySelector('#before-style')?.remove();
+          const totalOffset = stickerData.before.offset + stickerData.before.x;
+          const positionProp = stickerData.before.position === 'left' ? 'left' : 'right';
+          style.innerHTML = `.message-bubble::before {
+            content: '';
+            position: absolute;
+            top: ${stickerData.before.top}px;
+            ${positionProp}: ${totalOffset}px;
+            width: ${stickerData.before.width}px;
+            height: ${stickerData.before.height}px;
+            background-image: url('${stickerData.before.url}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            pointer-events: none;
+            z-index: 1;
+          }`;
+          document.head.appendChild(style);
+        }
+        
+        // 应用 ::after
+        if (stickerData.after.enabled && stickerData.after.url) {
+          const style = document.createElement('style');
+          style.id = 'after-style';
+          document.head.querySelector('#after-style')?.remove();
+          const totalOffset = stickerData.after.offset + stickerData.after.x;
+          const positionProp = stickerData.after.position === 'left' ? 'left' : 'right';
+          style.innerHTML = `.message-bubble::after {
+            content: '';
+            position: absolute;
+            top: ${stickerData.after.top}px;
+            ${positionProp}: ${totalOffset}px;
+            width: ${stickerData.after.width}px;
+            height: ${stickerData.after.height}px;
+            background-image: url('${stickerData.after.url}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            pointer-events: none;
+            z-index: 1;
+          }`;
+          document.head.appendChild(style);
+        }
+      });
+    }
+    
+    // 复制CSS
+    function copyCSS() {
+      const css = document.getElementById('cssOutput').textContent;
+      navigator.clipboard.writeText(css).then(() => {
+        alert('✅ CSS已复制到剪贴板！');
+      });
+    }
+  </script>
+</body>
+</html>

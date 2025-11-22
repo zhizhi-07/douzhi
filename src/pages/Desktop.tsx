@@ -105,7 +105,29 @@ const Desktop = () => {
   const [gridPhoto, setGridPhoto] = useState(() => {
     return localStorage.getItem('desktop_grid_photo') || ''
   })
+  const [bubble1BgImage, setBubble1BgImage] = useState('')
+  const [bubble2BgImage, setBubble2BgImage] = useState('')
 
+  // 加载气泡背景
+  useEffect(() => {
+    const loadBubbleBackgrounds = async () => {
+      const bg1 = await getImage('desktop_bubble1_bg')
+      const bg2 = await getImage('desktop_bubble2_bg')
+      if (bg1) setBubble1BgImage(bg1)
+      if (bg2) setBubble2BgImage(bg2)
+    }
+    loadBubbleBackgrounds()
+    
+    const handleBubbleBgUpdate = async () => {
+      const bg1 = await getImage('desktop_bubble1_bg')
+      const bg2 = await getImage('desktop_bubble2_bg')
+      setBubble1BgImage(bg1 || '')
+      setBubble2BgImage(bg2 || '')
+    }
+    window.addEventListener('bubbleBackgroundUpdate', handleBubbleBgUpdate)
+    return () => window.removeEventListener('bubbleBackgroundUpdate', handleBubbleBgUpdate)
+  }, [])
+  
   // 更新时间
   useEffect(() => {
     const timer = setInterval(() => {
@@ -500,13 +522,17 @@ const Desktop = () => {
 
               {/* 气泡1 - 右上，与头像同行 */}
               <div 
-                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden shadow-md"
+                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden"
                 style={{
                   top: '8%',
                   left: '42%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  backgroundColor: bubble1BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                  backgroundImage: bubble1BgImage ? `url(${bubble1BgImage})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                   height: '38px',
-                  width: '170px'
+                  width: '170px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
                 }}
                 onClick={() => {
                   setIsEditingBubble1(true)
@@ -524,6 +550,8 @@ const Desktop = () => {
                     }}
                     className="w-full h-full bg-transparent text-gray-900 text-xs leading-relaxed resize-none outline-none placeholder-gray-500"
                     placeholder="写点什么..."
+                    rows={1}
+                    style={{ overflow: 'hidden' }}
                   />
                 ) : (
                   <div className="text-gray-900 text-xs leading-relaxed whitespace-pre-wrap overflow-hidden">
@@ -534,13 +562,17 @@ const Desktop = () => {
 
               {/* 气泡2 - 错位到下方 */}
               <div 
-                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden shadow-md"
+                className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden"
                 style={{
                   top: '16%',
                   left: '24%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  backgroundColor: bubble2BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                  backgroundImage: bubble2BgImage ? `url(${bubble2BgImage})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                   height: '38px',
-                  width: '180px'
+                  width: '180px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
                 }}
                 onClick={() => {
                   setIsEditingBubble2(true)
@@ -558,6 +590,8 @@ const Desktop = () => {
                     }}
                     className="w-full h-full bg-transparent text-gray-900 text-xs leading-relaxed resize-none outline-none placeholder-gray-500"
                     placeholder="写点什么..."
+                    rows={1}
+                    style={{ overflow: 'hidden' }}
                   />
                 ) : (
                   <div className="text-gray-900 text-xs leading-relaxed whitespace-pre-wrap overflow-hidden">

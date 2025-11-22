@@ -1,0 +1,109 @@
+<!-- 小红书模板 - 丰富版本 -->
+<div style="max-width:375px;margin:0 auto;background:#fff;font-family:-apple-system,sans-serif;box-shadow:0 2px 16px rgba(0,0,0,0.08)">
+  <!-- 作者信息 -->
+  <div style="padding:14px 16px;border-bottom:0.5px solid #f0f0f0">
+    <div style="display:flex;gap:12px">
+      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ff2442,#ff6b6b);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:700">{{AUTHOR_INITIAL}}</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:#000;margin-bottom:2px">{{AUTHOR}}</div>
+        <div style="font-size:12px;color:#8e8e93;line-height:1.4;margin-bottom:4px">{{AUTHOR_BIO}}</div>
+        <div style="font-size:12px;color:#8e8e93">粉丝 <b style="color:#000">{{FANS_COUNT}}</b></div>
+      </div>
+      <div id="followBtn" onclick="var b=this;b.innerHTML=b.innerHTML==='+ 关注'?'✓ 已关注':'+ 关注';b.style.background=b.innerHTML==='+ 关注'?'#ff2442':'#f5f5f5';b.style.color=b.innerHTML==='+ 关注'?'#fff':'#8e8e93'" style="padding:6px 16px;background:#ff2442;border-radius:18px;font-size:13px;color:#fff;font-weight:600;cursor:pointer">+ 关注</div>
+    </div>
+  </div>
+  
+  <!-- 正文 -->
+  <div style="padding:14px 16px">
+    <div style="font-size:17px;font-weight:700;color:#000;margin-bottom:10px">{{TITLE}}</div>
+    <div id="txt" style="font-size:14px;color:#333;line-height:1.7;max-height:180px;overflow:hidden;position:relative">
+      <div style="white-space:pre-wrap">{{CONTENT}}</div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(to bottom,transparent,#fff)"></div>
+    </div>
+    <div onclick="var t=document.getElementById('txt');var b=this;if(t.style.maxHeight==='180px'){t.style.maxHeight='none';t.lastElementChild.style.display='none';b.innerHTML='收起 ▲'}else{t.style.maxHeight='180px';t.lastElementChild.style.display='block';b.innerHTML='展开全文 ▼'}" style="color:#ff2442;font-size:13px;font-weight:600;margin-top:8px;cursor:pointer">展开全文 ▼</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG1}}</span>
+      <span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG2}}</span>
+      <span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG3}}</span>
+    </div>
+  </div>
+  
+  <!-- 统计 -->
+  <div style="padding:10px 16px;display:flex;justify-content:space-between;border-top:0.5px solid #f0f0f0;background:#fafafa">
+    <div style="font-size:12px;color:#8e8e93"><b style="color:#000">{{VIEWS}}</b> 浏览</div>
+    <div style="font-size:12px;color:#8e8e93">{{TIME}}</div>
+  </div>
+  
+  <!-- 互动按钮 -->
+  <div style="padding:12px 16px;display:flex;border-bottom:0.5px solid #f0f0f0">
+    <div id="like" onclick="var i=this.firstElementChild;var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(i.innerHTML==='♡'){i.innerHTML='♥';i.style.color='#ff2442';c.innerHTML=n+1}else{i.innerHTML='♡';i.style.color='#8e8e93';c.innerHTML=n}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+      <div style="font-size:22px;color:#8e8e93">♡</div>
+      <div data-n="{{LIKES}}" style="font-size:14px;color:#8e8e93;font-weight:600">{{LIKES}}</div>
+    </div>
+    <div id="collect" onclick="var i=this.querySelector('path');var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(i.getAttribute('fill')==='#8e8e93'){i.setAttribute('fill','#ff9500');c.innerHTML=n+1}else{i.setAttribute('fill','#8e8e93');c.innerHTML=n}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+      <svg width="22" height="22"><path d="M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z" fill="#8e8e93"/></svg>
+      <div data-n="{{COLLECTS}}" style="font-size:14px;color:#8e8e93;font-weight:600">{{COLLECTS}}</div>
+    </div>
+    <div onclick="document.getElementById('cms').style.display=document.getElementById('cms').style.display==='block'?'none':'block'" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+      <svg width="22" height="22"><path d="M2 4C2 2.9 2.9 2 4 2H16C17.1 2 18 2.9 18 4V12C18 13.1 17.1 14 16 14H11L6 18V14H4C2.9 14 2 13.1 2 12V4Z" fill="#8e8e93"/></svg>
+      <div style="font-size:14px;color:#8e8e93;font-weight:600">{{COMMENTS_COUNT}}</div>
+    </div>
+    <div onclick="alert('✓ 分享成功')" style="flex:1;display:flex;justify-content:center;cursor:pointer">
+      <svg width="22" height="22"><path d="M13 3L17 10L13 17M3 10H16" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+    </div>
+  </div>
+  
+  <!-- 评论区 -->
+  <div id="cms" style="display:none;background:#fafafa">
+    <div style="padding:12px 16px 8px;font-size:14px;font-weight:700">评论 {{COMMENTS_COUNT}}</div>
+    <div style="max-height:320px;overflow-y:auto">
+      <div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0">
+        <div style="display:flex;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <b style="font-size:13px">{{COMMENT1_USER}}</b>
+              <div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer">
+                <div style="font-size:16px;color:#8e8e93">♡</div>
+                <div data-n="{{COMMENT1_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT1_LIKES}}</div>
+              </div>
+            </div>
+            <div style="font-size:14px;color:#333">{{COMMENT1_TEXT}}</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0">
+        <div style="display:flex;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f093fb,#f5576c);flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <b style="font-size:13px">{{COMMENT2_USER}}</b>
+              <div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer">
+                <div style="font-size:16px;color:#8e8e93">♡</div>
+                <div data-n="{{COMMENT2_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT2_LIKES}}</div>
+              </div>
+            </div>
+            <div style="font-size:14px;color:#333">{{COMMENT2_TEXT}}</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0">
+        <div style="display:flex;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4facfe,#00f2fe);flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <b style="font-size:13px">{{COMMENT3_USER}}</b>
+              <div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer">
+                <div style="font-size:16px;color:#8e8e93">♡</div>
+                <div data-n="{{COMMENT3_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT3_LIKES}}</div>
+              </div>
+            </div>
+            <div style="font-size:14px;color:#333">{{COMMENT3_TEXT}}</div>
+          </div>
+        </div>
+      </div>
+      <!-- 评论4-10省略，格式相同 -->
+      <div style="padding:12px 16px;text-align:center;color:#8e8e93;font-size:13px">还有更多评论...</div>
+    </div>
+  </div>
+</div>

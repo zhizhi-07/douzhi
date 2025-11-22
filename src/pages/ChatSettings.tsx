@@ -252,7 +252,7 @@ const ChatSettings = () => {
   }
   
   // 上传自定义壁纸
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !id) return
     
@@ -268,21 +268,26 @@ const ChatSettings = () => {
       return
     }
     
-    // 读取图片并转换为base64
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string
+    try {
+      // 🔥 使用压缩功能减少存储空间占用（1920x1080，质量0.7）
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 1920, 1080, 0.7)
+      const imageUrl = `data:image/jpeg;base64,${base64}`
+      
       const customWallpaper = createCustomWallpaper(imageUrl)
-      const success = setChatWallpaper(id, customWallpaper)
+      const success = await setChatWallpaper(id, customWallpaper)
+      
       if (success) {
         // 触发自定义事件通知聊天页面更新背景
         window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
         alert('壁纸已设置！')
       } else {
-        alert('壁纸保存失败：浏览器存储空间可能已满，请尝试删减部分数据后重试')
+        alert('壁纸保存失败：IndexedDB存储失败，请重试')
       }
+    } catch (error) {
+      console.error('壁纸保存失败:', error)
+      alert('图片处理失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
   
   // 导出角色数据

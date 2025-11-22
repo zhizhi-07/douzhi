@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { theatreTemplates, fillTemplate } from '../data/theatreTemplates'
 import StatusBar from '../components/StatusBar'
+import TheatreMessage from '../components/TheatreMessage'
+import { Message } from '../types/chat'
 
 export default function TheatreApp() {
   const navigate = useNavigate()
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
   
   // 每个模板的启用状态
   const [templateEnabled, setTemplateEnabled] = useState<Record<string, boolean>>(() => {
@@ -138,6 +142,25 @@ export default function TheatreApp() {
   
   // 合并内置模板和自定义模板
   const allTemplates = [...theatreTemplates, ...customTemplates]
+  
+  // 搜索过滤
+  const filteredTemplates = allTemplates.filter(template => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      template.name.toLowerCase().includes(query) ||
+      template.category?.toLowerCase().includes(query) ||
+      getTemplateKeywords(template.id).some(k => k.toLowerCase().includes(query))
+    )
+  })
+  
+  // 按分类分组
+  const templatesByCategory = filteredTemplates.reduce((acc, template) => {
+    const category = template.category || '其他'
+    if (!acc[category]) acc[category] = []
+    acc[category].push(template)
+    return acc
+  }, {} as Record<string, any[]>)
 
   // 获取模板示例HTML
   const getExampleHtml = (template: any) => {
@@ -250,26 +273,53 @@ export default function TheatreApp() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        <div className="max-w-2xl mx-auto space-y-4">
+      <div className="flex-1 overflow-auto p-4 bg-gray-50">
+        <div className="max-w-2xl mx-auto space-y-6">
           
-          {/* 说明卡片 */}
-          <div className="bg-white rounded-lg p-4 border border-gray-200">
-            <h2 className="text-sm font-medium text-black mb-2">功能说明</h2>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              为每个模板单独开启/关闭。启用后，AI在聊天中识别到关键词时，会自动生成对应的HTML小剧场。
-              你可以点击"编辑"按钮自定义每个模板的触发关键词（用、或,分隔）。
-            </p>
+          {/* 搜索框 */}
+          <div className="bg-white rounded-xl p-3 shadow-sm">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索模板、分类或关键词..."
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* 模板网格 */}
-          <div className="grid grid-cols-1 gap-4">
-            {allTemplates.map(template => {
-              const exampleHtml = getExampleHtml(template)
-              const isExpanded = selectedTemplate?.id === template.id
+          {/* 按分类展示模板 */}
+          {Object.entries(templatesByCategory).map(([category, templates]) => {
+            const templateList = templates as any[]
+            return (
+            <div key={category} className="space-y-3">
+              <div className="flex items-center gap-2 px-2">
+                <h2 className="text-sm font-medium text-gray-900">{category}</h2>
+                <span className="text-xs text-gray-400">({templateList.length})</span>
+              </div>
+              
+              <div className="space-y-2">
+                {templateList.map((template: any) => {
+                  const exampleHtml = getExampleHtml(template)
+                  const isExpanded = selectedTemplate?.id === template.id
+                  const fieldsExpanded = expandedFields[template.id]
               
               return (
-                <div key={template.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div key={template.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
                   {/* 模板头部 */}
                   <div className="px-4 py-3 flex items-center justify-between">
                     {/* 左侧：模板信息（可点击展开） */}
@@ -288,38 +338,38 @@ export default function TheatreApp() {
                               value={keywordsInput}
                               onChange={(e) => setKeywordsInput(e.target.value)}
                               placeholder="用、或,分隔关键词"
-                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-black"
+                              className="flex-1 px-3 py-1.5 text-xs bg-gray-50 rounded-lg focus:outline-none focus:bg-gray-100"
                             />
                             <button
                               onClick={() => handleSaveKeywords(template.id)}
-                              className="px-2 py-1 bg-black text-white text-xs rounded hover:bg-gray-800"
+                              className="px-3 py-1.5 bg-black text-white text-xs rounded-lg hover:bg-gray-800"
                             >
                               保存
                             </button>
                             <button
                               onClick={() => handleResetKeywords(template.id)}
-                              className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200"
+                              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg hover:bg-gray-200"
                             >
                               重置
                             </button>
                             <button
                               onClick={() => setEditingKeywords(null)}
-                              className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200"
+                              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg hover:bg-gray-200"
                             >
                               取消
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-1">
                             <p className="text-xs text-gray-500">
-                              关键词：{getTemplateKeywords(template.id).join('、')}
+                              {getTemplateKeywords(template.id).join(' · ')}
                             </p>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleEditKeywords(template.id)
                               }}
-                              className="text-xs text-gray-400 hover:text-black transition-colors"
+                              className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
                             >
                               编辑
                             </button>
@@ -367,32 +417,70 @@ export default function TheatreApp() {
 
                   {/* 展开的预览内容 */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-gray-200">
-                      <div className="mt-4">
-                        <h4 className="text-xs font-medium text-black mb-2">预览效果</h4>
-                        <div 
-                          className="bg-gray-50 p-4 rounded-lg border border-gray-200"
-                          dangerouslySetInnerHTML={{ __html: exampleHtml }}
-                        />
+                    <div className="px-4 pb-4 pt-3 bg-gray-50/50">
+                      <div className="mt-1">
+                        <h4 className="text-xs font-medium text-gray-700 mb-3">预览效果</h4>
+                        <div className="bg-gray-100 p-4 rounded-lg">
+                          <TheatreMessage 
+                            message={{
+                              id: Date.now(),
+                              type: 'received',
+                              sender: 'ai',
+                              content: '',
+                              time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                              timestamp: Date.now(),
+                              theatre: {
+                                templateId: template.id,
+                                templateName: template.name,
+                                htmlContent: exampleHtml,
+                                rawData: ''
+                              }
+                            } as Message}
+                          />
+                        </div>
                       </div>
                       
+                      {/* 字段区域：默认折叠 */}
                       <div className="mt-4">
-                        <h4 className="text-xs font-medium text-black mb-2">需要的字段</h4>
-                        <div className="space-y-1.5">
-                          {template.fields.map((field: any) => (
-                            <div key={field.key} className="flex items-center justify-between text-xs">
-                              <span className="text-gray-600">{field.label}</span>
-                              <span className="text-gray-400 font-mono">示例：{field.placeholder}</span>
-                            </div>
-                          ))}
-                        </div>
+                        <button
+                          onClick={() => setExpandedFields({
+                            ...expandedFields,
+                            [template.id]: !fieldsExpanded
+                          })}
+                          className="flex items-center justify-between w-full text-left hover:opacity-70"
+                        >
+                          <h4 className="text-xs font-medium text-black">需要的字段 ({template.fields.length})</h4>
+                          <svg
+                            className={`w-4 h-4 text-gray-400 transition-transform ${
+                              fieldsExpanded ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {fieldsExpanded && (
+                          <div className="space-y-1.5 mt-2">
+                            {template.fields.map((field: any) => (
+                              <div key={field.key} className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600">{field.label}</span>
+                                <span className="text-gray-400 font-mono">示例：{field.placeholder}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
               )
             })}
-          </div>
+              </div>
+            </div>
+            )
+          })}
 
         </div>
       </div>
@@ -406,43 +494,43 @@ export default function TheatreApp() {
               
               {/* 模板名称 */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-black mb-2">模板名称 *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模板名称 *</label>
                 <input
                   type="text"
                   value={uploadForm.name}
                   onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })}
                   placeholder="例如：购物清单"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+                  className="w-full px-4 py-2.5 bg-gray-50 rounded-lg focus:outline-none focus:bg-gray-100 text-sm"
                 />
               </div>
               
               {/* 关键词 */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-black mb-2">触发关键词 *（用、或,分隔）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">触发关键词 *（用、或,分隔）</label>
                 <input
                   type="text"
                   value={uploadForm.keywords}
                   onChange={(e) => setUploadForm({ ...uploadForm, keywords: e.target.value })}
                   placeholder="例如：购物、清单、买东西"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+                  className="w-full px-4 py-2.5 bg-gray-50 rounded-lg focus:outline-none focus:bg-gray-100 text-sm"
                 />
               </div>
               
               {/* 字段定义 */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-black mb-2">需要的字段（每行一个，格式：字段名:示例值）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">需要的字段（每行一个，格式：字段名:示例值）</label>
                 <textarea
                   value={uploadForm.fields}
                   onChange={(e) => setUploadForm({ ...uploadForm, fields: e.target.value })}
                   placeholder="商品1:苹果\n商品2:香蕉\n商品3:牛奶"
                   rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm font-mono resize-none"
+                  className="w-full px-4 py-2.5 bg-gray-50 rounded-lg focus:outline-none focus:bg-gray-100 text-sm font-mono resize-none"
                 />
               </div>
               
               {/* HTML模板 */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-black mb-2">HTML模板代码 *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">HTML模板代码 *</label>
                 <p className="text-xs text-gray-500 mb-2">使用 {'{{'} {'{'} 字段名 {'}'} {'}'} 作为占位符，例如：{'{{'} {'{'} ITEM1 {'}'} {'}'}</p>
                 <textarea
                   value={uploadForm.htmlTemplate}
@@ -452,7 +540,7 @@ export default function TheatreApp() {
   <p>{{ITEM2}}</p>
 </div>`}
                   rows={10}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-xs font-mono resize-none"
+                  className="w-full px-4 py-2.5 bg-gray-50 rounded-lg focus:outline-none focus:bg-gray-100 text-xs font-mono resize-none"
                 />
               </div>
               

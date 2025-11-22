@@ -20,6 +20,8 @@ const BackgroundCustomizer = () => {
   const [musicBg, setMusicBg] = useState('')
   const [wechatBg, setWechatBg] = useState('')
   const [memoBg, setMemoBg] = useState('')
+  const [bubble1Bg, setBubble1Bg] = useState('')
+  const [bubble2Bg, setBubble2Bg] = useState('')
   
   // 加载背景
   useEffect(() => {
@@ -32,11 +34,15 @@ const BackgroundCustomizer = () => {
       const savedMusicBg = await getImage('music_bg')
       const savedWechatBg = await getImage('wechat_bg')
       const memo = await getBackground('memo')
+      const bubble1 = await getImage('desktop_bubble1_bg')
+      const bubble2 = await getImage('desktop_bubble2_bg')
       
       if (savedDesktopBg) setDesktopBg(savedDesktopBg)
       if (savedMusicBg) setMusicBg(savedMusicBg)
       if (savedWechatBg) setWechatBg(savedWechatBg)
       if (memo) setMemoBg(memo)
+      if (bubble1) setBubble1Bg(bubble1)
+      if (bubble2) setBubble2Bg(bubble2)
     }
     
     loadBackgrounds()
@@ -46,14 +52,18 @@ const BackgroundCustomizer = () => {
   const [musicUploading, setMusicUploading] = useState(false)
   const [wechatUploading, setWechatUploading] = useState(false)
   const [memoUploading, setMemoUploading] = useState(false)
+  const [bubble1Uploading, setBubble1Uploading] = useState(false)
+  const [bubble2Uploading, setBubble2Uploading] = useState(false)
   
   const desktopFileRef = useRef<HTMLInputElement>(null)
   const musicFileRef = useRef<HTMLInputElement>(null)
   const wechatFileRef = useRef<HTMLInputElement>(null)
   const memoFileRef = useRef<HTMLInputElement>(null)
+  const bubble1FileRef = useRef<HTMLInputElement>(null)
+  const bubble2FileRef = useRef<HTMLInputElement>(null)
 
   // 上传桌面背景
-  const handleDesktopUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDesktopUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -64,12 +74,14 @@ const BackgroundCustomizer = () => {
 
     setDesktopUploading(true)
 
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64String = reader.result as string
+    try {
+      // 🔥 使用压缩功能（1920x1080，质量0.75）
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 1920, 1080, 0.75)
+      const base64String = `data:image/jpeg;base64,${base64}`
+      
       setDesktopBg(base64String)
       await saveImage('desktop_bg', base64String)
-      setDesktopUploading(false)
       
       // 立即应用
       const desktopEl = document.querySelector('.desktop-background') as HTMLElement
@@ -79,16 +91,16 @@ const BackgroundCustomizer = () => {
       
       window.dispatchEvent(new Event('desktopBackgroundUpdate'))
       console.log('✅ 桌面背景已保存')
-    }
-    reader.onerror = () => {
-      alert('图片读取失败')
+    } catch (error) {
+      console.error('背景压缩失败:', error)
+      alert('图片处理失败，请重试')
+    } finally {
       setDesktopUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // 上传音乐背景
-  const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -99,20 +111,21 @@ const BackgroundCustomizer = () => {
 
     setMusicUploading(true)
 
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64String = reader.result as string
+    try {
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 1920, 1080, 0.75)
+      const base64String = `data:image/jpeg;base64,${base64}`
+      
       setMusicBg(base64String)
       await saveImage('music_bg', base64String)
-      setMusicUploading(false)
       window.dispatchEvent(new Event('musicBackgroundUpdate'))
       console.log('✅ 音乐背景已保存到IndexedDB')
-    }
-    reader.onerror = () => {
-      alert('图片读取失败')
+    } catch (error) {
+      console.error('背景压缩失败:', error)
+      alert('图片处理失败，请重试')
+    } finally {
       setMusicUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // 删除桌面背景
@@ -142,7 +155,7 @@ const BackgroundCustomizer = () => {
   }
 
   // 上传微信背景
-  const handleWechatUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWechatUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -155,10 +168,12 @@ const BackgroundCustomizer = () => {
 
     setWechatUploading(true)
 
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64String = reader.result as string
-      console.log('📊 图片读取完成，大小:', Math.round(base64String.length / 1024), 'KB')
+    try {
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 1920, 1080, 0.75)
+      const base64String = `data:image/jpeg;base64,${base64}`
+      
+      console.log('📊 图片压缩完成，大小:', Math.round(base64String.length / 1024), 'KB')
       
       setWechatBg(base64String)
       console.log('📝 状态已更新')
@@ -166,16 +181,14 @@ const BackgroundCustomizer = () => {
       await saveImage('wechat_bg', base64String)
       console.log('💾 已保存到 IndexedDB')
       
-      setWechatUploading(false)
       window.dispatchEvent(new Event('wechatBackgroundUpdate'))
       console.log('✅ 微信背景上传完成！事件已触发')
-    }
-    reader.onerror = () => {
-      console.error('❌ 图片读取失败')
-      alert('图片读取失败')
+    } catch (error) {
+      console.error('❌ 背景压缩失败:', error)
+      alert('图片处理失败，请重试')
+    } finally {
       setWechatUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // 删除微信背景
@@ -227,6 +240,84 @@ const BackgroundCustomizer = () => {
     }
   }
 
+  // 上传气泡1背景
+  const handleBubble1Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件')
+      return
+    }
+
+    setBubble1Uploading(true)
+
+    try {
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 800, 800, 0.75)
+      const base64String = `data:image/jpeg;base64,${base64}`
+      
+      setBubble1Bg(base64String)
+      await saveImage('bubble1_bg', base64String)
+      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+      console.log('✅ 气泡1背景已保存到IndexedDB')
+    } catch (error) {
+      console.error('背景压缩失败:', error)
+      alert('图片处理失败，请重试')
+    } finally {
+      setBubble1Uploading(false)
+    }
+  }
+
+  // 上传气泡2背景
+  const handleBubble2Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件')
+      return
+    }
+
+    setBubble2Uploading(true)
+
+    try {
+      const { compressAndConvertToBase64 } = await import('../utils/imageUtils')
+      const base64 = await compressAndConvertToBase64(file, 800, 800, 0.75)
+      const base64String = `data:image/jpeg;base64,${base64}`
+      
+      setBubble2Bg(base64String)
+      await saveImage('bubble2_bg', base64String)
+      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+      console.log('✅ 气泡2背景已保存到IndexedDB')
+    } catch (error) {
+      console.error('背景压缩失败:', error)
+      alert('图片处理失败，请重试')
+    } finally {
+      setBubble2Uploading(false)
+    }
+  }
+
+  // 删除气泡1背景
+  const handleRemoveBubble1 = async () => {
+    if (confirm('确定要删除气泡1背景吗？')) {
+      setBubble1Bg('')
+      await deleteFromIndexedDB('IMAGES', 'desktop_bubble1_bg')
+      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+      console.log('✅ 气泡1背景已从IndexedDB删除')
+    }
+  }
+
+  // 删除气泡2背景
+  const handleRemoveBubble2 = async () => {
+    if (confirm('确定要删除气泡2背景吗？')) {
+      setBubble2Bg('')
+      await deleteFromIndexedDB('IMAGES', 'desktop_bubble2_bg')
+      window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
+      console.log('✅ 气泡2背景已从IndexedDB删除')
+    }
+  }
+
   return (
     <div className="h-full flex flex-col bg-[#f5f7fa]">
       {/* 隐藏的文件输入 */}
@@ -256,6 +347,20 @@ const BackgroundCustomizer = () => {
         type="file"
         accept="image/*"
         onChange={handleMemoUpload}
+        className="hidden"
+      />
+      <input
+        ref={bubble1FileRef}
+        type="file"
+        accept="image/*"
+        onChange={handleBubble1Upload}
+        className="hidden"
+      />
+      <input
+        ref={bubble2FileRef}
+        type="file"
+        accept="image/*"
+        onChange={handleBubble2Upload}
         className="hidden"
       />
       
@@ -466,6 +571,93 @@ const BackgroundCustomizer = () => {
           </div>
         </div>
 
+        {/* 桌面气泡背景 */}
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 px-2">桌面气泡背景</h2>
+          
+          {/* 气泡1背景 */}
+          <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50 mb-3">
+            <p className="text-xs text-gray-500 mb-3">设置桌面第二页气泡1（右上）的背景</p>
+            
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundImage: bubble1Bg ? `url(${bubble1Bg})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: bubble1Bg ? 'transparent' : '#f5f7fa'
+                }}
+              >
+                {!bubble1Bg && (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <button
+                  onClick={() => bubble1FileRef.current?.click()}
+                  disabled={bubble1Uploading}
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                >
+                  {bubble1Uploading ? '上传中...' : bubble1Bg ? '更换背景' : '上传背景'}
+                </button>
+                {bubble1Bg && (
+                  <button
+                    onClick={handleRemoveBubble1}
+                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  >
+                    删除背景
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 气泡2背景 */}
+          <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50">
+            <p className="text-xs text-gray-500 mb-3">设置桌面第二页气泡2（左下）的背景</p>
+            
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundImage: bubble2Bg ? `url(${bubble2Bg})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: bubble2Bg ? 'transparent' : '#f5f7fa'
+                }}
+              >
+                {!bubble2Bg && (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <button
+                  onClick={() => bubble2FileRef.current?.click()}
+                  disabled={bubble2Uploading}
+                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                >
+                  {bubble2Uploading ? '上传中...' : bubble2Bg ? '更换背景' : '上传背景'}
+                </button>
+                {bubble2Bg && (
+                  <button
+                    onClick={handleRemoveBubble2}
+                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  >
+                    删除背景
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 使用说明 */}
         <div className="mt-6 p-4 glass-card rounded-2xl backdrop-blur-md bg-white/60 border border-white/50">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">使用说明</h3>
@@ -474,8 +666,9 @@ const BackgroundCustomizer = () => {
             <li>• 音乐背景会显示在音乐播放器卡片内</li>
             <li>• 微信背景会显示在微信、通讯录、发现、我 四个页面</li>
             <li>• 备忘录背景会显示在AI备忘录页面</li>
+            <li>• 桌面气泡背景会显示在桌面第二页的两个文字气泡中</li>
             <li>• 建议使用高质量图片，效果更佳</li>
-            <li>• 图片会保存在本地存储中</li>
+            <li>• 图片会保存在IndexedDB大存储中</li>
           </ul>
         </div>
       </div>

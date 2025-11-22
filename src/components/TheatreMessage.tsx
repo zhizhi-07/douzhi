@@ -2617,6 +2617,306 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       }
     }
     
+    // ==================== 倒计时翻转交互 ====================
+    if (templateId === 'countdown') {
+      const countdownCard = containerRef.current.querySelector('[data-countdown]')
+      if (!countdownCard) return
+      
+      const flipCard = countdownCard.querySelector('[data-flip-card]') as HTMLElement
+      if (!flipCard) return
+      
+      let isFlipped = false
+      
+      countdownCard.addEventListener('click', () => {
+        isFlipped = !isFlipped
+        
+        if (isFlipped) {
+          flipCard.style.transform = 'rotateY(180deg)'
+        } else {
+          flipCard.style.transform = 'rotateY(0deg)'
+        }
+      })
+    }
+    
+    // ==================== 私密相册翻转交互 ====================
+    if (templateId === 'private_album') {
+      const albumCard = containerRef.current.querySelector('[data-private-album]')
+      if (!albumCard) return
+      
+      const lockBtn = albumCard.querySelector('[data-lock-btn]') as HTMLElement
+      if (!lockBtn) return
+      
+      const correctPassword = albumCard.getAttribute('data-password') || '1234'
+      let isUnlocked = false
+      
+      // 初始状态：所有照片模糊
+      const photoCards = Array.from(albumCard.querySelectorAll('[data-photo-card]'))
+      photoCards.forEach(card => {
+        const el = card as HTMLElement
+        el.style.cssText += ';filter:blur(20px);pointer-events:none'
+      })
+      
+      // 点击锁图标输入密码
+      lockBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        
+        if (!isUnlocked) {
+          const input = prompt('请输入密码查看私密相册：')
+          if (input === correctPassword) {
+            isUnlocked = true
+            lockBtn.style.background = 'rgba(76, 217, 100, 0.3)'
+            
+            // 解锁：移除模糊，启用交互
+            photoCards.forEach(card => {
+              const el = card as HTMLElement
+              el.style.cssText += ';filter:none;pointer-events:auto'
+            })
+          } else if (input !== null) {
+            alert('密码错误')
+          }
+        }
+      })
+      
+      // 每张照片的翻转交互
+      photoCards.forEach((card, index) => {
+        const cardEl = card as HTMLElement
+        const flipEl = cardEl.querySelector(`[data-photo-flip="${index + 1}"]`) as HTMLElement
+        if (!flipEl) return
+        
+        let isFlipped = false
+        
+        cardEl.addEventListener('click', () => {
+          if (!isUnlocked) return
+          
+          isFlipped = !isFlipped
+          flipEl.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+        })
+      })
+    }
+    
+    // ==================== 外卖评价记录（无交互，纯展示） ====================
+    // delivery_review 模板是静态展示，不需要交互逻辑
+    
+    // ==================== 时间胶囊交互 ====================
+    if (templateId === 'time_capsule') {
+      const container = containerRef.current.querySelector('[data-time-capsule]')
+      if (!container) return
+      
+      const sealedView = container.querySelector('[data-capsule-sealed]') as HTMLElement
+      const openedView = container.querySelector('[data-capsule-opened]') as HTMLElement
+      
+      if (!sealedView || !openedView) return
+      
+      // 点击信封打开
+      sealedView.addEventListener('click', () => {
+        // 信封翻转消失动画
+        sealedView.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+        sealedView.style.transform = 'rotateX(90deg) scale(0.8)'
+        sealedView.style.opacity = '0'
+        
+        setTimeout(() => {
+          sealedView.style.display = 'none'
+          openedView.style.display = 'block'
+          openedView.style.opacity = '0'
+          openedView.style.transform = 'translateY(30px) scale(0.95)'
+          
+          // 信纸展开动画
+          requestAnimationFrame(() => {
+            openedView.style.transition = 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            openedView.style.opacity = '1'
+            openedView.style.transform = 'translateY(0) scale(1)'
+          })
+        }, 400)
+      })
+    }
+    
+    // ==================== 拼团交互 ====================
+    if (templateId === 'group_buy') {
+      const container = containerRef.current.querySelector('[data-group-buy]')
+      if (!container) return
+      
+      const joinBtn = container.querySelector('[data-join-btn]') as HTMLButtonElement
+      if (!joinBtn) return
+      
+      let hasJoined = false
+      
+      joinBtn.addEventListener('click', () => {
+        if (hasJoined) return
+        
+        hasJoined = true
+        
+        // 按钮点击效果
+        joinBtn.style.transform = 'scale(0.95)'
+        
+        setTimeout(() => {
+          joinBtn.style.transform = 'scale(1)'
+          
+          // 改变按钮状态
+          joinBtn.textContent = '参团成功！'
+          joinBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)'
+          joinBtn.style.cursor = 'default'
+          
+          // 显示成功提示
+          const successMsg = document.createElement('div')
+          successMsg.textContent = '🎉 参团成功，等待其他人参团'
+          successMsg.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 9999;
+            animation: fadeIn 0.3s;
+          `
+          document.body.appendChild(successMsg)
+          
+          setTimeout(() => {
+            successMsg.style.opacity = '0'
+            successMsg.style.transition = 'opacity 0.3s'
+            setTimeout(() => successMsg.remove(), 300)
+          }, 2000)
+        }, 150)
+      })
+    }
+    
+    // ==================== 砍一刀交互（无限套路） ====================
+    if (templateId === 'bargain') {
+      const container = containerRef.current.querySelector('[data-bargain]')
+      if (!container) return
+      
+      const bargainBtn = container.querySelector('[data-bargain-btn]') as HTMLButtonElement
+      const shareBtn = container.querySelector('[data-share-btn]') as HTMLButtonElement
+      const trickIcon = container.querySelector('[data-trick-icon]') as HTMLElement
+      const trickTitle = container.querySelector('[data-trick-title]') as HTMLElement
+      const trickProgress = container.querySelector('[data-trick-progress]') as HTMLElement
+      const trickToggle = container.querySelector('[data-trick-toggle]') as HTMLElement
+      const trickBox = container.querySelector('[data-trick-box]') as HTMLElement
+      const trickArrow = container.querySelector('[data-trick-arrow]') as HTMLElement
+      
+      if (!bargainBtn || !shareBtn || !trickIcon || !trickTitle || !trickProgress) return
+      
+      // 折叠功能
+      let isCollapsed = false
+      if (trickToggle && trickBox && trickArrow) {
+        trickToggle.addEventListener('click', () => {
+          isCollapsed = !isCollapsed
+          if (isCollapsed) {
+            trickBox.style.display = 'none'
+            trickArrow.textContent = '▶'
+          } else {
+            trickBox.style.display = 'block'
+            trickArrow.textContent = '▼'
+          }
+        })
+      }
+      
+      let trickLevel = 0
+      const tricks = [
+        {
+          icon: '💎',
+          title: '还差1颗钻石就成功了！',
+          progress: '<div style="font-size:13px;font-weight:600;color:#ff4757">钻石：0/1</div>'
+        },
+        {
+          icon: '🪙',
+          title: '1颗钻石 = 99个金币',
+          progress: '<div style="font-size:13px;font-weight:600;color:#ffa500">金币：98/99（还差1个）</div>'
+        },
+        {
+          icon: '⭐',
+          title: '1个金币 = 100个星星',
+          progress: '<div style="font-size:13px;font-weight:600;color:#4caf50">星星：99/100（马上就够了）</div>'
+        },
+        {
+          icon: '✨',
+          title: '1个星星 = 50个火花',
+          progress: '<div style="font-size:13px;font-weight:600;color:#9c27b0">火花：49/50（就差临门一脚）</div>'
+        },
+        {
+          icon: '🔥',
+          title: '1个火花 = 200个能量',
+          progress: '<div style="font-size:13px;font-weight:600;color:#f44336">能量：199/200（就差1点能量）</div>'
+        },
+        {
+          icon: '⚡',
+          title: '还差1个新用户助力',
+          progress: '<div style="font-size:13px;font-weight:600;color:#ff9800">新用户：0/1（分享给新朋友）</div>'
+        },
+        {
+          icon: '🐭',
+          title: '哦哦~ 能量钻石被老鼠叼走了',
+          progress: '<div style="font-size:13px;font-weight:600;color:#666">一切归零，重新开始吧 😈</div>'
+        }
+      ]
+      
+      const updateTrick = () => {
+        const trick = tricks[trickLevel % tricks.length]
+        
+        // 按钮loading状态
+        const originalText = bargainBtn.innerHTML
+        bargainBtn.innerHTML = '<span>助力中...</span>'
+        bargainBtn.style.opacity = '0.7'
+        bargainBtn.disabled = true
+        shareBtn.disabled = true
+        
+        setTimeout(() => {
+          // 更新卡片内容
+          trickIcon.textContent = trick.icon
+          trickTitle.textContent = trick.title
+          trickProgress.innerHTML = trick.progress
+          
+          // 添加更新动画
+          const trickBoxEl = container.querySelector('[data-trick-box]') as HTMLElement
+          if (trickBoxEl) {
+            trickBoxEl.style.transform = 'scale(1.02)'
+            trickBoxEl.style.transition = 'transform 0.3s'
+            setTimeout(() => {
+              trickBoxEl.style.transform = 'scale(1)'
+            }, 300)
+          }
+          
+          // 显示灰色弹窗提示
+          const toast = document.createElement('div')
+          toast.textContent = '助力成功！查看最新进度'
+          toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          `
+          document.body.appendChild(toast)
+          
+          setTimeout(() => {
+            toast.style.opacity = '0'
+            toast.style.transition = 'opacity 0.3s'
+            setTimeout(() => toast.remove(), 300)
+          }, 1500)
+          
+          // 恢复按钮
+          bargainBtn.innerHTML = originalText
+          bargainBtn.style.opacity = '1'
+          bargainBtn.disabled = false
+          shareBtn.disabled = false
+          
+          trickLevel++
+        }, 800)
+      }
+      
+      bargainBtn.addEventListener('click', updateTrick)
+      shareBtn.addEventListener('click', updateTrick)
+    }
+    
     // ==================== 成人浏览历史隐藏/显示 ====================
     if (templateId === 'adult_browser_history') {
       const container = containerRef.current

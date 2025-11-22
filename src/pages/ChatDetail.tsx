@@ -50,6 +50,7 @@ const ChatDetail = () => {
   const [wallpaper, setWallpaper] = useState(() =>
     id ? getChatWallpaper(id) : null
   )
+  const [wallpaperImageUrl, setWallpaperImageUrl] = useState<string | null>(null)
 
   // 气泡样式
   useChatBubbles(id)
@@ -169,8 +170,18 @@ const ChatDetail = () => {
   // 监听壁纸变化
   useEffect(() => {
     if (!id) return
-    const checkWallpaper = () => {
-      setWallpaper(getChatWallpaper(id))
+    const checkWallpaper = async () => {
+      const wp = getChatWallpaper(id)
+      setWallpaper(wp)
+      
+      // 如果是自定义壁纸，从IndexedDB加载图片
+      if (wp && wp.type === 'custom') {
+        const { getWallpaperImageUrl } = await import('../utils/wallpaperManager')
+        const imageUrl = await getWallpaperImageUrl(id)
+        setWallpaperImageUrl(imageUrl)
+      } else {
+        setWallpaperImageUrl(null)
+      }
     }
     
     // 监听 storage 事件（其他标签页的修改）
@@ -180,7 +191,7 @@ const ChatDetail = () => {
     const handleWallpaperChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ chatId: string }>
       if (customEvent.detail.chatId === id) {
-        setWallpaper(getChatWallpaper(id))
+        checkWallpaper()
       }
     }
     window.addEventListener('chatWallpaperChanged', handleWallpaperChange)
@@ -637,10 +648,26 @@ const ChatDetail = () => {
     console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}, 还有更多: ${chatState.hasMoreMessages}`)
   }
   
+  // 🔥 壁纸样式（自定义壁纸使用从IndexedDB加载的图片）
+  const wallpaperStyle = (() => {
+    if (!wallpaper) return { backgroundColor: '#f5f7fa' }
+    
+    if (wallpaper.type === 'custom' && wallpaperImageUrl) {
+      return {
+        backgroundImage: `url(${wallpaperImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }
+    }
+    
+    return getWallpaperStyle(wallpaper)
+  })()
+
   return (
     <div 
       className="h-screen flex flex-col"
-      style={wallpaper ? getWallpaperStyle(wallpaper) : { backgroundColor: '#f5f7fa' }}
+      style={wallpaperStyle}
     >
       <ChatHeader
         characterName={character.nickname || character.realName}

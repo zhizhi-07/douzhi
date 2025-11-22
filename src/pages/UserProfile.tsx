@@ -8,6 +8,7 @@ import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
+import { recognizeUserAvatar, setUserAvatarDescription, hasAvatarChanged } from '../utils/userAvatarManager'
 
 const UserProfile = () => {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ const UserProfile = () => {
   }
 
   // 保存到localStorage
-  const handleSave = () => {
+  const handleSave = async () => {
     // 验证必填项
     if (!userInfo.realName || !userInfo.realName.trim()) {
       alert('请输入真实姓名')
@@ -62,6 +63,7 @@ const UserProfile = () => {
     // 检测修改
     const nicknameChanged = oldUserInfo.nickname !== finalUserInfo.nickname
     const signatureChanged = oldUserInfo.signature !== finalUserInfo.signature
+    const avatarChanged = oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar
     
     // 保存用户信息
     saveUserInfo(finalUserInfo)
@@ -73,8 +75,22 @@ const UserProfile = () => {
     if (signatureChanged && finalUserInfo.signature) {
       trackSignatureChange(finalUserInfo.signature)
     }
-    if (oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar) {
+    if (avatarChanged && finalUserInfo.avatar) {
       trackAvatarChange(finalUserInfo.avatar)
+      
+      // 🔥 触发AI头像识别（异步，不阻塞导航）
+      const avatarUrl = finalUserInfo.avatar
+      if (hasAvatarChanged(avatarUrl)) {
+        console.log('🔍 检测到头像变更，准备调用AI识别...')
+        recognizeUserAvatar(avatarUrl).then(description => {
+          if (description) {
+            setUserAvatarDescription(description, avatarUrl)
+            console.log('✅ 头像识别完成:', description)
+          }
+        }).catch(error => {
+          console.error('❌ 头像识别失败:', error)
+        })
+      }
     }
     
     // 移除自动通知AI的功能 - 用户修改个人信息不需要告诉AI

@@ -1,7 +1,8 @@
-// 小剧场模板配置
+﻿// 小剧场模板配置
 export interface TheatreTemplate {
   id: string
   name: string
+  category: string // 分类：社交、生活、娱乐、工作、情感、健康、证件、其他
   keywords: string[] // 触发关键词
   fields: TheatreField[] // 需要AI提供的字段
   htmlTemplate: string // HTML模板（带占位符）
@@ -13,9 +14,40 @@ export interface TheatreField {
   placeholder?: string // 默认值
 }
 
-export const theatreTemplates: TheatreTemplate[] = [
+/**
+ * 导入所有模板
+ * 模板文件位于 templates/ 目录，按分类组织
+ * 
+ * 添加新模板：在 templates/对应分类/ 创建文件，然后在 templates/index.ts 注册
+ */
+import { allTemplates, templatesByCategory, templatesById } from './templates'
+
+export const theatreTemplates: TheatreTemplate[] = allTemplates
+
+// 按分类导出（方便UI筛选）
+export { templatesByCategory, templatesById }
+
+// === 以下代码保持不变，用于兼容性 ===
+
+/*
+旧的3000行模板定义已迁移到 templates/ 目录
+如需查看或修改模板，请到对应分类文件夹：
+- templates/social/      社交通讯 (7个)
+- templates/life/        生活消费 (7个)  
+- templates/work/        工作学习 (9个)
+- templates/emotion/     情感关系 (5个)
+- templates/entertainment/ 娱乐休闲 (4个)
+- templates/health/      健康医疗 (4个)
+- templates/document/    证件文书 (2个)
+- templates/transport/   交通出行 (2个)
+- templates/privacy/     隐私安全 (2个)
+- templates/tool/        工具应用 (1个)
+*/
+
+export const _unused_old_templates_below = [
   {
     id: 'receipt',
+    category: '生活消费',
     name: '小票',
     keywords: ['小票', '发票', '账单', '收据'],
     fields: [
@@ -62,6 +94,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'diary',
+    category: '工作学习',
     name: '日记',
     keywords: ['日记', '记录'],
     fields: [
@@ -116,6 +149,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'menu',
+    category: '生活消费',
     name: '菜单',
     keywords: ['菜单', '点菜', '餐单'],
     fields: [
@@ -193,6 +227,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'group_chat',
+    category: '社交通讯',
     name: '群聊记录',
     keywords: ['群聊', '聊天记录', '截图', '群截图'],
     fields: [
@@ -323,6 +358,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'private_chat',
+    category: '社交通讯',
     name: '私聊记录',
     keywords: ['私聊', '聊天截图', '对话记录'],
     fields: [
@@ -432,6 +468,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'memo',
+    category: '工作学习',
     name: '备忘录',
     keywords: ['备忘录', '待办', '提醒', '记事'],
     fields: [
@@ -483,6 +520,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'scratch_card',
+    category: '娱乐休闲',
     name: '刮刮乐',
     keywords: ['刮刮乐', '刮奖', '刮卡', '幸运'],
     fields: [
@@ -529,6 +567,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'love_letter',
+    category: '情感关系',
     name: '情书',
     keywords: ['情书', '告白', '表白', '喜欢你'],
     fields: [
@@ -566,6 +605,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   // 新增精致模板
   {
     id: 'movie_ticket',
+    category: '娱乐休闲',
     name: '电影票',
     keywords: ['电影票', '看电影', '电影院', '观影'],
     fields: [
@@ -626,6 +666,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'train_ticket',
+    category: '交通出行',
     name: '火车票',
     keywords: ['火车票', '高铁票', '动车票', '车票'],
     fields: [
@@ -698,6 +739,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'express_package',
+    category: '生活消费',
     name: '快递单',
     keywords: ['快递单', '快递', '包裹', '物流单'],
     fields: [
@@ -769,6 +811,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'postcard',
+    category: '情感关系',
     name: '明信片',
     keywords: ['明信片', '寄明信片', '风景明信片'],
     fields: [
@@ -813,6 +856,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'birthday_card',
+    category: '情感关系',
     name: '生日贺卡',
     keywords: ['生日贺卡', '生日快乐', '生日祝福', '贺卡'],
     fields: [
@@ -858,6 +902,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'boarding_pass',
+    category: '交通出行',
     name: '登机牌',
     keywords: ['登机牌', '机票', '航班', '飞机票'],
     fields: [
@@ -937,6 +982,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'concert_ticket',
+    category: '娱乐休闲',
     name: '演唱会门票',
     keywords: ['演唱会', '门票', '演出票', '音乐会'],
     fields: [
@@ -999,6 +1045,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'coupon',
+    category: '生活消费',
     name: '优惠券',
     keywords: ['优惠券', '折扣券', '代金券', '券'],
     fields: [
@@ -1040,6 +1087,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'business_card',
+    category: '工作学习',
     name: '名片',
     keywords: ['名片', '联系方式', '个人信息'],
     fields: [
@@ -1086,6 +1134,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'parking_ticket',
+    category: '生活消费',
     name: '停车票',
     keywords: ['停车票', '停车', '停车费', '停车凭证'],
     fields: [
@@ -1157,6 +1206,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'hospital_registration',
+    category: '健康医疗',
     name: '挂号单',
     keywords: ['挂号单', '挂号', '就诊', '医院'],
     fields: [
@@ -1230,6 +1280,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'leave_request',
+    category: '工作学习',
     name: '请假条',
     keywords: ['请假条', '请假', '假条', '请假申请'],
     fields: [
@@ -1277,6 +1328,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'certificate',
+    category: '工作学习',
     name: '证书',
     keywords: ['证书', '奖状', '荣誉证书', '获奖'],
     fields: [
@@ -1327,6 +1379,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'sms_screenshot',
+    category: '社交通讯',
     name: '短信截图',
     keywords: ['短信', '验证码', '短信截图', '消息通知'],
     fields: [
@@ -1366,6 +1419,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'countdown',
+    category: '工具应用',
     name: '倒计时',
     keywords: ['倒计时', '距离', '还有多久', '天数'],
     fields: [
@@ -1395,6 +1449,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'class_schedule',
+    category: '工作学习',
     name: '课程表',
     keywords: ['课程表', '课表', '上课时间', '课程安排'],
     fields: [
@@ -1484,6 +1539,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'check_in',
+    category: '工作学习',
     name: '打卡记录',
     keywords: ['打卡', '签到', '上班打卡', '考勤'],
     fields: [
@@ -1535,6 +1591,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'music_player',
+    category: '娱乐休闲',
     name: '音乐播放器',
     keywords: ['音乐', '播放器', '正在播放', '歌曲'],
     fields: [
@@ -1582,6 +1639,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'call_log',
+    category: '社交通讯',
     name: '通话记录',
     keywords: ['通话记录', '通话', '电话记录', '通话详单'],
     fields: [
@@ -1659,6 +1717,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'shopping_cart',
+    category: '生活消费',
     name: '购物车',
     keywords: ['购物车', '结算', '购物', '下单'],
     fields: [
@@ -1728,6 +1787,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'diagnosis',
+    category: '健康医疗',
     name: '诊断书',
     keywords: ['诊断书', '病历', '诊断证明', '医疗'],
     fields: [
@@ -1779,6 +1839,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'moments_post',
+    category: '社交通讯',
     name: '朋友圈动态',
     keywords: ['朋友圈', '发朋友圈', '动态', '分享'],
     fields: [
@@ -1869,6 +1930,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'marriage_certificate',
+    category: '证件文书',
     name: '结婚证',
     keywords: ['结婚证', '结婚', '领证', '婚姻'],
     fields: [
@@ -1927,6 +1989,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'divorce_certificate',
+    category: '证件文书',
     name: '离婚证',
     keywords: ['离婚证', '离婚', '离婚证明'],
     fields: [
@@ -1985,6 +2048,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'apology_letter',
+    category: '工作学习',
     name: '检讨书',
     keywords: ['检讨书', '检讨', '认错', '道歉信', '反省'],
     fields: [
@@ -2003,6 +2067,7 @@ export const theatreTemplates: TheatreTemplate[] = [
   
   {
     id: 'watch_qq',
+    category: '社交通讯',
     name: '手表',
     keywords: ['手表', '旧消息', '已读未回'],
     fields: [
@@ -2021,6 +2086,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'incognito_mode',
+    category: '隐私安全',
     name: '隐私浏览',
     keywords: ['无痕浏览', '隐私模式', '隐私浏览', '私密浏览'],
     fields: [
@@ -2117,92 +2183,41 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'xiaohongshu_post',
+    category: '社交通讯',
     name: '小红书分享',
     keywords: ['小红书', '分享', '种草', '笔记'],
     fields: [
-      { key: 'TITLE', label: '标题', placeholder: '今天分享一个超好用的东西' },
-      { key: 'CONTENT', label: '正文', placeholder: '姐妹们，这个真的太好用了...' },
-      { key: 'AUTHOR', label: '作者', placeholder: '小红薯' },
-      { key: 'LIKES', label: '点赞数', placeholder: '2.3万' },
-      { key: 'COLLECTS', label: '收藏数', placeholder: '5678' },
-      { key: 'COMMENTS_COUNT', label: '评论数', placeholder: '892' },
-      { key: 'TIME', label: '发布时间', placeholder: '2小时前' },
-      { key: 'COMMENT1_USER', label: '评论1用户', placeholder: '用户A' },
-      { key: 'COMMENT1_TEXT', label: '评论1内容', placeholder: '太实用了姐妹！' },
-      { key: 'COMMENT2_USER', label: '评论2用户', placeholder: '用户B' },
-      { key: 'COMMENT2_TEXT', label: '评论2内容', placeholder: '已下单' },
-      { key: 'COMMENT3_USER', label: '评论3用户', placeholder: '用户C' },
-      { key: 'COMMENT3_TEXT', label: '评论3内容', placeholder: '求链接' }
+      { key: 'AUTHOR', label: '作者昵称', placeholder: '小红薯' },
+      { key: 'AUTHOR_BIO', label: '个人签名', placeholder: '95后护肤达人 | 只推荐好物 | 坐标上海' },
+      { key: 'FANS_COUNT', label: '粉丝数', placeholder: '12.5万' },
+      { key: 'TITLE', label: '标题', placeholder: '姐妹们！这款精华真的绝了！' },
+      { key: 'CONTENT', label: '正文', placeholder: '一直以来我都是混油皮，T区爱出油，两颊又容易干燥脱皮。试过很多大牌精华，效果都不理想。\n\n直到上个月入手了这瓶精华，用了一个月，皮肤状态真的太好了！\n\n【使用感受】质地是透明的啫喱状，上脸很好推开，吸收超快，完全不会搓泥。\n\n【效果】第1周肤色均匀了，第2周毛孔小了一圈，第3周皮肤特别稳定，第4周上妆更服帖。\n\n某宝活动价￥398/30ml，我囤了2瓶。混油皮姐妹闭眼入！' },
+      { key: 'TIME', label: '时间', placeholder: '2小时前' },
+      { key: 'TAG1', label: '标签1', placeholder: '护肤' },
+      { key: 'TAG2', label: '标签2', placeholder: '精华推荐' },
+      { key: 'TAG3', label: '标签3', placeholder: '混油皮' },
+      { key: 'LIKES', label: '点赞', placeholder: '2.3万' },
+      { key: 'COLLECTS', label: '收藏', placeholder: '8956' },
+      { key: 'COMMENTS_COUNT', label: '评论', placeholder: '1243' },
+      { key: 'VIEWS', label: '浏览', placeholder: '15.6万' },
+      { key: 'COMMENT1_USER', label: '评论1', placeholder: '夏日清风' },
+      { key: 'COMMENT1_TEXT', label: '评论1内容', placeholder: '姐妹求链接！我也是混油皮' },
+      { key: 'COMMENT1_LIKES', label: '评论1赞', placeholder: '156' },
+      { key: 'COMMENT2_USER', label: '评论2', placeholder: '小猫爱吃鱼' },
+      { key: 'COMMENT2_TEXT', label: '评论2内容', placeholder: '已加购物车！感觉很真实' },
+      { key: 'COMMENT2_LIKES', label: '评论2赞', placeholder: '89' },
+      { key: 'COMMENT3_USER', label: '评论3', placeholder: '柠檬不萌' },
+      { key: 'COMMENT3_TEXT', label: '评论3内容', placeholder: '这个我用过！确实不错' },
+      { key: 'COMMENT3_LIKES', label: '评论3赞', placeholder: '67' }
     ],
     htmlTemplate: `
-<div style="max-width:320px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.12)">
-  <div style="background:#fff;padding:12px 16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <div style="width:36px;height:36px;border-radius:50%;background:#ff2442;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600;flex-shrink:0">{{AUTHOR_INITIAL}}</div>
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:600;color:#000">{{AUTHOR}}</div>
-        <div style="font-size:12px;color:#8e8e93">{{TIME}}</div>
-      </div>
-      <div style="padding:4px 12px;background:#ff2442;border-radius:14px;font-size:12px;color:#fff;font-weight:500;cursor:pointer">+ 关注</div>
-    </div>
-  </div>
-  
-  <div style="padding:0 16px 12px 16px">
-    <div style="font-size:16px;font-weight:600;color:#000;margin-bottom:8px;line-height:1.4">{{TITLE}}</div>
-    <div style="font-size:14px;color:#000;line-height:1.6">{{CONTENT}}</div>
-  </div>
-  
-  <div style="position:relative;padding-top:100%;background:#f5f5f5;margin:0 16px 12px 16px;border-radius:8px">
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8e8e93;font-size:14px">
-      [图片内容]
-    </div>
-  </div>
-  
-  <div style="padding:12px 16px;display:flex;justify-content:space-around;align-items:center;border-top:0.5px solid #f2f2f7">
-    <div class="like-btn" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px" onclick="var icon=this.querySelector('.like-icon');var count=this.querySelector('.like-count');if(icon.style.color==='rgb(255, 36, 66)'){icon.style.color='#8e8e93';icon.textContent='♡'}else{icon.style.color='#ff2442';icon.textContent='♥'}">
-      <div class="like-icon" style="font-size:20px;color:#8e8e93;transition:all 0.2s">♡</div>
-      <div class="like-count" style="font-size:13px;color:#8e8e93">{{LIKES}}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z" fill="#8e8e93"/></svg>
-      <div style="font-size:13px;color:#8e8e93">{{COLLECTS}}</div>
-    </div>
-    <div class="comment-btn" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display==='block'?'none':'block'">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 4C2 2.89543 2.89543 2 4 2H16C17.1046 2 18 2.89543 18 4V12C18 13.1046 17.1046 14 16 14H11L6 18V14H4C2.89543 14 2 13.1046 2 12V4Z" fill="#8e8e93"/></svg>
-      <div style="font-size:13px;color:#8e8e93">{{COMMENTS_COUNT}}</div>
-    </div>
-    <div style="cursor:pointer;padding:8px">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 3L17 10L13 17M3 10H16" stroke="#8e8e93" stroke-width="2" stroke-linecap="round"/></svg>
-    </div>
-  </div>
-  
-  <div class="comments-section" style="display:none;background:#f9f9f9;padding:12px 16px;border-top:0.5px solid #e5e5e7">
-    <div style="font-size:13px;font-weight:600;color:#000;margin-bottom:10px">评论</div>
-    <div style="margin-bottom:8px">
-      <div style="display:flex;gap:8px;margin-bottom:4px">
-        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT1_USER}}:</div>
-        <div style="font-size:13px;color:#000">{{COMMENT1_TEXT}}</div>
-      </div>
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="display:flex;gap:8px;margin-bottom:4px">
-        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT2_USER}}:</div>
-        <div style="font-size:13px;color:#000">{{COMMENT2_TEXT}}</div>
-      </div>
-    </div>
-    <div>
-      <div style="display:flex;gap:8px">
-        <div style="font-size:13px;color:#8e8e93;font-weight:500">{{COMMENT3_USER}}:</div>
-        <div style="font-size:13px;color:#000">{{COMMENT3_TEXT}}</div>
-      </div>
-    </div>
-  </div>
-</div>
+<div style="max-width:375px;margin:0 auto;background:#fff;font-family:-apple-system,sans-serif;box-shadow:0 2px 16px rgba(0,0,0,0.08)"><div style="padding:14px 16px;border-bottom:0.5px solid #f0f0f0"><div style="display:flex;gap:12px"><div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ff2442,#ff6b6b);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:700">{{AUTHOR_INITIAL}}</div><div style="flex:1"><div style="font-size:15px;font-weight:700;color:#000;margin-bottom:2px">{{AUTHOR}}</div><div style="font-size:12px;color:#8e8e93;line-height:1.4;margin-bottom:4px">{{AUTHOR_BIO}}</div><div style="font-size:12px;color:#8e8e93">粉丝 <b style="color:#000">{{FANS_COUNT}}</b> · {{LOCATION}}</div></div><div id="followBtn" onclick="var b=this;b.innerHTML=b.innerHTML==='+ 关注'?'✓ 已关注':'+ 关注';b.style.background=b.innerHTML==='+ 关注'?'#ff2442':'#f5f5f5';b.style.color=b.innerHTML==='+ 关注'?'#fff':'#8e8e93'" style="padding:6px 16px;background:#ff2442;border-radius:18px;font-size:13px;color:#fff;font-weight:600;cursor:pointer">+ 关注</div></div></div><div style="padding:14px 16px"><div style="font-size:17px;font-weight:700;color:#000;margin-bottom:10px">{{TITLE}}</div><div id="txt" style="font-size:14px;color:#333;line-height:1.7;max-height:180px;overflow:hidden;position:relative"><div style="white-space:pre-wrap">{{CONTENT}}</div><div style="position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(to bottom,transparent,#fff)"></div></div><div onclick="var t=document.getElementById('txt');var b=this;if(t.style.maxHeight==='180px'){t.style.maxHeight='none';t.lastElementChild.style.display='none';b.innerHTML='收起 ▲'}else{t.style.maxHeight='180px';t.lastElementChild.style.display='block';b.innerHTML='展开全文 ▼'}" style="color:#ff2442;font-size:13px;font-weight:600;margin-top:8px;cursor:pointer">展开全文 ▼</div><div style="display:flex;gap:8px;margin-top:12px"><span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG1}}</span><span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG2}}</span><span style="padding:4px 12px;background:#fff0f1;color:#ff2442;font-size:12px;border-radius:4px"># {{TAG3}}</span></div></div><div style="padding:10px 16px;display:flex;justify-content:space-between;border-top:0.5px solid #f0f0f0;background:#fafafa"><div style="font-size:12px;color:#8e8e93"><b style="color:#000">{{VIEWS}}</b> 浏览</div><div style="font-size:12px;color:#8e8e93">{{TIME}}</div></div><div style="padding:12px 16px;display:flex;border-bottom:0.5px solid #f0f0f0"><div id="like" onclick="var i=this.firstElementChild;var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(i.innerHTML==='♡'){i.innerHTML='♥';i.style.color='#ff2442';c.innerHTML=n+1}else{i.innerHTML='♡';i.style.color='#8e8e93';c.innerHTML=n}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><div style="font-size:22px;color:#8e8e93">♡</div><div data-n="{{LIKES}}" style="font-size:14px;color:#8e8e93;font-weight:600">{{LIKES}}</div></div><div id="collect" onclick="var i=this.querySelector('path');var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(i.getAttribute('fill')==='#8e8e93'){i.setAttribute('fill','#ff9500');c.innerHTML=n+1}else{i.setAttribute('fill','#8e8e93');c.innerHTML=n}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><svg width="22" height="22"><path d="M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z" fill="#8e8e93"/></svg><div data-n="{{COLLECTS}}" style="font-size:14px;color:#8e8e93;font-weight:600">{{COLLECTS}}</div></div><div onclick="document.getElementById('cms').style.display=document.getElementById('cms').style.display==='block'?'none':'block'" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer"><svg width="22" height="22"><path d="M2 4C2 2.9 2.9 2 4 2H16C17.1 2 18 2.9 18 4V12C18 13.1 17.1 14 16 14H11L6 18V14H4C2.9 14 2 13.1 2 12V4Z" fill="#8e8e93"/></svg><div style="font-size:14px;color:#8e8e93;font-weight:600">{{COMMENTS_COUNT}}</div></div><div onclick="alert('✓ 分享成功')" style="flex:1;display:flex;justify-content:center;cursor:pointer"><svg width="22" height="22"><path d="M13 3L17 10L13 17M3 10H16" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div></div><div id="cms" style="display:none;background:#fafafa"><div style="padding:12px 16px 8px;font-size:14px;font-weight:700">评论 {{COMMENTS_COUNT}}</div><div style="max-height:320px;overflow-y:auto"><div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0"><div style="display:flex;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);flex-shrink:0"></div><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="font-size:13px">{{COMMENT1_USER}}</b><div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer"><div style="font-size:16px;color:#8e8e93">♡</div><div data-n="{{COMMENT1_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT1_LIKES}}</div></div></div><div style="font-size:14px;color:#333;margin-bottom:4px">{{COMMENT1_TEXT}}</div><div style="font-size:11px;color:#8e8e93">{{COMMENT1_TIME}}</div></div></div></div><div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0"><div style="display:flex;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f093fb,#f5576c);flex-shrink:0"></div><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="font-size:13px">{{COMMENT2_USER}}</b><div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer"><div style="font-size:16px;color:#8e8e93">♡</div><div data-n="{{COMMENT2_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT2_LIKES}}</div></div></div><div style="font-size:14px;color:#333;margin-bottom:4px">{{COMMENT2_TEXT}}</div><div style="font-size:11px;color:#8e8e93">{{COMMENT2_TIME}}</div></div></div></div><div style="padding:10px 16px;background:#fff;border-bottom:0.5px solid #f0f0f0"><div style="display:flex;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4facfe,#00f2fe);flex-shrink:0"></div><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="font-size:13px">{{COMMENT3_USER}}</b><div onclick="var c=this.lastElementChild;var n=parseInt(c.getAttribute('data-n'));if(this.firstElementChild.innerHTML==='♡'){this.firstElementChild.innerHTML='♥';this.firstElementChild.style.color='#ff2442';c.innerHTML=n+1}else{this.firstElementChild.innerHTML='♡';this.firstElementChild.style.color='#8e8e93';c.innerHTML=n}" style="display:flex;gap:4px;cursor:pointer"><div style="font-size:16px;color:#8e8e93">♡</div><div data-n="{{COMMENT3_LIKES}}" style="font-size:12px;color:#8e8e93">{{COMMENT3_LIKES}}</div></div></div><div style="font-size:14px;color:#333;margin-bottom:4px">{{COMMENT3_TEXT}}</div><div style="font-size:11px;color:#8e8e93">{{COMMENT3_TIME}}</div></div></div></div><div style="padding:12px 16px;text-align:center;color:#8e8e93;font-size:13px">还有更多评论...</div></div></div></div>
     `.trim()
   },
 
   {
     id: 'sex_timer',
+    category: '情感关系',
     name: '性爱时长',
     keywords: ['性爱时长', '性爱记录', '时长统计', '性生活'],
     fields: [
@@ -2281,6 +2296,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'private_album',
+    category: '隐私安全',
     name: '私密相册',
     keywords: ['私密相册', '加密相册', '隐藏相册', '私密照片'],
     fields: [
@@ -2330,6 +2346,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'hotel_booking',
+    category: '生活消费',
     name: '酒店订单',
     keywords: ['酒店订单', '酒店预订', '开房记录', '订房'],
     fields: [
@@ -2396,6 +2413,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'confession_board',
+    category: '情感关系',
     name: '表白墙',
     keywords: ['表白墙', '表白', '告白墙', '论坛'],
     fields: [
@@ -2449,6 +2467,7 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'overtime_record',
+    category: '工作学习',
     name: '加班记录',
     keywords: ['加班', '加班记录', '加班时长', '加班申请'],
     fields: [
@@ -2522,55 +2541,165 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'step_ranking',
+    category: '健康医疗',
     name: '步数排行',
     keywords: ['步数', '运动排行', '微信运动', '步数排行'],
     fields: [
-      { key: 'DATE', label: '日期', placeholder: '2024年11月22日' },
+      { key: 'TIME', label: '时间', placeholder: '15:30' },
+      { key: 'DATE', label: '日期', placeholder: '11月22日' },
       { key: 'MY_STEPS', label: '我的步数', placeholder: '12580' },
       { key: 'MY_RANK', label: '我的排名', placeholder: '3' },
+      { key: 'MY_NAME', label: '我的昵称', placeholder: '我' },
       { key: 'RANK1_NAME', label: '第1名昵称', placeholder: '运动达人' },
       { key: 'RANK1_STEPS', label: '第1名步数', placeholder: '18520' },
       { key: 'RANK2_NAME', label: '第2名昵称', placeholder: '健康使者' },
       { key: 'RANK2_STEPS', label: '第2名步数', placeholder: '15230' },
       { key: 'RANK3_NAME', label: '第3名昵称', placeholder: '快乐行者' },
-      { key: 'RANK3_STEPS', label: '第3名步数', placeholder: '12580' }
+      { key: 'RANK3_STEPS', label: '第3名步数', placeholder: '12580' },
+      { key: 'RANK4_NAME', label: '第4名昵称', placeholder: '小明' },
+      { key: 'RANK4_STEPS', label: '第4名步数', placeholder: '10250' },
+      { key: 'RANK5_NAME', label: '第5名昵称', placeholder: '小红' },
+      { key: 'RANK5_STEPS', label: '第5名步数', placeholder: '9800' }
     ],
     htmlTemplate: `
-<div style="max-width:360px;margin:0 auto;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 8px 32px rgba(102,126,234,0.4)">
-  <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);padding:20px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1)">
-    <div style="font-size:28px;margin-bottom:8px">👟</div>
-    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px">微信运动</div>
-    <div style="font-size:13px;color:rgba(255,255,255,0.8)">{{DATE}}</div>
-  </div>
-  <div style="padding:20px">
-    <div style="background:rgba(255,255,255,0.95);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px">
-      <div style="font-size:14px;color:#999;margin-bottom:8px">我的步数</div>
-      <div style="font-size:48px;font-weight:700;color:#667eea;margin-bottom:8px">{{MY_STEPS}}</div>
-      <div style="font-size:14px;color:#ff6b6b;font-weight:600">排名第 {{MY_RANK}} 名</div>
+<div style="max-width: 375px; margin: 0 auto; background: linear-gradient(to bottom, #f7f7f7 0%, #ededed 100%); border-radius: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+  <!-- 状态栏 -->
+  <div style="background: #f7f7f7; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: #000;">
+    <div style="flex: 1;">{{TIME}}</div>
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="#000" style="opacity: 0.5;">
+        <circle cx="12" cy="12" r="10"/>
+      </svg>
+      <span style="font-size: 11px;">中国移动</span>
+      <svg width="14" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" style="opacity: 0.7;">
+        <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+        <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <path d="M12 20h.01"/>
+      </svg>
     </div>
-    <div style="background:rgba(255,255,255,0.95);border-radius:12px;padding:16px">
-      <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:12px">今日排行</div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:linear-gradient(90deg,#ffd700 0%,#ffed4e 100%);border-radius:10px;margin-bottom:8px">
-        <div style="font-size:20px;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.2)">🏆</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{RANK1_NAME}}</div>
-          <div style="font-size:13px;color:#666">{{RANK1_STEPS}}步</div>
+    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
+      <span style="font-size: 11px;">100%</span>
+      <svg width="20" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
+        <rect x="2" y="7" width="18" height="10" rx="2"/>
+        <rect x="4" y="9" width="14" height="6" fill="#000"/>
+        <line x1="21" y1="10" x2="21" y2="14" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  
+  <!-- 导航栏 -->
+  <div style="background: #ededed; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 0.5px solid #c8c8c8;">
+    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+      <span style="font-size: 15px; font-weight: 600; color: #000;">微信运动</span>
+    </div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
+      <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+    </svg>
+  </div>
+  
+  <!-- 内容区 -->
+  <div style="background: #ededed; min-height: 450px;">
+    <!-- 日期标签 -->
+    <div style="text-align: center; padding: 16px 0 12px 0;">
+      <span style="background: rgba(0,0,0,0.08); color: #888; font-size: 11px; padding: 3px 10px; border-radius: 10px;">{{DATE}}</span>
+    </div>
+    
+    <!-- 我的步数卡片 -->
+    <div style="margin: 0 12px 16px 12px; background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+      <div style="font-size: 13px; color: #888; margin-bottom: 8px;">我的步数</div>
+      <div style="font-size: 52px; font-weight: 700; color: #07c160; margin-bottom: 6px; font-family: -apple-system-headline;">{{MY_STEPS}}</div>
+      <div style="display: inline-block; background: #fef6e6; color: #d4a029; font-size: 12px; padding: 4px 12px; border-radius: 12px; font-weight: 500;">排名第 {{MY_RANK}} 名</div>
+    </div>
+    
+    <!-- 排行榜卡片 -->
+    <div style="margin: 0 12px 16px 12px; background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+      <div style="font-size: 16px; font-weight: 600; color: #000; margin-bottom: 14px; padding-left: 4px;">步数排行榜</div>
+      
+      <!-- 第1名 -->
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 8px; margin-bottom: 2px;">
+        <div style="width: 20px; text-align: center; font-size: 17px; font-weight: 700; color: #ffd700;">1</div>
+        <div style="width: 42px; height: 42px; border-radius: 4px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; font-weight: 600;">{{RANK1_NAME_INITIAL}}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{RANK1_NAME}}</div>
+          <div style="font-size: 13px; color: #888; margin-top: 2px;">{{RANK1_STEPS}} 步</div>
+        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffd700" style="flex-shrink: 0;">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+        </svg>
+      </div>
+      
+      <!-- 第2名 -->
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 8px; margin-bottom: 2px;">
+        <div style="width: 20px; text-align: center; font-size: 17px; font-weight: 700; color: #c0c0c0;">2</div>
+        <div style="width: 42px; height: 42px; border-radius: 4px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; font-weight: 600;">{{RANK2_NAME_INITIAL}}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{RANK2_NAME}}</div>
+          <div style="font-size: 13px; color: #888; margin-top: 2px;">{{RANK2_STEPS}} 步</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f0f0;border-radius:10px;margin-bottom:8px">
-        <div style="font-size:18px;font-weight:700;color:#c0c0c0">2</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{RANK2_NAME}}</div>
-          <div style="font-size:13px;color:#666">{{RANK2_STEPS}}步</div>
+      
+      <!-- 第3名 -->
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 8px; margin-bottom: 2px;">
+        <div style="width: 20px; text-align: center; font-size: 17px; font-weight: 700; color: #cd7f32;">3</div>
+        <div style="width: 42px; height: 42px; border-radius: 4px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; font-weight: 600;">{{RANK3_NAME_INITIAL}}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{RANK3_NAME}}</div>
+          <div style="font-size: 13px; color: #888; margin-top: 2px;">{{RANK3_STEPS}} 步</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f0f0;border-radius:10px">
-        <div style="font-size:18px;font-weight:700;color:#cd7f32">3</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{RANK3_NAME}}</div>
-          <div style="font-size:13px;color:#666">{{RANK3_STEPS}}步</div>
+      
+      <!-- 第4名 -->
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 8px; margin-bottom: 2px;">
+        <div style="width: 20px; text-align: center; font-size: 16px; font-weight: 600; color: #999;">4</div>
+        <div style="width: 42px; height: 42px; border-radius: 4px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; font-weight: 600;">{{RANK4_NAME_INITIAL}}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{RANK4_NAME}}</div>
+          <div style="font-size: 13px; color: #888; margin-top: 2px;">{{RANK4_STEPS}} 步</div>
         </div>
       </div>
+      
+      <!-- 第5名 -->
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 8px;">
+        <div style="width: 20px; text-align: center; font-size: 16px; font-weight: 600; color: #999;">5</div>
+        <div style="width: 42px; height: 42px; border-radius: 4px; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; font-weight: 600;">{{RANK5_NAME_INITIAL}}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{RANK5_NAME}}</div>
+          <div style="font-size: 13px; color: #888; margin-top: 2px;">{{RANK5_STEPS}} 步</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 底部操作栏 -->
+    <div style="margin: 0 12px 16px 12px; display: flex; gap: 10px;">
+      <div id="likeBtn" onclick="
+        var btn = this;
+        var isLiked = btn.getAttribute('data-liked') === 'true';
+        if (isLiked) {
+          btn.style.background = 'linear-gradient(135deg, #07c160 0%, #05a854 100%)';
+          btn.innerHTML = '点赞';
+          btn.setAttribute('data-liked', 'false');
+        } else {
+          btn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)';
+          btn.innerHTML = '已赞';
+          btn.setAttribute('data-liked', 'true');
+        }
+      " data-liked="false" style="flex: 1; background: linear-gradient(135deg, #07c160 0%, #05a854 100%); border-radius: 8px; padding: 13px; text-align: center; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; user-select: none; transition: all 0.3s; box-shadow: 0 3px 12px rgba(7,193,96,0.4); border: none;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">点赞</div>
+      <div id="shareBtn" onclick="
+        var btn = this;
+        var originalText = btn.innerHTML;
+        btn.innerHTML = '✓ 分享成功';
+        btn.style.background = 'linear-gradient(135deg, #07c160 0%, #05a854 100%)';
+        btn.style.color = '#fff';
+        setTimeout(function() {
+          btn.innerHTML = originalText;
+          btn.style.background = '#fff';
+          btn.style.color = '#000';
+        }, 1500);
+      " style="flex: 1; background: #fff; border-radius: 8px; padding: 13px; text-align: center; color: #000; font-size: 15px; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.08); cursor: pointer; user-select: none; transition: all 0.3s; border: 1px solid #e5e5e5;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">分享</div>
     </div>
   </div>
 </div>
@@ -2579,61 +2708,149 @@ export const theatreTemplates: TheatreTemplate[] = [
 
   {
     id: 'screen_time',
+    category: '健康医疗',
     name: '屏幕时间',
     keywords: ['屏幕时间', '手机使用', '使用时长', '手机统计'],
     fields: [
-      { key: 'DATE', label: '日期', placeholder: '2024年11月22日' },
+      { key: 'TIME', label: '时间', placeholder: '15:30' },
+      { key: 'DATE', label: '日期', placeholder: '11月22日' },
+      { key: 'WEEK', label: '星期', placeholder: '周五' },
       { key: 'TOTAL_TIME', label: '总使用时长', placeholder: '8小时32分' },
-      { key: 'UNLOCK_COUNT', label: '解锁次数', placeholder: '156次' },
+      { key: 'COMPARE_TEXT', label: '对比上周', placeholder: '较上周增加25%' },
+      { key: 'UNLOCK_COUNT', label: '解锁次数', placeholder: '156' },
+      { key: 'FIRST_UNLOCK', label: '首次拿起', placeholder: '07:30' },
       { key: 'APP1_NAME', label: 'APP1名称', placeholder: '微信' },
       { key: 'APP1_TIME', label: 'APP1时长', placeholder: '3小时12分' },
+      { key: 'APP1_PERCENT', label: 'APP1占比', placeholder: '38' },
       { key: 'APP2_NAME', label: 'APP2名称', placeholder: '抖音' },
       { key: 'APP2_TIME', label: 'APP2时长', placeholder: '2小时45分' },
-      { key: 'APP3_NAME', label: 'APP3名称', placeholder: 'B站' },
-      { key: 'APP3_TIME', label: 'APP3时长', placeholder: '1小时28分' }
+      { key: 'APP2_PERCENT', label: 'APP2占比', placeholder: '32' },
+      { key: 'APP3_NAME', label: 'APP3名称', placeholder: 'Safari' },
+      { key: 'APP3_TIME', label: 'APP3时长', placeholder: '1小时28分' },
+      { key: 'APP3_PERCENT', label: 'APP3占比', placeholder: '17' }
     ],
     htmlTemplate: `
-<div style="max-width:360px;margin:0 auto;background:#f5f5f7;border-radius:16px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-  <div style="background:linear-gradient(135deg,#00c6ff 0%,#0072ff 100%);padding:24px;text-align:center">
-    <div style="font-size:32px;margin-bottom:12px">📱</div>
-    <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px">屏幕时间</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.9)">{{DATE}}</div>
+<div style="max-width: 375px; margin: 0 auto; background: #000; border-radius: 20px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+  <!-- 状态栏 -->
+  <div style="background: #000; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: #fff;">
+    <div style="flex: 1;">{{TIME}}</div>
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" style="opacity: 0.5;">
+        <circle cx="12" cy="12" r="10"/>
+      </svg>
+      <svg width="14" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" style="opacity: 0.7;">
+        <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+        <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <path d="M12 20h.01"/>
+      </svg>
+    </div>
+    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
+      <span style="font-size: 11px;">100%</span>
+      <svg width="20" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+        <rect x="2" y="7" width="18" height="10" rx="2"/>
+        <rect x="4" y="9" width="14" height="6" fill="#fff"/>
+        <line x1="21" y1="10" x2="21" y2="14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
   </div>
-  <div style="padding:20px">
-    <div style="background:#fff;border-radius:12px;padding:20px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:16px">
-        <div style="text-align:center;flex:1">
-          <div style="font-size:14px;color:#999;margin-bottom:8px">总时长</div>
-          <div style="font-size:24px;font-weight:700;color:#0072ff">{{TOTAL_TIME}}</div>
+  
+  <!-- 导航栏 -->
+  <div style="background: #1c1c1e; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 0.5px solid #38383a;">
+    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2.5" stroke-linecap="round">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+      <span style="font-size: 15px; font-weight: 600; color: #fff;">屏幕时间</span>
+    </div>
+  </div>
+  
+  <!-- 内容区 -->
+  <div style="background: #000; min-height: 500px; padding-bottom: 20px;">
+    <!-- 日期选择器 -->
+    <div style="display: flex; align-items: center; justify-content: center; padding: 12px 0; gap: 8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2.5" stroke-linecap="round">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+      <span style="color: #fff; font-size: 16px; font-weight: 600;">{{DATE}} {{WEEK}}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2.5" stroke-linecap="round">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </div>
+    
+    <!-- 总使用时长卡片 -->
+    <div style="margin: 0 16px 20px 16px; background: #1c1c1e; border-radius: 12px; padding: 24px; text-align: center;">
+      <div style="font-size: 48px; font-weight: 700; color: #fff; margin-bottom: 4px; font-family: -apple-system-headline;">{{TOTAL_TIME}}</div>
+      <div style="font-size: 14px; color: #8e8e93; margin-bottom: 12px;">总使用时长</div>
+      <div style="font-size: 13px; color: #ff9500;">{{COMPARE_TEXT}}</div>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div style="margin: 0 16px 20px 16px; background: #1c1c1e; border-radius: 12px; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 4px;">{{UNLOCK_COUNT}}</div>
+          <div style="font-size: 12px; color: #8e8e93;">拿起次数</div>
         </div>
-        <div style="width:1px;background:#e5e5e5"></div>
-        <div style="text-align:center;flex:1">
-          <div style="font-size:14px;color:#999;margin-bottom:8px">解锁次数</div>
-          <div style="font-size:24px;font-weight:700;color:#ff6b6b">{{UNLOCK_COUNT}}</div>
+        <div style="width: 1px; background: #38383a; margin: 0 12px;"></div>
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 4px;">{{FIRST_UNLOCK}}</div>
+          <div style="font-size: 12px; color: #8e8e93;">首次拿起</div>
         </div>
       </div>
     </div>
-    <div style="background:#fff;border-radius:12px;padding:16px">
-      <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:16px">最常使用</div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:10px">
-        <div style="width:40px;height:40px;background:linear-gradient(135deg,#07c160 0%,#06ae56 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP1_NAME_INITIAL}}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{APP1_NAME}}</div>
-          <div style="font-size:13px;color:#999">{{APP1_TIME}}</div>
+    
+    <!-- 最常使用 -->
+    <div style="margin: 0 16px 20px 16px;">
+      <div style="font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px;">最常使用</div>
+      
+      <!-- APP1 -->
+      <div style="background: #1c1c1e; border-radius: 12px; padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #07c160 0%, #06ae56 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px;">{{APP1_NAME}}</div>
+          <div style="font-size: 14px; color: #8e8e93;">{{APP1_TIME}}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 22px; font-weight: 700; color: #fff;">{{APP1_PERCENT}}%</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:10px">
-        <div style="width:40px;height:40px;background:linear-gradient(135deg,#000 0%,#333 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP2_NAME_INITIAL}}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{APP2_NAME}}</div>
-          <div style="font-size:13px;color:#999">{{APP2_TIME}}</div>
+      
+      <!-- APP2 -->
+      <div style="background: #1c1c1e; border-radius: 12px; padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #000 0%, #333 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
+            <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
+          </svg>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px;">{{APP2_NAME}}</div>
+          <div style="font-size: 14px; color: #8e8e93;">{{APP2_TIME}}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 22px; font-weight: 700; color: #fff;">{{APP2_PERCENT}}%</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px">
-        <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff6699 0%,#ee5a6f 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP3_NAME_INITIAL}}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:600;color:#333">{{APP3_NAME}}</div>
-          <div style="font-size:13px;color:#999">{{APP3_TIME}}</div>
+      
+      <!-- APP3 -->
+      <div style="background: #1c1c1e; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #007aff 0%, #0051d5 100%); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px;">{{APP3_NAME}}</div>
+          <div style="font-size: 14px; color: #8e8e93;">{{APP3_TIME}}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 22px; font-weight: 700; color: #fff;">{{APP3_PERCENT}}%</div>
         </div>
       </div>
     </div>

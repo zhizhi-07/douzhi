@@ -184,11 +184,13 @@
       border-radius: 12px;
       padding: 20px;
       min-height: 300px;
+      overflow: visible;
     }
     
     .message-row {
       display: flex;
       margin-bottom: 12px;
+      overflow: visible;
     }
     
     .message-row.user {
@@ -201,6 +203,10 @@
       word-wrap: break-word;
       word-break: break-word;
       white-space: pre-wrap;
+    }
+    
+    .message-container {
+      overflow: visible;
     }
     
     .property-name {
@@ -226,13 +232,13 @@
       gap: 8px;
     }
     
-    /* 悬浮预览窗口 */
+    /* 悬浮预览窗口 - 模拟手机屏幕宽度 */
     .floating-preview {
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 320px;
-      max-height: 400px;
+      width: 420px; /* 加宽以容纳完整气泡 */
+      max-height: 650px;
       background: rgba(255,255,255,0.95);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
@@ -241,7 +247,7 @@
       z-index: 1000;
       display: none;
       flex-direction: column;
-      overflow: hidden;
+      overflow: hidden; /* 改为hidden避免溢出 */
       border: 0.5px solid rgba(0,0,0,0.1);
     }
     
@@ -284,8 +290,9 @@
     }
     
     .floating-content {
-      padding: 12px;
+      padding: 0;
       overflow-y: auto;
+      overflow-x: hidden;
       flex: 1;
     }
     
@@ -336,21 +343,153 @@
       <button class="floating-close" onclick="toggleFloatingPreview()">×</button>
     </div>
     <div class="floating-content">
-      <style id="floatingStyle"></style>
-      <div style="background:#f0f0f0; border-radius:12px; padding:16px;">
-        <div class="message-row user" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-          <div class="message-container sent">
-            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">你好！这是一条很长的用户消息，用来测试换行效果是否正常工作</div>
+      <!-- 头像和时间样式（独立，不被覆盖） -->
+      <style>
+        #floatingPreview .avatar {
+          width: 40px !important;
+          height: 40px !important;
+          border-radius: 50% !important;
+          flex-shrink: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-size: 14px !important;
+          font-weight: 500 !important;
+        }
+        
+        #floatingPreview .avatar.user {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+          color: white !important;
+        }
+        
+        #floatingPreview .avatar.ai {
+          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+          color: white !important;
+        }
+        
+        #floatingPreview .time-label {
+          font-size: 11px !important;
+          color: #9ca3af !important;
+        }
+      </style>
+      
+      <style id="floatingStyle">
+        /* 默认气泡基础样式 - 完全模拟你的网站 */
+        .message-container.sent .message-bubble {
+          padding: 10px 14px;
+          display: inline-block;
+          background: #1F2937;
+          color: #FFFFFF;
+          border-radius: 18px 18px 4px 18px;
+          box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.08);
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: pre-wrap;
+          box-sizing: border-box;
+          font-size: 14px;
+          max-width: 70%;
+          min-width: 50px;
+        }
+        
+        .message-container.received .message-bubble {
+          padding: 10px 14px;
+          display: inline-block;
+          background: #FFFFFF;
+          color: #1F2937;
+          border-radius: 18px 18px 18px 4px;
+          box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.08);
+          word-wrap: break-word;
+          word-break: break-word;
+          white-space: pre-wrap;
+          box-sizing: border-box;
+          font-size: 14px;
+          max-width: 70%;
+          min-width: 50px;
+        }
+      </style>
+      <div style="background:#ffffff; padding:16px; overflow-x:hidden; overflow-y:auto;">
+        <!-- 短消息 -->
+        <div class="message-container sent" style="display:flex; align-items:end; gap:8px; margin-bottom:12px; flex-direction:row-reverse;">
+          <div class="avatar user" style="flex-shrink:0;">我</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="time-label" style="flex-shrink:0;">12:33</div>
+            <div class="message-bubble">在吗</div>
           </div>
         </div>
-        <div class="message-row" style="display:flex; justify-content:flex-start; margin-bottom:10px;">
-          <div class="message-container received">
-            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">你好！这是AI的回复消息，也用来测试文字换行</div>
+        
+        <div class="message-container received" style="display:flex; align-items:end; gap:8px; margin-bottom:12px;">
+          <div class="avatar ai" style="flex-shrink:0;">AI</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="message-bubble">在的~</div>
+            <div class="time-label" style="flex-shrink:0;">12:33</div>
           </div>
         </div>
-        <div class="message-row user" style="display:flex; justify-content:flex-end;">
-          <div class="message-container sent">
-            <div class="message-bubble" style="padding:10px 14px; display:inline-block;">调整控件试试！</div>
+        
+        <!-- 中等长度 -->
+        <div class="message-container sent" style="display:flex; align-items:end; gap:8px; margin-bottom:12px; flex-direction:row-reverse;">
+          <div class="avatar user" style="flex-shrink:0;">我</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="time-label" style="flex-shrink:0;">12:34</div>
+            <div class="message-bubble">今天天气真好，要不要一起出去玩</div>
+          </div>
+        </div>
+        
+        <div class="message-container received" style="display:flex; align-items:end; gap:8px; margin-bottom:12px;">
+          <div class="avatar ai" style="flex-shrink:0;">AI</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="message-bubble">好呀！想去哪里玩呢？</div>
+            <div class="time-label" style="flex-shrink:0;">12:35</div>
+          </div>
+        </div>
+        
+        <!-- 长消息 -->
+        <div class="message-container sent" style="display:flex; align-items:end; gap:8px; margin-bottom:12px; flex-direction:row-reverse;">
+          <div class="avatar user" style="flex-shrink:0;">我</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="time-label" style="flex-shrink:0;">12:36</div>
+            <div class="message-bubble">我看最近新开了一家咖啡店，装修很文艺，评价也不错。要不我们先去那边坐坐，然后再去公园散散步？</div>
+          </div>
+        </div>
+        
+        <div class="message-container received" style="display:flex; align-items:end; gap:8px; margin-bottom:12px;">
+          <div class="avatar ai" style="flex-shrink:0;">AI</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="message-bubble">听起来不错！我也想尝试一下新开的咖啡店。对了，那家店叫什么名字？我先看看地址</div>
+            <div class="time-label" style="flex-shrink:0;">12:37</div>
+          </div>
+        </div>
+        
+        <!-- 超长消息 -->
+        <div class="message-container sent" style="display:flex; align-items:end; gap:8px; margin-bottom:12px; flex-direction:row-reverse;">
+          <div class="avatar user" style="flex-shrink:0;">我</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="time-label" style="flex-shrink:0;">12:38</div>
+            <div class="message-bubble">叫"时光小筑"，在市中心商业街那边，地铁2号线直达。店里的招牌是手冲咖啡和自制甜品，听说老板是个很有想法的年轻人，装修走的是复古风格，有很多老物件和绿植，拍照很好看！</div>
+          </div>
+        </div>
+        
+        <div class="message-container received" style="display:flex; align-items:end; gap:8px; margin-bottom:12px;">
+          <div class="avatar ai" style="flex-shrink:0;">AI</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="message-bubble">太棒了！那我们就定在下午3点？我带相机，可以帮你拍几张照片</div>
+            <div class="time-label" style="flex-shrink:0;">12:40</div>
+          </div>
+        </div>
+        
+        <!-- 短回复 -->
+        <div class="message-container sent" style="display:flex; align-items:end; gap:8px; margin-bottom:12px; flex-direction:row-reverse;">
+          <div class="avatar user" style="flex-shrink:0;">我</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="time-label" style="flex-shrink:0;">12:41</div>
+            <div class="message-bubble">好！那就这么定了</div>
+          </div>
+        </div>
+        
+        <div class="message-container received" style="display:flex; align-items:end; gap:8px; margin-bottom:12px;">
+          <div class="avatar ai" style="flex-shrink:0;">AI</div>
+          <div style="display:flex; align-items:end; gap:6px;">
+            <div class="message-bubble">😊</div>
+            <div class="time-label" style="flex-shrink:0;">12:41</div>
           </div>
         </div>
       </div>
@@ -433,7 +572,7 @@
             <span id="shape-radius-val" style="color:#666; font-family:monospace;">18px</span>
           </div>
           <input type="range" min="0" max="50" value="18" 
-            oninput="updateShapeRadius(this.value)" 
+            oninput="updateShapeRadius(this.value); triggerPreviewUpdate();" 
             style="width:100%;">
         </div>
         
@@ -442,7 +581,7 @@
             <span>透明度</span>
             <span id="shape-opacity-val" style="color:#999;">100%</span>
           </div>
-          <input type="range" min="0" max="100" value="100" oninput="updateShapeOpacity(this.value)" style="width:100%;">
+          <input type="range" min="0" max="100" value="100" oninput="updateShapeOpacity(this.value); triggerPreviewUpdate();" style="width:100%;">
         </div>
       </div>
 
@@ -455,7 +594,7 @@
               <span>Z-Index 层级</span>
               <span id="zindex-val" style="color:#999;">10</span>
             </div>
-            <input type="range" min="0" max="100" value="10" oninput="updateZIndex(this.value)" style="width:100%;">
+            <input type="range" min="0" max="100" value="10" oninput="updateZIndex(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
           
           <div>
@@ -503,6 +642,298 @@
         </div>
       </div>
 
+      <!-- 气泡底图（不规则背景） -->
+      <div class="card">
+        <div class="card-title">气泡底图</div>
+        <div style="font-size:11px; color:#666; margin-bottom:10px; line-height:1.5;">
+          上传不规则形状的PNG作为气泡底图（如水彩、笔刷效果），会自动九宫格拉伸适应内容长度。
+        </div>
+        <input type="file" id="bubbleBaseInput" accept="image/*" style="display:none;" onchange="handleBubbleBaseUpload(event)">
+        <button class="btn btn-primary" onclick="document.getElementById('bubbleBaseInput').click()">选择底图</button>
+        <div id="bubbleBasePreview" style="display:none; margin-top:10px;">
+          <!-- 九宫格切片可视化 -->
+          <div style="position:relative; margin-bottom:12px; background:#000; border-radius:8px; padding:4px;">
+            <img id="bubbleBaseThumb" style="width:100%; display:block; border-radius:4px;">
+            <svg id="sliceGrid" style="position:absolute; top:4px; left:4px; width:calc(100% - 8px); height:calc(100% - 8px); pointer-events:none;">
+              <line id="sliceLineTop" x1="0" y1="30" x2="100%" y2="30" stroke="#ff0" stroke-width="2" stroke-dasharray="4"/>
+              <line id="sliceLineRight" x1="100%" y1="0" x2="100%" y2="100%" stroke="#ff0" stroke-width="2" stroke-dasharray="4" transform="translate(-30, 0)"/>
+              <line id="sliceLineBottom" x1="0" y1="100%" x2="100%" y2="100%" stroke="#ff0" stroke-width="2" stroke-dasharray="4" transform="translate(0, -30)"/>
+              <line id="sliceLineLeft" x1="30" y1="0" x2="30" y2="100%" stroke="#ff0" stroke-width="2" stroke-dasharray="4"/>
+              <text x="10" y="20" fill="#ff0" font-size="12" font-weight="bold">上</text>
+              <text x="calc(100% - 30)" y="20" fill="#ff0" font-size="12" font-weight="bold">右</text>
+              <text x="10" y="calc(100% - 10)" fill="#ff0" font-size="12" font-weight="bold">下</text>
+              <text x="10" y="50%" fill="#ff0" font-size="12" font-weight="bold">左</text>
+            </svg>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:8px; background:#f8f8f8; border-radius:6px;">
+            <div style="font-size:10px; color:#666; line-height:1.4;">
+              <strong style="color:#ff0;">黄色虚线</strong> = 切片线<br>
+              拖动滑块看线动
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer;">
+              <input type="checkbox" id="toggleSliceLines" checked onchange="toggleSliceVisibility()" style="cursor:pointer;">
+              显示切片线
+            </label>
+          </div>
+          <details style="margin-bottom:10px;">
+            <summary style="padding:8px; background:#fff3cd; border-left:3px solid #ffc107; border-radius:4px; cursor:pointer; font-size:11px; font-weight:500;">
+              💡 调整技巧（点击展开）
+            </summary>
+            <div style="font-size:10px; color:#666; margin-top:6px; padding:8px; background:#f8f8f8; border-radius:4px; line-height:1.6;">
+              • 黄线要切在<strong>装饰物边缘</strong><br>
+              • 拖动滑块，<strong>看黄线移动</strong><br>
+              • 四个角落应该保留完整
+            </div>
+          </details>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:8px; font-weight:500;">
+              九宫格切片（精细调整）
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>上边缘</span>
+                  <span id="slice-top-val" style="color:#666;">30px</span>
+                </div>
+                <input type="range" min="5" max="80" value="30" step="1" id="sliceTopSlider" 
+                  oninput="updateBubbleBaseSliceDetail('top', this.value)" style="width:100%;">
+              </div>
+              
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>右边缘</span>
+                  <span id="slice-right-val" style="color:#666;">30px</span>
+                </div>
+                <input type="range" min="5" max="80" value="30" step="1" id="sliceRightSlider" 
+                  oninput="updateBubbleBaseSliceDetail('right', this.value)" style="width:100%;">
+              </div>
+              
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>下边缘</span>
+                  <span id="slice-bottom-val" style="color:#666;">30px</span>
+                </div>
+                <input type="range" min="5" max="80" value="30" step="1" id="sliceBottomSlider" 
+                  oninput="updateBubbleBaseSliceDetail('bottom', this.value)" style="width:100%;">
+              </div>
+              
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>左边缘</span>
+                  <span id="slice-left-val" style="color:#666;">30px</span>
+                </div>
+                <input type="range" min="5" max="80" value="30" step="1" id="sliceLeftSlider" 
+                  oninput="updateBubbleBaseSliceDetail('left', this.value)" style="width:100%;">
+              </div>
+            </div>
+            
+            <div style="font-size:10px; color:#999; margin-top:6px; line-height:1.4;">
+              💡 哪边被拉伸，就把那边的值调大<br>
+              四个方向可独立调整
+            </div>
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:8px; font-weight:500; display:flex; align-items:center; gap:8px;">
+              <span>边框渲染宽度</span>
+              <label style="display:flex; align-items:center; gap:4px; font-size:10px; font-weight:normal; cursor:pointer;">
+                <input type="checkbox" id="uniformPadding" checked onchange="toggleUniformPadding()" style="cursor:pointer;">
+                <span>统一</span>
+              </label>
+            </div>
+            
+            <!-- 统一模式 -->
+            <div id="uniformPaddingControl" style="margin-bottom:8px;">
+              <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                <span>四边统一</span>
+                <span id="bubble-padding-val" style="color:#666;">15px</span>
+              </div>
+              <input type="range" min="5" max="50" value="15" id="bubblePaddingSlider" 
+                oninput="updateBubbleBasePadding(this.value)" style="width:100%;">
+            </div>
+            
+            <!-- 独立模式 -->
+            <div id="separatePaddingControl" style="display:none;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <div>
+                  <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <span>上</span>
+                    <span id="padding-top-val" style="color:#666;">15px</span>
+                  </div>
+                  <input type="range" min="5" max="50" value="15" id="paddingTopSlider" 
+                    oninput="updatePaddingSeparate('top', this.value)" style="width:100%;">
+                </div>
+                <div>
+                  <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <span>右</span>
+                    <span id="padding-right-val" style="color:#666;">15px</span>
+                  </div>
+                  <input type="range" min="5" max="50" value="15" id="paddingRightSlider" 
+                    oninput="updatePaddingSeparate('right', this.value)" style="width:100%;">
+                </div>
+                <div>
+                  <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <span>下</span>
+                    <span id="padding-bottom-val" style="color:#666;">15px</span>
+                  </div>
+                  <input type="range" min="5" max="50" value="15" id="paddingBottomSlider" 
+                    oninput="updatePaddingSeparate('bottom', this.value)" style="width:100%;">
+                </div>
+                <div>
+                  <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <span>左</span>
+                    <span id="padding-left-val" style="color:#666;">15px</span>
+                  </div>
+                  <input type="range" min="5" max="50" value="15" id="paddingLeftSlider" 
+                    oninput="updatePaddingSeparate('left', this.value)" style="width:100%;">
+                </div>
+              </div>
+            </div>
+            
+            <div style="font-size:10px; color:#999; line-height:1.4;">
+              💡 控制底图边框的显示大小<br>
+              📐 独立模式可分别调整四边<br>
+              ⭐ <strong>简化版：</strong>布局更稳定，不会乱飞
+            </div>
+          </div>
+          
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:6px; font-weight:500;">
+              宽度控制
+            </div>
+            
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <button onclick="setWidthMode('percent')" id="widthPercentBtn" style="flex:1; padding:6px; background:#000; color:#fff; border:none; border-radius:4px; font-size:11px;">百分比</button>
+              <button onclick="setWidthMode('pixel')" id="widthPixelBtn" style="flex:1; padding:6px; background:#f0f0f0; color:#666; border:none; border-radius:4px; font-size:11px;">像素</button>
+            </div>
+            
+            <div id="widthPercentControl">
+              <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                <span>最大宽度（屏幕百分比）</span>
+                <span id="bubble-maxwidth-percent-val" style="color:#666;">65%</span>
+              </div>
+              <input type="range" min="20" max="100" value="65" step="1" id="bubbleMaxWidthPercentSlider" 
+                oninput="updateBubbleMaxWidthPercent(this.value)" style="width:100%;">
+            </div>
+            
+            <div id="widthPixelControl" style="display:none;">
+              <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                <span>最大宽度（像素值）</span>
+                <span id="bubble-maxwidth-pixel-val" style="color:#666;">300px</span>
+              </div>
+              <input type="range" min="100" max="800" value="300" step="10" id="bubbleMaxWidthPixelSlider" 
+                oninput="updateBubbleMaxWidthPixel(this.value)" style="width:100%;">
+            </div>
+            
+            <div style="font-size:10px; color:#999; margin-top:6px; line-height:1.4;">
+              <strong style="color:#f60;">自由调整！</strong><br>
+              百分比=相对屏幕 / 像素=固定大小
+            </div>
+          </div>
+          
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:6px; font-weight:500;">
+              字体大小
+            </div>
+            <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span>文字大小</span>
+              <span id="bubble-fontsize-val" style="color:#666;">14px</span>
+            </div>
+            <input type="range" min="12" max="20" value="14" step="1" id="bubbleFontSizeSlider" 
+              oninput="updateBubbleFontSize(this.value)" style="width:100%;">
+            <div style="font-size:10px; color:#999; margin-top:4px;">
+              💡 调整预览和实际气泡的字体大小
+            </div>
+          </div>
+          
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px; margin-bottom:6px; font-weight:500;">
+              文字内边距（精细对齐）
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>上下</span>
+                  <span id="text-padding-v-val" style="color:#666;">10px</span>
+                </div>
+                <input type="range" min="0" max="30" value="10" step="1" id="textPaddingVSlider" 
+                  oninput="updateTextPadding('v', this.value)" style="width:100%;">
+              </div>
+              <div>
+                <div style="font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                  <span>左右</span>
+                  <span id="text-padding-h-val" style="color:#666;">12px</span>
+                </div>
+                <input type="range" min="0" max="30" value="12" step="1" id="textPaddingHSlider" 
+                  oninput="updateTextPadding('h', this.value)" style="width:100%;">
+              </div>
+            </div>
+            <div style="font-size:10px; color:#999; margin-top:4px; line-height:1.4;">
+              💡 <strong>关键！</strong>调整左右padding可以微调对齐<br>
+              • 文字偏左？增大左右值<br>
+              • 文字偏右？减小左右值
+            </div>
+          </div>
+          
+          <div style="margin-bottom:12px; padding:12px; background:#e3f2fd; border:2px solid #2196F3; border-radius:6px;">
+            <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:#1976D2;">
+              🎨 底图模式
+            </div>
+            <select id="bubbleBaseMode" onchange="updateBubbleBaseMode(this.value)" style="width:100%; padding:10px; border:2px solid #2196F3; border-radius:6px; font-size:13px; font-weight:500; background:#fff;">
+              <option value="nine-slice">九宫格拉伸（规则边框）</option>
+              <option value="fixed-shape" selected>固定形状（不规则装饰）⭐</option>
+            </select>
+            <div style="font-size:10px; color:#1565C0; margin-top:6px; line-height:1.4;">
+              ⭐ <strong>固定形状：</strong>适合猫咪、动物等不规则底图<br>
+              📐 <strong>九宫格拉伸：</strong>适合圆角矩形、直线边框
+            </div>
+          </div>
+          
+          <div id="nineSliceControls" style="display:none;">
+            <div style="margin-bottom:10px;">
+              <div style="font-size:11px; margin-bottom:6px;">拉伸模式</div>
+              <select id="bubbleBaseRepeat" onchange="updateBubbleBaseRepeat(this.value)" style="width:100%; padding:8px; border:1px solid #e5e5e5; border-radius:6px; font-size:12px;">
+                <option value="stretch" selected>拉伸（推荐）</option>
+                <option value="repeat">重复</option>
+                <option value="round">圆角重复</option>
+                <option value="space">间隔重复</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="margin-bottom:12px; padding:12px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:500;">
+              <input type="checkbox" id="removeBackgroundColor" checked onchange="toggleBackgroundRemoval()" style="cursor:pointer; width:16px; height:16px;">
+              <span>⭐ 消除底块（强制透明背景）</span>
+            </label>
+            <div style="font-size:10px; color:#856404; margin-top:6px; line-height:1.4;">
+              ✅ 勾选：完全消除气泡周围的底色<br>
+              ❌ 不勾选：保留border-image-width的底色
+            </div>
+          </div>
+          
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px; margin-bottom:6px;">快捷预设</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px;">
+              <button onclick="applyPreset('compact')" style="padding:6px; background:#f8f8f8; border:1px solid #e0e0e0; border-radius:4px; cursor:pointer;">紧凑</button>
+              <button onclick="applyPreset('normal')" style="padding:6px; background:#f8f8f8; border:1px solid #e0e0e0; border-radius:4px; cursor:pointer;">标准</button>
+              <button onclick="applyPreset('wide')" style="padding:6px; background:#f8f8f8; border:1px solid #e0e0e0; border-radius:4px; cursor:pointer;">宽松</button>
+              <button onclick="applyPreset('full')" style="padding:6px; background:#f8f8f8; border:1px solid #e0e0e0; border-radius:4px; cursor:pointer;">最大</button>
+            </div>
+            <div style="font-size:10px; color:#999; margin-top:4px;">
+              一键应用常用配置组合
+            </div>
+          </div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button onclick="applyBubbleBase()" style="padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500;">应用</button>
+            <button onclick="removeBubbleBase()" style="padding:10px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:13px;">删除</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 特效增强 -->
       <div class="card">
         <div class="card-title">视觉特效</div>
@@ -513,7 +944,7 @@
             <span>边缘羽化</span>
             <span id="edge-soft-val" style="color:#999;">0px</span>
           </div>
-          <input type="range" min="0" max="25" value="0" oninput="updateEdgeSoft(this.value)" style="width:100%;">
+          <input type="range" min="0" max="25" value="0" oninput="updateEdgeSoft(this.value); triggerPreviewUpdate();" style="width:100%;">
           <div style="font-size:10px; color:#999; margin-top:4px;">
             边缘自然软化（无线框包裹）
           </div>
@@ -525,7 +956,7 @@
             <span>外发光强度</span>
             <span id="outer-glow-val" style="color:#999;">0px</span>
           </div>
-          <input type="range" min="0" max="30" value="0" id="outerGlowSlider" oninput="updateOuterGlow(this.value)" style="width:100%;">
+          <input type="range" min="0" max="30" value="0" id="outerGlowSlider" oninput="updateOuterGlow(this.value); triggerPreviewUpdate();" style="width:100%;">
           <input type="color" id="outerGlowColor" value="#ffffff" onchange="updateOuterGlow()" style="width:100%; height:32px; margin-top:6px;">
         </div>
         
@@ -535,7 +966,7 @@
             <span>内发光强度</span>
             <span id="inner-glow-val" style="color:#999;">0px</span>
           </div>
-          <input type="range" min="0" max="20" value="0" id="innerGlowSlider" oninput="updateInnerGlow(this.value)" style="width:100%;">
+          <input type="range" min="0" max="20" value="0" id="innerGlowSlider" oninput="updateInnerGlow(this.value); triggerPreviewUpdate();" style="width:100%;">
           <input type="color" id="innerGlowColor" value="#ffffff" onchange="updateInnerGlow()" style="width:100%; height:32px; margin-top:6px;">
         </div>
         
@@ -577,7 +1008,7 @@
               <span>渐变角度</span>
               <span id="gradient-angle-val" style="color:#999;">45deg</span>
             </div>
-            <input type="range" min="0" max="360" value="45" oninput="updateGradientAngle(this.value)" style="width:100%;">
+            <input type="range" min="0" max="360" value="45" oninput="updateGradientAngle(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
         </div>
       </div>
@@ -592,7 +1023,7 @@
               <span>对比度</span>
               <span id="contrast-val" style="color:#999;">100%</span>
             </div>
-            <input type="range" min="0" max="200" value="100" oninput="updateContrast(this.value)" style="width:100%;">
+            <input type="range" min="0" max="200" value="100" oninput="updateContrast(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
           
           <div>
@@ -600,7 +1031,7 @@
               <span>饱和度</span>
               <span id="saturate-val" style="color:#999;">100%</span>
             </div>
-            <input type="range" min="0" max="200" value="100" oninput="updateSaturate(this.value)" style="width:100%;">
+            <input type="range" min="0" max="200" value="100" oninput="updateSaturate(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
         </div>
         
@@ -610,7 +1041,7 @@
               <span>亮度</span>
               <span id="brightness-val" style="color:#999;">100%</span>
             </div>
-            <input type="range" min="0" max="200" value="100" oninput="updateBrightness(this.value)" style="width:100%;">
+            <input type="range" min="0" max="200" value="100" oninput="updateBrightness(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
           
           <div>
@@ -618,7 +1049,7 @@
               <span>色相</span>
               <span id="hue-val" style="color:#999;">0deg</span>
             </div>
-            <input type="range" min="0" max="360" value="0" oninput="updateHue(this.value)" style="width:100%;">
+            <input type="range" min="0" max="360" value="0" oninput="updateHue(this.value); triggerPreviewUpdate();" style="width:100%;">
           </div>
         </div>
       </div>
@@ -637,7 +1068,7 @@
             <span>文字阴影强度</span>
             <span id="text-shadow-val" style="color:#999;">0px</span>
           </div>
-          <input type="range" min="0" max="10" value="0" id="textShadowSlider" oninput="updateTextShadow(this.value)" style="width:100%;">
+          <input type="range" min="0" max="10" value="0" id="textShadowSlider" oninput="updateTextShadow(this.value); triggerPreviewUpdate();" style="width:100%;">
           <input type="color" id="textShadowColor" value="#000000" onchange="updateTextShadow()" style="width:100%; height:32px; margin-top:6px;">
         </div>
         
@@ -791,8 +1222,19 @@
   </div>
 
   <script>
-    // 存储解析的CSS属性
-    let parsedStyles = {};
+    // 存储解析的CSS属性（包含默认font-size和padding）
+    let parsedStyles = {
+      'font-size': {
+        type: 'size',
+        size: 14,
+        original: '14px'
+      },
+      'padding': {
+        type: 'text',
+        value: '10px 12px',
+        original: '10px 12px'
+      }
+    };
     let currentCSS = '';
 
     // 存储额外的CSS（伪元素、动画等）
@@ -1422,13 +1864,26 @@
 
     // 从控件更新预览
     function updatePreviewFromControls() {
+      // 确保基础样式存在（如果没有自定义样式，使用默认值）
+      const ensureBaseStyles = (styles) => {
+        const base = {
+          'padding': { type: 'text', value: '10px 14px', original: '10px 14px' },
+          'display': { type: 'text', value: 'inline-block', original: 'inline-block' },
+          'word-wrap': { type: 'text', value: 'break-word', original: 'break-word' },
+          'box-sizing': { type: 'text', value: 'border-box', original: 'border-box' }
+        };
+        
+        // 合并，保留用户自定义的样式
+        return { ...base, ...styles };
+      };
+      
       let css = '';
       
-      // 生成用户气泡CSS
-      css += generateBubbleCSS('.message-container.sent .message-bubble', userStyles);
+      // 生成用户气泡CSS（包含基础样式）
+      css += generateBubbleCSS('.message-container.sent .message-bubble', ensureBaseStyles(userStyles));
       
-      // 生成AI气泡CSS  
-      css += generateBubbleCSS('.message-container.received .message-bubble', aiStyles);
+      // 生成AI气泡CSS（包含基础样式）
+      css += generateBubbleCSS('.message-container.received .message-bubble', ensureBaseStyles(aiStyles));
       
       // 添加伪元素和动画（带HTML结构说明）
       if (extraCSS.beforePseudo || extraCSS.afterPseudo) {
@@ -1561,15 +2016,19 @@
           }
         }
         // 普通颜色
-        else if (data.type === 'color' && data.color) {
-          if (data.alpha !== undefined) {
-            const r = parseInt(data.color.slice(1, 3), 16);
-            const g = parseInt(data.color.slice(3, 5), 16);
-            const b = parseInt(data.color.slice(5, 7), 16);
-            const a = (data.alpha / 100).toFixed(2);
-            css += `  ${name}: rgba(${r}, ${g}, ${b}, ${a}) !important;\n`;
-          } else {
-            css += `  ${name}: ${data.color} !important;\n`;
+        else if (data.type === 'color') {
+          if (data.color === 'transparent' || data.original === 'transparent') {
+            css += `  ${name}: transparent !important;\n`;
+          } else if (data.color) {
+            if (data.alpha !== undefined) {
+              const r = parseInt(data.color.slice(1, 3), 16);
+              const g = parseInt(data.color.slice(3, 5), 16);
+              const b = parseInt(data.color.slice(5, 7), 16);
+              const a = (data.alpha / 100).toFixed(2);
+              css += `  ${name}: rgba(${r}, ${g}, ${b}, ${a}) !important;\n`;
+            } else {
+              css += `  ${name}: ${data.color} !important;\n`;
+            }
           }
         }
         // 尺寸
@@ -3766,6 +4225,848 @@
         container.appendChild(afterDiv);
       }
     }
+
+    // ==================== 气泡底图功能（九宫格拉伸） ====================
+    
+    let bubbleBaseData = {
+      url: '',
+      mode: 'fixed-shape',       // 'nine-slice' 或 'fixed-shape'
+      sliceTop: 30,
+      sliceRight: 30,
+      sliceBottom: 30,
+      sliceLeft: 30,
+      padding: 15,
+      uniformPadding: true,      // 是否统一边框宽度
+      paddingTop: 15,            // 独立的上边框宽度
+      paddingRight: 15,          // 独立的右边框宽度
+      paddingBottom: 15,         // 独立的下边框宽度
+      paddingLeft: 15,           // 独立的左边框宽度
+      widthMode: 'percent',      // 'percent' 或 'pixel'
+      maxWidthPercent: 65,       // 百分比值
+      maxWidthPixel: 300,        // 像素值
+      repeat: 'stretch',
+      removeBackground: true     // 是否消除底块（强制透明背景）
+    };
+    
+    // 切换宽度模式
+    function setWidthMode(mode) {
+      bubbleBaseData.widthMode = mode;
+      
+      const percentBtn = document.getElementById('widthPercentBtn');
+      const pixelBtn = document.getElementById('widthPixelBtn');
+      const percentControl = document.getElementById('widthPercentControl');
+      const pixelControl = document.getElementById('widthPixelControl');
+      
+      if (mode === 'percent') {
+        percentBtn.style.background = '#000';
+        percentBtn.style.color = '#fff';
+        pixelBtn.style.background = '#f0f0f0';
+        pixelBtn.style.color = '#666';
+        percentControl.style.display = 'block';
+        pixelControl.style.display = 'none';
+        
+        // 更新样式
+        if (parsedStyles['border-image-source']) {
+          parsedStyles['max-width'] = {
+            type: 'maxwidth',
+            maxWidthValue: bubbleBaseData.maxWidthPercent,
+            original: `${bubbleBaseData.maxWidthPercent}%`
+          };
+          triggerPreviewUpdate();
+        }
+      } else {
+        percentBtn.style.background = '#f0f0f0';
+        percentBtn.style.color = '#666';
+        pixelBtn.style.background = '#000';
+        pixelBtn.style.color = '#fff';
+        percentControl.style.display = 'none';
+        pixelControl.style.display = 'block';
+        
+        // 更新样式
+        if (parsedStyles['border-image-source']) {
+          parsedStyles['max-width'] = {
+            type: 'text',
+            value: `${bubbleBaseData.maxWidthPixel}px`,
+            original: `${bubbleBaseData.maxWidthPixel}px`
+          };
+          triggerPreviewUpdate();
+        }
+      }
+    }
+    
+    // 更新百分比宽度
+    function updateBubbleMaxWidthPercent(value) {
+      bubbleBaseData.maxWidthPercent = parseInt(value);
+      document.getElementById('bubble-maxwidth-percent-val').textContent = value + '%';
+      
+      if (parsedStyles['border-image-source']) {
+        parsedStyles['max-width'] = {
+          type: 'maxwidth',
+          maxWidthValue: bubbleBaseData.maxWidthPercent,
+          original: `${bubbleBaseData.maxWidthPercent}%`
+        };
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 更新像素宽度
+    function updateBubbleMaxWidthPixel(value) {
+      bubbleBaseData.maxWidthPixel = parseInt(value);
+      document.getElementById('bubble-maxwidth-pixel-val').textContent = value + 'px';
+      
+      if (parsedStyles['border-image-source']) {
+        parsedStyles['max-width'] = {
+          type: 'text',
+          value: `${bubbleBaseData.maxWidthPixel}px`,
+          original: `${bubbleBaseData.maxWidthPixel}px`
+        };
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 处理底图上传
+    function handleBubbleBaseUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        bubbleBaseData.url = e.target.result;
+        
+        // 显示预览
+        document.getElementById('bubbleBaseThumb').src = e.target.result;
+        document.getElementById('bubbleBasePreview').style.display = 'block';
+        
+        // 初始化切片线位置
+        updateSliceVisualization();
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // 切换切片线显示
+    function toggleSliceVisibility() {
+      const svg = document.getElementById('sliceGrid');
+      const checkbox = document.getElementById('toggleSliceLines');
+      if (svg) {
+        svg.style.display = checkbox.checked ? 'block' : 'none';
+      }
+    }
+    
+    // 更新切片线可视化
+    function updateSliceVisualization() {
+      const lineTop = document.getElementById('sliceLineTop');
+      const lineRight = document.getElementById('sliceLineRight');
+      const lineBottom = document.getElementById('sliceLineBottom');
+      const lineLeft = document.getElementById('sliceLineLeft');
+      
+      if (lineTop) {
+        lineTop.setAttribute('y1', bubbleBaseData.sliceTop);
+        lineTop.setAttribute('y2', bubbleBaseData.sliceTop);
+      }
+      if (lineRight) {
+        lineRight.setAttribute('transform', `translate(-${bubbleBaseData.sliceRight}, 0)`);
+      }
+      if (lineBottom) {
+        lineBottom.setAttribute('transform', `translate(0, -${bubbleBaseData.sliceBottom})`);
+      }
+      if (lineLeft) {
+        lineLeft.setAttribute('x1', bubbleBaseData.sliceLeft);
+        lineLeft.setAttribute('x2', bubbleBaseData.sliceLeft);
+      }
+    }
+    
+    // 更新切片位置（四个方向独立）
+    function updateBubbleBaseSliceDetail(direction, value) {
+      const val = parseInt(value);
+      
+      if (direction === 'top') {
+        bubbleBaseData.sliceTop = val;
+        document.getElementById('slice-top-val').textContent = value + 'px';
+        // 更新可视化切片线
+        const lineTop = document.getElementById('sliceLineTop');
+        if (lineTop) {
+          lineTop.setAttribute('y1', val);
+          lineTop.setAttribute('y2', val);
+        }
+      } else if (direction === 'right') {
+        bubbleBaseData.sliceRight = val;
+        document.getElementById('slice-right-val').textContent = value + 'px';
+        // 更新可视化切片线
+        const lineRight = document.getElementById('sliceLineRight');
+        if (lineRight) {
+          lineRight.setAttribute('transform', `translate(-${val}, 0)`);
+        }
+      } else if (direction === 'bottom') {
+        bubbleBaseData.sliceBottom = val;
+        document.getElementById('slice-bottom-val').textContent = value + 'px';
+        // 更新可视化切片线
+        const lineBottom = document.getElementById('sliceLineBottom');
+        if (lineBottom) {
+          lineBottom.setAttribute('transform', `translate(0, -${val})`);
+        }
+      } else if (direction === 'left') {
+        bubbleBaseData.sliceLeft = val;
+        document.getElementById('slice-left-val').textContent = value + 'px';
+        // 更新可视化切片线
+        const lineLeft = document.getElementById('sliceLineLeft');
+        if (lineLeft) {
+          lineLeft.setAttribute('x1', val);
+          lineLeft.setAttribute('x2', val);
+        }
+      }
+      
+      // 如果已应用，实时更新
+      if (parsedStyles['border-image-source']) {
+        const sliceValue = `${bubbleBaseData.sliceTop} ${bubbleBaseData.sliceRight} ${bubbleBaseData.sliceBottom} ${bubbleBaseData.sliceLeft} fill`;
+        parsedStyles['border-image-slice'].value = sliceValue;
+        parsedStyles['border-image-slice'].original = sliceValue;
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 更新内边距（边框渲染宽度）
+    function updateBubbleBasePadding(value) {
+      bubbleBaseData.padding = parseInt(value);
+      document.getElementById('bubble-padding-val').textContent = value + 'px';
+      
+      // 如果已应用，实时更新
+      if (parsedStyles['border-image-source']) {
+        const val = bubbleBaseData.padding;
+        // 更新border-image-width（使用像素值）
+        parsedStyles['border-image-width'].value = `${val}px`;
+        parsedStyles['border-image-width'].original = `${val}px`;
+        // 注意：文字padding由独立的滑块控制，不在这里更新
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 切换统一/独立边框宽度模式
+    function toggleUniformPadding() {
+      const checked = document.getElementById('uniformPadding').checked;
+      bubbleBaseData.uniformPadding = checked;
+      
+      document.getElementById('uniformPaddingControl').style.display = checked ? 'block' : 'none';
+      document.getElementById('separatePaddingControl').style.display = checked ? 'none' : 'block';
+      
+      // 如果切换到独立模式，同步当前的统一值
+      if (!checked) {
+        const val = bubbleBaseData.padding;
+        bubbleBaseData.paddingTop = val;
+        bubbleBaseData.paddingRight = val;
+        bubbleBaseData.paddingBottom = val;
+        bubbleBaseData.paddingLeft = val;
+        
+        document.getElementById('padding-top-val').textContent = val + 'px';
+        document.getElementById('paddingTopSlider').value = val;
+        document.getElementById('padding-right-val').textContent = val + 'px';
+        document.getElementById('paddingRightSlider').value = val;
+        document.getElementById('padding-bottom-val').textContent = val + 'px';
+        document.getElementById('paddingBottomSlider').value = val;
+        document.getElementById('padding-left-val').textContent = val + 'px';
+        document.getElementById('paddingLeftSlider').value = val;
+      }
+      
+      // 如果已应用，触发更新
+      if (parsedStyles['border-image-source']) {
+        applyBubbleBase();
+      }
+    }
+    
+    // 更新独立的边框宽度
+    function updatePaddingSeparate(direction, value) {
+      const val = parseInt(value);
+      
+      if (direction === 'top') {
+        bubbleBaseData.paddingTop = val;
+        document.getElementById('padding-top-val').textContent = value + 'px';
+      } else if (direction === 'right') {
+        bubbleBaseData.paddingRight = val;
+        document.getElementById('padding-right-val').textContent = value + 'px';
+      } else if (direction === 'bottom') {
+        bubbleBaseData.paddingBottom = val;
+        document.getElementById('padding-bottom-val').textContent = value + 'px';
+      } else if (direction === 'left') {
+        bubbleBaseData.paddingLeft = val;
+        document.getElementById('padding-left-val').textContent = value + 'px';
+      }
+      
+      // 如果已应用，实时更新
+      if (parsedStyles['border-image-source']) {
+        // 使用像素值
+        const widthValue = `${bubbleBaseData.paddingTop}px ${bubbleBaseData.paddingRight}px ${bubbleBaseData.paddingBottom}px ${bubbleBaseData.paddingLeft}px`;
+        parsedStyles['border-image-width'].value = widthValue;
+        parsedStyles['border-image-width'].original = widthValue;
+        // 注意：文字padding由独立的滑块控制，不在这里更新
+        
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 更新字体大小
+    function updateBubbleFontSize(value) {
+      const val = parseInt(value);
+      document.getElementById('bubble-fontsize-val').textContent = value + 'px';
+      
+      // 更新parsedStyles中的font-size
+      parsedStyles['font-size'] = {
+        type: 'size',
+        size: val,
+        original: `${val}px`
+      };
+      
+      triggerPreviewUpdate();
+    }
+    
+    // 文字内边距状态
+    let textPadding = {
+      vertical: 10,
+      horizontal: 12
+    };
+    
+    // 更新文字内边距
+    function updateTextPadding(direction, value) {
+      const val = parseInt(value);
+      
+      if (direction === 'v') {
+        textPadding.vertical = val;
+        document.getElementById('text-padding-v-val').textContent = value + 'px';
+      } else if (direction === 'h') {
+        textPadding.horizontal = val;
+        document.getElementById('text-padding-h-val').textContent = value + 'px';
+      }
+      
+      // 更新padding（独立于border-image-width的padding）
+      parsedStyles['padding'] = {
+        type: 'text',
+        value: `${textPadding.vertical}px ${textPadding.horizontal}px`,
+        original: `${textPadding.vertical}px ${textPadding.horizontal}px`
+      };
+      
+      triggerPreviewUpdate();
+    }
+    
+    // 更新重复模式
+    function updateBubbleBaseRepeat(value) {
+      bubbleBaseData.repeat = value;
+      
+      // 如果已应用，实时更新
+      if (parsedStyles['border-image-repeat']) {
+        parsedStyles['border-image-repeat'].value = value;
+        parsedStyles['border-image-repeat'].original = value;
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 切换底图模式
+    function updateBubbleBaseMode(mode) {
+      bubbleBaseData.mode = mode;
+      
+      // 显示/隐藏九宫格控件
+      const nineSliceControls = document.getElementById('nineSliceControls');
+      if (mode === 'nine-slice') {
+        nineSliceControls.style.display = 'block';
+      } else {
+        nineSliceControls.style.display = 'none';
+      }
+      
+      // 如果已应用底图，重新应用以更新样式
+      if (parsedStyles['border-image-source'] || parsedStyles['background-image']) {
+        applyBubbleBase();
+      }
+    }
+    
+    // 切换是否消除底块
+    function toggleBackgroundRemoval() {
+      const checked = document.getElementById('removeBackgroundColor').checked;
+      bubbleBaseData.removeBackground = checked;
+      
+      // 如果已应用底图，立即更新
+      if (parsedStyles['border-image-source']) {
+        if (checked) {
+          // 强制透明背景
+          parsedStyles['background'] = {
+            type: 'text',
+            value: 'transparent',
+            original: 'transparent'
+          };
+          parsedStyles['background-color'] = {
+            type: 'text',
+            value: 'transparent',
+            original: 'transparent'
+          };
+        } else {
+          // 移除强制透明（保留原有背景）
+          delete parsedStyles['background'];
+          delete parsedStyles['background-color'];
+        }
+        triggerPreviewUpdate();
+      }
+    }
+    
+    // 快捷预设
+    function applyPreset(type) {
+      const presets = {
+        'compact': {
+          widthMode: 'percent',
+          maxWidthPercent: 45,
+          padding: 10,
+          sliceTop: 25, sliceRight: 25, sliceBottom: 25, sliceLeft: 25
+        },
+        'normal': {
+          widthMode: 'percent',
+          maxWidthPercent: 65,
+          padding: 15,
+          sliceTop: 30, sliceRight: 30, sliceBottom: 30, sliceLeft: 30
+        },
+        'wide': {
+          widthMode: 'percent',
+          maxWidthPercent: 80,
+          padding: 18,
+          sliceTop: 35, sliceRight: 35, sliceBottom: 35, sliceLeft: 35
+        },
+        'full': {
+          widthMode: 'pixel',
+          maxWidthPixel: 600,
+          padding: 20,
+          sliceTop: 40, sliceRight: 40, sliceBottom: 40, sliceLeft: 40
+        }
+      };
+      
+      const preset = presets[type];
+      if (!preset) return;
+      
+      // 应用预设值
+      bubbleBaseData.widthMode = preset.widthMode;
+      bubbleBaseData.maxWidthPercent = preset.maxWidthPercent || bubbleBaseData.maxWidthPercent;
+      bubbleBaseData.maxWidthPixel = preset.maxWidthPixel || bubbleBaseData.maxWidthPixel;
+      bubbleBaseData.padding = preset.padding;
+      bubbleBaseData.sliceTop = preset.sliceTop;
+      bubbleBaseData.sliceRight = preset.sliceRight;
+      bubbleBaseData.sliceBottom = preset.sliceBottom;
+      bubbleBaseData.sliceLeft = preset.sliceLeft;
+      
+      // 更新UI
+      setWidthMode(preset.widthMode);
+      document.getElementById('bubble-maxwidth-percent-val').textContent = preset.maxWidthPercent + '%';
+      document.getElementById('bubble-maxwidth-pixel-val').textContent = (preset.maxWidthPixel || 300) + 'px';
+      document.getElementById('bubbleMaxWidthPercentSlider').value = preset.maxWidthPercent || 65;
+      document.getElementById('bubbleMaxWidthPixelSlider').value = preset.maxWidthPixel || 300;
+      document.getElementById('bubble-padding-val').textContent = preset.padding + 'px';
+      document.getElementById('bubblePaddingSlider').value = preset.padding;
+      document.getElementById('slice-top-val').textContent = preset.sliceTop + 'px';
+      document.getElementById('sliceTopSlider').value = preset.sliceTop;
+      document.getElementById('slice-right-val').textContent = preset.sliceRight + 'px';
+      document.getElementById('sliceRightSlider').value = preset.sliceRight;
+      document.getElementById('slice-bottom-val').textContent = preset.sliceBottom + 'px';
+      document.getElementById('sliceBottomSlider').value = preset.sliceBottom;
+      document.getElementById('slice-left-val').textContent = preset.sliceLeft + 'px';
+      document.getElementById('sliceLeftSlider').value = preset.sliceLeft;
+      
+      // 如果已应用底图，实时更新样式
+      if (parsedStyles['border-image-source']) {
+        applyBubbleBase();
+      }
+    }
+    
+    // 应用底图
+    function applyBubbleBase() {
+      if (!bubbleBaseData.url) {
+        alert('请先上传底图');
+        return;
+      }
+      
+      // 清除旧样式
+      delete parsedStyles['border-image-source'];
+      delete parsedStyles['border-image-slice'];
+      delete parsedStyles['border-image-width'];
+      delete parsedStyles['border-image-repeat'];
+      delete parsedStyles['border-style'];
+      delete parsedStyles['border-color'];
+      delete parsedStyles['border-width'];
+      delete parsedStyles['background-image'];
+      delete parsedStyles['background-size'];
+      delete parsedStyles['background-repeat'];
+      delete parsedStyles['background-position'];
+      
+      if (bubbleBaseData.mode === 'fixed-shape') {
+        // ⭐ 固定形状模式 - 适合不规则底图（猫咪等）
+        parsedStyles['background-image'] = {
+          type: 'text',
+          value: `url(${bubbleBaseData.url})`,
+          original: `url(${bubbleBaseData.url})`
+        };
+        
+        // 保持图片比例，完整显示
+        parsedStyles['background-size'] = {
+          type: 'text',
+          value: '100% auto',
+          original: '100% auto'
+        };
+        
+        parsedStyles['background-repeat'] = {
+          type: 'text',
+          value: 'no-repeat',
+          original: 'no-repeat'
+        };
+        
+        parsedStyles['background-position'] = {
+          type: 'text',
+          value: 'center',
+          original: 'center'
+        };
+        
+        // 设置合适尺寸范围（更小更合理）
+        parsedStyles['min-width'] = {
+          type: 'text',
+          value: '160px',
+          original: '160px'
+        };
+        
+        parsedStyles['max-width'] = {
+          type: 'text',
+          value: '280px',
+          original: '280px'
+        };
+        
+        // 高度自适应内容和背景图
+        parsedStyles['min-height'] = {
+          type: 'text',
+          value: '120px',
+          original: '120px'
+        };
+        
+        // 使用padding确保文字区域和背景图匹配（减小padding让气泡更紧凑）
+        parsedStyles['padding'] = {
+          type: 'text',
+          value: '40px 30px',
+          original: '40px 30px'
+        };
+        
+        // 固定形状模式：文字居中对齐
+        parsedStyles['display'] = {
+          type: 'text',
+          value: 'flex',
+          original: 'flex'
+        };
+        
+        parsedStyles['align-items'] = {
+          type: 'text',
+          value: 'center',
+          original: 'center'
+        };
+        
+        parsedStyles['justify-content'] = {
+          type: 'text',
+          value: 'center',
+          original: 'center'
+        };
+        
+        parsedStyles['text-align'] = {
+          type: 'text',
+          value: 'center',
+          original: 'center'
+        };
+        
+      } else {
+        // 📐 九宫格拉伸模式 - 适合规则边框
+        parsedStyles['border-image-source'] = {
+          type: 'text',
+          value: `url(${bubbleBaseData.url})`,
+          original: `url(${bubbleBaseData.url})`
+        };
+      
+      parsedStyles['border-image-slice'] = {
+        type: 'text',
+        value: `${bubbleBaseData.sliceTop} ${bubbleBaseData.sliceRight} ${bubbleBaseData.sliceBottom} ${bubbleBaseData.sliceLeft} fill`,
+        original: `${bubbleBaseData.sliceTop} ${bubbleBaseData.sliceRight} ${bubbleBaseData.sliceBottom} ${bubbleBaseData.sliceLeft} fill`
+      };
+      
+      // ⭐ 简化方案：直接用像素值的border-image-width，不用outset
+      // 这样布局更稳定，虽然会占用一些空间，但不会乱飞
+      
+      // 根据uniformPadding决定使用统一值还是4个独立值
+      const widthValue = bubbleBaseData.uniformPadding 
+        ? `${bubbleBaseData.padding}px`
+        : `${bubbleBaseData.paddingTop}px ${bubbleBaseData.paddingRight}px ${bubbleBaseData.paddingBottom}px ${bubbleBaseData.paddingLeft}px`;
+      
+      // border-image-width直接用像素值
+      parsedStyles['border-image-width'] = {
+        type: 'text',
+        value: widthValue,
+        original: widthValue
+      };
+      
+      // border-width设置为0，避免额外空间
+      parsedStyles['border-width'] = {
+        type: 'text',
+        value: '0',
+        original: '0'
+      };
+      
+      parsedStyles['border-image-repeat'] = {
+        type: 'text',
+        value: bubbleBaseData.repeat,
+        original: bubbleBaseData.repeat
+      };
+      
+      // 设置透明边框样式（必须）
+      parsedStyles['border-style'] = {
+        type: 'text',
+        value: 'solid',
+        original: 'solid'
+      };
+      
+      parsedStyles['border-color'] = {
+        type: 'text',
+        value: 'transparent',
+        original: 'transparent'
+      };
+      
+      // 关键：确保底图不被裁剪且支持换行
+      parsedStyles['box-sizing'] = {
+        type: 'text',
+        value: 'border-box',
+        original: 'border-box'
+      };
+      
+      parsedStyles['display'] = {
+        type: 'text',
+        value: 'inline-block',
+        original: 'inline-block'
+      };
+      
+        // ⭐ 九宫格模式：根据用户选择决定是否消除底块
+        if (bubbleBaseData.removeBackground) {
+          // 强制透明背景，消除底块
+          parsedStyles['background'] = {
+            type: 'text',
+            value: 'transparent',
+            original: 'transparent'
+          };
+          parsedStyles['background-color'] = {
+            type: 'text',
+            value: 'transparent',
+            original: 'transparent'
+          };
+        }
+      } // 结束if (bubbleBaseData.mode === 'fixed-shape')判断
+      
+      // 通用样式（两种模式都需要）
+      // 使用用户自定义的文字padding（精细对齐）
+      parsedStyles['padding'] = {
+        type: 'text',
+        value: `${textPadding.vertical}px ${textPadding.horizontal}px`,
+        original: `${textPadding.vertical}px ${textPadding.horizontal}px`
+      };
+      
+      // 确保文字换行
+      parsedStyles['word-wrap'] = {
+        type: 'text',
+        value: 'break-word',
+        original: 'break-word'
+      };
+      
+      parsedStyles['word-break'] = {
+        type: 'text',
+        value: 'break-word',
+        original: 'break-word'
+      };
+      
+      parsedStyles['white-space'] = {
+        type: 'text',
+        value: 'pre-wrap',
+        original: 'pre-wrap'
+      };
+      
+      // 关键：限制宽度（根据用户选择的模式）
+      if (bubbleBaseData.widthMode === 'percent') {
+        parsedStyles['max-width'] = {
+          type: 'maxwidth',
+          maxWidthValue: bubbleBaseData.maxWidthPercent,
+          original: `${bubbleBaseData.maxWidthPercent}%`
+        };
+      } else {
+        parsedStyles['max-width'] = {
+          type: 'text',
+          value: `${bubbleBaseData.maxWidthPixel}px`,
+          original: `${bubbleBaseData.maxWidthPixel}px`
+        };
+      }
+      
+      // 移除border-radius（九宫格拉伸不支持圆角）
+      if (parsedStyles['border-radius']) {
+        delete parsedStyles['border-radius'];
+      }
+      
+      updatePreview();
+      
+      const modeInfo = bubbleBaseData.mode === 'fixed-shape' 
+        ? '⭐ 固定形状模式 - 猫咪等不规则底图' 
+        : '📐 九宫格拉伸模式 - 规则边框';
+      
+      alert(`✅ 底图已应用！
+      
+${modeInfo}
+
+⚠️ HTML结构：
+<div class="message-container sent">
+  <div class="message-bubble">用户消息</div>
+</div>
+<div class="message-container received">
+  <div class="message-bubble">AI消息</div>
+</div>
+
+📏 可调整参数：
+• 底图模式 → 切换"固定形状"或"九宫格拉伸"
+• 文字内边距 → 微调文字位置对齐（上下/左右独立）
+• 宽度控制 → 控制气泡最大宽度
+
+${bubbleBaseData.mode === 'fixed-shape' 
+  ? `⭐ 固定形状模式：
+• 适合猫咪等不规则底图
+• 底图不会变形
+• 文字自动居中
+• 多行文字会让气泡变大但保持形状`
+  : `📐 九宫格拉伸模式：
+• 切片位置（4个独立滑块）→ 控制哪里被拉伸
+• 边框渲染宽度 → 控制底图边框大小（5-50px）
+• ⭐ 消除底块 → 强制透明背景
+• 适合圆角矩形等规则边框`}
+
+📋 点击"复制CSS"获取完整代码`);
+    }
+    
+    // 移除底图
+    function removeBubbleBase() {
+      // 清理border-image相关
+      delete parsedStyles['border-image-source'];
+      delete parsedStyles['border-image-slice'];
+      delete parsedStyles['border-image-width'];
+      delete parsedStyles['border-image-repeat'];
+      delete parsedStyles['border-style'];
+      delete parsedStyles['border-color'];
+      delete parsedStyles['border-width'];
+      // 清理background-image相关
+      delete parsedStyles['background-image'];
+      delete parsedStyles['background-size'];
+      delete parsedStyles['background-repeat'];
+      delete parsedStyles['background-position'];
+      delete parsedStyles['width'];
+      delete parsedStyles['height'];
+      delete parsedStyles['min-width'];
+      delete parsedStyles['min-height'];
+      delete parsedStyles['aspect-ratio'];
+      // 清理flex布局相关
+      delete parsedStyles['align-items'];
+      delete parsedStyles['justify-content'];
+      delete parsedStyles['text-align'];
+      // 清理其他样式
+      delete parsedStyles['word-wrap'];
+      delete parsedStyles['word-break'];
+      delete parsedStyles['white-space'];
+      delete parsedStyles['max-width'];
+      delete parsedStyles['box-sizing'];
+      delete parsedStyles['display'];
+      
+      bubbleBaseData = { 
+        url: '', 
+        mode: 'fixed-shape',
+        sliceTop: 30, 
+        sliceRight: 30, 
+        sliceBottom: 30, 
+        sliceLeft: 30, 
+        padding: 15,
+        uniformPadding: true,
+        paddingTop: 15,
+        paddingRight: 15,
+        paddingBottom: 15,
+        paddingLeft: 15,
+        widthMode: 'percent', 
+        maxWidthPercent: 65, 
+        maxWidthPixel: 300, 
+        repeat: 'stretch',
+        removeBackground: true
+      };
+      document.getElementById('bubbleBasePreview').style.display = 'none';
+      
+      // 重置滑块和显示
+      document.getElementById('sliceTopSlider').value = 30;
+      document.getElementById('slice-top-val').textContent = '30px';
+      document.getElementById('sliceRightSlider').value = 30;
+      document.getElementById('slice-right-val').textContent = '30px';
+      document.getElementById('sliceBottomSlider').value = 30;
+      document.getElementById('slice-bottom-val').textContent = '30px';
+      document.getElementById('sliceLeftSlider').value = 30;
+      document.getElementById('slice-left-val').textContent = '30px';
+      document.getElementById('bubblePaddingSlider').value = 15;
+      document.getElementById('bubble-padding-val').textContent = '15px';
+      
+      // 重置模式选择
+      document.getElementById('bubbleBaseMode').value = 'fixed-shape';
+      document.getElementById('nineSliceControls').style.display = 'none';
+      
+      // 重置独立边框宽度模式
+      document.getElementById('uniformPadding').checked = true;
+      document.getElementById('uniformPaddingControl').style.display = 'block';
+      document.getElementById('separatePaddingControl').style.display = 'none';
+      
+      // 重置消除底块选项
+      document.getElementById('removeBackgroundColor').checked = true;
+      
+      updatePreview();
+      alert('底图已移除');
+    }
+    
+    // ==================== 手机端预览同步优化 ====================
+    
+    // 统一的预览触发函数（带防抖）
+    let previewUpdateTimer = null;
+    function triggerPreviewUpdate() {
+      if (previewUpdateTimer) {
+        clearTimeout(previewUpdateTimer);
+      }
+      
+      // 手机端使用更短的防抖时间（50ms），桌面端30ms
+      const isMobile = window.innerWidth < 768;
+      const debounceTime = isMobile ? 50 : 30;
+      
+      previewUpdateTimer = setTimeout(() => {
+        updatePreview();
+      }, debounceTime);
+    }
+    
+    // 优化：使用passive事件监听器提升滚动性能
+    document.addEventListener('DOMContentLoaded', function() {
+      const ranges = document.querySelectorAll('input[type="range"]');
+      ranges.forEach(range => {
+        // 确保所有滑块都调用triggerPreviewUpdate
+        if (!range.getAttribute('oninput')?.includes('triggerPreviewUpdate')) {
+          const oldHandler = range.oninput;
+          range.oninput = function() {
+            if (oldHandler) oldHandler.call(this);
+            triggerPreviewUpdate();
+          };
+        }
+        
+        // 添加touchend事件以确保手机端释放时更新
+        range.addEventListener('touchend', function() {
+          updatePreview();
+        }, { passive: true });
+      });
+      
+      // 颜色选择器立即更新
+      const colorInputs = document.querySelectorAll('input[type="color"]');
+      colorInputs.forEach(input => {
+        input.addEventListener('change', function() {
+          updatePreview();
+        });
+        
+        // 手机端在拖动时也实时更新
+        input.addEventListener('input', function() {
+          triggerPreviewUpdate();
+        });
+      });
+    });
   </script>
 </body>
 </html>
