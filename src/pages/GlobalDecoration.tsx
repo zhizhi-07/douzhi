@@ -293,8 +293,10 @@ const GlobalDecoration = () => {
           const outputFormat = isPNG ? 'image/png' : 'image/jpeg'
           // PNG使用1.0质量保持透明度，避免黑底
           const outputQuality = isPNG ? 1.0 : quality
+          console.log(`🖼️ 图片压缩: 原格式=${file.type}, 输出=${outputFormat}, 质量=${outputQuality}`)
           canvas.toBlob((blob) => {
             if (blob) {
+              console.log(`✅ Blob生成成功: type=${blob.type}, size=${blob.size}字节`)
               resolve(blob)
             } else {
               reject(new Error('图片压缩失败'))
