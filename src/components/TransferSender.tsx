@@ -182,13 +182,14 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
           
           <div className="flex gap-3 pt-2">
             <button 
-              className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1 px-6 py-3 glass-card rounded-full font-medium transition-colors"
               onClick={handleClose}
             >
               取消
             </button>
             <button 
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all"
+              className="flex-1 px-6 py-3 glass-card rounded-full font-medium transition-all"
+              style={{ backgroundColor: 'var(--global-button-color)', color: 'white' }}
               onClick={handleSend}
             >
               转账

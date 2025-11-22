@@ -62,13 +62,15 @@ input[type="range"]::-moz-range-thumb {
   background: var(--slider-thumb-color) !important;
 }
 
-/* 滑块进度条颜色 - 固定灰色 */
+/* 滑块轨道 - 完全透明 */
 input[type="range"]::-webkit-slider-runnable-track {
-  background: #e2e8f0 !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 input[type="range"]::-moz-range-track {
-  background: #e2e8f0 !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 /* 禁用移动端触摸高亮 - 简洁方案 */

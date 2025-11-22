@@ -97,13 +97,14 @@ const PhotoSender = ({ isOpen, onClose, onSend }: PhotoSenderProps) => {
 
           <div className="flex gap-3 pt-2">
             <button
-              className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1 px-6 py-3 glass-card rounded-full font-medium transition-colors"
               onClick={handleClose}
             >
               取消
             </button>
             <button
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+              className="flex-1 px-6 py-3 glass-card rounded-full font-medium transition-all disabled:opacity-50"
+              style={{ backgroundColor: 'var(--global-button-color)', color: 'white' }}
               onClick={handleSend}
               disabled={!description.trim()}
             >
