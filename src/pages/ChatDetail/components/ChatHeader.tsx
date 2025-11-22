@@ -87,7 +87,7 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
             className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full flex-shrink-0"
           >
             {customIcons['chat-back'] ? (
-              <img src={customIcons['chat-back']} alt="返回" className="w-5 h-5 object-cover rounded-full" />
+              <img src={customIcons['chat-back']} alt="返回" className="w-8 h-8 object-contain rounded-full" />
             ) : (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -142,7 +142,7 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
             className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"
           >
             {customIcons['chat-more'] ? (
-              <img src={customIcons['chat-more']} alt="更多" className="w-5 h-5 object-cover" />
+              <img src={customIcons['chat-more']} alt="更多" className="w-8 h-8 object-contain" />
             ) : (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
