@@ -292,18 +292,24 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
           <div className="flex justify-end">
             <div className="message-container sent">
               <div 
-                className="message-bubble px-3 py-2 rounded-2xl text-sm"
-                style={!previewCSS ? { background: userBubbleColor, color: userTextColor } : {}}
+                className="message-bubble px-3 py-2 text-sm"
+                style={!previewCSS ? { 
+                  background: userBubbleColor, 
+                  color: userTextColor,
+                  borderRadius: '18px 18px 4px 18px'
+                } : {}}
               >
                 我的消息
               </div>
             </div>
-          </div>
-          <div className="flex justify-start">
             <div className="message-container received">
               <div 
-                className="message-bubble px-3 py-2 rounded-2xl text-sm"
-                style={!previewCSS ? { background: aiBubbleColor, color: aiTextColor } : {}}
+                className="message-bubble px-3 py-2 text-sm"
+                style={!previewCSS ? { 
+                  background: aiBubbleColor, 
+                  color: aiTextColor,
+                  borderRadius: '18px 18px 18px 4px'
+                } : {}}
               >
                 AI回复
               </div>
