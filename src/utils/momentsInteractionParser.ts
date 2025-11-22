@@ -4,6 +4,7 @@
  */
 
 import { loadMoments, saveMoments } from './momentsManager'
+import { addMomentsNews } from './momentsNewsManager'
 
 /**
  * 朋友圈互动指令类型
@@ -33,22 +34,22 @@ export function parseMomentsInteractions(
   let cleanedMessage = message
 
   // 正则表达式匹配不同的指令格式
-  // 🔥 修复：避免匹配到其他指令（[开头），使用[^\[\n]+?替代.+?
+  // 支持方括号包裹的格式：[评论01 内容] 或 评论01 内容
   const patterns = [
-    // 评论：评论01 内容
+    // 回复评论（优先匹配，因为更具体）：[评论01回复张三 内容] 或 评论01回复张三 内容
     {
-      regex: /评论(\d+)\s+([^\[\n]+?)(?=\n|评论\d+|点赞\d+|$)/g,
+      regex: /\[?评论(\d+)回复([^\s\]]+?)\s+([^\]]+?)\]?(?=\n|评论\d+|点赞\d+|\[评论|\[点赞|$)/g,
+      type: 'reply' as const
+    },
+    // 评论：[评论01 内容] 或 评论01 内容
+    {
+      regex: /\[?评论(\d+)\s+([^\]]+?)\]?(?=\n|评论\d+|点赞\d+|\[评论|\[点赞|$)/g,
       type: 'comment' as const
     },
-    // 点赞：点赞02
+    // 点赞：[点赞02] 或 点赞02
     {
-      regex: /点赞(\d+)(?:\s|$)/g,
+      regex: /\[?点赞(\d+)\]?(?:\s|$)/g,
       type: 'like' as const
-    },
-    // 回复评论：评论01回复张三 内容
-    {
-      regex: /评论(\d+)回复([^\[\n]+?)\s+([^\[\n]+?)(?=\n|评论\d+|点赞\d+|$)/g,
-      type: 'reply' as const
     }
   ]
 
@@ -116,7 +117,7 @@ export interface InteractionResult {
  * @param interactions 互动指令数组
  * @returns 执行结果数组
  */
-export function executeMomentsInteractions(interactions: MomentsInteraction[]): InteractionResult[] {
+export async function executeMomentsInteractions(interactions: MomentsInteraction[]): Promise<InteractionResult[]> {
   if (interactions.length === 0) {
     return []
   }
@@ -168,6 +169,15 @@ export function executeMomentsInteractions(interactions: MomentsInteraction[]): 
             momentContent: momentContentPreview,
             message: `👍 ${interaction.aiName} 点赞了第 ${interaction.momentIndex} 条朋友圈`
           })
+          // 添加速报
+          addMomentsNews({
+            type: 'like',
+            actorId: interaction.aiId,
+            actorName: interaction.aiName,
+            targetId: moment.userId,
+            targetName: moment.userName,
+            momentContent: momentContentPreview
+          })
         }
         break
 
@@ -197,6 +207,16 @@ export function executeMomentsInteractions(interactions: MomentsInteraction[]): 
           momentContent: momentContentPreview,
           commentContent: interaction.content,
           message: `💬 ${interaction.aiName} 评论了第 ${interaction.momentIndex} 条朋友圈：${interaction.content}`
+        })
+        // 添加速报
+        addMomentsNews({
+          type: 'comment',
+          actorId: interaction.aiId,
+          actorName: interaction.aiName,
+          targetId: moment.userId,
+          targetName: moment.userName,
+          content: interaction.content,
+          momentContent: momentContentPreview
         })
         break
 
@@ -228,12 +248,23 @@ export function executeMomentsInteractions(interactions: MomentsInteraction[]): 
           replyTo: interaction.replyTo,
           message: `💬 ${interaction.aiName} 回复了 ${interaction.replyTo}（第 ${interaction.momentIndex} 条）：${interaction.content}`
         })
+        // 添加速报
+        addMomentsNews({
+          type: 'reply',
+          actorId: interaction.aiId,
+          actorName: interaction.aiName,
+          targetId: moment.userId,
+          targetName: moment.userName,
+          content: interaction.content,
+          replyTo: interaction.replyTo,
+          momentContent: momentContentPreview
+        })
         break
     }
   }
 
   // 保存更新后的朋友圈
-  saveMoments(moments)
+  await saveMoments(moments)
 
   // 触发朋友圈更新事件
   window.dispatchEvent(new Event('storage'))

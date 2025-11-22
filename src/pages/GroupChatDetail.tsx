@@ -784,18 +784,17 @@ const GroupChatDetail = () => {
           </div>
         ) : (
           messages.map((msg, index) => {
-            // 判断是否显示时间戳（固定5分钟时间刻度）
+            // 判断是否显示时间戳（两条消息间隔超过5分钟就显示）
             const prevMsg = messages[index - 1]
             let shouldShowTimestamp = false
             
             if (index === 0) {
               shouldShowTimestamp = true
             } else if (msg.timestamp && prevMsg?.timestamp) {
-              // 计算当前消息和上一条消息所在的5分钟时间段（向下取整）
-              const current5MinSlot = Math.floor(msg.timestamp / (5 * 60 * 1000))
-              const prev5MinSlot = Math.floor(prevMsg.timestamp / (5 * 60 * 1000))
-              // 如果跨越了5分钟时间段，显示时间戳
-              shouldShowTimestamp = current5MinSlot !== prev5MinSlot
+              // 计算两条消息之间的时间差
+              const timeDiff = msg.timestamp - prevMsg.timestamp
+              // 如果时间差超过5分钟，显示时间戳
+              shouldShowTimestamp = timeDiff >= 5 * 60 * 1000  // 5分钟 = 300000毫秒
             }
             
             // 系统消息（撤回）

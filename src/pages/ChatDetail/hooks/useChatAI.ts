@@ -1016,7 +1016,7 @@ export const useChatAI = (
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {
         console.log('📱 检测到朋友圈互动指令:', interactions)
-        const interactionResults = executeMomentsInteractions(interactions)
+        const interactionResults = await executeMomentsInteractions(interactions)
         console.log('✅ 朋友圈互动执行结果:', interactionResults)
         
         // 为每个成功的互动创建系统消息

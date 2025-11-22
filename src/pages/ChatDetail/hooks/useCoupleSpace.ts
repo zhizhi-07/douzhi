@@ -200,6 +200,10 @@ export const useCoupleSpace = (
     }
   }
 
+  // 检查是否有激活的情侣空间
+  const relation = getCoupleSpaceRelation()
+  const hasCoupleSpace = relation?.status === 'active' && relation.characterId === chatId
+
   return {
     showMenu,
     setShowMenu,
@@ -211,6 +215,7 @@ export const useCoupleSpace = (
     acceptInvite,
     rejectInvite,
     submitContent,
-    navigate
+    navigate,
+    hasCoupleSpace
   }
 }

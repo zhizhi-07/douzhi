@@ -291,13 +291,15 @@ const GlobalDecoration = () => {
           // 根据原始格式选择输出格式
           // PNG保留透明通道，其他格式转JPEG
           const outputFormat = isPNG ? 'image/png' : 'image/jpeg'
+          // PNG使用1.0质量保持透明度，避免黑底
+          const outputQuality = isPNG ? 1.0 : quality
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob)
             } else {
               reject(new Error('图片压缩失败'))
             }
-          }, outputFormat, quality)
+          }, outputFormat, outputQuality)
         }
         img.onerror = () => reject(new Error('图片加载失败'))
         img.src = e.target?.result as string
@@ -1145,7 +1147,7 @@ const GlobalDecoration = () => {
                       {filteredUIIcons.map(key => (
                       <div key={`ui-${key}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-2 flex-1">
-                          <img src={customIcons[key]} alt={key} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                          <img src={customIcons[key]} alt={key} className="w-10 h-10 rounded object-cover flex-shrink-0" />
                           <span className="text-gray-700 font-medium">{iconNameMap[key] || key}</span>
                           <span className="text-[10px] text-gray-400 bg-blue-100 px-1.5 py-0.5 rounded">UI</span>
                         </div>
@@ -1181,7 +1183,7 @@ const GlobalDecoration = () => {
                         return (
                           <div key={`desktop-${item.appId}`} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-2 flex-1">
-                              <img src={item.icon} alt={item.appId} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                              <img src={item.icon} alt={item.appId} className="w-10 h-10 rounded object-cover flex-shrink-0" />
                               <span className="text-gray-700 font-medium">{appNames[item.appId] || item.appId}</span>
                               <span className="text-[10px] text-gray-400 bg-purple-100 px-1.5 py-0.5 rounded">桌面</span>
                             </div>

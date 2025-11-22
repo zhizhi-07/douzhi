@@ -85,11 +85,35 @@ export async function aiDirectorArrangeScene(
   let publisherPersonality = ''
   
   if (!isUserPost) {
-    // AI发朋友圈时，传递发布者的完整人设
+    // AI发朋友圈时，传递发布者的完整人设 + 世界书
     const publisher = characterService.getById(moment.userId)
     if (publisher) {
-      console.log(`👤 ${moment.userName} 发的朋友圈，传递其人设供AI导演参考`)
+      console.log(`👤 ${moment.userName} 发的朋友圈，传递其人设 + 世界书供AI导演参考`)
       publisherPersonality = publisher.personality || ''
+      
+      // 🔥 添加世界书内容（包含 NPC 等背景信息）
+      const { lorebookManager } = await import('../lorebookSystem')
+      const lorebooks = lorebookManager.getCharacterLorebooks(publisher.id)
+      
+      if (lorebooks.length > 0) {
+        const allEntries: string[] = []
+        
+        for (const lorebook of lorebooks) {
+          const enabledEntries = lorebook.entries.filter(e => e.enabled)
+          
+          for (const entry of enabledEntries) {
+            // 只包含 constant 条目（始终生效的背景设定）
+            if (entry.constant) {
+              allEntries.push(`【${entry.name || '背景设定'}】\n${entry.content}`)
+            }
+          }
+        }
+        
+        if (allEntries.length > 0) {
+          publisherPersonality += `\n\n世界观与背景知识：\n${allEntries.join('\n\n')}`
+          console.log(`📚 已添加 ${allEntries.length} 条世界书常驻条目到发布者人设`)
+        }
+      }
     }
   }
   

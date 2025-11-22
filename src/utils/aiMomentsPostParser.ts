@@ -3,7 +3,8 @@
  * 解析AI在聊天中发送的朋友圈发布指令
  */
 
-import { saveMoments, loadMoments } from './momentsManager'
+import { loadMoments, saveMoments } from './momentsManager'
+import { addMomentsNews } from './momentsNewsManager'
 
 /**
  * AI朋友圈发布指令
@@ -203,6 +204,14 @@ export async function executeAIMomentsPost(post: AIMomentsPost): Promise<boolean
     await saveMoments(moments)
     console.log('💾 [AI发朋友圈] 已保存到IndexedDB')
     
+    // 添加速报
+    addMomentsNews({
+      type: 'post',
+      actorId: post.aiId,
+      actorName: post.aiName,
+      content: post.content
+    })
+    
     console.log(`✅ [AI发朋友圈] ${post.aiName} 发布了朋友圈: ${post.content}`)
     
     return true
@@ -331,6 +340,14 @@ export async function executeAIMomentsDelete(deleteCmd: AIMomentsDelete): Promis
     // 保存
     await saveMoments(moments)
     console.log('💾 [AI删除朋友圈] 已标记为删除')
+    
+    // 添加速报
+    addMomentsNews({
+      type: 'delete',
+      actorId: deleteCmd.aiId,
+      actorName: deleteCmd.aiName,
+      content: moment.content
+    })
     
     console.log(`✅ [AI删除朋友圈] ${deleteCmd.aiName} 删除了朋友圈: ${moment.content}`)
     

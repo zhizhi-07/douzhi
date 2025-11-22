@@ -16,14 +16,14 @@ let messageIdCounter = 0
 /**
  * 执行点赞动作
  */
-export function executeLikeAction(
+export async function executeLikeAction(
   action: AIAction,
   moment: Moment,
   character: any
-): void {
+): Promise<void> {
   const avatar = character?.avatar || '🤖'
   
-  likeMoment(moment.id, {
+  await likeMoment(moment.id, {
     id: action.characterId,
     name: action.characterName,
     avatar
@@ -56,12 +56,12 @@ export function executeLikeAction(
 /**
  * 执行评论动作
  */
-export function executeCommentAction(
+export async function executeCommentAction(
   action: AIAction,
   moment: Moment,
   character: any,
   _allActions: AIAction[]  // 保留用于API兼容性，当前版本未使用
-): void {
+): Promise<void> {
   const avatar = character?.avatar || '🤖'
   
   // 如果是回复别人的评论，在评论内容前加上 @回复对象
@@ -77,7 +77,9 @@ export function executeCommentAction(
     // 如果已经包含正确的@，说明AI导演已经自己加了，直接使用
   }
   
-  commentMoment(moment.id, {
+  // 🔥 注意：AI的评论不应该触发新的互动编排，所以这里不会触发
+  // commentMoment内部会检查user.id是否为'user'
+  await commentMoment(moment.id, {
     id: action.characterId,
     name: action.characterName,
     avatar

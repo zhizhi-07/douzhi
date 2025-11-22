@@ -48,6 +48,16 @@ export async function exportAllData(): Promise<void> {
       console.warn('朋友圈数据库导出失败:', err)
     }
 
+    // 导出角色数据库
+    try {
+      const charactersDbData = await exportIndexedDB('characters-db')
+      if (charactersDbData) {
+        data.indexedDB['characters-db'] = charactersDbData
+      }
+    } catch (err) {
+      console.warn('角色数据库导出失败:', err)
+    }
+
     console.log('✅ IndexedDB 导出完成')
 
     // 3. 生成文件并下载
@@ -109,6 +119,11 @@ export async function importAllData(file: File): Promise<void> {
         await importIndexedDB('moments-storage', data.indexedDB['moments-storage'])
       }
 
+      // 导入角色数据
+      if (data.indexedDB['characters-db']) {
+        await importIndexedDB('characters-db', data.indexedDB['characters-db'])
+      }
+
       console.log('✅ IndexedDB 导入完成')
     }
 
@@ -135,6 +150,7 @@ export function clearAllData(): void {
     console.log('🗑️ 清除 IndexedDB...')
     indexedDB.deleteDatabase('simple-chat-messages')
     indexedDB.deleteDatabase('moments-storage')
+    indexedDB.deleteDatabase('characters-db')
     console.log('✅ IndexedDB 已清除')
 
     console.log('✅ 所有数据清除完成！')

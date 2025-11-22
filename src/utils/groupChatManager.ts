@@ -22,6 +22,7 @@ export interface GroupChat {
   createdAt: string
   lastMessage?: string
   lastMessageTime?: string
+  lastMessageTimestamp?: number  // 最后一条消息的时间戳（用于排序）
   announcement?: string  // 群公告
   minReplyCount?: number  // AI每次回复的最少消息条数（默认10条）
   lorebookId?: string  // 挂载的世界书ID（全局世界书）
@@ -134,7 +135,8 @@ class GroupChatManager {
       owner: memberIds[0], // 第一个成员为群主
       createdAt: new Date().toISOString(),
       lastMessage: '开始聊天吧',
-      lastMessageTime: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      lastMessageTime: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      lastMessageTimestamp: Date.now()
     }
     
     if (!groupsCache) groupsCache = []
@@ -422,7 +424,8 @@ class GroupChatManager {
     // 更新群聊最后消息
     this.updateGroup(groupId, {
       lastMessage: newMessage.content,
-      lastMessageTime: newMessage.time
+      lastMessageTime: newMessage.time,
+      lastMessageTimestamp: newMessage.timestamp
     })
     
     // 触发更新事件
@@ -457,12 +460,14 @@ class GroupChatManager {
       const lastMsg = messages[messages.length - 1]
       this.updateGroup(groupId, {
         lastMessage: lastMsg.content,
-        lastMessageTime: lastMsg.time
+        lastMessageTime: lastMsg.time,
+        lastMessageTimestamp: lastMsg.timestamp
       })
     } else {
       this.updateGroup(groupId, {
         lastMessage: undefined,
-        lastMessageTime: undefined
+        lastMessageTime: undefined,
+        lastMessageTimestamp: undefined
       })
     }
     

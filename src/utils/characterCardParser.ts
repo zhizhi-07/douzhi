@@ -309,7 +309,7 @@ export function convertCharacterCardToInternal(
   creator?: string
 } {
   // 检测是否为 V2/V3 格式
-  const isV2OrV3 = 'spec' in card && 'data' in card && card.spec === 'chara_card_v2'
+  const isV2OrV3 = 'spec' in card && 'data' in card && (card.spec === 'chara_card_v2' || card.spec === 'chara_card_v3')
   const data = isV2OrV3 ? (card as CharacterCardV2).data : (card as CharacterCardV1)
   
   console.log('🔍 检测格式:', isV2OrV3 ? 'V2/V3' : 'V1')
@@ -332,27 +332,62 @@ export function convertCharacterCardToInternal(
   let characterBook = null
   
   // 尝试多种可能的字段名
+  console.log('🔍 检查世界书字段...')
+  console.log('  - character_book 存在:', 'character_book' in data)
+  console.log('  - characterBook 存在:', 'characterBook' in data)
+  console.log('  - extensions.character_book 存在:', 'extensions' in data && (data as any).extensions?.character_book !== undefined)
+  
   if ('character_book' in data && data.character_book) {
+    console.log('  ✓ 使用 character_book')
     characterBook = data.character_book
   } else if ('characterBook' in data && (data as any).characterBook) {
+    console.log('  ✓ 使用 characterBook')
     characterBook = (data as any).characterBook
   } else if ('extensions' in data && (data as any).extensions?.character_book) {
+    console.log('  ✓ 使用 extensions.character_book')
     characterBook = (data as any).extensions.character_book
   }
   
-  if (characterBook && Array.isArray(characterBook.entries) && characterBook.entries.length > 0) {
-    console.log('✅ 检测到世界书，条目数:', characterBook.entries.length)
-    try {
-      cleanedCharacterBook = cleanObject(characterBook, 15)
-    } catch (error) {
-      console.warn('清理世界书失败，使用原始数据:', error)
-      cleanedCharacterBook = characterBook
+  if (characterBook) {
+    console.log('  📖 找到世界书对象')
+    console.log('  - entries 类型:', typeof characterBook.entries)
+    console.log('  - entries 是数组:', Array.isArray(characterBook.entries))
+    console.log('  - entries 值:', characterBook.entries)
+    
+    // 将 entries 转换为数组（如果是对象格式）
+    let entriesArray: any[] = []
+    if (Array.isArray(characterBook.entries)) {
+      console.log('  ✓ entries 是数组格式')
+      entriesArray = characterBook.entries
+    } else if (typeof characterBook.entries === 'object' && characterBook.entries !== null) {
+      // 对象格式，转换为数组
+      console.log('  ✓ entries 是对象格式，转换为数组')
+      entriesArray = Object.values(characterBook.entries)
+    } else {
+      console.log('  ✗ entries 格式不支持:', typeof characterBook.entries)
+    }
+    
+    if (entriesArray.length > 0) {
+      console.log('✅ 检测到世界书，条目数:', entriesArray.length)
+      try {
+        // 确保 entries 是数组格式
+        const normalizedBook = {
+          ...characterBook,
+          entries: entriesArray
+        }
+        cleanedCharacterBook = cleanObject(normalizedBook, 15)
+      } catch (error) {
+        console.warn('清理世界书失败，使用原始数据:', error)
+        cleanedCharacterBook = {
+          ...characterBook,
+          entries: entriesArray
+        }
+      }
+    } else {
+      console.log('❌ 未导入世界书: entries为空')
     }
   } else {
-    const reason = !characterBook ? '未找到世界书字段' : 
-                   !Array.isArray(characterBook.entries) ? 'entries不是数组' :
-                   'entries为空数组'
-    console.log('❌ 未导入世界书:', reason)
+    console.log('❌ 未导入世界书: 未找到世界书字段')
   }
   
   const result = {

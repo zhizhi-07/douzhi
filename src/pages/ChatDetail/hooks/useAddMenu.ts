@@ -176,9 +176,13 @@ export const useAddMenu = (
    * 格式修正
    */
   const handleSelectFormatCorrector = useCallback(() => {
+    console.log('🔧 点击格式修正按钮')
     setShowAddMenu(false)
     if (onFormatCorrector) {
+      console.log('✅ 调用onFormatCorrector')
       onFormatCorrector()
+    } else {
+      console.warn('⚠️ onFormatCorrector 未定义')
     }
   }, [onFormatCorrector])
   

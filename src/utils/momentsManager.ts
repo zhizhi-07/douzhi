@@ -131,17 +131,17 @@ export async function publishMoment(
 /**
  * 删除朋友圈
  */
-export function deleteMoment(momentId: string): void {
+export async function deleteMoment(momentId: string): Promise<void> {
   const moments = loadMoments()
   const filtered = moments.filter(m => m.id !== momentId)
-  saveMoments(filtered)
+  await saveMoments(filtered)
   console.log('🗑️ 删除朋友圈:', momentId)
 }
 
 /**
  * 点赞朋友圈
  */
-export function likeMoment(momentId: string, user: User): void {
+export async function likeMoment(momentId: string, user: User): Promise<void> {
   const moments = loadMoments()
   const updated = moments.map(moment => {
     if (moment.id === momentId) {
@@ -167,7 +167,7 @@ export function likeMoment(momentId: string, user: User): void {
     return moment
   })
   
-  saveMoments(updated)
+  await saveMoments(updated)
   console.log('👍 点赞朋友圈:', momentId)
   
   // 触发更新事件
@@ -177,7 +177,7 @@ export function likeMoment(momentId: string, user: User): void {
 /**
  * 取消点赞
  */
-export function unlikeMoment(momentId: string, userId: string): void {
+export async function unlikeMoment(momentId: string, userId: string): Promise<void> {
   const moments = loadMoments()
   const updated = moments.map(moment => {
     if (moment.id === momentId) {
@@ -189,22 +189,24 @@ export function unlikeMoment(momentId: string, userId: string): void {
     return moment
   })
   
-  saveMoments(updated)
+  await saveMoments(updated)
   console.log('👎 取消点赞:', momentId)
 }
 
 /**
  * 评论朋友圈
  */
-export function commentMoment(
+export async function commentMoment(
   momentId: string,
   user: User,
   content: string
-): void {
+): Promise<void> {
   const moments = loadMoments()
+  let updatedMoment: Moment | null = null
+  
   const updated = moments.map(moment => {
     if (moment.id === momentId) {
-      return {
+      const newMoment = {
         ...moment,
         comments: [
           ...moment.comments,
@@ -218,15 +220,30 @@ export function commentMoment(
           }
         ]
       }
+      updatedMoment = newMoment
+      return newMoment
     }
     return moment
   })
   
-  saveMoments(updated)
+  await saveMoments(updated)
   console.log('💬 评论朋友圈:', content.substring(0, 20))
   
   // 触发更新事件
   window.dispatchEvent(new CustomEvent('moments-updated'))
+  
+  // 🔥 如果是用户评论，触发AI导演重新编排互动
+  if (user.id === 'user' && updatedMoment) {
+    console.log('🎬 用户发表评论，触发AI导演重新编排互动...')
+    
+    // 动态导入，避免循环依赖
+    const { triggerAIMomentsInteraction } = await import('./momentsAI/director')
+    
+    // 延迟一下，让评论先显示出来
+    setTimeout(() => {
+      triggerAIMomentsInteraction(updatedMoment!)
+    }, 500)
+  }
 }
 
 /**

@@ -15,6 +15,7 @@ export default function Moments() {
   const [moments, setMoments] = useState<Moment[]>([])
   const [showCommentInput, setShowCommentInput] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [replyTo, setReplyTo] = useState<string>('')
   const [coverImage, setCoverImage] = useState<string>(() => {
     return localStorage.getItem('moments_cover_image') || ''
   })
@@ -69,7 +70,7 @@ export default function Moments() {
     return `${date.getMonth() + 1}月${date.getDate()}日`
   }
   
-  const handleLike = (momentId: string) => {
+  const handleLike = async (momentId: string) => {
     playLikeSound() // 🎵 播放点赞音效
     const moment = moments.find(m => m.id === momentId)
     if (!moment) return
@@ -77,26 +78,38 @@ export default function Moments() {
     const hasLiked = moment.likes.some(like => like.userId === currentUser.id)
 
     if (hasLiked) {
-      unlikeMoment(momentId, currentUser.id)
+      await unlikeMoment(momentId, currentUser.id)
     } else {
-      likeMoment(momentId, currentUser)
+      await likeMoment(momentId, currentUser)
     }
 
     refresh()
   }
   
-  const handleCommentSubmit = (momentId: string) => {
+  const handleCommentSubmit = async (momentId: string) => {
     if (!commentText.trim()) return
     
-    commentMoment(momentId, currentUser, commentText.trim())
+    // 如果是回复，在评论前加上@
+    let finalComment = commentText.trim()
+    if (replyTo) {
+      finalComment = `@${replyTo} ${finalComment}`
+    }
+    
+    await commentMoment(momentId, currentUser, finalComment)
     setCommentText('')
+    setReplyTo('')
     setShowCommentInput(null)
     refresh()
   }
   
-  const handleDelete = (momentId: string) => {
+  const handleReplyComment = (momentId: string, userName: string) => {
+    setReplyTo(userName)
+    setShowCommentInput(momentId)
+  }
+  
+  const handleDelete = async (momentId: string) => {
     if (confirm('确定删除这条朋友圈吗？')) {
-      deleteMoment(momentId)
+      await deleteMoment(momentId)
       refresh()
     }
   }
@@ -301,7 +314,11 @@ export default function Moments() {
                     {moment.comments.length > 0 && (
                       <div className="space-y-2">
                         {moment.comments.map((comment) => (
-                          <div key={comment.id} className="text-sm">
+                          <div 
+                            key={comment.id} 
+                            className="text-sm cursor-pointer hover:bg-gray-100/50 -mx-1 px-1 py-0.5 rounded transition-colors"
+                            onClick={() => handleReplyComment(moment.id, comment.userName)}
+                          >
                             <span className="text-blue-600 font-medium">{comment.userName.length > 8 ? comment.userName.slice(0, 8) + '...' : comment.userName}：</span>
                             <span className="text-gray-700">{comment.content}</span>
                           </div>
@@ -340,12 +357,23 @@ export default function Moments() {
                 {showCommentInput === moment.id && (
                   <div className="mt-3 ml-[60px]">
                     <div className="glass-card rounded-xl p-3">
+                      {replyTo && (
+                        <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
+                          <span>回复 @{replyTo}</span>
+                          <button 
+                            onClick={() => setReplyTo('')}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="说点什么..."
+                          placeholder={replyTo ? `回复 @${replyTo}` : "说点什么..."}
                           className="flex-1 bg-transparent outline-none text-sm"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {

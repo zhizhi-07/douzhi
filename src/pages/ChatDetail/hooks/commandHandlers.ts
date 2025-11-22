@@ -203,7 +203,7 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  pattern: /[\[【](?:退还(?:转账)?|转账[:\：]拒绝|转账[:\：]退还)[\]】]|^退还$/,
+  pattern: /[\[【](?:退还(?:转账)?|转账[:\：]拒绝|转账[:\：]退还|转账已被退回)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）

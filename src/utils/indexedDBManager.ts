@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'DouzhiDB'
-const DB_VERSION = 1
+const DB_VERSION = 3
 
 // 所有数据存储的stores
 const STORES = {

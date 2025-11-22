@@ -1,6 +1,6 @@
 // 使用IndexedDB存储图标，支持更大容量
 const DB_NAME = 'IconStorage'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const UI_ICONS_STORE = 'ui_icons'
 const DESKTOP_ICONS_STORE = 'desktop_icons'
 
@@ -45,7 +45,9 @@ export const saveUIIcon = async (iconId: string, imageData: Blob | string): Prom
     const request = store.put(dataToStore, iconId)
     
     request.onsuccess = () => {
-      console.log(`✅ UI图标已保存: ${iconId}`)
+      console.log(`✅ UI图标已保存到IndexedDB: ${iconId}`)
+      // 触发图标变化事件
+      window.dispatchEvent(new Event('iconChanged'))
       resolve()
     }
     request.onerror = () => reject(request.error)

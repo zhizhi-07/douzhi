@@ -18,6 +18,7 @@ interface Chat {
   avatar: string
   lastMessage: string
   time: string
+  timestamp?: number  // 时间戳用于排序
   unread?: number
   isGroup?: boolean
   isPinned?: boolean
@@ -117,6 +118,7 @@ const ChatList = () => {
         name: character ? (character.nickname || character.realName) : chat.name,
         lastMessage: lastMessageText,
         time: lastMessage.time,
+        timestamp: lastMessage.timestamp || 0,  // 保存时间戳用于排序
         unread
       }
     })
@@ -234,6 +236,7 @@ const ChatList = () => {
       avatar: group.avatar || '',
       lastMessage: group.lastMessage || '开始聊天吧',
       time: group.lastMessageTime || '',
+      timestamp: group.lastMessageTimestamp || 0,  // 使用时间戳用于排序
       isGroup: true
     }))
 
@@ -243,24 +246,17 @@ const ChatList = () => {
       index === self.findIndex(c => c.id === chat.id)
     )
 
-    // 排序：置顶的在最上面，其余按时间排序
+    // 排序：置顶的在最上面，其余按时间戳排序
     uniqueChats.sort((a, b) => {
       // 先按置顶状态排序
       if (a.isPinned && !b.isPinned) return -1
       if (!a.isPinned && b.isPinned) return 1
       
-      // 置顶状态相同时，按时间排序
-      const timeA = a.time || ''
-      const timeB = b.time || ''
+      // 置顶状态相同时，按时间戳排序（越新的越靠前）
+      const timestampA = a.timestamp || 0
+      const timestampB = b.timestamp || 0
 
-      // 如果时间格式是 HH:MM，转换为分钟数比较
-      const parseTime = (timeStr: string) => {
-        if (!timeStr) return 0
-        const [hours, minutes] = timeStr.split(':').map(Number)
-        return (hours || 0) * 60 + (minutes || 0)
-      }
-
-      return parseTime(timeB) - parseTime(timeA)
+      return timestampB - timestampA
     })
 
     setChats(uniqueChats)

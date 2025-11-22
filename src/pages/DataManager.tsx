@@ -144,7 +144,7 @@ const DataManager = () => {
         <div className="mt-6 p-4 glass-card rounded-2xl backdrop-blur-md bg-white/60 border border-white/50">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">📋 数据说明</h3>
           <ul className="text-xs text-gray-600 space-y-1">
-            <li>• 导出数据：保存所有聊天记录、朋友圈、设置等</li>
+            <li>• 导出数据：保存所有角色、聊天记录、朋友圈、设置等</li>
             <li>• 导入数据：从备份文件恢复所有数据</li>
             <li>• 清除数据：删除所有本地数据，慎用！</li>
           </ul>

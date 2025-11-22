@@ -114,11 +114,11 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
     
     switch (action.action) {
       case 'like':
-        executeLikeAction(action, moment, virtualCharacter)
+        await executeLikeAction(action, moment, virtualCharacter)
         break
       case 'comment':
         // 评论时不需要 allActions，actionExecutor 会自动处理
-        executeCommentAction(action, moment, virtualCharacter, [])
+        await executeCommentAction(action, moment, virtualCharacter, [])
         break
       case 'none':
         console.log(`👀 NPC ${npcName} 选择沉默`)
@@ -148,11 +148,11 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
   
   switch (action.action) {
     case 'like':
-      executeLikeAction(action, moment, character)
+      await executeLikeAction(action, moment, character)
       break
     case 'comment':
       // 评论时不需要 allActions，actionExecutor 会自动处理
-      executeCommentAction(action, moment, character, [])
+      await executeCommentAction(action, moment, character, [])
       break
     case 'dm':
       executeDMAction(action, character, moment)

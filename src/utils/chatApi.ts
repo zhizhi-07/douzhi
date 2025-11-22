@@ -395,6 +395,15 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
     }
   }
   
+  // 🔥 打印完整的线下提示词到控制台
+  console.log('═══════════════════════════════════════')
+  console.log('📝 [线下提示词] 完整内容如下：')
+  console.log('═══════════════════════════════════════')
+  console.log(finalPrompt)
+  console.log('═══════════════════════════════════════')
+  console.log(`📏 [线下提示词] 总长度: ${finalPrompt.length} 字符`)
+  console.log('═══════════════════════════════════════')
+  
   return finalPrompt
 }
 
@@ -487,6 +496,13 @@ const getTimeSinceLastMessage = (messages: Message[]): string => {
 export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = []): Promise<string> => {
   // 🔥 构建表情包列表
   const emojiListPrompt = await buildEmojiListPrompt()
+  
+  // 🔥 构建朋友圈列表
+  const momentsListPrompt = await buildMomentsListPrompt(character.id)
+  
+  // 🔥 构建朋友圈速报
+  const { formatMomentsNewsForPrompt } = await import('./momentsNewsManager')
+  const momentsNewsPrompt = formatMomentsNewsForPrompt(10)
   
   // 🔥 检测用户消息中是否包含小剧场关键词
   const { findTemplateByKeyword } = await import('../data/theatreTemplates')
@@ -948,6 +964,10 @@ ${buildCoupleSpaceContext(character)}
 
 ${buildCareReminderContext(messages)}
 ${buildMemoReminderContext(messages)}
+
+${momentsListPrompt}
+
+${momentsNewsPrompt}
 
 在以上所有前提下，基于完整的聊天历史和 ${userNickname} 刚才的消息，自然地回复，就像你拿着手机在和一个真实的人聊天。`
 }
@@ -2142,7 +2162,7 @@ const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> =>
 
 ══════════════════════════════════
 
-✨ 你也可以发朋友圈：
+✨ 你也可以发朋友圈（但不是随便想发就发）：
 
 **基本格式**：
 朋友圈：内容
@@ -2156,13 +2176,18 @@ const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> =>
 朋友圈：有点想你了|仅用户可见
 朋友圈：今天和朋友出去玩啦|@用户 @小明
 
+🧠 什么时候更适合发一条朋友圈（通用原则）：
+- 你这边的情绪有明显波动：特别开心、特别丧、委屈、生气、想念、紧张前的自我打气等；
+- 和用户聊到某件事很有感觉，想单独留一条属于自己的记录（可以顺手@对方，或者设成仅对方可见的小心机）；
+- 生活里刚发生了值得记一下的小事：吃到好吃的、出门玩、加班到很晚、刚考完试、突然下暴雨等；
+- 你真的有「想发一条给别人看到」的冲动，而不是为了测试功能或完成任务。
+
 ⚠️ 注意：
-- 朋友圈发出后，其他人（可能是你的朋友、用户认识的人）会看到
-- 他们可能会点赞或评论你的朋友圈
-- 不要频繁发朋友圈，看心情和情况决定
-- 发朋友圈的内容要符合你的性格和当下的心情
-- "仅xx可见"可以设置只让特定人看到（小心机）
-- "@某某"可以提到某个人，让TA收到通知
+- 朋友圈发出后，其他人（可能是你的朋友、用户认识的人）会看到；
+- 他们可能会点赞或评论你的朋友圈；
+- 想发就发，不用太克制，但内容要符合你的性格、你和用户当前的关系，以及当下的心情；
+- "仅xx可见"可以设置只让特定人看到（小心机）；
+- "@某某"可以提到某个人，让TA收到通知。
 
 🗑️ 你也可以删除自己的朋友圈：
 

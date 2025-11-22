@@ -5,7 +5,7 @@ import MusicPlayerCard from '../components/MusicPlayerCard'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
 import { page1Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
-import { getCustomIcon } from '../utils/iconManager'
+import { getCustomIcon, preloadDesktopIcons } from '../utils/iconManager'
 import { playSystemSound } from '../utils/soundManager'
 import { getBackground } from '../utils/backgroundStorage'
 import { getImage } from '../utils/unifiedStorage'
@@ -152,10 +152,17 @@ const Desktop = () => {
     return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
   }, [])
   
+  // 预加载桌面图标
+  useEffect(() => {
+    preloadDesktopIcons()
+  }, [])
+  
   // 监听图标变化
   useEffect(() => {
     const handleIconChange = () => {
       setIconRefresh(prev => prev + 1)
+      // 重新预加载图标
+      preloadDesktopIcons()
     }
     window.addEventListener('iconChanged', handleIconChange)
     return () => window.removeEventListener('iconChanged', handleIconChange)
@@ -647,7 +654,7 @@ const Desktop = () => {
                           onClick={() => app.route && navigate(app.route)}
                         >
                           {customIcon ? (
-                            <img src={customIcon} alt={app.label} className="w-full h-full object-contain" />
+                            <img src={customIcon} alt={app.label} className="w-full h-full object-cover rounded-2xl" />
                           ) : (
                             <app.Icon className="w-8 h-8 text-gray-300" />
                           )}
@@ -667,10 +674,11 @@ const Desktop = () => {
                     width: '140px',
                     height: '140px',
                     border: gridPhoto ? 'none' : '2px dashed #ccc',
-                    backgroundColor: gridPhoto ? 'transparent' : 'rgba(255, 255, 255, 0.5)',
-                    borderRadius: gridPhoto ? '0' : '16px',
+                    backgroundColor: gridPhoto ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: '16px',
                     padding: gridPhoto ? '0' : '4px',
-                    marginTop: '16px'
+                    marginTop: '16px',
+                    overflow: 'hidden'
                   }}
                   onClick={() => {
                     const input = document.createElement('input')
@@ -692,8 +700,8 @@ const Desktop = () => {
                   }}
                 >
                   {gridPhoto ? (
-                    <div className="w-full h-full relative">
-                      <img src={gridPhoto} alt="" className="absolute inset-0 w-full h-full object-contain" />
+                    <div className="w-full h-full relative bg-white rounded-2xl">
+                      <img src={gridPhoto} alt="" className="absolute inset-0 w-full h-full object-contain rounded-2xl" />
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
