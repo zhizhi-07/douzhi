@@ -118,15 +118,18 @@ const ChatDetail = () => {
           }
         }
         
-        // 🌍 全局设置优先：如果有全局背景/顶栏，覆盖各界面的独立设置
+        // 🌍 全局设置：应用到所有界面
         if (icons['global-background']) {
-          // 全局背景应用到所有界面
+          // 全局背景应用到聊天界面
+          setWallpaperImageUrl(icons['global-background'])
           console.log('🌍 应用全局背景到聊天界面')
         }
         if (icons['global-topbar']) {
-          // 全局顶栏覆盖聊天顶栏
-          icons['chat-topbar-bg'] = icons['global-topbar']
-          console.log('🌍 应用全局顶栏到聊天界面')
+          // 全局顶栏应用到聊天界面（如果没有单独设置）
+          if (!icons['chat-topbar-bg']) {
+            icons['chat-topbar-bg'] = icons['global-topbar']
+            console.log('🌍 应用全局顶栏到聊天界面')
+          }
         }
         
         setCustomIcons(icons)
@@ -717,30 +720,18 @@ const ChatDetail = () => {
       <ChatHeader
         characterName={character.nickname || character.realName}
         characterId={id}
-        characterAvatar={character.avatar}
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}
-        onAvatarClick={async () => {
-          // 获取最新的AI状态
-          if (id) {
-            const { getAIStatus } = await import('../utils/aiStatusManager')
-            const status = getAIStatus(id)
-            setCurrentAIStatus(status)
-            setShowAIStatusModal(true)
-          }
+        onAddOfflineRecord={() => {
+          setEditingOfflineRecord(null)
+          setShowOfflineRecordDialog(true)
         }}
-        tokenStats={chatAI.tokenStats}
-        onTokenStatsClick={() => setShowTokenDetail(!showTokenDetail)}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         topBarScale={topBarScale}
         topBarX={topBarX}
         topBarY={topBarY}
         customIcons={customIcons}
-        onAddOfflineRecord={() => {
-          setEditingOfflineRecord(null)
-          setShowOfflineRecordDialog(true)
-        }}
       />
       
       {/* Token 详情面板 - 显示在头部下方 */}

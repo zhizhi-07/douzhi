@@ -119,7 +119,7 @@ const VoiceSettings = () => {
 
       {/* 配置表单 */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="bg-white rounded-xl p-6 space-y-4">
+        <div className="glass-card rounded-xl p-6 space-y-4">
           {/* API Key */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -153,7 +153,7 @@ const VoiceSettings = () => {
             <button
               onClick={handleTest}
               disabled={isTesting}
-              className="flex-1 py-3 border border-blue-500 text-blue-500 rounded-full hover:bg-blue-50 disabled:opacity-50"
+              className="flex-1 py-3 glass-card border border-blue-500 text-blue-500 rounded-full hover:bg-blue-50 disabled:opacity-50"
             >
               {isTesting ? '测试中...' : '测试语音'}
             </button>

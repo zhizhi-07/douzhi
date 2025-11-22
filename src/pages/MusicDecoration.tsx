@@ -271,7 +271,7 @@ const MusicDecoration = () => {
         {/* 颜色自定义弹窗 */}
         {showColorPanel && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setShowColorPanel(false)}>
-            <div className="w-full bg-white rounded-t-3xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full glass-card rounded-t-3xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">颜色自定义</h2>
               
               {/* 唱片外框颜色 */}

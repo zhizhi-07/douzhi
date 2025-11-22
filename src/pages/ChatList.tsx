@@ -33,30 +33,8 @@ const ChatList = () => {
   const [groupAvatar, setGroupAvatar] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
-  const [wechatBg, setWechatBg] = useState(() => {
-    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
-    if (preloaded) {
-      try {
-        const backgrounds = JSON.parse(preloaded)
-        return backgrounds.wechat_bg || ''
-      } catch { return '' }
-    }
-    return ''
-  })
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>(() => {
-    // 🔥 组件初始化时立即从缓存同步加载，避免闪烁
-    try {
-      const preloaded = sessionStorage.getItem('__preloaded_icons__')
-      if (preloaded) {
-        const icons = JSON.parse(preloaded)
-        console.log('⚡ 初始化时同步加载图标缓存')
-        return icons
-      }
-    } catch (error) {
-      console.error('初始化图标缓存失败:', error)
-    }
-    return {}
-  })
+  const [wechatBg, setWechatBg] = useState('')
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   
   // 加载调整参数
   const [topbarScale, setTopbarScale] = useState(100)
@@ -149,26 +127,25 @@ const ChatList = () => {
   useEffect(() => {
     const loadCustomIcons = async () => {
       try {
-        // 🔥 优先从 sessionStorage 读取预加载的图标（同步，无延迟）
-        const preloaded = sessionStorage.getItem('__preloaded_icons__')
-        if (preloaded) {
-          const icons = JSON.parse(preloaded)
-          setCustomIcons(icons)
-          console.log('⚡ 从缓存加载图标', Object.keys(icons).length, '个')
-          return
-        }
-        
         let icons = await getAllUIIcons()
         
-        // 🌍 全局设置优先：如果有全局背景/顶栏，覆盖各界面的独立设置
+        console.log('🔍 检查图标:', Object.keys(icons))
+        console.log('🔍 global-background存在?', !!icons['global-background'])
+        
+        // 🌍 全局设置：应用到所有界面
         if (icons['global-background']) {
-          // 全局背景应用到所有界面
-          console.log('🌍 应用全局背景')
+          // 全局背景应用到主界面
+          setWechatBg(icons['global-background'])
+          console.log('🌍 应用全局背景到主界面', icons['global-background'].substring(0, 50))
+        } else {
+          console.log('❌ 没有找到global-background')
         }
         if (icons['global-topbar']) {
-          // 全局顶栏覆盖主界面顶栏
-          icons['main-topbar-bg'] = icons['global-topbar']
-          console.log('🌍 应用全局顶栏到主界面')
+          // 全局顶栏应用到主界面（如果没有单独设置）
+          if (!icons['main-topbar-bg']) {
+            icons['main-topbar-bg'] = icons['global-topbar']
+            console.log('🌍 应用全局顶栏到主界面')
+          }
         }
         
         // 🔥 同步更新到sessionStorage缓存
@@ -411,24 +388,28 @@ const ChatList = () => {
     loadCharacters() // 重新加载可用角色
   }
 
-  // 加载微信背景
+  // 加载微信背景（全局背景在loadCustomIcons中已经设置）
   useEffect(() => {
     const loadWechatBg = async () => {
-      // 如果已经有缓存，跳过
-      if (wechatBg) return
-      
-      const bg = await getImage('wechat_bg')
-      if (bg) setWechatBg(bg)
+      // 只有在没有全局背景时才加载单独的微信背景
+      const icons = await getAllUIIcons()
+      if (!icons['global-background']) {
+        const bg = await getImage('wechat_bg')
+        if (bg) setWechatBg(bg)
+      }
     }
     loadWechatBg()
     
     const handleBgUpdate = async () => {
       console.log('📡 ChatList: 收到背景更新事件')
-      const bg = await getImage('wechat_bg')
-      if (bg) {
-        console.log('✅ ChatList: 背景更新成功')
+      const icons = await getAllUIIcons()
+      if (!icons['global-background']) {
+        const bg = await getImage('wechat_bg')
+        if (bg) {
+          console.log('✅ ChatList: 背景更新成功')
+        }
+        setWechatBg(bg || '')
       }
-      setWechatBg(bg || '')
     }
     window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
@@ -436,13 +417,12 @@ const ChatList = () => {
 
   return (
     <div 
-      className="h-screen flex flex-col page-enter bg-cover bg-center"
+      className="h-screen flex flex-col page-enter"
       style={wechatBg ? { 
         backgroundImage: `url(${wechatBg})`,
-        backgroundColor: '#f5f7fa'
-      } : { 
-        backgroundColor: '#f5f7fa' 
-      }}
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      } : {}}
     >
       {/* 顶部 */}
       <div 

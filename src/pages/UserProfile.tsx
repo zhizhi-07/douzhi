@@ -102,7 +102,7 @@ const UserProfile = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* 顶部导航 - 包含StatusBar */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="glass-card rounded-r-b border-gray-200">
         <StatusBar />
         <div className="px-4 py-3 flex items-center justify-between">
           <button
@@ -123,7 +123,7 @@ const UserProfile = () => {
 
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto pb-20">
-        <div className="bg-white mt-2">
+        <div className="glass-card mt-2">
           {/* 头像 */}
           <div 
             className="flex items-center justify-between px-4 py-4 border-b border-gray-100"
@@ -131,7 +131,7 @@ const UserProfile = () => {
           >
             <span className="text-gray-500 text-sm">头像</span>
             <div className="flex items-center gap-2">
-              <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="w-14 h-14 rounded-lg glass-card flex items-center justify-center overflow-hidden">
                 {userInfo.avatar ? (
                   <img src={userInfo.avatar} alt="头像" className="w-full h-full object-cover" />
                 ) : (

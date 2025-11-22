@@ -121,13 +121,12 @@ const Me = () => {
 
   return (
     <div
-      className="h-screen flex flex-col bg-cover bg-center page-fade-in"
+      className="h-screen flex flex-col page-fade-in"
       style={wechatBg ? { 
         backgroundImage: `url(${wechatBg})`,
-        backgroundColor: '#f5f7fa'
-      } : { 
-        backgroundColor: '#f5f7fa' 
-      }}
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      } : {}}
     >
       {/* 顶部 */}
       <div 

@@ -322,7 +322,7 @@ const FontCustomizer = () => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-3 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium"
+            className="w-full py-3 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium"
           >
             选择字体文件
           </button>
@@ -344,7 +344,7 @@ const FontCustomizer = () => {
             />
             <button
               onClick={handleLoadFromUrl}
-              className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors font-medium whitespace-nowrap"
+              className="px-4 py-2 glass-card rounded-full hover:bg-green-600 transition-colors font-medium whitespace-nowrap"
             >
               加载
             </button>

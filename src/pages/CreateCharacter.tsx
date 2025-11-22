@@ -202,7 +202,7 @@ const CreateCharacter = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div className="h-screen flex flex-col">
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />
@@ -269,7 +269,7 @@ const CreateCharacter = () => {
         <div className="flex justify-center mb-6">
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="w-20 h-20 rounded-xl bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md border border-gray-200/50 overflow-hidden cursor-pointer"
+            className="w-20 h-20 rounded-xl glass-card flex items-center justify-center shadow-md border border-gray-200/50 overflow-hidden cursor-pointer"
           >
             <input 
               ref={fileInputRef}
@@ -289,7 +289,7 @@ const CreateCharacter = () => {
         </div>
 
         {/* 表单项 */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 shadow-sm">
+        <div className="glass-card rounded-xl p-4 border border-gray-200/50 shadow-sm">
           {/* 真名 */}
           <div className="mb-4">
             <label className="block text-xs text-gray-500 mb-1.5">真实名字 *</label>

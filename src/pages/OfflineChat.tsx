@@ -482,7 +482,7 @@ const OfflineChat = () => {
                             className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${
                               maxTokens === preset
                                 ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
-                                : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
+                                : 'glass-card text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
                             }`}
                           >
                             {preset}

@@ -6,7 +6,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { getBackground, saveBackground, deleteBackground, migrateFromLocalStorage } from '../utils/backgroundStorage'
-import { saveImage, getImage, deleteFromIndexedDB } from '../utils/unifiedStorage'
+import { saveImage, getImage, deleteFromIndexedDB, saveToIndexedDB } from '../utils/unifiedStorage'
+import { saveUIIcon, getUIIcon, deleteUIIcon } from '../utils/iconStorage'
 
 const BackgroundCustomizer = () => {
   const navigate = useNavigate()
@@ -16,6 +17,9 @@ const BackgroundCustomizer = () => {
   })
   
   // 背景状态
+  const [globalBg, setGlobalBg] = useState('')
+  const [globalTopbar, setGlobalTopbar] = useState('')
+  const [functionBg, setFunctionBg] = useState('')
   const [desktopBg, setDesktopBg] = useState('')
   const [musicBg, setMusicBg] = useState('')
   const [wechatBg, setWechatBg] = useState('')
@@ -29,7 +33,12 @@ const BackgroundCustomizer = () => {
       // 先尝试迁移localStorage旧数据
       await migrateFromLocalStorage()
       
+      // 加载全局背景
+      const savedGlobalBg = await getUIIcon('global-background')
+      const savedGlobalTopbar = await getUIIcon('global-topbar')
+      
       // 加载所有背景
+      const savedFunctionBg = await getImage('function_bg')
       const savedDesktopBg = await getImage('desktop_bg')
       const savedMusicBg = await getImage('music_bg')
       const savedWechatBg = await getImage('wechat_bg')
@@ -37,6 +46,9 @@ const BackgroundCustomizer = () => {
       const bubble1 = await getImage('desktop_bubble1_bg')
       const bubble2 = await getImage('desktop_bubble2_bg')
       
+      if (savedGlobalBg) setGlobalBg(savedGlobalBg)
+      if (savedGlobalTopbar) setGlobalTopbar(savedGlobalTopbar)
+      if (savedFunctionBg) setFunctionBg(savedFunctionBg)
       if (savedDesktopBg) setDesktopBg(savedDesktopBg)
       if (savedMusicBg) setMusicBg(savedMusicBg)
       if (savedWechatBg) setWechatBg(savedWechatBg)
@@ -333,7 +345,7 @@ const BackgroundCustomizer = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#f5f7fa]">
+    <div className="h-screen flex flex-col bg-[#f5f7fa]">
       {/* 隐藏的文件输入 */}
       <input
         ref={desktopFileRef}
@@ -401,6 +413,202 @@ const BackgroundCustomizer = () => {
 
       {/* 背景设置列表 */}
       <div className="flex-1 overflow-y-auto p-4">
+        {/* 全局背景 */}
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 px-2">全局背景</h2>
+          <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50 mb-3">
+            <p className="text-xs text-gray-500 mb-3">应用于所有界面的整体背景</p>
+            
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundImage: globalBg ? `url(${globalBg})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: globalBg ? 'transparent' : '#f5f7fa'
+                }}
+              >
+                {!globalBg && (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <button
+                  onClick={async () => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/*'
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = async (event) => {
+                          const dataUrl = event.target?.result as string
+                          setGlobalBg(dataUrl)
+                          await saveUIIcon('global-background', dataUrl)
+                          window.dispatchEvent(new Event('uiIconsChanged'))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                >
+                  {globalBg ? '更换背景' : '上传背景'}
+                </button>
+                {globalBg && (
+                  <button
+                    onClick={async () => {
+                      if (confirm('确定要删除全局背景吗？')) {
+                        setGlobalBg('')
+                        await deleteUIIcon('global-background')
+                        window.dispatchEvent(new Event('uiIconsChanged'))
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  >
+                    删除背景
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50">
+            <p className="text-xs text-gray-500 mb-3">应用于所有界面的顶栏背景</p>
+            
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundImage: globalTopbar ? `url(${globalTopbar})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: globalTopbar ? 'transparent' : '#f5f7fa'
+                }}
+              >
+                {!globalTopbar && (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <button
+                  onClick={async () => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/*'
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = async (event) => {
+                          const dataUrl = event.target?.result as string
+                          setGlobalTopbar(dataUrl)
+                          await saveUIIcon('global-topbar', dataUrl)
+                          window.dispatchEvent(new Event('uiIconsChanged'))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                >
+                  {globalTopbar ? '更换顶栏' : '上传顶栏'}
+                </button>
+                {globalTopbar && (
+                  <button
+                    onClick={async () => {
+                      if (confirm('确定要删除全局顶栏吗？')) {
+                        setGlobalTopbar('')
+                        await deleteUIIcon('global-topbar')
+                        window.dispatchEvent(new Event('uiIconsChanged'))
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  >
+                    删除顶栏
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 功能背景 */}
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 px-2">功能背景</h2>
+          <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50">
+            <p className="text-xs text-gray-500 mb-3">转账、发照片等功能弹窗的背景</p>
+            
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: functionBg ? 'transparent' : '#f5f7fa'
+                }}
+              >
+                {!functionBg && (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <button
+                  onClick={async () => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/*'
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = async (event) => {
+                          const dataUrl = event.target?.result as string
+                          setFunctionBg(dataUrl)
+                          await saveToIndexedDB('IMAGES', 'function_bg', dataUrl)
+                          console.log('✅ 功能背景已保存到IndexedDB (base64长度:', dataUrl.length, ')')
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                >
+                  {functionBg ? '更换背景' : '上传背景'}
+                </button>
+                {functionBg && (
+                  <button
+                    onClick={async () => {
+                      if (confirm('确定要删除功能背景吗？')) {
+                        setFunctionBg('')
+                        await deleteFromIndexedDB('IMAGES', 'function_bg')
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                  >
+                    删除背景
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 桌面背景 */}
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-gray-700 mb-3 px-2">桌面背景</h2>
@@ -430,14 +638,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => desktopFileRef.current?.click()}
                   disabled={desktopUploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {desktopUploading ? '上传中...' : desktopBg ? '更换背景' : '上传背景'}
                 </button>
                 {desktopBg && (
                   <button
                     onClick={handleRemoveDesktop}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -476,14 +684,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => musicFileRef.current?.click()}
                   disabled={musicUploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {musicUploading ? '上传中...' : musicBg ? '更换背景' : '上传背景'}
                 </button>
                 {musicBg && (
                   <button
                     onClick={handleRemoveMusic}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -522,14 +730,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => wechatFileRef.current?.click()}
                   disabled={wechatUploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {wechatUploading ? '上传中...' : wechatBg ? '更换背景' : '上传背景'}
                 </button>
                 {wechatBg && (
                   <button
                     onClick={handleRemoveWechat}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -568,14 +776,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => memoFileRef.current?.click()}
                   disabled={memoUploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {memoUploading ? '上传中...' : memoBg ? '更换背景' : '上传背景'}
                 </button>
                 {memoBg && (
                   <button
                     onClick={handleRemoveMemo}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -614,14 +822,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => bubble1FileRef.current?.click()}
                   disabled={bubble1Uploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {bubble1Uploading ? '上传中...' : bubble1Bg ? '更换背景' : '上传背景'}
                 </button>
                 {bubble1Bg && (
                   <button
                     onClick={handleRemoveBubble1}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>
@@ -655,14 +863,14 @@ const BackgroundCustomizer = () => {
                 <button
                   onClick={() => bubble2FileRef.current?.click()}
                   disabled={bubble2Uploading}
-                  className="w-full px-4 py-2.5 bg-slate-700 text-white rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
+                  className="w-full px-4 py-2.5 glass-card rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all font-medium text-sm"
                 >
                   {bubble2Uploading ? '上传中...' : bubble2Bg ? '更换背景' : '上传背景'}
                 </button>
                 {bubble2Bg && (
                   <button
                     onClick={handleRemoveBubble2}
-                    className="w-full px-4 py-2.5 bg-red-500 text-white rounded-full active:opacity-80 transition-opacity font-medium text-sm"
+                    className="w-full px-4 py-2.5 glass-card rounded-full active:opacity-80 transition-opacity font-medium text-sm"
                   >
                     删除背景
                   </button>

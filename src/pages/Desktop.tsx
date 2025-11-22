@@ -271,17 +271,17 @@ const Desktop = () => {
   }
 
   return (
-    <div className="h-screen w-full relative overflow-hidden bg-[#f5f7fa] page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
-      {/* 背景 */}
-      <div 
-        className="desktop-background absolute inset-0 bg-gradient-to-b from-white/50 to-gray-100/30 bg-cover bg-center transition-opacity duration-300"
-        style={desktopBg ? { 
-          backgroundImage: `url(${desktopBg})`,
-          opacity: 1
-        } : {
-          opacity: 1
-        }}
-      />
+    <div className="h-screen w-full relative overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
+      {/* 背景 - 只在有单独桌面背景时显示 */}
+      {desktopBg && (
+        <div 
+          className="desktop-background absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+          style={{ 
+            backgroundImage: `url(${desktopBg})`,
+            opacity: 1
+          }}
+        />
+      )}
       
       {/* 内容容器 */}
       <div className="relative h-full flex flex-col">

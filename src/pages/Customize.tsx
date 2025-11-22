@@ -43,12 +43,6 @@ const Customize = () => {
       route: '/font-customizer'
     },
     {
-      id: 'background',
-      name: '背景设置',
-      description: '桌面背景和音乐背景',
-      route: '/background-customizer'
-    },
-    {
       id: 'sound',
       name: '系统声音',
       description: '点击音效和提示音',
@@ -63,7 +57,7 @@ const Customize = () => {
   ]
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen">
       {/* 状态栏 + 导航栏一体 */}
       <div className="glass-effect border-b border-gray-200/50">
         {showStatusBar && <StatusBar />}
@@ -87,7 +81,7 @@ const Customize = () => {
       </div>
 
       {/* 设置列表 */}
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30">
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-2xl mx-auto space-y-3">
           {settingItems.map((item) => (
             <div
@@ -98,7 +92,7 @@ const Customize = () => {
                   navigate(item.route)
                 }
               }}
-              className="bg-white rounded-xl p-4 cursor-pointer shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all active:scale-[0.98]"
+              className="glass-card rounded-xl p-4 cursor-pointer shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all active:scale-[0.98]"
             >
               <div className="flex items-center gap-4">
                 <div className="flex-1">

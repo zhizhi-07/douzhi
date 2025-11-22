@@ -278,7 +278,7 @@ const SoundCustomizer = () => {
                 }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                  className={`absolute top-1 left-1 w-6 h-6 glass-card rounded-full shadow-md transition-transform duration-300 ${
                     soundEnabled ? 'translate-x-6' : 'translate-x-0'
                   }`}
                 ></div>

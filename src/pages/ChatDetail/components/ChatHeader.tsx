@@ -5,62 +5,46 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../../../components/StatusBar'
-import { TokenStats } from '../../../utils/tokenCounter'
 import { playSystemSound } from '../../../utils/soundManager'
-import { formatStatusShort, AIStatus } from '../../../utils/aiStatusManager'
+import { formatStatusShort } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
   characterName: string
-  characterId: string
-  characterAvatar: string
+  characterId?: string
   isAiTyping?: boolean
   onBack?: () => void
   onMenuClick?: () => void
-  onAvatarClick?: () => void
-  tokenStats?: TokenStats | null
-  onTokenStatsClick?: () => void
+  onAddOfflineRecord?: () => void
   topBarImage?: string | null
   customIcons?: Record<string, string>
-  onAddOfflineRecord?: () => void  // 新增：添加线下记录
   topBarScale?: number
   topBarX?: number
   topBarY?: number
 }
 
-const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, onBack, onMenuClick, onAvatarClick, tokenStats, onTokenStatsClick, topBarImage, customIcons = {}, onAddOfflineRecord, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, onAddOfflineRecord, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
-  const [fullStatus, setFullStatus] = useState<AIStatus | null>(null)
 
   // 获取AI状态
   useEffect(() => {
     const updateStatus = async () => {
       if (characterId && characterName) {
-        // 🔥 获取状态，如果没有则返回 null（不自动生成）
         const { getOrCreateAIStatus } = await import('../../../utils/aiStatusManager')
         const status = getOrCreateAIStatus(characterId, characterName)
-        // 如果有状态就显示，否则显示"在线"
         setAiStatus(status ? formatStatusShort(status) : '在线')
-        setFullStatus(status) // 保存完整状态
       }
     }
 
     updateStatus()
 
-    // 🔥 每30秒检查一次状态是否需要更新
+    // 每30秒检查一次状态
     const interval = setInterval(() => {
       updateStatus()
-    }, 30 * 1000) // 30秒
+    }, 30 * 1000)
 
     return () => clearInterval(interval)
   }, [characterId, characterName])
-
-  // 处理头像点击
-  const handleAvatarClick = () => {
-    if (onAvatarClick) {
-      onAvatarClick()
-    }
-  }
 
   const handleBack = () => {
     playSystemSound() // 🎵 统一使用通用点击音效
@@ -88,11 +72,11 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
         <StatusBar />
       </div>
       <div className="relative z-10 px-4 py-3 flex items-center justify-between">
-        {/* 左侧：返回按钮 + 头像 + 名字状态 */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* 左侧：返回按钮 */}
+        <div className="flex items-center flex-shrink-0">
           <button
             onClick={handleBack}
-            className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full flex-shrink-0"
+            className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"
           >
             {customIcons['chat-back'] ? (
               <img src={customIcons['chat-back']} alt="返回" className="w-8 h-8 object-contain rounded-full" />
@@ -102,46 +86,41 @@ const ChatHeader = ({ characterName, characterId, characterAvatar, isAiTyping, o
               </svg>
             )}
           </button>
+        </div>
 
-          {/* 头像 - 可点击 */}
-          <button
-            onClick={handleAvatarClick}
-            className="flex-shrink-0 btn-press-fast"
-          >
-            {characterAvatar ? (
-              <img
-                src={characterAvatar}
-                alt={characterName}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
-                {characterName.charAt(0)}
-              </div>
-            )}
-          </button>
-
-          {/* 名字和状态 - 可点击 */}
-          <button
-            onClick={handleAvatarClick}
-            className="flex flex-col min-w-0 flex-1 items-start btn-press-fast"
-          >
-            <h1 className="text-base font-semibold text-gray-900 truncate w-full text-left">
-              {characterName}
-            </h1>
-            {/* 状态栏：绿色圆点 + 状态文字 */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate w-full">
-              {/* 绿色在线圆点（像QQ那样） */}
-              <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-              <span className="truncate" title={aiStatus}>
-                {isAiTyping ? '正在输入...' : aiStatus}
-              </span>
-            </div>
-          </button>
+        {/* 中间：名字和状态居中 */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">
+            {characterName}
+          </h1>
+          {/* 状态栏：绿色圆点 + 状态文字 */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+            <span className="whitespace-nowrap">
+              {isAiTyping ? '正在输入...' : aiStatus}
+            </span>
+          </div>
         </div>
 
         {/* 右侧：功能按钮 */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* 添加线下记录按钮 */}
+          {onAddOfflineRecord && (
+            <button
+              onClick={() => {
+                playSystemSound()
+                onAddOfflineRecord()
+              }}
+              className="text-gray-700 btn-press-fast touch-ripple-effect p-2 rounded-full"
+              title="添加线下记录"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+          
+          {/* 更多菜单按钮 */}
           <button
             onClick={() => {
               playSystemSound()

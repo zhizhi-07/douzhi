@@ -240,7 +240,7 @@ const GlobalMemoryPage = () => {
                               e.stopPropagation()
                               deleteMemory(memory.id)
                             }}
-                            className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="px-4 py-2 text-sm text-red-600 hover:glass-card rounded-lg transition-colors"
                           >
                             删除记忆
                           </button>

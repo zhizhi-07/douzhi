@@ -190,15 +190,17 @@ const StatusBarCustomize = () => {
             </div>
             <button
               onClick={toggleStatusBar}
-              className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
-                showStatusBar ? 'bg-green-500' : 'bg-gray-300'
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                showStatusBar 
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
               }`}
             >
               <div
-                className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
-                  showStatusBar ? 'translate-x-6' : 'translate-x-0'
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  showStatusBar ? 'translate-x-5' : 'translate-x-0'
                 }`}
-              ></div>
+              />
             </button>
           </div>
 
@@ -211,12 +213,14 @@ const StatusBarCustomize = () => {
               </div>
               <button
                 onClick={handleToggleFocusMode}
-                className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
-                  focusMode ? 'bg-green-500' : 'bg-gray-300'
+                className={`relative w-11 h-6 rounded-full transition-all ${
+                  focusMode 
+                    ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                    : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
                 }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                  className={`absolute top-1 left-1 w-6 h-6 glass-card rounded-full shadow-md transition-transform duration-300 ${
                     focusMode ? 'translate-x-6' : 'translate-x-0'
                   }`}
                 ></div>
@@ -244,7 +248,7 @@ const StatusBarCustomize = () => {
                     )}
                     <button
                       onClick={() => focusModeIconInputRef.current?.click()}
-                      className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs"
+                      className="flex-1 px-3 py-2 glass-card text-gray-700 rounded-lg text-xs"
                     >
                       {focusModeIcon ? '更换图标' : '上传图标'}
                     </button>
@@ -254,7 +258,7 @@ const StatusBarCustomize = () => {
                           setFocusModeIcon('')
                           updateFocusMode({ icon: '' })
                         }}
-                        className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-xs"
+                        className="px-3 py-2 glass-card text-red-600 rounded-lg text-xs"
                       >
                         删除
                       </button>
@@ -286,15 +290,15 @@ const StatusBarCustomize = () => {
                       setFocusModeShowBg(newValue)
                       updateFocusMode({ showBg: newValue })
                     }}
-                    className={`relative w-12 h-6 rounded-full transition-all ${
-                      focusModeShowBg ? 'bg-green-500' : 'bg-gray-300'
+                    className={`relative w-11 h-6 rounded-full transition-all ${
+                      focusModeShowBg ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
                     }`}
                   >
                     <div
-                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform ${
-                        focusModeShowBg ? 'translate-x-6' : 'translate-x-0'
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                        focusModeShowBg ? 'translate-x-5' : 'translate-x-0'
                       }`}
-                    ></div>
+                    />
                   </button>
                 </div>
                 
@@ -338,15 +342,17 @@ const StatusBarCustomize = () => {
               <div className="text-sm text-gray-700">显示背景色</div>
               <button
                 onClick={handleToggleTimeBackground}
-                className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
-                  timeBackgroundEnabled ? 'bg-green-500' : 'bg-gray-300'
+                className={`relative w-11 h-6 rounded-full transition-all ${
+                  timeBackgroundEnabled 
+                    ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                    : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
                 }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
-                    timeBackgroundEnabled ? 'translate-x-6' : 'translate-x-0'
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                    timeBackgroundEnabled ? 'translate-x-5' : 'translate-x-0'
                   }`}
-                ></div>
+                />
               </button>
             </div>
             

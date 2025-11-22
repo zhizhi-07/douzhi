@@ -104,7 +104,7 @@ const GroupChatSettings = () => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* 成员列表 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="text-sm text-gray-500 mb-3">群成员 {members.length}人</div>
           <div className="grid grid-cols-5 gap-3">
             {members.map((member) => (
@@ -135,7 +135,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 群名称 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">群聊名称</span>
             {isEditing ? (
@@ -164,7 +164,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 群公告 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <button 
             onClick={() => {
               setTempAnnouncement(announcement)
@@ -185,7 +185,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 成员权限管理 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="text-sm text-gray-500 mb-3">成员权限</div>
           <div className="space-y-2">
             {members.map((member) => {
@@ -248,7 +248,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* AI记忆增强提示 */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+        <div className="glass-card rounded-2xl p-4 shadow-sm mb-4">
           <div className="text-sm text-gray-500 mb-2">💡 私信同步</div>
           <p className="text-xs text-gray-500 leading-relaxed">
             群聊AI是否能看到成员的私信内容，由每个角色自己的聊天设置中的"群聊同步"开关控制。
@@ -258,7 +258,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 智能总结 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="text-sm text-gray-500 mb-3">双AI架构</div>
           
           <div className="flex items-center justify-between">
@@ -360,7 +360,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* AI回复条数设置 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="mb-3">
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -402,7 +402,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 挂载世界书 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="mb-3">
             <p className="text-sm font-medium text-gray-900">挂载世界书</p>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -443,17 +443,17 @@ const GroupChatSettings = () => {
         )}
 
         {/* 置顶聊天 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">置顶聊天</span>
             <button className="relative w-11 h-6 rounded-full bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] active:scale-95 transition-all">
-              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]" />
+              <div className="absolute top-0.5 left-0.5 w-5 h-5 glass-card rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]" />
             </button>
           </div>
         </div>
 
         {/* 清空聊天记录 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <button 
             onClick={() => {
               if (id && confirm('确定要清空聊天记录吗？')) {
@@ -468,7 +468,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 退出群聊 */}
-        <div className="bg-white rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4">
           <button 
             onClick={() => {
               if (id && confirm('确定要退出群聊吗？')) {
@@ -492,7 +492,7 @@ const GroupChatSettings = () => {
             onClick={() => setManagingMember(null)}
           />
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+            <div className="glass-card rounded-2xl p-5 max-w-sm w-full shadow-2xl">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 管理 {managingMember.name}
               </h3>
@@ -676,7 +676,7 @@ const GroupChatSettings = () => {
             onClick={() => setShowAnnouncementModal(false)}
           />
           <div className="fixed inset-x-0 bottom-0 z-50 animate-slide-up">
-            <div className="bg-white rounded-t-3xl p-6 shadow-2xl">
+            <div className="glass-card rounded-t-3xl p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">群公告</h2>
                 <button
@@ -719,7 +719,7 @@ const GroupChatSettings = () => {
             onClick={() => setShowSummaryModal(false)}
           />
           <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto">
+            <div className="glass-card rounded-2xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">群聊总结</h3>
                 <button

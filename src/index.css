@@ -2,6 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 全局背景透明 - 让App.tsx的全局背景显示 */
+body {
+  background: transparent !important;
+}
+
+/* 强制所有页面容器透明，让全局背景显示 */
+.h-screen, .h-full {
+  background: transparent !important;
+}
+
+/* 强制所有白色和灰色背景透明，但排除开关按钮和其内部元素 */
+.bg-white:not(button):not(button *):not(button div), 
+.bg-gray-50:not(button):not(button *):not(button div), 
+.bg-gray-100:not(button):not(button *):not(button div), 
+.bg-\[#f5f7fa\]:not(button):not(button *):not(button div) {
+  background: transparent !important;
+}
+
+/* CSS变量定义 */
+:root {
+  --switch-knob-color: #ffffff;
+  --switch-active-color: #475569;
+  --global-button-color: #475569;
+  --slider-thumb-color: #1e293b;
+}
+
+/* 确保开关按钮内的白色背景不被覆盖 - 使用CSS变量 */
+button div[class*="bg-white"],
+button > div[class*="bg-white"] {
+  background: var(--switch-knob-color) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+/* 开关按钮选中状态背景色 */
+button[class*="from-slate-600"] {
+  background: var(--switch-active-color) !important;
+}
+
+/* 全局按钮颜色 - 应用到选中状态的选项按钮和世界书条目 */
+button[class*="bg-slate-"][class*="text-white"],
+button[class*="bg-gray-"][class*="text-white"],
+button.bg-slate-700,
+button.bg-slate-600,
+button.bg-gray-700,
+button.bg-gray-600,
+/* 世界书条目按钮 */
+div[class*="bg-slate-"][class*="rounded"],
+div[class*="bg-gray-"][class*="rounded"][class*="cursor-pointer"] {
+  background: var(--global-button-color) !important;
+}
+
+/* 滑块圆圈颜色 */
+input[type="range"]::-webkit-slider-thumb {
+  background: var(--slider-thumb-color) !important;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: var(--slider-thumb-color) !important;
+}
+
+/* 滑块进度条颜色 - 固定灰色 */
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #e2e8f0 !important;
+}
+
+input[type="range"]::-moz-range-track {
+  background: #e2e8f0 !important;
+}
+
 /* 禁用移动端触摸高亮 - 简洁方案 */
 * {
   -webkit-tap-highlight-color: transparent;

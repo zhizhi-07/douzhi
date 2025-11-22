@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { getImage } from '../utils/unifiedStorage'
 
 interface PhotoSenderProps {
   isOpen: boolean
@@ -13,13 +14,26 @@ interface PhotoSenderProps {
 
 const PhotoSender = ({ isOpen, onClose, onSend }: PhotoSenderProps) => {
   const [description, setDescription] = useState('')
+  const [functionBg, setFunctionBg] = useState('')
+
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      console.log('PhotoSender - 功能背景加载:', bg ? '成功' : '未找到')
+      console.log('PhotoSender - 背景数据长度:', bg ? bg.length : 0)
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
 
   // 每次打开弹窗时重置表单
   useEffect(() => {
     if (isOpen) {
       setDescription('')
+      console.log('PhotoSender - 弹窗打开，当前functionBg:', functionBg ? `有数据(${functionBg.substring(0, 50)}...)` : '无数据')
     }
-  }, [isOpen])
+  }, [isOpen, functionBg])
 
   const handleSend = () => {
     if (!description.trim()) {
@@ -49,14 +63,20 @@ const PhotoSender = ({ isOpen, onClose, onSend }: PhotoSenderProps) => {
       }}
     >
       <div
-        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
-        style={{ animation: 'slideUp 0.3s ease-out' }}
+        className="w-full max-w-md rounded-t-[48px] shadow-2xl"
+        style={{ 
+          animation: 'slideUp 0.3s ease-out',
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
       >
-        <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="p-6 bg-white/90">
           <div className="text-xl font-semibold text-gray-900 text-center">拍照</div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 bg-white/80">
           <p className="text-sm text-gray-600 text-center">
             输入照片内容描述（模拟拍照）
           </p>

@@ -606,7 +606,7 @@ const GlobalDecoration = () => {
       {/* 聊天列表 */}
       <div className="flex-1 px-4 pt-3 space-y-2 overflow-auto">
         {['联系人 1', '联系人 2'].map((name, i) => (
-          <div key={i} className="bg-white rounded-2xl p-3 flex items-center gap-3">
+          <div key={i} className="glass-card rounded-2xl p-3 flex items-center gap-3">
             <div 
               className="w-12 h-12 bg-gray-200 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
               onClick={(e) => {
@@ -782,7 +782,7 @@ const GlobalDecoration = () => {
             } : {}}
             title="对方头像"
           />
-          <div className="bg-white rounded-2xl rounded-tl-none px-4 py-2 max-w-[70%]">
+          <div className="glass-card rounded-2xl rounded-tl-none px-4 py-2 max-w-[70%]">
             <span className="text-sm">你好，这是一条消息</span>
           </div>
         </div>
@@ -952,7 +952,7 @@ const GlobalDecoration = () => {
       
       {/* 加号菜单（可见） */}
       {showAddMenu && (
-        <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-lg p-3 grid grid-cols-4 gap-3 max-h-80 overflow-y-auto">
+        <div className="absolute bottom-16 right-4 glass-card rounded-xl shadow-lg p-3 grid grid-cols-4 gap-3 max-h-80 overflow-y-auto">
           {[
             { id: 'menu-recall', label: '重回' },
             { id: 'menu-photo', label: '相册' },
@@ -1184,17 +1184,17 @@ const GlobalDecoration = () => {
             onClick={() => setCurrentView('main')}
             className="text-xs md:text-sm px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
           >
-            🌍 全局设置
+            全局设置
           </button>
         </div>
       </div>
 
       {/* 主要内容 - 适配手机端 */}
       <div className="flex-1 flex items-start justify-center p-4 md:p-8 overflow-auto">
-        <div className="bg-white rounded-3xl shadow-xl p-4 md:p-8 w-full max-w-4xl lg:flex lg:gap-8">
+        <div className="glass-card rounded-3xl shadow-xl p-4 md:p-8 w-full max-w-4xl lg:flex lg:gap-8">
           {/* 手机预览框 */}
           <div className="w-[320px] h-[568px] md:w-[375px] md:h-[667px] bg-white border-2 border-gray-300 rounded-[3rem] p-3 shadow-2xl mx-auto lg:mx-0 mb-6 lg:mb-0 flex-shrink-0">
-            <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden">
+            <div className="w-full h-full glass-card rounded-[2.5rem] overflow-hidden">
               {currentView === 'main' ? <MainView /> : currentView === 'chat' ? <ChatView /> : <DesktopView />}
             </div>
           </div>
@@ -1209,21 +1209,60 @@ const GlobalDecoration = () => {
               
               {/* 全局设置 */}
               <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="text-sm font-semibold text-purple-800 mb-2">🌍 全局设置</h3>
+                <h3 className="text-sm font-semibold text-purple-800 mb-2">全局设置</h3>
                 <p className="text-xs text-purple-600 mb-3">应用于所有界面的背景和顶栏</p>
                 <div className="space-y-2">
                   <button
                     onClick={() => handleIconClick('global-background')}
                     className="w-full px-3 py-2 text-xs bg-white hover:bg-purple-50 border border-purple-300 rounded-lg transition-colors text-left"
                   >
-                    📷 上传全局背景
+                    上传全局背景
                   </button>
                   <button
                     onClick={() => handleIconClick('global-topbar')}
                     className="w-full px-3 py-2 text-xs bg-white hover:bg-purple-50 border border-purple-300 rounded-lg transition-colors text-left"
                   >
-                    🎨 上传全局顶栏
+                    上传全局顶栏
                   </button>
+                </div>
+              </div>
+              
+              {/* 按钮颜色设置 */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-800 mb-2">按钮颜色</h3>
+                <p className="text-xs text-blue-600 mb-3">自定义开关按钮的颜色</p>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-blue-800 block mb-1">滑块颜色</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        defaultValue={localStorage.getItem('switch_knob_color') || '#ffffff'}
+                        onChange={(e) => {
+                          document.documentElement.style.setProperty('--switch-knob-color', e.target.value);
+                          localStorage.setItem('switch_knob_color', e.target.value);
+                        }}
+                        className="w-8 h-8 rounded cursor-pointer"
+                      />
+                      <span className="text-xs text-gray-600">开关按钮小圆点颜色</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-xs text-blue-800 block mb-1">选中颜色</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        defaultValue={localStorage.getItem('switch_active_color') || '#475569'}
+                        onChange={(e) => {
+                          document.documentElement.style.setProperty('--switch-active-color', e.target.value);
+                          localStorage.setItem('switch_active_color', e.target.value);
+                        }}
+                        className="w-8 h-8 rounded cursor-pointer"
+                      />
+                      <span className="text-xs text-gray-600">选中按钮背景颜色</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -1390,7 +1429,7 @@ const GlobalDecoration = () => {
                   onClick={() => setSelectedIcon(null)} 
                   className="px-3 py-1.5 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-colors font-medium"
                 >
-                  ✕ 关闭调整
+                  关闭调整
                 </button>
               </div>
               <button

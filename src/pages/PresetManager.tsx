@@ -196,7 +196,7 @@ const PresetManager = () => {
 
       {/* 搜索栏 */}
       <div className="px-4 pt-3 pb-2 bg-slate-50/50">
-        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(148,163,184,0.08)]">
+        <div className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(148,163,184,0.08)]">
           <SearchIcon size={18} className="text-slate-400" />
           <input
             type="text"
@@ -213,7 +213,7 @@ const PresetManager = () => {
         {/* 默认预设 */}
         <div className="space-y-3 mt-3">
           <div
-            className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
+            className="glass-card rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1" onClick={() => handleEdit('default')}>
@@ -272,7 +272,7 @@ const PresetManager = () => {
             return (
               <div
                 key={preset.id}
-                className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
+                className="glass-card rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1" onClick={() => handleEdit(preset.id)}>

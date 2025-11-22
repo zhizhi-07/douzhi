@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { getAllUIIcons } from './utils/iconStorage'
 import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
 import { cleanupOldMessages } from './utils/cleanupLocalStorage'
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
-import { getAllUIIcons } from './utils/iconStorage'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -41,6 +41,7 @@ import UploadSong from './pages/UploadSong'
 import MusicDecoration from './pages/MusicDecoration'
 import DecorationHub from './pages/DecorationHub'
 import GlobalDecoration from './pages/GlobalDecoration'
+import GlobalColors from './pages/GlobalColors'
 import Customize from './pages/Customize'
 import DataManager from './pages/DataManager'
 import StatusBarCustomize from './pages/StatusBarCustomize'
@@ -84,7 +85,54 @@ import { ContactsProvider } from './context/ContactsContext'
 function App() {
   const location = useLocation()
   const musicPlayer = useMusicPlayer()
-  
+  const [globalBackground, setGlobalBackground] = useState<string>('')
+
+  // 加载全局背景和按钮颜色
+  useEffect(() => {
+    const loadGlobalBackground = async () => {
+      try {
+        const icons = await getAllUIIcons()
+        console.log('🔍 App.tsx - 检查全局背景:', icons['global-background'] ? '存在' : '不存在')
+
+        if (icons['global-background']) {
+          setGlobalBackground(icons['global-background'])
+          console.log('✅ App.tsx - 全局背景已应用')
+        }
+      } catch (error) {
+        console.error('❌ App.tsx - 加载全局背景失败:', error)
+      }
+    }
+
+    // 加载按钮颜色设置
+    const knobColor = localStorage.getItem('switch_knob_color')
+    const activeColor = localStorage.getItem('switch_active_color')
+    const buttonColor = localStorage.getItem('global_button_color')
+    const sliderThumbColor = localStorage.getItem('slider_thumb_color')
+    
+    if (knobColor) {
+      document.documentElement.style.setProperty('--switch-knob-color', knobColor)
+    }
+    if (activeColor) {
+      document.documentElement.style.setProperty('--switch-active-color', activeColor)
+    }
+    if (buttonColor) {
+      document.documentElement.style.setProperty('--global-button-color', buttonColor)
+    }
+    if (sliderThumbColor) {
+      document.documentElement.style.setProperty('--slider-thumb-color', sliderThumbColor)
+    }
+
+    loadGlobalBackground()
+
+    // 监听全局背景变化
+    const handleIconsChange = () => {
+      loadGlobalBackground()
+    }
+
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    return () => window.removeEventListener('uiIconsChanged', handleIconsChange)
+  }, [])
+
   // 🔥 后台静默迁移（不阻塞UI）
   useEffect(() => {
     // 自动迁移 localStorage 到 IndexedDB
@@ -299,6 +347,16 @@ function App() {
   }, [])
 
   return (
+    <div 
+      className="app-container"
+      style={globalBackground ? {
+        backgroundImage: `url(${globalBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        minHeight: '100vh'
+      } : {}}
+    >
     <ContactsProvider>
       {/* 全局灵动岛 */}
       {musicPlayer.currentSong && musicPlayer.currentSong.id !== 0 && location.pathname !== '/music-player' && (
@@ -353,6 +411,7 @@ function App() {
       <Route path="/decoration" element={<DecorationHub />} />
       <Route path="/decoration/music" element={<MusicDecoration />} />
       <Route path="/decoration/global" element={<GlobalDecoration />} />
+      <Route path="/decoration/colors" element={<GlobalColors />} />
       <Route path="/customize" element={<Customize />} />
       <Route path="/data-manager" element={<DataManager />} />
       <Route path="/statusbar-customize" element={<StatusBarCustomize />} />
@@ -389,6 +448,7 @@ function App() {
       <Route path="/theatre" element={<TheatreApp />} />
     </Routes>
     </ContactsProvider>
+    </div>
   )
 }
 

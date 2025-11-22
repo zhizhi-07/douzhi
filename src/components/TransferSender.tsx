@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { getIntimatePayRelations, type IntimatePayRelation } from '../utils/walletUtils'
+import { getImage } from '../utils/unifiedStorage'
 
 interface TransferSenderProps {
   show: boolean
@@ -19,7 +20,17 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
   const [useIntimatePay, setUseIntimatePay] = useState(false)
   const [availableIntimatePayList, setAvailableIntimatePayList] = useState<IntimatePayRelation[]>([])
   const [selectedIntimatePayIndex, setSelectedIntimatePayIndex] = useState(0)
+  const [functionBg, setFunctionBg] = useState('')
   
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
+
   // 每次打开弹窗时重置表单并检查亲密付
   useEffect(() => {
     if (show) {
@@ -91,14 +102,20 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
       }}
     >
       <div 
-        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
-        style={{ animation: 'slideUp 0.3s ease-out' }}
+        className="w-full max-w-md rounded-t-[48px] shadow-2xl"
+        style={{ 
+          animation: 'slideUp 0.3s ease-out',
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
       >
-        <div className="p-6 bg-gradient-to-br from-orange-50 to-orange-100">
+        <div className="p-6 bg-white/90">
           <div className="text-xl font-semibold text-gray-900 text-center">转账</div>
         </div>
         
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 bg-white/80">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">金额</label>
             <input
