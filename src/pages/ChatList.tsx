@@ -422,7 +422,7 @@ const ChatList = () => {
                 className="text-gray-700 active:scale-95 transition-transform"
               >
                 {customIcons['main-group'] ? (
-                  <img src={customIcons['main-group']} alt="群聊" className="w-5 h-5 object-cover" />
+                  <img src={customIcons['main-group']} alt="群聊" className="w-8 h-8 object-contain" />
                 ) : (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -437,7 +437,7 @@ const ChatList = () => {
                 className="text-gray-700 active:scale-95 transition-transform"
               >
                 {customIcons['main-add'] ? (
-                  <img src={customIcons['main-add']} alt="添加" className="w-5 h-5 object-cover" />
+                  <img src={customIcons['main-add']} alt="添加" className="w-8 h-8 object-contain" />
                 ) : (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -561,7 +561,7 @@ const ChatList = () => {
           <div className="grid grid-cols-4 h-14 px-2">
             <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
               {customIcons['nav-chat'] ? (
-                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
+                <img src={customIcons['nav-chat']} alt="微信" className="w-10 h-10 mb-0.5 object-contain animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
@@ -571,7 +571,7 @@ const ChatList = () => {
             </button>
             <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-contacts'] ? (
-                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
+                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-10 h-10 mb-0.5 object-contain animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
@@ -581,7 +581,7 @@ const ChatList = () => {
             </button>
             <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-discover'] ? (
-                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
+                <img src={customIcons['nav-discover']} alt="发现" className="w-10 h-10 mb-0.5 object-contain animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -591,7 +591,7 @@ const ChatList = () => {
             </button>
             <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
               {customIcons['nav-me'] ? (
-                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
+                <img src={customIcons['nav-me']} alt="我" className="w-10 h-10 mb-0.5 object-contain animate-fade-in" />
               ) : (
                 <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
