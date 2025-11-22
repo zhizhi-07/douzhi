@@ -292,7 +292,7 @@ const Desktop = () => {
                           style={{
                             backgroundColor: 'transparent'
                           }}
-                          onClick={() => app.onClick()}
+                          onClick={(e) => handleAppClick(e, app)}
                         >
                           <img src={getCustomIcon(app.id)!} alt={app.name} className="w-full h-full object-contain" />
                         </div>
@@ -302,12 +302,15 @@ const Desktop = () => {
                           style={{
                             backgroundColor: 'transparent'
                           }}
-                          onClick={() => app.onClick()}
+                          onClick={(e) => handleAppClick(e, app)}
                         >
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30`}>
+                        <div 
+                          className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30 cursor-pointer hover:scale-105 transition-transform`}
+                          onClick={(e) => handleAppClick(e, app)}
+                        >
                           {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
                         </div>
                       )}
