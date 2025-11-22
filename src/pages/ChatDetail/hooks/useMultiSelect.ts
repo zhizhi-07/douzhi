@@ -94,8 +94,16 @@ export const useMultiSelect = (
       deleteMessage(chatId, messageId)
     })
 
-    // 从React状态删除
-    setMessages(prev => prev.filter(m => !selectedMessageIds.has(m.id)))
+    // 从React状态删除并保存到文件
+    setMessages(prev => {
+      const newMessages = prev.filter(m => !selectedMessageIds.has(m.id))
+      // 🔥 保存到文件，确保刷新后也生效
+      import('../../../utils/simpleMessageManager').then(({ saveMessages }) => {
+        saveMessages(chatId, newMessages)
+        console.log(`💾 已保存删除后的消息列表到文件`)
+      })
+      return newMessages
+    })
 
     console.log(`✅ 已删除 ${selectedMessageIds.size} 条消息`)
     

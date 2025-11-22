@@ -1289,7 +1289,7 @@ const ChatDetail = () => {
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
           >
             {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
-              <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-6 h-6 object-contain" />
+              <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-8 h-8 object-contain" />
             ) : (
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1322,7 +1322,7 @@ const ChatDetail = () => {
             className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
           >
             {customIcons['chat-emoji'] ? (
-              <img src={customIcons['chat-emoji']} alt="表情" className="w-5 h-5 object-contain" />
+              <img src={customIcons['chat-emoji']} alt="表情" className="w-8 h-8 object-contain" />
             ) : (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1336,7 +1336,7 @@ const ChatDetail = () => {
               className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
             >
               {customIcons['chat-send'] ? (
-                <img src={customIcons['chat-send']} alt="发送" className="w-4 h-4 object-contain" />
+                <img src={customIcons['chat-send']} alt="发送" className="w-6 h-6 object-contain" />
               ) : (
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
