@@ -279,24 +279,35 @@ const Desktop = () => {
               <div className="absolute grid grid-cols-2 gap-4 z-10" style={{ top: '35%', right: '6%' }}>
                 {page1Apps.slice(0, 4).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
-                  const customIcon = getCustomIcon(app.id)
+                  const hasCustomIcon = getCustomIcon(app.id)
                   
                   return (
                     <div
-                      key={`${app.id}-${iconRefresh}`}
-                      onClick={(e) => handleAppClick(e, app)}
-                      className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+                      key={app.id}
+                      className="flex flex-col items-center gap-2"
                     >
-                      {customIcon ? (
-                        <div className="w-16 h-16 rounded-2xl overflow-hidden">
-                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                      {hasCustomIcon ? (
+                        <div 
+                          className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                          style={{
+                            backgroundColor: 'transparent'
+                          }}
+                          onClick={() => app.onClick()}
+                        >
+                          <img src={getCustomIcon(app.id)!} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : isImageIcon ? (
-                        <div className="w-16 h-16 flex items-center justify-center">
+                        <div 
+                          className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                          style={{
+                            backgroundColor: 'transparent'
+                          }}
+                          onClick={() => app.onClick()}
+                        >
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
+                        <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30`}>
                           {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
                         </div>
                       )}
@@ -317,9 +328,8 @@ const Desktop = () => {
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                    backdropFilter: memoBg ? 'none' : 'blur(20px)',
+                    WebkitBackdropFilter: memoBg ? 'none' : 'blur(20px)',
                     border: '1px solid rgba(255, 255, 255, 0.3)'
                   }}
                   onMouseDown={() => {
@@ -650,11 +660,11 @@ const Desktop = () => {
                     return (
                       <div key={index} className="flex flex-col items-center gap-1">
                         <div 
-                          className={`w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${customIcon ? '' : 'glass-card shadow-lg border border-white/30'}`}
+                          className={`w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${customIcon ? '' : 'glass-card border border-white/30'}`}
                           onClick={() => app.route && navigate(app.route)}
                         >
                           {customIcon ? (
-                            <img src={customIcon} alt={app.label} className="w-full h-full object-cover rounded-2xl" />
+                            <img src={customIcon} alt={app.label} className="w-full h-full object-contain rounded-2xl" />
                           ) : (
                             <app.Icon className="w-8 h-8 text-gray-300" />
                           )}
