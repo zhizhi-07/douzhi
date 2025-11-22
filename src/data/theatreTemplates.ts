@@ -2518,6 +2518,128 @@ export const theatreTemplates: TheatreTemplate[] = [
   </div>
 </div>
     `.trim()
+  },
+
+  {
+    id: 'step_ranking',
+    name: '步数排行',
+    keywords: ['步数', '运动排行', '微信运动', '步数排行'],
+    fields: [
+      { key: 'DATE', label: '日期', placeholder: '2024年11月22日' },
+      { key: 'MY_STEPS', label: '我的步数', placeholder: '12580' },
+      { key: 'MY_RANK', label: '我的排名', placeholder: '3' },
+      { key: 'RANK1_NAME', label: '第1名昵称', placeholder: '运动达人' },
+      { key: 'RANK1_STEPS', label: '第1名步数', placeholder: '18520' },
+      { key: 'RANK2_NAME', label: '第2名昵称', placeholder: '健康使者' },
+      { key: 'RANK2_STEPS', label: '第2名步数', placeholder: '15230' },
+      { key: 'RANK3_NAME', label: '第3名昵称', placeholder: '快乐行者' },
+      { key: 'RANK3_STEPS', label: '第3名步数', placeholder: '12580' }
+    ],
+    htmlTemplate: `
+<div style="max-width:360px;margin:0 auto;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 8px 32px rgba(102,126,234,0.4)">
+  <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);padding:20px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1)">
+    <div style="font-size:28px;margin-bottom:8px">👟</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px">微信运动</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.8)">{{DATE}}</div>
+  </div>
+  <div style="padding:20px">
+    <div style="background:rgba(255,255,255,0.95);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px">
+      <div style="font-size:14px;color:#999;margin-bottom:8px">我的步数</div>
+      <div style="font-size:48px;font-weight:700;color:#667eea;margin-bottom:8px">{{MY_STEPS}}</div>
+      <div style="font-size:14px;color:#ff6b6b;font-weight:600">排名第 {{MY_RANK}} 名</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.95);border-radius:12px;padding:16px">
+      <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:12px">今日排行</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:linear-gradient(90deg,#ffd700 0%,#ffed4e 100%);border-radius:10px;margin-bottom:8px">
+        <div style="font-size:20px;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.2)">🏆</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{RANK1_NAME}}</div>
+          <div style="font-size:13px;color:#666">{{RANK1_STEPS}}步</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f0f0;border-radius:10px;margin-bottom:8px">
+        <div style="font-size:18px;font-weight:700;color:#c0c0c0">2</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{RANK2_NAME}}</div>
+          <div style="font-size:13px;color:#666">{{RANK2_STEPS}}步</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f0f0;border-radius:10px">
+        <div style="font-size:18px;font-weight:700;color:#cd7f32">3</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{RANK3_NAME}}</div>
+          <div style="font-size:13px;color:#666">{{RANK3_STEPS}}步</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    `.trim()
+  },
+
+  {
+    id: 'screen_time',
+    name: '屏幕时间',
+    keywords: ['屏幕时间', '手机使用', '使用时长', '手机统计'],
+    fields: [
+      { key: 'DATE', label: '日期', placeholder: '2024年11月22日' },
+      { key: 'TOTAL_TIME', label: '总使用时长', placeholder: '8小时32分' },
+      { key: 'UNLOCK_COUNT', label: '解锁次数', placeholder: '156次' },
+      { key: 'APP1_NAME', label: 'APP1名称', placeholder: '微信' },
+      { key: 'APP1_TIME', label: 'APP1时长', placeholder: '3小时12分' },
+      { key: 'APP2_NAME', label: 'APP2名称', placeholder: '抖音' },
+      { key: 'APP2_TIME', label: 'APP2时长', placeholder: '2小时45分' },
+      { key: 'APP3_NAME', label: 'APP3名称', placeholder: 'B站' },
+      { key: 'APP3_TIME', label: 'APP3时长', placeholder: '1小时28分' }
+    ],
+    htmlTemplate: `
+<div style="max-width:360px;margin:0 auto;background:#f5f5f7;border-radius:16px;overflow:hidden;font-family:-apple-system,'PingFang SC',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#00c6ff 0%,#0072ff 100%);padding:24px;text-align:center">
+    <div style="font-size:32px;margin-bottom:12px">📱</div>
+    <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px">屏幕时间</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.9)">{{DATE}}</div>
+  </div>
+  <div style="padding:20px">
+    <div style="background:#fff;border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+        <div style="text-align:center;flex:1">
+          <div style="font-size:14px;color:#999;margin-bottom:8px">总时长</div>
+          <div style="font-size:24px;font-weight:700;color:#0072ff">{{TOTAL_TIME}}</div>
+        </div>
+        <div style="width:1px;background:#e5e5e5"></div>
+        <div style="text-align:center;flex:1">
+          <div style="font-size:14px;color:#999;margin-bottom:8px">解锁次数</div>
+          <div style="font-size:24px;font-weight:700;color:#ff6b6b">{{UNLOCK_COUNT}}</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:12px;padding:16px">
+      <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:16px">最常使用</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:10px">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,#07c160 0%,#06ae56 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP1_NAME_INITIAL}}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{APP1_NAME}}</div>
+          <div style="font-size:13px;color:#999">{{APP1_TIME}}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:10px">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,#000 0%,#333 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP2_NAME_INITIAL}}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{APP2_NAME}}</div>
+          <div style="font-size:13px;color:#999">{{APP2_TIME}}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff6699 0%,#ee5a6f 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:600">{{APP3_NAME_INITIAL}}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#333">{{APP3_NAME}}</div>
+          <div style="font-size:13px;color:#999">{{APP3_TIME}}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    `.trim()
   }
 ]
 

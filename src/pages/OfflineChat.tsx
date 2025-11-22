@@ -10,6 +10,7 @@ import OfflineMessageBubble from './ChatDetail/components/OfflineMessageBubble'
 import MemoryStorage from '../components/MemoryStorage'
 import OfflineBeautifySettings from './OfflineChat/OfflineBeautifySettings'
 import { useChatBubbles } from '../hooks/useChatBubbles'
+import { saveMessages } from '../utils/simpleMessageManager'
 
 const OfflineChat = () => {
   const navigate = useNavigate()
@@ -93,14 +94,24 @@ const OfflineChat = () => {
   
   // 删除消息
   const handleDeleteMessage = (messageId: number | string) => {
-    chatState.setMessages(prev => prev.filter(m => m.id !== messageId))
+    chatState.setMessages(prev => {
+      const newMessages = prev.filter(m => m.id !== messageId)
+      // 🔥 持久化保存到localStorage
+      saveMessages(id, newMessages)
+      return newMessages
+    })
   }
   
   // 编辑消息
   const handleEditMessage = (messageId: number | string, newContent: string) => {
-    chatState.setMessages(prev => prev.map(m => 
-      m.id === messageId ? { ...m, content: newContent } : m
-    ))
+    chatState.setMessages(prev => {
+      const newMessages = prev.map(m => 
+        m.id === messageId ? { ...m, content: newContent } : m
+      )
+      // 🔥 持久化保存到localStorage
+      saveMessages(id, newMessages)
+      return newMessages
+    })
     setEditingMessageId(null)
     setEditingContent('')
   }
