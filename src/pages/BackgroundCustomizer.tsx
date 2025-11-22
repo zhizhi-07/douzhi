@@ -258,7 +258,7 @@ const BackgroundCustomizer = () => {
       const base64String = `data:image/jpeg;base64,${base64}`
       
       setBubble1Bg(base64String)
-      await saveImage('bubble1_bg', base64String)
+      await saveImage('desktop_bubble1_bg', base64String)
       window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
       console.log('✅ 气泡1背景已保存到IndexedDB')
     } catch (error) {
@@ -287,7 +287,7 @@ const BackgroundCustomizer = () => {
       const base64String = `data:image/jpeg;base64,${base64}`
       
       setBubble2Bg(base64String)
-      await saveImage('bubble2_bg', base64String)
+      await saveImage('desktop_bubble2_bg', base64String)
       window.dispatchEvent(new Event('bubbleBackgroundUpdate'))
       console.log('✅ 气泡2背景已保存到IndexedDB')
     } catch (error) {
