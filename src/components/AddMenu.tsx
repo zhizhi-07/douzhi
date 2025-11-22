@@ -215,7 +215,7 @@ const AddMenu = ({
             >
               <div className="text-gray-600 transform group-active:scale-95 transition-transform">
                 {customIcons[item.iconId] ? (
-                  <img src={customIcons[item.iconId]} alt={item.label} className="w-7 h-7 object-contain" />
+                  <img src={customIcons[item.iconId]} alt={item.label} className="w-12 h-12 object-contain" />
                 ) : (
                   item.icon
                 )}

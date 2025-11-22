@@ -102,11 +102,72 @@ const Desktop = () => {
   })
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const labelRef = useRef<HTMLInputElement>(null)
-  const [gridPhoto, setGridPhoto] = useState(() => {
-    return localStorage.getItem('desktop_grid_photo') || ''
-  })
+  const [gridPhoto, setGridPhoto] = useState('')
+  
+  // 从IndexedDB加载网格照片
+  useEffect(() => {
+    const loadGridPhoto = async () => {
+      try {
+        const { getImage } = await import('../utils/unifiedStorage')
+        const photo = await getImage('desktop_grid_photo')
+        if (photo) {
+          setGridPhoto(photo)
+          console.log('✅ 网格照片已从IndexedDB加载')
+        }
+      } catch (error) {
+        console.error('❌ 加载网格照片失败:', error)
+      }
+    }
+    loadGridPhoto()
+  }, [])
   const [bubble1BgImage, setBubble1BgImage] = useState('')
   const [bubble2BgImage, setBubble2BgImage] = useState('')
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+  const [timeScale, setTimeScale] = useState(100)
+  const [timeX, setTimeX] = useState(0)
+  const [timeY, setTimeY] = useState(0)
+
+  // 加载UI图标（时间背景等）
+  useEffect(() => {
+    const loadUIIcons = async () => {
+      try {
+        const { getAllUIIcons } = await import('../utils/iconStorage')
+        const icons = await getAllUIIcons()
+        setCustomIcons(icons)
+        console.log('✅ Desktop加载UI图标:', Object.keys(icons).length, '个')
+      } catch (error) {
+        console.error('❌ 加载UI图标失败:', error)
+      }
+    }
+    loadUIIcons()
+    
+    // 加载缩放和位置参数
+    const loadParams = () => {
+      const scale = localStorage.getItem('desktop-time-bg-scale')
+      const x = localStorage.getItem('desktop-time-bg-x')
+      const y = localStorage.getItem('desktop-time-bg-y')
+      if (scale) setTimeScale(parseInt(scale))
+      if (x) setTimeX(parseInt(x))
+      if (y) setTimeY(parseInt(y))
+      console.log('📐 加载时间调整参数:', { scale, x, y })
+    }
+    loadParams()
+    
+    // 监听图标更新
+    const handleIconsChange = () => {
+      loadUIIcons()
+    }
+    const handleAdjust = () => {
+      console.log('🔄 收到调整事件，重新加载参数')
+      loadParams()
+    }
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    window.addEventListener('iconAdjust', handleAdjust)
+    return () => {
+      window.removeEventListener('uiIconsChanged', handleIconsChange)
+      window.removeEventListener('iconAdjust', handleAdjust)
+    }
+  }, [])
 
   // 加载气泡背景
   useEffect(() => {
@@ -245,11 +306,19 @@ const Desktop = () => {
             <div className="min-w-full h-full relative overflow-hidden pb-20">
               {/* 黄色 - 时间widget (顶部横条) */}
               <div className="absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20">
-                <div className="text-center">
-                  <div className="text-8xl font-bold text-gray-900 mb-1">
+                <div 
+                  className="text-center p-6 rounded-3xl relative"
+                  style={customIcons['desktop-time-bg'] ? {
+                    backgroundImage: `url(${customIcons['desktop-time-bg']})`,
+                    backgroundSize: `${timeScale}%`,
+                    backgroundPosition: `calc(50% + ${timeX}px) calc(50% + ${timeY}px)`,
+                    backgroundRepeat: 'no-repeat'
+                  } : {}}
+                >
+                  <div className="text-8xl font-bold text-gray-900 mb-1 relative z-10">
                     {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div className="text-base font-medium text-gray-600">
+                  <div className="text-base font-medium text-gray-600 relative z-10">
                     {currentTime.toLocaleDateString('zh-CN', { 
                       month: 'long', 
                       day: 'numeric',
@@ -687,7 +756,7 @@ const Desktop = () => {
                     width: '140px',
                     height: '140px',
                     border: gridPhoto ? 'none' : '2px dashed #ccc',
-                    backgroundColor: gridPhoto ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                    backgroundColor: gridPhoto ? 'transparent' : 'rgba(255, 255, 255, 0.5)',
                     borderRadius: '16px',
                     padding: gridPhoto ? '0' : '4px',
                     marginTop: '16px',
@@ -701,10 +770,17 @@ const Desktop = () => {
                       const file = (e.target as HTMLInputElement).files?.[0]
                       if (file) {
                         const reader = new FileReader()
-                        reader.onload = (e) => {
+                        reader.onload = async (e) => {
                           const result = e.target?.result as string
                           setGridPhoto(result)
-                          localStorage.setItem('desktop_grid_photo', result)
+                          // 🔥 改用IndexedDB存储，避免localStorage超出配额
+                          try {
+                            const { saveImage } = await import('../utils/unifiedStorage')
+                            await saveImage('desktop_grid_photo', result)
+                            console.log('✅ 网格照片已保存到IndexedDB')
+                          } catch (error) {
+                            console.error('❌ 保存网格照片失败:', error)
+                          }
                         }
                         reader.readAsDataURL(file)
                       }
@@ -713,7 +789,7 @@ const Desktop = () => {
                   }}
                 >
                   {gridPhoto ? (
-                    <div className="w-full h-full relative bg-white rounded-2xl">
+                    <div className="w-full h-full relative rounded-2xl">
                       <img src={gridPhoto} alt="" className="absolute inset-0 w-full h-full object-contain rounded-2xl" />
                     </div>
                   ) : (

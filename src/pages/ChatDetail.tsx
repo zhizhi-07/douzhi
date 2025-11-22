@@ -1348,6 +1348,7 @@ const ChatDetail = () => {
               onClick={() => chatAI.handleAIReply()}
               disabled={chatAI.isAiTyping}
               className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
+              style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
             >
               {chatAI.isAiTyping ? (
                 <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1355,7 +1356,7 @@ const ChatDetail = () => {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : customIcons['chat-ai'] ? (
-                <img src={customIcons['chat-ai']} alt="AI回复" className="w-5 h-5 object-contain" />
+                <img src={customIcons['chat-ai']} alt="AI回复" className="w-8 h-8 object-contain" />
               ) : (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />

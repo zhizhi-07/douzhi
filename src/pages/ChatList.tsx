@@ -43,7 +43,28 @@ const ChatList = () => {
     }
     return ''
   })
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>(() => {
+    // 🔥 组件初始化时立即从缓存同步加载，避免闪烁
+    try {
+      const preloaded = sessionStorage.getItem('__preloaded_icons__')
+      if (preloaded) {
+        const icons = JSON.parse(preloaded)
+        console.log('⚡ 初始化时同步加载图标缓存')
+        return icons
+      }
+    } catch (error) {
+      console.error('初始化图标缓存失败:', error)
+    }
+    return {}
+  })
+  
+  // 加载调整参数
+  const [topbarScale, setTopbarScale] = useState(100)
+  const [topbarX, setTopbarX] = useState(0)
+  const [topbarY, setTopbarY] = useState(0)
+  const [bottombarScale, setBottombarScale] = useState(100)
+  const [bottombarX, setBottombarX] = useState(0)
+  const [bottombarY, setBottombarY] = useState(0)
 
   // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
@@ -179,25 +200,49 @@ const ChatList = () => {
       loadCustomIcons()
     }, 100)
     
+    // 加载调整参数
+    const loadAdjustParams = () => {
+      const topScale = localStorage.getItem('main-topbar-bg-scale')
+      const topX = localStorage.getItem('main-topbar-bg-x')
+      const topY = localStorage.getItem('main-topbar-bg-y')
+      const bottomScale = localStorage.getItem('main-bottombar-bg-scale')
+      const bottomX = localStorage.getItem('main-bottombar-bg-x')
+      const bottomY = localStorage.getItem('main-bottombar-bg-y')
+      
+      if (topScale) setTopbarScale(parseInt(topScale))
+      if (topX) setTopbarX(parseInt(topX))
+      if (topY) setTopbarY(parseInt(topY))
+      if (bottomScale) setBottombarScale(parseInt(bottomScale))
+      if (bottomX) setBottombarX(parseInt(bottomX))
+      if (bottomY) setBottombarY(parseInt(bottomY))
+      console.log('📐 ChatList加载调整参数:', { topScale, topX, topY, bottomScale, bottomX, bottomY })
+    }
+    loadAdjustParams()
+    
     // 监听图标更新事件
     const handleIconsChange = () => {
       console.log('📡 收到图标更新事件')
       loadCustomIcons()
     }
-    window.addEventListener('uiIconsChanged', handleIconsChange)
-    
-    // 监听storage变化（跨标签页同步）
+    const handleAdjust = () => {
+      console.log('🔄 收到调整事件')
+      loadAdjustParams()
+    }
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'ui_custom_icons') {
-        console.log('📡 检测到localStorage变化')
+        console.log('检测到localStorage变化')
         loadCustomIcons()
       }
     }
+    
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    window.addEventListener('iconAdjust', handleAdjust)
     window.addEventListener('storage', handleStorageChange)
     
     return () => {
       clearTimeout(timer)
       window.removeEventListener('uiIconsChanged', handleIconsChange)
+      window.removeEventListener('iconAdjust', handleAdjust)
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
@@ -395,8 +440,8 @@ const ChatList = () => {
         className="relative"
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: `${topbarScale}%`,
+          backgroundPosition: `calc(50% + ${topbarX}px) calc(50% + ${topbarY}px)`
         } : { 
           background: 'rgba(255, 255, 255, 0.7)', 
           backdropFilter: 'blur(20px) saturate(180%)', 
@@ -554,8 +599,8 @@ const ChatList = () => {
           className="glass-card rounded-[48px] shadow-lg"
           style={customIcons['main-bottombar-bg'] ? {
             backgroundImage: `url(${customIcons['main-bottombar-bg']})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
+            backgroundSize: `${bottombarScale}%`,
+            backgroundPosition: `calc(50% + ${bottombarX}px) calc(50% + ${bottombarY}px)`
           } : {}}
         >
           <div className="grid grid-cols-4 h-14 px-2">

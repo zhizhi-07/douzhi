@@ -86,6 +86,18 @@ const GlobalDecoration = () => {
   const [storageUsage, setStorageUsage] = useState({ used: 0, total: 5 }) // MB
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentEditingIcon, setCurrentEditingIcon] = useState<string | null>(null)
+  const [isAdjustingPosition, setIsAdjustingPosition] = useState(false)
+  const [selectedIcon, setSelectedIcon] = useState<string | null>(null)
+  const [iconScale, setIconScale] = useState(100)
+  const [iconX, setIconX] = useState(0)
+  const [iconY, setIconY] = useState(0)
+  
+  // 每个图标独立的调整参数缓存
+  const [adjustParams, setAdjustParams] = useState<Record<string, {scale: number, x: number, y: number}>>({
+    'main-topbar-bg': {scale: 100, x: 0, y: 0},
+    'main-bottombar-bg': {scale: 100, x: 0, y: 0},
+    'desktop-time-bg': {scale: 100, x: 0, y: 0}
+  })
   const [hasInput, setHasInput] = useState(false) // 控制发送/AI按钮状态
   const [showAddMenu, setShowAddMenu] = useState(true) // 控制加号菜单显示，默认显示
   
@@ -150,6 +162,26 @@ const GlobalDecoration = () => {
         }
         
         setCustomIcons(icons)
+        
+        // 加载调整参数
+        const newAdjustParams = {
+          'main-topbar-bg': {
+            scale: parseInt(localStorage.getItem('main-topbar-bg-scale') || '100'),
+            x: parseInt(localStorage.getItem('main-topbar-bg-x') || '0'),
+            y: parseInt(localStorage.getItem('main-topbar-bg-y') || '0')
+          },
+          'main-bottombar-bg': {
+            scale: parseInt(localStorage.getItem('main-bottombar-bg-scale') || '100'),
+            x: parseInt(localStorage.getItem('main-bottombar-bg-x') || '0'),
+            y: parseInt(localStorage.getItem('main-bottombar-bg-y') || '0')
+          },
+          'desktop-time-bg': {
+            scale: parseInt(localStorage.getItem('desktop-time-bg-scale') || '100'),
+            x: parseInt(localStorage.getItem('desktop-time-bg-x') || '0'),
+            y: parseInt(localStorage.getItem('desktop-time-bg-y') || '0')
+          }
+        }
+        setAdjustParams(newAdjustParams)
         console.log('✅ 已加载UI图标配置:', Object.keys(icons).length, '个')
         
         updateStorageUsage()
@@ -278,12 +310,17 @@ const GlobalDecoration = () => {
             return
           }
 
-          // 如果是PNG，保持透明背景
-          const isPNG = file.type === 'image/png'
+          // 检查是否是PNG（同时检查MIME类型和文件扩展名）
+          const isPNG = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')
+          console.log(`🔍 透明度检查: file.type=${file.type}, file.name=${file.name}, isPNG=${isPNG}`)
+          
           if (!isPNG) {
             // 非PNG图片，填充白色背景
             ctx.fillStyle = '#FFFFFF'
             ctx.fillRect(0, 0, width, height)
+            console.log('⚪ 填充白色背景（非PNG图片）')
+          } else {
+            console.log('✨ 保持透明背景（PNG图片）')
           }
 
           ctx.drawImage(img, 0, 0, width, height)
@@ -487,16 +524,26 @@ const GlobalDecoration = () => {
     >
       {/* 顶部栏 */}
       <div 
-        className="bg-white px-4 pt-3 pb-2 relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
+        className="bg-white px-4 pt-8 pb-5 relative cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400"
         onClick={(e) => {
           if ((e.target as HTMLElement).tagName !== 'DIV' || (e.target as HTMLElement).className.includes('w-5')) return;
           e.stopPropagation()
-          handleIconClick('main-topbar-bg')
+          if (customIcons['main-topbar-bg']) {
+            setSelectedIcon('main-topbar-bg')
+            const scale = localStorage.getItem('main-topbar-bg-scale')
+            const x = localStorage.getItem('main-topbar-bg-x')
+            const y = localStorage.getItem('main-topbar-bg-y')
+            setIconScale(scale ? parseInt(scale) : 100)
+            setIconX(x ? parseInt(x) : 0)
+            setIconY(y ? parseInt(y) : 0)
+          } else {
+            handleIconClick('main-topbar-bg')
+          }
         }}
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: `${adjustParams['main-topbar-bg']?.scale || 100}%`,
+          backgroundPosition: `calc(50% + ${adjustParams['main-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-topbar-bg']?.y || 0}px)`
         } : {}}
         title="点击空白处更换顶栏背景"
       >
@@ -569,12 +616,22 @@ const GlobalDecoration = () => {
         onClick={(e) => {
           if ((e.target as HTMLElement).className.includes('w-6') || (e.target as HTMLElement).className.includes('text-')) return;
           e.stopPropagation()
-          handleIconClick('main-bottombar-bg')
+          if (customIcons['main-bottombar-bg']) {
+            setSelectedIcon('main-bottombar-bg')
+            const scale = localStorage.getItem('main-bottombar-bg-scale')
+            const x = localStorage.getItem('main-bottombar-bg-x')
+            const y = localStorage.getItem('main-bottombar-bg-y')
+            setIconScale(scale ? parseInt(scale) : 100)
+            setIconX(x ? parseInt(x) : 0)
+            setIconY(y ? parseInt(y) : 0)
+          } else {
+            handleIconClick('main-bottombar-bg')
+          }
         }}
         style={customIcons['main-bottombar-bg'] ? {
           backgroundImage: `url(${customIcons['main-bottombar-bg']})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: `${adjustParams['main-bottombar-bg']?.scale || 100}%`,
+          backgroundPosition: `calc(50% + ${adjustParams['main-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-bottombar-bg']?.y || 0}px)`
         } : {}}
         title="点击空白处更换底栏背景"
       >
@@ -874,10 +931,10 @@ const GlobalDecoration = () => {
                 title={`点击更换${item.label}图标`}
               >
                 {customIcons[item.id] ? (
-                  <img src={customIcons[item.id]} alt={item.label} className="w-full h-full object-cover" />
+                  <img src={customIcons[item.id]} alt={item.label} className="w-full h-full object-contain" />
                 ) : null}
               </div>
-              <span className="text-[9px] text-gray-600">{item.label}</span>
+              <span className="text-[10px] text-gray-600">{item.label}</span>
             </div>
           ))}
         </div>
@@ -930,6 +987,42 @@ const GlobalDecoration = () => {
         } : {}}
         title="点击空白处上传桌面背景"
       >
+        {/* 时间显示区域 */}
+        <div 
+          className="relative mb-4 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation()
+            // 如果已有背景图，则选中进行调整；否则上传
+            if (customIcons['desktop-time-bg']) {
+              setSelectedIcon('desktop-time-bg')
+              const scale = localStorage.getItem('desktop-time-bg-scale')
+              const x = localStorage.getItem('desktop-time-bg-x')
+              const y = localStorage.getItem('desktop-time-bg-y')
+              setIconScale(scale ? parseInt(scale) : 100)
+              setIconX(x ? parseInt(x) : 0)
+              setIconY(y ? parseInt(y) : 0)
+            } else {
+              handleIconClick('desktop-time-bg')
+            }
+          }}
+          style={customIcons['desktop-time-bg'] ? {
+            backgroundImage: `url(${customIcons['desktop-time-bg']})`,
+            backgroundSize: `${adjustParams['desktop-time-bg']?.scale || 100}%`,
+            backgroundPosition: `calc(50% + ${adjustParams['desktop-time-bg']?.x || 0}px) calc(50% + ${adjustParams['desktop-time-bg']?.y || 0}px)`,
+            backgroundRepeat: 'no-repeat'
+          } : {}}
+          title={customIcons['desktop-time-bg'] ? "点击选择调整" : "点击上传时间背景图"}
+        >
+          <div className="text-center p-4">
+            <div className="text-4xl font-bold text-gray-900">
+              {new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
+            </div>
+          </div>
+        </div>
+        
         <div className="text-center mb-4">
           <h3 className="text-sm font-medium text-gray-700">桌面应用 ({desktopIcons.length}个已自定义)</h3>
         </div>
@@ -1020,32 +1113,20 @@ const GlobalDecoration = () => {
             </button>
           </div>
 
-          {/* 重置按钮 - 手机端隐藏文字 */}
+          {/* 调整按钮 */}
           <button
-            onClick={async () => {
-              if (confirm('确定要重置所有图标吗？')) {
-                // 清空IndexedDB
-                await clearAllUIIcons()
-                await clearAllDesktopIcons()
-                
-                // 清空localStorage备份
-                localStorage.removeItem('ui_custom_icons')
-                localStorage.removeItem('custom_icons')
-                
-                // 清空state
-                setCustomIcons({})
-                setDesktopIcons([])
-                
-                await updateStorageUsage()
-                console.log('✅ 已重置所有图标（包括备份）')
-              }
+            onClick={() => {
+              setSelectedIcon('desktop-time-bg')
+              const scale = localStorage.getItem('desktop-time-bg-scale')
+              const x = localStorage.getItem('desktop-time-bg-x')
+              const y = localStorage.getItem('desktop-time-bg-y')
+              setIconScale(scale ? parseInt(scale) : 100)
+              setIconX(x ? parseInt(x) : 0)
+              setIconY(y ? parseInt(y) : 0)
             }}
-            className="p-1.5 md:px-4 md:py-2 text-xs md:text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors"
+            className="text-xs md:text-sm text-blue-500 hover:text-blue-600 transition-colors"
           >
-            <span className="hidden md:inline">重置全部</span>
-            <svg className="w-5 h-5 md:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            调整位置
           </button>
         </div>
       </div>
@@ -1219,6 +1300,102 @@ const GlobalDecoration = () => {
           </div>
         </div>
       </div>
+
+      {/* 底部调整控制面板 */}
+      {selectedIcon && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-2xl p-4 z-50">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-700">调整: {selectedIcon ? iconNameMap[selectedIcon] || selectedIcon : ''}</span>
+                <button onClick={() => setSelectedIcon(null)} className="text-xs text-gray-500 hover:text-gray-700">✕</button>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem(`${selectedIcon}-scale`)
+                  localStorage.removeItem(`${selectedIcon}-x`)
+                  localStorage.removeItem(`${selectedIcon}-y`)
+                  setIconScale(100)
+                  setIconX(0)
+                  setIconY(0)
+                  window.dispatchEvent(new Event('iconAdjust'))
+                }}
+                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+              >
+                重置
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">大小 {iconScale}%</label>
+                <input
+                  type="range"
+                  min="50"
+                  max="200"
+                  value={iconScale}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    setIconScale(val)
+                    if (selectedIcon) {
+                      localStorage.setItem(`${selectedIcon}-scale`, val.toString())
+                      setAdjustParams(prev => ({
+                        ...prev,
+                        [selectedIcon]: { ...prev[selectedIcon], scale: val }
+                      }))
+                    }
+                    window.dispatchEvent(new Event('iconAdjust'))
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">左右 {iconX}px</label>
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={iconX}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    setIconX(val)
+                    if (selectedIcon) {
+                      localStorage.setItem(`${selectedIcon}-x`, val.toString())
+                      setAdjustParams(prev => ({
+                        ...prev,
+                        [selectedIcon]: { ...prev[selectedIcon], x: val }
+                      }))
+                    }
+                    window.dispatchEvent(new Event('iconAdjust'))
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">上下 {iconY}px</label>
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={iconY}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    setIconY(val)
+                    if (selectedIcon) {
+                      localStorage.setItem(`${selectedIcon}-y`, val.toString())
+                      setAdjustParams(prev => ({
+                        ...prev,
+                        [selectedIcon]: { ...prev[selectedIcon], y: val }
+                      }))
+                    }
+                    window.dispatchEvent(new Event('iconAdjust'))
+                  }}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 隐藏的文件输入 */}
       <input
