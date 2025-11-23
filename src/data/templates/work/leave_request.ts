@@ -15,34 +15,40 @@ export const leaveRequestTemplate: TheatreTemplate = {
       { key: 'DATE', label: '申请日期', placeholder: '2025-01-14' },
     ],
     htmlTemplate: `
-<div style="max-width: 360px; margin: 0 auto; background: #fff9e6; padding: 28px 24px; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.1); font-family: 'Georgia', 'Noto Serif SC', serif; border: 2px solid #f1c40f;">
+<div style="max-width: 340px; margin: 0 auto; background-color: #fdfbf7; background-image: repeating-linear-gradient(#fdfbf7 0px, #fdfbf7 24px, #a2d9f5 25px); padding: 40px 24px; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-family: 'Kaiti SC', 'KaiTi', 'STKaiti', serif; position: relative; color: #2c3e50; line-height: 25px;">
+  <!-- 顶部回形针 -->
+  <div style="position: absolute; top: -10px; right: 30px; width: 12px; height: 40px; border: 2px solid #bdc3c7; border-radius: 10px; border-bottom: none; transform: rotate(15deg); background: linear-gradient(to right, rgba(255,255,255,0.8), rgba(255,255,255,0));"></div>
+  <div style="position: absolute; top: -10px; right: 30px; width: 12px; height: 40px; border: 2px solid #bdc3c7; border-radius: 10px; border-top: none; transform: rotate(15deg); z-index: 1;"></div>
+
   <!-- 标题 -->
-  <div style="text-align: center; margin-bottom: 24px;">
-    <div style="font-size: 26px; font-weight: bold; color: #2d3436;">请假条</div>
-    <div style="width: 40px; height: 3px; background: #f1c40f; margin: 8px auto 0;"></div>
+  <div style="text-align: center; margin-bottom: 30px;">
+    <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #34495e;">请假条</div>
   </div>
   
   <!-- 称呼 -->
-  <div style="margin-bottom: 20px;">
-    <div style="font-size: 16px; color: #2d3436;">{{TO}}：</div>
+  <div style="margin-bottom: 10px; font-size: 16px;">
+    <span>{{TO}}：</span>
   </div>
   
   <!-- 正文 -->
-  <div style="background: white; padding: 18px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f1c40f;">
-    <div style="font-size: 15px; color: #2d3436; line-height: 1.8; text-indent: 2em;">
-      本人因{{REASON}}，特向您请假，请假时间为{{START_DATE}}至{{END_DATE}}，共{{DAYS}}天。请予批准。
-    </div>
+  <div style="margin-bottom: 20px; text-indent: 2em; font-size: 16px;">
+    本人因 <span style="text-decoration: underline; text-decoration-color: #95a5a6; padding: 0 4px;">{{REASON}}</span>，需请假 <span style="text-decoration: underline; text-decoration-color: #95a5a6; padding: 0 4px;">{{DAYS}}</span> 天，时间为 <span style="text-decoration: underline; text-decoration-color: #95a5a6; padding: 0 4px;">{{START_DATE}}</span> 至 <span style="text-decoration: underline; text-decoration-color: #95a5a6; padding: 0 4px;">{{END_DATE}}</span>。
+  </div>
+  <div style="margin-bottom: 40px; text-indent: 2em; font-size: 16px;">
+    恳请批准。
   </div>
   
   <!-- 落款 -->
-  <div style="text-align: right; margin-top: 24px;">
-    <div style="font-size: 15px; color: #2d3436; margin-bottom: 8px;">请假人：{{FROM}}</div>
-    <div style="font-size: 14px; color: #636e72;">{{DATE}}</div>
+  <div style="text-align: right; font-size: 16px;">
+    <div style="margin-bottom: 5px;">请假人：<span style="font-family: 'Brush Script MT', cursive; font-size: 20px;">{{FROM}}</span></div>
+    <div>{{DATE}}</div>
   </div>
   
-  <!-- 底部印章装饰 -->
-  <div style="text-align: right; margin-top: 16px;">
-    <div style="display: inline-block; width: 60px; height: 60px; border: 2px solid #e74c3c; border-radius: 50%; color: #e74c3c; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; transform: rotate(-15deg);">同意</div>
+  <!-- 底部印章 -->
+  <div style="position: absolute; bottom: 40px; right: 60px; width: 80px; height: 80px; border: 3px solid rgba(231, 76, 60, 0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: rotate(-20deg); opacity: 0.8; pointer-events: none;">
+    <div style="width: 70px; height: 70px; border: 1px solid rgba(231, 76, 60, 0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 18px; color: rgba(231, 76, 60, 0.8); font-weight: bold; letter-spacing: 2px;">批准</span>
+    </div>
   </div>
 </div>
     `.trim()

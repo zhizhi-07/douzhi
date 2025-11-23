@@ -15,9 +15,13 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
   })
   
   useEffect(() => {
-    if (!containerRef.current || !message.theatre?.templateId) return
+    if (!containerRef.current || !message.theatre?.templateId) {
+      console.log('[TheatreMessage] Early return - containerRef or templateId missing')
+      return
+    }
     
     const templateId = message.theatre.templateId
+    console.log(`[TheatreMessage] useEffect running for templateId: "${templateId}"`)
     
     // ==================== 刮刮乐交互 ====================
     if (templateId === 'scratch_card') {
@@ -42,36 +46,24 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
         ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 3, Math.random() * 3)
       }
       
-      // 绘制精致的"刮奖处"圆形水印
-      ctx.strokeStyle = 'rgba(150, 150, 150, 0.25)'
-      ctx.lineWidth = 2.5
-      ctx.font = 'bold 15px SimHei, Microsoft YaHei'
-      ctx.fillStyle = 'rgba(140, 140, 140, 0.2)'
+      // 绘制"刮开查看"文字
+      ctx.save()
+      ctx.font = 'bold 24px SimHei, Microsoft YaHei'
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.4)'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
+      ctx.fillText('刮开查看', canvas.width / 2, canvas.height / 2)
       
-      const rows = 3
-      const cols = 4
-      const radius = 32
-      
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const x = (col + 0.5) * (canvas.width / cols)
-          const y = (row + 0.5) * (canvas.height / rows)
-          
-          // 绘制圆圈和光晕
-          ctx.save()
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
-          ctx.shadowBlur = 8
-          ctx.beginPath()
-          ctx.arc(x, y, radius, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.restore()
-          
-          // 绘制文字
-          ctx.fillText('刮奖处', x, y)
-        }
+      // 添加一些保密纹理（斜线）
+      ctx.strokeStyle = 'rgba(150, 150, 150, 0.15)'
+      ctx.lineWidth = 2
+      for (let i = -canvas.height; i < canvas.width; i += 15) {
+        ctx.beginPath()
+        ctx.moveTo(i, 0)
+        ctx.lineTo(i + canvas.height, canvas.height)
+        ctx.stroke()
       }
+      ctx.restore()
       
       let isScratching = false
       let scratchedPixels = 0
@@ -176,106 +168,185 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       }
     }
     
+    // ==================== 性爱时长交互 ====================
+    if (templateId === 'sex_timer') {
+      const container = containerRef.current
+      
+      // 按钮
+      const toggleForeplay = container.querySelector('[data-action="toggle-foreplay"]')
+      const toggleMain = container.querySelector('[data-action="toggle-main"]')
+      const toggleAftercare = container.querySelector('[data-action="toggle-aftercare"]')
+      const togglePositions = container.querySelector('[data-action="toggle-positions"]')
+      const toggleClimax = container.querySelector('[data-action="toggle-climax"]')
+      
+      // 详情区域
+      const foreplayDetail = container.querySelector('[data-detail="foreplay"]') as HTMLElement
+      const mainDetail = container.querySelector('[data-detail="main"]') as HTMLElement
+      const aftercareDetail = container.querySelector('[data-detail="aftercare"]') as HTMLElement
+      const positionsDetail = container.querySelector('[data-detail="positions"]') as HTMLElement
+      const climaxDetail = container.querySelector('[data-detail="climax"]') as HTMLElement
+      
+      const allDetails = [foreplayDetail, mainDetail, aftercareDetail, positionsDetail, climaxDetail]
+      
+      const setupToggle = (btn: Element | null, targetDetail: HTMLElement | null) => {
+        if (!btn || !targetDetail) return
+        
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          
+          const isCurrentlyVisible = targetDetail.style.display === 'block'
+          
+          // 先关闭所有详情
+          allDetails.forEach(detail => {
+            if (detail) detail.style.display = 'none'
+          })
+          
+          // 如果之前不是显示的，就显示它
+          if (!isCurrentlyVisible) {
+            targetDetail.style.display = 'block'
+          }
+        })
+      }
+      
+      setupToggle(toggleForeplay, foreplayDetail)
+      setupToggle(toggleMain, mainDetail)
+      setupToggle(toggleAftercare, aftercareDetail)
+      setupToggle(togglePositions, positionsDetail)
+      setupToggle(toggleClimax, climaxDetail)
+    }
+
     // ==================== 购物车交互 ====================
     if (templateId === 'shopping_cart') {
       const container = containerRef.current.querySelector('[data-shopping-cart]')
       if (!container) return
       
-      const prices = [
-        parseFloat(message.theatre.htmlContent.match(/¥(\d+)/)?.[1] || '0'),
-        parseFloat(message.theatre.htmlContent.match(/¥\d+.*?¥(\d+)/)?.[1] || '0'),
-        parseFloat(message.theatre.htmlContent.match(/¥\d+.*?¥\d+.*?¥(\d+)/)?.[1] || '0')
-      ]
+      // 初始化数据
+      const items = new Map<number, { 
+        price: number, 
+        count: number, 
+        selected: boolean,
+        el: HTMLElement,
+        checkbox: HTMLElement,
+        countEl: HTMLElement
+      }>()
       
-      let selectedItems = new Set([1, 2, 3]) // 默认全选
+      const itemEls = container.querySelectorAll('[data-item]')
+      itemEls.forEach(el => {
+        const id = parseInt(el.getAttribute('data-item') || '0')
+        const price = parseFloat(el.getAttribute('data-price') || '0')
+        const countEl = el.querySelector('div[style*="min-width: 24px"]') as HTMLElement
+        const count = parseInt(countEl?.textContent || '1')
+        const checkbox = el.querySelector(`[data-checkbox="${id}"]`) as HTMLElement
+        
+        if (id && !items.has(id)) {
+          items.set(id, {
+            price,
+            count,
+            selected: true,
+            el: el as HTMLElement,
+            checkbox,
+            countEl
+          })
+        }
+      })
+      
+      const totalEl = container.querySelector('[data-total]') as HTMLElement
+      const countSpan = Array.from(container.querySelectorAll('span')).find(s => s.parentElement?.textContent?.includes('已选')) as HTMLElement
       
       const updateTotal = () => {
         let total = 0
-        selectedItems.forEach(i => {
-          total += prices[i - 1] || 0
+        let selectedCount = 0
+        
+        items.forEach(item => {
+          if (item.selected) {
+            total += item.price * item.count
+            selectedCount++
+          }
         })
-        const totalEl = container.querySelector('[data-total]') as HTMLElement
-        const btnEl = container.querySelector('[data-checkout-btn]') as HTMLElement
+        
         if (totalEl) {
-          totalEl.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          totalEl.style.transform = 'scale(1.15)'
-          totalEl.textContent = `¥${total}`
+          // 动画效果
+          totalEl.style.transition = 'transform 0.2s'
+          totalEl.style.transform = 'scale(1.2)'
+          totalEl.style.color = '#ff4d4f'
+          totalEl.textContent = `${total}`
           setTimeout(() => {
             totalEl.style.transform = 'scale(1)'
-          }, 300)
+          }, 200)
         }
-        if (btnEl) btnEl.textContent = `结算 (${selectedItems.size}件)`
+        
+        if (countSpan) {
+          countSpan.textContent = `${selectedCount}`
+        }
+        
+        // 更新全选按钮状态
+        const selectAllBtn = container.querySelector('[data-select-all]') as HTMLElement
+        if (selectAllBtn) {
+          const allSelected = Array.from(items.values()).every(i => i.selected)
+          if (allSelected) {
+             selectAllBtn.style.background = '#ff4d4f'
+             selectAllBtn.style.border = '2px solid #ff4d4f'
+             selectAllBtn.innerHTML = '<span style="color: white; font-size: 12px; font-weight: bold;">✓</span>'
+          } else {
+             selectAllBtn.style.background = 'transparent'
+             selectAllBtn.style.border = '2px solid #ddd'
+             selectAllBtn.innerHTML = ''
+          }
+        }
       }
       
-      // 单个商品点击
-      const items = container.querySelectorAll('[data-item]')
-      items.forEach(item => {
-        const id = parseInt(item.getAttribute('data-item') || '0')
-        const itemEl = item as HTMLElement
-        itemEl.style.cursor = 'pointer'
-        itemEl.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+      // 绑定事件
+      items.forEach((item) => {
+        // Checkbox 点击
+        if (item.checkbox) {
+          item.checkbox.addEventListener('click', (e) => {
+            e.stopPropagation()
+            item.selected = !item.selected
+            
+            if (item.selected) {
+               item.checkbox.style.background = '#ff4d4f'
+               item.checkbox.style.border = '2px solid #ff4d4f'
+               item.checkbox.innerHTML = '<span style="color: white; font-size: 12px; font-weight: bold;">✓</span>'
+               item.el.style.opacity = '1'
+               
+               // 选中动画
+               item.checkbox.style.transform = 'scale(1.1)'
+               setTimeout(() => item.checkbox.style.transform = 'scale(1)', 200)
+            } else {
+               item.checkbox.style.background = 'transparent'
+               item.checkbox.style.border = '2px solid #ddd'
+               item.checkbox.innerHTML = ''
+               item.el.style.opacity = '0.6'
+            }
+            updateTotal()
+          })
+        }
         
-        item.addEventListener('click', (e) => {
-          const checkbox = item.querySelector(`[data-checkbox="${id}"]`) as HTMLElement
-          if (!checkbox) return
-          
-          // 创建波纹效果
-          const ripple = document.createElement('span')
-          const rect = itemEl.getBoundingClientRect()
-          const size = Math.max(rect.width, rect.height)
-          const x = (e as MouseEvent).clientX - rect.left - size / 2
-          const y = (e as MouseEvent).clientY - rect.top - size / 2
-          
-          ripple.style.cssText = `
-            position: absolute;
-            width: ${size}px;
-            height: ${size}px;
-            border-radius: 50%;
-            background: rgba(255, 107, 107, 0.3);
-            left: ${x}px;
-            top: ${y}px;
-            animation: ripple 0.6s ease-out;
-            pointer-events: none;
-          `
-          itemEl.style.position = 'relative'
-          itemEl.appendChild(ripple)
-          setTimeout(() => ripple.remove(), 600)
-          
-          checkbox.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          
-          if (selectedItems.has(id)) {
-            selectedItems.delete(id)
-            checkbox.style.background = 'transparent'
-            checkbox.style.borderColor = '#ddd'
-            checkbox.style.transform = 'scale(0.8)'
-            checkbox.textContent = ''
-            itemEl.style.opacity = '0.6'
-          } else {
-            selectedItems.add(id)
-            checkbox.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8787)'
-            checkbox.style.borderColor = '#ff6b6b'
-            checkbox.style.transform = 'scale(1)'
-            checkbox.style.boxShadow = '0 2px 8px rgba(255, 107, 107, 0.3)'
-            checkbox.textContent = '✓'
-            checkbox.style.color = 'white'
-            checkbox.style.fontSize = '12px'
-            checkbox.style.fontWeight = 'bold'
-            itemEl.style.opacity = '1'
-          }
-          updateTotal()
-        })
+        // 数量加减
+        const qtyBtns = item.el.querySelectorAll('div[style*="padding: 0 8px"]')
+        const minusBtn = qtyBtns[0] as HTMLElement
+        const plusBtn = qtyBtns[1] as HTMLElement
         
-        // 初始状态
-        const checkbox = item.querySelector(`[data-checkbox="${id}"]`) as HTMLElement
-        if (checkbox && selectedItems.has(id)) {
-          checkbox.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          checkbox.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8787)'
-          checkbox.style.borderColor = '#ff6b6b'
-          checkbox.style.boxShadow = '0 2px 8px rgba(255, 107, 107, 0.3)'
-          checkbox.textContent = '✓'
-          checkbox.style.color = 'white'
-          checkbox.style.fontSize = '12px'
-          checkbox.style.fontWeight = 'bold'
+        if (minusBtn) {
+          minusBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            if (item.count > 1) {
+              item.count--
+              if (item.countEl) item.countEl.textContent = `${item.count}`
+              updateTotal()
+            }
+          })
+        }
+        
+        if (plusBtn) {
+          plusBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            if (item.count < 99) {
+              item.count++
+              if (item.countEl) item.countEl.textContent = `${item.count}`
+              updateTotal()
+            }
+          })
         }
       })
       
@@ -283,29 +354,21 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       const selectAllBtn = container.querySelector('[data-select-all]')
       if (selectAllBtn) {
         selectAllBtn.addEventListener('click', () => {
-          const allSelected = selectedItems.size === 3
-          if (allSelected) {
-            selectedItems.clear()
-          } else {
-            selectedItems = new Set([1, 2, 3])
-          }
+          const allSelected = Array.from(items.values()).every(i => i.selected)
+          const newState = !allSelected
           
           items.forEach(item => {
-            const id = parseInt(item.getAttribute('data-item') || '0')
-            const checkbox = item.querySelector(`[data-checkbox="${id}"]`) as HTMLElement
-            if (!checkbox) return
-            
-            if (selectedItems.has(id)) {
-              checkbox.style.background = '#ff6b6b'
-              checkbox.style.borderColor = '#ff6b6b'
-              checkbox.textContent = '✓'
-              checkbox.style.color = 'white'
-              checkbox.style.fontSize = '12px'
-              checkbox.style.fontWeight = 'bold'
+            item.selected = newState
+            if (newState) {
+               item.checkbox.style.background = '#ff4d4f'
+               item.checkbox.style.border = '2px solid #ff4d4f'
+               item.checkbox.innerHTML = '<span style="color: white; font-size: 12px; font-weight: bold;">✓</span>'
+               item.el.style.opacity = '1'
             } else {
-              checkbox.style.background = 'transparent'
-              checkbox.style.borderColor = '#ddd'
-              checkbox.textContent = ''
+               item.checkbox.style.background = 'transparent'
+               item.checkbox.style.border = '2px solid #ddd'
+               item.checkbox.innerHTML = ''
+               item.el.style.opacity = '0.6'
             }
           })
           updateTotal()
@@ -315,62 +378,48 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       // 结算按钮
       const checkoutBtn = container.querySelector('[data-checkout-btn]') as HTMLElement
       if (checkoutBtn) {
-        checkoutBtn.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a6f)'
-        checkoutBtn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        checkoutBtn.style.cursor = 'pointer'
-        checkoutBtn.style.boxShadow = '0 4px 12px rgba(255, 107, 107, 0.3)'
-        
-        checkoutBtn.addEventListener('mouseenter', () => {
-          checkoutBtn.style.transform = 'translateY(-2px)'
-          checkoutBtn.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)'
-        })
-        
-        checkoutBtn.addEventListener('mouseleave', () => {
-          checkoutBtn.style.transform = 'translateY(0)'
-          checkoutBtn.style.boxShadow = '0 4px 12px rgba(255, 107, 107, 0.3)'
-        })
-        
         checkoutBtn.addEventListener('click', () => {
-          if (selectedItems.size === 0) {
-            checkoutBtn.style.animation = 'shake 0.5s'
-            setTimeout(() => {
-              checkoutBtn.style.animation = 'none'
-            }, 500)
-            return
-          }
-          
-          checkoutBtn.style.transform = 'scale(0.95)'
-          setTimeout(() => {
-            checkoutBtn.style.transform = 'scale(1)'
-            checkoutBtn.textContent = '结算成功！'
-            checkoutBtn.style.background = 'linear-gradient(135deg, #00b894, #00d2b0)'
-            checkoutBtn.style.boxShadow = '0 4px 12px rgba(0, 184, 148, 0.4)'
-            
-            // 成功粒子效果
-            for (let i = 0; i < 15; i++) {
-              const particle = document.createElement('div')
-              particle.textContent = '✨'
-              particle.style.cssText = `
-                position: fixed;
-                font-size: 20px;
-                pointer-events: none;
-                animation: burst 1s ease-out forwards;
-              `
-              particle.style.left = `${checkoutBtn.getBoundingClientRect().left + Math.random() * checkoutBtn.offsetWidth}px`
-              particle.style.top = `${checkoutBtn.getBoundingClientRect().top + Math.random() * checkoutBtn.offsetHeight}px`
-              
-              document.body.appendChild(particle)
-              setTimeout(() => particle.remove(), 1000)
-            }
-            
-            setTimeout(() => {
-              if (checkoutBtn) {
-                checkoutBtn.textContent = `结算 (${selectedItems.size}件)`
-                checkoutBtn.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a6f)'
-                checkoutBtn.style.boxShadow = '0 4px 12px rgba(255, 107, 107, 0.3)'
-              }
-            }, 2000)
-          }, 150)
+           const selectedCount = Array.from(items.values()).filter(i => i.selected).length
+           if (selectedCount === 0) {
+             checkoutBtn.style.animation = 'shake 0.5s'
+             setTimeout(() => checkoutBtn.style.animation = '', 500)
+             return
+           }
+           
+           // Loading state
+           const originalText = checkoutBtn.textContent
+           checkoutBtn.textContent = '处理中...'
+           checkoutBtn.style.opacity = '0.8'
+           
+           setTimeout(() => {
+             checkoutBtn.textContent = '下单成功!'
+             checkoutBtn.style.background = '#52c41a'
+             checkoutBtn.style.opacity = '1'
+             
+             // 撒花效果
+             for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div')
+                p.textContent = ['🎉', '✨', '💰', '🎁'][Math.floor(Math.random() * 4)]
+                p.style.position = 'fixed'
+                p.style.left = `${checkoutBtn.getBoundingClientRect().left + Math.random() * 100}px`
+                p.style.top = `${checkoutBtn.getBoundingClientRect().top}px`
+                p.style.fontSize = '20px'
+                p.style.pointerEvents = 'none'
+                p.style.transition = 'all 1s ease-out'
+                document.body.appendChild(p)
+                
+                requestAnimationFrame(() => {
+                  p.style.transform = `translate(${(Math.random()-0.5)*100}px, -${100+Math.random()*100}px) rotate(${Math.random()*360}deg)`
+                  p.style.opacity = '0'
+                })
+                setTimeout(() => p.remove(), 1000)
+             }
+             
+             setTimeout(() => {
+                checkoutBtn.textContent = originalText
+                checkoutBtn.style.background = 'linear-gradient(135deg, #ff6b6b, #ff4d4f)'
+             }, 2000)
+           }, 800)
         })
       }
     }
@@ -426,14 +475,43 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       }
     }
     
+    // ==================== 快递单交互 ====================
+    if (templateId === 'express_package') {
+      const container = containerRef.current
+      const copyBtn = container.querySelector('[data-copy-btn]') as HTMLElement
+      
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          const text = copyBtn.getAttribute('data-copy-btn')
+          if (text) {
+            navigator.clipboard.writeText(text).then(() => {
+              const originalText = copyBtn.textContent
+              copyBtn.textContent = '已复制'
+              copyBtn.style.borderColor = '#52c41a'
+              copyBtn.style.color = '#52c41a'
+              
+              setTimeout(() => {
+                copyBtn.textContent = originalText
+                copyBtn.style.borderColor = '#1890ff'
+                copyBtn.style.color = '#1890ff'
+              }, 2000)
+            })
+          }
+        })
+      }
+    }
+
     // ==================== 优惠券交互 ====================
     if (templateId === 'coupon') {
       const container = containerRef.current.querySelector('[data-coupon]')
       if (!container) return
       
       // 倒计时
-      const expireDateStr = message.theatre.htmlContent.match(/过期日期.*?placeholder.*?"([^"]+)"/)?.[1] || '2025-12-31'
-      const expireDate = new Date(expireDateStr).getTime()
+      const expireDateStr = message.theatre.htmlContent.match(/有效期至\s*(\d{4}-\d{2}-\d{2})/)
+          ? message.theatre.htmlContent.match(/有效期至\s*(\d{4}-\d{2}-\d{2})/)?.[1]
+          : (message.theatre.htmlContent.match(/过期日期.*?placeholder.*?"([^"]+)"/)?.[1] || '2025-12-31')
+      
+      const expireDate = new Date(expireDateStr || '2025-12-31').getTime()
       
       const updateCountdown = () => {
         const now = Date.now()
@@ -447,15 +525,12 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
         
         const days = Math.floor(diff / (1000 * 60 * 60 * 24))
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
         
         const daysEl = container.querySelector('[data-days]')
         const hoursEl = container.querySelector('[data-hours]')
-        const minutesEl = container.querySelector('[data-minutes]')
         
         if (daysEl) daysEl.textContent = String(days)
         if (hoursEl) hoursEl.textContent = String(hours)
-        if (minutesEl) minutesEl.textContent = String(minutes)
       }
       
       updateCountdown()
@@ -463,16 +538,40 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       
       // 使用按钮
       const useBtn = container.querySelector('[data-use-btn]') as HTMLElement
+      const usedStamp = container.querySelector('[data-used-stamp]') as HTMLElement
+      
       if (useBtn) {
         useBtn.addEventListener('click', () => {
-          useBtn.textContent = '已使用'
-          useBtn.style.color = '#999'
+          useBtn.style.transform = 'scale(0.95)'
+          setTimeout(() => useBtn.style.transform = 'scale(1)', 150)
+          
+          // 模拟网络请求延迟
+          useBtn.textContent = '使用中...'
+          useBtn.style.opacity = '0.7'
+          
           setTimeout(() => {
-            if (useBtn) {
-              useBtn.textContent = '立即使用'
-              useBtn.style.color = '#ff6b6b'
+            useBtn.style.display = 'none'
+            if (usedStamp) {
+              usedStamp.style.display = 'block'
+              usedStamp.style.animation = 'stampIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+              
+              // Add style if not exists
+              if (!document.getElementById('stamp-anim-style')) {
+                const style = document.createElement('style')
+                style.id = 'stamp-anim-style'
+                style.textContent = `
+                  @keyframes stampIn {
+                    from { opacity: 0; transform: translate(-50%, -50%) scale(2) rotate(-15deg); }
+                    to { opacity: 0.8; transform: translate(-50%, -50%) scale(1) rotate(-15deg); }
+                  }
+                `
+                document.head.appendChild(style)
+              }
             }
-          }, 2000)
+            
+            container.style.filter = 'grayscale(1) opacity(0.8)'
+            container.style.transition = 'all 0.5s'
+          }, 800)
         })
       }
       
@@ -481,45 +580,82 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
     
     // ==================== 菜单交互 ====================
     if (templateId === 'menu') {
-      const container = containerRef.current.querySelector('[data-menu]')
-      if (!container) return
+      const container = containerRef.current
+      const bookContainer = container.querySelector('[data-menu-book]') as HTMLElement
+      const bookInner = container.querySelector('[data-book-inner]') as HTMLElement
+      const menuContainer = container.querySelector('[data-book-inner]') // 用内页作为菜单容器
       
-      const prices = [
-        parseFloat(message.theatre.htmlContent.match(/¥(\d+)</)?.[1] || '0'),
-        parseFloat(message.theatre.htmlContent.match(/¥\d+.*?¥(\d+)</)?.[1] || '0'),
-        parseFloat(message.theatre.htmlContent.match(/¥\d+.*?¥\d+.*?¥(\d+)</)?.[1] || '0')
-      ]
+      if (!menuContainer) return
       
-      const quantities = [0, 0, 0]
+      // 翻书交互
+      let isBookOpen = false
+      if (bookContainer && bookInner) {
+        bookContainer.addEventListener('click', (e) => {
+          // 如果点击的是菜单项内部（点菜），不触发翻书
+          if ((e.target as HTMLElement).closest('[data-menu-item]')) {
+            return
+          }
+          
+          if (!isBookOpen) {
+            isBookOpen = true
+            bookInner.style.transform = 'translateX(0) rotateY(-180deg)'
+          } 
+          // 如果已经打开，再次点击封面区域（实际上很难点到封面，因为封面转过去了）或者边缘可以合上
+          // 这里简化逻辑：点击翻开后，如果想合上，可以再次点击非菜单区域
+          // 但为了体验好，我们让点击内页的空白处不合上，只允许单向翻开（或者点击特定关闭按钮，这里暂不实现关闭）
+        })
+      }
+      
+      const menuItems = menuContainer.querySelectorAll('[data-menu-item]')
+      const quantities = new Array(menuItems.length).fill(0)
+      
+      // 动态获取价格列表
+      const prices: number[] = []
+      menuItems.forEach(item => {
+        const priceAttr = item.getAttribute('data-price')
+        if (priceAttr) {
+          prices.push(parseFloat(priceAttr))
+        } else {
+          // 兼容旧版正则匹配逻辑（备用）
+          const priceText = item.querySelector('div[style*="font-weight: bold"]')?.nextElementSibling?.previousElementSibling?.textContent || ''
+          const match = priceText.match(/¥(\d+)/)
+          prices.push(match ? parseFloat(match[1]) : 0)
+        }
+      })
       
       const updateTotal = () => {
         let total = 0
         quantities.forEach((qty, idx) => {
-          total += prices[idx] * qty
+          total += (prices[idx] || 0) * qty
         })
-        const totalEl = container.querySelector('[data-total]')
+        const totalEl = menuContainer.querySelector('[data-total]')
         if (totalEl) totalEl.textContent = `¥${total}`
       }
       
-      const menuItems = container.querySelectorAll('[data-menu-item]')
       menuItems.forEach((item, index) => {
         const itemEl = item as HTMLElement
-        const qtyEl = item.querySelector(`[data-qty="${index + 1}"]`) as HTMLElement
+        // 动态查找 qty 元素，不再依赖固定的 index+1
+        const qtyEl = item.querySelector('[data-qty]') as HTMLElement
+        const titleEl = item.querySelector('div[style*="font-weight: bold"]') as HTMLElement
         
-        item.addEventListener('click', () => {
+        if (!qtyEl) return
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation() // 阻止冒泡，防止触发翻书
+          
           quantities[index]++
           if (quantities[index] > 9) quantities[index] = 0
           
-          qtyEl.textContent = String(quantities[index])
+          qtyEl.textContent = `已选 ${quantities[index]}`
           
           if (quantities[index] > 0) {
-            qtyEl.style.background = '#d32f2f'
-            qtyEl.style.color = 'white'
-            itemEl.style.borderColor = '#d32f2f'
+            qtyEl.style.opacity = '1'
+            qtyEl.style.transform = 'translateY(0)'
+            if (titleEl) titleEl.style.borderBottomColor = '#8d6e63'
           } else {
-            qtyEl.style.background = '#f5f5f5'
-            qtyEl.style.color = '#999'
-            itemEl.style.borderColor = 'transparent'
+            qtyEl.style.opacity = '0'
+            qtyEl.style.transform = 'translateY(5px)'
+            if (titleEl) titleEl.style.borderBottomColor = 'transparent'
           }
           
           updateTotal()
@@ -529,61 +665,38 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
     
     // ==================== 备忘录交互 ====================
     if (templateId === 'memo') {
-      const container = containerRef.current.querySelector('[data-memo]')
-      if (!container) return
+      const container = containerRef.current
+      const modal = container.querySelector('[data-detail-modal]') as HTMLElement
+      const backBtn = container.querySelector('[data-back-btn]')
       
-      let completedCount = 0
-      const totalCount = 3
+      const modalTitle = container.querySelector('[data-modal-title]')
+      const modalTime = container.querySelector('[data-modal-time]')
+      const modalText = container.querySelector('[data-modal-text]')
       
-      const updateProgress = () => {
-        const progressBar = container.querySelector('[data-progress-bar]') as HTMLElement
-        const progressText = container.querySelector('[data-progress-text]')
-        
-        if (progressBar) {
-          const percentage = (completedCount / totalCount) * 100
-          progressBar.style.width = `${percentage}%`
-        }
-        if (progressText) {
-          progressText.textContent = `${completedCount}/${totalCount}`
-        }
-      }
-      
-      // 待办事项点击
-      const todoItems = container.querySelectorAll('[data-todo-item]')
-      todoItems.forEach(item => {
-        const id = item.getAttribute('data-todo-item')
-        let isCompleted = false
-        
+      // 列表项点击
+      const items = container.querySelectorAll('[data-memo-item]')
+      items.forEach(item => {
         item.addEventListener('click', () => {
-          const checkbox = item.querySelector(`[data-checkbox="${id}"]`) as HTMLElement
-          const text = item.querySelector(`[data-text="${id}"]`) as HTMLElement
+          const title = item.querySelector('[data-full-title]')?.textContent || ''
+          const time = item.querySelector('[data-full-time]')?.textContent || ''
+          const detail = item.querySelector('[data-detail-content]')?.textContent || ''
           
-          if (!checkbox || !text) return
+          if (modalTitle) modalTitle.textContent = title
+          if (modalTime) modalTime.textContent = time
+          if (modalText) modalText.textContent = detail
           
-          isCompleted = !isCompleted
-          
-          if (isCompleted) {
-            completedCount++
-            checkbox.style.background = '#f59e0b'
-            checkbox.style.borderColor = '#f59e0b'
-            checkbox.textContent = '✓'
-            checkbox.style.color = 'white'
-            checkbox.style.fontSize = '14px'
-            checkbox.style.fontWeight = 'bold'
-            text.style.textDecoration = 'line-through'
-            text.style.color = '#9ca3af'
-          } else {
-            completedCount--
-            checkbox.style.background = 'transparent'
-            checkbox.style.borderColor = '#d1d5db'
-            checkbox.textContent = ''
-            text.style.textDecoration = 'none'
-            text.style.color = '#374151'
+          if (modal) {
+            modal.style.transform = 'translateX(0)'
           }
-          
-          updateProgress()
         })
       })
+      
+      // 返回按钮点击
+      if (backBtn && modal) {
+        backBtn.addEventListener('click', () => {
+          modal.style.transform = 'translateX(100%)'
+        })
+      }
     }
     
     // ==================== 倒计时交互 ====================
@@ -743,26 +856,89 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
     // ==================== 通话记录交互 ====================
     if (templateId === 'call_log') {
       const container = containerRef.current
-      const records = container.querySelectorAll('div[style*="border-left: 3px"]')
-      
-      records.forEach(record => {
-        const content = record.querySelector('div[style*="font-size: 13px"]') as HTMLElement
-        if (!content) return
-        
-        let isExpanded = true
-        const originalHeight = content.offsetHeight
-        content.style.maxHeight = originalHeight + 'px'
-        content.style.overflow = 'hidden'
-        content.style.transition = 'max-height 0.3s'
-        
-        record.addEventListener('click', () => {
-          if (isExpanded) {
-            content.style.maxHeight = '0px'
-            isExpanded = false
-          } else {
-            content.style.maxHeight = originalHeight + 'px'
-            isExpanded = true
-          }
+
+      // 1. 标签切换
+      const tabs = container.querySelectorAll('[data-tab]')
+      const items = container.querySelectorAll('[data-call-item]')
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const type = tab.getAttribute('data-tab')
+
+          // 更新Tab样式
+          tabs.forEach(t => {
+            const isSelected = t === tab
+            ;(t as HTMLElement).style.fontWeight = isSelected ? '600' : '500'
+            ;(t as HTMLElement).style.color = isSelected ? '#000' : '#666'
+            ;(t as HTMLElement).style.background = isSelected ? '#fff' : 'transparent'
+            ;(t as HTMLElement).style.boxShadow = isSelected ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+          })
+
+          // 筛选列表
+          items.forEach(item => {
+            const callType = item.getAttribute('data-type')
+            const el = item as HTMLElement
+
+            if (type === 'all') {
+              el.style.display = 'flex'
+            } else if (type === 'missed') {
+              if (callType?.includes('未接')) {
+                el.style.display = 'flex'
+              } else {
+                el.style.display = 'none'
+              }
+            }
+          })
+        })
+      })
+
+      // 2. 列表项点击展开详情
+      items.forEach(item => {
+        item.addEventListener('click', () => {
+           const content = item.getAttribute('data-content')
+           const reason = item.getAttribute('data-reason')
+           const type = item.getAttribute('data-type')
+           
+           // 检查是否已经展开
+           const existingDetail = item.nextElementSibling
+           if (existingDetail && existingDetail.hasAttribute('data-detail-row')) {
+             // 收起
+             existingDetail.remove()
+             return
+           }
+           
+           // 创建详情行
+           const detailRow = document.createElement('div')
+           detailRow.setAttribute('data-detail-row', 'true')
+           detailRow.style.background = '#f9f9f9'
+           detailRow.style.padding = '12px 16px'
+           detailRow.style.borderBottom = '0.5px solid rgba(0,0,0,0.1)'
+           detailRow.style.fontSize = '14px'
+           detailRow.style.color = '#333'
+           detailRow.style.lineHeight = '1.5'
+           detailRow.style.animation = 'slideDown 0.2s ease-out'
+           
+           // 插入样式
+           if (!document.getElementById('call-log-anim')) {
+             const style = document.createElement('style')
+             style.id = 'call-log-anim'
+             style.textContent = `@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }`
+             document.head.appendChild(style)
+           }
+           
+           if (type?.includes('未接')) {
+             detailRow.innerHTML = `
+               <div style="color: #ff3b30; font-weight: 600; margin-bottom: 4px;">⚠️ 未接听原因</div>
+               <div>${reason || '暂无原因说明'}</div>
+             `
+           } else {
+             detailRow.innerHTML = `
+               <div style="color: #007aff; font-weight: 600; margin-bottom: 4px;">📝 通话内容摘要</div>
+               <div>${content || '暂无通话内容记录'}</div>
+             `
+           }
+           
+           item.parentNode?.insertBefore(detailRow, item.nextSibling)
         })
       })
     }
@@ -825,22 +1001,22 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
     // ==================== 结婚证/离婚证翻页交互 ====================
     if (templateId === 'marriage_certificate' || templateId === 'divorce_certificate') {
       const container = containerRef.current
-      const book = container.querySelector('div[style*="display: flex"]') as HTMLElement
-      if (!book) return
+      const book = container.querySelector('.cert-book') as HTMLElement
       
-      let isFlipped = false
-      book.style.cursor = 'pointer'
-      book.style.transition = 'transform 0.8s'
-      book.style.transformStyle = 'preserve-3d'
-      
-      container.addEventListener('click', () => {
-        isFlipped = !isFlipped
-        if (isFlipped) {
-          book.style.transform = 'rotateY(15deg) scale(1.05)'
-        } else {
-          book.style.transform = 'rotateY(0deg) scale(1)'
-        }
-      })
+      if (book) {
+        let isFlipped = false
+        container.addEventListener('click', () => {
+          isFlipped = !isFlipped
+          book.style.transform = isFlipped ? 'rotateY(-180deg) translateX(100px)' : 'rotateY(0deg) translateX(0)'
+          // 调整视角中心，让翻开后的效果更居中
+          if (isFlipped) {
+             container.style.transform = 'translateX(-50px)'
+          } else {
+             container.style.transform = 'translateX(0)'
+          }
+          container.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+        })
+      }
     }
     
     // ==================== 名片扫描动画 ====================
@@ -997,26 +1173,6 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
             printCount = 0
           }, 2000)
         }
-      })
-    }
-    
-    // ==================== 日记翻页动画 ====================
-    if (templateId === 'diary') {
-      const container = containerRef.current
-      const diary = container.querySelector('div[style*="background: #f9f6f0"]') as HTMLElement
-      if (!diary) return
-      
-      diary.style.cursor = 'pointer'
-      diary.style.transition = 'transform 0.3s'
-      
-      diary.addEventListener('mouseenter', () => {
-        diary.style.transform = 'rotateZ(-1deg) translateY(-2px)'
-        diary.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)'
-      })
-      
-      diary.addEventListener('mouseleave', () => {
-        diary.style.transform = 'rotateZ(0deg) translateY(0)'
-        diary.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)'
       })
     }
     
@@ -2916,8 +3072,101 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
       bargainBtn.addEventListener('click', updateTrick)
       shareBtn.addEventListener('click', updateTrick)
     }
+
+    // ==================== 日记本翻页 & 涂鸦交互 ====================
+    if (templateId === 'diary') {
+      const book = containerRef.current.querySelector('[data-diary-book]')
+      if (!book) return
+
+      // 1. 封面点击打开
+      const cover = book.querySelector('.cover') as HTMLElement
+      if (cover) {
+        cover.style.zIndex = '20'
+        cover.style.cursor = 'pointer'
+
+        cover.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const isFlipped = cover.style.transform.includes('-180deg')
+
+          if (isFlipped) {
+            cover.style.transform = 'rotateY(0deg)'
+            cover.style.zIndex = '20'
+          } else {
+            cover.style.transform = 'rotateY(-180deg)'
+            cover.style.zIndex = '1'
+          }
+        })
+      }
+
+      // 2. 页面翻动
+      const pages = Array.from(book.querySelectorAll('.page:not(.cover)')) as HTMLElement[]
+
+      pages.forEach((page) => {
+        const pageNumber = parseInt(page.getAttribute('data-page') || '0')
+
+        // 随机微小旋转，增加不规整感 (-1deg 到 1deg)
+        const randomRotate = (Math.random() * 2 - 1).toFixed(1)
+        const baseTransform = `rotate(${randomRotate}deg)`
+        page.style.transform = baseTransform
+
+        // Ensure pointer events are on
+        page.style.pointerEvents = 'auto'
+        page.style.cursor = 'pointer'
+
+        // 初始Z-index
+        const initialZ = 8 - pageNumber
+        page.style.zIndex = String(initialZ)
+
+        page.addEventListener('click', (e) => {
+          e.stopPropagation()
+
+          const currentTransform = page.style.transform
+          const isFlipped = currentTransform.includes('-180deg')
+
+          if (isFlipped) {
+            // 翻回来
+            page.style.transform = `rotateY(0deg) ${baseTransform}`
+            page.style.zIndex = String(initialZ)
+          } else {
+            // 翻过去
+            page.style.transform = `rotateY(-180deg) ${baseTransform}`
+            const flippedZ = 1 + pageNumber
+            page.style.zIndex = String(flippedZ)
+          }
+        })
+      })
+
+      // 3. 涂鸦渲染 (支持多页涂鸦)
+      const doodleContainers = book.querySelectorAll('[data-doodle-container]')
+      
+      // 简单的SVG库
+      const svgs: Record<string, string> = {
+        cat: `<svg viewBox="0 0 100 100" fill="none" stroke="#333" stroke-width="3"><path d="M20 80 Q 30 20 50 20 Q 70 20 80 80" /><circle cx="35" cy="40" r="5" fill="#333" /><circle cx="65" cy="40" r="5" fill="#333" /><path d="M45 50 L 55 50" /><path d="M20 25 L 30 10 L 40 25" /><path d="M60 25 L 70 10 L 80 25" /></svg>`,
+        sun: `<svg viewBox="0 0 100 100" fill="none" stroke="#f39c12" stroke-width="3"><circle cx="50" cy="50" r="20" /><line x1="50" y1="20" x2="50" y2="10" /><line x1="50" y1="80" x2="50" y2="90" /><line x1="20" y1="50" x2="10" y2="50" /><line x1="80" y1="50" x2="90" y2="50" /><line x1="29" y1="29" x2="22" y2="22" /><line x1="71" y1="29" x2="78" y2="22" /><line x1="29" y1="71" x2="22" y2="78" /><line x1="71" y1="71" x2="78" y2="78" /></svg>`,
+        coffee: `<svg viewBox="0 0 100 100" fill="none" stroke="#795548" stroke-width="3"><path d="M20 30 L 20 70 Q 20 90 50 90 Q 80 90 80 70 L 80 30 Z" /><path d="M80 40 Q 95 40 95 55 Q 95 70 80 70" /><path d="M30 20 Q 35 5 40 20" /><path d="M50 20 Q 55 5 60 20" /><path d="M70 20 Q 75 5 80 20" /></svg>`,
+        heart: `<svg viewBox="0 0 100 100" fill="#e74c3c" stroke="none"><path d="M50 85 Q 10 55 20 30 Q 30 5 50 30 Q 70 5 80 30 Q 90 55 50 85" /></svg>`,
+        star: `<svg viewBox="0 0 100 100" fill="#f1c40f" stroke="none"><polygon points="50,10 61,35 88,35 66,50 75,75 50,60 25,75 34,50 12,35 39,35" /></svg>`,
+        flower: `<svg viewBox="0 0 100 100" fill="none" stroke="#e91e63" stroke-width="2"><circle cx="50" cy="50" r="10" fill="#f1c40f" stroke="none" /><path d="M50 40 Q 50 10 60 20 Q 70 30 60 40" /><path d="M60 50 Q 90 50 80 60 Q 70 70 60 60" /><path d="M50 60 Q 50 90 40 80 Q 30 70 40 60" /><path d="M40 50 Q 10 50 20 40 Q 30 30 40 40" /><path d="M50 70 L 50 95" stroke="#2ecc71" /></svg>`,
+        cloud: `<svg viewBox="0 0 100 100" fill="none" stroke="#3498db" stroke-width="2"><path d="M25,60 a20,20 0 0,1 0,-40 a20,20 0 0,1 50,0 a20,20 0 0,1 0,40 z" /></svg>`,
+        smile: `<svg viewBox="0 0 100 100" fill="none" stroke="#f39c12" stroke-width="3"><circle cx="50" cy="50" r="40" /><circle cx="35" cy="35" r="5" fill="#f39c12" /><circle cx="65" cy="35" r="5" fill="#f39c12" /><path d="M30 65 Q 50 85 70 65" /></svg>`,
+      }
+      
+      const keys = Object.keys(svgs)
+
+      doodleContainers.forEach(container => {
+        const placeholder = container.querySelector('[data-doodle-type]')
+        let type = placeholder?.getAttribute('data-doodle-type')?.toLowerCase().trim()
+        
+        // 如果没有指定类型，或者类型是 random，或者类型不存在，则随机选择
+        if (!type || type === 'random' || !svgs[type]) {
+          type = keys[Math.floor(Math.random() * keys.length)]
+        }
+        
+        container.innerHTML = svgs[type]
+      })
+    }
     
-    // ==================== 成人浏览历史隐藏/显示 ====================
+    // ==================== 成人浏览历史模糊效果 ====================
     if (templateId === 'adult_browser_history') {
       const container = containerRef.current
       const records = container.querySelectorAll('div[style*="padding"]')
@@ -2958,7 +3207,899 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
         toggleBtn.textContent = isHidden ? '显示详情' : '隐藏详情'
       })
     }
+
+    // ==================== MBTI 测试动画 & 交互 ====================
+    if (templateId === 'mbti_test') {
+      const container = containerRef.current
+      if (!container) return
+
+      // 1. 加载动画
+      const bars = container.querySelectorAll('div[style*="width: {{"]')
+      const progressBars = container.querySelectorAll('div[style*="transition: width"]')
+      progressBars.forEach(bar => {
+        const el = bar as HTMLElement
+        const targetWidth = el.style.width
+        el.style.width = '0%'
+        setTimeout(() => { el.style.width = targetWidth }, 100)
+      })
+
+      // 2. 点击交互
+      const showModal = (title: string, content: string) => {
+        const modal = document.createElement('div')
+        modal.style.cssText = `
+          position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+          background: rgba(30,30,46,0.95); backdrop-filter: blur(5px);
+          z-index: 10; padding: 20px; display: flex; flex-direction: column;
+          justify-content: center; animation: fadeIn 0.2s;
+        `
+        modal.innerHTML = `
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #2ecc71;">${title}</div>
+          <div style="font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.9);">${content}</div>
+          <div style="margin-top: 20px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.5);">点击关闭</div>
+        `
+        modal.onclick = () => modal.remove()
+        container.appendChild(modal)
+      }
+
+      // 监听点击事件
+      const analysisText = container.querySelector('[data-analysis]')?.textContent || ''
+      const careerText = container.querySelector('[data-career]')?.textContent || ''
+      const relText = container.querySelector('[data-relationship]')?.textContent || ''
+      
+      // 点击标题
+      const titleEl = container.querySelector('[data-action="show-type-detail"]') as HTMLElement
+      if (titleEl) {
+        titleEl.addEventListener('click', () => {
+          showModal('深度解析', analysisText || '暂无详细分析')
+        })
+      }
+
+      // 点击描述
+      const descEl = container.querySelector('[data-action="show-desc-detail"]') as HTMLElement
+      if (descEl) {
+        descEl.addEventListener('click', () => {
+          showModal('生活建议', `
+            <div style="margin-bottom:10px"><strong style="color:#3498db">🎓 职业建议：</strong><br>${careerText}</div>
+            <div><strong style="color:#e74c3c">❤️ 情感建议：</strong><br>${relText}</div>
+          `)
+        })
+      }
+
+      // 点击维度
+      container.querySelectorAll('[data-action="show-dim-detail"]').forEach(el => {
+        el.addEventListener('click', () => {
+          const dim = el.getAttribute('data-dim')
+          let title = ''
+          let content = ''
+          switch(dim) {
+            case 'ei': title = 'E vs I (能量来源)'; content = 'E型倾向于从外部世界获取能量，I型则倾向于从内心世界获取能量。'; break;
+            case 'ns': title = 'N vs S (感知方式)'; content = 'N型关注未来的可能性和抽象概念，S型关注当下的现实和具体细节。'; break;
+            case 'tf': title = 'T vs F (判断方式)'; content = 'T型倾向于根据逻辑和客观标准做决定，F型则倾向于根据价值观和他人感受做决定。'; break;
+            case 'jp': title = 'J vs P (生活方式)'; content = 'J型倾向于有计划、有条理的生活，P型则倾向于灵活、随性的生活。'; break;
+          }
+          showModal(title, content)
+        })
+      })
+    }
+
+    // ==================== 睡眠报告交互 ====================
+    if (templateId === 'sleep_report') {
+      const container = containerRef.current
+      if (!container) return
+
+      const scoreEl = container.querySelector('div[style*="font-size: 48px"]') as HTMLElement
+      const adviceEl = container.querySelector('[data-advice]')
+      const showAdviceBtn = container.querySelector('[data-action="show-advice"]')
+      const toggleDreamBtn = container.querySelector('[data-action="toggle-dream"]')
+      const dreamLog = container.querySelector('.dream-log') as HTMLElement
+
+      // 1. 分数动画
+      if (scoreEl) {
+        const targetScore = parseInt(scoreEl.textContent || '0')
+        let currentScore = 0
+        const duration = 1000
+        const stepTime = 20
+        const increment = targetScore / (duration / stepTime)
+        
+        const timer = setInterval(() => {
+          currentScore += increment
+          if (currentScore >= targetScore) {
+            currentScore = targetScore
+            clearInterval(timer)
+          }
+          scoreEl.textContent = Math.floor(currentScore).toString()
+        }, stepTime)
+      }
+
+      // 2. 展开梦境
+      if (toggleDreamBtn && dreamLog) {
+        toggleDreamBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const isExpanded = dreamLog.style.height !== '40px'
+          dreamLog.style.height = isExpanded ? '40px' : 'auto'
+          dreamLog.style.background = isExpanded ? 'rgba(162, 155, 254, 0.1)' : 'rgba(162, 155, 254, 0.2)'
+        })
+      }
+
+      // 3. 显示建议
+      if (showAdviceBtn && adviceEl) {
+        showAdviceBtn.addEventListener('click', () => {
+          const modal = document.createElement('div')
+          modal.style.cssText = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 30, 48, 0.95); backdrop-filter: blur(5px);
+            z-index: 10; padding: 20px; display: flex; flex-direction: column;
+            justify-content: center; animation: fadeIn 0.2s; color: white;
+          `
+          modal.innerHTML = `
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #a29bfe;">🌙 助眠建议</div>
+            <div style="font-size: 14px; line-height: 1.6; opacity: 0.9;">${adviceEl.textContent}</div>
+            <div style="margin-top: 20px; text-align: center; font-size: 12px; opacity: 0.5;">点击关闭</div>
+          `
+          modal.onclick = () => modal.remove()
+          container.appendChild(modal)
+        })
+      }
+    }
+
+    // ==================== 互动游戏交互 ====================
+    if (templateId === 'adult_game') {
+      const container = containerRef.current
+      if (!container) return
+
+      const character = container.querySelector('[data-action="touch-character"]') as HTMLElement
+      const favorability = container.querySelector('[data-action="show-favorability"]') as HTMLElement
+      const innerThoughts = container.querySelector('[data-inner-thoughts]')
+      const secretClue = container.querySelector('[data-secret-clue]')
+
+      // 1. 触摸角色 -> 震动 + 显示内心独白
+      if (character) {
+        character.addEventListener('click', (e) => {
+          e.stopPropagation()
+          
+          // 震动动画
+          character.style.animation = 'shake 0.5s'
+          setTimeout(() => character.style.animation = '', 500)
+
+          // 显示气泡
+          const thoughts = innerThoughts?.textContent || '...'
+          const bubble = document.createElement('div')
+          bubble.textContent = thoughts
+          bubble.style.cssText = `
+            position: absolute; bottom: 300px; left: 50%; transform: translateX(-50%);
+            background: white; color: #333; padding: 10px 15px; border-radius: 20px;
+            font-size: 12px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 80%; z-index: 20; animation: popUp 0.3s;
+          `
+          // 小三角
+          const triangle = document.createElement('div')
+          triangle.style.cssText = `
+            position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 6px solid transparent;
+            border-right: 6px solid transparent; border-top: 6px solid white;
+          `
+          bubble.appendChild(triangle)
+          container.appendChild(bubble)
+
+          setTimeout(() => {
+            bubble.style.opacity = '0'
+            bubble.style.transition = 'opacity 0.5s'
+            setTimeout(() => bubble.remove(), 500)
+          }, 3000)
+        })
+      }
+
+      // 2. 点击好感度
+      if (favorability) {
+        favorability.addEventListener('click', () => {
+          const modal = document.createElement('div')
+          modal.style.cssText = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(45, 52, 54, 0.95); z-index: 30; padding: 20px;
+            display: flex; flex-direction: column; justify-content: center;
+            animation: fadeIn 0.2s; color: white; text-align: center;
+          `
+          modal.innerHTML = `
+            <div style="font-size: 40px; margin-bottom: 10px;">❤</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #ff7675;">好感度分析</div>
+            <div style="font-size: 14px; opacity: 0.8;">她对你的感觉似乎...<br>已经不仅仅是朋友了哦？</div>
+            <div style="margin-top: 15px; font-size: 12px; color: #fab1a0;">隐藏线索：${secretClue?.textContent || '无'}</div>
+            <div style="margin-top: 20px; font-size: 12px; opacity: 0.5;">点击关闭</div>
+          `
+          modal.onclick = () => modal.remove()
+          container.appendChild(modal)
+        })
+      }
+
+      // 3. 选项逻辑 (保留)
+      const options = container.querySelectorAll('[data-option]')
+      options.forEach(opt => {
+        const el = opt as HTMLElement
+        el.addEventListener('click', () => {
+          options.forEach(o => {
+            (o as HTMLElement).style.background = 'rgba(255,255,255,0.9)';
+            (o as HTMLElement).style.transform = 'scale(1)';
+          })
+          el.style.background = '#fab1a0'
+          el.style.transform = 'scale(0.98)'
+        })
+      })
+    }
+
+    // ==================== 直播打赏交互 ====================
+    if (templateId === 'live_donation') {
+      const container = containerRef.current
+      if (!container) return
+
+      const giftBtn = container.querySelector('[data-gift-btn]') as HTMLElement
+      const streamerBtn = container.querySelector('[data-action="streamer-click"]') as HTMLElement
+      const rankBtn = container.querySelector('[data-action="show-rank"]') as HTMLElement
+      const reactionBubble = container.querySelector('.reaction-bubble') as HTMLElement
+      const vipList = container.querySelector('[data-vip-list]')
+
+      // 1. 主播反应
+      if (streamerBtn && reactionBubble) {
+        streamerBtn.addEventListener('click', () => {
+          reactionBubble.style.transform = 'scale(1)'
+          setTimeout(() => {
+            reactionBubble.style.transform = 'scale(0)'
+          }, 3000)
+        })
+      }
+
+      // 2. 榜单弹窗
+      if (rankBtn && vipList) {
+        rankBtn.addEventListener('click', () => {
+          const modal = document.createElement('div')
+          modal.style.cssText = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 20; padding: 20px;
+            display: flex; flex-direction: column; justify-content: center;
+            animation: fadeIn 0.2s; color: white;
+          `
+          modal.innerHTML = `
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #ffd700; text-align: center;">👑 贵宾席</div>
+            <div style="font-size: 14px; line-height: 2;">${vipList.innerHTML}</div>
+            <div style="margin-top: 20px; text-align: center; font-size: 12px; opacity: 0.5;">点击关闭</div>
+          `
+          modal.onclick = () => modal.remove()
+          container.appendChild(modal)
+        })
+      }
+
+      // 3. 礼物特效 (保留)
+      if (giftBtn) {
+        giftBtn.addEventListener('click', () => {
+          giftBtn.style.transform = 'scale(0.9)'
+          setTimeout(() => giftBtn.style.transform = 'scale(1)', 100)
+          
+          const particle = document.createElement('div')
+          const icons = ['🚀', '✨', '💖', '💎', '🎉']
+          particle.textContent = icons[Math.floor(Math.random() * icons.length)]
+          particle.style.cssText = `
+            position: absolute; bottom: 60px; right: 20px; font-size: 24px;
+            pointer-events: none; animation: flyUp 1s ease-out forwards; z-index: 15;
+          `
+          if (!document.getElementById('live-anim-style')) {
+            const style = document.createElement('style')
+            style.id = 'live-anim-style'
+            style.textContent = `@keyframes flyUp { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(-${Math.random()*50}px, -150px) scale(1.5); opacity: 0; } }`
+            document.head.appendChild(style)
+          }
+          container.appendChild(particle)
+          setTimeout(() => particle.remove(), 1000)
+        })
+      }
+    }
+
+
+    // ==================== 愿望清单交互 ====================
+    if (templateId === 'fantasy_list') {
+      const container = containerRef.current
+      if (!container) return
+
+      const items = container.querySelectorAll('[data-item]')
+      const progressText = container.querySelector('[data-progress]')
+      
+      const total = items.length
+      let completed = 0
+      
+      const updateProgress = () => {
+        if (progressText) progressText.textContent = `${completed}/${total}`
+      }
+      
+      items.forEach(item => {
+        const el = item as HTMLElement
+        const check = el.querySelector('.check-mark') as HTMLElement
+        const detail = el.querySelector('.item-detail') as HTMLElement
+        const arrow = el.innerText.includes('▼') ? el.innerText.slice(-1) : '' // Simplified check
+        
+        let isExpanded = false
+        let isChecked = false
+        
+        // 点击整个条目
+        el.addEventListener('click', (e) => {
+          // 阻止事件冒泡，避免触发其他点击
+          e.stopPropagation()
+          
+          // 切换展开/折叠
+          isExpanded = !isExpanded
+          
+          if (isExpanded) {
+             detail.style.height = 'auto'
+             detail.style.padding = '10px 16px'
+             detail.style.opacity = '1'
+             // 简单模拟 checked 状态切换（如果你希望点击复选框才切换，可以单独监听 check-box）
+             // 这里为了“交互强一点”，我们点击就展开，并且如果没勾选，顺便勾选上（或者不勾选，看需求）
+             // 按照用户习惯，点击条目展开，点击复选框勾选。
+             // 这里简化：点击条目就是展开详情。
+          } else {
+             detail.style.height = '0'
+             detail.style.padding = '0 16px'
+             detail.style.opacity = '0'
+          }
+        })
+
+        // 单独监听复选框点击
+        const checkBox = el.querySelector('.check-box') as HTMLElement
+        if (checkBox) {
+          checkBox.addEventListener('click', (e) => {
+            e.stopPropagation() // 阻止冒泡，不触发展开
+            isChecked = !isChecked
+            
+            if (isChecked) {
+              completed++
+              check.style.display = 'block'
+              checkBox.style.background = '#ffadd2'
+              //el.style.opacity = '0.8'
+            } else {
+              completed--
+              check.style.display = 'none'
+              checkBox.style.background = 'transparent'
+              //el.style.opacity = '1'
+            }
+            updateProgress()
+          })
+        }
+      })
+      
+      // 初始化进度
+      if (progressText) {
+        const match = progressText.textContent?.match(/(\d+)\//)
+        if (match) completed = parseInt(match[1])
+      }
+    }
+
     
+    // ==================== 情侣酒店交互 ====================
+    if (templateId === 'couple_hotel') {
+      const container = containerRef.current
+      const mask = container.querySelector('[data-privacy-mask]') as HTMLElement
+      const unlockBtn = container.querySelector('[data-unlock-btn]') as HTMLElement
+      
+      // 1. 私密模式切换
+      if (mask && unlockBtn) {
+        unlockBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          mask.style.opacity = '1'
+          mask.style.pointerEvents = 'auto'
+        })
+        
+        mask.addEventListener('click', () => {
+          mask.style.opacity = '0'
+          mask.style.pointerEvents = 'none'
+        })
+      }
+      
+      // 2. 生成特色标签
+      const featuresData = container.querySelector('[data-features]')?.getAttribute('data-features')
+      const tagsContainer = container.querySelector('[data-feature-tags]')
+      
+      if (featuresData && tagsContainer) {
+        const features = featuresData.split(/[、，,]/).filter(f => f.trim())
+        features.forEach(feature => {
+          const tag = document.createElement('div')
+          tag.textContent = feature.trim()
+          tag.style.cssText = `
+            font-size: 10px;
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.05);
+          `
+          tagsContainer.appendChild(tag)
+        })
+      }
+    }
+
+    // ==================== 情趣商城订单交互 ====================
+    if (templateId === 'adult_shop') {
+      const container = containerRef.current
+      const boxContainer = container.querySelector('.box-container') as HTMLElement
+      const secretNote = container.querySelector('.secret-note') as HTMLElement
+      const noteStatus = container.querySelector('.note-status') as HTMLElement
+      const noteContent = container.querySelector('.note-content') as HTMLElement
+      const closeNoteBtn = container.querySelector('.close-note') as HTMLElement
+      
+      // 1. 翻转盒子 (点击除了内部交互元素以外的区域)
+      if (boxContainer) {
+        let isFlipped = false
+        container.addEventListener('click', (e) => {
+          // 如果点击的是note内部，不翻转
+          if (secretNote && secretNote.contains(e.target as Node)) return
+          
+          isFlipped = !isFlipped
+          boxContainer.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+          
+          // 翻转回去时，隐藏note
+          if (!isFlipped && secretNote) {
+             secretNote.style.transform = 'rotate(-2deg) translateY(120%)'
+          }
+        })
+      }
+      
+      // 2. 关闭便签
+      if (closeNoteBtn && secretNote) {
+        closeNoteBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          secretNote.style.transform = 'rotate(-2deg) translateY(120%)'
+        })
+      }
+      
+      // 3. 商品点击交互
+      const products = container.querySelectorAll('.product-item')
+      products.forEach(product => {
+        product.addEventListener('click', (e) => {
+          e.stopPropagation() // 防止触发盒子翻转
+          const name = product.querySelector('div[style*="filter"]') as HTMLElement
+          const hint = product.querySelector('.hint-text') as HTMLElement
+          
+          if (name) {
+            const currentFilter = name.style.filter
+            
+            // 状态1：模糊 -> 清晰
+            if (currentFilter !== 'none') {
+              name.style.filter = 'none'
+              if (hint) hint.style.opacity = '1'
+            } 
+            // 状态2：清晰 -> 显示便签
+            else {
+              if (secretNote && noteStatus && noteContent) {
+                const status = product.getAttribute('data-status') || '未知状态'
+                const note = product.getAttribute('data-note') || '暂无记录'
+                
+                noteStatus.textContent = `Status: ${status}`
+                noteContent.textContent = note
+                
+                secretNote.style.transform = 'rotate(-2deg) translateY(0)'
+              }
+            }
+          }
+        })
+      })
+    }
+
+    // ==================== 婚恋网配对交互 ====================
+    if (templateId === 'dating_profile') {
+      const container = containerRef.current
+      const cardInner = container.querySelector('.card-inner') as HTMLElement
+      
+      // 1. 翻转卡片
+      if (cardInner) {
+        let isFlipped = false
+        cardInner.addEventListener('click', () => {
+          isFlipped = !isFlipped
+          cardInner.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+        })
+      }
+      
+      // 2. 生成标签
+      const tagsData = container.querySelector('div[style*="display:none"]')?.textContent
+      const tagsContainer = container.querySelector('[data-tags]')
+      
+      if (tagsData && tagsContainer) {
+        const tags = tagsData.split(/[、，,]/).filter(t => t.trim())
+        const colors = ['#ff7675', '#74b9ff', '#55efc4', '#a29bfe', '#fdcb6e']
+        
+        tags.forEach((tagText, index) => {
+          const tag = document.createElement('div')
+          tag.textContent = tagText.trim()
+          tag.style.cssText = `
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 15px;
+            background: ${colors[index % colors.length]}20;
+            color: ${colors[index % colors.length]};
+            font-weight: 500;
+          `
+          tagsContainer.appendChild(tag)
+        })
+      }
+    }
+
+    // ==================== 开房记录交互 ====================
+    if (templateId === 'checkin_record') {
+      const container = containerRef.current
+      const mosaics = container.querySelectorAll('[data-mosaic]')
+      
+      mosaics.forEach(mosaic => {
+        mosaic.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const el = mosaic as HTMLElement
+          el.style.opacity = el.style.opacity === '0' ? '0.8' : '0'
+        })
+      })
+    }
+
+    // ==================== 酒吧账单交互 ====================
+    if (templateId === 'bar_bill') {
+      const container = containerRef.current
+      const toggleBtn = container.querySelector('[data-toggle-aa]') as HTMLElement
+      const aaPanel = container.querySelector('[data-aa-panel]') as HTMLElement
+      const splitBtns = container.querySelectorAll('[data-split]')
+      const resultDisplay = container.querySelector('[data-split-result]')
+      
+      // 1. 展开/收起面板
+      if (toggleBtn && aaPanel) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const isHidden = aaPanel.style.display === 'none'
+          aaPanel.style.display = isHidden ? 'block' : 'none'
+          toggleBtn.textContent = isHidden ? 'Hide Calculator' : 'Tap to Split Bill'
+        })
+      }
+      
+      // 2. 计算AA
+      if (resultDisplay) {
+        // 获取总金额 (假设格式为 ¥19998 或 19998)
+        const totalText = container.innerText.match(/TOTAL\s+¥?(\d+)/i)?.[1] || '0'
+        const total = parseInt(totalText)
+        
+        splitBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            // 重置样式
+            splitBtns.forEach(b => (b as HTMLElement).style.background = 'transparent')
+            ;(btn as HTMLElement).style.background = '#f0f0f0'
+            
+            const count = parseInt(btn.getAttribute('data-split') || '1')
+            const perPerson = (total / count).toFixed(0)
+            resultDisplay.textContent = `¥${perPerson} / person`
+          })
+        })
+      }
+    }
+
+    // ==================== 年度账单交互 ====================
+    if (templateId === 'yearly_bill') {
+      const container = containerRef.current
+      const shareBtn = container.querySelector('[data-share-btn]')
+      
+      if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+          shareBtn.textContent = '正在生成...'
+          setTimeout(() => {
+            shareBtn.textContent = '已保存到相册'
+            ;(shareBtn as HTMLElement).style.background = 'rgba(82, 196, 26, 0.2)'
+            ;(shareBtn as HTMLElement).style.color = '#52c41a'
+            setTimeout(() => {
+              shareBtn.textContent = '点击生成海报'
+              ;(shareBtn as HTMLElement).style.background = 'rgba(255,255,255,0.1)'
+              ;(shareBtn as HTMLElement).style.color = 'white'
+            }, 2000)
+          }, 1500)
+        })
+      }
+    }
+
+    // ==================== 话费充值交互 ====================
+    if (templateId === 'phone_recharge') {
+      const container = containerRef.current
+      const completeBtn = container.querySelector('[data-action="complete"]')
+      
+      if (completeBtn) {
+        completeBtn.addEventListener('click', () => {
+          container.style.transition = 'all 0.5s'
+          container.style.transform = 'scale(0.95)'
+          container.style.opacity = '0.5'
+          completeBtn.textContent = '已完成'
+        })
+      }
+    }
+
+    // ==================== 加油小票交互 ====================
+    if (templateId === 'gas_record') {
+      const container = containerRef.current
+      container.addEventListener('click', () => {
+        // 撕纸效果动画
+        container.style.transition = 'transform 0.2s'
+        container.style.transform = 'translateY(5px) rotate(-1deg)'
+        setTimeout(() => {
+          container.style.transform = 'translateY(0) rotate(0)'
+        }, 200)
+      })
+    }
+
+    // ==================== 高端消费交互 ====================
+    if (templateId === 'luxury_purchase') {
+      const container = containerRef.current
+      // 简单的鼠标移动光泽效果
+      container.addEventListener('mousemove', (e) => {
+        const rect = container.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        container.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.8) 0%, #f8f8f8 60%)`
+      })
+      container.addEventListener('mouseleave', () => {
+        container.style.background = '#f8f8f8'
+      })
+    }
+
+    // ==================== 退款申请交互 ====================
+    if (templateId === 'refund_request') {
+      // 主要是静态展示，添加简单的点击反馈
+      const container = containerRef.current
+      container.addEventListener('click', () => {
+        // 模拟刷新状态
+        const statusEl = container.querySelector('div[style*="font-weight: bold"]') as HTMLElement
+        if (statusEl && statusEl.textContent === '退款成功') return
+        
+        if (statusEl) {
+          const original = statusEl.textContent
+          statusEl.textContent = '刷新中...'
+          setTimeout(() => {
+            statusEl.textContent = original
+          }, 800)
+        }
+      })
+    }
+
+    // ==================== 体检/检测报告交互 ====================
+    if (templateId === 'health_checkup' || templateId === 'std_test') {
+      const container = containerRef.current
+      const report = container.querySelector('div[data-health-report], div[data-medical-report]') as HTMLElement
+      
+      if (report) {
+        report.style.cursor = 'pointer'
+        report.addEventListener('click', () => {
+          // 模拟折叠/展开
+          if (report.style.maxHeight) {
+            report.style.maxHeight = ''
+            report.style.overflow = 'visible'
+          } else {
+            // 默认是展开的，这里只是添加一个微交互
+            report.style.transform = 'scale(0.98)'
+            setTimeout(() => report.style.transform = 'scale(1)', 150)
+          }
+        })
+      }
+    }
+
+    // ==================== 好友列表交互 ====================
+    if (templateId === 'friend_list') {
+      const container = containerRef.current
+      const items = container.querySelectorAll('div[onmouseover]')
+      
+      items.forEach(item => {
+        item.addEventListener('click', () => {
+          const name = item.querySelector('div[style*="font-weight: 500"]')?.textContent
+          if (name) {
+            // 模拟发起聊天
+            console.log(`Chat with ${name}`)
+            const el = item as HTMLElement
+            el.style.background = '#e6f7ff'
+            setTimeout(() => el.style.background = '#fff', 300)
+          }
+        })
+      })
+    }
+
+    // ==================== 评论区交互 ====================
+    if (templateId === 'comment_section') {
+      const container = containerRef.current
+      const likeBtns = container.querySelectorAll('div[style*="text-align: center"]')
+      
+      likeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const heart = btn.querySelector('div[style*="font-size: 16px"]')
+          const count = btn.querySelector('div[style*="font-size: 10px"]')
+          
+          if (heart && count) {
+            if (heart.textContent === '♡') {
+              heart.textContent = '❤️'
+              heart.style.color = 'red'
+              const num = parseInt(count.textContent || '0')
+              count.textContent = isNaN(num) ? '1' : String(num + 1)
+            } else {
+              heart.textContent = '♡'
+              heart.style.color = '#999'
+              // 简化逻辑，取消点赞不减数字或还原（略）
+            }
+          }
+        })
+      })
+    }
+
+    // ==================== 配对成功交互 ====================
+    if (templateId === 'dating_match') {
+      const container = containerRef.current
+      const btns = container.querySelectorAll('button')
+      
+      btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.style.transform = 'scale(0.95)'
+          setTimeout(() => btn.style.transform = 'scale(1)', 100)
+          
+          if (btn.textContent?.includes('发消息')) {
+            btn.textContent = '已发送'
+            btn.style.background = '#ddd'
+            btn.style.color = '#666'
+          }
+        })
+      })
+    }
+
+    // ==================== 树洞/表白墙交互 ====================
+    if (templateId === 'confession_wall' || templateId === 'confession_board') {
+      const container = containerRef.current
+      const likeArea = container.querySelector('div[style*="display: flex; gap: 15px"]')
+      
+      if (likeArea) {
+        likeArea.addEventListener('click', () => {
+          const heart = likeArea.querySelector('span')
+          if (heart) {
+            heart.style.transform = 'scale(1.5)'
+            heart.style.color = 'red'
+            setTimeout(() => heart.style.transform = 'scale(1)', 200)
+          }
+        })
+      }
+    }
+
+    // ==================== 学生证/VIP卡/会员卡交互 ====================
+    if (templateId === 'student_card' || templateId === 'vip_card' || templateId === 'spa_membership') {
+      const container = containerRef.current
+      const card = container.querySelector('div[style*="border-radius"]') as HTMLElement
+      
+      if (card) {
+        card.style.transition = 'transform 0.5s, box-shadow 0.5s'
+        card.style.transformStyle = 'preserve-3d'
+        
+        container.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect()
+          const x = e.clientX - rect.left
+          const y = e.clientY - rect.top
+          
+          const centerX = rect.width / 2
+          const centerY = rect.height / 2
+          
+          const rotateX = ((y - centerY) / centerY) * -10 // Max 10deg
+          const rotateY = ((x - centerX) / centerX) * 10 // Max 10deg
+          
+          card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
+          card.style.boxShadow = `${-rotateY}px ${rotateX}px 20px rgba(0,0,0,0.2)`
+        })
+        
+        container.addEventListener('mouseleave', () => {
+          card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)'
+          card.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)'
+        })
+      }
+    }
+
+    // ==================== 网站会员交互 ====================
+    if (templateId === 'adult_site_membership') {
+      const container = containerRef.current
+      const btn = container.querySelector('button')
+      if (btn) {
+        btn.addEventListener('click', () => {
+          window.open('about:blank', '_blank') // 模拟跳转
+        })
+      }
+    }
+
+    // ==================== 排行榜交互 ====================
+    if (templateId === 'leaderboard') {
+      const container = containerRef.current
+      const myRank = container.querySelector('div[style*="background: #f5f5f5"]') as HTMLElement
+      
+      if (myRank) {
+        myRank.addEventListener('click', () => {
+          myRank.style.background = '#e6f7ff'
+          myRank.style.border = '1px solid #1890ff'
+          setTimeout(() => {
+            myRank.style.background = '#f5f5f5'
+            myRank.style.border = '1px solid #eee'
+          }, 1000)
+        })
+      }
+    }
+
+    // ==================== 夜店门票交互 ====================
+    if (templateId === 'club_ticket') {
+      const container = containerRef.current
+      const ticket = container.querySelector('[data-club-ticket]') as HTMLElement
+      
+      if (ticket) {
+        // 模拟全息反光
+        container.addEventListener('mousemove', (e) => {
+          const rect = ticket.getBoundingClientRect()
+          const x = (e.clientX - rect.left) / rect.width * 100
+          const y = (e.clientY - rect.top) / rect.height * 100
+          
+          const glare = ticket.querySelector('div[style*="linear-gradient"]') as HTMLElement
+          if (glare) {
+            glare.style.background = `linear-gradient(${135 + x}deg, transparent 40%, rgba(255,255,255,0.3) ${y}%, transparent 60%)`
+          }
+        })
+      }
+    }
+
+    // ==================== 付费内容交互 ====================
+    if (templateId === 'paid_content') {
+      const container = containerRef.current
+      const unlockBtn = container.querySelector('button')
+      const lockScreen = container.querySelector('div[style*="filter: blur"]') as HTMLElement
+      const lockIcon = container.querySelector('div[style*="font-size: 40px"]')
+      
+      if (unlockBtn) {
+        unlockBtn.addEventListener('click', () => {
+          unlockBtn.textContent = 'Processing...'
+          setTimeout(() => {
+            if (lockScreen) lockScreen.style.filter = 'none'
+            if (lockIcon && lockIcon.parentElement) lockIcon.parentElement.style.display = 'none'
+            unlockBtn.style.display = 'none'
+            
+            // 移除遮罩文字
+            const mask = container.querySelector('div[style*="background: rgba(0,0,0,0.3)"]')
+            if (mask) mask.remove()
+          }, 1500)
+        })
+      }
+    }
+
+    // ==================== 闹钟交互 ====================
+    if (templateId === 'alarm_clock') {
+      const container = containerRef.current
+      const toggles = container.querySelectorAll('div[style*="border-radius: 15px"]')
+      
+      toggles.forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          const el = toggle as HTMLElement
+          const circle = el.querySelector('div') as HTMLElement
+          const isOff = el.style.background === 'rgb(51, 51, 51)' || el.style.background === '#333'
+          
+          if (isOff) {
+            el.style.background = '#34c759'
+            circle.style.left = ''
+            circle.style.right = '2px'
+          } else {
+            el.style.background = '#333'
+            circle.style.right = ''
+            circle.style.left = '2px'
+          }
+        })
+      })
+    }
+
+    // ==================== 浏览历史交互 ====================
+    if (templateId === 'browser_history') {
+      const container = containerRef.current
+      const clearBtn = container.querySelector('div[style*="cursor: pointer"]')
+      const items = container.querySelectorAll('div[style*="border-bottom"]')
+      
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          if (confirm('Clear all history?')) {
+            items.forEach(item => item.remove())
+            clearBtn.textContent = 'History Cleared'
+          }
+        })
+      }
+    }
+
     // ==================== 通用增强：所有模板添加长按菜单 ====================
     let pressTimer: number | null = null
     const container = containerRef.current

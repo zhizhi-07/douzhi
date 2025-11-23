@@ -6,15 +6,76 @@ export const apologyLetterTemplate: TheatreTemplate = {
     name: '检讨书',
     keywords: ['检讨书', '检讨', '认错', '道歉信', '反省'],
     fields: [
-      { key: 'TO_WHO', label: '写给谁', placeholder: '老师/领导/对象' },
-      { key: 'MISTAKE', label: '错误内容', placeholder: '我做错了什么' },
-      { key: 'REASON', label: '犯错原因', placeholder: '为什么会犯错' },
-      { key: 'REFLECTION', label: '深刻反思', placeholder: '我的认识' },
-      { key: 'PROMISE', label: '保证措施', placeholder: '以后怎么做' },
-      { key: 'SIGNATURE', label: '署名', placeholder: '你的名字' },
-      { key: 'DATE', label: '日期', placeholder: '2024年11月21日' },
+      { key: 'TO_WHO', label: '致', placeholder: '亲爱的老婆 / 尊敬的领导' },
+      { key: 'MISTAKE', label: '错误事项', placeholder: '昨天晚上回来晚了，还没接电话' },
+      { key: 'REASON', label: '原因分析', placeholder: '和朋友聚会玩太嗨了，手机静音没听到' },
+      { key: 'REFLECTION', label: '深刻反思', placeholder: '我深刻认识到自己的错误，这种行为极其不负责任，让你担心了，损害了我们之间的信任。' },
+      { key: 'PROMISE', label: '整改措施', placeholder: '以后出门提前报备，手机永远开响铃，晚上10点前准时回家。如有再犯，自愿承包一个月家务。' },
+      { key: 'SIGNATURE', label: '检讨人', placeholder: '爱你的老公' },
+      { key: 'DATE', label: '日期', placeholder: '2025年11月21日' },
     ],
     htmlTemplate: `
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.paper{width:100%;max-width:360px;background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;border:1px solid #e5e5e5}.header{background:#fff;color:#2d3436;padding:20px;text-align:center;border-bottom:2px solid #f0f0f0}.header h1{font-size:20px;margin-bottom:8px;font-weight:600}.header p{font-size:12px;color:#999}.content{padding:20px}.section{margin-bottom:20px}.section-title{font-size:14px;color:#666;margin-bottom:8px;font-weight:600}.section-content{font-size:14px;line-height:1.8;color:#333;background:#f9f9f9;padding:12px;border-radius:6px;border-left:3px solid #2d3436;white-space:pre-wrap;word-wrap:break-word;opacity:0;animation:typing 2s steps(60,end) forwards,fadeIn 0.5s forwards}.footer{display:flex;justify-content:space-between;align-items:center;padding:0 20px 20px;font-size:13px;color:#666}.signature{text-align:right}.btn-group{padding:20px;border-top:1px solid #f0f0f0;display:flex;gap:10px}.btn{flex:1;padding:10px;border:none;border-radius:6px;font-size:14px;cursor:pointer;transition:all 0.3s}.btn-accept{background:#2d3436;color:#fff}.btn-accept:active{background:#1a1d1f;transform:scale(0.98)}.btn-reject{background:#f0f0f0;color:#666}.btn-reject:active{background:#e0e0e0;transform:scale(0.98)}@keyframes fadeIn{to{opacity:1}}@keyframes typing{from{max-height:0}to{max-height:500px}}.折叠{display:none}.展开按钮{text-align:center;padding:10px;color:#2d3436;cursor:pointer;font-size:13px;user-select:none}.展开按钮:active{opacity:0.7}input[type="checkbox"]{display:none}#toggle:checked~.content .折叠{display:block}#toggle:checked~.展开按钮 .展开文字{display:none}#toggle:checked~.展开按钮 .折叠文字{display:inline}#toggle:not(:checked)~.展开按钮 .折叠文字{display:none}</style></head><body><div class="paper"><div class="header"><h1>检讨书</h1><p>深刻反省 · 诚恳道歉</p></div><input type="checkbox" id="toggle"><label for="toggle" class="展开按钮"><span class="展开文字">▼ 点击展开完整内容</span><span class="折叠文字">▲ 点击收起</span></label><div class="content"><div class="section"><div class="section-title">致：{{TO_WHO}}</div></div><div class="section"><div class="section-title">我犯的错误</div><div class="section-content">{{MISTAKE}}</div></div><div class="section 折叠"><div class="section-title">犯错原因</div><div class="section-content" style="animation-delay:0.5s">{{REASON}}</div></div><div class="section 折叠"><div class="section-title">深刻反思</div><div class="section-content" style="animation-delay:1s">{{REFLECTION}}</div></div><div class="section 折叠"><div class="section-title">改正措施</div><div class="section-content" style="animation-delay:1.5s">{{PROMISE}}</div></div></div><div class="footer 折叠"><div class="signature">检讨人：{{SIGNATURE}}<br>{{DATE}}</div></div><div class="btn-group 折叠"><button class="btn btn-accept" onclick="this.textContent='已接受检讨';this.disabled=true">接受检讨</button><button class="btn btn-reject" onclick="this.textContent='不够深刻';this.disabled=true">需要重写</button></div></div></body></html>
+<div style="max-width: 340px; margin: 0 auto; perspective: 1000px;">
+  <!-- 纸张主体 -->
+  <div style="
+    background-color: #fdfbf7;
+    background-image: repeating-linear-gradient(transparent, transparent 31px, #a2d9f5 32px);
+    width: 100%;
+    min-height: 500px;
+    padding: 40px 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.1);
+    font-family: 'Kaiti SC', 'KaiTi', 'STKaiti', 'AR PL UKai CN', serif;
+    color: #2c3e50;
+    line-height: 32px;
+    font-size: 18px;
+    position: relative;
+    transform-origin: top center;
+    border-radius: 2px;
+  ">
+    <!-- 顶部红线 -->
+    <div style="position: absolute; top: 40px; left: 20px; right: 20px; height: 2px; background: #e74c3c; opacity: 0.3;"></div>
+    
+    <!-- 标题 -->
+    <div style="text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 20px; letter-spacing: 8px; color: #e74c3c; transform: scale(1, 1.1);">检讨书</div>
+    
+    <!-- 称呼 -->
+    <div style="margin-bottom: 10px;">
+      <span style="font-weight: bold;">{{TO_WHO}}：</span>
+    </div>
+    
+    <!-- 正文内容 -->
+    <div style="text-indent: 2em; text-align: justify;">
+      对不起！关于<span style="text-decoration: underline; text-decoration-color: #e74c3c; padding: 0 4px;">{{MISTAKE}}</span>这件事情，我进行了深刻的自我反省。
+    </div>
+    
+    <div style="text-indent: 2em; text-align: justify;">
+      错误原因主要是：<span style="border-bottom: 1px dashed #7f8c8d;">{{REASON}}</span>。{{REFLECTION}}
+    </div>
+    
+    <div style="text-indent: 2em; text-align: justify;">
+      为了表达我的悔过之心，我保证：<span style="font-weight: bold; color: #c0392b;">{{PROMISE}}</span>
+    </div>
+    
+    <div style="text-indent: 2em; margin-top: 10px;">
+      请看我的实际行动！
+    </div>
+    
+    <!-- 落款 -->
+    <div style="margin-top: 40px; text-align: right; padding-right: 20px;">
+      <div style="margin-bottom: 5px;">
+        <span>检讨人：</span>
+        <span style="font-size: 22px; font-family: 'Brush Script MT', cursive, 'KaiTi';">{{SIGNATURE}}</span>
+        <!-- 模拟手印 -->
+        <div style="display: inline-block; width: 30px; height: 40px; background: rgba(231, 76, 60, 0.4); border-radius: 50%; transform: rotate(15deg) translate(-10px, 5px); filter: blur(1px); vertical-align: middle;"></div>
+      </div>
+      <div style="font-size: 16px;">{{DATE}}</div>
+    </div>
+    
+    <!-- 纸张折痕/污渍装饰 -->
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%, rgba(0,0,0,0.02) 100%); pointer-events: none;"></div>
+    <div style="position: absolute; bottom: 0; right: 0; width: 60px; height: 60px; background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.1) 50%); border-radius: 0 0 2px 0; pointer-events: none;"></div>
+
+  </div>
+</div>
     `.trim()
   }

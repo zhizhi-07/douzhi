@@ -1,6 +1,6 @@
 /**
  * AI备忘录弹窗
- * 便签纸效果，可以翻页查看不同日期
+ * 摊开书本效果，左右双页布局
  */
 
 import { useState, useEffect } from 'react'
@@ -17,25 +17,34 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
   const [allDates, setAllDates] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [memos, setMemos] = useState<AIMemo[]>([])
-  
+  const [isFlipping, setIsFlipping] = useState(false)
+  const [flipDirection, setFlipDirection] = useState<'prev' | 'next' | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false) // 是否展开为双页模式
+
   // 调试日志
   useEffect(() => {
     console.log('📝 AIMemoModal 状态:', { isOpen, characterId, characterName, dates: allDates.length, memos: memos.length })
   }, [isOpen, characterId, characterName, allDates, memos])
 
-  // 加载备忘录数据，如果为空则生成示例日期用于测试翻页
+  // 重置状态
+  useEffect(() => {
+    if (isOpen) {
+      setIsExpanded(false)
+    }
+  }, [isOpen])
+
+  // 加载备忘录数据
   useEffect(() => {
     if (!isOpen || !characterId) return
 
     const dates = getAllDates(characterId)
     
-    // 如果没有备忘录，生成几个示例日期用于测试翻页效果
+    // 示例数据
     if (dates.length === 0) {
       const today = new Date()
       const demoData = [
         today.toISOString().split('T')[0],
         new Date(today.getTime() - 86400000).toISOString().split('T')[0],
-        new Date(today.getTime() - 172800000).toISOString().split('T')[0]
       ]
       setAllDates(demoData)
       setCurrentIndex(0)
@@ -59,15 +68,27 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
 
   // 翻页
   const flipPage = (direction: 'prev' | 'next') => {
-    const nextIndex = direction === 'prev' ? currentIndex + 1 : currentIndex - 1
+    if (isFlipping) return
+    
+    const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
     if (nextIndex < 0 || nextIndex >= allDates.length) return
     
-    loadMemosForDate(nextIndex)
+    setIsFlipping(true)
+    setFlipDirection(direction)
+    
+    setTimeout(() => {
+      loadMemosForDate(nextIndex)
+    }, 300)
+    
+    setTimeout(() => {
+      setIsFlipping(false)
+      setFlipDirection(null)
+    }, 600)
   }
 
-  // 格式化日期显示
+  // 格式化日期
   const formatDateDisplay = (dateStr: string) => {
-    if (!dateStr) return ''
+    if (!dateStr) return null
     
     const date = new Date(dateStr)
     const today = new Date()
@@ -77,318 +98,380 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
     const todayStr = today.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-')
     const yesterdayStr = yesterday.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-')
 
-    if (dateStr === todayStr) {
-      return '今天'
-    } else if (dateStr === yesterdayStr) {
-      return '昨天'
-    } else {
-      return `${date.getMonth() + 1}月${date.getDate()}日`
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+    const weekDay = weekDays[date.getDay()]
+
+    return {
+      full: `${year}年${month}月${day}日`,
+      simple: `${month}月${day}日`,
+      week: `星期${weekDay}`,
+      isToday: dateStr === todayStr,
+      isYesterday: dateStr === yesterdayStr,
+      lunar: '农历日期暂缺' // 这里可以接农历库
     }
   }
 
-  if (!isOpen) {
-    return null
-  }
-
-  console.log('✅ AIMemoModal开始渲染，isOpen=true')
+  if (!isOpen) return null
 
   const currentDate = allDates[currentIndex]
+  const dateInfo = currentDate ? formatDateDisplay(currentDate) : null
   const canGoPrev = currentIndex < allDates.length - 1
   const canGoNext = currentIndex > 0
+  
+  // 手写字体
+  const handwritingFont = "'KaiTi', 'STKaiti', 'DFKai-SB', 'BiauKai', 'Ma Shan Zheng', serif"
 
   return (
     <>
-      {/* CSS样式定义 */}
       <style>{`
-        @keyframes notebookIn {
-          0% {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+        @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
+
+        .open-book-container {
+          perspective: 2000px;
+          transform-style: preserve-3d;
+        }
+
+        .book-spread {
+          background-color: #fdfbf7;
+          box-shadow: 
+            0 20px 50px rgba(0,0,0,0.3),
+            0 0 0 1px rgba(0,0,0,0.05); /* 细微边框 */
+          transform-style: preserve-3d;
+          transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 中缝阴影 - 模拟书脊 */
+        .book-spine-shadow {
+          position: absolute;
+          left: 50%;
+          top: 0;
+          bottom: 0;
+          width: 40px;
+          margin-left: -20px;
+          background: linear-gradient(to right, 
+            rgba(0,0,0,0.02) 0%, 
+            rgba(0,0,0,0.15) 45%, 
+            rgba(0,0,0,0.25) 50%, 
+            rgba(0,0,0,0.15) 55%, 
+            rgba(0,0,0,0.02) 100%
+          );
+          z-index: 10;
+          pointer-events: none;
         }
         
-        .notebook-page {
-          animation: notebookIn 0.3s ease-out;
-        }
-        
-        /* 纸张纹理 */
+        /* 页面纹理 */
         .paper-texture {
           background-image: 
-            linear-gradient(90deg, rgba(0,0,0,0.015) 1px, transparent 1px),
-            linear-gradient(rgba(0,0,0,0.015) 1px, transparent 1px);
-          background-size: 20px 20px;
+            linear-gradient(to right, rgba(0,0,0,0.02) 0%, transparent 5%, transparent 95%, rgba(0,0,0,0.02) 100%),
+            url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
         }
-        
-        /* 卷页阴影 */
-        .page-curl {
-          background: linear-gradient(225deg, 
-            rgba(0,0,0,0) 45%, 
-            rgba(0,0,0,0.05) 50%, 
-            rgba(0,0,0,0.1) 56%, 
-            rgba(0,0,0,0.15) 62%, 
-            rgba(0,0,0,0.2) 80%, 
-            rgba(0,0,0,0.25) 100%
-          );
+
+        /* 左页翻动动画 */
+        @keyframes flipLeftPage {
+          0% { transform: rotateY(0deg); }
+          50% { transform: rotateY(-90deg); background: #e8e0d2; }
+          100% { transform: rotateY(0deg); }
         }
-        
-        /* 螺旋装订金属圈 */
-        .spiral-ring {
-          background: linear-gradient(135deg, #999 0%, #ccc 25%, #eee 50%, #ccc 75%, #999 100%);
-          box-shadow: 
-            inset -1px -1px 2px rgba(0,0,0,0.3),
-            inset 1px 1px 2px rgba(255,255,255,0.8),
-            0 2px 4px rgba(0,0,0,0.2);
+
+        /* 右页翻动动画 */
+        @keyframes flipRightPage {
+          0% { transform: rotateY(0deg); }
+          50% { transform: rotateY(90deg); background: #e8e0d2; }
+          100% { transform: rotateY(0deg); }
         }
-        
-        /* 翻页动画 */
-        .page-flip-left {
-          animation: flipLeft 0.6s ease-in-out;
-          transform-origin: left center;
-        }
-        
-        .page-flip-right {
-          animation: flipRight 0.6s ease-in-out;
+
+        .flipping-left {
+          animation: flipLeftPage 0.6s cubic-bezier(0.4, 0, 0.2, 1);
           transform-origin: right center;
         }
-        
-        @keyframes flipLeft {
-          0% {
-            transform: perspective(1200px) rotateY(0deg);
-          }
-          50% {
-            transform: perspective(1200px) rotateY(-90deg);
-            opacity: 0.3;
-          }
-          100% {
-            transform: perspective(1200px) rotateY(0deg);
-          }
+
+        .flipping-right {
+          animation: flipRightPage 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform-origin: left center;
         }
-        
-        @keyframes flipRight {
-          0% {
-            transform: perspective(1200px) rotateY(0deg);
-          }
-          50% {
-            transform: perspective(1200px) rotateY(90deg);
-            opacity: 0.3;
-          }
-          100% {
-            transform: perspective(1200px) rotateY(0deg);
-          }
+
+        /* 书签 */
+        .bookmark {
+          position: absolute;
+          top: -10px;
+          left: 40px;
+          width: 24px;
+          height: 100px;
+          background: #8b4513;
+          box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+          z-index: 20;
+          transform: rotate(-2deg);
+        }
+        .bookmark::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 20px;
+          background: #fdfbf7;
+          clip-path: polygon(0 100%, 50% 0, 100% 100%);
+        }
+
+        /* 文字样式 */
+        .ink-text-title {
+          background: linear-gradient(45deg, #2c2c2c, #4a4a4a);
+          -webkit-background-clip: text;
+          color: transparent;
+          text-shadow: 0 1px 1px rgba(0,0,0,0.1);
         }
       `}</style>
 
-      {/* 遮罩层 */}
+      {/* 背景遮罩 */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center overflow-hidden"
         onClick={onClose}
       >
         {/* 书本容器 */}
-        <div
-          className="relative w-full max-w-lg"
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            perspective: '2000px'
+        <div 
+          className={`open-book-container relative transition-all duration-500 ease-in-out ${
+            isExpanded ? 'w-[90vw] max-w-4xl aspect-[3/2]' : 'w-[400px] max-w-[90vw] aspect-[3/4] hover:scale-105 cursor-pointer'
+          }`}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!isExpanded) setIsExpanded(true)
           }}
+          style={{ isolation: 'isolate' }} // 防止混合模式穿透
         >
-          {/* 书本主体 */}
-          <div
-            className="relative"
-            style={{
-              filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.3))',
-              transformStyle: 'preserve-3d',
-              transform: 'rotateY(-5deg)'
-            }}
-          >
-            {/* 书页 */}
-            <div
-              className="relative"
-              style={{
-                background: 'linear-gradient(to right, #f9f7f1 0%, #fefdfb 3%, #fefdfb 97%, #f5f3ed 100%)',
-                borderRadius: '0 8px 8px 0',
-                boxShadow: `
-                  inset 4px 0 8px rgba(0,0,0,0.1),
-                  0 0 0 1px rgba(139,69,19,0.2),
-                  8px 0 16px rgba(0,0,0,0.15)
-                `,
-                borderLeft: '3px solid #8b4513'
+          {/* 强制不透明底板 - 绝对定位在最底层 */}
+          <div 
+            className="absolute inset-0 bg-[#fdfbf7] rounded-lg" 
+            style={{ zIndex: -100, backgroundColor: '#fdfbf7' }} 
+          />
+
+          {/* 书本主体 - 左右两页 */}
+          <div className="w-full h-full flex relative">
+            
+            {/* 左页 - 日期页 (仅在展开时显示) */}
+            <div 
+              className={`flex-1 h-full relative bg-[#fdfbf7] rounded-l-lg overflow-hidden shadow-[-10px_10px_20px_rgba(0,0,0,0.1)] paper-texture transition-all duration-500
+                ${isFlipping && flipDirection === 'prev' ? 'flipping-left' : ''}
+                ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full absolute left-0 top-0 bottom-0 w-full -z-10 pointer-events-none'}
+              `}
+              style={{ 
+                zIndex: 5, 
+                backgroundColor: '#fdfbf7',
+                background: '#fdfbf7',
+                backfaceVisibility: 'hidden', // 防止背面透明
+                WebkitBackfaceVisibility: 'hidden'
               }}
             >
-              {/* 内容区 - 书页内容 */}
-              <div className="relative px-12 py-14 min-h-[500px] max-h-[70vh] overflow-y-auto">
-                {/* 纸张纹理叠加 */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-[0.03]"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
-                    backgroundSize: '100px 100px'
-                  }}
-                ></div>
+              {/* 强制背景色遮挡 */}
+              <div className="absolute inset-0 bg-[#fdfbf7] -z-20" />
 
-                {/* 关闭按钮 */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100/50 transition-all text-amber-600/60 hover:text-amber-800 z-10"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              {/* 书签 */}
+              <div className="bookmark"></div>
 
-                {/* 书页顶部装饰线 */}
-                <div className="absolute top-8 left-12 right-12 h-px bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"></div>
-
-                {/* 标题 - 书本风格 */}
-                <div className="mb-12 text-center relative">
-                  <div
-                    className="text-lg font-serif text-amber-900/80 tracking-wider"
-                    style={{
-                      fontFamily: "'Noto Serif SC', 'STSong', serif",
-                      letterSpacing: '0.2em'
-                    }}
-                  >
-                    {allDates.length > 0 ? formatDateDisplay(currentDate) : '今天'}
+              <div className="h-full p-8 md:p-12 flex flex-col relative bg-[#fdfbf7] z-10">
+                {/* 装饰性边框 */}
+                <div className="absolute inset-4 border-2 border-[#8b4513]/10 rounded-l-sm pointer-events-none"></div>
+                
+                {/* 左页内容 */}
+                <div className="flex-1 flex flex-col items-center justify-center text-[#3e2723]">
+                  <div className="mb-8 opacity-60">
+                    <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={0.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </div>
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <div className="w-8 h-px bg-amber-400/40"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400/40"></div>
-                    <div className="w-8 h-px bg-amber-400/40"></div>
-                  </div>
-                </div>
-
-                {/* 随笔内容 - 书本排版 */}
-                {memos.length === 0 ? (
-                  <div className="text-center py-24">
-                    <div className="text-amber-300/60 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
+                  
+                  <div className="text-center space-y-6">
+                    <h2 
+                      className="text-6xl md:text-7xl font-bold ink-text-title tracking-wider"
+                      style={{ fontFamily: handwritingFont }}
+                    >
+                      {dateInfo?.simple.split('月')[1].replace('日', '') || '01'}
+                    </h2>
+                    <div className="w-12 h-1 bg-[#8b4513]/20 mx-auto rounded-full"></div>
+                    <div 
+                      className="text-2xl md:text-3xl font-serif tracking-[0.5em] ml-2 text-[#5d4037]"
+                      style={{ fontFamily: handwritingFont }}
+                    >
+                      {dateInfo?.simple.split('月')[0] || '1'}月
                     </div>
-                    <p
-                      className="text-amber-600/50 text-sm font-serif"
-                      style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
+                    <div 
+                      className="text-lg text-[#8d6e63] mt-4 tracking-widest"
+                      style={{ fontFamily: handwritingFont }}
                     >
-                      {characterName}还没有随笔哦
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    {memos.map((memo, index) => (
-                      <div key={memo.id} className="relative">
-                        {/* 段落首字装饰 */}
-                        <div className="flex gap-4">
-                          <div
-                            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-300 text-amber-800 font-serif text-sm shadow-sm"
-                            style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
-                          >
-                            {index + 1}
-                          </div>
-                          <div className="flex-1">
-                            {/* 内容 - 书本排版 */}
-                            <div
-                              className="text-gray-700 leading-loose whitespace-pre-wrap text-justify"
-                              style={{
-                                fontSize: '14px',
-                                lineHeight: '2',
-                                letterSpacing: '0.05em',
-                                fontFamily: "'Noto Serif SC', 'STSong', serif",
-                                textIndent: '2em'
-                              }}
-                            >
-                              {memo.content}
-                            </div>
-                            {/* 时间戳 - 优雅样式 */}
-                            <div className="mt-3 text-right">
-                              <span
-                                className="text-amber-600/60 text-xs font-serif italic"
-                                style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
-                              >
-                                —— {new Date(memo.timestamp).toLocaleTimeString('zh-CN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* 分隔装饰 */}
-                        {index < memos.length - 1 && (
-                          <div className="mt-6 flex items-center justify-center gap-2">
-                            <div className="w-1 h-1 rounded-full bg-amber-300/30"></div>
-                            <div className="w-1 h-1 rounded-full bg-amber-300/30"></div>
-                            <div className="w-1 h-1 rounded-full bg-amber-300/30"></div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 书页底部装饰 */}
-                <div className="absolute bottom-8 left-12 right-12 h-px bg-gradient-to-r from-transparent via-amber-300/30 to-transparent"></div>
-              </div>
-              
-              {/* 底部页码 - 书本风格 */}
-              <div className="relative px-12 pb-8 pt-4">
-                <div className="flex items-center justify-center gap-3">
-                  {/* 上一页 */}
-                  <button
-                    onClick={() => flipPage('prev')}
-                    disabled={!canGoPrev}
-                    className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                      canGoPrev
-                        ? 'hover:bg-amber-100/50 text-amber-700/70 hover:text-amber-800'
-                        : 'opacity-20 cursor-not-allowed text-amber-400'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span
-                      className="text-xs font-serif"
-                      style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
-                    >
-                      前一天
-                    </span>
-                  </button>
-
-                  {/* 页码显示 */}
-                  <div
-                    className="flex items-center gap-2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-100/40 via-amber-50/40 to-amber-100/40 border border-amber-200/50 shadow-sm"
-                    style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
-                  >
-                    <span className="text-sm text-amber-800 font-medium">{currentIndex + 1}</span>
-                    <span className="text-amber-400/60 text-xs">/</span>
-                    <span className="text-sm text-amber-600/60">{allDates.length}</span>
+                      {dateInfo?.week}
+                    </div>
                   </div>
 
-                  {/* 下一页 */}
-                  <button
-                    onClick={() => flipPage('next')}
-                    disabled={!canGoNext}
-                    className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                      canGoNext
-                        ? 'hover:bg-amber-100/50 text-amber-700/70 hover:text-amber-800'
-                        : 'opacity-20 cursor-not-allowed text-amber-400'
-                    }`}
-                  >
-                    <span
-                      className="text-xs font-serif"
-                      style={{ fontFamily: "'Noto Serif SC', 'STSong', serif" }}
-                    >
-                      后一天
-                    </span>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                  <div className="mt-auto pt-12 opacity-40 text-sm tracking-widest" style={{ fontFamily: handwritingFont }}>
+                    {characterName} · 随笔集
+                  </div>
                 </div>
+
+                {/* 左侧翻页按钮区 */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    flipPage('prev')
+                  }}
+                  disabled={!canGoPrev || isFlipping}
+                  className={`absolute inset-y-0 left-0 w-24 hover:bg-black/5 transition-all group flex items-center justify-start pl-4 ${
+                    !canGoPrev ? 'hidden' : 'cursor-pointer'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#8b4513]/10 flex items-center justify-center text-[#5d4037] opacity-0 group-hover:opacity-100 transition-opacity transform -translate-x-2 group-hover:translate-x-0">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </div>
+                </button>
               </div>
             </div>
+
+            {/* 中缝阴影 (仅在展开时显示) */}
+            <div className={`book-spine-shadow transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}></div>
+
+            {/* 右页 - 内容页 (单页模式下作为封面/主页显示) */}
+            <div 
+              className={`flex-1 h-full relative bg-[#fdfbf7] overflow-hidden shadow-[10px_10px_20px_rgba(0,0,0,0.1)] paper-texture
+                ${isFlipping && flipDirection === 'next' ? 'flipping-right' : ''}
+                ${isExpanded ? 'rounded-r-lg' : 'rounded-r-lg rounded-l-lg border-l-[12px] border-[#5d4037]'}
+              `}
+              style={{ 
+                zIndex: 5, 
+                backgroundColor: '#fdfbf7',
+                background: '#fdfbf7',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            >
+              {/* 强制背景色遮挡 */}
+              <div className="absolute inset-0 bg-[#fdfbf7] -z-20" />
+
+              {/* 关闭按钮 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClose()
+                }}
+                className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#5d4037]/10 text-[#8d6e63] hover:text-[#3e2723] transition-colors z-20"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div className="h-full p-8 md:p-12 flex flex-col relative overflow-hidden bg-[#fdfbf7] z-10">
+                 {/* 装饰性边框 */}
+                 <div className={`absolute inset-4 border-2 border-[#8b4513]/10 pointer-events-none ${isExpanded ? 'rounded-r-sm' : 'rounded-sm'}`}></div>
+                 
+                 {/* 单页模式下的提示 */}
+                 {!isExpanded && (
+                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#8d6e63] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 flex flex-col items-center">
+                     <div className="text-sm tracking-widest mb-2">点击展开</div>
+                     <svg className="w-6 h-6 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
+                     </svg>
+                   </div>
+                 )}
+
+                {/* 右页内容区 */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10">
+                  {memos.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-[#8d6e63]/50">
+                      <div className="w-16 h-16 mb-6 opacity-30">
+                        <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </div>
+                      <p className="text-lg font-light tracking-widest" style={{ fontFamily: handwritingFont }}>
+                        今日无言
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-12 py-4">
+                      {/* 在单页模式下也显示日期标题 */}
+                      {!isExpanded && (
+                         <div className="text-center mb-8 pb-6 border-b border-[#8b4513]/10">
+                           <div className="text-2xl font-bold text-[#3e2723] mb-2" style={{ fontFamily: handwritingFont }}>
+                             {dateInfo?.simple}
+                           </div>
+                           <div className="text-sm text-[#8d6e63] tracking-widest">
+                             {dateInfo?.week}
+                           </div>
+                         </div>
+                      )}
+                      
+                      {memos.map((memo, index) => (
+                        <div key={memo.id} className="relative">
+                          <div className="flex gap-4">
+                            <div className="mt-1 w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#8b4513]/20 text-[#5d4037] text-sm font-serif">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1 space-y-3">
+                              <div 
+                                className="text-lg leading-loose text-[#3e2723] text-justify whitespace-pre-wrap"
+                                style={{ 
+                                  fontFamily: handwritingFont,
+                                  lineHeight: '2.2'
+                                }}
+                              >
+                                {memo.content}
+                              </div>
+                              <div className="flex justify-end items-center gap-2 opacity-50">
+                                <div className="w-8 h-px bg-[#5d4037]"></div>
+                                <span className="text-xs font-serif tracking-widest">
+                                  {new Date(memo.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* 分隔符 */}
+                          {index < memos.length - 1 && (
+                            <div className="flex justify-center mt-10 opacity-20">
+                              <div className="w-2 h-2 bg-[#5d4037] rounded-full mx-1"></div>
+                              <div className="w-2 h-2 bg-[#5d4037] rounded-full mx-1"></div>
+                              <div className="w-2 h-2 bg-[#5d4037] rounded-full mx-1"></div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 页码 */}
+                <div className="absolute bottom-6 right-12 text-[#8d6e63] text-sm tracking-widest" style={{ fontFamily: handwritingFont }}>
+                  第 {currentIndex + 1} 页
+                </div>
+
+                {/* 右侧翻页按钮区 - 仅在展开时可用 */}
+                {isExpanded && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      flipPage('next')
+                    }}
+                    disabled={!canGoNext || isFlipping}
+                    className={`absolute inset-y-0 right-0 w-24 hover:bg-black/5 transition-all group flex items-center justify-end pr-4 ${
+                      !canGoNext ? 'hidden' : 'cursor-pointer'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#8b4513]/10 flex items-center justify-center text-[#5d4037] opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 底部层叠页效果 - 模拟厚度 */}
+            <div className="absolute bottom-2 left-2 right-2 h-4 bg-white rounded-b-lg shadow-md -z-10 transform translate-y-1"></div>
+            <div className="absolute bottom-2 left-3 right-3 h-4 bg-white rounded-b-lg shadow-md -z-20 transform translate-y-2"></div>
+
           </div>
         </div>
       </div>

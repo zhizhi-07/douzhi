@@ -14,10 +14,12 @@ import { callLogTemplate } from './social/call_log'
 import { momentsPostTemplate } from './social/moments_post'
 import { watchQqTemplate } from './social/watch_qq'
 import { xiaohongshuPostTemplate } from './social/xiaohongshu_post'
+import { datingProfileTemplate } from './social/dating_profile'
 
 // 生活消费
 import { receiptTemplate } from './life/receipt'
 import { menuTemplate } from './life/menu'
+import { newspaperTemplate } from './life/newspaper'
 import { expressPackageTemplate } from './life/express_package'
 import { couponTemplate } from './life/coupon'
 import { parkingTicketTemplate } from './life/parking_ticket'
@@ -27,6 +29,9 @@ import { deliveryReviewTemplate } from './life/delivery_review'
 import { packageTrackingTemplate } from './life/package_tracking'
 import { groupBuyTemplate } from './life/group_buy'
 import { bargainTemplate } from './life/bargain'
+import { coupleHotelTemplate } from './life/couple_hotel'
+import { adultShopTemplate } from './life/adult_shop'
+import { barBillTemplate } from './life/bar_bill'
 
 // 工作学习
 import { diaryTemplate } from './work/diary'
@@ -45,6 +50,7 @@ import { postcardTemplate } from './emotion/postcard'
 import { birthdayCardTemplate } from './emotion/birthday_card'
 import { sexTimerTemplate } from './emotion/sex_timer'
 import { confessionBoardTemplate } from './emotion/confession_board'
+import { polaroidPhotoTemplate } from './emotion/polaroid_photo'
 
 // 娱乐休闲
 import { scratchCardTemplate } from './entertainment/scratch_card'
@@ -70,6 +76,7 @@ import { navigationTemplate } from './transport/navigation'
 // 隐私安全
 import { incognitoModeTemplate } from './privacy/incognito_mode'
 import { privateAlbumTemplate } from './privacy/private_album'
+import { checkinRecordTemplate } from './privacy/checkin_record'
 
 // 工具应用
 import { countdownTemplate } from './tool/countdown'
@@ -84,6 +91,7 @@ export const allTemplates: TheatreTemplate[] = [
   momentsPostTemplate,
   watchQqTemplate,
   xiaohongshuPostTemplate,
+  datingProfileTemplate,
   receiptTemplate,
   menuTemplate,
   expressPackageTemplate,
@@ -95,6 +103,9 @@ export const allTemplates: TheatreTemplate[] = [
   packageTrackingTemplate,
   groupBuyTemplate,
   bargainTemplate,
+  coupleHotelTemplate,
+  adultShopTemplate,
+  barBillTemplate,
   diaryTemplate,
   memoTemplate,
   businessCardTemplate,
@@ -109,6 +120,7 @@ export const allTemplates: TheatreTemplate[] = [
   birthdayCardTemplate,
   sexTimerTemplate,
   confessionBoardTemplate,
+  polaroidPhotoTemplate,
   scratchCardTemplate,
   movieTicketTemplate,
   concertTicketTemplate,
@@ -124,6 +136,7 @@ export const allTemplates: TheatreTemplate[] = [
   navigationTemplate,
   incognitoModeTemplate,
   privateAlbumTemplate,
+  checkinRecordTemplate,
   countdownTemplate,
   timeCapsuleTemplate
 ]
