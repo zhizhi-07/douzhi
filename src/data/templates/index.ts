@@ -43,6 +43,7 @@ import { classScheduleTemplate } from './work/class_schedule'
 import { checkInTemplate } from './work/check_in'
 import { apologyLetterTemplate } from './work/apology_letter'
 import { overtimeRecordTemplate } from './work/overtime_record'
+import { awardCertificateTemplate } from './work/award_certificate'
 
 // 情感关系
 import { loveLetterTemplate } from './emotion/love_letter'
@@ -57,6 +58,9 @@ import { scratchCardTemplate } from './entertainment/scratch_card'
 import { movieTicketTemplate } from './entertainment/movie_ticket'
 import { concertTicketTemplate } from './entertainment/concert_ticket'
 import { musicPlayerTemplate } from './entertainment/music_player'
+import { tarotReadingTemplate } from './entertainment/tarot_reading'
+import { retroGameTemplate } from './entertainment/retro_game'
+import { wantedPosterTemplate } from './entertainment/wanted_poster'
 
 // 健康医疗
 import { hospitalRegistrationTemplate } from './health/hospital_registration'
@@ -94,6 +98,7 @@ export const allTemplates: TheatreTemplate[] = [
   datingProfileTemplate,
   receiptTemplate,
   menuTemplate,
+  newspaperTemplate,
   expressPackageTemplate,
   couponTemplate,
   parkingTicketTemplate,
@@ -115,6 +120,7 @@ export const allTemplates: TheatreTemplate[] = [
   checkInTemplate,
   apologyLetterTemplate,
   overtimeRecordTemplate,
+  awardCertificateTemplate,
   loveLetterTemplate,
   postcardTemplate,
   birthdayCardTemplate,
@@ -125,6 +131,9 @@ export const allTemplates: TheatreTemplate[] = [
   movieTicketTemplate,
   concertTicketTemplate,
   musicPlayerTemplate,
+  tarotReadingTemplate,
+  retroGameTemplate,
+  wantedPosterTemplate,
   hospitalRegistrationTemplate,
   diagnosisTemplate,
   stepRankingTemplate,
