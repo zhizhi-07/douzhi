@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        din: ['DIN Alternate', 'DIN Condensed', 'Futura', 'sans-serif'],
+      },
       backdropBlur: {
         xs: '2px',
       },

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
+import { getImage } from '../utils/unifiedStorage'
 
 interface MusicInviteSelectorProps {
   onClose: () => void
@@ -12,6 +13,16 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
   const [customTitle, setCustomTitle] = useState('')
   const [customArtist, setCustomArtist] = useState('')
   const [sending, setSending] = useState(false)
+  const [functionBg, setFunctionBg] = useState('')
+
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
 
   const handleSelectFromLibrary = (e: React.MouseEvent, song: any) => {
     console.log('🎵 handleSelectFromLibrary被调用, sending状态:', sending)
@@ -44,7 +55,17 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
       />
 
       {/* 选择器内容 */}
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl animate-slide-up">
+      <div 
+        data-modal-container
+        className="fixed inset-x-0 bottom-0 z-50 shadow-2xl animate-slide-up overflow-hidden"
+        style={{
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        <div className={functionBg ? 'bg-white/90' : ''}>
         {/* 顶部指示条 */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-12 h-1 bg-gray-300 rounded-full" />
@@ -182,6 +203,7 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
               </div>
             </div>
           )}
+        </div>
         </div>
 
         {/* 底部安全区域 */}

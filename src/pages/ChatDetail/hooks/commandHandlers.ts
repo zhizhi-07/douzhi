@@ -137,7 +137,8 @@ const createMessageObj = (type: Message['messageType'], data: any, isBlocked?: b
  * 转账指令处理器
  */
 export const transferHandler: CommandHandler = {
-  pattern: /[\[【]转账[:\：]\s*[¥￥]?\s*(\d+\.?\d*)\s*(?:[:\：]?\s*说明[:\：]?\s*)?(.*?)[\]】]/,
+  // 🔥 宽松匹配：支持 [转账:100:说明]、[转账100]、[转账¥100] 等格式
+  pattern: /[\[【]转账[:：]?\s*[¥￥]?\s*(\d+\.?\d*)\s*(?:[:：]?\s*(?:说明[:：]?)?\s*)?(.*?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
     const amount = parseFloat(match[1])
     let transferMessage = (match[2] || '').trim()
@@ -166,7 +167,8 @@ export const transferHandler: CommandHandler = {
  * 接收转账指令处理器
  */
 export const receiveTransferHandler: CommandHandler = {
-  pattern: /[\[【](?:接收转账|转账[:\：]接受|转账[:\：]收下)[\]】]/,
+  // 🔥 宽松匹配：支持更多变体
+  pattern: /[\[【](?:接收转账|收下转账|收款|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       const lastPending = [...prev].reverse().find(
@@ -203,7 +205,8 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  pattern: /[\[【](?:退还(?:转账)?|转账[:\：]拒绝|转账[:\：]退还|转账已被退回)[\]】]|^退还$/,
+  // 🔥 宽松匹配：支持更多变体
+  pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账已被退回)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）

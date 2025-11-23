@@ -533,6 +533,40 @@ export const useChatAI = (
       
       let aiReply = apiResult.content
       
+      // 🎭 处理小剧场 tool_calls（Function Calling）
+      if ((apiResult as any).tool_calls && Array.isArray((apiResult as any).tool_calls)) {
+        const toolCalls = (apiResult as any).tool_calls
+        console.log('🎭 [小剧场] AI 调用了小剧场卡片:', toolCalls)
+        
+        // 导入转换函数
+        const { convertTheatreToolCallToMessage } = await import('../../../utils/theatreTools')
+        
+        // 为每个 tool call 创建一条小剧场消息
+        for (const toolCall of toolCalls) {
+          const theatreMessageData = convertTheatreToolCallToMessage(toolCall)
+          
+          const theatreMessage: Message = {
+            ...createMessage('', 'received'),
+            ...theatreMessageData,
+            sceneMode: currentSceneMode
+          }
+          
+          console.log('🎭 [小剧场] 插入卡片消息:', {
+            template_id: toolCall.template_id,
+            data: Object.keys(toolCall.data || {})
+          })
+          
+          // 保存小剧场消息
+          saveMessageToStorage(chatId, theatreMessage)
+          
+          // 更新 React 状态
+          setMessages(prev => [...prev, theatreMessage])
+          
+          // 延迟一下，让卡片逐个出现
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+      }
+      
       // 🔍 检查API返回的finish_reason，诊断是否被截断
       if (apiResult.usage && (apiResult as any).finish_reason) {
         const finishReason = (apiResult as any).finish_reason

@@ -14,6 +14,7 @@ import { getAllMemos } from './aiMemoManager'
 import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
+import { THEATRE_TOOL } from './theatreTools'
 
 /**
  * 根据当前时间给AI提示应该做什么
@@ -1695,6 +1696,69 @@ const callAIApiInternal = async (
       requestBody.max_tokens = maxTokens
     }
     
+    // 🎭 添加小剧场 Function Calling 工具（仅在线上模式启用）
+    // 🔧 临时开关：如果 localStorage 中设置了 disable-function-calling，则禁用
+    const disableFunctionCalling = localStorage.getItem('disable-function-calling') === 'true'
+    
+    if (import.meta.env.DEV) {
+      console.log('🎭 [小剧场] 检查条件:', {
+        isOfflineRequest,
+        disableFunctionCalling,
+        provider: settings.provider,
+        model: settings.model,
+        modelLower: settings.model?.toLowerCase()
+      })
+    }
+    
+    if (!isOfflineRequest && !disableFunctionCalling) {
+      // 判断是否是 Gemini 模型
+      const isGemini = settings.provider === 'google' || 
+                       settings.model?.toLowerCase().includes('gemini')
+      
+      if (import.meta.env.DEV) {
+        console.log('🎭 [小剧场] isGemini:', isGemini)
+      }
+      
+      // 🔧 对于 custom provider，统一使用 OpenAI 格式（更通用）
+      if (settings.provider === 'custom') {
+        requestBody.tools = [{
+          type: 'function',
+          function: THEATRE_TOOL
+        }]
+        if (import.meta.env.DEV) {
+          console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式 - custom provider)')
+        }
+      }
+      // Google 官方 API 使用 Gemini 原生格式
+      else if (settings.provider === 'google') {
+        requestBody.tools = [{
+          function_declarations: [THEATRE_TOOL]
+        }]
+        if (import.meta.env.DEV) {
+          console.log('🎭 [小剧场] Function Calling 已启用 (Gemini 原生格式)')
+          console.log('🎭 [小剧场] 工具定义:', THEATRE_TOOL)
+        }
+      }
+      // OpenAI 官方 API
+      else if (settings.provider === 'openai') {
+        requestBody.tools = [{
+          type: 'function',
+          function: THEATRE_TOOL
+        }]
+        if (import.meta.env.DEV) {
+          console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式)')
+        }
+      }
+    } else {
+      if (import.meta.env.DEV) {
+        if (disableFunctionCalling) {
+          console.log('🎭 [小剧场] Function Calling 已手动禁用')
+        } else {
+          console.log('🎭 [小剧场] 线下模式，跳过 Function Calling')
+        }
+      }
+    }
+    
     if (import.meta.env.DEV) {
       console.log('📤 API请求配置:', { useStreaming, isOfflineRequest, offlineStreamEnabled, maxTokens })
       console.log('📤 API请求体:', JSON.stringify(requestBody).substring(0, 500))
@@ -1786,6 +1850,14 @@ const callAIApiInternal = async (
       )
     }
     
+    // 🎭 先解析小剧场 tool_calls（因为 Function Calling 时可能没有 content）
+    const { parseTheatreToolCalls } = await import('./theatreTools')
+    const toolCalls = parseTheatreToolCalls(data)
+    
+    if (toolCalls.length > 0 && import.meta.env.DEV) {
+      console.log('🎭 [小剧场] 检测到 tool_calls:', toolCalls)
+    }
+    
     // 尝试从不同的响应格式中提取内容
     let content: string | undefined
     
@@ -1793,9 +1865,14 @@ const callAIApiInternal = async (
     if (data.choices?.[0]?.message?.content) {
       content = data.choices[0].message.content
     }
-    // 2. Google Gemini 格式
-    else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      content = data.candidates[0].content.parts[0].text
+    // 2. Google Gemini 格式 - 需要过滤掉 functionCall 的 parts
+    else if (data.candidates?.[0]?.content?.parts) {
+      const parts = data.candidates[0].content.parts
+      // 只提取 text 类型的 parts，忽略 functionCall
+      const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text)
+      if (textParts.length > 0) {
+        content = textParts.join('')
+      }
     }
     // 3. 某些API直接返回 text 字段
     else if (data.text) {
@@ -1810,7 +1887,8 @@ const callAIApiInternal = async (
       content = data.content
     }
     
-    if (!content) {
+    // 🎭 如果有 tool_calls，content 可以为空（纯 Function Calling 响应）
+    if (!content && toolCalls.length === 0) {
       console.error('API响应格式不符合预期，实际结构:', {
         hasChoices: !!data.choices,
         choicesLength: data.choices?.length,
@@ -1819,12 +1897,21 @@ const callAIApiInternal = async (
         hasResponse: !!data.response,
         hasContent: !!data.content,
         hasError: !!data.error,
+        hasToolCalls: toolCalls.length > 0,
         fullData: data
       })
       throw new ChatApiError(
         `API响应格式错误或内容为空，请检查API配置`, 
         'INVALID_RESPONSE'
       )
+    }
+    
+    // 如果只有 tool_calls 没有 content，设置一个空字符串避免后续报错
+    if (!content && toolCalls.length > 0) {
+      content = ''
+      if (import.meta.env.DEV) {
+        console.log('🎭 [小剧场] 纯 Function Calling 响应，content 为空')
+      }
     }
 
     // 提取finish_reason用于诊断
@@ -1839,7 +1926,8 @@ const callAIApiInternal = async (
     return {
       content,
       usage: data.usage || null,
-      finish_reason: finishReason
+      finish_reason: finishReason,
+      tool_calls: toolCalls.length > 0 ? toolCalls : undefined
     } as any
 
   } catch (error) {

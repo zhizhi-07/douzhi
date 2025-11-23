@@ -52,6 +52,7 @@ import { birthdayCardTemplate } from './emotion/birthday_card'
 import { sexTimerTemplate } from './emotion/sex_timer'
 import { confessionBoardTemplate } from './emotion/confession_board'
 import { polaroidPhotoTemplate } from './emotion/polaroid_photo'
+import { coupleSpaceTemplate } from './emotion/couple_space'
 
 // 娱乐休闲
 import { scratchCardTemplate } from './entertainment/scratch_card'
@@ -126,6 +127,7 @@ export const allTemplates: TheatreTemplate[] = [
   birthdayCardTemplate,
   sexTimerTemplate,
   confessionBoardTemplate,
+  coupleSpaceTemplate,
   polaroidPhotoTemplate,
   scratchCardTemplate,
   movieTicketTemplate,

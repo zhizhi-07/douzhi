@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { getImage } from '../utils/unifiedStorage'
 
 interface LocationSenderProps {
   show: boolean
@@ -14,6 +15,16 @@ interface LocationSenderProps {
 const LocationSender = ({ show, onClose, onSend }: LocationSenderProps) => {
   const [locationName, setLocationName] = useState('')
   const [locationAddress, setLocationAddress] = useState('')
+  const [functionBg, setFunctionBg] = useState('')
+
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
 
   // 每次打开弹窗时重置表单
   useEffect(() => {
@@ -53,14 +64,21 @@ const LocationSender = ({ show, onClose, onSend }: LocationSenderProps) => {
       }}
     >
       <div
-        className="w-full max-w-md bg-white rounded-t-[48px] shadow-2xl"
-        style={{ animation: 'slideUp 0.3s ease-out' }}
+        data-modal-container
+        className="w-full max-w-md shadow-2xl overflow-hidden"
+        style={{
+          animation: 'slideUp 0.3s ease-out',
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
       >
-        <div className="p-6 bg-gradient-to-br from-blue-50 to-green-50">
+        <div className="p-6 bg-white/90">
           <div className="text-xl font-semibold text-gray-900 text-center">发送位置</div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 bg-white/80">
           {/* 地点名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">地点名称</label>

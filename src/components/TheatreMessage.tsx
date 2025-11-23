@@ -4169,6 +4169,53 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
   return (
     <>
       <style>{`
+        /* 小剧场卡片响应式样式 - 覆盖所有模板的固定宽度和高度 */
+        .theatre-content > div[style*="max-width"],
+        .theatre-content > div[data-student-card],
+        .theatre-content > div[data-vip-card],
+        .theatre-content > div[data-spa-card],
+        .theatre-content > div[data-ios-memo],
+        .theatre-content > div[data-receipt],
+        .theatre-content > div[data-coupon],
+        .theatre-content > div[data-shopping-cart],
+        .theatre-content > div[data-menu-book],
+        .theatre-content > div[data-club-ticket],
+        .theatre-content > div {
+          max-width: 100% !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* 高度自适应 - 移除固定高度 */
+        .theatre-content > div[style*="height:"],
+        .theatre-content > div[style*="height: "] {
+          height: auto !important;
+          min-height: unset !important;
+        }
+        
+        /* 内部元素也需要响应式调整 */
+        .theatre-content img,
+        .theatre-content canvas {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        
+        /* 字体大小响应式调整 */
+        @media (max-width: 375px) {
+          .theatre-content {
+            font-size: 13px;
+          }
+          .theatre-content div[style*="font-size: 18px"] {
+            font-size: 16px !important;
+          }
+          .theatre-content div[style*="font-size: 20px"] {
+            font-size: 18px !important;
+          }
+          .theatre-content div[style*="font-size: 24px"] {
+            font-size: 20px !important;
+          }
+        }
+        
         @keyframes pulse {
           0%, 100% { 
             transform: scale(1);
@@ -4309,7 +4356,7 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
           transform: translateY(-2px);
         }
       `}</style>
-      <div className="my-4 max-w-md" ref={containerRef}>
+      <div className="my-4 w-full max-w-[280px] sm:max-w-[320px]" ref={containerRef}>
         <div 
           className="theatre-content"
           dangerouslySetInnerHTML={{ __html: message.theatre.htmlContent }}

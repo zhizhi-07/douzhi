@@ -2,7 +2,8 @@
  * 亲密付开通界面
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getImage } from '../../../utils/unifiedStorage'
 
 interface IntimatePaySenderProps {
   show: boolean
@@ -13,6 +14,16 @@ interface IntimatePaySenderProps {
 
 const IntimatePaySender = ({ show, onClose, onSend, characterName }: IntimatePaySenderProps) => {
   const [amount, setAmount] = useState('')
+  const [functionBg, setFunctionBg] = useState('')
+
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
 
   const quickAmounts = [500, 1000, 2000, 3000, 5000, 10000]
 
@@ -36,9 +47,17 @@ const IntimatePaySender = ({ show, onClose, onSend, characterName }: IntimatePay
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-t-3xl w-full max-w-md p-6 pb-8 animate-slide-up"
+        data-modal-container
+        className="w-full max-w-md animate-slide-up overflow-hidden"
+        style={{
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div className={`p-6 pb-8 ${functionBg ? 'bg-white/90' : ''}`}>
         {/* 标题 */}
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">开通亲密付</h3>
@@ -106,6 +125,7 @@ const IntimatePaySender = ({ show, onClose, onSend, characterName }: IntimatePay
         >
           立即开通
         </button>
+        </div>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import '../css/music-player.css'
 import DynamicIsland from '../components/DynamicIsland'
 import { characterService } from '../services/characterService'
 import { getUserInfo } from '../utils/userUtils'
+import { getAllUIIcons } from '../utils/iconStorage'
 
 interface Song {
   id: number
@@ -35,15 +36,41 @@ const MusicPlayer = () => {
   // 加载音乐背景
   useEffect(() => {
     const loadMusicBg = async () => {
+      // 优先使用音乐专用背景
       const bg = await getImage('music_bg')
-      if (bg) setCustomBackground(bg)
+      if (bg) {
+        setCustomBackground(bg)
+      } else {
+        // 如果没有音乐专用背景，尝试使用功能背景
+        try {
+          const icons = await getAllUIIcons()
+          if (icons['menu-music']) {
+            setCustomBackground(icons['menu-music'])
+          }
+        } catch (error) {
+          console.error('加载音乐功能背景失败:', error)
+        }
+      }
     }
     loadMusicBg()
     
     // 监听背景更新事件
     const handleBgUpdate = async () => {
       const bg = await getImage('music_bg')
-      setCustomBackground(bg || '')
+      if (bg) {
+        setCustomBackground(bg)
+      } else {
+        try {
+          const icons = await getAllUIIcons()
+          if (icons['menu-music']) {
+            setCustomBackground(icons['menu-music'])
+          } else {
+            setCustomBackground('')
+          }
+        } catch (error) {
+          setCustomBackground('')
+        }
+      }
     }
     window.addEventListener('musicBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('musicBackgroundUpdate', handleBgUpdate)

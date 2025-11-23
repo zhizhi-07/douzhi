@@ -3,8 +3,9 @@
  * 可以生成各种类型的虚拟帖子
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { playSystemSound } from '../utils/soundManager'
+import { getImage } from '../utils/unifiedStorage'
 
 interface PostGeneratorProps {
   isOpen: boolean
@@ -34,6 +35,16 @@ const PostGenerator = ({
   const [customPrompt, setCustomPrompt] = useState('')
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
+  const [functionBg, setFunctionBg] = useState('')
+
+  // 加载功能背景
+  useEffect(() => {
+    const loadFunctionBg = async () => {
+      const bg = await getImage('function_bg')
+      if (bg) setFunctionBg(bg)
+    }
+    loadFunctionBg()
+  }, [])
 
   if (!isOpen) return null
 
@@ -88,17 +99,28 @@ const PostGenerator = ({
       />
 
       {/* 主面板 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 modal-slide-up pb-safe max-h-[80vh] overflow-y-auto">
-        {/* 拖动条 */}
-        <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 bg-gray-300 rounded-full" />
-        </div>
+      <div 
+        data-modal-container
+        className="fixed bottom-0 left-0 right-0 z-50 modal-slide-up pb-safe max-h-[80vh] overflow-y-auto"
+        style={{
+          backgroundColor: functionBg ? 'transparent' : 'white',
+          backgroundImage: functionBg ? `url(${functionBg})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        {/* 内容包装器，提供半透明背景 */}
+        <div className={`${functionBg ? 'bg-white/90' : ''} h-full min-h-[50vh]`}>
+          {/* 拖动条 */}
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
 
-        {/* 标题 */}
-        <div className="px-5 py-4">
-          <h3 className="text-lg font-semibold text-gray-900">生成AI帖子</h3>
-          <p className="text-xs text-gray-500 mt-1">描述你想生成的帖子，可选择相关角色</p>
-        </div>
+          {/* 标题 */}
+          <div className="px-5 py-4">
+            <h3 className="text-lg font-semibold text-gray-900">生成AI帖子</h3>
+            <p className="text-xs text-gray-500 mt-1">描述你想生成的帖子，可选择相关角色</p>
+          </div>
 
         {/* 角色选择 */}
         {!generatedPost && (
@@ -173,40 +195,41 @@ const PostGenerator = ({
           </div>
         )}
 
-        {/* 按钮区域 */}
-        <div className="px-4 pb-4 flex gap-3">
-          {!generatedPost ? (
-            <button
-              onClick={handleGenerate}
-              disabled={!customPrompt.trim() || isGenerating}
-              className={`flex-1 py-3 rounded-full font-semibold transition-all active:scale-95 ${
-                customPrompt.trim() && !isGenerating
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isGenerating ? '生成中...' : '生成帖子'}
-            </button>
-          ) : (
-            <>
+          {/* 底部按钮 */}
+          <div className="p-5 border-t border-gray-100 bg-white/50 backdrop-blur-sm sticky bottom-0">
+            {!generatedPost ? (
               <button
-                onClick={() => {
-                  onClearPost()
-                  setCustomPrompt('')
-                  setSelectedRoles([])
-                }}
-                className="flex-1 py-3 rounded-full font-semibold transition-all active:scale-95 bg-gray-200 text-gray-700"
+                onClick={handleGenerate}
+                disabled={!customPrompt.trim() || isGenerating}
+                className={`w-full py-3 rounded-full font-semibold transition-all active:scale-95 ${
+                  customPrompt.trim() && !isGenerating
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
               >
-                重新生成
+                {isGenerating ? '生成中...' : '生成帖子'}
               </button>
-              <button
-                onClick={handleSend}
-                className="flex-1 py-3 rounded-full font-semibold transition-all active:scale-95 bg-gray-800 text-white"
-              >
-                发送
-              </button>
-            </>
-          )}
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    onClearPost()
+                    setCustomPrompt('')
+                    setSelectedRoles([])
+                  }}
+                  className="flex-1 py-3 rounded-full font-semibold transition-all active:scale-95 bg-gray-200 text-gray-700"
+                >
+                  重新生成
+                </button>
+                <button
+                  onClick={handleSend}
+                  className="flex-1 py-3 rounded-full font-semibold transition-all active:scale-95 bg-gray-800 text-white"
+                >
+                  发送
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
