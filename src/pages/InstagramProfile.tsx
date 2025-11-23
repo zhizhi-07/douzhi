@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MoreHorizontal, Grid3x3, Heart, MessageCircle, Settings } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
-import { getNPCById } from '../utils/forumNPC'
+import InstagramEditProfile from '../components/InstagramEditProfile'
+import { getNPCById, getAllPosts } from '../utils/forumNPC'
 import { getUserData, initUserData, followNPC, unfollowNPC, isFollowingNPC } from '../utils/forumUser'
-import type { ForumNPC } from '../utils/forumNPC'
+import { getUserInfo } from '../utils/userUtils'
+import type { ForumNPC, ForumPost } from '../utils/forumNPC'
 
 interface Post {
   id: string
@@ -25,6 +27,9 @@ const InstagramProfile = () => {
     followers: 0,
     following: 0
   })
+  const [showEditProfile, setShowEditProfile] = useState(false)
+  const [userInfo, setUserInfo] = useState(getUserInfo())
+  const [userPosts, setUserPosts] = useState<ForumPost[]>([])
 
   useEffect(() => {
     loadData()
@@ -49,15 +54,21 @@ const InstagramProfile = () => {
     } else {
       // 查看自己的主页
       setNpc(null)
+      
+      // 加载用户发布的帖子
+      const allPosts = getAllPosts()
+      const myPosts = allPosts.filter(p => p.npcId === 'user')
+      setUserPosts(myPosts)
+      
       const userData = getUserData()
       setStats({
-        posts: userData.posts,
+        posts: myPosts.length, // 使用真实的帖子数量
         followers: userData.followers,
         following: userData.following
       })
     }
     
-    // 模拟帖子
+    // 模拟帖子（用于NPC主页）
     const mockPosts: Post[] = Array.from({ length: 12 }, (_, i) => ({
       id: `post-${i}`,
       image: `${i}`,
@@ -80,6 +91,11 @@ const InstagramProfile = () => {
         followers: isFollowing ? prev.followers - 1 : prev.followers + 1
       }))
     }
+  }
+
+  const handleSaveProfile = () => {
+    // 刷新用户信息
+    setUserInfo(getUserInfo())
   }
 
   return (
@@ -117,12 +133,12 @@ const InstagramProfile = () => {
 
       <div className="pb-20">
         {/* 个人信息区 */}
-        <div className="px-4 py-4">
+        <div className="bg-white px-4 py-4">
           {/* 头像和统计 */}
           <div className="flex items-start gap-6 mb-4">
             <img
-              src={npc?.avatar || '/default-avatar.png'}
-              alt={npc?.name || '我'}
+              src={npc?.avatar || userInfo.avatar || '/default-avatar.png'}
+              alt={npc?.name || userInfo.nickname || '我'}
               className="w-20 h-20 rounded-full object-cover ring-1 ring-gray-200"
             />
             
@@ -155,10 +171,10 @@ const InstagramProfile = () => {
           {/* 名字和简介 */}
           <div className="mb-4">
             <h2 className="text-sm font-semibold mb-1">
-              {npc?.name || '我的名字'}
+              {npc?.name || userInfo.nickname || userInfo.realName || '我的名字'}
             </h2>
             <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {npc?.bio || '这是我的个人简介...'}
+              {npc?.bio || userInfo.signature || '这是我的个人简介...'}
             </p>
           </div>
 
@@ -190,7 +206,7 @@ const InstagramProfile = () => {
           ) : (
             <div className="flex gap-2">
               <button 
-                onClick={() => navigate('/user-profile')}
+                onClick={() => setShowEditProfile(true)}
                 className="flex-1 py-2 px-4 rounded-lg bg-gray-100 text-sm font-semibold text-gray-900 active:bg-gray-200"
               >
                 编辑资料
@@ -206,7 +222,7 @@ const InstagramProfile = () => {
         </div>
 
         {/* 标签切换 */}
-        <div className="border-t border-gray-100">
+        <div className="bg-white border-t border-gray-100">
           <div className="flex">
             <button
               onClick={() => setActiveTab('grid')}
@@ -235,39 +251,115 @@ const InstagramProfile = () => {
 
         {/* 内容区 - Instagram风格的图片网格 */}
         {activeTab === 'grid' ? (
-          <div className="grid grid-cols-3 gap-0.5">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="relative aspect-square bg-gray-100 cursor-pointer"
-                onClick={() => navigate(`/instagram/post/${post.id}`)}
-              >
-                {/* 模拟图片 */}
-                <div className={`w-full h-full ${
-                  ['bg-gradient-to-br from-pink-200 to-purple-200',
-                   'bg-gradient-to-br from-blue-200 to-cyan-200',
-                   'bg-gradient-to-br from-orange-200 to-red-200',
-                   'bg-gradient-to-br from-green-200 to-teal-200',
-                   'bg-gradient-to-br from-purple-200 to-pink-200',
-                   'bg-gradient-to-br from-yellow-200 to-orange-200'][parseInt(post.id.split('-')[1]) % 6]
-                }`} />
-                
-                {/* 悬浮时显示的统计信息 */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 active:opacity-100 transition-opacity flex items-center justify-center gap-6">
-                  <div className="flex items-center gap-1 text-white">
-                    <Heart className="w-6 h-6 fill-current" />
-                    <span className="text-sm font-semibold">{post.likes}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-white">
-                    <MessageCircle className="w-6 h-6 fill-current" />
-                    <span className="text-sm font-semibold">{post.comments}</span>
+          userId ? (
+            // NPC主页 - 显示模拟帖子
+            <div className="bg-white grid grid-cols-3 gap-0.5">
+              {posts.map((post) => (
+                <div
+                  key={post.id}
+                  className="relative aspect-square bg-gray-100 cursor-pointer"
+                  onClick={() => navigate(`/instagram/post/${post.id}`)}
+                >
+                  {/* 模拟图片 */}
+                  <div className={`w-full h-full ${
+                    ['bg-gradient-to-br from-pink-200 to-purple-200',
+                     'bg-gradient-to-br from-blue-200 to-cyan-200',
+                     'bg-gradient-to-br from-orange-200 to-red-200',
+                     'bg-gradient-to-br from-green-200 to-teal-200',
+                     'bg-gradient-to-br from-purple-200 to-pink-200',
+                     'bg-gradient-to-br from-yellow-200 to-orange-200'][parseInt(post.id.split('-')[1]) % 6]
+                  }`} />
+                  
+                  {/* 悬浮时显示的统计信息 */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 active:opacity-100 transition-opacity flex items-center justify-center gap-6">
+                    <div className="flex items-center gap-1 text-white">
+                      <Heart className="w-6 h-6 fill-current" />
+                      <span className="text-sm font-semibold">{post.likes}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-white">
+                      <MessageCircle className="w-6 h-6 fill-current" />
+                      <span className="text-sm font-semibold">{post.comments}</span>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            // 用户自己的主页 - 显示真实发布的帖子
+            userPosts.length > 0 ? (
+              <div className="bg-white grid grid-cols-3 gap-0.5">
+                {userPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="relative aspect-square bg-gray-100 cursor-pointer"
+                    onClick={() => navigate(`/instagram/home`)}
+                  >
+                    {/* 根据帖子图片数量显示不同样式 */}
+                    {post.images === 0 ? (
+                      // 纯文字帖子 - 显示文字预览
+                      <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 p-3 flex items-center justify-center">
+                        <p className="text-xs text-center line-clamp-4 text-gray-700">
+                          {post.content}
+                        </p>
+                      </div>
+                    ) : (
+                      // 有图片的帖子 - 显示渐变色块
+                      <div className={`w-full h-full ${
+                        ['bg-gradient-to-br from-pink-200 to-purple-200',
+                         'bg-gradient-to-br from-blue-200 to-cyan-200',
+                         'bg-gradient-to-br from-orange-200 to-red-200',
+                         'bg-gradient-to-br from-green-200 to-teal-200',
+                         'bg-gradient-to-br from-purple-200 to-pink-200',
+                         'bg-gradient-to-br from-yellow-200 to-orange-200'][post.images % 6]
+                      }`}>
+                        {post.images > 1 && (
+                          <div className="absolute top-2 right-2">
+                            <svg className="w-5 h-5 text-white drop-shadow" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* 悬浮时显示的统计信息 */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 active:opacity-100 transition-opacity flex items-center justify-center gap-6">
+                      <div className="flex items-center gap-1 text-white">
+                        <Heart className="w-6 h-6 fill-current" />
+                        <span className="text-sm font-semibold">{post.likes}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-white">
+                        <MessageCircle className="w-6 h-6 fill-current" />
+                        <span className="text-sm font-semibold">{post.comments}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : (
+              // 空状态
+              <div className="bg-white py-20 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">分享照片</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  你还没有分享照片
+                </p>
+                <button
+                  onClick={() => navigate('/instagram/create')}
+                  className="text-sm text-blue-500 font-semibold"
+                >
+                  分享你的第一张照片
+                </button>
+              </div>
+            )
+          )
         ) : (
-          <div className="py-20 text-center">
+          <div className="bg-white py-20 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -280,6 +372,13 @@ const InstagramProfile = () => {
           </div>
         )}
       </div>
+
+      {/* 编辑资料弹窗 */}
+      <InstagramEditProfile
+        isOpen={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
+        onSave={handleSaveProfile}
+      />
     </InstagramLayout>
   )
 }

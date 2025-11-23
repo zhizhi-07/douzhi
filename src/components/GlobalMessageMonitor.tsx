@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { characterService } from '../services/characterService'
 import { loadMessages } from '../utils/simpleMessageManager'
 import { incrementUnread } from '../utils/unreadMessages'
+import { groupChatManager } from '../utils/groupChatManager'
 
 const NOTIFIED_MESSAGES_KEY = 'notified_message_ids'
 
@@ -49,12 +50,23 @@ const GlobalMessageMonitor = () => {
     
     // 监听消息保存事件（立即响应）
     const handleMessageSaved = (event: CustomEvent) => {
-      const { chatId } = event.detail
+      const { chatId, messageType } = event.detail
       console.log(`🔔 [GlobalMessageMonitor] ===== 开始处理消息保存事件 =====`)
-      console.log(`🔔 [GlobalMessageMonitor] 监听到消息保存事件: chatId=${chatId}`)
+      console.log(`🔔 [GlobalMessageMonitor] 监听到消息保存事件: chatId=${chatId}, type=${messageType || 'private'}`)
       
-      const messages = loadMessages(chatId)
-      console.log(`📦 [GlobalMessageMonitor] 加载消息: chatId=${chatId}, 总数=${messages.length}`)
+      // 🔥 区分私聊和群聊
+      const isGroupChat = messageType === 'group'
+      let messages: any[] = []
+      
+      if (isGroupChat) {
+        // 群聊消息
+        messages = groupChatManager.getMessages(chatId)
+      } else {
+        // 私聊消息
+        messages = loadMessages(chatId)
+      }
+      
+      console.log(`📦 [GlobalMessageMonitor] 加载消息: chatId=${chatId}, 类型=${isGroupChat ? '群聊' : '私聊'}, 总数=${messages.length}`)
       
       if (messages.length === 0) {
         console.log(`⚠️ [GlobalMessageMonitor] 消息为空，跳过`)
@@ -79,10 +91,12 @@ const GlobalMessageMonitor = () => {
         return
       }
       
-      // 如果是新消息且是AI发的
-      if (lastMessage.type === 'received' && 
-          lastMessage.messageType !== 'system' &&
-          lastMessage.id !== lastRecordedId) {
+      // 🔥 判断是否是新的AI消息
+      const isAIMessage = isGroupChat 
+        ? (lastMessage.userId !== 'user' && lastMessage.type !== 'system')  // 群聊：非用户且非系统消息
+        : (lastMessage.type === 'received' && lastMessage.messageType !== 'system')  // 私聊：received类型且非系统消息
+      
+      if (isAIMessage && lastMessage.id !== lastRecordedId) {
         
         console.log(`✅ [GlobalMessageMonitor] 这是新的AI消息`)
         
@@ -94,19 +108,34 @@ const GlobalMessageMonitor = () => {
         
         // 如果用户不在这个聊天窗口
         const currentPath = window.location.pathname
-        const isInCurrentChat = currentPath === `/chat/${chatId}`
+        const isInCurrentChat = isGroupChat 
+          ? currentPath === `/group/${chatId}`  // 群聊路径
+          : currentPath === `/chat/${chatId}`   // 私聊路径
         
         console.log(`🔍 [GlobalMessageMonitor] 用户位置检查`, {
           currentPath,
-          chatPath: `/chat/${chatId}`,
+          chatPath: isGroupChat ? `/group/${chatId}` : `/chat/${chatId}`,
           isInCurrentChat
         })
         
         if (!isInCurrentChat) {
-          const character = characterService.getById(chatId)
-          if (!character) {
-            console.log(`❌ [GlobalMessageMonitor] 找不到角色: ${chatId}`)
-            return
+          let title = ''
+          let avatar = ''
+          
+          if (isGroupChat) {
+            // 群聊：显示群名
+            const group = groupChatManager.getGroup(chatId)
+            title = group?.name || '群聊'
+            avatar = group?.avatar || ''
+          } else {
+            // 私聊：显示角色名
+            const character = characterService.getById(chatId)
+            if (!character) {
+              console.log(`❌ [GlobalMessageMonitor] 找不到角色: ${chatId}`)
+              return
+            }
+            title = character.nickname || character.realName
+            avatar = character.avatar || ''
           }
           
           // 增加未读
@@ -117,14 +146,14 @@ const GlobalMessageMonitor = () => {
           const messageContent = lastMessage.content || lastMessage.voiceText || '[消息]'
           window.dispatchEvent(new CustomEvent('background-chat-message', {
             detail: {
-              title: character.nickname || character.realName,
+              title: isGroupChat ? `${title}: ${lastMessage.userName}` : title,  // 群聊显示"群名: 发送者"
               message: messageContent,
               chatId: chatId,
-              avatar: character.avatar
+              avatar: avatar
             }
           }))
           
-          console.log(`🔔 [GlobalMessageMonitor] 已触发通知: ${character.nickname || character.realName} - ${messageContent}`)
+          console.log(`🔔 [GlobalMessageMonitor] 已触发通知: ${title} - ${messageContent}`)
         } else {
           console.log(`ℹ️ [GlobalMessageMonitor] 用户在聊天窗口中，不触发通知`)
         }

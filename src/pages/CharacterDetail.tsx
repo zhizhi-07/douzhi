@@ -13,7 +13,8 @@ const CharacterDetail = () => {
     realName: '',
     signature: '',
     personality: '',
-    avatar: ''
+    avatar: '',
+    isPublicFigure: false
   })
 
   useEffect(() => {
@@ -26,7 +27,8 @@ const CharacterDetail = () => {
           realName: data.realName,
           signature: data.signature || '',
           personality: data.personality || '',
-          avatar: data.avatar || ''
+          avatar: data.avatar || '',
+          isPublicFigure: data.isPublicFigure || false
         })
       }
     }
@@ -202,6 +204,34 @@ const CharacterDetail = () => {
               />
             ) : (
               <p className="text-gray-900 text-sm">{character.personality || '未设置'}</p>
+            )}
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
+          {/* 公众人物 */}
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">公众人物</div>
+              <div className="text-xs text-gray-400">设置该角色为知名度较高的公众人物</div>
+            </div>
+            {isEditing ? (
+              <button
+                onClick={() => setFormData({ ...formData, isPublicFigure: !formData.isPublicFigure })}
+                className={`relative w-11 h-6 rounded-full transition-all ${
+                  formData.isPublicFigure
+                    ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                    : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                    formData.isPublicFigure ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            ) : (
+              <p className="text-sm text-gray-900">{character.isPublicFigure ? '是' : '否'}</p>
             )}
           </div>
         </div>

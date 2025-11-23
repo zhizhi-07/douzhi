@@ -94,42 +94,70 @@ const ForumTopics = () => {
 
   return (
     <ForumLayout>
-      <div className="p-4 pb-20">
+      {/* 顶部标题栏和创建按钮 */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-lg font-semibold">话题</h1>
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* 话题列表 */}
+      <div className="pb-20">
         {topics.map((topic) => (
           <div
             key={topic.id}
-            className="py-4 border-b border-gray-100 last:border-b-0"
+            className="bg-white border-b border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div
-                onClick={() => navigate(`/forum/topic/${encodeURIComponent(topic.name)}`)}
-                className="flex-1 cursor-pointer"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-semibold text-gray-800">#{topic.name}</h3>
-                  {topic.hot && (
-                    <span className="px-2 py-0.5 bg-red-50 text-red-500 text-xs rounded">热门</span>
-                  )}
-                </div>
-                {topic.description && (
-                  <p className="text-xs text-gray-600 mb-1 line-clamp-2">{topic.description}</p>
-                )}
-                <p className="text-xs text-gray-500">{topic.postCount} 个帖子</p>
+            <div className="flex items-center gap-4 px-4 py-4">
+              {/* 话题图标 */}
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">#</span>
               </div>
               
-              <button
-                onClick={() => handleToggleFollow(topic.name)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  follows.includes(topic.name)
-                    ? 'bg-gray-100 text-gray-600'
-                    : 'bg-white text-gray-700 border border-gray-200'
-                }`}
+              {/* 话题信息 */}
+              <div
+                onClick={() => navigate(`/forum/topic/${encodeURIComponent(topic.name)}`)}
+                className="flex-1 min-w-0 cursor-pointer"
               >
-                {follows.includes(topic.name) ? '已关注' : '关注'}
-              </button>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-base font-semibold text-gray-900">{topic.name}</h3>
+                  {topic.hot && (
+                    <span className="px-2 py-0.5 bg-red-50 text-red-500 text-xs rounded-full">热门</span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">{topic.postCount.toLocaleString()} 条帖子</p>
+              </div>
+              
+              {/* 右箭头 */}
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </div>
           </div>
         ))}
+        
+        {topics.length === 0 && (
+          <div className="py-20 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-3xl">#</span>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">还没有话题</p>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="text-sm text-blue-500 font-semibold"
+            >
+              创建第一个话题
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 创建话题对话框 */}

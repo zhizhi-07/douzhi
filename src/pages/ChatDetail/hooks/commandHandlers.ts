@@ -167,22 +167,60 @@ export const transferHandler: CommandHandler = {
  * 接收转账指令处理器
  */
 export const receiveTransferHandler: CommandHandler = {
-  // 🔥 宽松匹配：支持更多变体
-  pattern: /[\[【](?:接收转账|收下转账|收款|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下)[\]】]/,
+  // 🔥 宽松匹配：支持更多变体（接收、同意、回、收等）
+  pattern: /[\[【](?:接收转账|收下转账|收款|同意转账|回.*?转账|接受转账|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下|转账[:：]?同意|转账[:：]?回)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
+    let transferUpdated = false
+    
     setMessages(prev => {
       const lastPending = [...prev].reverse().find(
         msg => msg.messageType === 'transfer' && msg.type === 'sent' && msg.transfer?.status === 'pending'
       )
 
-      if (!lastPending) return prev
+      if (!lastPending) {
+        console.log('❌ [接收转账] 没有找到待处理的转账')
+        return prev
+      }
 
-      return prev.map(msg =>
-        msg.id === lastPending.id
-          ? { ...msg, transfer: { ...msg.transfer!, status: 'received' as const } }
-          : msg
-      )
+      console.log(`💰 [接收转账] 找到转账消息ID=${lastPending.id}, 金额=¥${lastPending.transfer?.amount}, 当前状态=${lastPending.transfer?.status}`)
+      
+      // 🔥 强制创建全新的数组和对象，确保React检测到深层变化
+      const updated = prev.map(msg => {
+        if (msg.id === lastPending.id) {
+          // 创建全新的对象，包括嵌套的transfer对象
+          return {
+            id: msg.id,
+            type: msg.type,
+            content: msg.content,
+            time: msg.time,
+            timestamp: msg.timestamp,
+            messageType: msg.messageType,
+            transfer: {
+              amount: msg.transfer!.amount,
+              message: msg.transfer!.message,
+              status: 'received' as const  // 新状态
+            },
+            // 保留其他可能存在的属性
+            ...(msg.quotedMessage && { quotedMessage: msg.quotedMessage }),
+            ...(msg.aiReadableContent && { aiReadableContent: msg.aiReadableContent })
+          } as Message
+        }
+        return msg
+      })
+      
+      // 🔥 立即保存到IndexedDB
+      saveMessages(chatId, updated)
+      console.log('💾 [接收转账] 状态已更新并保存, status=received')
+      transferUpdated = true
+      
+      // 🔥 强制返回新数组
+      return [...updated]
     })
+    
+    if (!transferUpdated) {
+      console.log('⚠️ [接收转账] 未找到待处理的转账，跳过')
+      return { handled: false, remainingText: content }
+    }
 
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
@@ -205,8 +243,8 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  // 🔥 宽松匹配：支持更多变体
-  pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账已被退回)[\]】]|^退还$/,
+  // 🔥 宽松匹配：支持 [退还]、[退还转账]、[拒绝]、[不要] 等各种变体
+  pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|不要(?:转账)?|不收(?:转账)?|退回(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账[:：]?不要|转账[:：]?不收)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）
@@ -717,7 +755,7 @@ export const recallHandler: CommandHandler = {
  * 情侣空间：接受邀请
  */
 export const coupleSpaceAcceptHandler: CommandHandler = {
-  pattern: /[\[【]情侣空间[:\：]\s*接受[\]】]/,
+  pattern: /[\[【](?:接受|同意)情侣空间[\]】]|[\[【]情侣空间[:\：]\s*(?:接受|同意)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
@@ -759,7 +797,7 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
  * 情侣空间：拒绝邀请
  */
 export const coupleSpaceRejectHandler: CommandHandler = {
-  pattern: /[\[【]情侣空间[:\：]\s*拒绝[\]】]/,
+  pattern: /[\[【](?:拒绝|驳回)情侣空间[\]】]|[\[【]情侣空间[:\：]\s*(?:拒绝|驳回)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
@@ -2201,7 +2239,7 @@ export const changeAvatarHandler: CommandHandler = {
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
         content: `${character.nickname || character.realName} 更换了头像`,
-        aiReadableContent: `[系统通知：你成功更换了头像]`,
+        aiReadableContent: `[系统通知：你成功更换了头像，新头像是：${usedPrompt || '对方的头像'}]`,
         type: 'system',
         avatarPrompt: usedPrompt
       })

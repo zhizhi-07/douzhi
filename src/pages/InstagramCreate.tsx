@@ -4,7 +4,9 @@ import { X, Image, Smile, MapPin, UserPlus, Music2, Search } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
 import { incrementPosts } from '../utils/forumUser'
-import { getAllPosts, savePosts } from '../utils/forumNPC'
+import { getAllPosts, savePosts, getAllNPCs, type ForumNPC } from '../utils/forumNPC'
+import { generateRealAIComments } from '../utils/forumAIComments'
+import { getPostComments } from '../utils/forumCommentsDB'
 import type { Character } from '../services/characterService'
 
 const InstagramCreate = () => {
@@ -66,21 +68,30 @@ const InstagramCreate = () => {
     // 立即跳转回主页
     navigate('/instagram')
     
-    // 异步生成AI评论（真实调用API）
+    // 异步生成评论（真实调用API）
     setTimeout(async () => {
       try {
-        const { generateRealAIComments } = await import('../utils/forumAIComments')
-        const chars = await getAllCharacters()
+        const npcs = getAllNPCs()
         
-        console.log('🤖 开始调用API生成AI评论...')
-        await generateRealAIComments(postId, caption, chars)
+        // 用户发的帖子，只让NPC评论（不让AI角色评论自己的朋友圈）
+        const npcAsCharacters = npcs.map((npc: ForumNPC) => ({
+          id: npc.id,
+          realName: npc.name,
+          nickname: npc.name,
+          signature: npc.bio,
+          personality: '',
+          avatar: npc.avatar,
+          createdAt: new Date().toISOString()
+        }))
+        
+        console.log(`🤖 开始生成评论... (${npcs.length}个路人NPC)`)
+        await generateRealAIComments(postId, caption, npcAsCharacters)
         
         // 更新帖子评论数
         const updatedPosts = getAllPosts()
         const post = updatedPosts.find(p => p.id === postId)
         if (post) {
-          const { getPostComments } = await import('../utils/forumComments')
-          const comments = getPostComments(postId)
+          const comments = await getPostComments(postId)
           post.comments = comments.length
           savePosts(updatedPosts)
           console.log(`✅ 帖子评论数已更新: ${comments.length}`)

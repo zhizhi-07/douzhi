@@ -564,12 +564,13 @@ const GlobalDecoration = () => {
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
           backgroundSize: `${adjustParams['main-topbar-bg']?.scale || 100}%`,
-          backgroundPosition: `calc(50% + ${adjustParams['main-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-topbar-bg']?.y || 0}px)`
+          backgroundPosition: `calc(50% + ${adjustParams['main-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-topbar-bg']?.y || 0}px)`,
+          backgroundRepeat: 'no-repeat'
         } : {}}
         title="点击空白处更换顶栏背景"
       >
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">微信</h1>
+        <div className="flex items-center justify-between relative z-10">
+          <h1 className="text-xl font-semibold text-gray-900" style={{textShadow: '0 1px 2px rgba(255,255,255,0.8), 0 0 8px rgba(255,255,255,0.6)'}}>微信</h1>
           <div className="flex items-center gap-3">
             {/* 群聊按钮 */}
             <div 
@@ -652,7 +653,8 @@ const GlobalDecoration = () => {
         style={customIcons['main-bottombar-bg'] ? {
           backgroundImage: `url(${customIcons['main-bottombar-bg']})`,
           backgroundSize: `${adjustParams['main-bottombar-bg']?.scale || 100}%`,
-          backgroundPosition: `calc(50% + ${adjustParams['main-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-bottombar-bg']?.y || 0}px)`
+          backgroundPosition: `calc(50% + ${adjustParams['main-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['main-bottombar-bg']?.y || 0}px)`,
+          backgroundRepeat: 'no-repeat'
         } : {}}
         title="点击空白处更换底栏背景"
       >
@@ -662,7 +664,7 @@ const GlobalDecoration = () => {
           { id: 'nav-discover', label: '发现' },
           { id: 'nav-me', label: '我' }
         ].map(item => (
-          <div key={item.id} className="flex flex-col items-center gap-1">
+          <div key={item.id} className="flex flex-col items-center gap-1 relative z-10">
             <div 
               className="w-6 h-6 bg-gray-300 rounded-lg cursor-pointer hover:ring-2 hover:ring-blue-400"
               onClick={(e) => {
@@ -676,7 +678,7 @@ const GlobalDecoration = () => {
               } : {}}
               title={`点击更换${item.label}图标`}
             />
-            <span className="text-[10px] text-gray-600">{item.label}</span>
+            <span className="text-[10px] text-gray-600" style={{textShadow: '0 1px 2px rgba(255,255,255,0.8)'}}>{item.label}</span>
           </div>
         ))}
       </div>
@@ -711,14 +713,15 @@ const GlobalDecoration = () => {
         style={customIcons['chat-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['chat-topbar-bg']})`,
           backgroundSize: `${adjustParams['chat-topbar-bg']?.scale || 100}%`,
-          backgroundPosition: `calc(50% + ${adjustParams['chat-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-topbar-bg']?.y || 0}px)`
+          backgroundPosition: `calc(50% + ${adjustParams['chat-topbar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-topbar-bg']?.y || 0}px)`,
+          backgroundRepeat: 'no-repeat'
         } : {}}
         title="点击空白处更换顶栏背景"
       >
         {/* StatusBar占位 */}
         <div className="h-6 bg-transparent"></div>
         {/* 实际内容区 */}
-        <div className="flex items-center px-4 gap-3 py-3">
+        <div className="flex items-center px-4 gap-3 py-3 relative z-10">
           <div 
           className="w-6 h-6 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
           onClick={(e) => {
@@ -733,7 +736,7 @@ const GlobalDecoration = () => {
           title="点击更换返回按钮"
         />
         <div className="flex-1 text-center">
-          <span className="text-sm font-medium text-gray-700">联系人名称</span>
+          <span className="text-sm font-medium text-gray-700" style={{textShadow: '0 1px 2px rgba(255,255,255,0.8), 0 0 8px rgba(255,255,255,0.6)'}}>联系人名称</span>
         </div>
         <div 
           className="w-6 h-6 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
@@ -832,13 +835,14 @@ const GlobalDecoration = () => {
         style={customIcons['chat-bottombar-bg'] ? {
           backgroundImage: `url(${customIcons['chat-bottombar-bg']})`,
           backgroundSize: `${adjustParams['chat-bottombar-bg']?.scale || 100}%`,
-          backgroundPosition: `calc(50% + ${adjustParams['chat-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-bottombar-bg']?.y || 0}px)`
+          backgroundPosition: `calc(50% + ${adjustParams['chat-bottombar-bg']?.x || 0}px) calc(50% + ${adjustParams['chat-bottombar-bg']?.y || 0}px)`,
+          backgroundRepeat: 'no-repeat'
         } : {}}
         title="点击空白处更换底栏背景"
       >
         {/* 加号按钮 */}
         <div 
-          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center"
+          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center relative z-10"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-add-btn')
@@ -859,7 +863,7 @@ const GlobalDecoration = () => {
         
         {/* 输入框 */}
         <div 
-          className="flex-1 bg-gray-100 rounded-full h-9 px-3 flex items-center justify-between cursor-pointer hover:ring-2 hover:ring-blue-400 relative group"
+          className="flex-1 bg-gray-100 rounded-full h-9 px-3 flex items-center justify-between cursor-pointer hover:ring-2 hover:ring-blue-400 relative group z-10"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-input-bg')
@@ -877,7 +881,7 @@ const GlobalDecoration = () => {
         
         {/* 底栏背景上传按钮 */}
         <div
-          className="w-7 h-7 bg-blue-50 rounded-full cursor-pointer hover:bg-blue-100 flex items-center justify-center"
+          className="w-7 h-7 bg-blue-50 rounded-full cursor-pointer hover:bg-blue-100 flex items-center justify-center relative z-10"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-bottombar-bg')
@@ -891,7 +895,7 @@ const GlobalDecoration = () => {
         
         {/* 表情按钮 */}
         <div 
-          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400"
+          className="w-7 h-7 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 relative z-10"
           onClick={(e) => {
             e.stopPropagation()
             handleIconClick('chat-emoji')
@@ -908,7 +912,7 @@ const GlobalDecoration = () => {
         {hasInput ? (
           // 发送按钮（有输入时）
           <div 
-            className="w-8 h-8 bg-gray-900 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center"
+            className="w-8 h-8 bg-gray-900 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center relative z-10"
             onClick={(e) => {
               e.stopPropagation()
               handleIconClick('chat-send')
@@ -929,7 +933,7 @@ const GlobalDecoration = () => {
         ) : (
           // AI回复按钮（无输入时）
           <div 
-            className="w-8 h-8 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center"
+            className="w-8 h-8 bg-gray-300 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400 flex items-center justify-center relative z-10"
             onClick={(e) => {
               e.stopPropagation()
               handleIconClick('chat-ai')
@@ -984,7 +988,7 @@ const GlobalDecoration = () => {
                   <img src={customIcons[item.id]} alt={item.label} className="w-full h-full object-contain" />
                 ) : null}
               </div>
-              <span className="text-[10px] text-gray-600">{item.label}</span>
+              <span className="text-[10px] text-gray-600" style={{textShadow: '0 1px 2px rgba(255,255,255,0.8)'}}>{item.label}</span>
             </div>
           ))}
         </div>
@@ -1185,7 +1189,7 @@ const GlobalDecoration = () => {
       <div className="flex-1 flex items-start justify-center p-4 md:p-8 overflow-auto">
         <div className="glass-card rounded-3xl shadow-xl p-4 md:p-8 w-full max-w-4xl lg:flex lg:gap-8">
           {/* 手机预览框 */}
-          <div className="w-[320px] h-[568px] md:w-[375px] md:h-[667px] bg-white border-2 border-gray-300 rounded-[3rem] p-3 shadow-2xl mx-auto lg:mx-0 mb-6 lg:mb-0 flex-shrink-0">
+          <div data-preview-phone className="w-[320px] h-[568px] md:w-[375px] md:h-[667px] bg-white border-2 border-gray-300 rounded-[3rem] p-3 shadow-2xl mx-auto lg:mx-0 mb-6 lg:mb-0 flex-shrink-0">
             <div className="w-full h-full glass-card rounded-[2.5rem] overflow-hidden">
               {currentView === 'main' ? <MainView /> : currentView === 'chat' ? <ChatView /> : <DesktopView />}
             </div>

@@ -14,6 +14,7 @@ interface ChatHeaderProps {
   isAiTyping?: boolean
   onBack?: () => void
   onMenuClick?: () => void
+  onStatusClick?: () => void
   topBarImage?: string | null
   customIcons?: Record<string, string>
   topBarScale?: number
@@ -21,7 +22,7 @@ interface ChatHeaderProps {
   topBarY?: number
 }
 
-const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
+const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, onStatusClick, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
   const navigate = useNavigate()
   const [aiStatus, setAiStatus] = useState<string>('')
 
@@ -88,17 +89,23 @@ const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClic
         </div>
 
         {/* 中间：名字和状态居中 */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center max-w-[60%]">
+          <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap truncate max-w-full">
             {characterName}
           </h1>
-          {/* 状态栏：绿色圆点 + 状态文字 */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+          {/* 状态栏：绿色圆点 + 状态文字 - 可点击查看详情 */}
+          <button
+            onClick={() => {
+              playSystemSound()
+              onStatusClick?.()
+            }}
+            className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 max-w-full btn-press-fast touch-ripple-effect px-2 py-0.5 rounded-full hover:bg-gray-100/50 transition-colors"
+          >
             <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-            <span className="whitespace-nowrap">
+            <span className="truncate">
               {isAiTyping ? '正在输入...' : aiStatus}
             </span>
-          </div>
+          </button>
         </div>
 
         {/* 右侧：功能按钮 */}

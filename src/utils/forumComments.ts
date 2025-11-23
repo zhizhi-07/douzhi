@@ -87,7 +87,31 @@ export function getAllComments(): Comment[] {
 
 // 保存评论
 export function saveComments(comments: Comment[]) {
-  localStorage.setItem('forum_comments', JSON.stringify(comments))
+  try {
+    // 限制评论数量，最多保留1000条（防止localStorage溢出）
+    const MAX_COMMENTS = 1000
+    const limitedComments = comments.length > MAX_COMMENTS 
+      ? comments.slice(0, MAX_COMMENTS)
+      : comments
+    
+    localStorage.setItem('forum_comments', JSON.stringify(limitedComments))
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      console.warn('⚠️ localStorage空间不足，清理旧评论...')
+      // 强制清理，只保留最新500条
+      const cleaned = comments.slice(0, 500)
+      try {
+        localStorage.setItem('forum_comments', JSON.stringify(cleaned))
+        console.log('✅ 已清理评论，保留最新500条')
+      } catch (e) {
+        console.error('❌ 清理后仍然失败，清空评论存储')
+        localStorage.removeItem('forum_comments')
+      }
+    } else {
+      console.error('保存评论失败:', error)
+      throw error
+    }
+  }
 }
 
 // 格式化时间

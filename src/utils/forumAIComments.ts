@@ -1,130 +1,265 @@
-// 论坛AI评论生成系统 - 真实调用API
+// 论坛AI评论生成系统 - 真实调用API（单次调用生成完整评论生态）
 
 import { apiService } from '../services/apiService'
 import type { ApiConfig } from '../services/apiService'
-import { addComment, addReply } from './forumComments'
+import { addComment } from './forumCommentsDB'
 import type { Character } from '../services/characterService'
 
-// 调用API生成评论
-async function callAIForComment(character: Character, postContent: string, apiConfig: ApiConfig): Promise<string> {
-  try {
-    const prompt = `你是${character.nickname || character.realName}，刚看到了朋友发的一条社交媒体动态：
-
-"${postContent}"
-
-请以${character.nickname || character.realName}的身份，用1-2句话自然地评论这条动态。要符合你的性格，不要太正式，就像朋友之间聊天那样。
-
-注意：
-- 只输出评论内容，不要有其他说明
-- 评论要简短自然，10-30字
-- 可以用表情符号
-- 要符合你的性格特点：${character.personality || '性格友好'}
-
-直接输出评论内容：`
-
-    // 确保URL包含/v1路径
-    const url = apiConfig.baseUrl.includes('/v1') 
-      ? `${apiConfig.baseUrl}/chat/completions`
-      : `${apiConfig.baseUrl}/v1/chat/completions`
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.9,
-        max_tokens: 100
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`API请求失败: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content || ''
-    
-    // 清理输出，只保留评论内容
-    return content.trim().replace(/^["']|["']$/g, '')
-  } catch (error) {
-    console.error('AI评论生成失败:', error)
-    // 失败时使用模板
-    const templates = ['真不错👍', '好棒啊', '喜欢', '支持', '赞']
-    return templates[Math.floor(Math.random() * templates.length)]
-  }
+interface CommentActor {
+  id: string
+  name: string
+  avatar: string
+  personality?: string
+  signature?: string
 }
 
-// 生成AI角色评论
+interface GeneratedComment {
+  characterId: string
+  content: string
+}
+
+function buildActorsForPrompt(characters: Character[]): CommentActor[] {
+  return characters
+    .filter(c => c && c.id && (c.realName || c.nickname))
+    .map(c => ({
+      id: c.id,
+      name: c.nickname || c.realName,
+      avatar: c.avatar || '/default-avatar.png',
+      personality: c.personality || '',
+      signature: c.signature || ''
+    }))
+}
+
+// 单次调用：批量生成评论列表
+async function callAIForCommentsBatch(
+  actors: CommentActor[],
+  postContent: string,
+  apiConfig: ApiConfig
+): Promise<GeneratedComment[]> {
+  // 构造一个清晰、可解析的JSON协议
+  const actorsForPrompt = actors.map(a => ({
+    id: a.id,
+    name: a.name,
+    personality: a.personality,
+    signature: a.signature
+  }))
+
+  const systemPrompt = `你是一个社交平台的"评论编导"，负责为一条动态生成完整的评论区生态。
+
+要求：
+- 把下面提供的角色名单当成真实的人（不是AI），每个人有自己的名字、性格、签名
+- **完全根据动态的内容和氛围，自主决定：**
+  - 评论数量（**6-12条为佳**，热门话题可以更多）
+  - 谁会评论、谁不会评论（不是每个人都必须出现，但至少要有6-8人参与）
+  - 评论风格（热情/冷淡/吐槽/安慰/调侃/深度讨论）
+- **真实场景举例：**
+  - 沉重话题（失恋、压力大）→ 5-7人会安慰，表达关心
+  - 有趣八卦（搞笑事件）→ 10+人围观、起哄、热闹
+  - 普通日常（吃饭、看电影）→ 6-9人随意点赞或评论
+  - 炫耀类（买新车、升职）→ 8-10人祝贺/酸/打趣
+- 评论之间可以有轻微的呼应和互动感
+
+**输出格式（纯文本，每行一条评论）：**
+名字：评论内容
+名字：评论内容
+...
+
+例如：
+唐秋水：哈哈哈笑死了😂
+小美：真好看！
+张三：我也觉得不错👍
+
+**重要规则：**
+1. 每行格式必须是"名字：评论内容"
+2. 名字必须是下面角色列表中的一个
+3. 评论内容10-40字，自然口语，可以带表情
+4. 不要添加任何解释、序号或其他格式
+5. 直接输出评论，不要有任何前言或总结`
+
+  const userPayload = {
+    post: {
+      content: postContent
+    },
+    actors: actorsForPrompt
+  }
+
+  // 确保URL包含/v1路径
+  const url = apiConfig.baseUrl.includes('/v1')
+    ? `${apiConfig.baseUrl}/chat/completions`
+    : `${apiConfig.baseUrl}/v1/chat/completions`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiConfig.apiKey}`
+    },
+    body: JSON.stringify({
+      model: apiConfig.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: JSON.stringify(userPayload, null, 2) }
+      ],
+      temperature: 0.9,
+      max_tokens: 1200
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`API请求失败: ${response.status}`)
+  }
+
+  const data = await response.json()
+  let content = (data as any).choices?.[0]?.message?.content as string | undefined
+
+  if (!content) {
+    throw new Error('API返回内容为空')
+  }
+
+  content = content.trim()
+
+  // 去除 markdown code block 标记
+  content = content.replace(/^```\s*/i, '').replace(/\s*```$/g, '')
+  content = content.trim()
+
+  // 解析纯文本格式：每行"名字：评论内容"
+  const results: GeneratedComment[] = []
+  const lines = content.split('\n')
+
+  // 创建名字到ID的映射
+  const nameToId = new Map<string, string>()
+  for (const actor of actors) {
+    nameToId.set(actor.name, actor.id)
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    // 匹配格式：名字：评论内容
+    const match = trimmed.match(/^(.+?)[:：](.+)$/)
+    if (!match) continue
+
+    const name = match[1].trim()
+    const commentContent = match[2].trim()
+
+    if (!name || !commentContent) continue
+
+    // 查找对应的角色ID
+    const characterId = nameToId.get(name)
+    if (!characterId) {
+      console.warn(`⚠️ 未找到角色"${name}"`)
+      continue
+    }
+
+    results.push({
+      characterId,
+      content: commentContent
+    })
+  }
+
+  if (results.length === 0) {
+    throw new Error('未能解析出任何评论')
+  }
+
+  console.log(`✅ 解析成功：${results.length} 条评论`)
+  return results
+}
+
+// 本地降级：在API失败时，用简单模板撑起最基本的生态
+function fallbackComments(actors: CommentActor[], postContent: string): GeneratedComment[] {
+  if (actors.length === 0) return []
+
+  const baseTemplates = [
+    '这个说得太真实了…',
+    '抱抱你 🙏',
+    '我也有同感',
+    '记得好好休息一下',
+    '支持你做自己的决定',
+    '哈哈哈太有画面感了',
+    '下次带上我一起！',
+    '拍得不错，感觉很有氛围'
+  ]
+
+  const count = Math.min(6, Math.max(3, Math.floor(actors.length / 2)))
+  const shuffled = [...actors].sort(() => Math.random() - 0.5).slice(0, count)
+
+  return shuffled.map((actor, idx) => ({
+    characterId: actor.id,
+    content: baseTemplates[(idx + postContent.length) % baseTemplates.length]
+  }))
+}
+
+// 生成AI角色评论（单次API调用）
 export async function generateRealAIComments(
-  postId: string, 
+  postId: string,
   postContent: string,
   characters: Character[]
 ) {
-  // 获取当前API配置
-  const apiConfigs = apiService.getAll()
-  const currentId = apiService.getCurrentId() ||  apiConfigs[0]?.id
-  const apiConfig = apiConfigs.find(c => c.id === currentId)
-  
-  if (!apiConfig) {
-    console.error('没有可用的API配置')
+  if (!postId || !postContent) {
+    console.error('❌ 帖子ID或内容为空')
     return
   }
 
-  // 随机选择2-5个角色
-  const commentCount = Math.floor(Math.random() * 4) + 2
-  const selectedChars = [...characters]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.min(commentCount, characters.length))
+  const actors = buildActorsForPrompt(characters)
+  if (actors.length === 0) {
+    console.warn('⚠️ 没有可用的角色/NPC生成评论')
+    return
+  }
 
-  console.log(`📝 开始为帖子生成${selectedChars.length}条AI评论...`)
+  console.log(`👥 评论候选：${actors.length} 人`)
 
-  for (let i = 0; i < selectedChars.length; i++) {
-    const char = selectedChars[i]
-    
-    // 延迟，模拟真实评论时间
-    const delay = (i + 1) * 1500 + Math.random() * 1000
-    await new Promise(resolve => setTimeout(resolve, delay))
+  // 获取当前API配置
+  const apiConfigs = apiService.getAll()
+  const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
+  const apiConfig = apiConfigs.find(c => c.id === currentId)
+
+  if (!apiConfig) {
+    console.error('❌ 没有可用的API配置')
+    return
+  }
+
+  let generated: GeneratedComment[] = []
+
+  try {
+    generated = await callAIForCommentsBatch(actors, postContent, apiConfig)
+    console.log(`📝 批量生成评论 ${generated.length} 条`)
+  } catch (error) {
+    console.error('❌ 批量AI评论生成失败，使用本地模板降级：', error)
+    generated = fallbackComments(actors, postContent)
+  }
+
+  if (!generated.length) {
+    console.warn('⚠️ 没有生成任何评论')
+    return
+  }
+
+  // 映射 actorId -> actor 信息，方便落盘
+  const actorMap = new Map<string, CommentActor>()
+  for (const actor of actors) {
+    actorMap.set(actor.id, actor)
+  }
+
+  // 统一写入评论DB（不再额外请求API）
+  for (const item of generated) {
+    const actor = actorMap.get(item.characterId)
+    if (!actor) continue
+
+    const content = item.content.trim()
+    if (!content) continue
 
     try {
-      console.log(`⏳ ${char.nickname || char.realName} 正在评论...`)
-      
-      // 调用API生成评论
-      const commentContent = await callAIForComment(char, postContent, apiConfig)
-      
-      console.log(`✅ ${char.nickname || char.realName}: ${commentContent}`)
-
-      // 保存评论
-      addComment(
+      await addComment(
         postId,
-        char.id,
-        char.nickname || char.realName,
-        char.avatar || '/default-avatar.png',
-        commentContent
+        actor.id,
+        actor.name,
+        actor.avatar,
+        content
       )
-
-      // 30%概率有下一个角色回复
-      if (Math.random() < 0.3 && i < selectedChars.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 800))
-        
-        const replier = selectedChars[i + 1]
-        const replyTemplates = ['哈哈', '确实', '同感', '赞同', '对']
-        const replyContent = replyTemplates[Math.floor(Math.random() * replyTemplates.length)]
-        
-        console.log(`💬 ${replier.nickname || replier.realName} 回复了 ${char.nickname || char.realName}`)
-        
-        // TODO: 这里可以获取最后一条评论ID并添加回复
-        // 暂时跳过回复功能，先保证基本评论能工作
-      }
-    } catch (error) {
-      console.error(`❌ ${char.nickname || char.realName} 评论失败:`, error)
+    } catch (err) {
+      console.error(`❌ 保存评论失败 (${actor.name}):`, err)
     }
   }
 
-  console.log('🎉 AI评论生成完成！')
+  console.log('🎉 评论生态生成完成（单次API + 本地落盘）')
 }

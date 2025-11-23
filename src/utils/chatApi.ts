@@ -617,11 +617,12 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const privacy = getCoupleSpacePrivacy()
   let coupleSpaceStatus = ''
 
+  // 只有 status === 'active' 才算真正有情侣空间，pending/rejected/ended 都视为没有
   if (privacy === 'private') {
     coupleSpaceStatus = `对方情侣空间私密中`
-  } else if (relation && relation.status === 'active' && relation.characterId === character.id) {
+  } else if (relation?.status === 'active' && relation.characterId === character.id) {
     coupleSpaceStatus = `你们已建立情侣空间`
-  } else if (relation && relation.status === 'active') {
+  } else if (relation?.status === 'active' && relation.characterId !== character.id) {
     coupleSpaceStatus = `TA和${relation.characterName}有情侣空间`
   } else {
     coupleSpaceStatus = `TA还没建立情侣空间`
@@ -746,9 +747,12 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 - 不会提到“提示词”“系统信息”“记忆系统”等幕后运作细节。
 - 现实世界里别人用 ChatGPT 一类工具的经历，不会被你当成“自己在这里亲身经历过”。
 
-关于 ${userNickname}，你心里大概是这样认识的：
-- 对方在这里使用的名字是：${userNickname}
-- 真实姓名：${userInfo.realName || '（未知或未提供）'}
+关于对方的身份信息，你心里大概是这样认识的：
+${userInfo.nickname && userInfo.realName !== userInfo.nickname 
+  ? `- TA 的真实姓名是：${userInfo.realName}
+- TA 在这里使用的网名/昵称是：${userInfo.nickname}
+- 你平时叫 TA 时，可以根据亲密度选择叫真名（${userInfo.realName}）或网名（${userInfo.nickname}），亲密时更倾向用真名。`
+  : `- TA 的名字是：${userInfo.realName}${userInfo.nickname ? `（也叫 ${userInfo.nickname}）` : ''}`}
 ${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : ''}
 ${userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : ''}
 - 你看到的外在印象和头像变化：${buildUserAvatarContext()}
@@ -875,6 +879,30 @@ ${emojiListPrompt}
   - 位置：[位置:地点名称] —— 想告诉对方你在哪时。
   - 表情：[表情:描述] —— 当你想用表情而不是文字表达反应时，比文字更生动。
     例：[表情:躺平]、[表情:哭笑不得]
+
+- 小剧场卡片（重要！优先使用工具调用）：
+  你可以生成逼真的手机截图卡片来展示：支付记录、红包、投票、朋友圈、聊天记录、天气等。
+  
+  **什么时候用**：
+  - 当对话中涉及"给你发红包""转账""支付""请客""投票""发朋友圈""天气"等场景时
+  - 比如：对方说"给我发个红包"，你可以真的生成一个红包卡片
+  - 比如：你说"发起个投票"，应该真的调用投票工具，而不是只说要发投票
+  
+  **怎么用**：
+  使用 send_theatre_card 工具（Function Calling），不要用文本格式的 [小剧场:xxx]。
+  
+  常用模板：
+  - payment_success：支付成功页面（给对方转账、请客、付款后展示）
+  - red_packet：红包记录（发红包、抢红包）
+  - poll：投票/问卷（征求意见、发起投票）
+  - moments_post：朋友圈动态（发朋友圈、分享照片）
+  - weather：天气预报（关心对方冷暖、查天气）
+  - wechat_chat：聊天记录截图（展示和别人的对话）
+  
+  **注意**：
+  - 当你说"我给你发个红包""发起个投票"时，**必须真的调用工具生成卡片**，不要只说不做
+  - 数据要根据对话内容填写，比如金额、选项、内容等
+  - 一次对话可以调用多次工具（比如先发红包，再发朋友圈）
 
 - 消息操作：
   - 撤回：[撤回消息:要撤回的内容:理由]
@@ -1339,8 +1367,8 @@ const buildDynamicInstructions = (messages: Message[]): string => {
     instructions.push(`
 💑 情侣空间邀请：
 - 用户邀请你建立情侣空间，你可以：
-  - 接受：[情侣空间:接受]
-  - 拒绝：[情侣空间:拒绝]`)
+  - 接受：[接受情侣空间] 或 [同意情侣空间]
+  - 拒绝：[拒绝情侣空间]`)
   }
   
   // 检查是否有待处理的一起听歌邀请（用户邀请AI）
@@ -1499,7 +1527,8 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
  */
 const callAIApiInternal = async (
   messages: ChatMessage[],
-  settings: ApiSettings
+  settings: ApiSettings,
+  enableTheatreCards: boolean = true
 ): Promise<ApiResponse> => {
   // 请求节流：确保两次请求之间至少间隔1秒
   const now = Date.now()
@@ -1719,34 +1748,41 @@ const callAIApiInternal = async (
         console.log('🎭 [小剧场] isGemini:', isGemini)
       }
       
-      // 🔧 对于 custom provider，统一使用 OpenAI 格式（更通用）
-      if (settings.provider === 'custom') {
-        requestBody.tools = [{
-          type: 'function',
-          function: THEATRE_TOOL
-        }]
-        if (import.meta.env.DEV) {
-          console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式 - custom provider)')
+      // 🔧 仅在启用小剧场功能时添加 THEATRE_TOOL
+      if (enableTheatreCards) {
+        // 对于 custom provider，统一使用 OpenAI 格式（更通用）
+        if (settings.provider === 'custom') {
+          requestBody.tools = [{
+            type: 'function',
+            function: THEATRE_TOOL
+          }]
+          if (import.meta.env.DEV) {
+            console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式 - custom provider)')
+          }
         }
-      }
-      // Google 官方 API 使用 Gemini 原生格式
-      else if (settings.provider === 'google') {
-        requestBody.tools = [{
-          function_declarations: [THEATRE_TOOL]
-        }]
-        if (import.meta.env.DEV) {
-          console.log('🎭 [小剧场] Function Calling 已启用 (Gemini 原生格式)')
-          console.log('🎭 [小剧场] 工具定义:', THEATRE_TOOL)
+        // Google 官方 API 使用 Gemini 原生格式
+        else if (settings.provider === 'google') {
+          requestBody.tools = [{
+            function_declarations: [THEATRE_TOOL]
+          }]
+          if (import.meta.env.DEV) {
+            console.log('🎭 [小剧场] Function Calling 已启用 (Gemini 原生格式)')
+            console.log('🎭 [小剧场] 工具定义:', THEATRE_TOOL)
+          }
         }
-      }
-      // OpenAI 官方 API
-      else if (settings.provider === 'openai') {
-        requestBody.tools = [{
-          type: 'function',
-          function: THEATRE_TOOL
-        }]
+        // OpenAI 官方 API
+        else if (settings.provider === 'openai') {
+          requestBody.tools = [{
+            type: 'function',
+            function: THEATRE_TOOL
+          }]
+          if (import.meta.env.DEV) {
+            console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式)')
+          }
+        }
+      } else {
         if (import.meta.env.DEV) {
-          console.log('🎭 [小剧场] Function Calling 已启用 (OpenAI 格式)')
+          console.log('🎭 [小剧场] 功能已关闭，不传递 THEATRE_TOOL')
         }
       }
     } else {
@@ -1966,14 +2002,15 @@ export interface ApiResponse {
  */
 export const callAIApi = async (
   messages: ChatMessage[],
-  settings: ApiSettings
+  settings: ApiSettings,
+  enableTheatreCards: boolean = true
 ): Promise<ApiResponse> => {
   const MAX_RETRIES = 3 // 最大重试次数
   let lastError: ChatApiError | null = null
   
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      return await callAIApiInternal(messages, settings)
+      return await callAIApiInternal(messages, settings, enableTheatreCards)
     } catch (error) {
       if (error instanceof ChatApiError) {
         lastError = error

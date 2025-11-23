@@ -3113,7 +3113,11 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
         page.style.pointerEvents = 'auto'
         page.style.cursor = 'pointer'
 
-        // 初始Z-index
+        // 初始Z-index：右侧堆叠，页码越小越在上面
+        // Page 1 (Monday) = z-index 7
+        // Page 2 (Tuesday) = z-index 6
+        // ...
+        // Page 6 (Saturday) = z-index 2
         const initialZ = 8 - pageNumber
         page.style.zIndex = String(initialZ)
 
@@ -3124,13 +3128,14 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
           const isFlipped = currentTransform.includes('-180deg')
 
           if (isFlipped) {
-            // 翻回来
+            // 翻回右侧：恢复初始 z-index，让它回到右侧堆叠的正确位置
             page.style.transform = `rotateY(0deg) ${baseTransform}`
             page.style.zIndex = String(initialZ)
           } else {
-            // 翻过去
+            // 翻到左侧：设置较高的 z-index，让它在左侧堆叠的顶部
+            // 左侧堆叠的 z-index 应该高于右侧，确保翻过去的页面在上面
             page.style.transform = `rotateY(-180deg) ${baseTransform}`
-            const flippedZ = 1 + pageNumber
+            const flippedZ = 10 + pageNumber  // 10+ 确保在左侧堆叠时高于右侧所有页面
             page.style.zIndex = String(flippedZ)
           }
         })

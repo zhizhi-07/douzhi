@@ -12,12 +12,12 @@ body {
   background: transparent !important;
 }
 
-/* 强制所有白色和灰色背景透明，但排除开关按钮、功能弹窗、消息卡片和其内部元素 */
-.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([class*="rounded-xl"]), 
-.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *), 
-.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *), 
-.bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *),
-.bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *) {
+/* 强制所有白色和灰色背景透明，但排除开关按钮、功能弹窗、消息卡片和预览窗口 */
+.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([class*="rounded-xl"]):not([data-preview-phone]):not([data-preview-phone] *), 
+.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *), 
+.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *), 
+.bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *),
+.bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *) {
   background: transparent !important;
 }
 

@@ -26,44 +26,78 @@ export interface ForumPost {
   }
 }
 
-// 预设NPC列表
-const DEFAULT_NPCS: ForumNPC[] = [
-  {
-    id: 'npc-1',
-    name: '小美',
-    avatar: '/default-avatar.png',
-    bio: '热爱生活，喜欢分享日常点滴 ✨',
-    followers: 1234
-  },
-  {
-    id: 'npc-2',
-    name: '阿强',
-    avatar: '/default-avatar.png',
-    bio: '摄影爱好者 📷 | 旅行达人 🌍',
-    followers: 2567
-  },
-  {
-    id: 'npc-3',
-    name: '林小雨',
-    avatar: '/default-avatar.png',
-    bio: '美食博主 | 探店小能手 🍜',
-    followers: 3456
-  },
-  {
-    id: 'npc-4',
-    name: '张三',
-    avatar: '/default-avatar.png',
-    bio: '科技发烧友 💻 | 数码测评',
-    followers: 4321
-  },
-  {
-    id: 'npc-5',
-    name: '小李',
-    avatar: '/default-avatar.png',
-    bio: '健身达人 💪 | 分享运动日常',
-    followers: 1890
-  }
+// 随机生成NPC名字池
+const SURNAMES = ['王', '李', '张', '刘', '陈', '杨', '黄', '赵', '周', '吴', '徐', '孙', '马', '朱', '胡', '郭', '何', '林', '罗', '郑']
+const GIVEN_NAMES_1 = ['小', '大', '阿', '老']
+const GIVEN_NAMES_2 = ['明', '华', '伟', '芳', '娜', '敏', '静', '丽', '强', '磊', '军', '洋', '勇', '艳', '杰', '娟', '涛', '超', '刚', '平']
+const SINGLE_NAMES = ['浩', '悦', '瑞', '欣', '婷', '杰', '宇', '琳', '晨', '雨', '雪', '阳', '萌', '佳', '怡', '凯', '霞', '峰', '颖', '鑫']
+
+const BIOS = [
+  '热爱生活，喜欢分享日常 ✨',
+  '摄影爱好者 📷',
+  '美食博主 🍜',
+  '科技发烧友 💻',
+  '健身达人 💪',
+  '旅行爱好者 🌍',
+  '音乐人 🎵',
+  '电影迷 🎬',
+  '读书人 📚',
+  '咖啡爱好者 ☕',
+  '宠物控 🐱',
+  '手工达人 ✂️',
+  '游戏玩家 🎮',
+  '跑步爱好者 🏃',
+  '吃货一枚 😋',
+  '设计师 🎨',
+  '程序员 👨‍💻',
+  '自由职业者 🌈',
+  '学生党 📖',
+  '上班族 💼'
 ]
+
+// 随机生成NPC名字
+function randomName(): string {
+  const r = Math.random()
+  if (r < 0.3) {
+    // 单字名 30%
+    return SURNAMES[Math.floor(Math.random() * SURNAMES.length)] + 
+           SINGLE_NAMES[Math.floor(Math.random() * SINGLE_NAMES.length)]
+  } else if (r < 0.6) {
+    // 小/阿/大+单字 30%
+    return GIVEN_NAMES_1[Math.floor(Math.random() * GIVEN_NAMES_1.length)] + 
+           SINGLE_NAMES[Math.floor(Math.random() * SINGLE_NAMES.length)]
+  } else {
+    // 姓+双字名 40%
+    return SURNAMES[Math.floor(Math.random() * SURNAMES.length)] + 
+           GIVEN_NAMES_2[Math.floor(Math.random() * GIVEN_NAMES_2.length)] + 
+           GIVEN_NAMES_2[Math.floor(Math.random() * GIVEN_NAMES_2.length)]
+  }
+}
+
+// 生成随机NPC列表
+function generateRandomNPCs(count: number = 8): ForumNPC[] {
+  const npcs: ForumNPC[] = []
+  const usedNames = new Set<string>()
+  
+  for (let i = 0; i < count; i++) {
+    let name = randomName()
+    // 避免重名
+    while (usedNames.has(name)) {
+      name = randomName()
+    }
+    usedNames.add(name)
+    
+    npcs.push({
+      id: `npc-${i + 1}`,
+      name,
+      avatar: '/default-avatar.png',
+      bio: BIOS[Math.floor(Math.random() * BIOS.length)],
+      followers: Math.floor(Math.random() * 5000) + 500
+    })
+  }
+  
+  return npcs
+}
 
 // 帖子模板
 const POST_TEMPLATES = [
@@ -86,10 +120,16 @@ export function getAllNPCs(): ForumNPC[] {
     try {
       return JSON.parse(stored)
     } catch {
-      return DEFAULT_NPCS
+      // 解析失败，重新生成
+      const npcs = generateRandomNPCs(8)
+      saveNPCs(npcs)
+      return npcs
     }
   }
-  return DEFAULT_NPCS
+  // 首次加载，随机生成NPC
+  const npcs = generateRandomNPCs(8)
+  saveNPCs(npcs)
+  return npcs
 }
 
 // 保存NPC列表
@@ -199,7 +239,7 @@ export function initForumData() {
   const storedNPCs = localStorage.getItem('forum_npcs')
   if (!storedNPCs) {
     console.log('初始化NPC数据')
-    saveNPCs(DEFAULT_NPCS)
+    saveNPCs(generateRandomNPCs(8))
   }
   
   // 确保帖子数据存在

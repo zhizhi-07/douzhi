@@ -303,7 +303,7 @@ export default function TheatreApp() {
       </div>
 
       <div className="flex-1 overflow-auto p-4 bg-gray-50">
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
           
           {/* 搜索框 */}
           <div className="bg-white rounded-xl p-3 shadow-sm">
@@ -449,7 +449,7 @@ export default function TheatreApp() {
                     <div className="px-4 pb-4 pt-3 bg-gray-50/50">
                       <div className="mt-1">
                         <h4 className="text-xs font-medium text-gray-700 mb-3">预览效果</h4>
-                        <div className="bg-gray-100 p-4 rounded-lg">
+                        <div className="bg-gray-100 p-4 rounded-lg max-h-[600px] overflow-y-auto">
                           <TheatreMessage 
                             message={{
                               id: Date.now(),
@@ -517,7 +517,7 @@ export default function TheatreApp() {
       {/* 上传模板弹窗 */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowUploadModal(false)}>
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-lg font-medium text-black mb-4">上传自定义模板</h2>
               

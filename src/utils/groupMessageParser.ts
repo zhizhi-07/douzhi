@@ -57,14 +57,68 @@ export interface GroupChatScript {
 
 export function extractGroupChatScript(aiResponse: string): GroupChatScript | null {
   try {
+    // 尝试提取JSON（处理markdown代码块）
+    let jsonText = aiResponse
+    
+    // 移除markdown代码块标记
+    jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*$/g, '')
+    
     // 尝试提取JSON
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       console.error('❌ 未找到JSON格式')
       return null
     }
     
-    const scriptData = JSON.parse(jsonMatch[0])
+    let jsonStr = jsonMatch[0]
+    
+    // 🔥 修复截断的JSON：如果最后一个action的content不完整，尝试补全
+    try {
+      JSON.parse(jsonStr)
+    } catch (e) {
+      console.warn('⚠️ JSON解析失败，尝试修复截断...')
+      
+      // 策略1: 找到最后一个完整的 action 对象
+      const lastCompleteActionMatch = jsonStr.match(/\{[^}]*"actorName"\s*:\s*"[^"]+"\s*,\s*"content"\s*:\s*"[^"]*"\s*\}/g)
+      
+      if (lastCompleteActionMatch && lastCompleteActionMatch.length > 0) {
+        // 找到最后一个完整action的位置
+        const lastCompleteAction = lastCompleteActionMatch[lastCompleteActionMatch.length - 1]
+        const lastActionEndIndex = jsonStr.lastIndexOf(lastCompleteAction) + lastCompleteAction.length
+        
+        // 截取到最后一个完整action，然后补全
+        jsonStr = jsonStr.substring(0, lastActionEndIndex) + ']}'
+        console.log('✅ 策略1: 截取到最后一个完整action并补全')
+      } else {
+        // 策略2: 查找最后一个 "content": " 并补全
+        const lastContentIndex = jsonStr.lastIndexOf('"content"')
+        if (lastContentIndex !== -1) {
+          // 找到这个content的开始引号
+          const contentStartQuote = jsonStr.indexOf('"', lastContentIndex + 10) // 跳过 "content"
+          if (contentStartQuote !== -1) {
+            const contentEndQuote = jsonStr.indexOf('"', contentStartQuote + 1)
+            if (contentEndQuote === -1) {
+              // content的结束引号缺失，补全它
+              jsonStr = jsonStr.substring(0, jsonStr.length) + '"}]}'
+              console.log('✅ 策略2: 补全缺失的content结束引号')
+            } else {
+              // 有结束引号但后面结构不完整
+              jsonStr = jsonStr.substring(0, contentEndQuote + 1) + '}]}'
+              console.log('✅ 策略2: 补全action和数组结束')
+            }
+          }
+        } else {
+          // 策略3: 最后的兜底，直接截断到最后一个引号
+          const lastQuoteIndex = jsonStr.lastIndexOf('"')
+          if (lastQuoteIndex !== -1) {
+            jsonStr = jsonStr.substring(0, lastQuoteIndex + 1) + '"}]}'
+            console.log('✅ 策略3: 兜底修复')
+          }
+        }
+      }
+    }
+    
+    const scriptData = JSON.parse(jsonStr)
     
     // 验证必要字段
     if (!scriptData.actions || !Array.isArray(scriptData.actions)) {
@@ -77,6 +131,12 @@ export function extractGroupChatScript(aiResponse: string): GroupChatScript | nu
     
     scriptData.actions.forEach((action: any) => {
       const content = action.content
+      
+      // 🔥 跳过没有content的action（AI可能错误使用了tool_code等格式）
+      if (!content) {
+        console.warn('⚠️ [解析器] action缺少content字段，跳过:', action)
+        return
+      }
       
       // 检查是否包含表情包指令：[表情:编号]
       const emojiRegex = /\[表情:(\d+)\]/g

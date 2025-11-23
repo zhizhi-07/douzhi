@@ -81,8 +81,10 @@ export const createSystemMessage = (content: string): Message => {
 
 /**
  * 转换消息为API格式
+ * @param messages 消息列表
+ * @param hideTheatreHistory 是否隐藏小剧场历史（开启后AI看不到卡片）
  */
-export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
+export const convertToApiMessages = (messages: Message[], hideTheatreHistory: boolean = false): ChatMessage[] => {
   return messages
     .filter(msg => {
       // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
@@ -91,6 +93,13 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         console.log('🚫 [线下消息过滤] 跳过原始线下对话:', msg.content?.substring(0, 30))
         return false
       }
+      
+      // 🎭 如果开启"隐藏小剧场历史"，过滤掉所有theatre类型消息
+      if (hideTheatreHistory && msg.messageType === 'theatre') {
+        console.log('🚫 [小剧场过滤] 已隐藏卡片历史:', msg.theatre?.templateName || '卡片')
+        return false
+      }
+      
       return true
     })
     .map(msg => {
@@ -306,6 +315,61 @@ export const convertToApiMessages = (messages: Message[]): ChatMessage[] => {
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
           content: emojiInfo
+        }
+      }
+      
+      // 🎭 小剧场卡片消息转换为AI可读格式（自然语言描述，避免结构化格式被模仿）
+      if (msg.messageType === 'theatre' && msg.theatre) {
+        const templateName = msg.theatre.templateName || '卡片'
+        let summary = ''
+        
+        try {
+          const data = JSON.parse(msg.theatre.rawData || '{}')
+          
+          // 用完全口语化、无固定模式的描述，避免AI学习
+          if (msg.theatre.templateId === 'poll') {
+            const title = data.title || '投票'
+            summary = msg.type === 'sent' ? `对方发起投票问${title}` : `发起投票问${title}`
+          } else if (msg.theatre.templateId === 'payment_success') {
+            const amount = data.amount || '0'
+            const merchant = data.merchant || data.receiver || '商家'
+            summary = msg.type === 'sent' ? `对方付款¥${amount}给${merchant}` : `付款¥${amount}给${merchant}`
+          } else if (msg.theatre.templateId === 'red_packet') {
+            const amount = data.amount || '0'
+            summary = msg.type === 'sent' ? `对方发红包¥${amount}` : `发红包¥${amount}`
+          } else if (msg.theatre.templateId === 'moments_post') {
+            summary = msg.type === 'sent' ? `对方发了条朋友圈` : `发了条朋友圈`
+          } else if (msg.theatre.templateId === 'weather') {
+            const city = data.city || '城市'
+            summary = msg.type === 'sent' ? `对方查看${city}天气` : `查看${city}天气`
+          } else if (msg.theatre.templateId === 'wechat_chat') {
+            summary = msg.type === 'sent' ? `对方转发了聊天记录` : `转发了聊天记录`
+          } else if (msg.theatre.templateId === 'universal_card') {
+            const title = data.title || ''
+            summary = title ? (msg.type === 'sent' ? `对方发卡片${title}` : `发卡片${title}`) : (msg.type === 'sent' ? `对方发了张卡片` : `发了张卡片`)
+          } else if (msg.theatre.templateId === 'memo_list') {
+            const title = data.title || '清单'
+            const items = data.items || data.list || []
+            const firstThree = items.slice(0, 2).map((item: any) => 
+              typeof item === 'string' ? item : item.text
+            ).join('、')
+            summary = msg.type === 'sent' 
+              ? `对方列了个${title}，写了${firstThree}这些`
+              : `列了个${title}，写了${firstThree}这些`
+          } else {
+            // 其他类型
+            summary = msg.type === 'sent' ? `对方发了${templateName}` : `发了${templateName}`
+          }
+        } catch (e) {
+          console.error('[messageUtils] 解析卡片数据失败:', e)
+        }
+        
+        // 直接描述内容，不加"你生成了/用户发送了"
+        const theatreInfo = `[${summary || templateName}]`
+        
+        return {
+          role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
+          content: theatreInfo
         }
       }
       

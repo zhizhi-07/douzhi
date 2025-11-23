@@ -14,6 +14,8 @@ const CoupleAlbum = () => {
   const [photos, setPhotos] = useState<CoupleAlbumPhoto[]>([])
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [photoDescription, setPhotoDescription] = useState('')
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   useEffect(() => {
     loadPhotos()
@@ -24,7 +26,38 @@ const CoupleAlbum = () => {
     setPhotos(allPhotos)
   }
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 检查文件大小（限制5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      alert('图片大小不能超过5MB')
+      return
+    }
+
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件')
+      return
+    }
+
+    setImageFile(file)
+
+    // 预览图片
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setSelectedImage(event.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleUpload = () => {
+    if (!selectedImage) {
+      alert('请选择照片')
+      return
+    }
+
     if (!photoDescription.trim()) {
       alert('请输入文案')
       return
@@ -39,13 +72,24 @@ const CoupleAlbum = () => {
     addCouplePhoto(
       relation.characterId,
       '我',
-      photoDescription.trim()
+      photoDescription.trim(),
+      selectedImage  // 传入base64图片
     )
 
+    // 重置状态
     setPhotoDescription('')
+    setSelectedImage(null)
+    setImageFile(null)
     setShowUploadModal(false)
     loadPhotos()
     alert('照片已上传！')
+  }
+
+  const handleCancelUpload = () => {
+    setPhotoDescription('')
+    setSelectedImage(null)
+    setImageFile(null)
+    setShowUploadModal(false)
   }
 
   return (
@@ -103,12 +147,24 @@ const CoupleAlbum = () => {
               
               return (
                 <div key={photo.id} className="space-y-2">
-                  {/* 翻转照片卡片 */}
+                  {/* 照片显示 */}
                   <div className="flex justify-center">
-                    <FlipPhotoCard 
-                      description={photo.description}
-                      messageId={photo.timestamp}
-                    />
+                    {photo.imageUrl ? (
+                      /* 真实照片 */
+                      <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-lg">
+                        <img 
+                          src={photo.imageUrl} 
+                          alt={photo.description}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      /* 占位符卡片（兼容旧数据） */
+                      <FlipPhotoCard 
+                        description={photo.description}
+                        messageId={photo.timestamp}
+                      />
+                    )}
                   </div>
                   
                   {/* 发布者和时间 */}
@@ -144,6 +200,48 @@ const CoupleAlbum = () => {
           <div className="relative w-full max-w-sm glass-card rounded-3xl p-6 shadow-2xl border border-white/20">
             <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">上传照片</h3>
             
+            {/* 图片选择区域 */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">选择照片</label>
+              {selectedImage ? (
+                <div className="relative">
+                  <img 
+                    src={selectedImage} 
+                    alt="预览" 
+                    className="w-full aspect-square object-cover rounded-xl"
+                  />
+                  <button
+                    onClick={() => {
+                      setSelectedImage(null)
+                      setImageFile(null)
+                    }}
+                    className="absolute top-2 right-2 w-8 h-8 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white ios-button"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <label className="block w-full aspect-square border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-sm text-gray-500">点击选择照片</span>
+                    <span className="text-xs text-gray-400 mt-1">支持JPG、PNG，最大5MB</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* 文案输入 */}
             <div className="mb-4">
               <label className="block text-sm text-gray-700 mb-2">文案</label>
               <textarea
@@ -151,21 +249,21 @@ const CoupleAlbum = () => {
                 onChange={(e) => setPhotoDescription(e.target.value)}
                 placeholder="写下你想说的话..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-xl resize-none text-sm"
-                rows={4}
+                rows={3}
               />
-              <p className="text-xs text-gray-500 mt-1">图片描述将在后续识图功能中自动生成</p>
             </div>
             
             <div className="flex gap-3">
               <button
-                onClick={() => setShowUploadModal(false)}
+                onClick={handleCancelUpload}
                 className="flex-1 px-4 py-3 rounded-full glass-card border border-white/20 text-gray-900 font-medium ios-button"
               >
                 取消
               </button>
               <button
                 onClick={handleUpload}
-                className="flex-1 px-4 py-3 rounded-full glass-card border border-white/20 text-gray-900 font-medium ios-button"
+                disabled={!selectedImage || !photoDescription.trim()}
+                className="flex-1 px-4 py-3 rounded-full glass-card border border-white/20 text-gray-900 font-medium ios-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 上传
               </button>

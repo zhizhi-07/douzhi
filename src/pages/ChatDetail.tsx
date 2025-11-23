@@ -192,6 +192,15 @@ const ChatDetail = () => {
   const [showAIStatusModal, setShowAIStatusModal] = useState(false)
   const [currentAIStatus, setCurrentAIStatus] = useState<any>(null)
   
+  // 处理状态栏点击
+  const handleStatusClick = async () => {
+    if (!id) return
+    const { getOrCreateAIStatus } = await import('../utils/aiStatusManager')
+    const status = getOrCreateAIStatus(id, character.nickname || character.realName)
+    setCurrentAIStatus(status)
+    setShowAIStatusModal(true)
+  }
+  
   // 读取聊天设置（包括是否隐藏Token）
   const [hideTokenStats, setHideTokenStats] = useState(false)
   useEffect(() => {
@@ -284,18 +293,19 @@ const ChatDetail = () => {
     chatState.character?.nickname || chatState.character?.realName || 'AI',
     chatState.character?.personality
   )
-  
   // 格式修正处理器
-  const handleFormatCorrection = useCallback(() => {
-    console.log('🔧 handleFormatCorrection 被调用')
-    console.log('当前聊天ID:', id)
-    console.log('消息数量:', chatState.messages.length)
+  const handleFormatCorrection = useCallback(async () => {
     if (!id) return
     
-    // 找到最后一轮AI消息（从最后一条用户消息之后的所有AI消息）
-    const messages = chatState.messages
-    const lastUserMsgIndex = messages.map((m, i) => m.type === 'sent' ? i : -1).filter(i => i !== -1).pop() ?? -1
-    const lastRoundAIMessages = messages.slice(lastUserMsgIndex + 1).filter(m => m.type === 'received')
+    // 获取最后一轮AI消息（从最后一条用户消息之后的所有AI消息）
+    const lastUserMsgIndex = [...chatState.messages].reverse().findIndex(m => m.type === 'sent')
+    if (lastUserMsgIndex === -1) {
+      alert('没有找到用户消息')
+      return
+    }
+    
+    const actualIndex = chatState.messages.length - 1 - lastUserMsgIndex
+    const lastRoundAIMessages = chatState.messages.slice(actualIndex + 1).filter(m => m.type === 'received')
     
     if (lastRoundAIMessages.length === 0) {
       alert('没有找到AI消息')
@@ -304,7 +314,7 @@ const ChatDetail = () => {
     
     // 修正所有消息
     let totalCorrections: string[] = []
-    const updatedMessages = messages.map(msg => {
+    const updatedMessages = chatState.messages.map(msg => {
       const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
       if (!isTargetMessage) return msg
       
@@ -321,6 +331,31 @@ const ChatDetail = () => {
       return
     }
     
+    // 🔥 重新执行命令处理：从 commandHandlers 导入
+    const { commandHandlers } = await import('./ChatDetail/hooks/commandHandlers')
+    
+    // 处理每条修正后的消息
+    for (const msg of updatedMessages) {
+      const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
+      if (!isTargetMessage || !msg.content) continue
+      
+      // 遍历所有指令处理器
+      for (const handler of commandHandlers) {
+        const match = msg.content.match(handler.pattern)
+        if (match) {
+          console.log(`🔧 [格式修正] 检测到指令，重新执行:`, match[0])
+          await handler.handler(match, msg.content, {
+            messages: updatedMessages,
+            setMessages: chatState.setMessages,
+            character: chatState.character,
+            chatId: id,
+            isBlocked: false
+          })
+          break
+        }
+      }
+    }
+    
     // 保存到存储
     saveMessages(id, updatedMessages)
     
@@ -328,9 +363,9 @@ const ChatDetail = () => {
     chatState.setMessages(updatedMessages)
     
     // 显示修正结果
-    alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}`)
-  }, [id, chatState.messages, chatState.setMessages])
-  
+    alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}\n\n命令已重新执行，请查看效果`)
+  }, [id, chatState.messages, chatState.setMessages, chatState.character])
+
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
     () => transfer.setShowTransferSender(true),
@@ -723,6 +758,7 @@ const ChatDetail = () => {
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
         onMenuClick={() => navigate(`/chat/${id}/settings`)}
+        onStatusClick={handleStatusClick}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         topBarScale={topBarScale}
         topBarX={topBarX}

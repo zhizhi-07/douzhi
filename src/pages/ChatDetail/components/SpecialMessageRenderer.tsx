@@ -12,6 +12,7 @@ import PaymentRequestCard from '../../../components/PaymentRequestCard'
 import ProductCard from '../../../components/ProductCard'
 import PostCard from '../../../components/PostCard'
 import TheatreMessage from '../../../components/TheatreMessage'
+import RedPacketCard from '../../../components/RedPacketCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -31,6 +32,7 @@ interface SpecialMessageRendererProps {
   onRejectMusicInvite?: (messageId: number) => void
   onAcceptPayment?: (messageId: number) => void
   onRejectPayment?: (messageId: number) => void
+  onOpenRedPacket?: (messageId: number) => void
 }
 
 /**
@@ -54,8 +56,19 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onAcceptMusicInvite,
   onRejectMusicInvite,
   onAcceptPayment,
-  onRejectPayment
+  onRejectPayment,
+  onOpenRedPacket
 }) => {
+  // 红包
+  if ((message.messageType as any) === 'redPacket' && (message as any).redPacket) {
+    return (
+      <RedPacketCard
+        message={message}
+        onOpenRedPacket={onOpenRedPacket}
+      />
+    )
+  }
+
   // 情侣空间邀请
   if (message.coupleSpaceInvite) {
     return (

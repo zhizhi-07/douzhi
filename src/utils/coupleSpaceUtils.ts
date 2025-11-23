@@ -91,18 +91,17 @@ export const createCoupleSpaceInvite = (
   characterAvatar?: string,
   sender: 'user' | 'character' = 'user'
 ): CoupleSpaceRelation | null => {
-  // 检查是否已有活跃的情侣空间（只有active状态才阻止）
   const existing = getCoupleSpaceRelation()
+  
+  // 只有 active 状态才阻止创建新邀请
   if (existing && existing.status === 'active') {
     console.log('已存在活跃的情侣空间关系')
     return null
   }
   
-  // 如果有pending状态的邀请
-  if (existing && existing.status === 'pending') {
-    // 如果是同一方再次发送，覆盖旧邀请
-    // 如果是对方发送，也覆盖（用户可以反向发邀请）
-    console.log(`覆盖旧邀请（旧: ${existing.sender}, 新: ${sender}）`)
+  // pending/rejected/ended 状态都自动覆盖，允许创建新邀请
+  if (existing && existing.status !== 'active') {
+    console.log(`🔄 清理旧状态（${existing.status}），创建新邀请`)
   }
 
   // 获取用户头像
@@ -122,6 +121,7 @@ export const createCoupleSpaceInvite = (
   }
 
   saveCoupleSpaceRelation(relation)
+  console.log(`✅ 创建新邀请：${sender === 'user' ? '用户' : '角色'}向${characterName}发起情侣空间邀请`)
   return relation
 }
 

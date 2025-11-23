@@ -26,6 +26,7 @@ export interface GroupChat {
   announcement?: string  // 群公告
   minReplyCount?: number  // AI每次回复的最少消息条数（默认10条）
   lorebookId?: string  // 挂载的世界书ID（全局世界书）
+  enableTheatreCards?: boolean  // 是否启用小剧场卡片功能（默认true）
   smartSummary?: {
     enabled: boolean  // 是否启用智能总结
     triggerInterval?: number  // 每隔多少轮对话触发一次总结（默认10轮）
@@ -55,6 +56,37 @@ export interface GroupMessage {
   }
   emojiUrl?: string  // 表情包URL
   emojiDescription?: string  // 表情包描述
+  // 🔥 新增：多媒体消息支持
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'emoji' | 'redPacket'
+  voiceText?: string  // 语音消息的文本内容
+  voiceUrl?: string   // 语音消息的音频URL
+  duration?: number   // 语音时长（秒）
+  location?: {        // 位置消息
+    name: string      // 地点名称
+    address: string   // 详细地址
+  }
+  photoDescription?: string  // 照片描述
+  photoBase64?: string        // 照片的base64编码
+  transfer?: {        // 转账消息
+    amount: number
+    message: string
+    toUserId: string  // 转账接收者ID（群聊特有，指定转给谁）
+    toUserName: string // 转账接收者名称
+    status?: 'pending' | 'received' | 'expired'
+  }
+  redPacket?: {       // 红包消息
+    totalAmount: number     // 总金额
+    count: number           // 红包个数
+    blessing: string        // 祝福语
+    received: Array<{       // 已领取列表
+      userId: string
+      userName: string
+      amount: number
+      timestamp: number
+    }>
+    remaining: number       // 剩余金额
+    remainingCount: number  // 剩余个数
+  }
 }
 
 const GROUP_CHATS_KEY = 'group_chats' // 仅用于迁移
@@ -431,6 +463,11 @@ class GroupChatManager {
     // 触发更新事件
     window.dispatchEvent(new Event('storage'))
     
+    // 🔥 触发消息保存事件（用于通知和未读标记）
+    window.dispatchEvent(new CustomEvent('chat-message-saved', {
+      detail: { chatId: groupId, messageType: 'group' }
+    }))
+    
     return newMessage
   }
 
@@ -473,6 +510,13 @@ class GroupChatManager {
     
     // 触发更新事件
     window.dispatchEvent(new Event('storage'))
+    
+    // 🔥 触发消息保存事件（用于通知和未读标记）
+    if (messages.length > 0) {
+      window.dispatchEvent(new CustomEvent('chat-message-saved', {
+        detail: { chatId: groupId, messageType: 'group' }
+      }))
+    }
   }
 
   // 撤回消息

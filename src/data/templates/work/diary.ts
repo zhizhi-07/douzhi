@@ -18,8 +18,8 @@ export const diaryTemplate: TheatreTemplate = {
       { key: 'DATE_RANGE', label: '日期范围', placeholder: 'Nov 21 - Nov 27' },
     ],
     htmlTemplate: `
-<div data-diary-book style="max-width: 400px; margin: 0 auto; perspective: 1500px; font-family: 'Comic Sans MS', 'Chalkboard SE', 'KaiTi', serif; user-select: none;">
-  <div class="book" style="position: relative; width: 100%; height: 500px; transform-style: preserve-3d; transition: transform 0.5s;">
+<div data-diary-book style="max-width: 360px; margin: 0 auto; perspective: 1500px; font-family: 'Comic Sans MS', 'Chalkboard SE', 'KaiTi', serif; user-select: none;">
+  <div class="book" style="position: relative; width: 100%; height: 450px; transform-style: preserve-3d; transition: transform 0.5s;">
     
     <!-- 封面 -->
     <div class="page cover" style="position: absolute; width: 100%; height: 100%; background: #e74c3c; border-radius: 5px 15px 15px 5px; transform-origin: left; z-index: 20; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; box-shadow: inset 10px 0 20px rgba(0,0,0,0.2), 5px 5px 15px rgba(0,0,0,0.3);">
@@ -34,18 +34,18 @@ export const diaryTemplate: TheatreTemplate = {
     <!-- 内页容器 -->
     <div style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fff; border-radius: 3px 12px 12px 3px; box-shadow: inset 5px 0 10px rgba(0,0,0,0.1); z-index: 1;">
        <!-- 底页内容 (周日) -->
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #e74c3c; font-weight: bold; margin-bottom: 10px;">Sunday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{SUN_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #e74c3c; font-weight: bold; margin-bottom: 8px;">Sunday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{SUN_CONTENT}}</div>
           <div style="position: absolute; bottom: 20px; left: 20px; font-size: 12px; color: #999;">7/7</div>
        </div>
     </div>
 
     <!-- 翻页层 (周六) -->
     <div class="page" data-page="6" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 2; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #e67e22; font-weight: bold; margin-bottom: 10px;">Saturday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{SAT_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #e67e22; font-weight: bold; margin-bottom: 8px;">Saturday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{SAT_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 50px; right: 30px; width: 80px; height: 80px; opacity: 0.7; transform: rotate(-5deg);">
             <div data-doodle-type="random"></div>
           </div>
@@ -55,9 +55,9 @@ export const diaryTemplate: TheatreTemplate = {
 
     <!-- 翻页层 (周五) -->
     <div class="page" data-page="5" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 3; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #f1c40f; font-weight: bold; margin-bottom: 10px;">Friday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{FRI_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #f1c40f; font-weight: bold; margin-bottom: 8px;">Friday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{FRI_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 60px; right: 25px; width: 70px; height: 70px; opacity: 0.75; transform: rotate(8deg);">
             <div data-doodle-type="random"></div>
           </div>
@@ -67,9 +67,9 @@ export const diaryTemplate: TheatreTemplate = {
 
     <!-- 翻页层 (周四) -->
     <div class="page" data-page="4" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 4; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #2ecc71; font-weight: bold; margin-bottom: 10px;">Thursday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{THU_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #2ecc71; font-weight: bold; margin-bottom: 8px;">Thursday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{THU_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 55px; right: 35px; width: 75px; height: 75px; opacity: 0.8; transform: rotate(-8deg);">
             <div data-doodle-type="random"></div>
           </div>
@@ -79,9 +79,9 @@ export const diaryTemplate: TheatreTemplate = {
 
     <!-- 翻页层 (周三) -->
     <div class="page" data-page="3" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 5; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #1abc9c; font-weight: bold; margin-bottom: 10px;">Wednesday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{WED_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #1abc9c; font-weight: bold; margin-bottom: 8px;">Wednesday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{WED_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 50px; right: 30px; width: 90px; height: 90px; opacity: 0.8; transform: rotate(10deg);">
             <div data-doodle-type="random"></div>
           </div>
@@ -91,9 +91,9 @@ export const diaryTemplate: TheatreTemplate = {
 
     <!-- 翻页层 (周二) -->
     <div class="page" data-page="2" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 6; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #3498db; font-weight: bold; margin-bottom: 10px;">Tuesday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{TUE_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #3498db; font-weight: bold; margin-bottom: 8px;">Tuesday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{TUE_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 45px; right: 28px; width: 85px; height: 85px; opacity: 0.75; transform: rotate(12deg);">
             <div data-doodle-type="random"></div>
           </div>
@@ -103,9 +103,9 @@ export const diaryTemplate: TheatreTemplate = {
 
     <!-- 翻页层 (周一) -->
     <div class="page" data-page="1" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 5px); height: calc(100% - 10px); background: #fcfcfc; border-radius: 3px 12px 12px 3px; transform-origin: left; z-index: 7; transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1); cursor: pointer; border-right: 1px solid #eee;">
-       <div class="page-content" style="padding: 30px; height: 100%; box-sizing: border-box;">
-          <div style="text-align: right; font-size: 24px; color: #9b59b6; font-weight: bold; margin-bottom: 10px;">Monday</div>
-          <div style="font-size: 16px; line-height: 1.8; color: #333;">{{MON_CONTENT}}</div>
+       <div class="page-content" style="padding: 24px; height: 100%; box-sizing: border-box;">
+          <div style="text-align: right; font-size: 20px; color: #9b59b6; font-weight: bold; margin-bottom: 8px;">Monday</div>
+          <div style="font-size: 14px; line-height: 1.6; color: #333;">{{MON_CONTENT}}</div>
           <div data-doodle-container style="position: absolute; bottom: 52px; right: 32px; width: 78px; height: 78px; opacity: 0.8; transform: rotate(-10deg);">
             <div data-doodle-type="random"></div>
           </div>

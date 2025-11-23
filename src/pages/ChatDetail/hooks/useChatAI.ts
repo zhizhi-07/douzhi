@@ -425,7 +425,20 @@ export const useChatAI = (
       const { ensureMessagesLoaded } = await import('../../../utils/simpleMessageManager')
       const currentMessages = await ensureMessagesLoaded(chatId)
       const recentMessages = getRecentMessages(currentMessages, chatId)
-      let apiMessages = convertToApiMessages(recentMessages)
+      
+      // 🎭 读取"隐藏小剧场历史"设置
+      const chatSettingsForHistory = localStorage.getItem(`chat_settings_${chatId}`)
+      let hideTheatreHistory = false // 默认不隐藏
+      if (chatSettingsForHistory) {
+        try {
+          const parsed = JSON.parse(chatSettingsForHistory)
+          hideTheatreHistory = parsed.hideTheatreHistory ?? false
+        } catch (e) {
+          console.error('[useChatAI] 解析隐藏小剧场历史设置失败:', e)
+        }
+      }
+      
+      let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory)
       
       // 🔥 详细日志：显示AI实际读取的所有消息
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -526,9 +539,26 @@ export const useChatAI = (
       // 🔥 设置当前场景模式标记（供API检测流式）
       localStorage.setItem('current-scene-mode', currentSceneMode)
 
+      // 🎭 读取小剧场功能开关
+      const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+      let enableTheatreCards = true // 默认开启
+      if (chatSettingsRaw) {
+        try {
+          const parsed = JSON.parse(chatSettingsRaw)
+          enableTheatreCards = parsed.enableTheatreCards ?? true
+        } catch (e) {
+          console.error('[useChatAI] 解析聊天设置失败:', e)
+        }
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log('🎭 [小剧场] 功能状态:', enableTheatreCards ? '已启用' : '已关闭')
+      }
+
       const apiResult = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
-        settings
+        settings,
+        enableTheatreCards
       )
       
       let aiReply = apiResult.content
@@ -541,9 +571,12 @@ export const useChatAI = (
         // 导入转换函数
         const { convertTheatreToolCallToMessage } = await import('../../../utils/theatreTools')
         
+        // 获取角色头像
+        const characterAvatar = character?.avatar || '🤖'
+        
         // 为每个 tool call 创建一条小剧场消息
         for (const toolCall of toolCalls) {
-          const theatreMessageData = convertTheatreToolCallToMessage(toolCall)
+          const theatreMessageData = convertTheatreToolCallToMessage(toolCall, characterAvatar)
           
           const theatreMessage: Message = {
             ...createMessage('', 'received'),
@@ -1033,6 +1066,132 @@ export const useChatAI = (
         cleanedMessage = messageAfterMoments
       }
 
+      // 🎭 解析文本格式的 call:send_theatre_card{...} 指令（支持两种格式）
+      // 格式1: [call_tool:send_theatre_card|{...}]（旧格式）
+      // 格式2: call:send_theatre_card{...}（新简化格式）
+      const toolCallMatches: Array<{fullMatch: string, jsonStr: string}> = []
+      
+      // 先匹配简化格式 call:send_theatre_card{...}
+      const simpleCallPattern = /call:send_theatre_card\{/g
+      let match
+      
+      while ((match = simpleCallPattern.exec(cleanedMessage)) !== null) {
+        const startPos = match.index + match[0].length - 1 // -1 因为要包含 {
+        let braceCount = 0
+        let endPos = startPos
+        let foundStart = false
+        
+        // 从 { 开始，找到匹配的 }
+        for (let i = startPos; i < cleanedMessage.length; i++) {
+          const char = cleanedMessage[i]
+          if (char === '{') {
+            braceCount++
+            foundStart = true
+          } else if (char === '}') {
+            braceCount--
+            if (foundStart && braceCount === 0) {
+              endPos = i + 1
+              break
+            }
+          }
+        }
+        
+        if (foundStart && braceCount === 0) {
+          const jsonStr = cleanedMessage.substring(startPos, endPos)
+          const fullMatch = cleanedMessage.substring(match.index, endPos)
+          toolCallMatches.push({ fullMatch, jsonStr })
+          console.log('🎭 [小剧场简化格式] 提取JSON长度:', jsonStr.length)
+        }
+      }
+      
+      // 再匹配旧格式 [call_tool:send_theatre_card|{...}]
+      const callToolStart = /\[call_tool:send_theatre_card\|/g
+      
+      while ((match = callToolStart.exec(cleanedMessage)) !== null) {
+        const startPos = match.index + match[0].length
+        let braceCount = 0
+        let endPos = startPos
+        let foundStart = false
+        
+        // 从 { 开始，找到匹配的 }
+        for (let i = startPos; i < cleanedMessage.length; i++) {
+          const char = cleanedMessage[i]
+          if (char === '{') {
+            braceCount++
+            foundStart = true
+          } else if (char === '}') {
+            braceCount--
+            if (foundStart && braceCount === 0) {
+              endPos = i + 1
+              break
+            }
+          }
+        }
+        
+        if (foundStart && braceCount === 0) {
+          const jsonStr = cleanedMessage.substring(startPos, endPos)
+          const fullMatch = cleanedMessage.substring(match.index, endPos + 1) // 包含 ]
+          toolCallMatches.push({ fullMatch, jsonStr })
+          console.log('🎭 [小剧场文本格式] 提取JSON长度:', jsonStr.length)
+        }
+      }
+      
+      if (toolCallMatches.length > 0) {
+        console.log(`🎭 [小剧场文本格式] 检测到 ${toolCallMatches.length} 个 call_tool 指令`)
+        
+        const { convertTheatreToolCallToMessage } = await import('../../../utils/theatreTools')
+        
+        // 获取角色头像
+        const characterAvatar = character?.avatar || '🤖'
+        
+        for (const match of toolCallMatches) {
+          try {
+            let jsonStr = match.jsonStr
+            console.log('🎭 [小剧场文本格式] 原始JSON:', jsonStr.substring(0, 100) + '...')
+            
+            // 转换无引号的key为标准JSON格式
+            // 匹配 word: 格式（后面跟着值），并加上引号
+            jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+            console.log('🎭 [小剧场文本格式] 标准化后:', jsonStr.substring(0, 100) + '...')
+            
+            const toolCallData = JSON.parse(jsonStr)
+            
+            if (toolCallData.template_id && toolCallData.data) {
+              const theatreMessageData = convertTheatreToolCallToMessage(toolCallData, characterAvatar)
+              
+              const theatreMessage: Message = {
+                ...createMessage('', 'received'),
+                ...theatreMessageData,
+                sceneMode: currentSceneMode
+              }
+              
+              console.log('🎭 [小剧场文本格式] 插入卡片消息:', {
+                template_id: toolCallData.template_id,
+                data: Object.keys(toolCallData.data || {})
+              })
+              
+              // 保存小剧场消息
+              saveMessageToStorage(chatId, theatreMessage)
+              
+              // 更新 React 状态
+              setMessages(prev => [...prev, theatreMessage])
+              
+              // 延迟一下，让卡片逐个出现
+              await new Promise(resolve => setTimeout(resolve, 200))
+            }
+          } catch (e) {
+            console.error('❌ [小剧场文本格式] 解析失败:', e, '原始数据:', match.jsonStr.substring(0, 200))
+          }
+        }
+        
+        // 从消息中移除 call_tool 指令
+        for (const match of toolCallMatches) {
+          cleanedMessage = cleanedMessage.replace(match.fullMatch, '')
+        }
+        cleanedMessage = cleanedMessage.trim()
+        console.log('🧹 [小剧场文本格式] 已从消息中移除 call_tool 指令')
+      }
+
       // 🔥 提取并保存AI状态更新
       const { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } = await import('../../../utils/aiStatusManager')
       const statusUpdate = extractStatusFromReply(cleanedMessage, aiId)
@@ -1182,6 +1341,19 @@ export const useChatAI = (
         aiMessagesList = quoteSegments.flatMap(segment => parseAIMessages(segment))
       }
       console.log('📝 AI消息拆分结果:', aiMessagesList)
+      
+      // 🔥 在处理前先自动格式修正，确保非标准格式也能被识别
+      const { correctAIMessageFormat } = await import('../../../utils/formatCorrector')
+      aiMessagesList = aiMessagesList.map(msg => {
+        const result = correctAIMessageFormat(msg)
+        if (result.corrected) {
+          console.log(`🔧 [自动格式修正] ${result.corrections.join(', ')}`)
+          console.log(`   原文: ${result.original}`)
+          console.log(`   修正: ${result.fixed}`)
+          return result.fixed
+        }
+        return msg
+      })
       
       // 使用指令处理器处理每条消息
       let pendingQuotedMsg: Message['quotedMessage'] | undefined // 保存跨消息的引用

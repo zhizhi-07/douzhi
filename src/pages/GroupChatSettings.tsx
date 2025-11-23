@@ -28,6 +28,7 @@ const GroupChatSettings = () => {
   const [minReplyCount, setMinReplyCount] = useState(10)
   const [selectedLorebookId, setSelectedLorebookId] = useState<string | undefined>(undefined)
   const [availableLorebooks, setAvailableLorebooks] = useState<Array<{id: string, name: string}>>([])
+  const [enableTheatreCards, setEnableTheatreCards] = useState(true)
 
   useEffect(() => {
     if (!id) return
@@ -39,6 +40,7 @@ const GroupChatSettings = () => {
       setSmartSummaryInterval(group.smartSummary?.triggerInterval || 10)
       setMinReplyCount(group.minReplyCount || 10)
       setSelectedLorebookId(group.lorebookId)
+      setEnableTheatreCards(group.enableTheatreCards ?? true)
       
       // 加载世界书列表
       const lorebooks = lorebookManager.getAllLorebooks()
@@ -255,6 +257,37 @@ const GroupChatSettings = () => {
             <br />
             开启后，该角色的私信消息会同步到群聊AI，让群聊对话更连贯。
           </p>
+        </div>
+
+        {/* 小剧场卡片 */}
+        <div className="glass-card rounded-2xl p-4 shadow-sm mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">小剧场卡片</div>
+              <div className="text-xs text-gray-400">AI可以生成支付、红包、朋友圈等互动卡片</div>
+            </div>
+            <button
+              onClick={() => {
+                if (!id) return
+                const newValue = !enableTheatreCards
+                setEnableTheatreCards(newValue)
+                groupChatManager.updateGroup(id, {
+                  enableTheatreCards: newValue
+                })
+              }}
+              className={`relative w-11 h-6 rounded-full transition-all ${
+                enableTheatreCards
+                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  enableTheatreCards ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* 智能总结 */}

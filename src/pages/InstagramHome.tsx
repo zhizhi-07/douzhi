@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-rea
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllPosts, toggleLike, getNPCById, initForumData } from '../utils/forumNPC'
 import { getAllCharacters } from '../utils/characterManager'
+import { getUserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
 
@@ -11,6 +12,7 @@ const InstagramHome = () => {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
   const [posts, setPosts] = useState<ForumPost[]>([])
+  const userInfo = getUserInfo()
 
   useEffect(() => {
     loadData()
@@ -44,8 +46,21 @@ const InstagramHome = () => {
             {/* 我的Story */}
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <div className="relative w-16 h-16">
-                <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
-                  <span className="text-2xl">+</span>
+                <div className="w-full h-full rounded-full bg-white/80 backdrop-blur-sm border border-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] p-0.5">
+                  {userInfo.avatar ? (
+                    <img
+                      src={userInfo.avatar}
+                      alt="我"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold">
+                      我
+                    </div>
+                  )}
+                </div>
+                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">+</span>
                 </div>
               </div>
               <span className="text-xs text-gray-700 max-w-[64px] truncate">我的</span>
@@ -59,14 +74,12 @@ const InstagramHome = () => {
                 onClick={() => navigate(`/chat/${character.id}`)}
               >
                 <div className="relative w-16 h-16">
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-orange-500 p-0.5">
-                    <div className="w-full h-full rounded-full bg-white p-0.5">
-                      <img
-                        src={character.avatar || '/default-avatar.png'}
-                        alt={character.realName}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    </div>
+                  <div className="w-full h-full rounded-full bg-white/80 backdrop-blur-sm border border-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] p-0.5">
+                    <img
+                      src={character.avatar || '/default-avatar.png'}
+                      alt={character.realName}
+                      className="w-full h-full rounded-full object-cover"
+                    />
                   </div>
                 </div>
                 <span className="text-xs text-gray-700 max-w-[64px] truncate">
@@ -103,11 +116,19 @@ const InstagramHome = () => {
                 {/* Post Header */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold text-sm">
-                      我
-                    </div>
+                    {userInfo.avatar ? (
+                      <img
+                        src={userInfo.avatar}
+                        alt="我"
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-semibold text-sm">
+                        我
+                      </div>
+                    )}
                     <div>
-                      <div className="text-sm font-semibold">我</div>
+                      <div className="text-sm font-semibold">{userInfo.nickname || userInfo.realName || '我'}</div>
                       <div className="text-xs text-gray-500">{post.time}</div>
                     </div>
                   </div>
@@ -174,13 +195,20 @@ const InstagramHome = () => {
                   </div>
 
                   <div className="text-sm font-semibold mb-2">{post.likes.toLocaleString()} 次赞</div>
-                  <div className="text-sm">
-                    <span className="font-semibold mr-2">我</span>
-                    <span className="text-gray-900">{post.content}</span>
-                  </div>
-
+                  {post.images > 0 && post.content && (
+                    <div className="text-sm">
+                      <span className="font-semibold mr-2">{userInfo.nickname || userInfo.realName || '我'}</span>
+                      <span className="text-gray-900">{post.content}</span>
+                    </div>
+                  )}
                   {post.comments > 0 && (
-                    <button className="text-sm text-gray-500 mt-2" onClick={() => console.log('查看评论', post.id)}>
+                    <button 
+                      className="text-sm text-gray-500 mt-2" 
+                      onClick={() => {
+                        console.log('👉 准备跳转到评论页:', post.id)
+                        navigate(`/instagram/post/${post.id}`)
+                      }}
+                    >
                       查看全部 {post.comments} 条评论
                     </button>
                   )}
@@ -359,10 +387,7 @@ const InstagramHome = () => {
               {post.comments > 0 && (
                 <button 
                   className="text-sm text-gray-500 mt-2"
-                  onClick={() => {
-                    // TODO: 打开评论页面
-                    console.log('查看评论', post.id)
-                  }}
+                  onClick={() => navigate(`/instagram/post/${post.id}`)}
                 >
                   查看全部 {post.comments} 条评论
                 </button>
