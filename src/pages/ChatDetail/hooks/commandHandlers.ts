@@ -966,23 +966,27 @@ export const coupleSpacePhotoHandler: CommandHandler = {
     if (relation && relation.status === 'active' && relation.characterId === character.id) {
       const description = match[1].trim()
       
-      // 添加到相册
-      addCouplePhoto(
-        character.id,
-        character.nickname || character.realName,
-        description
-      )
-      
-      // 添加系统提示
-      const charName = character.nickname || character.realName
-      const systemMsg = createMessageObj('system', {
-        content: `${charName}在相册中记录了${description}`,
-        aiReadableContent: `${charName}在情侣空间的相册中分享了一张照片，描述为：${description}`,
-        type: 'system'
-      })
-      await addMessage(systemMsg, setMessages, chatId)
-      
-      console.log(`📸 已添加照片到情侣空间相册: ${description}`)
+      // 添加到相册（使用 IndexedDB 存储）
+      try {
+        await addCouplePhoto(
+          character.id,
+          character.nickname || character.realName,
+          description
+        )
+        
+        // 添加系统提示
+        const charName = character.nickname || character.realName
+        const systemMsg = createMessageObj('system', {
+          content: `${charName}在相册中记录了${description}`,
+          aiReadableContent: `${charName}在情侣空间的相册中分享了一张照片，描述为：${description}`,
+          type: 'system'
+        })
+        await addMessage(systemMsg, setMessages, chatId)
+        
+        console.log(`📸 已添加照片到情侣空间相册: ${description}`)
+      } catch (error) {
+        console.error('❌ 保存照片到相册失败:', error)
+      }
     }
     
     // 继续发送文本消息（不移除指令）
@@ -1977,6 +1981,22 @@ export const musicRejectHandler: CommandHandler = {
 }
 
 /**
+ * 简单听歌指令处理器 - 处理 [听歌] 这样的简单指令
+ */
+export const simpleMusicHandler: CommandHandler = {
+  pattern: /[\[【]听歌[\]】]/,
+  handler: async (match, content) => {
+    // 这是一个简单的音乐相关指令，应该被隐藏
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 一起听：AI切歌
  */
 export const changeSongHandler: CommandHandler = {
@@ -2811,6 +2831,7 @@ export const commandHandlers: CommandHandler[] = [
   musicInviteHandler,  // AI发送一起听邀请
   musicAcceptHandler,  // AI接受一起听
   musicRejectHandler,  // AI拒绝一起听
+  simpleMusicHandler,  // 简单听歌指令
   changeSongHandler,  // AI切歌
   coupleSpacePhotoHandler,
   coupleSpaceMessageHandler,

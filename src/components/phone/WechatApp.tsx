@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 import { getAllUIIcons } from '../../utils/iconStorage'
+import LiveStream from './LiveStream'
 
 interface WechatAppProps {
   content: AIPhoneContent
 }
 
-type WechatView = 'chat' | 'contacts' | 'discover' | 'me'
+type WechatView = 'chat' | 'contacts' | 'discover' | 'me' | 'live'
 
 const WechatApp = ({ content }: WechatAppProps) => {
   const [currentView, setCurrentView] = useState<WechatView>('chat')
@@ -94,6 +95,22 @@ const WechatApp = ({ content }: WechatAppProps) => {
   if (currentView === 'chat' && selectedChat !== null) {
     const chat = content.wechatChats[selectedChat]
     
+    // 验证聊天数据完整性，防止显示混乱内容
+    if (!chat || !chat.messages || chat.messages.length === 0) {
+      return (
+        <div className="w-full h-full bg-gray-50/50 backdrop-blur-xl overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
+            <button onClick={() => setSelectedChat(null)} className="text-blue-500 text-sm">返回</button>
+            <h2 className="flex-1 text-center text-base font-semibold text-gray-800">{chat?.name || '无效聊天'}</h2>
+            <div className="w-8"></div>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-500 text-center">暂无消息</p>
+          </div>
+        </div>
+      )
+    }
+    
     return (
       <div className="w-full h-full bg-gray-50/50 backdrop-blur-xl overflow-hidden flex flex-col">
         <div 
@@ -109,7 +126,9 @@ const WechatApp = ({ content }: WechatAppProps) => {
           <div className="w-8"></div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {chat.messages.map((message, index) => (
+          {chat.messages
+            .filter(message => message && message.content && message.content.trim()) // 过滤无效消息
+            .map((message, index) => (
             <div key={index} className={`flex ${message.isSelf ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[75%] ${message.isSelf ? 'order-2' : 'order-1'}`}>
                 <div className={`rounded-2xl px-4 py-2 ${message.isSelf ? 'bg-green-500 text-white' : 'bg-white text-gray-800'} shadow-sm`}>
@@ -122,6 +141,29 @@ const WechatApp = ({ content }: WechatAppProps) => {
         </div>
       </div>
     )
+  }
+
+  // 渲染直播页面
+  if (currentView === 'live') {
+    console.log('正在渲染直播页面，characterName:', content.characterName);
+    try {
+      return <LiveStream onBack={() => setCurrentView('discover')} userName={content.characterName} />
+    } catch (error) {
+      console.error('LiveStream组件渲染错误:', error);
+      return (
+        <div className="w-full h-full bg-white flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-2">直播功能暂时不可用</p>
+            <button 
+              onClick={() => setCurrentView('discover')}
+              className="text-blue-500 underline"
+            >
+              返回发现页
+            </button>
+          </div>
+        </div>
+      )
+    }
   }
 
   // 渲染通讯录
@@ -168,14 +210,34 @@ const WechatApp = ({ content }: WechatAppProps) => {
   // 渲染朋友圈（发现）
   if (currentView === 'discover') {
     return (
-      <div className="w-full h-full bg-white overflow-hidden flex flex-col">
+      <div className="w-full h-full bg-white overflow-hidden flex flex-col" style={{ pointerEvents: 'auto' }}>
         <div className="bg-white border-b border-gray-200">
           <div className="px-4 pt-3 pb-2">
             <h1 className="text-2xl font-bold text-gray-900">发现</h1>
           </div>
+          
+          {/* 测试按钮 */}
+          <div className="px-4 pb-2">
+            <button 
+              onClick={() => {
+                alert('测试按钮工作正常！');
+                setCurrentView('live');
+              }}
+              style={{ 
+                backgroundColor: '#ef4444',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              测试直播按钮
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="bg-white">
+        <div className="flex-1 overflow-y-auto bg-gray-50" style={{ pointerEvents: 'auto' }}>
+          <div className="bg-white" style={{ pointerEvents: 'auto' }}>
             <div className="px-4 py-3 border-b border-gray-200 active:bg-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -194,6 +256,40 @@ const WechatApp = ({ content }: WechatAppProps) => {
               </div>
             </div>
             <div className="h-2 bg-gray-50"></div>
+            
+            <div 
+              className="px-4 py-3 border-b border-gray-200 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              style={{ 
+                pointerEvents: 'auto !important' as any, 
+                cursor: 'pointer !important' as any,
+                opacity: 1,
+                userSelect: 'none'
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('直播按钮被点击');
+                setCurrentView('live');
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.cursor = 'pointer';
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center shadow-sm">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-900 font-medium">直播</span>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+
             <div className="px-4 py-3 border-b border-gray-200 active:bg-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -310,27 +406,33 @@ const WechatApp = ({ content }: WechatAppProps) => {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto bg-white">
-        {content.wechatChats.map((chat, index) => (
-          <div key={index} onClick={() => setSelectedChat(index)} className="px-4 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <span className="text-base font-medium text-gray-700">{chat.name[0]}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-gray-800 truncate">{chat.name}</span>
-                  <span className="text-xs text-gray-400 ml-2">{chat.time}</span>
+        {content.wechatChats
+          .filter(chat => chat && chat.name && chat.name.trim()) // 过滤无效聊天
+          .map((chat, originalIndex) => {
+            // 找到原始索引，用于正确定位聊天
+            const actualIndex = content.wechatChats.findIndex(c => c === chat)
+            return (
+              <div key={actualIndex} onClick={() => setSelectedChat(actualIndex)} className="px-4 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-base font-medium text-gray-700">{chat.name[0]}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-800 truncate">{chat.name}</span>
+                      <span className="text-xs text-gray-400 ml-2">{chat.time}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-600 truncate flex-1">{chat.lastMessage}</p>
+                      {chat.unread > 0 && (
+                        <span className="ml-2 px-2 py-0.5 bg-gray-500 text-white text-xs rounded-full flex-shrink-0">{chat.unread}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate flex-1">{chat.lastMessage}</p>
-                  {chat.unread > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-gray-500 text-white text-xs rounded-full flex-shrink-0">{chat.unread}</span>
-                  )}
-                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            )
+          })}
       </div>
       {renderBottomNav()}
     </div>

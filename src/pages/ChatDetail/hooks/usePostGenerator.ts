@@ -99,28 +99,12 @@ export const usePostGenerator = (
     setGeneratingPrompt(userPrompt)
     
     try {
-      // 使用代付API生成帖子
-      const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm'
-        },
-        body: JSON.stringify({
-          model: 'deepseek-ai/DeepSeek-V3',
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.8,
-          max_tokens: 2000
-        })
-      })
-
-      const data = await response.json()
-      const postContent = data.choices?.[0]?.message?.content || '帖子生成失败'
+      // 使用智智代付API生成帖子
+      const { callZhizhiApi } = await import('../../../services/zhizhiapi')
+      const postContent = await callZhizhiApi(
+        [{ role: 'user', content: prompt }],
+        { temperature: 0.8, max_tokens: 2000 }
+      ) || '帖子生成失败'
       
       console.log('✅ 帖子生成成功:', postContent)
       

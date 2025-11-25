@@ -141,8 +141,11 @@ const CoupleSpace = () => {
   }
 
   const handleEndRelation = () => {
+    console.log('🔥 [情侣空间] 点击解除关系，当前relation:', relation)
     if (confirm('确定要解除情侣空间关系吗？\n\n注意：照片、留言、纪念日等内容会保留，下次重新绑定后可以恢复。')) {
+      console.log('🔥 [情侣空间] 用户确认解除')
       const success = endCoupleSpaceRelation()
+      console.log('🔥 [情侣空间] endCoupleSpaceRelation结果:', success)
       if (success) {
         if (relation?.characterId) {
           addMessage(relation.characterId, {
@@ -156,6 +159,9 @@ const CoupleSpace = () => {
           })
         }
         loadRelation()
+        alert('✅ 情侣空间已解除')
+      } else {
+        alert('❌ 解除失败，请尝试使用底部的"强制清除缓存"按钮')
       }
     }
   }
@@ -168,6 +174,7 @@ const CoupleSpace = () => {
     characterName: '我的恋人',
     characterAvatar: '', // 空头像，将显示默认SVG
     status: 'active',
+    sender: 'user', // 添加必需的sender属性
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 520, // 520天前
     acceptedAt: Date.now() - 1000 * 60 * 60 * 24 * 520,
   }
@@ -253,6 +260,24 @@ const CoupleSpace = () => {
                   <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
                   预览效果
                 </button>
+                
+                {/* 强制清除按钮（用于清除缓存残留） */}
+                <button 
+                  onClick={() => {
+                    if(confirm('⚠️ 强制清除所有情侣空间数据？\n\n如果点击情侣空间没反应，可能有缓存残留，点击此按钮清除。')) {
+                      localStorage.removeItem('couple_space_relation')
+                      localStorage.removeItem('couple_photos')
+                      localStorage.removeItem('couple_messages')
+                      localStorage.removeItem('couple_anniversaries')
+                      localStorage.removeItem('couple_space_privacy')
+                      alert('✅ 已清除所有情侣空间数据')
+                      loadRelation()
+                    }
+                  }}
+                  className="w-full py-2 text-white/50 text-xs hover:text-white/70 transition-colors underline"
+                >
+                  清除缓存残留
+                </button>
              </div>
           </div>
         ) : isPending && !isPreviewMode ? (
@@ -261,14 +286,31 @@ const CoupleSpace = () => {
              <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                <Icons.Heart className="w-10 h-10 text-pink-500" />
              </div>
-             <h2 className="text-xl font-bold text-gray-800 mb-2">等待回应中...</h2>
-             <p className="text-gray-500 text-sm mb-8">已向 {relation?.characterName} 发送了爱的邀请<br/>请耐心等待对方的答复</p>
-             <button 
-               onClick={() => {if(confirm('取消邀请?')) cancelCoupleSpaceInvite(); loadRelation()}} 
-               className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-             >
-               取消邀请
-             </button>
+             {relation?.sender === 'character' ? (
+               // AI发起的邀请
+               <div>
+                 <h2 className="text-xl font-bold text-gray-800 mb-2">收到邀请</h2>
+                 <p className="text-gray-500 text-sm mb-8">{relation?.characterName} 向你发送了情侣空间邀请<br/>请在聊天中回应</p>
+                 <button 
+                   onClick={() => {if(confirm('清除此邀请?')) { endCoupleSpaceRelation(); loadRelation() }}} 
+                   className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+                 >
+                   清除邀请
+                 </button>
+               </div>
+             ) : (
+               // 用户发起的邀请
+               <div>
+                 <h2 className="text-xl font-bold text-gray-800 mb-2">等待回应中...</h2>
+                 <p className="text-gray-500 text-sm mb-8">已向 {relation?.characterName} 发送了爱的邀请<br/>请耐心等待对方的答复</p>
+                 <button 
+                   onClick={() => {if(confirm('取消邀请?')) { cancelCoupleSpaceInvite(); loadRelation() }}} 
+                   className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+                 >
+                   取消邀请
+                 </button>
+               </div>
+             )}
            </div>
         ) : (
           // 已连接状态 (或预览模式)
@@ -423,6 +465,28 @@ const CoupleSpace = () => {
                 {privacyMode === 'public' ? '设置私密' : '设为公开'}
               </button>
             </div>
+            
+            {/* 强制清除按钮（用于清除缓存残留） */}
+            {!isPreviewMode && (
+              <div className="flex justify-center pb-8">
+                <button 
+                  onClick={() => {
+                    if(confirm('⚠️ 强制清除所有情侣空间数据？\n\n这将清除：\n- 关系状态\n- 照片\n- 留言\n- 纪念日\n\n此操作不可恢复！')) {
+                      localStorage.removeItem('couple_space_relation')
+                      localStorage.removeItem('couple_photos')
+                      localStorage.removeItem('couple_messages')
+                      localStorage.removeItem('couple_anniversaries')
+                      localStorage.removeItem('couple_space_privacy')
+                      alert('✅ 已清除所有情侣空间数据')
+                      loadRelation()
+                    }
+                  }}
+                  className="text-white/40 text-[10px] hover:text-white/60 transition-colors underline"
+                >
+                  强制清除缓存
+                </button>
+              </div>
+            )}
 
           </div>
         )}

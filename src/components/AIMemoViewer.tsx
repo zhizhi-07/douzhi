@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import StatusBar from './StatusBar'
 import { getAllDates, getMemosForDate, type AIMemo } from '../utils/aiMemoManager'
 import { characterService } from '../services/characterService'
+import { getImage } from '../utils/unifiedStorage'
 
 const AIMemoViewer = () => {
   const { id } = useParams<{ id: string }>()
@@ -18,12 +19,10 @@ const AIMemoViewer = () => {
   const [memos, setMemos] = useState<AIMemo[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
   const [isBlankMode, setIsBlankMode] = useState(false) // 空白模式
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [longPressTimer, setLongPressTimer] = useState<number | null>(null)
   
   // 备忘录背景
-  const [memoBg, setMemoBg] = useState(() => {
-    return localStorage.getItem('memo_background') || ''
-  })
+  const [memoBg, setMemoBg] = useState('')
   
   // 检测背景是否为PNG（透明背景不显示阴影）
   const isPngBackground = memoBg.includes('data:image/png') || memoBg.includes('.png')
@@ -46,11 +45,17 @@ const AIMemoViewer = () => {
     }
   }, [id])
 
-  // 监听备忘录背景更新
+  // 加载备忘录背景
   useEffect(() => {
-    const handleBgUpdate = () => {
-      const bg = localStorage.getItem('memo_background') || ''
-      setMemoBg(bg)
+    const loadMemoBg = async () => {
+      const bg = await getImage('memo_bg')
+      if (bg) setMemoBg(bg)
+    }
+    loadMemoBg()
+
+    const handleBgUpdate = async () => {
+      const bg = await getImage('memo_bg')
+      setMemoBg(bg || '')
     }
     window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
@@ -153,7 +158,7 @@ const AIMemoViewer = () => {
 
       {/* 主内容区 */}
       <div 
-        className="flex-1 overflow-hidden flex flex-col items-center justify-center p-4"
+        className="flex-1 overflow-auto flex flex-col items-center p-2 sm:p-4 sm:justify-center"
         onMouseDown={handleLongPressStart}
         onMouseUp={handleLongPressEnd}
         onMouseLeave={handleLongPressEnd}
@@ -177,25 +182,10 @@ const AIMemoViewer = () => {
           </div>
         ) : (
           // 备忘录纸张
-          <div className="relative w-full max-w-md">
-            {/* 翻页按钮 - 左 */}
-            <button
-              onClick={handlePrevPage}
-              disabled={!canGoPrev || isAnimating}
-              className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                canGoPrev
-                  ? 'bg-amber-500 text-white shadow-lg hover:bg-amber-600 hover:scale-110'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-
+          <div className="w-full">
             {/* 纸张主体 */}
             <div
-              className={`bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-6 min-h-[500px] border-4 border-amber-200 relative transition-all duration-300 ${
+              className={`bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-4 border-4 border-amber-200 relative transition-all duration-300 ${
                 isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
               } ${isPngBackground ? '' : 'shadow-2xl'}`}
               style={{
@@ -248,24 +238,39 @@ const AIMemoViewer = () => {
               </div>
             </div>
 
-            {/* 翻页按钮 - 右 */}
-            <button
-              onClick={handleNextPage}
-              disabled={!canGoNext || isAnimating}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                canGoNext
-                  ? 'bg-amber-500 text-white shadow-lg hover:bg-amber-600 hover:scale-110'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* 页码指示 */}
-            <div className="text-center mt-4 text-sm text-amber-600">
-              {currentIndex + 1} / {allDates.length}
+            {/* 底部导航按钮 */}
+            <div className="flex justify-center items-center gap-6 mt-4">
+              <button
+                onClick={handlePrevPage}
+                disabled={!canGoPrev || isAnimating}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  canGoPrev
+                    ? 'bg-amber-500 text-white shadow-lg active:scale-95'
+                    : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              
+              <div className="text-sm text-amber-600 font-medium min-w-[60px] text-center">
+                {currentIndex + 1} / {allDates.length}
+              </div>
+              
+              <button
+                onClick={handleNextPage}
+                disabled={!canGoNext || isAnimating}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  canGoNext
+                    ? 'bg-amber-500 text-white shadow-lg active:scale-95'
+                    : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
@@ -275,7 +280,7 @@ const AIMemoViewer = () => {
       {!isBlankMode && allDates.length > 0 && (
         <div className="px-4 pb-4 text-center">
           <p className="text-xs text-amber-500">
-            💡 向左翻页查看昨天，向右翻页查看明天 | 长按切换空白模式
+            💡 长按页面切换空白模式
           </p>
         </div>
       )}

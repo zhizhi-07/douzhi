@@ -41,6 +41,11 @@ export function setAIStatus(status: AIStatus): void {
     status.updatedAt = Date.now()
     localStorage.setItem(key, JSON.stringify(status))
     console.log('💫 AI状态已更新:', status)
+    
+    // 🔥 同时保存到行程历史
+    import('./aiScheduleHistory').then(({ saveStatusToSchedule }) => {
+      saveStatusToSchedule(status.characterId, status.action)
+    }).catch(e => console.error('保存行程历史失败:', e))
   } catch (error) {
     console.error('设置AI状态失败:', error)
   }

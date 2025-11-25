@@ -2,6 +2,8 @@
  * 情侣空间内容管理工具
  */
 
+import { savePhotoToDB, getAllPhotosFromDB, type PhotoRecord } from './couplePhotosDB'
+
 export interface CoupleAlbumPhoto {
   id: string
   characterId: string
@@ -41,14 +43,15 @@ const STORAGE_KEYS = {
 
 // ==================== 相册功能 ====================
 
-export const addCouplePhoto = (
+/**
+ * 添加照片（新版：使用 IndexedDB 存储图片）
+ */
+export const addCouplePhoto = async (
   characterId: string,
   uploaderName: string,
   description: string,
   imageUrl?: string
-): CoupleAlbumPhoto => {
-  const photos = getCouplePhotos()
-  
+): Promise<CoupleAlbumPhoto> => {
   const newPhoto: CoupleAlbumPhoto = {
     id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     characterId,
@@ -60,13 +63,101 @@ export const addCouplePhoto = (
     createdAt: Date.now()
   }
   
-  photos.unshift(newPhoto)
-  localStorage.setItem(STORAGE_KEYS.ALBUM, JSON.stringify(photos))
+  // 如果有图片，保存到 IndexedDB
+  if (imageUrl) {
+    try {
+      const photoRecord: PhotoRecord = {
+        id: newPhoto.id,
+        characterId,
+        characterName: uploaderName,
+        uploaderName,
+        description,
+        imageData: imageUrl,
+        timestamp: newPhoto.timestamp,
+        createdAt: newPhoto.createdAt
+      }
+      await savePhotoToDB(photoRecord)
+    } catch (error) {
+      console.error('❌ 保存照片到 IndexedDB 失败:', error)
+      // 降级：尝试存到 localStorage（可能会失败）
+      try {
+        const photos = getCouplePhotosSync()
+        photos.unshift(newPhoto)
+        localStorage.setItem(STORAGE_KEYS.ALBUM, JSON.stringify(photos))
+      } catch (e) {
+        console.error('❌ 降级保存到 localStorage 也失败:', e)
+        throw new Error('存储空间不足，请删除一些旧照片')
+      }
+    }
+  } else {
+    // 没有图片，只保存元数据到 localStorage
+    const photos = getCouplePhotosSync()
+    photos.unshift(newPhoto)
+    localStorage.setItem(STORAGE_KEYS.ALBUM, JSON.stringify(photos))
+  }
   
   return newPhoto
 }
 
-export const getCouplePhotos = (characterId?: string): CoupleAlbumPhoto[] => {
+/**
+ * 获取照片（新版：从 IndexedDB 和 localStorage 合并）
+ */
+export const getCouplePhotos = async (characterId?: string): Promise<CoupleAlbumPhoto[]> => {
+  try {
+    // 1. 从 IndexedDB 获取有图片的照片
+    let photosFromDB: CoupleAlbumPhoto[] = []
+    try {
+      const dbPhotos = await getAllPhotosFromDB()
+      photosFromDB = dbPhotos.map(p => ({
+        id: p.id,
+        characterId: p.characterId,
+        characterName: p.characterName,
+        uploaderName: p.uploaderName,
+        description: p.description,
+        imageUrl: p.imageData,
+        timestamp: p.timestamp,
+        createdAt: p.createdAt
+      }))
+    } catch (error) {
+      console.warn('⚠️ 从 IndexedDB 获取照片失败:', error)
+    }
+
+    // 2. 从 localStorage 获取旧的照片（兼容性）
+    let photosFromLS: CoupleAlbumPhoto[] = []
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ALBUM)
+      if (data) {
+        photosFromLS = JSON.parse(data)
+      }
+    } catch (error) {
+      console.warn('⚠️ 从 localStorage 获取照片失败:', error)
+    }
+
+    // 3. 合并去重（IndexedDB 优先）
+    const dbPhotoIds = new Set(photosFromDB.map(p => p.id))
+    const uniqueLSPhotos = photosFromLS.filter(p => !dbPhotoIds.has(p.id))
+    
+    let allPhotos = [...photosFromDB, ...uniqueLSPhotos]
+    
+    // 4. 按时间倒序排序
+    allPhotos.sort((a, b) => b.timestamp - a.timestamp)
+
+    // 5. 按角色过滤
+    if (characterId) {
+      allPhotos = allPhotos.filter(p => p.characterId === characterId)
+    }
+    
+    return allPhotos
+  } catch (error) {
+    console.error('❌ 获取相册失败:', error)
+    return []
+  }
+}
+
+/**
+ * 同步版本的 getCouplePhotos（用于不支持 async 的地方）
+ */
+export const getCouplePhotosSync = (characterId?: string): CoupleAlbumPhoto[] => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.ALBUM)
     if (!data) return []
@@ -86,8 +177,8 @@ export const getCouplePhotos = (characterId?: string): CoupleAlbumPhoto[] => {
 
 export const deleteCouplePhoto = (photoId: string): boolean => {
   try {
-    const photos = getCouplePhotos()
-    const filtered = photos.filter(p => p.id !== photoId)
+    const photos = getCouplePhotosSync()
+    const filtered = photos.filter((p: CoupleAlbumPhoto) => p.id !== photoId)
     localStorage.setItem(STORAGE_KEYS.ALBUM, JSON.stringify(filtered))
     return true
   } catch (error) {
@@ -237,7 +328,7 @@ export const formatAnniversaryDate = (dateStr: string): string => {
  * 获取情侣空间内容摘要（用于AI prompt）
  */
 export const getCoupleSpaceContentSummary = (characterId: string): string => {
-  const photos = getCouplePhotos(characterId)
+  const photos = getCouplePhotosSync(characterId)
   const messages = getCoupleMessages(characterId)
   const anniversaries = getCoupleAnniversaries(characterId)
   
@@ -250,7 +341,7 @@ export const getCoupleSpaceContentSummary = (characterId: string): string => {
   // 所有相册照片（按时间倒序）
   if (photos.length > 0) {
     summary += '\n📸 相册：\n'
-    photos.forEach(photo => {
+    photos.forEach((photo: CoupleAlbumPhoto) => {
       const datetime = new Date(photo.timestamp).toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',

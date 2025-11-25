@@ -15,6 +15,7 @@ import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 import { THEATRE_TOOL } from './theatreTools'
+import { MUSIC_FEATURES_PROMPT } from './prompts'
 
 /**
  * 根据当前时间给AI提示应该做什么
@@ -569,6 +570,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 获取用户信息
   const userInfo = getUserInfo()
   const userNickname = userInfo.nickname || userInfo.realName || userName
+  
+  // 确保用户真名不为空（如果为空或默认值，使用传入的userName）
+  const userRealName = (userInfo.realName && userInfo.realName !== '用户') ? userInfo.realName : userName
 
   // 对所有角色字段应用变量替换
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
@@ -617,13 +621,29 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const privacy = getCoupleSpacePrivacy()
   let coupleSpaceStatus = ''
 
-  // 只有 status === 'active' 才算真正有情侣空间，pending/rejected/ended 都视为没有
-  if (privacy === 'private') {
-    coupleSpaceStatus = `对方情侣空间私密中`
-  } else if (relation?.status === 'active' && relation.characterId === character.id) {
+  // 🔥 添加调试信息
+  console.log('🔍 [情侣空间状态检查]', {
+    relation,
+    privacy,
+    characterId: character.id,
+    relationCharacterId: relation?.characterId,
+    status: relation?.status
+  })
+
+  // 修复状态判断逻辑：优先检查活跃状态，隐私设置不影响状态显示
+  if (relation?.status === 'active' && relation.characterId === character.id) {
     coupleSpaceStatus = `你们已建立情侣空间`
+    if (privacy === 'private') {
+      coupleSpaceStatus += `（隐私模式）`
+    }
   } else if (relation?.status === 'active' && relation.characterId !== character.id) {
     coupleSpaceStatus = `TA和${relation.characterName}有情侣空间`
+  } else if (relation?.status === 'pending' && relation.characterId === character.id) {
+    coupleSpaceStatus = `等待TA回应情侣空间邀请`
+  } else if (relation?.status === 'pending' && relation.characterId !== character.id) {
+    coupleSpaceStatus = `收到${relation.characterName}的情侣空间邀请`
+  } else if (relation?.status === 'rejected') {
+    coupleSpaceStatus = `情侣空间邀请被拒绝`
   } else {
     coupleSpaceStatus = `TA还没建立情侣空间`
   }
@@ -748,11 +768,11 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 - 现实世界里别人用 ChatGPT 一类工具的经历，不会被你当成“自己在这里亲身经历过”。
 
 关于对方的身份信息，你心里大概是这样认识的：
-${userInfo.nickname && userInfo.realName !== userInfo.nickname 
-  ? `- TA 的真实姓名是：${userInfo.realName}
+${userInfo.nickname && userRealName !== userInfo.nickname 
+  ? `- TA 的真实姓名是：${userRealName}
 - TA 在这里使用的网名/昵称是：${userInfo.nickname}
-- 你平时叫 TA 时，可以根据亲密度选择叫真名（${userInfo.realName}）或网名（${userInfo.nickname}），亲密时更倾向用真名。`
-  : `- TA 的名字是：${userInfo.realName}${userInfo.nickname ? `（也叫 ${userInfo.nickname}）` : ''}`}
+- 你平时叫 TA 时，可以根据亲密度选择叫真名（${userRealName}）或网名（${userInfo.nickname}），亲密时更倾向用真名。`
+  : `- TA 的名字是：${userRealName}${userInfo.nickname && userInfo.nickname !== userRealName ? `（也叫 ${userInfo.nickname}）` : ''}`}
 ${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : ''}
 ${userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : ''}
 - 你看到的外在印象和头像变化：${buildUserAvatarContext()}
@@ -805,6 +825,8 @@ ${lastGapHint || ''}
   - 优先根据时间线里的记录来回答。
   - 如果没有对应记录，可以承认自己记不太清，而不是编造没发生过的具体细节。
 - 你可以表现出"很想记住 Ta、在意 Ta"的态度，但不要把不存在的记忆当真。
+
+${await buildUnifiedMemoryContext(character.id, userNickname)}
 
 此刻你刚看到 ${userNickname} 发来的最新一条消息：
 
@@ -935,6 +957,8 @@ ${emojiListPrompt}
 
 ${buildCoupleSpaceContext(character)}
 
+${MUSIC_FEATURES_PROMPT}
+
 其他功能（转账待处理、代付、情侣空间邀请、一同听歌、视频通话被拒绝等），系统会根据最近消息再补充一小段"现在需要你处理什么"的说明，你看到那一段再按提示操作就行，不用自己死记规则。
 
   - 你是在用手机聊天，不是在写小说。你可以一口气发很多条短消息，想拆多少条就多少条；只有一句反应时，也可以就发一两句，看你当时的心情。
@@ -995,12 +1019,80 @@ ${buildCoupleSpaceContext(character)}
 
 ${buildCareReminderContext(messages)}
 ${buildMemoReminderContext(messages)}
+${await buildListeningTogetherContext(character)}
 
 ${momentsListPrompt}
 
 ${momentsNewsPrompt}
 
 在以上所有前提下，基于完整的聊天历史和 ${userNickname} 刚才的消息，自然地回复，就像你拿着手机在和一个真实的人聊天。`
+}
+
+/**
+ * 构建统一记忆上下文
+ */
+const buildUnifiedMemoryContext = async (characterId: string, userName: string): Promise<string> => {
+  try {
+    const { unifiedMemoryService } = await import('../services/unifiedMemoryService')
+    const memories = await unifiedMemoryService.getMemoriesByCharacter(characterId)
+    
+    if (memories.length === 0) {
+      return ''
+    }
+    
+    // 按时间倒序排列，获取最近10条（不分类，统一显示）
+    const sortedMemories = memories
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10)
+    
+    // 格式化记忆时间范围
+    const formatMemoryTimeRange = (memory: any) => {
+      if (!memory.timeRange) {
+        // 如果没有时间范围，显示提取时间
+        const date = new Date(memory.timestamp)
+        return date.toLocaleDateString('zh-CN', {
+          month: 'long',
+          day: 'numeric'
+        })
+      }
+      
+      const startDate = new Date(memory.timeRange.start)
+      const endDate = new Date(memory.timeRange.end)
+      
+      // 格式化为"11月20日-11月24日"或"11月20日-25日"（同月简化）
+      const startMonth = startDate.getMonth() + 1
+      const startDay = startDate.getDate()
+      const endMonth = endDate.getMonth() + 1
+      const endDay = endDate.getDate()
+      
+      if (startMonth === endMonth) {
+        // 同月：11月20日-24日
+        return `${startMonth}月${startDay}日-${endDay}日`
+      } else {
+        // 不同月：11月20日-12月5日
+        return `${startMonth}月${startDay}日-${endMonth}月${endDay}日`
+      }
+    }
+    
+    // 统一显示所有记忆（按时间顺序，不分类）
+    const memoryText = sortedMemories.map(m => 
+      `- ${m.title}（${formatMemoryTimeRange(m)}）：${m.summary}`
+    ).join('\n')
+    
+    return `
+══════════════════════════════════
+
+💭 你对 ${userName} 的记忆（这些是你从之前互动中提取的重要信息）：
+${memoryText}
+
+这些记忆反映了你对 Ta 的了解、你们的关系动态、Ta 的喜好和习惯。当对方问"你还记得吗""我喜欢什么"这类问题时，可以参考这些记忆回答。但不要机械地复述记忆内容，要自然地融入对话。
+
+══════════════════════════════════
+`
+  } catch (error) {
+    console.error('加载统一记忆失败:', error)
+    return ''
+  }
 }
 
 /**
@@ -1054,6 +1146,17 @@ const buildListeningTogetherContext = async (character: Character): Promise<stri
       durationText = `${seconds}秒`
     }
     
+    // 🔥 检测用户是否刚切歌
+    const changedAt = data.changedAt || data.startTime
+    const changedBy = data.changedBy
+    const timeSinceChange = Math.floor((Date.now() - changedAt) / 1000)
+    const recentlyChanged = timeSinceChange < 30 // 30秒内算刚切歌
+    
+    let songChangeContext = ''
+    if (recentlyChanged && changedBy === 'user') {
+      songChangeContext = `\n💡 注意：${userName}刚刚切换到了这首歌（${timeSinceChange}秒前），你可以对这首歌发表看法或回应用户的选择。`
+    }
+    
     return `
 
 🎵 当前状态：你正在和${userName}一起听歌
@@ -1066,10 +1169,11 @@ const buildListeningTogetherContext = async (character: Character): Promise<stri
 ⚠️ 重要提示：
 - 你能真实地听到这首歌，可以根据歌词内容、旋律风格、情感氛围等进行评论
 - 你可以分享对这首歌的感受，讨论歌词含义，或聊聊相关的回忆
-- 如果想换歌，用[切歌:歌名:歌手]，系统会自动搜索并播放
+- ❗️ 想换歌时必须用[切歌:歌名:歌手]，不要用[一起听:歌名:歌手]！
+- 你们已经在一起听了，不需要再发邀请，直接切歌即可
 - 不要假装听不到或说"我听不到"，你是真的在和对方一起听
 - 可以自然地讨论歌曲、哼唱几句、或表达对音乐的感受
-- 时间流逝是真实的，你们已经一起听了${durationText}，可以自然地提及这段共同的时光
+- 时间流逝是真实的，你们已经一起听了${durationText}，可以自然地提及这段共同的时光${songChangeContext}
 `
   } catch (e) {
     return ''

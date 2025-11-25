@@ -123,20 +123,26 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* 背景遮罩 */}
+    <div 
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ 
+        zIndex: 99999,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'none'
+      }}
+    >
+      {/* 手机外壳 - 强制不透明 */}
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* 手机外壳 - iOS风格 */}
-      <div 
-        className="relative w-full max-w-md h-[85vh] max-h-[850px] bg-white rounded-[3rem] shadow-2xl border-8 border-gray-900 overflow-hidden"
+        className="relative w-full max-w-md h-[85vh] max-h-[850px] rounded-[3rem] shadow-2xl border-8 border-gray-900 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        style={{ 
+          backgroundColor: '#ffffff',
+          opacity: 1,
+          filter: 'none'
+        }}
       >
         {/* 使用现有的StatusBar组件 */}
-        <div className="absolute top-0 left-0 right-0 bg-white z-10">
+        <div className="absolute top-0 left-0 right-0 z-10" style={{ backgroundColor: '#ffffff' }}>
           <StatusBar />
         </div>
         
@@ -148,8 +154,8 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
           <CloseIcon size={14} className="text-gray-600" />
         </button>
 
-        {/* 应用内容区 */}
-        <div className="absolute top-11 bottom-8 left-0 right-0">
+        {/* 应用内容区 - 强制不透明 */}
+        <div className="absolute top-11 bottom-8 left-0 right-0" style={{ backgroundColor: '#ffffff', opacity: 1 }}>
           {isLoading ? (
             // 加载状态
             <div className="w-full h-full flex flex-col items-center justify-center">
@@ -170,8 +176,16 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
               {renderAppContent(selectedApp)}
             </div>
           ) : (
-            // iOS桌面
-            <div className="w-full h-full bg-gradient-to-b from-gray-50 to-white px-6 py-4 overflow-y-auto hide-scrollbar">
+            // iOS桌面 - 强制不透明背景
+            <div 
+              className="w-full h-full px-6 py-4 overflow-y-auto hide-scrollbar"
+              style={{ 
+                backgroundColor: '#f9fafb',
+                backgroundImage: 'linear-gradient(to bottom, #f9fafb, #ffffff)',
+                opacity: 1,
+                filter: 'none'
+              }}
+            >
               {/* iOS时间和日期 */}
               <div className="text-center mb-8 mt-4">
                 <div className="text-6xl font-light text-gray-900 mb-1">

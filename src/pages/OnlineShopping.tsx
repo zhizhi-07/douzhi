@@ -105,17 +105,12 @@ const OnlineShopping = () => {
 
     setIsSearching(true)
     try {
-      const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm'
-        },
-        body: JSON.stringify({
-          model: 'deepseek-ai/DeepSeek-V3',
-          messages: [{
-            role: 'user',
-            content: `你是一个电商平台的商品推荐AI。用户搜索了"${searchQuery}"，请生成5个相关商品。
+      // 使用智智代付API
+      const { callZhizhiApi } = await import('../services/zhizhiapi')
+      
+      const content = await callZhizhiApi([{
+        role: 'user',
+        content: `你是一个电商平台的商品推荐AI。用户搜索了"${searchQuery}"，请生成5个相关商品。
 
 要求：
 1. 商品名称必须包含"${searchQuery}"关键词
@@ -127,16 +122,7 @@ const OnlineShopping = () => {
 [{"name":"商品名","price":价格,"description":"描述","sales":销量}]
 
 现在请为"${searchQuery}"生成5个商品：`
-          }],
-          temperature: 0.8,
-          max_tokens: 800
-        })
-      })
-
-      if (!response.ok) throw new Error('搜索失败')
-
-      const data = await response.json()
-      const content = data.choices[0].message.content
+      }], { temperature: 0.8, max_tokens: 800 })
       const jsonMatch = content.match(/\[[\s\S]*\]/)
       
       if (jsonMatch) {

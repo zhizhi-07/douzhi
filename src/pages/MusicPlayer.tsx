@@ -32,6 +32,7 @@ const MusicPlayer = () => {
   const [listeningDuration, setListeningDuration] = useState('')
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0)
   const [customBackground, setCustomBackground] = useState<string>('')
+  const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
   
   // 加载音乐背景
   useEffect(() => {
@@ -75,7 +76,6 @@ const MusicPlayer = () => {
     window.addEventListener('musicBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('musicBackgroundUpdate', handleBgUpdate)
   }, [])
-  const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
   
   // 检查一起听状态和计算时长
   useEffect(() => {
@@ -293,7 +293,7 @@ const MusicPlayer = () => {
     let animationFrame: number
     if (isPlaying) {
       const rotate = () => {
-        setRotation(prev => (prev + 0.5) % 360)
+        setRotation(prev => (prev + 0.3) % 360)
         animationFrame = requestAnimationFrame(rotate)
       }
       animationFrame = requestAnimationFrame(rotate)
@@ -333,102 +333,113 @@ const MusicPlayer = () => {
         />
       )}
       
-      <div className="min-h-screen flex flex-col relative overflow-hidden bg-white">
-        <StatusBar />
+      <div className="min-h-screen flex flex-col relative overflow-hidden bg-gray-50 text-gray-900">
+        <StatusBar theme="light" />
       
-      
-      {/* 背景层 */}
-      <div className="absolute inset-0 top-[44px]">
+      {/* 背景层 - 轻盈毛玻璃风格 */}
+      <div className="absolute inset-0 top-0 z-0">
         {customBackground ? (
           backgroundType === 'video' ? (
-            <video src={customBackground} autoPlay loop muted className="absolute inset-0 w-full h-full object-cover" />
+            <video src={customBackground} autoPlay loop muted className="absolute inset-0 w-full h-full object-cover opacity-30" />
           ) : (
             <div className="absolute inset-0 w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }} />
           )
         ) : (
-          <div className="absolute inset-0 bg-white" />
+          // 默认使用歌曲封面作为背景
+          <div 
+            className="absolute inset-0 w-full h-full bg-cover bg-center transition-all duration-1000 scale-110" 
+            style={{ backgroundImage: `url(${currentSong.cover})` }} 
+          />
         )}
-        <div className="absolute inset-0 bg-white/50" />
+        {/* 叠加高亮毛玻璃和渐变 */}
+        <div className="absolute inset-0 backdrop-blur-[50px] bg-white/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/40 to-white/80" />
       </div>
       
       {/* 顶部导航栏 */}
-      <div className="relative z-10 px-4 py-3 flex items-center justify-between border-b border-gray-100">
-        <button onClick={() => navigate('/', { replace: true })} className="w-10 h-10 flex items-center justify-center">
-          <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      <div className="relative z-10 px-4 pt-12 pb-3 flex items-center justify-between">
+        <button onClick={() => navigate('/', { replace: true })} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors">
+          <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" transform="rotate(90 12 12)" />
           </svg>
         </button>
-        <h1 className="text-sm font-medium text-gray-700">正在播放</h1>
+        
+        {/* 顶部中间 - 一起听状态或应用名 */}
+        <div className="flex flex-col items-center">
+            {listeningTogether ? (
+                <div className="flex flex-col items-center animate-fade-in">
+                    <span className="text-base font-medium text-gray-800">一起听</span>
+                </div>
+            ) : (
+                <span className="text-base font-medium text-gray-800 opacity-90">Music</span>
+            )}
+        </div>
+
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/music-search')} className="w-10 h-10 flex items-center justify-center">
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={() => navigate('/music-search')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors">
+            <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
-          <label className="w-10 h-10 flex items-center justify-center cursor-pointer">
+          <label className="w-10 h-10 flex items-center justify-center cursor-pointer rounded-full hover:bg-black/5 transition-colors">
             <input type="file" accept="image/*,video/*" onChange={handleBackgroundUpload} className="hidden" />
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </label>
-          <button onClick={() => setShowPlaylist(!showPlaylist)} className="w-10 h-10 flex items-center justify-center">
-            <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
-            </svg>
-          </button>
         </div>
       </div>
 
       {/* 播放列表弹窗 */}
       {showPlaylist && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setShowPlaylist(false)}>
-          <div className="w-full bg-white rounded-t-3xl max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowPlaylist(false)}>
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+          <div className="relative w-full bg-white/90 backdrop-blur-xl rounded-t-3xl max-h-[70vh] overflow-hidden text-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">播放列表</h2>
-                <button onClick={() => setShowPlaylist(false)} className="text-gray-400 text-2xl w-8 h-8 flex items-center justify-center">×</button>
+                <h2 className="text-lg font-bold">播放列表 <span className="text-sm font-normal text-gray-500">({playlist.length})</span></h2>
+                <button onClick={() => setShowPlaylist(false)} className="text-gray-400 hover:text-gray-800 text-2xl w-8 h-8 flex items-center justify-center">×</button>
               </div>
             </div>
             <div className="overflow-y-auto max-h-[calc(70vh-60px)]">
               {playlist.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-gray-400">
-                  <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex flex-col items-center justify-center p-12 text-gray-500">
+                  <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                   <p className="text-sm">暂无歌曲</p>
-                  <p className="text-xs mt-1">去搜索或上传歌曲吧</p>
                 </div>
               ) : (
                 playlist.map((song, index) => (
                   <div
                     key={song.id}
                     onClick={() => selectSong(index)}
-                    className={`flex items-center gap-3 p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 ${
-                      index === currentSongIndex ? 'bg-red-50' : ''
+                    className={`flex items-center gap-3 p-4 border-b border-gray-50 cursor-pointer hover:bg-black/5 ${
+                      index === currentSongIndex ? 'text-red-500' : 'text-gray-900'
                     }`}
                   >
-                    <img src={song.cover} alt={song.title} className="w-12 h-12 rounded-lg object-cover" />
-                    <div className="flex-1">
-                      <div className={`font-medium ${index === currentSongIndex ? 'text-red-500' : 'text-gray-900'}`}>{song.title}</div>
-                      <div className="text-sm text-gray-500">{song.artist}</div>
+                    <div className="relative w-10 h-10 rounded bg-gray-100 overflow-hidden flex-shrink-0">
+                        <img src={song.cover} alt={song.title} className="w-full h-full object-cover" />
+                        {index === currentSongIndex && isPlaying && (
+                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center gap-0.5">
+                                <div className="w-0.5 h-3 bg-red-500 rounded animate-music-bar-1"></div>
+                                <div className="w-0.5 h-4 bg-red-500 rounded animate-music-bar-2"></div>
+                                <div className="w-0.5 h-2 bg-red-500 rounded animate-music-bar-3"></div>
+                            </div>
+                        )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {index === currentSongIndex && isPlaying && (
-                        <div className="flex gap-1 items-end">
-                          <div className="w-1 h-3 bg-red-500 rounded animate-pulse"></div>
-                          <div className="w-1 h-4 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-1 h-2 bg-red-500 rounded animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                        </div>
-                      )}
-                      <button
-                        onClick={(e) => deleteSong(e, index)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <svg className="w-5 h-5 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-medium truncate ${index === currentSongIndex ? 'text-red-500' : 'text-gray-900'}`}>{song.title}</div>
+                      <div className="text-xs text-gray-500 truncate">{song.artist}</div>
                     </div>
+                    <button
+                      onClick={(e) => deleteSong(e, index)}
+                      className="p-2 hover:text-red-500 text-gray-400 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 ))
               )}
@@ -438,88 +449,117 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex flex-col items-center p-4 pt-12 pb-20 overflow-y-auto">
-        {/* 头像显示 - 在唱片上方，始终显示 */}
-        <div className="flex flex-col items-center mb-12">
+      <div className="relative z-10 flex flex-col items-center flex-1 w-full px-6 pt-4 pb-8">
+        
+        {/* 头像显示 - 两个头像连线 */}
+        <div className="w-full flex items-center justify-center mb-4 relative h-16">
           {listeningTogether ? (
-            // 一起听模式：显示两个头像
-            <>
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {/* 用户头像 */}
-                <div className="w-12 h-12 rounded-full border-3 border-white shadow-lg overflow-hidden">
-                  {getUserInfo().avatar ? (
-                    <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-medium">
-                      我
+            <div className="relative w-full max-w-[200px] flex items-center justify-between">
+                {/* 左侧头像 (我) */}
+                <div className="relative z-10 flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full border-2 border-white shadow-lg overflow-hidden">
+                        {getUserInfo().avatar ? (
+                            <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">我</div>
+                        )}
                     </div>
-                  )}
                 </div>
-                {/* AI头像 */}
-                <div className="w-12 h-12 rounded-full border-3 border-white shadow-lg overflow-hidden -ml-4">
-                  {listeningTogether.character?.avatar ? (
-                    <img src={listeningTogether.character.avatar} alt={listeningTogether.character.realName} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white text-xl font-medium">
-                      {listeningTogether.character?.realName?.[0] || 'AI'}
+
+                {/* 中间连接动画 */}
+                <div className="absolute left-0 right-0 top-6 flex items-center justify-center px-12">
+                    <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-300 to-transparent relative overflow-hidden">
+                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-500 to-transparent w-1/2 h-full animate-shimmer-slide"></div>
                     </div>
-                  )}
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur px-2 py-0.5 rounded-full border border-gray-200 shadow-sm">
+                        <span className="text-[10px] text-gray-600 whitespace-nowrap font-mono">{listeningDuration}</span>
+                    </div>
                 </div>
-              </div>
-              <div className="text-sm text-gray-600">
-                一起听了 <span className="font-medium text-gray-900">{listeningDuration}</span>
-              </div>
-            </>
+
+                {/* 右侧头像 (对方) */}
+                <div className="relative z-10 flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full border-2 border-white shadow-lg overflow-hidden">
+                        {listeningTogether.character?.avatar ? (
+                            <img src={listeningTogether.character.avatar} alt={listeningTogether.character.realName} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                {listeningTogether.character?.realName?.[0] || 'AI'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
           ) : (
-            // 普通模式：始终显示用户头像
-            <>
-              <div className="w-14 h-14 rounded-full border-3 border-white shadow-lg overflow-hidden mb-2">
+             // 普通模式：只显示我的头像
+            <div className="w-14 h-14 rounded-full border-2 border-white shadow-lg overflow-hidden">
                 {getUserInfo().avatar ? (
                   <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-medium">
-                    我
-                  </div>
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">我</div>
                 )}
-              </div>
-            </>
+            </div>
           )}
         </div>
         
         {/* 唱片封面和歌词容器 */}
-        <div className="relative mb-8 w-48 h-48 flex items-center justify-center">
+        <div className="flex-1 w-full flex items-center justify-center min-h-[300px] relative mt-4">
+          
           {/* 唱片盘 */}
           <div 
-            className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+            className={`transition-all duration-500 ease-out ${showLyrics ? 'opacity-0 scale-90 pointer-events-none absolute' : 'opacity-100 scale-100'}`}
             onClick={() => setShowLyrics(true)}
           >
-            <div className="relative w-48 h-48">
+            <div className="relative w-56 h-56">
+              {/* 唱片整体 - 黑胶唱片风格 */}
               <div 
-                className="w-48 h-48 rounded-full backdrop-blur-md bg-white/20 shadow-2xl flex items-center justify-center cursor-pointer border-2 border-white/30"
-                style={{ transform: `rotate(${rotation}deg)`, transition: isPlaying ? 'none' : 'transform 0.5s' }}
+                className="w-full h-full rounded-full flex items-center justify-center cursor-pointer relative overflow-hidden shadow-2xl"
+                style={{ 
+                    transform: `rotate(${rotation}deg)`, 
+                    transition: isPlaying ? 'none' : 'transform 0.5s',
+                    background: 'radial-gradient(circle at 30% 30%, #2a2a2a, #1a1a1a, #0a0a0a)',
+                }}
               >
-                <div className="w-[170px] h-[170px] rounded-full overflow-hidden shadow-inner bg-white flex items-center justify-center">
-                  <img src={currentSong.cover} alt={currentSong.title} className="w-full h-full object-contain" />
+                {/* 唱片纹理 - 同心圆 */}
+                <div className="absolute inset-0 rounded-full" style={{
+                  background: `repeating-radial-gradient(
+                    circle at center,
+                    transparent 0px,
+                    transparent 2px,
+                    rgba(255, 255, 255, 0.03) 2px,
+                    rgba(255, 255, 255, 0.03) 4px
+                  )`
+                }} />
+                
+                {/* 专辑封面 - 居中小圆 */}
+                <div className="w-[55%] h-[55%] rounded-full overflow-hidden bg-gray-100 relative z-10 shadow-inner">
+                  <img src={currentSong.cover} alt={currentSong.title} className="w-full h-full object-cover" />
                 </div>
+
+                {/* 高光效果 */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/10 to-transparent pointer-events-none z-20"></div>
               </div>
             </div>
           </div>
 
           {/* 歌词显示 */}
           <div 
-            className={`absolute transition-opacity duration-500 ${showLyrics ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${showLyrics ? 'opacity-100 scale-100' : 'opacity-0 scale-110 pointer-events-none'}`}
             onClick={() => setShowLyrics(false)}
           >
-            <div className="w-48 h-48 flex items-center justify-center cursor-pointer">
+            <div className="w-full h-full flex items-center justify-center cursor-pointer">
               {parsedLyrics.length > 0 ? (
-                <div className="w-full h-full overflow-hidden flex items-center">
-                  <div className="w-full text-center space-y-2 px-4">
+                <div className="w-full h-[320px] overflow-hidden flex flex-col items-center justify-center mask-image-linear-gradient">
+                  <div className="w-full text-center space-y-6 px-4">
                     {Array.from({ length: 5 }, (_, i) => {
                       const lyricIndex = currentLyricIndex - 2 + i
                       const line = parsedLyrics[lyricIndex] || ''
                       const isCurrent = i === 2
                       return (
-                        <p key={i} className={`text-sm transition-all duration-300 ${isCurrent ? 'text-gray-900 font-bold text-base scale-110' : 'text-gray-400 text-xs'}`}>
+                        <p key={i} className={`transition-all duration-500 ${
+                            isCurrent 
+                            ? 'text-gray-900 font-bold text-xl scale-110 drop-shadow-sm' 
+                            : 'text-gray-400 text-sm'
+                        }`}>
                           {line || '\u00A0'}
                         </p>
                       )
@@ -528,73 +568,99 @@ const MusicPlayer = () => {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-gray-400">
-                  <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  <svg className="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
-                  <p className="text-sm">暂无歌词</p>
+                  <p className="text-sm">纯音乐，请欣赏</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* 歌曲信息和操作 */}
-        <div className="w-full max-w-md mb-3">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">{currentSong.title}</h2>
-              <p className="text-gray-600 text-base">{currentSong.artist}</p>
+        {/* 底部信息和控制区 */}
+        <div className="w-full mt-auto space-y-6">
+          {/* 歌曲信息 */}
+          <div className="flex items-center justify-between px-2">
+            <div className="flex-1 min-w-0 pr-4">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1 truncate leading-tight">{currentSong.title}</h2>
+              <p className="text-gray-500 text-base truncate">{currentSong.artist}</p>
             </div>
-            <button onClick={() => setIsLiked(!isLiked)} className="w-10 h-10 flex items-center justify-center">
-              <svg className={`w-6 h-6 ${isLiked ? 'text-red-500 fill-current' : 'text-gray-400'}`} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            <button onClick={() => setIsLiked(!isLiked)} className="w-12 h-12 flex items-center justify-center hover:scale-110 transition-transform">
+              <svg className={`w-7 h-7 ${isLiked ? 'text-red-500 fill-current' : 'text-gray-400'}`} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </button>
           </div>
-        </div>
 
-        {/* 进度条 */}
-        <div className="w-full max-w-md mb-3">
-          <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            value={currentTime}
-            onChange={handleSeek}
-            className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-            style={{ background: `linear-gradient(to right, #EF4444 0%, #EF4444 ${(currentTime / duration) * 100}%, #E5E7EB ${(currentTime / duration) * 100}%, #E5E7EB 100%)` }}
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-2">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration || currentSong.duration)}</span>
+          {/* 进度条 */}
+          <div className="w-full">
+            <div className="group relative w-full h-4 flex items-center cursor-pointer">
+                 <input
+                    type="range"
+                    min="0"
+                    max={duration || 0}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                {/* 轨道 */}
+                <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                    {/* 进度 */}
+                    <div 
+                        className="h-full bg-gray-800 rounded-full relative"
+                        style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                    >
+                         <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-gray-800 rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    </div>
+                </div>
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400 font-medium font-mono -mt-1 px-1">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration || currentSong.duration)}</span>
+            </div>
           </div>
-        </div>
 
-        {/* 控制按钮 */}
-        <div className="flex items-center justify-center gap-8 mb-2">
-          <button onClick={playPrevious} className="w-12 h-12 flex items-center justify-center hover:scale-110 transition-transform">
-            <svg className="w-8 h-8 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-            </svg>
-          </button>
+          {/* 控制按钮 */}
+          <div className="flex items-center justify-between px-4">
+             {/* 播放模式 (占位) */}
+             <button className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors">
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                 </svg>
+             </button>
 
-          <button onClick={togglePlay} className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
-            {isPlaying ? (
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+            <button onClick={playPrevious} className="w-12 h-12 flex items-center justify-center text-gray-800 hover:scale-110 transition-transform">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
               </svg>
-            ) : (
-              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            )}
-          </button>
+            </button>
 
-          <button onClick={playNext} className="w-12 h-12 flex items-center justify-center hover:scale-110 transition-transform">
-            <svg className="w-8 h-8 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-            </svg>
-          </button>
+            <button onClick={togglePlay} className="w-16 h-16 rounded-full bg-gray-900 shadow-lg flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-all">
+              {isPlaying ? (
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              )}
+            </button>
+
+            <button onClick={playNext} className="w-12 h-12 flex items-center justify-center text-gray-800 hover:scale-110 transition-transform">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+              </svg>
+            </button>
+            
+            {/* 播放列表按钮 */}
+            <button onClick={() => setShowPlaylist(!showPlaylist)} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                 <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -605,18 +671,35 @@ const MusicPlayer = () => {
           width: 12px;
           height: 12px;
           border-radius: 50%;
-          background: #EF4444;
+          background: #fff;
           cursor: pointer;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        .slider::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #EF4444;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        @keyframes shimmer-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .animate-shimmer-slide {
+            animation: shimmer-slide 2s infinite;
+        }
+        @keyframes music-bar-1 {
+            0%, 100% { height: 40%; }
+            50% { height: 80%; }
+        }
+        @keyframes music-bar-2 {
+            0%, 100% { height: 60%; }
+            50% { height: 100%; }
+        }
+        @keyframes music-bar-3 {
+            0%, 100% { height: 30%; }
+            50% { height: 70%; }
+        }
+        .animate-music-bar-1 { animation: music-bar-1 1s ease-in-out infinite; }
+        .animate-music-bar-2 { animation: music-bar-2 0.8s ease-in-out infinite; }
+        .animate-music-bar-3 { animation: music-bar-3 1.2s ease-in-out infinite; }
+        .mask-image-linear-gradient {
+            mask-image: linear-gradient(transparent, black 20%, black 80%, transparent);
+            -webkit-mask-image: linear-gradient(transparent, black 20%, black 80%, transparent);
         }
       `}</style>
       </div>

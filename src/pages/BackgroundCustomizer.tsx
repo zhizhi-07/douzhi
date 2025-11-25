@@ -5,8 +5,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
-import { getBackground, saveBackground, deleteBackground, migrateFromLocalStorage } from '../utils/backgroundStorage'
-import { saveImage, getImage, deleteFromIndexedDB, saveToIndexedDB } from '../utils/unifiedStorage'
+import { migrateFromLocalStorage } from '../utils/backgroundStorage'
+import { saveImage, getImage, deleteFromIndexedDB } from '../utils/unifiedStorage'
 import { saveUIIcon, getUIIcon, deleteUIIcon } from '../utils/iconStorage'
 
 const BackgroundCustomizer = () => {
@@ -42,7 +42,7 @@ const BackgroundCustomizer = () => {
       const savedDesktopBg = await getImage('desktop_bg')
       const savedMusicBg = await getImage('music_bg')
       const savedWechatBg = await getImage('wechat_bg')
-      const memo = await getBackground('memo')
+      const memo = await getImage('memo_bg')
       const bubble1 = await getImage('desktop_bubble1_bg')
       const bubble2 = await getImage('desktop_bubble2_bg')
       
@@ -226,14 +226,25 @@ const BackgroundCustomizer = () => {
     setMemoUploading(true)
 
     try {
-      const url = await saveBackground('memo', file)
-      setMemoBg(url)
-      window.dispatchEvent(new Event('memoBackgroundUpdate'))
-      console.log('✅ 备忘录背景已保存到IndexedDB')
+      // 直接读取文件为DataURL，保留PNG透明
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string
+        setMemoBg(base64String)
+        await saveImage('memo_bg', base64String)
+        window.dispatchEvent(new Event('memoBackgroundUpdate'))
+        console.log('✅ 备忘录背景已保存到IndexedDB（base64）')
+        setMemoUploading(false)
+      }
+      reader.onerror = () => {
+        console.error('文件读取失败')
+        alert('图片处理失败，请重试')
+        setMemoUploading(false)
+      }
+      reader.readAsDataURL(file)
     } catch (error) {
-      console.error('保存失败:', error)
-      alert('保存失败，请重试')
-    } finally {
+      console.error('背景处理失败:', error)
+      alert('图片处理失败，请重试')
       setMemoUploading(false)
     }
   }
@@ -242,7 +253,7 @@ const BackgroundCustomizer = () => {
   const handleRemoveMemo = async () => {
     if (confirm('确定要删除备忘录背景吗？')) {
       try {
-        await deleteBackground('memo')
+        await deleteFromIndexedDB('memo_bg')
         setMemoBg('')
         window.dispatchEvent(new Event('memoBackgroundUpdate'))
         console.log('✅ 备忘录背景已删除')
@@ -579,7 +590,7 @@ const BackgroundCustomizer = () => {
                         reader.onload = async (event) => {
                           const dataUrl = event.target?.result as string
                           setFunctionBg(dataUrl)
-                          await saveToIndexedDB('IMAGES', 'function_bg', dataUrl)
+                          await saveImage('function_bg', dataUrl)
                           console.log('✅ 功能背景已保存到IndexedDB (base64长度:', dataUrl.length, ')')
                         }
                         reader.readAsDataURL(file)

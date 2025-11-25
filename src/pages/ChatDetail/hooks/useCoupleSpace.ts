@@ -29,14 +29,42 @@ export const useCoupleSpace = (
     if (!chatId || !character) return
 
     const relation = getCoupleSpaceRelation()
+    
+    // 🔥 调试信息
+    console.log('💕 [情侣空间] openMenu被调用', {
+      chatId,
+      relation,
+      sender: relation?.sender
+    })
+    
+    // 如果已经是活跃状态，显示快捷菜单
     if (relation?.status === 'active' && relation.characterId === chatId) {
       setShowMenu(true)
       return
     }
 
-    if (relation?.status === 'pending' && relation.characterId === chatId) {
-      alert('已经发送过邀请了，等待对方回应')
-      return
+    // 如果有待处理的邀请
+    if (relation?.status === 'pending') {
+      if (relation.characterId === chatId) {
+        if (relation.sender === 'character') {
+          // AI发起的邀请，询问用户是否要清除并发起新邀请
+          const clearAndSend = confirm('对方之前向你发起过情侣空间邀请。\n\n点击"确定"清除旧邀请并发起新邀请\n点击"取消"保留现状')
+          if (!clearAndSend) return
+          // 清除旧邀请
+          localStorage.removeItem('couple_space_relation')
+          console.log('💕 [情侣空间] 清除了AI发起的旧邀请，准备发起新邀请')
+        } else {
+          // 用户之前发起的邀请还在等待
+          alert('已经发送过邀请了，等待对方回应')
+          return
+        }
+      } else {
+        // 与其他角色有pending邀请，询问是否覆盖
+        const override = confirm(`你与${relation.characterName}有未处理的情侣空间邀请。\n\n点击"确定"清除并向当前角色发起新邀请`)
+        if (!override) return
+        localStorage.removeItem('couple_space_relation')
+        console.log('💕 [情侣空间] 清除了与其他角色的邀请，准备发起新邀请')
+      }
     }
 
     // 创建邀请
@@ -156,21 +184,26 @@ export const useCoupleSpace = (
   }
 
   // 提交内容
-  const submitContent = (content: string, data?: { date?: string, title?: string }) => {
+  const submitContent = async (content: string, data?: { date?: string, title?: string }) => {
     if (!chatId || !character) return
 
     if (inputType === 'photo') {
-      addCouplePhoto(chatId, '我', content)
-      const systemMsg: Message = {
-        id: Date.now(),
-        type: 'system',
-        content: `你在情侣空间相册分享了照片`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: Date.now(),
-        messageType: 'system'
+      try {
+        await addCouplePhoto(chatId, '我', content)
+        const systemMsg: Message = {
+          id: Date.now(),
+          type: 'system',
+          content: `你在情侣空间相册分享了照片`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+          messageType: 'system'
+        }
+        saveMessage(chatId, systemMsg)
+        setMessages(prev => [...prev, systemMsg])
+      } catch (error) {
+        console.error('❌ 保存照片失败:', error)
+        alert(error instanceof Error ? error.message : '保存失败，请重试')
       }
-      saveMessage(chatId, systemMsg)
-      setMessages(prev => [...prev, systemMsg])
     } else if (inputType === 'message') {
       addCoupleMessage(chatId, '我', content)
       const systemMsg: Message = {

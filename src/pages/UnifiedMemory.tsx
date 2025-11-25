@@ -1,0 +1,693 @@
+/**
+ * 统一记忆管理 - 文艺极简版
+ * Design: 极简、留白、杂志感、黑白灰主调
+ */
+
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
+import { unifiedMemoryService, type UnifiedMemory, type MemoryDomain } from '../services/unifiedMemoryService'
+import { characterService } from '../services/characterService'
+import { extractMemoryFromChat } from '../services/memoryExtractor'
+import { loadMessages } from '../utils/simpleMessageManager'
+
+// 角色类型
+interface Character {
+  id: string
+  name: string
+  avatar?: string
+}
+
+// 使用统一记忆类型
+type Memory = UnifiedMemory
+
+const UnifiedMemory = () => {
+  const navigate = useNavigate()
+  
+  // 状态管理
+  const [memories, setMemories] = useState<Memory[]>([])
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [selectedDomain, setSelectedDomain] = useState<MemoryDomain>('all')
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('all')
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  
+  // 添加记忆表单
+  const [newMemory, setNewMemory] = useState<{
+    characterId: string
+    domain: MemoryDomain
+    title: string
+    summary: string
+    importance: 'high' | 'normal' | 'low'
+    tags: string
+  }>({
+    characterId: '',
+    domain: 'chat',
+    title: '',
+    summary: '',
+    importance: 'normal',
+    tags: ''
+  })
+
+  // 加载数据
+  useEffect(() => {
+    loadCharacters()
+    loadMemories()
+  }, [])
+
+  const loadCharacters = () => {
+    // 从角色服务加载真实角色
+    const allCharacters = characterService.getAll()
+    const characterList: Character[] = allCharacters.map(char => ({
+      id: char.id,
+      name: char.nickname || char.realName,
+      avatar: char.avatar
+    }))
+    setCharacters(characterList)
+  }
+
+  const loadMemories = async () => {
+    // 从数据库加载真实记忆
+    const realMemories = await unifiedMemoryService.getAllMemories()
+    
+    // 如果没有记忆，添加一些示例数据
+    if (realMemories.length === 0) {
+      console.log('📝 [记忆系统] 首次使用，添加示例记忆...')
+      await addSampleMemories()
+      const updated = await unifiedMemoryService.getAllMemories()
+      setMemories(updated)
+    } else {
+      setMemories(realMemories)
+    }
+  }
+
+  // 添加示例记忆（仅首次使用）
+  const addSampleMemories = async () => {
+    const sampleMemories: Omit<Memory, 'id'>[] = [
+      {
+        domain: 'chat',
+        characterId: '1',
+        characterName: '汁汁',
+        characterAvatar: undefined,
+        title: '关于未来的约定',
+        summary: '深夜里，我们聊起了关于未来的规划。他说想要换一份工作，去一个能看到海的城市。那个瞬间，我觉得我们的距离前所未有的近。',
+        importance: 'high',
+        timestamp: Date.now() - 1000 * 60 * 60 * 2,
+        tags: ['约定', '深度对话', '未来'],
+        emotionalTone: 'positive',
+        extractedBy: 'manual'
+      },
+      {
+        domain: 'moments',
+        characterId: '2',
+        characterName: '分发',
+        characterAvatar: undefined,
+        title: '雨天的问候',
+        summary: '在你那条"心情不好"的朋友圈下，他写下了一段很长的评论。不像平时那么吊儿郎当，字里行间都是小心翼翼的安慰。',
+        importance: 'normal',
+        timestamp: Date.now() - 1000 * 60 * 60 * 25,
+        tags: ['朋友圈', '安慰'],
+        emotionalTone: 'positive',
+        extractedBy: 'manual'
+      },
+      {
+        domain: 'action',
+        characterId: '1',
+        characterName: '汁汁',
+        characterAvatar: undefined,
+        title: '无声的陪伴',
+        summary: '没有任何征兆，只是发来了一张天空的照片。不需要多说什么，这份默契已经足够。',
+        importance: 'normal',
+        timestamp: Date.now() - 1000 * 60 * 60 * 48,
+        tags: ['主动', '分享'],
+        emotionalTone: 'positive',
+        extractedBy: 'manual'
+      },
+      {
+        domain: 'chat',
+        characterId: '3',
+        characterName: '唐秋水',
+        characterAvatar: undefined,
+        title: '争执之后',
+        summary: '虽然还在生气，但还是别扭地问了一句"吃饭了吗"。这大概就是他表达歉意的方式吧。',
+        importance: 'low',
+        timestamp: Date.now() - 1000 * 60 * 60 * 72,
+        tags: ['日常', '和解'],
+        emotionalTone: 'neutral',
+        extractedBy: 'manual'
+      }
+    ]
+    
+    // 保存到数据库
+    for (const mem of sampleMemories) {
+      await unifiedMemoryService.addMemory(mem)
+    }
+  }
+
+  // 统计数据
+  const stats = useMemo(() => {
+    return {
+      total: memories.length,
+      chat: memories.filter(m => m.domain === 'chat').length,
+      moments: memories.filter(m => m.domain === 'moments').length,
+    }
+  }, [memories])
+
+  // 过滤记忆
+  const filteredMemories = useMemo(() => {
+    return memories.filter(memory => {
+      if (selectedDomain !== 'all' && memory.domain !== selectedDomain) return false
+      if (selectedCharacter !== 'all' && memory.characterId !== selectedCharacter) return false
+      return true
+    })
+  }, [memories, selectedDomain, selectedCharacter])
+
+  // 格式化日期 - 文艺风格
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp)
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const week = weekDays[date.getDay()]
+    return {
+      date: `${month}.${day.toString().padStart(2, '0')}`,
+      week,
+      full: date.toLocaleString('zh-CN', { hour12: false, month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }
+  }
+
+  // 域名映射
+  const domainMap: Record<string, string> = {
+    all: '全部',
+    chat: '对话',
+    moments: '瞬间',
+    action: '回响'
+  }
+
+  // 强制提取记忆（用于测试）
+  const handleForceExtract = async () => {
+    if (characters.length === 0) {
+      alert('没有可用的角色')
+      return
+    }
+
+    // 默认选择第一个角色
+    const targetChar = selectedCharacter !== 'all' 
+      ? characters.find(c => c.id === selectedCharacter) 
+      : characters[0]
+    
+    if (!targetChar) {
+      alert('请选择一个角色')
+      return
+    }
+
+    setIsExtracting(true)
+    
+    try {
+      // 加载该角色的聊天记录（chatId就是characterId）
+      const chatId = targetChar.id
+      const messages = loadMessages(chatId)
+      
+      if (messages.length === 0) {
+        alert(`${targetChar.name} 还没有聊天记录`)
+        setIsExtracting(false)
+        return
+      }
+
+      console.log(`🔍 [强制提取] 开始从 ${targetChar.name} 的 ${messages.length} 条消息中提取记忆...`)
+      
+      // 调用提取服务
+      const count = await extractMemoryFromChat(
+        targetChar.id,
+        targetChar.name,
+        messages,
+        'chat'
+      )
+      
+      if (count > 0) {
+        alert(`✅ 成功提取了 ${count} 条记忆！`)
+        // 刷新列表
+        await loadMemories()
+      } else {
+        alert('ℹ️ AI认为暂时没有值得记录的内容')
+      }
+      
+    } catch (error) {
+      console.error('❌ [强制提取] 提取失败:', error)
+      alert('提取失败，请查看控制台')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  // 处理添加记忆
+  const handleAddMemory = async () => {
+    if (!newMemory.characterId || !newMemory.title || !newMemory.summary) {
+      alert('请填写完整信息')
+      return
+    }
+
+    const selectedChar = characters.find(c => c.id === newMemory.characterId)
+    if (!selectedChar) {
+      alert('请选择角色')
+      return
+    }
+
+    const tagsArray = newMemory.tags
+      .split(/[,，、\s]+/)
+      .map(t => t.trim())
+      .filter(t => t)
+
+    await unifiedMemoryService.addMemory({
+      domain: newMemory.domain,
+      characterId: selectedChar.id,
+      characterName: selectedChar.name,
+      characterAvatar: selectedChar.avatar,
+      title: newMemory.title,
+      summary: newMemory.summary,
+      importance: newMemory.importance,
+      tags: tagsArray,
+      timestamp: Date.now(),
+      emotionalTone: 'neutral',
+      extractedBy: 'manual'
+    })
+
+    // 刷新列表
+    await loadMemories()
+
+    // 重置表单
+    setNewMemory({
+      characterId: '',
+      domain: 'chat',
+      title: '',
+      summary: '',
+      importance: 'normal',
+      tags: ''
+    })
+
+    setShowAddModal(false)
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-[#f9f9f9] text-gray-800 font-sans selection:bg-gray-200">
+      <StatusBar />
+      
+      {/* 顶部导航 - 极简风格 */}
+      <div className="px-6 pt-6 pb-4 bg-[#f9f9f9] z-10">
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 -ml-2 hover:bg-gray-200/50 rounded-full transition-colors"
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <div className="flex items-center gap-2">
+            {/* 强制提取记忆按钮（测试用） */}
+            <button 
+              onClick={handleForceExtract}
+              disabled={isExtracting}
+              className="px-3 py-1.5 text-xs bg-yellow-500 hover:bg-yellow-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              title="强制提取当前角色的记忆（测试功能）"
+            >
+              {isExtracting ? '提取中...' : '🧠 提取记忆'}
+            </button>
+            
+            {/* 添加记忆按钮 */}
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="p-2 hover:bg-gray-900 bg-gray-800 text-white rounded-full transition-colors"
+              title="手动添加记忆"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 大标题区域 */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-light tracking-wide text-gray-900 font-serif">
+            记忆碎片
+          </h1>
+          <div className="flex items-center gap-4 text-xs text-gray-400 tracking-wider uppercase">
+            <span>Total {stats.total}</span>
+            <span className="w-1 h-1 bg-gray-300 rounded-full" />
+            <span>Chat {stats.chat}</span>
+            <span className="w-1 h-1 bg-gray-300 rounded-full" />
+            <span>Moments {stats.moments}</span>
+          </div>
+        </div>
+
+        {/* 角色选择栏 */}
+        <div className="flex gap-4 mt-8 overflow-x-auto scrollbar-hide pb-2">
+          {/* 全部 */}
+          <button
+            onClick={() => setSelectedCharacter('all')}
+            className={`flex flex-col items-center gap-2 min-w-[60px] transition-all ${
+              selectedCharacter === 'all' ? 'opacity-100 scale-105' : 'opacity-50 hover:opacity-80'
+            }`}
+          >
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center border transition-all ${
+              selectedCharacter === 'all' 
+                ? 'bg-gray-900 border-gray-900 text-white shadow-lg' 
+                : 'bg-white border-gray-200 text-gray-400'
+            }`}>
+              <span className="text-xs tracking-widest">ALL</span>
+            </div>
+            <span className={`text-xs tracking-wider ${selectedCharacter === 'all' ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+              全部
+            </span>
+          </button>
+
+          {/* 角色列表 */}
+          {characters.map(char => (
+            <button
+              key={char.id}
+              onClick={() => setSelectedCharacter(char.id)}
+              className={`flex flex-col items-center gap-2 min-w-[60px] transition-all ${
+                selectedCharacter === char.id ? 'opacity-100 scale-105' : 'opacity-50 hover:opacity-80'
+              }`}
+            >
+              <div className={`w-14 h-14 rounded-full overflow-hidden border transition-all ${
+                selectedCharacter === char.id 
+                  ? 'border-gray-900 shadow-lg' 
+                  : 'border-gray-200'
+              }`}>
+                {char.avatar ? (
+                  <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                    {char.name.slice(0, 1)}
+                  </div>
+                )}
+              </div>
+              <span className={`text-xs tracking-wider ${selectedCharacter === char.id ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                {char.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* 分类Tab - 文字式 */}
+        <div className="flex gap-8 mt-4 border-b border-gray-200/60 pb-1 overflow-x-auto scrollbar-hide">
+          {(['all', 'chat', 'moments', 'action'] as MemoryDomain[]).map(domain => (
+            <button
+              key={domain}
+              onClick={() => setSelectedDomain(domain)}
+              className={`pb-3 text-sm tracking-widest transition-colors relative whitespace-nowrap ${
+                selectedDomain === domain
+                  ? 'text-gray-900 font-medium'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {domainMap[domain]}
+              {selectedDomain === domain && (
+                <span className="absolute bottom-0 left-0 w-full h-[1px] bg-gray-900" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 记忆列表 - 杂志风格 */}
+      <div className="flex-1 overflow-y-auto px-6 pb-8">
+        <div className="space-y-8">
+          {filteredMemories.map((memory, index) => {
+            const timeData = formatDate(memory.timestamp)
+            return (
+              <div
+                key={memory.id}
+                onClick={() => setSelectedMemory(memory)}
+                className="group cursor-pointer animate-fade-in"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="flex gap-4">
+                  {/* 左侧时间轴 */}
+                  <div className="flex flex-col items-center pt-1 w-12 shrink-0">
+                    <span className="text-xl font-serif text-gray-900 leading-none">{timeData.date.split('.')[1]}</span>
+                    <span className="text-[10px] text-gray-400 uppercase mt-1 tracking-wider">{timeData.week}</span>
+                  </div>
+
+                  {/* 右侧内容卡片 */}
+                  <div className="flex-1 pb-8 border-b border-gray-100 group-last:border-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {memory.importance === 'high' && (
+                          <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+                        )}
+                        <span className="text-xs text-gray-400 tracking-wide">
+                           {timeData.date.split('.')[0]}月 · {memory.characterName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 className="text-lg font-medium text-gray-800 mb-3 group-hover:text-gray-600 transition-colors">
+                      {memory.title}
+                    </h3>
+
+                    <p className="text-sm text-gray-500 leading-relaxed line-clamp-3 font-light">
+                      {memory.summary}
+                    </p>
+
+                    {/* 底部标签 */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {memory.tags.map(tag => (
+                        <span key={tag} className="text-[10px] text-gray-400 px-2 py-1 bg-gray-100 rounded-sm tracking-wide">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          
+          {filteredMemories.length === 0 && (
+            <div className="py-20 text-center">
+              <div className="text-gray-300 font-serif text-4xl mb-4">Empty</div>
+              <p className="text-gray-400 text-xs tracking-widest uppercase">No memories found</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 详情弹窗 - 极简风格 */}
+      {selectedMemory && (
+        <div 
+          className="fixed inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col animate-fade-in"
+          onClick={() => setSelectedMemory(null)}
+        >
+          <div 
+            className="flex-1 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 */}
+            <div className="sticky top-0 flex justify-end p-6 bg-white/0 z-10">
+              <button
+                onClick={() => setSelectedMemory(null)}
+                className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-8 pb-12 max-w-2xl mx-auto mt-10">
+              {/* 元数据 */}
+              <div className="flex items-center gap-3 mb-6 text-sm text-gray-400 font-light tracking-widest uppercase">
+                <span>{formatDate(selectedMemory.timestamp).full}</span>
+                <span className="w-px h-3 bg-gray-300" />
+                <span>{domainMap[selectedMemory.domain]}</span>
+              </div>
+
+              {/* 标题 */}
+              <h2 className="text-3xl font-serif text-gray-900 mb-8 leading-tight">
+                {selectedMemory.title}
+              </h2>
+
+              {/* 角色信息 */}
+              <div className="flex items-center gap-3 mb-10 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
+                   {selectedMemory.characterAvatar ? (
+                     <img src={selectedMemory.characterAvatar} className="w-full h-full object-cover" alt="" />
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">AI</div>
+                   )}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{selectedMemory.characterName}</div>
+                  <div className="text-xs text-gray-400">
+                    {selectedMemory.importance === 'high' ? '核心记忆' : '普通记忆'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 正文 */}
+              <div className="prose prose-gray max-w-none">
+                <p className="text-gray-600 leading-loose text-lg font-light text-justify">
+                  {selectedMemory.summary}
+                </p>
+              </div>
+
+              {/* 底部标签区 */}
+              <div className="mt-12 pt-8 border-t border-gray-100">
+                <div className="flex flex-wrap gap-3">
+                  {selectedMemory.tags.map(tag => (
+                    <span key={tag} className="px-3 py-1.5 border border-gray-200 rounded-full text-xs text-gray-500 hover:border-gray-400 transition-colors cursor-default">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 添加记忆弹窗 */}
+      {showAddModal && (
+        <div 
+          className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center animate-fade-in p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 标题栏 */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-serif text-gray-900">添加记忆</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 表单内容 */}
+            <div className="p-6 space-y-6">
+              {/* 选择角色 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">选择角色</label>
+                <select
+                  value={newMemory.characterId}
+                  onChange={(e) => setNewMemory(prev => ({ ...prev, characterId: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                >
+                  <option value="">请选择角色</option>
+                  {characters.map(char => (
+                    <option key={char.id} value={char.id}>{char.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 记忆类型 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">记忆类型</label>
+                <div className="flex gap-3">
+                  {(['chat', 'moments', 'action'] as const).map(domain => (
+                    <button
+                      key={domain}
+                      onClick={() => setNewMemory(prev => ({ ...prev, domain }))}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        newMemory.domain === domain
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {domainMap[domain]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 重要度 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">重要程度</label>
+                <div className="flex gap-3">
+                  {(['high', 'normal', 'low'] as const).map(importance => (
+                    <button
+                      key={importance}
+                      onClick={() => setNewMemory(prev => ({ ...prev, importance }))}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        newMemory.importance === importance
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {importance === 'high' ? '核心' : importance === 'normal' ? '普通' : '一般'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 标题 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">标题</label>
+                <input
+                  type="text"
+                  value={newMemory.title}
+                  onChange={(e) => setNewMemory(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="简短的标题（10字以内）"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+              </div>
+
+              {/* 摘要 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">记忆内容</label>
+                <textarea
+                  value={newMemory.summary}
+                  onChange={(e) => setNewMemory(prev => ({ ...prev, summary: e.target.value }))}
+                  placeholder="详细描述这段记忆..."
+                  rows={5}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* 标签 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">标签</label>
+                <input
+                  type="text"
+                  value={newMemory.tags}
+                  onChange={(e) => setNewMemory(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="用逗号分隔，如：约定, 深度对话, 未来"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+              </div>
+
+              {/* 按钮 */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleAddMemory}
+                  className="flex-1 px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                >
+                  保存记忆
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default UnifiedMemory

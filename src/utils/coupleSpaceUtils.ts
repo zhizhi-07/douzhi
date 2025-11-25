@@ -207,19 +207,20 @@ export const cancelCoupleSpaceInvite = (): boolean => {
 
 /**
  * 结束情侣空间关系（只清除关系，保留内容数据供下次绑定使用）
+ * 支持清除任何状态的关系（active、pending、rejected）
  */
 export const endCoupleSpaceRelation = (): boolean => {
   const relation = getCoupleSpaceRelation()
 
-  if (!relation || relation.status !== 'active') {
-    console.log('没有活跃的情侣空间')
+  if (!relation) {
+    console.log('没有情侣空间关系')
     return false
   }
 
   // 只清除关系状态，保留照片、留言、纪念日等内容
   localStorage.removeItem('couple_space_relation')
 
-  console.log('✅ 情侣空间关系已解除，内容数据已保留')
+  console.log(`✅ 情侣空间关系已解除（原状态: ${relation.status}），内容数据已保留`)
   return true
 }
 

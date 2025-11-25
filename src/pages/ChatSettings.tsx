@@ -56,7 +56,7 @@ const ChatSettings = () => {
         memorySummaryInterval: data.memorySummaryInterval ?? 30,
         voiceId: data.voiceId ?? '',
         hideTokenStats: data.hideTokenStats ?? false,
-        enableTheatreCards: data.enableTheatreCards ?? true,
+        enableTheatreCards: data.enableTheatreCards ?? false,
         hideTheatreHistory: data.hideTheatreHistory ?? false,
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
@@ -77,7 +77,7 @@ const ChatSettings = () => {
       memorySummaryInterval: 30,
       voiceId: '',
       hideTokenStats: false,
-      enableTheatreCards: true,
+      enableTheatreCards: false,
       hideTheatreHistory: false,
       groupChatSync: {
         enabled: false,
@@ -132,7 +132,7 @@ const ChatSettings = () => {
       memorySummaryInterval: 30,
       voiceId: '',
       hideTokenStats: false,
-      enableTheatreCards: true,
+      enableTheatreCards: false,
       hideTheatreHistory: false,
       groupChatSync: {
         enabled: false,

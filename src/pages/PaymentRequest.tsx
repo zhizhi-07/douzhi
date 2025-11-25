@@ -146,17 +146,12 @@ const PaymentRequest = () => {
 
     setIsSearching(true)
     try {
-      const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm'
-        },
-        body: JSON.stringify({
-          model: 'deepseek-ai/DeepSeek-V3',
-          messages: [{
-            role: 'user',
-            content: `你是一个脑洞大开的美食创意师。用户搜索了"${searchQuery}"，请生成15个完全不同风格的创意商品。
+      // 使用智智代付API
+      const { callZhizhiApi } = await import('../services/zhizhiapi')
+      
+      const content = await callZhizhiApi([{
+        role: 'user',
+        content: `你是一个脑洞大开的美食创意师。用户搜索了"${searchQuery}"，请生成15个完全不同风格的创意商品。
 
 🎯 铁律：
 1. **必须包含关键词**："${searchQuery}"必须出现在商品名中
@@ -209,24 +204,7 @@ const PaymentRequest = () => {
 - 终极款：上万元（如：终身会员、包年套餐、超级豪华版）
 
 现在请为"${searchQuery}"生成15个脑洞大开的商品（每次都要有新花样）：`
-          }],
-          temperature: 1.0,
-          max_tokens: 2000
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error?.message || '搜索失败')
-      }
-
-      const data = await response.json()
-      
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('API返回数据格式错误')
-      }
-      
-      const content = data.choices[0].message.content
+      }], { temperature: 1.0, max_tokens: 2000 })
       
       // 解析JSON
       const jsonMatch = content.match(/\[[\s\S]*\]/)

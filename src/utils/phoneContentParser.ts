@@ -78,28 +78,22 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
 
       case '微信聊天':
         let currentChat: any = null
-        dataLines.forEach(line => {
-          const trimmedLine = line.trim()
-          if (trimmedLine.startsWith('对话：')) {
-            if (currentChat) {
-              const parts = trimmedLine.substring(3).split('|||')
-              if (parts.length >= 3) {
-                currentChat.messages.push({
-                  content: parts[1].trim(),
-                  isSelf: parts[0].trim() === 'self',
-                  time: parts[2].trim(),
-                  type: 'text'
-                })
-              }
-            }
-          } else {
-            const parts = trimmedLine.split('|||')
+        let i = 0
+        
+        while (i < dataLines.length) {
+          const line = dataLines[i].trim()
+          
+          // 检测会话开始行（不以"对话："开头的行）
+          if (!line.startsWith('对话：')) {
+            const parts = line.split('|||')
             if (parts.length >= 4) {
-              // 保存上一个聊天
+              // 保存上一个聊天会话
               if (currentChat && currentChat.messages.length > 0) {
+                console.log(`📱 [聊天解析] 保存会话: ${currentChat.name}, 消息数: ${currentChat.messages.length}`)
                 result.wechatChats.push(currentChat)
               }
-              // 创建新聊天
+              
+              // 创建新的聊天会话
               currentChat = {
                 name: parts[0].trim(),
                 lastMessage: parts[1].trim(),
@@ -107,14 +101,48 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
                 unread: parseInt(parts[3]) || 0,
                 messages: []
               }
+              
+              console.log(`📱 [聊天解析] 开始新会话: ${currentChat.name}`)
+            }
+          } 
+          // 处理对话消息行
+          else if (line.startsWith('对话：') && currentChat) {
+            const parts = line.substring(3).split('|||')
+            if (parts.length >= 3) {
+              const sender = parts[0].trim()
+              const content = parts[1].trim()
+              const time = parts[2].trim()
+              
+              // 验证消息合法性
+              if (content && time) {
+                currentChat.messages.push({
+                  content,
+                  isSelf: sender === 'self',
+                  time,
+                  type: 'text'
+                })
+                console.log(`📱 [聊天解析] 添加消息到 ${currentChat.name}: ${sender} -> ${content.substring(0, 20)}...`)
+              } else {
+                console.log(`📱 [聊天解析] 跳过无效消息: ${line}`)
+              }
             }
           }
-        })
-        // 保存最后一个聊天（只有有消息的才保存）
+          
+          i++
+        }
+        
+        // 保存最后一个聊天会话
         if (currentChat && currentChat.messages.length > 0) {
+          console.log(`📱 [聊天解析] 保存最后会话: ${currentChat.name}, 消息数: ${currentChat.messages.length}`)
           result.wechatChats.push(currentChat)
         }
+        
         console.log(`📱 [手机解析] 微信聊天解析完成: ${result.wechatChats.length}个会话`)
+        
+        // 输出每个会话的详细信息用于调试
+        result.wechatChats.forEach((chat, index) => {
+          console.log(`📱 [会话${index}] ${chat.name}: ${chat.messages.length}条消息`)
+        })
         break
 
       case '浏览器历史':

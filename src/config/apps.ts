@@ -66,9 +66,9 @@ export const page2Apps: AppItem[] = [
     route: '/instagram' 
   },
   { 
-    id: 'aiphone', 
-    name: '查手机', 
-    icon: PhoneIcon, 
+    id: 'homeland', 
+    name: '电话', 
+    icon: 'PhoneIcon', 
     color: 'glass-card', 
     route: '/ai-phone-select' 
   },

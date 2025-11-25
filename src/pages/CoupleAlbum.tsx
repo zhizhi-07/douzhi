@@ -8,6 +8,7 @@ import StatusBar from '../components/StatusBar'
 import FlipPhotoCard from '../components/FlipPhotoCard'
 import { getCouplePhotos, addCouplePhoto, type CoupleAlbumPhoto } from '../utils/coupleSpaceContentUtils'
 import { getCoupleSpaceRelation } from '../utils/coupleSpaceUtils'
+import { compressImage } from '../utils/imageCompression'
 
 const CoupleAlbum = () => {
   const navigate = useNavigate()
@@ -21,12 +22,17 @@ const CoupleAlbum = () => {
     loadPhotos()
   }, [])
 
-  const loadPhotos = () => {
-    const allPhotos = getCouplePhotos()
-    setPhotos(allPhotos)
+  const loadPhotos = async () => {
+    try {
+      const allPhotos = await getCouplePhotos()
+      setPhotos(allPhotos)
+    } catch (error) {
+      console.error('❌ 加载相册失败:', error)
+      alert('加载相册失败，请刷新页面重试')
+    }
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -44,15 +50,24 @@ const CoupleAlbum = () => {
 
     setImageFile(file)
 
-    // 预览图片
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setSelectedImage(event.target?.result as string)
+    try {
+      // 压缩图片（最大宽高1200px，质量0.8，最大500KB）
+      console.log('📸 开始压缩图片...')
+      const compressed = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.8,
+        maxSizeKB: 500
+      })
+      setSelectedImage(compressed)
+      console.log('✅ 图片压缩完成')
+    } catch (error) {
+      console.error('❌ 图片压缩失败:', error)
+      alert('图片处理失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedImage) {
       alert('请选择照片')
       return
@@ -69,20 +84,25 @@ const CoupleAlbum = () => {
       return
     }
 
-    addCouplePhoto(
-      relation.characterId,
-      '我',
-      photoDescription.trim(),
-      selectedImage  // 传入base64图片
-    )
+    try {
+      await addCouplePhoto(
+        relation.characterId,
+        '我',
+        photoDescription.trim(),
+        selectedImage  // 传入压缩后的base64图片
+      )
 
-    // 重置状态
-    setPhotoDescription('')
-    setSelectedImage(null)
-    setImageFile(null)
-    setShowUploadModal(false)
-    loadPhotos()
-    alert('照片已上传！')
+      // 重置状态
+      setPhotoDescription('')
+      setSelectedImage(null)
+      setImageFile(null)
+      setShowUploadModal(false)
+      await loadPhotos()
+      alert('照片已上传！')
+    } catch (error) {
+      console.error('❌ 上传失败:', error)
+      alert(error instanceof Error ? error.message : '上传失败，请重试')
+    }
   }
 
   const handleCancelUpload = () => {

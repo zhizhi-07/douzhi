@@ -7,9 +7,8 @@ import { page1Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
 import { getCustomIcon, preloadDesktopIcons } from '../utils/iconManager'
 import { playSystemSound } from '../utils/soundManager'
-import { getBackground } from '../utils/backgroundStorage'
 import { getImage } from '../utils/unifiedStorage'
-import { ContactIcon, GameIcon, ImageIcon, CalendarIcon, PhoneIcon } from '../components/Icons'
+import { CalendarIcon, ImageIcon, GameIcon, ContactIcon } from '../components/Icons'
 import '../css/character-card.css'
 
 const Desktop = () => {
@@ -200,13 +199,13 @@ const Desktop = () => {
   // 加载备忘录背景
   useEffect(() => {
     const loadMemoBg = async () => {
-      const bg = await getBackground('memo')
+      const bg = await getImage('memo_bg')
       if (bg) setMemoBg(bg)
     }
     loadMemoBg()
     
     const handleBgUpdate = async () => {
-      const bg = await getBackground('memo')
+      const bg = await getImage('memo_bg')
       setMemoBg(bg || '')
     }
     window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
@@ -437,7 +436,11 @@ const Desktop = () => {
                   {/* 顶部标题栏 - 可通过长按切换显示 */}
                   {showMemoHeader && (
                     <div 
-                      className="flex items-center justify-between px-3 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between px-3 py-2 border-b cursor-pointer transition-colors"
+                      style={{
+                        backgroundColor: memoBg ? 'rgba(255, 255, 255, 0.85)' : 'transparent',
+                        borderColor: memoBg ? 'rgba(255, 255, 255, 0.5)' : '#E5E7EB'
+                      }}
                       onClick={() => {
                         setIsEditingMemo(true)
                         setTimeout(() => memoTextareaRef.current?.focus(), 0)
@@ -458,6 +461,9 @@ const Desktop = () => {
                   {/* 内容区域 */}
                   <div 
                     className="flex-1 px-3 py-2 cursor-text"
+                    style={{
+                      backgroundColor: memoBg ? 'rgba(255, 255, 255, 0.85)' : 'transparent'
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       if (!isEditingMemo) {
@@ -475,11 +481,11 @@ const Desktop = () => {
                           setIsEditingMemo(false)
                           localStorage.setItem('desktop_memo', memoText)
                         }}
-                        className="w-full h-full text-xs text-gray-600 leading-relaxed resize-none bg-transparent outline-none"
+                        className="w-full h-full text-xs text-gray-700 leading-relaxed resize-none bg-transparent outline-none"
                         placeholder="今天要做的事情..."
                       />
                     ) : (
-                      <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                      <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
                         {memoText}
                       </div>
                     )}
@@ -723,10 +729,11 @@ const Desktop = () => {
                 {/* 左侧：2x2 应用图标 */}
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { id: 'desktop-calendar', Icon: CalendarIcon, label: '日历', route: null },
+                    { id: 'desktop-calendar', Icon: CalendarIcon, label: '日历', route: '/calendar' },
                     { id: 'desktop-theater', Icon: ImageIcon, label: '小剧场', route: '/theatre' },
-                    { id: 'desktop-phone', Icon: PhoneIcon, label: '电话', route: null },
-                    { id: 'desktop-game', Icon: GameIcon, label: '游戏', route: null }
+                    { id: 'homeland', Icon: CalendarIcon, label: '行程', route: '/ai-schedule' },
+                    { id: 'desktop-game', Icon: GameIcon, label: '游戏', route: '/game-list' },
+                    // { id: 'world-map', Icon: MapIcon, label: '世界地图', route: '/map' }  // 已隐藏
                   ].map((app, index) => {
                     const customIcon = getCustomIcon(app.id)
                     return (

@@ -1185,7 +1185,7 @@ const GroupChatDetail = () => {
           // 查找接收者
           const receiver = members.find(m => m.name === toName)
           if (receiver) {
-            groupChatManager.addMessage(id, {
+            const transferMsg = groupChatManager.addMessage(id, {
               userId: member.id,
               userName: member.name,
               userAvatar: getMemberAvatar(member.id),
@@ -1200,6 +1200,11 @@ const GroupChatDetail = () => {
                 status: 'pending'
               }
             } as any)
+            
+            // 🔥 添加到UI并立即渲染
+            currentMessages.push(transferMsg)
+            flushSync(() => setMessages([...currentMessages]))
+            scrollToBottom()
           }
           
           content = content.replace(/\[转账:[^:]+:\d+(?:\.\d+)?:.+?\]/, '').trim()
@@ -1213,7 +1218,7 @@ const GroupChatDetail = () => {
           const voiceText = voiceMatch[1].trim()
           console.log(`🎤 [AI指令] ${member.name} 发送语音: ${voiceText}`)
           
-          groupChatManager.addMessage(id, {
+          const voiceMsg = groupChatManager.addMessage(id, {
             userId: member.id,
             userName: member.name,
             userAvatar: getMemberAvatar(member.id),
@@ -1223,6 +1228,11 @@ const GroupChatDetail = () => {
             voiceText: voiceText,
             duration: Math.ceil(voiceText.length / 5)
           } as any)
+          
+          // 🔥 添加到UI并立即渲染
+          currentMessages.push(voiceMsg)
+          flushSync(() => setMessages([...currentMessages]))
+          scrollToBottom()
           
           content = content.replace(/\[语音:.+?\]/, '').trim()
           hasCommand = true
@@ -1235,7 +1245,7 @@ const GroupChatDetail = () => {
           const description = photoMatch[1].trim()
           console.log(`📷 [AI指令] ${member.name} 发送图片: ${description}`)
           
-          groupChatManager.addMessage(id, {
+          const photoMsg = groupChatManager.addMessage(id, {
             userId: member.id,
             userName: member.name,
             userAvatar: getMemberAvatar(member.id),
@@ -1244,6 +1254,11 @@ const GroupChatDetail = () => {
             messageType: 'photo',
             photoDescription: description
           } as any)
+          
+          // 🔥 添加到UI并立即渲染
+          currentMessages.push(photoMsg)
+          flushSync(() => setMessages([...currentMessages]))
+          scrollToBottom()
           
           content = content.replace(/\[图片:.+?\]/, '').trim()
           hasCommand = true
@@ -1256,7 +1271,7 @@ const GroupChatDetail = () => {
           const locationName = locationMatch[1].trim()
           console.log(`📍 [AI指令] ${member.name} 分享位置: ${locationName}`)
           
-          groupChatManager.addMessage(id, {
+          const locationMsg = groupChatManager.addMessage(id, {
             userId: member.id,
             userName: member.name,
             userAvatar: getMemberAvatar(member.id),
@@ -1268,6 +1283,11 @@ const GroupChatDetail = () => {
               address: locationName
             }
           } as any)
+          
+          // 🔥 添加到UI并立即渲染
+          currentMessages.push(locationMsg)
+          flushSync(() => setMessages([...currentMessages]))
+          scrollToBottom()
           
           content = content.replace(/\[位置:.+?\]/, '').trim()
           hasCommand = true

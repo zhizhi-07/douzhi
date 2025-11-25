@@ -76,8 +76,15 @@ import PaymentRequest from './pages/PaymentRequest'
 import OnlineShopping from './pages/OnlineShopping'
 import AIPhoneSelect from './pages/AIPhoneSelect'
 import GlobalMemory from './pages/GlobalMemory'
+import UnifiedMemory from './pages/UnifiedMemory'
 import BubbleEditor from './pages/BubbleEditor'
 import TheatreApp from './pages/TheatreApp'
+import GameList from './pages/GameList'
+import Landlord from './pages/Landlord'
+import Calendar from './pages/Calendar'
+import AISchedule from './pages/AISchedule'
+import AIScheduleSelect from './pages/AIScheduleSelect'
+// import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
@@ -445,9 +452,16 @@ function App() {
       <Route path="/chat/:id/payment-request" element={<PaymentRequest />} />
       <Route path="/chat/:id/shopping" element={<OnlineShopping />} />
       <Route path="/ai-phone-select" element={<AIPhoneSelect />} />
-      <Route path="/global-memory" element={<GlobalMemory />} />
+      <Route path="/global-memory" element={<UnifiedMemory />} />
+      <Route path="/global-memory-old" element={<GlobalMemory />} />
       <Route path="/bubble-editor" element={<BubbleEditor />} />
       <Route path="/theatre" element={<TheatreApp />} />
+      <Route path="/game-list" element={<GameList />} />
+      <Route path="/calendar" element={<Calendar />} />
+      <Route path="/landlord" element={<Landlord />} />
+      <Route path="/ai-schedule" element={<AIScheduleSelect />} />
+      <Route path="/ai-schedule/:characterId" element={<AISchedule />} />
+      {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
     </Routes>
     </ContactsProvider>
     </div>
