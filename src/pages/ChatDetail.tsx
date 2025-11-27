@@ -4,7 +4,6 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getChatWallpaper, getWallpaperStyle } from '../utils/wallpaperManager'
 import { getUserInfo } from '../utils/userUtils'
 import AddMenu from '../components/AddMenu'
 import AlbumSelector from '../components/AlbumSelector'
@@ -28,8 +27,7 @@ import PostGenerator from '../components/PostGenerator'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
-import { getAllUIIcons } from '../utils/iconStorage'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -46,144 +44,32 @@ const ChatDetail = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
-  // 壁纸
-  const [wallpaper, setWallpaper] = useState(() =>
-    id ? getChatWallpaper(id) : null
+  // 核心状态
+  const chatState = useChatState(id || '')
+  
+  // 使用新的hooks
+  const { wallpaperStyle } = useWallpaper(id)
+  const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages)
+  const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
+  
+  // 滚动控制
+  const { scrollContainerRef, scrollToBottom, isNearBottom } = useScrollControl(
+    chatState.messages,
+    false, // chatAI.isAiTyping will be set later
+    chatState.hasMoreMessages,
+    chatState.isLoadingMessages,
+    chatState.loadMoreMessages
   )
-  const [wallpaperImageUrl, setWallpaperImageUrl] = useState<string | null>(null)
 
+  // 记录加载更多前的滚动位置，用于保持视口不跳动
+  const previousScrollHeightRef = useRef<number | null>(null)
+  const previousScrollTopRef = useRef<number | null>(null)
+  
   // 气泡样式
   useChatBubbles(id)
   
   // Token 统计详情面板状态
   const [showTokenDetail, setShowTokenDetail] = useState(false)
-
-  // 场景模式状态
-  const [sceneMode, setSceneMode] = useState<'online' | 'offline'>('online')
-  
-  // 线下记录对话框状态
-  const [showOfflineRecordDialog, setShowOfflineRecordDialog] = useState(false)
-  const [editingOfflineRecord, setEditingOfflineRecord] = useState<Message | null>(null)
-  
-  // 装饰图片状态
-  const [chatDecorations, setChatDecorations] = useState({
-    topBar: localStorage.getItem('chat_top_bar_image'),
-    bottomBar: localStorage.getItem('chat_bottom_bar_image'),
-    plusButton: localStorage.getItem('chat_plus_button_image'),
-    emojiButton: localStorage.getItem('chat_emoji_button_image'),
-    sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
-    sendButtonActive: localStorage.getItem('chat_send_button_active_image')
-  })
-  
-  // 自定义UI图标
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
-  
-  // 顶栏底栏调整参数
-  const [topBarScale, setTopBarScale] = useState(100)
-  const [topBarX, setTopBarX] = useState(0)
-  const [topBarY, setTopBarY] = useState(0)
-  const [bottomBarScale, setBottomBarScale] = useState(100)
-  const [bottomBarX, setBottomBarX] = useState(0)
-  const [bottomBarY, setBottomBarY] = useState(0)
-  
-  // 监听装饰更新
-  useEffect(() => {
-    const handleDecorationUpdate = () => {
-      setChatDecorations({
-        topBar: localStorage.getItem('chat_top_bar_image'),
-        bottomBar: localStorage.getItem('chat_bottom_bar_image'),
-        plusButton: localStorage.getItem('chat_plus_button_image'),
-        emojiButton: localStorage.getItem('chat_emoji_button_image'),
-        sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
-        sendButtonActive: localStorage.getItem('chat_send_button_active_image')
-      })
-    }
-    window.addEventListener('globalDecorationUpdate', handleDecorationUpdate)
-    return () => window.removeEventListener('globalDecorationUpdate', handleDecorationUpdate)
-  }, [])
-
-  // 加载自定义UI图标
-  useEffect(() => {
-    const loadCustomIcons = async () => {
-      try {
-        // 优先从IndexedDB加载
-        let icons = await getAllUIIcons()
-        
-        // 如果IndexedDB为空，从localStorage恢复
-        if (Object.keys(icons).length === 0) {
-          const saved = localStorage.getItem('ui_custom_icons')
-          if (saved) {
-            icons = JSON.parse(saved)
-            console.log('📦 ChatDetail从localStorage恢复图标')
-          }
-        }
-        
-        // 🌍 全局设置：应用到所有界面
-        if (icons['global-background']) {
-          // 全局背景应用到聊天界面
-          setWallpaperImageUrl(icons['global-background'])
-          console.log('🌍 应用全局背景到聊天界面')
-        }
-        if (icons['global-topbar']) {
-          // 全局顶栏应用到聊天界面（如果没有单独设置）
-          if (!icons['chat-topbar-bg']) {
-            icons['chat-topbar-bg'] = icons['global-topbar']
-            console.log('🌍 应用全局顶栏到聊天界面')
-          }
-        }
-        
-        setCustomIcons(icons)
-        console.log('✅ ChatDetail加载自定义图标:', Object.keys(icons).length, '个')
-      } catch (error) {
-        console.error('❌ 加载自定义图标失败:', error)
-        // 出错时从localStorage恢复
-        try {
-          const saved = localStorage.getItem('ui_custom_icons')
-          if (saved) {
-            setCustomIcons(JSON.parse(saved))
-            console.log('✅ 从localStorage备份恢复')
-          }
-        } catch (err) {
-          console.error('备份恢复失败:', err)
-        }
-      }
-    }
-    
-    loadCustomIcons()
-    
-    // 加载调整参数
-    const loadAdjustParams = () => {
-      const tScale = localStorage.getItem('chat-topbar-bg-scale')
-      const tX = localStorage.getItem('chat-topbar-bg-x')
-      const tY = localStorage.getItem('chat-topbar-bg-y')
-      const bScale = localStorage.getItem('chat-bottombar-bg-scale')
-      const bX = localStorage.getItem('chat-bottombar-bg-x')
-      const bY = localStorage.getItem('chat-bottombar-bg-y')
-      
-      if (tScale) setTopBarScale(parseInt(tScale))
-      if (tX) setTopBarX(parseInt(tX))
-      if (tY) setTopBarY(parseInt(tY))
-      if (bScale) setBottomBarScale(parseInt(bScale))
-      if (bX) setBottomBarX(parseInt(bX))
-      if (bY) setBottomBarY(parseInt(bY))
-    }
-    loadAdjustParams()
-    
-    // 监听图标更新事件
-    const handleIconsChange = () => {
-      loadCustomIcons()
-    }
-    const handleAdjust = () => {
-      loadAdjustParams()
-    }
-    window.addEventListener('uiIconsChanged', handleIconsChange)
-    window.addEventListener('iconAdjust', handleAdjust)
-    
-    return () => {
-      window.removeEventListener('uiIconsChanged', handleIconsChange)
-      window.removeEventListener('iconAdjust', handleAdjust)
-    }
-  }, [])
 
   // 备忘录弹窗状态
   const [showAIMemoModal, setShowAIMemoModal] = useState(false)
@@ -194,9 +80,9 @@ const ChatDetail = () => {
   
   // 处理状态栏点击
   const handleStatusClick = async () => {
-    if (!id) return
+    if (!id || !chatState.character) return
     const { getOrCreateAIStatus } = await import('../utils/aiStatusManager')
-    const status = getOrCreateAIStatus(id, character.nickname || character.realName)
+    const status = getOrCreateAIStatus(id, chatState.character.nickname || chatState.character.realName)
     setCurrentAIStatus(status)
     setShowAIStatusModal(true)
   }
@@ -216,55 +102,30 @@ const ChatDetail = () => {
     }
   }, [id])
   
-  // 调试：监听备忘录弹窗状态变化
+  // 监听角色信息更新事件
   useEffect(() => {
-    console.log('备忘录弹窗状态变化:', showAIMemoModal)
-  }, [showAIMemoModal])
-  
-  // 监听壁纸变化
-  useEffect(() => {
-    if (!id) return
-    const checkWallpaper = async () => {
-      const wp = getChatWallpaper(id)
-      setWallpaper(wp)
-      
-      // 如果是自定义壁纸，从IndexedDB加载图片
-      if (wp && wp.type === 'custom') {
-        const { getWallpaperImageUrl } = await import('../utils/wallpaperManager')
-        const imageUrl = await getWallpaperImageUrl(id)
-        setWallpaperImageUrl(imageUrl)
-      } else {
-        setWallpaperImageUrl(null)
+    const handleCharacterUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ characterId: string }>
+      if (customEvent.detail.characterId === id) {
+        console.log('🔄 检测到角色信息更新，刷新角色数据')
+        chatState.refreshCharacter()
       }
     }
     
-    // 监听 storage 事件（其他标签页的修改）
-    window.addEventListener('storage', checkWallpaper)
-    
-    // 监听自定义事件（当前标签页的修改）
-    const handleWallpaperChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ chatId: string }>
-      if (customEvent.detail.chatId === id) {
-        checkWallpaper()
-      }
-    }
-    window.addEventListener('chatWallpaperChanged', handleWallpaperChange)
-    
-    checkWallpaper()
-    
-    return () => {
-      window.removeEventListener('storage', checkWallpaper)
-      window.removeEventListener('chatWallpaperChanged', handleWallpaperChange)
-    }
-  }, [id])
+    window.addEventListener('character-updated', handleCharacterUpdate)
+    return () => window.removeEventListener('character-updated', handleCharacterUpdate)
+  }, [id, chatState])
   
-  const chatState = useChatState(id || '')
   
   // 移除组件卸载时的保存逻辑，因为addMessage已经会自动备份了
   // 组件卸载时保存可能会用过时的React状态覆盖最新的备份
   
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
+  
+  // 拍一拍功能
+  const { handlePoke } = usePoke(id, chatState.character, chatState.messages, chatState.setMessages)
+  
   const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知', id || '')
   const voice = useVoice(chatState.setMessages, id || '')
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
@@ -413,55 +274,16 @@ const ChatDetail = () => {
     messageMenu.setShowMessageMenu(true)
   })
 
-  // 🔥 禁用虚拟化，只使用分页加载（虚拟化有白屏bug）
+  // 🔥 禁用虚拟化，只使用分页加载（虚拟化有白屏BUG）
   const shouldUseVirtualization = false
+  
 
   // 🔥 优化：使用useCallback确保返回按钮始终可用
   const handleBack = useCallback(() => {
     navigate('/wechat')
   }, [navigate])
 
-  // 处理添加/编辑线下记录
-  const handleSaveOfflineRecord = useCallback((title: string, summary: string, timestamp: number) => {
-    const offlineSummaryMessage: Message = {
-      id: editingOfflineRecord ? editingOfflineRecord.id : Date.now(), // 🔥 修复：编辑时保持原ID，新建时使用唯一ID
-      type: 'system',
-      messageType: 'offline-summary',
-      content: title,
-      time: new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: timestamp,
-      sceneMode: 'online',
-      offlineSummary: {
-        title,
-        summary,
-        memoryId: editingOfflineRecord?.offlineSummary?.memoryId || `offline-${Date.now()}` // 🔥 保持原memoryId
-      },
-      aiReadableContent: `[系统记录：线下经历 - ${title}]\n总结：${summary}`
-    }
 
-    if (editingOfflineRecord) {
-      // 编辑模式：替换原有消息，保持ID不变
-      const updatedMessages = chatState.messages.map(m =>
-        m.id === editingOfflineRecord.id ? offlineSummaryMessage : m
-      ).sort((a, b) => a.timestamp - b.timestamp)
-      
-      chatState.setMessages(updatedMessages)
-      saveMessages(id || '', updatedMessages)
-      console.log('✅ 线下记录已更新')
-    } else {
-      // 新建模式：添加新消息
-      const updatedMessages = [...chatState.messages, offlineSummaryMessage]
-        .sort((a, b) => a.timestamp - b.timestamp)
-      
-      chatState.setMessages(updatedMessages)
-      saveMessages(id || '', updatedMessages)
-      console.log('✅ 线下记录已添加')
-    }
-
-    // 关闭对话框
-    setShowOfflineRecordDialog(false)
-    setEditingOfflineRecord(null)
-  }, [chatState, editingOfflineRecord, id])
 
   // 🔥 优化：输入框处理函数，避免重复创建
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -564,153 +386,6 @@ const ChatDetail = () => {
     // 更新React状态
     chatState.setMessages(() => updatedMessages)
   }
-  
-  const isInitialLoadRef = useRef(true)
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-
-  // 使用 ref 记录"用户是否在底部"，由滚动事件维护
-  const isNearBottomRef = useRef(true)
-
-  // 🔥 分页加载相关的 ref
-  const previousMessageCountRef = useRef(chatState.messages.length)
-  const previousScrollHeightRef = useRef(0)
-  const previousScrollTopRef = useRef(0)
-  const loadMoreTriggeredRef = useRef(false)
-
-  const updateNearBottom = useCallback(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    const threshold = 150 // 距离底部150px以内认为是在底部
-    const nearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < threshold
-    isNearBottomRef.current = nearBottom
-  }, [])
-
-  // 供其他逻辑读取当前“是否在底部”状态
-  const isNearBottom = useCallback(() => {
-    return isNearBottomRef.current
-  }, [])
-
-  // 滚动到底部的函数（必须在useEffect之前定义）
-  const scrollToBottom = useCallback((smooth = true, force = false) => {
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    // 🔥 如果不是强制滚动，且用户不在底部附近，就不要自动滚动
-    if (!force && !isNearBottomRef.current) {
-      console.log('📜 [滚动] 用户正在查看历史消息，跳过自动滚动')
-      return
-    }
-
-    if (smooth) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: 'smooth'
-      })
-    } else {
-      container.scrollTop = container.scrollHeight
-    }
-  }, [])
-
-  // 初始加载时立即跳到底部，不要动画
-  useEffect(() => {
-    if (isInitialLoadRef.current && chatState.messages.length > 0) {
-      // 使用setTimeout确保DOM已经渲染完成
-      setTimeout(() => {
-        scrollToBottom(false, true) // 初始加载强制滚动
-        // 初始加载完成后启用平滑滚动
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.classList.add('enable-smooth')
-        }
-      }, 100) // 增加延迟确保虚拟化渲染完成
-      isInitialLoadRef.current = false
-    }
-  }, [chatState.messages, scrollToBottom])
-
-  // 🔥 后续消息更新时使用平滑滚动（但加载更多时不滚动）
-  const lastMessageIdRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (!isInitialLoadRef.current && chatState.messages.length > 0) {
-      const lastMessage = chatState.messages[chatState.messages.length - 1]
-      const lastMessageId = lastMessage?.id
-
-      // 🔥 只有当最后一条消息的ID变化时才滚动（说明是新消息，不是加载更多）
-      if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
-        lastMessageIdRef.current = lastMessageId
-        // 使用setTimeout确保DOM更新后再滚动
-        // 用户自己发送的消息：无论当前位置，强制滚动到底部
-        // 其他类型（AI 回复 / 系统消息）：仅在接近底部时根据 scrollToBottom 内部判断
-        const forceToBottom = lastMessage.type === 'sent'
-        setTimeout(() => scrollToBottom(true, forceToBottom), 50)
-      }
-    }
-  }, [chatState.messages, scrollToBottom])
-
-  // AI打字时滚动
-  useEffect(() => {
-    if (chatAI.isAiTyping) {
-      // 🔥 只有用户在底部附近时才自动滚动
-      setTimeout(() => scrollToBottom(true, false), 50)
-    }
-  }, [chatAI.isAiTyping, scrollToBottom])
-  
-  // 🔥 滚动检测和自动加载更多
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container || shouldUseVirtualization) return // 虚拟化模式下不需要
-
-    const handleScroll = () => {
-      // 始终先更新"是否在底部"的状态，供自动滚动逻辑使用
-      updateNearBottom()
-      
-      // 🔥 滚动到顶部时自动加载更多历史消息
-      const { scrollTop, scrollHeight } = container
-      if (scrollTop < 100 && chatState.hasMoreMessages && !chatState.isLoadingMessages && !loadMoreTriggeredRef.current) {
-        loadMoreTriggeredRef.current = true
-        
-        // 记录当前滚动状态，用于加载后恢复位置
-        previousScrollHeightRef.current = scrollHeight
-        previousScrollTopRef.current = scrollTop
-        
-        console.log('📜 [自动加载] 滚动到顶部，触发加载更多')
-        chatState.loadMoreMessages()
-        
-        // 防止频繁触发
-        setTimeout(() => {
-          loadMoreTriggeredRef.current = false
-        }, 500)
-      }
-    }
-
-    container.addEventListener('scroll', handleScroll, { passive: true })
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [shouldUseVirtualization, updateNearBottom, chatState.hasMoreMessages, chatState.isLoadingMessages, chatState.loadMoreMessages])
-  
-  // 🔥 加载更多后保持滚动位置不跳动
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    
-    // 检测是否是加载更多导致的消息增加
-    if (previousMessageCountRef.current > 0 && chatState.messages.length > previousMessageCountRef.current) {
-      const isLoadMore = previousScrollTopRef.current < 200 // 之前在顶部附近
-      
-      if (isLoadMore && previousScrollHeightRef.current > 0) {
-        // 计算新增内容的高度
-        const newScrollHeight = container.scrollHeight
-        const addedHeight = newScrollHeight - previousScrollHeightRef.current
-        
-        // 保持视觉位置不变
-        if (addedHeight > 0) {
-          container.scrollTop = previousScrollTopRef.current + addedHeight
-          console.log(`📜 [保持位置] 新增高度: ${addedHeight}px, 调整滚动位置`)
-        }
-      }
-    }
-    
-    previousMessageCountRef.current = chatState.messages.length
-  }, [chatState.messages])
 
   // 🔥 显示加载状态而不是"角色不存在"
   if (!chatState.character) {
@@ -731,21 +406,6 @@ const ChatDetail = () => {
     console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}, 还有更多: ${chatState.hasMoreMessages}`)
   }
   
-  // 🔥 壁纸样式（自定义壁纸使用从IndexedDB加载的图片）
-  const wallpaperStyle = (() => {
-    if (!wallpaper) return { backgroundColor: '#f5f7fa' }
-    
-    if (wallpaper.type === 'custom' && wallpaperImageUrl) {
-      return {
-        backgroundImage: `url(${wallpaperImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }
-    }
-    
-    return getWallpaperStyle(wallpaper)
-  })()
 
   return (
     <div 
@@ -1125,6 +785,7 @@ const ChatDetail = () => {
                   avatar={character.avatar}
                   name={character.realName}
                   chatId={id}
+                  onPoke={message.type === 'received' ? handlePoke : undefined}
                 />
               </div>
               
@@ -1168,6 +829,7 @@ const ChatDetail = () => {
                  message.messageType === 'productCard' ||
                  message.messageType === 'post' ||
                  message.messageType === 'theatre' ||
+                 message.messageType === 'poke' ||
                  (message.messageType as any) === 'musicInvite' ? (
                   <SpecialMessageRenderer
                     message={message}
@@ -1252,6 +914,7 @@ const ChatDetail = () => {
                 avatar={character.avatar}
                 name={character.realName}
                 chatId={id}
+                onPoke={handlePoke}
               />
             </div>
             

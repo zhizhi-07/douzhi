@@ -2795,6 +2795,81 @@ export const theatreHandler: CommandHandler = {
 }
 
 /**
+ * 拍一拍指令处理器
+ */
+export const pokeHandler: CommandHandler = {
+  pattern: /[\[【]拍一拍[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName || '用户'
+    const aiName = character?.nickname || character?.realName || 'AI'
+    
+    // 获取用户的拍一拍后缀（如果设置了）
+    const userPokeSuffix = userInfo.pokeSuffix || ''
+    
+    const pokeMsg = createMessageObj('poke', {
+      type: 'system',
+      content: `${aiName}拍了拍${userName}${userPokeSuffix}`,
+      aiReadableContent: `【系统通知】${aiName}拍了拍${userName}${userPokeSuffix}`,
+      poke: {
+        fromName: aiName,
+        toName: userName,
+        suffix: userPokeSuffix
+      }
+    })
+
+    await addMessage(pokeMsg, setMessages, chatId)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * 修改拍一拍后缀指令处理器
+ * 格式: [修改拍一拍:的小脑袋] 或 [改拍一拍:的肩膀]
+ */
+export const changePokeSuffixHandler: CommandHandler = {
+  pattern: /[\[【](?:修改|改)拍一拍[:：](.+?)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    if (!character || !chatId) {
+      return { handled: false, remainingText: content }
+    }
+
+    const newSuffix = match[1].trim()
+    
+    // 更新角色的拍一拍后缀
+    const { characterService } = await import('../../../services/characterService')
+    characterService.update(chatId, { pokeSuffix: newSuffix })
+    
+    console.log('✅ AI修改了拍一拍后缀:', newSuffix)
+    
+    // 添加系统提示消息
+    const aiName = character.nickname || character.realName
+    const notificationMsg = createMessageObj('system', {
+      type: 'system',
+      content: `${aiName}修改了拍一拍后缀为"${newSuffix}"`,
+      aiReadableContent: `【系统通知】${aiName}修改了拍一拍后缀为"${newSuffix}"`
+    })
+    await addMessage(notificationMsg, setMessages, chatId)
+    
+    // 触发角色信息更新事件
+    window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: chatId } }))
+
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: false  // 不跳过文本消息，AI还可以说话
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -2840,5 +2915,7 @@ export const commandHandlers: CommandHandler[] = [
   aiMemoHandler,  // AI备忘录
   quoteHandler,
   changeAvatarHandler,  // AI换头像
-  theatreHandler  // 小剧场
+  theatreHandler,  // 小剧场
+  pokeHandler,  // 拍一拍
+  changePokeSuffixHandler  // 修改拍一拍后缀
 ]

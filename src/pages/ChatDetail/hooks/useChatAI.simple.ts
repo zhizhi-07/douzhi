@@ -68,10 +68,23 @@ export const useSimpleChatAI = (
       const recentMessages = getRecentMessages(allMessages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)
 
-      const systemPrompt = await buildSystemPrompt(character)
+      // 🎭 读取小剧场功能开关
+      const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+      let enableTheatreCards = false // 默认关闭
+      if (chatSettingsRaw) {
+        try {
+          const parsed = JSON.parse(chatSettingsRaw)
+          enableTheatreCards = parsed.enableTheatreCards ?? false
+        } catch (e) {
+          console.error('[简单聊天] 解析聊天设置失败:', e)
+        }
+      }
+      
+      const systemPrompt = await buildSystemPrompt(character, '用户', allMessages, enableTheatreCards)
       const apiResponse = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
-        settings
+        settings,
+        enableTheatreCards
       )
       const aiReply = apiResponse.content
 

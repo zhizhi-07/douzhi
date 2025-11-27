@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { X, Image, Smile, MapPin, UserPlus, Music2, Search } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
-import { incrementPosts } from '../utils/forumUser'
-import { getAllPosts, savePosts, getAllNPCs, type ForumNPC } from '../utils/forumNPC'
+import { incrementPosts, incrementFollowers } from '../utils/forumUser'
+import { getAllPosts, savePosts } from '../utils/forumNPC'
 import { generateRealAIComments } from '../utils/forumAIComments'
 import { getPostComments } from '../utils/forumCommentsDB'
+import { sendDMToUser } from '../utils/instagramDM'
 import type { Character } from '../services/characterService'
 
 const InstagramCreate = () => {
@@ -71,30 +72,99 @@ const InstagramCreate = () => {
     // 异步生成评论（真实调用API）
     setTimeout(async () => {
       try {
-        const npcs = getAllNPCs()
+        // 获取用户历史帖子，让AI可以引用（带时间）
+        const formatTimeAgo = (timestamp: number): string => {
+          const now = Date.now()
+          const diff = now - timestamp
+          const minutes = Math.floor(diff / 60000)
+          const hours = Math.floor(diff / 3600000)
+          const days = Math.floor(diff / 86400000)
+          if (minutes < 1) return '刚刚'
+          if (minutes < 60) return `${minutes}分钟前`
+          if (hours < 24) return `${hours}小时前`
+          if (days < 7) return `${days}天前`
+          return `${Math.floor(days / 7)}周前`
+        }
         
-        // 用户发的帖子，只让NPC评论（不让AI角色评论自己的朋友圈）
-        const npcAsCharacters = npcs.map((npc: ForumNPC) => ({
-          id: npc.id,
-          realName: npc.name,
-          nickname: npc.name,
-          signature: npc.bio,
-          personality: '',
-          avatar: npc.avatar,
-          createdAt: new Date().toISOString()
-        }))
+        const userPosts = getAllPosts()
+          .filter(p => p.npcId === 'user')
+          .slice(0, 10)
+          .map(p => `[${formatTimeAgo(p.timestamp)}] ${p.content}`)
         
-        console.log(`🤖 开始生成评论... (${npcs.length}个路人NPC)`)
-        await generateRealAIComments(postId, caption, npcAsCharacters)
+        // 不传固定NPC，让AI自己编造评论者名字
+        console.log(`🤖 开始生成评论... (AI自由发挥)`)
+        const result = await generateRealAIComments(postId, caption, [], userPosts)
         
-        // 更新帖子评论数
+        // 更新帖子评论数和随机点赞
         const updatedPosts = getAllPosts()
         const post = updatedPosts.find(p => p.id === postId)
         if (post) {
           const comments = await getPostComments(postId)
           post.comments = comments.length
+          
+          // 随机点赞：评论数的2-5倍
+          const likesCount = Math.floor(comments.length * (2 + Math.random() * 3))
+          post.likes = likesCount
+          
           savePosts(updatedPosts)
-          console.log(`✅ 帖子评论数已更新: ${comments.length}`)
+          console.log(`✅ 帖子评论数已更新: ${comments.length}，点赞数: ${likesCount}`)
+          
+          // 发帖后增加粉丝：1-5个
+          const newFollowers = Math.floor(Math.random() * 5) + 1
+          incrementFollowers(newFollowers)
+          
+          // 使用AI生成的私聊
+          if (result.dmList && result.dmList.length > 0) {
+            result.dmList.forEach((dm, index) => {
+              // 延迟发送私聊
+              setTimeout(() => {
+                sendDMToUser(dm.npcId, dm.npcName, undefined, dm.content)
+              }, 3000 + index * 2000)
+            })
+          }
+          
+          // 创建挂人帖子（NPC发的帖子）
+          if (result.roastPosts && result.roastPosts.length > 0) {
+            result.roastPosts.forEach((roast, index) => {
+              setTimeout(() => {
+                const roastPostId = `roast-${Date.now()}-${index}`
+                const roastPost = {
+                  id: roastPostId,
+                  npcId: roast.npcId,
+                  content: roast.content,
+                  images: 0,
+                  likes: Math.floor(Math.random() * 50) + 10,
+                  comments: 0,
+                  time: '刚刚',
+                  timestamp: Date.now(),
+                  isLiked: false
+                }
+                const currentPosts = getAllPosts()
+                // 插入到用户帖子后面
+                const userPostIndex = currentPosts.findIndex(p => p.id === postId)
+                if (userPostIndex >= 0) {
+                  currentPosts.splice(userPostIndex + 1, 0, roastPost)
+                } else {
+                  currentPosts.unshift(roastPost)
+                }
+                savePosts(currentPosts)
+                console.log(`🔥 [挂人帖] ${roast.npcName} 发了帖子: "${roast.content}"`)
+                
+                // 挂人帖子也生成评论（延迟）
+                setTimeout(async () => {
+                  await generateRealAIComments(roastPostId, roast.content, [], [])
+                  const latestPosts = getAllPosts()
+                  const roastP = latestPosts.find(p => p.id === roastPostId)
+                  if (roastP) {
+                    const roastComments = await getPostComments(roastPostId)
+                    roastP.comments = roastComments.length
+                    roastP.likes = Math.floor(roastComments.length * (2 + Math.random() * 3))
+                    savePosts(latestPosts)
+                  }
+                }, 5000)
+              }, 5000 + index * 3000)
+            })
+          }
         }
       } catch (error) {
         console.error('❌ AI评论生成失败:', error)
@@ -124,43 +194,6 @@ const InstagramCreate = () => {
       </div>
 
       <div className="pb-4">
-        {/* 图片选择区域 */}
-        <div className="aspect-square bg-gray-100 border-b border-gray-200">
-          {selectedImages > 0 ? (
-            <div className="relative w-full h-full">
-              {/* 模拟已选择的图片 */}
-              <div className="w-full h-full bg-gradient-to-br from-purple-200 to-pink-200 flex items-center justify-center">
-                <div className="text-center">
-                  <Image className="w-16 h-16 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-600">已选择 {selectedImages} 张图片</p>
-                </div>
-              </div>
-              
-              {/* 多选指示器 */}
-              <div className="absolute bottom-4 right-4 flex gap-1">
-                {Array.from({ length: Math.min(selectedImages, 10) }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      i === 0 ? 'bg-white' : 'bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={handleSelectImage}
-              className="w-full h-full flex flex-col items-center justify-center gap-4 active:bg-gray-200 transition-colors"
-            >
-              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                <Image className="w-10 h-10 text-gray-600" />
-              </div>
-              <p className="text-sm text-gray-500">点击选择照片</p>
-            </button>
-          )}
-        </div>
-
         {/* 说明文字 */}
         <div className="p-4 border-b border-gray-100">
           <textarea
@@ -171,9 +204,18 @@ const InstagramCreate = () => {
             rows={4}
           />
           <div className="flex items-center justify-between mt-2">
-            <button className="text-gray-400 active:opacity-60">
-              <Smile className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleSelectImage}
+                className="flex items-center gap-1 text-xs text-gray-500 active:opacity-60"
+              >
+                <Image className="w-4 h-4" />
+                {selectedImages > 0 && <span>{selectedImages}</span>}
+              </button>
+              <button className="text-gray-400 active:opacity-60">
+                <Smile className="w-5 h-5" />
+              </button>
+            </div>
             <div className="text-xs text-gray-400">
               {caption.length}/2,200
             </div>

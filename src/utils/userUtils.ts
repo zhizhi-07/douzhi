@@ -12,6 +12,7 @@ export interface UserInfo {
   signature?: string  // 个性签名
   avatar?: string  // 头像（图片base64或URL）
   persona?: string  // 用户人设（影响AI对用户的态度）
+  pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
 }
 
 /**

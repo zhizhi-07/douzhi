@@ -1,50 +1,78 @@
 /**
  * 聊天气泡样式管理 Hook
+ * 使用IndexedDB存储，解决localStorage空间不足问题
  */
 
 import { useState, useEffect } from 'react'
 
+// IndexedDB工具函数
+const DB_NAME = 'BubbleStyleDB'
+const STORE_NAME = 'styles'
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'key' })
+      }
+    }
+  })
+}
+
+const getFromIDB = async (key: string): Promise<string> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly')
+      const store = tx.objectStore(STORE_NAME)
+      const request = store.get(key)
+      request.onsuccess = () => {
+        db.close()
+        resolve(request.result?.value || '')
+      }
+      request.onerror = () => { db.close(); resolve('') }
+    })
+  } catch {
+    return ''
+  }
+}
+
 export const useChatBubbles = (chatId: string | undefined) => {
-  // 用户气泡 CSS
-  const [userBubbleCSS, setUserBubbleCSS] = useState(() => {
-    if (!chatId) return ''
-    return localStorage.getItem(`user_bubble_css_${chatId}`) || 
-           localStorage.getItem('user_bubble_css') || 
-           ''
-  })
+  const [userBubbleCSS, setUserBubbleCSS] = useState('')
+  const [aiBubbleCSS, setAiBubbleCSS] = useState('')
   
-  // AI 气泡 CSS
-  const [aiBubbleCSS, setAiBubbleCSS] = useState(() => {
-    if (!chatId) return ''
-    return localStorage.getItem(`ai_bubble_css_${chatId}`) || 
-           localStorage.getItem('ai_bubble_css') || 
-           ''
-  })
+  // 从IndexedDB加载CSS
+  const loadCSS = async () => {
+    if (!chatId) return
+    const [userCSS, aiCSS] = await Promise.all([
+      getFromIDB(`user_bubble_css_${chatId}`),
+      getFromIDB(`ai_bubble_css_${chatId}`)
+    ])
+    setUserBubbleCSS(userCSS)
+    setAiBubbleCSS(aiCSS)
+  }
   
-  // 监听 localStorage 变化，实时更新气泡样式
+  // 初始加载
+  useEffect(() => {
+    loadCSS()
+  }, [chatId])
+  
+  // 监听更新事件
   useEffect(() => {
     if (!chatId) return
     
-    const handleStorageChange = () => {
-      // 优先使用单聊设置，其次是全局设置
-      const userCSS = localStorage.getItem(`user_bubble_css_${chatId}`) || 
-                      localStorage.getItem('user_bubble_css') || ''
-      const aiCSS = localStorage.getItem(`ai_bubble_css_${chatId}`) || 
-                    localStorage.getItem('ai_bubble_css') || ''
-      
-      console.log('🎨 [气泡样式更新]', { userCSS: userCSS.substring(0, 50), aiCSS: aiCSS.substring(0, 50) })
-      setUserBubbleCSS(userCSS)
-      setAiBubbleCSS(aiCSS)
+    const handleStyleUpdate = () => {
+      loadCSS()
     }
     
-    // 监听storage事件（其他窗口）
-    window.addEventListener('storage', handleStorageChange)
-    // 监听自定义事件（同一窗口）
-    window.addEventListener('bubbleStyleUpdate', handleStorageChange)
+    window.addEventListener('bubbleStyleUpdate', handleStyleUpdate)
     
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('bubbleStyleUpdate', handleStorageChange)
+      window.removeEventListener('bubbleStyleUpdate', handleStyleUpdate)
     }
   }, [chatId])
   

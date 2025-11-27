@@ -122,11 +122,12 @@ const Me = () => {
   return (
     <div
       className="h-screen flex flex-col page-fade-in"
+      data-me-page
       style={wechatBg ? { 
         backgroundImage: `url(${wechatBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
-      } : {}}
+      } : { background: 'linear-gradient(to bottom, #f9fafb, #ffffff)' }}
     >
       {/* 顶部 */}
       <div 

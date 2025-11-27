@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { migrateFromLocalStorage } from '../utils/backgroundStorage'
-import { saveImage, getImage, deleteFromIndexedDB } from '../utils/unifiedStorage'
+import { saveImage, getImage, deleteFromIndexedDB, saveToIndexedDB } from '../utils/unifiedStorage'
 import { saveUIIcon, getUIIcon, deleteUIIcon } from '../utils/iconStorage'
 
 const BackgroundCustomizer = () => {
@@ -231,7 +231,7 @@ const BackgroundCustomizer = () => {
       reader.onload = async (e) => {
         const base64String = e.target?.result as string
         setMemoBg(base64String)
-        await saveImage('memo_bg', base64String)
+        await saveToIndexedDB('IMAGES', 'memo_bg', base64String)
         window.dispatchEvent(new Event('memoBackgroundUpdate'))
         console.log('✅ 备忘录背景已保存到IndexedDB（base64）')
         setMemoUploading(false)
@@ -253,7 +253,7 @@ const BackgroundCustomizer = () => {
   const handleRemoveMemo = async () => {
     if (confirm('确定要删除备忘录背景吗？')) {
       try {
-        await deleteFromIndexedDB('memo_bg')
+        await deleteFromIndexedDB('IMAGES', 'memo_bg')
         setMemoBg('')
         window.dispatchEvent(new Event('memoBackgroundUpdate'))
         console.log('✅ 备忘录背景已删除')

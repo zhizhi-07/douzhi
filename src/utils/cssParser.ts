@@ -196,10 +196,15 @@ export function generateCSS(style: BubbleStyle, isUser: boolean): string {
     border = `  border: ${style.borderWidth}px solid rgba(${borderR}, ${borderG}, ${borderB}, ${style.borderOpacity}) !important;\n`
   }
   
+  // 水滴形状：sent右下角小圆角，received左下角小圆角
+  const borderRadiusValue = isUser 
+    ? `${style.borderRadius}px ${style.borderRadius}px 4px ${style.borderRadius}px`
+    : `${style.borderRadius}px ${style.borderRadius}px ${style.borderRadius}px 4px`
+  
   return `${selector} {
   background: ${background} !important;
   color: ${textColor} !important;
-  border-radius: ${style.borderRadius}px !important;
+  border-radius: ${borderRadiusValue} !important;
   padding: ${style.paddingVertical}px ${style.paddingHorizontal}px !important;
   box-shadow: ${boxShadow} !important;
 ${border}  font-size: ${style.fontSize}px !important;

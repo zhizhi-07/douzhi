@@ -73,7 +73,7 @@ const ForumLayout = ({ children }: ForumLayoutProps) => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+    <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white" data-forum>
       {/* 顶部固定区域：状态栏、导航、搜索、标签 */}
       <div className="sticky top-0 z-10 flex-shrink-0" style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <StatusBar />

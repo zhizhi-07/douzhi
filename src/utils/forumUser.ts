@@ -104,6 +104,15 @@ export function incrementLikes(count: number = 1): ForumUserData {
   return data
 }
 
+// 增加粉丝数
+export function incrementFollowers(count: number = 1): ForumUserData {
+  const data = getUserData()
+  data.followers += count
+  saveUserData(data)
+  console.log(`📈 粉丝数 +${count}，当前: ${data.followers}`)
+  return data
+}
+
 // 收藏帖子
 export function collectPost(postId: string): ForumUserData {
   const data = getUserData()

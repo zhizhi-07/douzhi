@@ -222,7 +222,18 @@ export const useChatAI = (
       if (currentSceneMode === 'offline') {
         systemPrompt = await buildOfflinePrompt(character)
       } else {
-        systemPrompt = await buildSystemPrompt(character, '用户', messages)
+        // 🎭 读取小剧场功能开关（提前读取，用于系统提示词）
+        const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+        let enableTheatreCardsForPrompt = false // 默认关闭
+        if (chatSettingsRaw) {
+          try {
+            const parsed = JSON.parse(chatSettingsRaw)
+            enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
+          } catch (e) {
+            console.error('[useChatAI] 解析聊天设置失败:', e)
+          }
+        }
+        systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCardsForPrompt)
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）
@@ -541,11 +552,11 @@ export const useChatAI = (
 
       // 🎭 读取小剧场功能开关
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
-      let enableTheatreCards = true // 默认开启
+      let enableTheatreCards = false // 默认关闭
       if (chatSettingsRaw) {
         try {
           const parsed = JSON.parse(chatSettingsRaw)
-          enableTheatreCards = parsed.enableTheatreCards ?? true
+          enableTheatreCards = parsed.enableTheatreCards ?? false
         } catch (e) {
           console.error('[useChatAI] 解析聊天设置失败:', e)
         }
@@ -1507,6 +1518,17 @@ export const useChatAI = (
       setIsAiTyping(false)
       ;(window as any).__AI_REPLYING__ = false
       console.log('✅ [AI回复] 结束')
+      
+      // 🧠 全局记忆提取：每15次互动自动提取一次
+      try {
+        const { recordInteraction } = await import('../../../services/memoryExtractor')
+        const triggered = await recordInteraction(chatId, character?.realName || 'AI')
+        if (triggered) {
+          console.log('🧠 [全局记忆] 已达到15次互动，触发记忆提取')
+        }
+      } catch (memoryError) {
+        console.error('❌ [全局记忆] 记录互动失败:', memoryError)
+      }
       
       // 自动总结逻辑
       try {

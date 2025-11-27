@@ -12,9 +12,10 @@ interface AvatarProps {
   avatar?: string
   name: string
   chatId?: string
+  onPoke?: () => void  // 拍一拍回调
 }
 
-const Avatar = ({ type, avatar, name, chatId }: AvatarProps) => {
+const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
   const [frameCSS, setFrameCSS] = useState('')
   const [shape, setShape] = useState('rounded')
   const [frameImage, setFrameImage] = useState('')
@@ -102,7 +103,10 @@ const Avatar = ({ type, avatar, name, chatId }: AvatarProps) => {
     <>
       {frameCSS && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
       <div className="relative overflow-visible">
-        <div className={`avatar-frame-ai-${chatId} w-8 h-8 ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden`}>
+        <div 
+          className={`avatar-frame-ai-${chatId} w-8 h-8 ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
+          onDoubleClick={onPoke}
+        >
           {avatar ? (
             <img src={avatar} alt={name} className="w-full h-full object-cover" />
           ) : (

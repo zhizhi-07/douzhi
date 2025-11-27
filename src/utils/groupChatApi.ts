@@ -480,29 +480,25 @@ ${emojiList}
   - 场景：约见面、告诉别人自己在哪、推荐地点
   - 例：{"actorName": "汁汁", "content": "[位置:星巴克万达店]"}
   
-- **[转账:接收者:金额:留言]** - 给人转账
+- **[转账:接收者:金额:留言]** - 给特定的人转账（一对一）
   - 场景：请客、还钱、送礼、打赌
   - 例：{"actorName": "土豪", "content": "[转账:小美:88:请你喝奶茶]"}
+  
+- **[红包:金额:个数:祝福语]** - 发群红包（手气红包，群里所有人都能抢）
+  - 场景：炫富、群发福利、活跃气氛、挑衅
+  - 例：{"actorName": "富二代", "content": "[红包:888:5:有本事来抢啊]"}（888元分5个红包）
+  - 例：{"actorName": "老板", "content": "[红包:66.66:3:恭喜发财]"}（66.66元分3个红包）
 
 **触发词提示**：当用户或角色说到以下内容时，优先考虑使用特殊消息：
 - "你在哪" "发个位置" "在哪里" → 用 [位置:xxx]
 - "发张图" "给你看" "拍给你" → 用 [图片:xxx]  
 - "语音说" "懒得打字" → 用 [语音:xxx]
-- "请你" "转给你" "红包" → 用 [转账:xxx] 或小剧场红包
+- "请你吃xxx" "转给你" "给你钱" → 用 [转账:xxx]（一对一转账）
+- "发红包" "撒钱" "来抢" "给你们发" → 用 [红包:xxx]（群红包，所有人能抢）
 
-小剧场卡片使用说明：
-当对话中涉及"发红包""转账""投票""发朋友圈"等场景时，可以让角色真的生成卡片：
-- 格式：{"actorName": "角色名", "content": "[小剧场:模板名称] 数据描述"}
-- 例1：{"actorName": "汁汁", "content": "[小剧场:红包] 金额88.88元，祝福语'恭喜发财'"}
-- 例2：{"actorName": "小明", "content": "[小剧场:投票] 标题'今晚吃什么？'，选项：火锅、烧烤、日料"}
-- 例3：{"actorName": "槿樱", "content": "[小剧场:支付成功] 向奶茶店付款26元"}
-- 例4：{"actorName": "唐秋水", "content": "[小剧场:朋友圈] 内容'今天天气真好'配图风景照"}
-- 常用模板：红包(red_packet)、支付成功(payment_success)、投票(poll)、朋友圈(moments_post)、天气(weather)、购物清单(memo_list)
-
-注意：
-- 数据描述要简洁清晰，AI会自动填充完整参数
-- 不要只说"我发红包"，要真的调用小剧场生成卡片
-- 一条消息只能包含一个小剧场
+**⚠️ 红包 vs 转账 的区别**：
+- **[转账]**：给特定一个人，对方可以接收或退还
+- **[红包]**：群红包，所有人可以抢，抢到金额随机（手气红包）
 
 检查清单：
 - 是否输出了 relationships 和 plot？
@@ -643,31 +639,119 @@ export async function generateGroupChatReply(
     console.group(' [群聊导演] AI原始回复')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log(aiReply.content.length > 500 ? aiReply.content.substring(0, 500) + '...(太长，省略)' : aiReply.content)
-    const toolCalls = (aiReply as any).toolCalls
+    // 🔥 注意：API返回的是 tool_calls（带下划线）
+    let toolCalls = (aiReply as any).tool_calls
+    console.log('🔍 [调试] toolCalls:', toolCalls)
+    console.log('🔍 [调试] content长度:', aiReply.content?.length)
     if (toolCalls && toolCalls.length > 0) {
       console.log('🎭 [工具调用]:', toolCalls)
     }
     console.groupEnd()
 
-    // 解析响应
-    const script = extractGroupChatScript(aiReply.content)
+    // 🔥 处理纯 Function Calling 响应（content 为空但有 tool_calls）
+    let finalContent = aiReply.content
+    let collectedTheatreCalls: Array<{templateId: string, data: any}> = []
     
-    // 🎭 处理tool_calls（导演调用send_theatre_card）
-    if (script && toolCalls && toolCalls.length > 0) {
+    const hasEmptyContent = !finalContent || finalContent.trim() === ''
+    const hasToolCalls = toolCalls && toolCalls.length > 0
+    console.log('🔍 [调试] hasEmptyContent:', hasEmptyContent, 'hasToolCalls:', hasToolCalls)
+    
+    if (hasEmptyContent && hasToolCalls) {
+      console.log('🎭 [群聊导演] 检测到纯 Function Calling 响应，需要继续对话获取 JSON 剧本')
+      
+      // 收集工具调用结果
+      const toolResults: any[] = []
       for (const toolCall of toolCalls) {
         if (toolCall.function?.name === 'send_theatre_card') {
           try {
             const args = JSON.parse(toolCall.function.arguments)
             console.log('🎭 [导演工具] 解析小剧场调用:', args)
             
-            // 将工具调用转换为剧本数据，供后续处理
-            ;(script as any).theatreCalls = (script as any).theatreCalls || []
-            ;(script as any).theatreCalls.push({
+            // 保存小剧场调用
+            collectedTheatreCalls.push({
               templateId: args.template_id,
               data: args.data
             })
+            
+            // 构造工具执行成功的结果
+            toolResults.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: true, message: `已发送${args.template_id}卡片` })
+            })
           } catch (e) {
             console.error('❌ [导演工具] 解析失败:', e)
+            toolResults.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ success: false, error: '解析失败' })
+            })
+          }
+        }
+      }
+      
+      // 发送工具结果，让 AI 继续生成 JSON 剧本
+      if (toolResults.length > 0) {
+        console.log('🔄 [群聊导演] 发送工具结果，请求 AI 继续生成 JSON 剧本')
+        
+        const followUpMessages: ChatMessage[] = [
+          { role: 'user', content: prompt },
+          { 
+            role: 'assistant', 
+            content: aiReply.content || '',
+            tool_calls: toolCalls
+          } as any,
+          ...toolResults,
+          { role: 'user', content: '工具调用已执行成功。现在请输出完整的 JSON 剧本（包含 relationships、plot、actions）。' }
+        ]
+        
+        try {
+          const followUpReply = await callAIApi(followUpMessages, settings, false) // 第二次调用不再启用工具
+          console.log('🎬 [群聊导演] 后续回复:', followUpReply.content.substring(0, 200))
+          finalContent = followUpReply.content
+          
+          // 合并新的 tool_calls（如果有）
+          const newToolCalls = (followUpReply as any).toolCalls
+          if (newToolCalls && newToolCalls.length > 0) {
+            toolCalls = [...toolCalls, ...newToolCalls]
+          }
+        } catch (followUpError) {
+          console.error('❌ [群聊导演] 后续调用失败:', followUpError)
+        }
+      }
+    }
+
+    // 解析响应
+    const script = extractGroupChatScript(finalContent)
+    
+    // 🎭 处理tool_calls（导演调用send_theatre_card）
+    if (script) {
+      // 先添加已收集的小剧场调用
+      if (collectedTheatreCalls.length > 0) {
+        ;(script as any).theatreCalls = collectedTheatreCalls
+      }
+      
+      // 再处理剩余的 tool_calls
+      if (toolCalls && toolCalls.length > 0) {
+        for (const toolCall of toolCalls) {
+          if (toolCall.function?.name === 'send_theatre_card') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments)
+              // 避免重复添加
+              const alreadyExists = collectedTheatreCalls.some(
+                tc => tc.templateId === args.template_id && JSON.stringify(tc.data) === JSON.stringify(args.data)
+              )
+              if (!alreadyExists) {
+                console.log('🎭 [导演工具] 解析小剧场调用:', args)
+                ;(script as any).theatreCalls = (script as any).theatreCalls || []
+                ;(script as any).theatreCalls.push({
+                  templateId: args.template_id,
+                  data: args.data
+                })
+              }
+            } catch (e) {
+              console.error('❌ [导演工具] 解析失败:', e)
+            }
           }
         }
       }

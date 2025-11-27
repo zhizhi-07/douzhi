@@ -198,7 +198,9 @@ export const convertToApiMessages = (messages: Message[], hideTheatreHistory: bo
           '解除拉黑',
           '拨打',
           '未接通',
-          '取消了'
+          '取消了',
+          '拍了拍',
+          '踢了踢'
         ]
         
         // 使用 aiReadableContent（如果有）或 content 来检查

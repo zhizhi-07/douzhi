@@ -29,7 +29,7 @@ const InstagramLayout = ({
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white" data-instagram>
       {/* 状态栏 */}
       <StatusBar />
 

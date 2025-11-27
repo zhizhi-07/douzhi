@@ -140,11 +140,16 @@ const ChatModals = ({
                             {isUser ? '我' : (character.nickname || character.realName)} · {msg.time}
                           </div>
                           <div
-                            className={`message-bubble px-3 py-2 rounded-lg ${
+                            className={`message-bubble px-3 py-2 ${
                               isUser
-                                ? 'rounded-tr-none'
-                                : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                                ? ''
+                                : 'bg-gray-100 text-gray-900'
                             }`}
+                            style={{
+                              borderRadius: isUser 
+                                ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
+                                : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
+                            }}
                           >
                             <div className="text-sm leading-relaxed break-words">
                               {formatText(msg.content)}

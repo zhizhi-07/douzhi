@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>zz气泡编辑</title>
   <style>
+    :root {
+      --bg-color: #f9f9f6;
+      --card-bg: #ffffff;
+      --text-main: #2c3e50;
+      --text-sub: #95a5a6;
+      --accent: #7d7b77; /* 莫兰迪灰褐 */
+      --accent-light: #f0f0eb;
+      --border: #eef0f2;
+      --shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+      --radius: 16px;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -13,175 +25,231 @@
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-      background: #f2f2f7;
-      padding-bottom: 70px;
+      font-family: -apple-system, "SF Pro Text", "PingFang SC", "Lantinghei SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      padding-bottom: 90px;
       font-size: 14px;
+      line-height: 1.6;
+      background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+      background-size: 20px 20px;
     }
     
+    /* 顶部导航 - 磨砂质感 */
     .header {
-      background: rgba(255,255,255,0.8);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 12px 16px;
-      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(0,0,0,0.03);
       position: sticky;
       top: 0;
       z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.02);
     }
     
     .header h1 {
-      font-size: 17px;
-      font-weight: 600;
-      color: #000;
+      font-family: "Songti SC", "Noto Serif SC", serif; /* 文艺衬线体 */
+      font-size: 20px;
+      font-weight: 700;
+      color: #2c2c2c;
+      letter-spacing: 1px;
     }
     
     .preview-toggle {
-      background: #000;
+      background: var(--text-main);
       border: none;
-      border-radius: 6px;
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
+      border-radius: 20px;
+      padding: 8px 16px;
       color: white;
       font-size: 12px;
       font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
     }
     
     .preview-toggle:active {
-      background: #333;
       transform: scale(0.96);
+      box-shadow: none;
     }
     
     .container {
-      padding: 12px;
-      max-width: 100%;
+      padding: 20px;
+      max-width: 600px; /* 限制最大宽度增加精致感 */
+      margin: 0 auto;
     }
     
+    /* 卡片样式优化 */
     .card {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      border: 1px solid #f0f0f0;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid white;
+      transition: transform 0.2s;
     }
     
     .card-title {
-      font-size: 13px;
+      font-family: "Songti SC", "Noto Serif SC", serif;
+      font-size: 16px;
       font-weight: 600;
-      margin-bottom: 12px;
-      color: #333;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #f5f5f5;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--accent-light);
+      display: flex;
+      align-items: center;
     }
     
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 16px;
+      background: var(--accent);
+      margin-right: 8px;
+      border-radius: 2px;
+    }
+
+    /* 输入控件美化 */
     textarea {
       width: 100%;
-      min-height: 150px;
-      padding: 10px;
-      border: 1px solid #e5e5e5;
-      border-radius: 8px;
-      font-size: 12px;
+      min-height: 120px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 13px;
       font-family: "SF Mono", Monaco, monospace;
+      background: #fcfcfc;
+      transition: all 0.3s;
       resize: vertical;
-      background: #fafafa;
     }
     
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: white;
+      box-shadow: 0 0 0 3px rgba(125, 123, 119, 0.1);
+    }
+    
+    /* 按钮美化 */
     .btn {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       border: none;
-      border-radius: 8px;
-      font-size: 13px;
+      border-radius: 12px;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      margin-top: 6px;
-      letter-spacing: -0.2px;
+      margin-top: 8px;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     
     .btn-primary {
-      background: #000;
+      background: var(--text-main);
       color: white;
-    }
-    
-    .btn-primary:active {
-      background: #333;
-      transform: scale(0.98);
+      box-shadow: 0 4px 12px rgba(44, 62, 80, 0.15);
     }
     
     .btn-success {
-      background: #666;
+      background: #7d7b77;
       color: white;
     }
     
-    .btn-success:active {
-      background: #444;
-      transform: scale(0.98);
+    .btn:active {
+      transform: translateY(1px);
+      opacity: 0.9;
     }
-    
+
+    /* 控件组布局 */
     .control-group {
-      margin-bottom: 10px;
-      padding: 10px;
-      background: #fafafa;
-      border-radius: 8px;
-      border: 0.5px solid #e5e5e5;
+      margin-bottom: 12px;
+      padding: 16px;
+      background: #fbfbfb;
+      border-radius: 12px;
+      border: 1px solid var(--border);
     }
     
     .control-label {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
-      color: #333;
+      color: #555;
     }
     
     .control-value {
-      color: #666;
-      font-family: "SF Mono", Monaco, monospace;
-      font-size: 11px;
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+      color: var(--accent);
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
     }
-    
+
+    /* 滑块美化 */
     input[type="range"] {
       width: 100%;
-      height: 4px;
-      background: #e5e5e5;
-      border-radius: 2px;
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
       outline: none;
       -webkit-appearance: none;
       appearance: none;
+      margin: 10px 0;
     }
     
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      background: #000;
-      border: none;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border: 2px solid var(--accent);
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
     }
     
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(1.2);
+    }
+
+    /* 颜色选择器 */
     input[type="color"] {
       width: 100%;
-      height: 38px;
-      border: 1px solid #e5e5e5;
-      border-radius: 6px;
+      height: 40px;
+      border: 2px solid white;
+      border-radius: 8px;
       cursor: pointer;
-      padding: 2px;
+      padding: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }
     
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 6px;
+    }
+
+    /* 预览区域 */
     .preview {
-      background: #f0f0f0;
-      border-radius: 12px;
+      background: #f0f2f5;
+      border-radius: var(--radius);
       padding: 20px;
       min-height: 300px;
       overflow: visible;
@@ -189,7 +257,7 @@
     
     .message-row {
       display: flex;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
       overflow: visible;
     }
     
@@ -197,132 +265,202 @@
       justify-content: flex-end;
     }
     
-    .message-bubble {
-      max-width: 80%;
-      display: inline-block;
-      word-wrap: break-word;
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-    
-    .message-container {
-      overflow: visible;
-    }
-    
-    .property-name {
-      font-family: "SF Mono", Monaco, monospace;
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 6px;
-      font-weight: 500;
-    }
-    
+    /* 底部固定栏 */
     .bottom-bar {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(255,255,255,0.95);
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 580px;
+      background: rgba(255,255,255,0.9);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      padding: 10px 12px;
-      border-top: 0.5px solid rgba(0,0,0,0.1);
+      padding: 12px;
+      border-radius: 20px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      z-index: 90;
+      border: 1px solid rgba(255,255,255,0.5);
     }
-    
-    /* 悬浮预览窗口 - 模拟手机屏幕宽度 */
+
+    /* 悬浮预览窗口 */
     .floating-preview {
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 420px; /* 加宽以容纳完整气泡 */
-      max-height: 650px;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(30px);
-      -webkit-backdrop-filter: blur(30px);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      width: 375px;
+      max-height: 70vh;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
       z-index: 1000;
       display: none;
       flex-direction: column;
-      overflow: hidden; /* 改为hidden避免溢出 */
-      border: 0.5px solid rgba(0,0,0,0.1);
+      overflow: hidden;
+      border: 8px solid #2c3e50; /* 模拟手机边框 */
     }
     
     .floating-preview.active {
       display: flex;
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .floating-header {
-      padding: 12px 16px;
-      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      padding: 16px;
+      background: #f8f9fa;
       display: flex;
       align-items: center;
       justify-content: space-between;
       cursor: move;
-      background: rgba(255,255,255,0.5);
+      border-bottom: 1px solid #eee;
     }
     
     .floating-title {
-      font-size: 13px;
       font-weight: 600;
-      color: #000;
+      font-size: 14px;
     }
-    
-    .floating-close {
-      background: #f2f2f7;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
+
+    /* 选择框优化 */
+    select {
+      appearance: none;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 12px center;
+      font-size: 13px;
+      color: #333;
+    }
+
+    /* Tab切换优化 */
+    #bubbleUserTab, #bubbleAiTab {
+      transition: all 0.3s;
+      font-family: "Songti SC", serif;
+      letter-spacing: 1px;
+    }
+
+    /* Tab导航优化 */
+    .tab-nav {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      overflow-x: auto;
+      gap: 12px;
+      padding: 4px 4px 16px 4px;
+      margin-bottom: 16px;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE 10+ */
+    }
+    
+    .tab-nav::-webkit-scrollbar {
+      display: none; /* Chrome/Safari */
+    }
+    
+    .tab-btn {
+      flex: 0 0 auto;
+      padding: 10px 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
       cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+    
+    .tab-btn.active {
+      background: var(--text-main);
+      color: white;
+      border-color: var(--text-main);
+      box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
+    }
+    
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 紧凑型网格按钮 */
+    .grid-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+    }
+    
+    .grid-btn {
+      padding: 10px;
+      background: #f5f5f5;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
       color: #666;
-      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
     
-    .floating-close:active {
-      background: #e5e5ea;
+    .grid-btn:active {
+      background: #e0e0e0;
+    }
+
+    /* 分段控制器 */
+    .segmented-control {
+      display: flex;
+      background: #f0f2f5;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 12px;
     }
     
-    .floating-content {
-      padding: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
+    .segmented-control button {
       flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
     }
     
-    @media (min-width: 768px) {
-      .container {
-        max-width: 100%;
-        margin: 0 auto;
-      }
+    .segmented-control button.active {
+      background: white;
+      color: #333;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      font-weight: 600;
     }
-    
+
     @media (max-width: 767px) {
       .floating-preview {
-        width: calc(100vw - 40px);
-        max-height: 60vh;
-        top: 60px;
-        right: 10px;
+        width: calc(100vw - 32px);
+        right: 16px;
+        border-width: 1px;
+      }
+      
+      .container {
+        padding: 16px;
       }
       
       .bottom-bar {
-        padding: 8px 10px;
-      }
-      
-      .btn {
-        padding: 9px !important;
-        font-size: 12px !important;
-      }
-      
-      .card {
-        padding: 10px;
-        margin-bottom: 8px;
+        width: 92%;
+        bottom: 16px;
       }
     }
   </style>
@@ -331,7 +469,8 @@
   <div class="header">
     <h1>zz气泡编辑</h1>
     <div style="display:flex; gap:8px; align-items:center;">
-      <button onclick="showAddPropertyModal()" style="padding:6px 12px; background:#666; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">+ 添加属性</button>
+      <button onclick="clearAllCache()" class="preview-toggle" style="background: #ff4757; box-shadow: none;">🗑️ 重置</button>
+      <button onclick="showAddPropertyModal()" class="preview-toggle" style="background: var(--accent); box-shadow: none;">+ 添加属性</button>
       <button class="preview-toggle" onclick="toggleFloatingPreview()">预览</button>
     </div>
   </div>
@@ -500,12 +639,12 @@
     <div>
       <!-- 气泡类型切换 -->
       <div class="card">
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <button id="bubbleUserTab" onclick="switchBubbleType('user')" style="flex:1; padding:10px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500;">用户气泡</button>
-          <button id="bubbleAiTab" onclick="switchBubbleType('ai')" style="flex:1; padding:10px; background:#f0f0f0; color:#666; border:none; border-radius:6px; font-size:13px; font-weight:500;">AI气泡</button>
+        <div style="display:flex; gap:12px; margin-bottom:16px; background: #f0f2f5; padding: 6px; border-radius: 12px;">
+          <button id="bubbleUserTab" onclick="switchBubbleType('user')" style="flex:1; padding:10px; background:var(--text-main); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">用户气泡</button>
+          <button id="bubbleAiTab" onclick="switchBubbleType('ai')" style="flex:1; padding:10px; background:transparent; color:#666; border:none; border-radius:8px; font-size:13px; font-weight:600;">AI气泡</button>
         </div>
-        <div id="aiCopyTip" style="display:none; background:#f0f0f0; padding:8px; border-radius:6px; margin-bottom:12px;">
-          <button onclick="copyUserToAi()" style="width:100%; padding:8px; background:#000; color:#fff; border:none; border-radius:6px; font-size:12px;">复制用户气泡样式</button>
+        <div id="aiCopyTip" style="display:none; background:var(--accent-light); padding:12px; border-radius:8px; margin-bottom:12px;">
+          <button onclick="copyUserToAi()" class="btn btn-primary" style="margin-top:0;">复制用户气泡样式</button>
         </div>
       </div>
 
@@ -1148,8 +1287,8 @@
 
   <!-- 底部按钮 -->
   <div class="bottom-bar">
-    <button onclick="copyCSS()" style="padding:12px; background:#000; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500;">复制CSS</button>
-    <button onclick="saveCSS()" style="padding:12px; background:#666; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500;">保存</button>
+    <button onclick="copyCSS()" class="btn btn-primary" style="margin:0; font-size:14px;">复制CSS</button>
+    <button onclick="saveCSS()" class="btn btn-success" style="margin:0; font-size:14px;">保存</button>
   </div>
 
   <!-- 添加属性弹窗 -->
@@ -1252,27 +1391,84 @@
         return;
       }
 
-      // 提取 .sent 部分（处理多行嵌套）
-      const sentRegex = /\.sent[^{]*\.message-bubble\s*\{/;
+      let userCssContent = '';
+      let aiCssContent = '';
+      let foundUser = false;
+      let foundAI = false;
+
+      // ========== 提取用户气泡(.sent)部分 ==========
+      // 支持多种格式: .message-container.sent .message-bubble / .sent .message-bubble / .sent.message-bubble
+      const sentRegex = /\.message-container\.sent\s+\.message-bubble\s*\{|\.sent\s+\.message-bubble\s*\{|\.sent\.message-bubble\s*\{/;
       const sentMatch = sentRegex.exec(cssText);
-      if (!sentMatch) {
-        alert('未找到 .sent 选择器');
-        return;
+      if (sentMatch) {
+        let braceCount = 1;
+        let endPos = sentMatch.index + sentMatch[0].length;
+        while (braceCount > 0 && endPos < cssText.length) {
+          if (cssText[endPos] === '{') braceCount++;
+          if (cssText[endPos] === '}') braceCount--;
+          endPos++;
+        }
+        userCssContent = cssText.substring(sentMatch.index + sentMatch[0].length, endPos - 1);
+        foundUser = true;
+        console.log('找到用户气泡CSS:', sentMatch[0]);
       }
 
-      let braceCount = 1;
-      let endPos = sentMatch.index + sentMatch[0].length;
-      while (braceCount > 0 && endPos < cssText.length) {
-        if (cssText[endPos] === '{') braceCount++;
-        if (cssText[endPos] === '}') braceCount--;
-        endPos++;
+      // ========== 提取AI气泡(.received)部分 ==========
+      // 支持多种格式: .message-container.received .message-bubble / .received .message-bubble / .received.message-bubble
+      const receivedRegex = /\.message-container\.received\s+\.message-bubble\s*\{|\.received\s+\.message-bubble\s*\{|\.received\.message-bubble\s*\{/;
+      const receivedMatch = receivedRegex.exec(cssText);
+      if (receivedMatch) {
+        let braceCount = 1;
+        let endPos = receivedMatch.index + receivedMatch[0].length;
+        while (braceCount > 0 && endPos < cssText.length) {
+          if (cssText[endPos] === '{') braceCount++;
+          if (cssText[endPos] === '}') braceCount--;
+          endPos++;
+        }
+        aiCssContent = cssText.substring(receivedMatch.index + receivedMatch[0].length, endPos - 1);
+        foundAI = true;
+        console.log('找到AI气泡CSS:', receivedMatch[0]);
+      }
+
+      // 如果两个都没找到，提示用户
+      if (!foundUser && !foundAI) {
+        alert('未找到 .sent 或 .received 选择器\n请确保CSS包含用户气泡或AI气泡的样式');
+        return;
       }
       
-      const cssContent = cssText.substring(sentMatch.index + sentMatch[0].length, endPos - 1);
-      currentCSS = cssContent;
+      // ========== 解析并保存用户气泡样式 ==========
+      if (foundUser) {
+        userStyles = parseAllProperties(userCssContent);
+        console.log('用户气泡属性:', Object.keys(userStyles).length, '个');
+      }
+      
+      // ========== 解析并保存AI气泡样式 ==========
+      if (foundAI) {
+        aiStyles = parseAllProperties(aiCssContent);
+        console.log('AI气泡属性:', Object.keys(aiStyles).length, '个');
+      }
+      
+      // 设置当前编辑的样式（根据当前选中的气泡类型）
+      if (currentBubbleType === 'user' && foundUser) {
+        parsedStyles = JSON.parse(JSON.stringify(userStyles));
+        currentCSS = userCssContent;
+      } else if (currentBubbleType === 'ai' && foundAI) {
+        parsedStyles = JSON.parse(JSON.stringify(aiStyles));
+        currentCSS = aiCssContent;
+      } else if (foundUser) {
+        // 默认加载用户气泡
+        parsedStyles = JSON.parse(JSON.stringify(userStyles));
+        currentCSS = userCssContent;
+        currentBubbleType = 'user';
+      } else {
+        // 只有AI气泡
+        parsedStyles = JSON.parse(JSON.stringify(aiStyles));
+        currentCSS = aiCssContent;
+        currentBubbleType = 'ai';
+      }
       
       // 提取 ::before 伪元素（处理多行）
-      const beforeRegex = /\.sent[^{]*\.message-bubble::before\s*\{/;
+      const beforeRegex = /\.message-container\.sent\s+\.message-bubble::before\s*\{|\.sent\s+\.message-bubble::before\s*\{|\.sent\.message-bubble::before\s*\{/;
       const beforeMatch = beforeRegex.exec(cssText);
       if (beforeMatch) {
         let braceCount = 1;
@@ -1287,7 +1483,7 @@
       }
       
       // 提取 ::after 伪元素（处理多行）
-      const afterRegex = /\.received[^{]*\.message-bubble::after\s*\{/;
+      const afterRegex = /\.message-container\.received\s+\.message-bubble::after\s*\{|\.received\s+\.message-bubble::after\s*\{|\.received\.message-bubble::after\s*\{/;
       const afterMatch = afterRegex.exec(cssText);
       if (afterMatch) {
         let braceCount = 1;
@@ -1327,19 +1523,24 @@
         console.log('找到动画:', keyframesMatches.length, '个');
       }
       
-      // 解析所有CSS属性
-      parsedStyles = parseAllProperties(cssContent);
-      
       // 生成控件
       generateControls(parsedStyles);
       
       // 生成伪元素控件
       generatePseudoControls();
       
+      // 更新气泡类型按钮状态
+      switchBubbleType(currentBubbleType);
+      
       // 立即更新预览
       setTimeout(() => {
         updatePreview();
       }, 100);
+      
+      // 构建提示信息
+      const bubbleInfo = [];
+      if (foundUser) bubbleInfo.push(`用户气泡(${Object.keys(userStyles).length}个属性)`);
+      if (foundAI) bubbleInfo.push(`AI气泡(${Object.keys(aiStyles).length}个属性)`);
       
       const extras = [];
       if (extraCSS.beforePseudo) extras.push('::before伪元素');
@@ -1347,7 +1548,7 @@
       if (extraCSS.animations) extras.push('@keyframes动画');
       
       const extraMsg = extras.length > 0 ? `\n额外解析: ${extras.join('、')}` : '';
-      alert(`成功解析 ${Object.keys(parsedStyles).length} 个CSS属性！${extraMsg}\n现在可以调整控件了`);
+      alert(`✅ 成功解析！\n${bubbleInfo.join('\n')}${extraMsg}\n\n当前编辑: ${currentBubbleType === 'user' ? '用户气泡' : 'AI气泡'}\n可点击上方按钮切换编辑`);
     }
 
     // 解析所有CSS属性
@@ -1428,17 +1629,41 @@
         parts.forEach((shadow, idx) => {
           const isInset = shadow.includes('inset');
           const numbers = shadow.match(/(-?\d+(?:\.\d+)?)px/g);
+          // 提取颜色信息
+          const colorMatch = shadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,6}/);
+          let shadowColor = '#000000';
+          let shadowAlpha = 100;
+          
+          if (colorMatch) {
+            const colorStr = colorMatch[0];
+            if (colorStr.startsWith('rgba')) {
+              const rgbaMatch = colorStr.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+              if (rgbaMatch) {
+                const r = parseInt(rgbaMatch[1]);
+                const g = parseInt(rgbaMatch[2]);
+                const b = parseInt(rgbaMatch[3]);
+                const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+                shadowColor = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+                shadowAlpha = Math.round(a * 100);
+              }
+            } else if (colorStr.startsWith('#')) {
+              shadowColor = colorStr;
+            }
+          }
+          
           if (numbers && numbers.length >= 2) {
             const shadowData = {
               isInset,
               x: parseInt(numbers[0]),
               y: parseInt(numbers[1]),
               blur: numbers[2] ? parseInt(numbers[2]) : 0,
-              spread: numbers[3] ? parseInt(numbers[3]) : 0
+              spread: numbers[3] ? parseInt(numbers[3]) : 0,
+              color: shadowColor,
+              alpha: shadowAlpha
             };
             shadows.push(shadowData);
             
-            // 为每层阴影创建控件（包括X/Y偏移）
+            // 为每层阴影创建控件（包括颜色）
             const prefix = isInset ? '内阴影' : '外阴影';
             parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 左右偏移`, key: `shadow${idx}X`, min: -50, max: 50, unit: 'px', shadowIndex: idx});
             parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 上下偏移`, key: `shadow${idx}Y`, min: -50, max: 50, unit: 'px', shadowIndex: idx});
@@ -1446,6 +1671,9 @@
             if (shadowData.spread !== undefined) {
               parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 扩散`, key: `shadow${idx}Spread`, min: 0, max: 20, unit: 'px', shadowIndex: idx});
             }
+            // 添加颜色控件
+            parsed.editable.push({type: 'color', label: `${prefix}${idx+1} 颜色`, key: `shadow${idx}Color`, shadowIndex: idx});
+            parsed.editable.push({type: 'range', label: `${prefix}${idx+1} 透明度`, key: `shadow${idx}Alpha`, min: 0, max: 100, unit: '%', shadowIndex: idx});
           }
         });
         parsed.type = 'multishadow';
@@ -1758,6 +1986,18 @@
                   updatePreviewFromControls();
                 };
               }
+              // 处理阴影颜色
+              else if (control.shadowIndex !== undefined && control.key.includes('Color') && data.shadows && data.shadows[control.shadowIndex]) {
+                const shadow = data.shadows[control.shadowIndex];
+                colorInput.value = shadow.color || '#000000';
+                colorInput.oninput = () => {
+                  data[control.key] = colorInput.value;
+                  console.log('阴影颜色改变:', control.shadowIndex, colorInput.value);
+                  const valueEl = document.getElementById(`value-${name}-${control.key}`);
+                  if (valueEl) valueEl.textContent = colorInput.value;
+                  updatePreviewFromControls();
+                };
+              }
               // 普通颜色
               else {
                 colorInput.value = data[control.key];
@@ -1796,6 +2036,7 @@
                 else if (control.key.includes('Y')) initVal = shadow.y;
                 else if (control.key.includes('Blur')) initVal = shadow.blur;
                 else if (control.key.includes('Spread')) initVal = shadow.spread;
+                else if (control.key.includes('Alpha')) initVal = shadow.alpha || 100;
                 
                 rangeInput.value = initVal;
                 data[control.key] = initVal;  // 初始化
@@ -1864,6 +2105,13 @@
 
     // 从控件更新预览
     function updatePreviewFromControls() {
+      // 🔥 关键：先把当前编辑的parsedStyles同步到对应的气泡变量
+      if (currentBubbleType === 'user') {
+        userStyles = JSON.parse(JSON.stringify(parsedStyles));
+      } else {
+        aiStyles = JSON.parse(JSON.stringify(parsedStyles));
+      }
+      
       // 确保基础样式存在（如果没有自定义样式，使用默认值）
       const ensureBaseStyles = (styles) => {
         const base = {
@@ -1983,15 +2231,24 @@
         if (data.type === 'backdrop' && data.blurValue !== undefined) {
           css += `  ${name}: blur(${data.blurValue}px) !important;\n`;
         }
-        // 多层阴影
+        // 多层阴影 - 支持颜色修改
         else if (data.type === 'multishadow' && data.shadows) {
           const shadowStrs = data.shadows.map((s, idx) => {
             const x = data[`shadow${idx}X`] !== undefined ? data[`shadow${idx}X`] : s.x;
             const y = data[`shadow${idx}Y`] !== undefined ? data[`shadow${idx}Y`] : s.y;
             const blur = data[`shadow${idx}Blur`] !== undefined ? data[`shadow${idx}Blur`] : s.blur;
             const spread = data[`shadow${idx}Spread`] !== undefined ? data[`shadow${idx}Spread`] : s.spread;
+            const color = data[`shadow${idx}Color`] || s.color || '#000000';
+            const alpha = data[`shadow${idx}Alpha`] !== undefined ? data[`shadow${idx}Alpha`] : (s.alpha || 100);
             const inset = s.isInset ? 'inset ' : '';
-            return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(0,0,0,0.15)`;
+            
+            // 转换颜色为rgba
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            const a = (alpha / 100).toFixed(2);
+            
+            return `${inset}${x}px ${y}px ${blur}px ${spread}px rgba(${r}, ${g}, ${b}, ${a})`;
           });
           css += `  ${name}: ${shadowStrs.join(', ')} !important;\n`;
         }
@@ -2095,12 +2352,11 @@
         else if (data.type === 'position') {
           css += `  ${name}: ${data.posValue || 0}px !important;\n`;
         }
-        // text-shadow
+        // text-shadow - 直接使用原始值，避免颜色丢失
         else if (data.type === 'textshadow') {
-          const x = data.textShadowX || 0;
-          const y = data.textShadowY || 0;
-          const blur = data.textShadowBlur || 0;
-          css += `  ${name}: ${x}px ${y}px ${blur}px rgba(0,0,0,0.3) !important;\n`;
+          if (data.original) {
+            css += `  ${name}: ${data.original} !important;\n`;
+          }
         }
         // filter
         else if (data.type === 'filter') {
@@ -2398,6 +2654,44 @@
         timestamp: Date.now()
       };
       localStorage.setItem('bubble_editor_autosave', JSON.stringify(currentState));
+    }
+    
+    // 🗑️ 强制清除所有缓存并重置
+    function clearAllCache() {
+      if (!confirm('⚠️ 确定要清除所有缓存吗？\n\n这将删除：\n• 所有已编辑的气泡样式\n• 贴纸设置\n• 自动保存的数据\n\n页面将恢复到初始状态')) {
+        return;
+      }
+      
+      // 清除localStorage
+      localStorage.removeItem('bubble_editor_autosave');
+      
+      // 重置所有变量
+      userStyles = {};
+      aiStyles = {};
+      parsedStyles = {};
+      extraCSS = { beforePseudo: '', afterPseudo: '', animations: '' };
+      currentBubbleType = 'user';
+      currentCSS = '';
+      
+      // 清空输入框
+      document.getElementById('cssInput').value = '';
+      document.getElementById('cssOutput').value = '';
+      
+      // 重置预览
+      document.getElementById('dynamicStyle').textContent = '';
+      document.getElementById('floatingStyle').textContent = '';
+      
+      // 重置控件
+      document.getElementById('customControls').innerHTML = '';
+      document.getElementById('pseudoControls').innerHTML = '';
+      
+      // 重置气泡类型按钮
+      switchBubbleType('user');
+      
+      // 更新预览
+      updatePreviewNow();
+      
+      alert('✅ 已清除所有缓存！\n页面已恢复到初始状态');
     }
     
     // 从自动保存恢复
@@ -2811,10 +3105,10 @@
       reader.readAsDataURL(file);
     }
 
-    // 伪元素属性存储（默认在气泡角落）
+    // 伪元素属性存储（使用百分比，随气泡大小按比例调整）
     let pseudoProps = {
-      before: { size: 40, top: -15, left: -15 },
-      after: { size: 40, top: -15, right: -15 }
+      before: { size: 25, top: -12, left: -12 },  // size用百分比，位置用百分比
+      after: { size: 25, top: -12, right: -12 }
     };
 
     // 更新伪元素CSS
@@ -2829,39 +3123,39 @@
       
       const props = pseudoProps[type];
       
-      // 替换或添加宽度（使用size，保留!important）
-      if (/width\s*:\s*\d+px/i.test(css)) {
-        css = css.replace(/width\s*:\s*\d+px(\s*!important)?/gi, `width: ${props.size}px$1`);
+      // 替换或添加宽度（使用百分比，相对于气泡大小）
+      if (/width\s*:\s*\d+(%|px)/i.test(css)) {
+        css = css.replace(/width\s*:\s*\d+(%|px)(\s*!important)?/gi, `width: ${props.size}%$2`);
       } else {
-        css = css.replace(/}(\s*)$/, `  width: ${props.size}px !important;\n}$1`);
+        css = css.replace(/}(\s*)$/, `  width: ${props.size}% !important;\n}$1`);
       }
       
-      // 替换或添加高度（使用size，保留!important）
-      if (/height\s*:\s*\d+px/i.test(css)) {
-        css = css.replace(/height\s*:\s*\d+px(\s*!important)?/gi, `height: ${props.size}px$1`);
+      // 替换或添加高度（使用百分比，相对于气泡大小）
+      if (/height\s*:\s*\d+(%|px)/i.test(css)) {
+        css = css.replace(/height\s*:\s*\d+(%|px)(\s*!important)?/gi, `height: ${props.size}%$2`);
       } else {
-        css = css.replace(/}(\s*)$/, `  height: ${props.size}px !important;\n}$1`);
+        css = css.replace(/}(\s*)$/, `  height: ${props.size}% !important;\n}$1`);
       }
       
-      // 替换或添加top（保留!important）
-      if (/top\s*:\s*-?\d+px/i.test(css)) {
-        css = css.replace(/top\s*:\s*-?\d+px(\s*!important)?/gi, `top: ${props.top}px$1`);
+      // 替换或添加top（使用百分比，相对于气泡高度）
+      if (/top\s*:\s*-?\d+(%|px)/i.test(css)) {
+        css = css.replace(/top\s*:\s*-?\d+(%|px)(\s*!important)?/gi, `top: ${props.top}%$2`);
       } else {
-        css = css.replace(/}(\s*)$/, `  top: ${props.top}px !important;\n}$1`);
+        css = css.replace(/}(\s*)$/, `  top: ${props.top}% !important;\n}$1`);
       }
       
-      // 替换或添加left/right（保留!important）
+      // 替换或添加left/right（使用百分比，相对于气泡宽度）
       if (type === 'before') {
-        if (/left\s*:\s*-?\d+px/i.test(css)) {
-          css = css.replace(/left\s*:\s*-?\d+px(\s*!important)?/gi, `left: ${props.left}px$1`);
+        if (/left\s*:\s*-?\d+(%|px)/i.test(css)) {
+          css = css.replace(/left\s*:\s*-?\d+(%|px)(\s*!important)?/gi, `left: ${props.left}%$2`);
         } else {
-          css = css.replace(/}(\s*)$/, `  left: ${props.left}px !important;\n}$1`);
+          css = css.replace(/}(\s*)$/, `  left: ${props.left}% !important;\n}$1`);
         }
       } else {
-        if (/right\s*:\s*-?\d+px/i.test(css)) {
-          css = css.replace(/right\s*:\s*-?\d+px(\s*!important)?/gi, `right: ${props.right}px$1`);
+        if (/right\s*:\s*-?\d+(%|px)/i.test(css)) {
+          css = css.replace(/right\s*:\s*-?\d+(%|px)(\s*!important)?/gi, `right: ${props.right}%$2`);
         } else {
-          css = css.replace(/}(\s*)$/, `  right: ${props.right}px !important;\n}$1`);
+          css = css.replace(/}(\s*)$/, `  right: ${props.right}% !important;\n}$1`);
         }
       }
       
@@ -3218,16 +3512,16 @@
       }, 300);
     }
 
-    // 常用形状库
+    // 常用形状库 - 实用气泡形状
     const quickShapes = {
-      '三角形': '50% 0%, 0% 100%, 100% 100%',
-      '梯形': '30% 0%, 70% 0%, 100% 100%, 0% 100%',
-      '菱形': '50% 0%, 100% 50%, 50% 100%, 0% 50%',
-      '五角星（简化）': '50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%',
-      '箭头→': '0% 30%, 60% 30%, 60% 0%, 100% 50%, 60% 100%, 60% 70%, 0% 70%',
-      '心形': '50% 15%, 61% 6%, 72% 4%, 82% 8%, 88% 17%, 91% 28%, 91% 39%, 88% 50%, 50% 95%, 12% 50%, 9% 39%, 9% 28%, 12% 17%, 18% 8%, 28% 4%, 39% 6%',
-      '对话框': '10% 0%, 90% 0%, 90% 70%, 50% 70%, 45% 85%, 40% 70%, 10% 70%, 10% 0%',
-      '波浪边': '0% 20%, 10% 10%, 20% 15%, 30% 5%, 40% 10%, 50% 0%, 60% 10%, 70% 5%, 80% 15%, 90% 10%, 100% 20%, 100% 100%, 0% 100%'
+      '水滴状': '50% 0%, 65% 5%, 78% 15%, 88% 30%, 95% 50%, 88% 70%, 78% 85%, 65% 95%, 50% 100%, 35% 95%, 22% 85%, 12% 70%, 5% 50%, 12% 30%, 22% 15%, 35% 5%',
+      '云朵状': '20% 15%, 35% 5%, 50% 8%, 65% 5%, 80% 15%, 90% 30%, 85% 50%, 90% 70%, 80% 85%, 65% 95%, 50% 92%, 35% 95%, 20% 85%, 10% 70%, 15% 50%, 10% 30%',
+      '对话框（左）': '15% 0%, 90% 0%, 90% 65%, 25% 65%, 15% 80%, 10% 65%, 15% 65%, 15% 0%',
+      '对话框（右）': '10% 0%, 85% 0%, 85% 65%, 90% 65%, 85% 80%, 75% 65%, 10% 65%, 10% 0%',
+      '圆润矩形': '15% 0%, 85% 0%, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0% 85%, 0% 15%',
+      '花瓣状': '50% 0%, 70% 10%, 85% 25%, 95% 45%, 90% 65%, 75% 80%, 55% 90%, 50% 100%, 45% 90%, 25% 80%, 10% 65%, 5% 45%, 15% 25%, 30% 10%',
+      '心形气泡': '50% 10%, 65% 0%, 80% 5%, 90% 20%, 85% 35%, 75% 45%, 50% 85%, 25% 45%, 15% 35%, 10% 20%, 20% 5%, 35% 0%',
+      '叶子状': '50% 0%, 75% 15%, 90% 40%, 85% 65%, 70% 85%, 50% 100%, 30% 85%, 15% 65%, 10% 40%, 25% 15%'
     };
 
     // 显示形状示例
@@ -3884,10 +4178,12 @@
         extraCSS[pseudoKey] = `${className} .message-bubble::${type} {
   content: "" !important;
   position: absolute !important;
-  top: -15px !important;
-  left: -15px !important;
-  width: 40px !important;
-  height: 40px !important;
+  top: -12% !important;
+  left: -12% !important;
+  width: 25% !important;
+  height: 25% !important;
+  max-width: 50px !important;
+  max-height: 50px !important;
   background-image: url(${url}) !important;
   background-size: cover !important;
   background-position: center !important;
@@ -3907,7 +4203,7 @@
         extraCSS[pseudoKey] = css;
       }
       
-      pseudoProps.before = { size: 40, top: -15, left: -15 };
+      pseudoProps.before = { size: 25, top: -12, left: -12 };
       generatePseudoControls();
       updatePreview();
       alert('图床链接已应用到用户贴纸！');
@@ -3935,10 +4231,12 @@
         extraCSS[pseudoKey] = `${className} .message-bubble::${type} {
   content: "" !important;
   position: absolute !important;
-  top: -15px !important;
-  right: -15px !important;
-  width: 40px !important;
-  height: 40px !important;
+  top: -12% !important;
+  right: -12% !important;
+  width: 25% !important;
+  height: 25% !important;
+  max-width: 50px !important;
+  max-height: 50px !important;
   background-image: url(${url}) !important;
   background-size: cover !important;
   background-position: center !important;
@@ -3958,7 +4256,7 @@
         extraCSS[pseudoKey] = css;
       }
       
-      pseudoProps.after = { size: 40, top: -15, right: -15 };
+      pseudoProps.after = { size: 25, top: -12, right: -12 };
       generatePseudoControls();
       updatePreview();
       alert('图床链接已应用到AI贴纸！');
@@ -4029,11 +4327,11 @@
 
       extraCSS[pseudoKey] = defaultCSS;
       
-      // 同步更新pseudoProps的初始值
+      // 同步更新pseudoProps的初始值（使用百分比）
       if (type === 'before') {
-        pseudoProps.before = { size: 40, top: -15, left: -15 };
+        pseudoProps.before = { size: 25, top: -10, left: -10 };
       } else {
-        pseudoProps.after = { size: 40, top: -15, right: -15 };
+        pseudoProps.after = { size: 25, top: -10, right: -10 };
       }
       
       generatePseudoControls();

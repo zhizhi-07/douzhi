@@ -19,7 +19,8 @@ const CreateCharacter = () => {
     signature: '',     // 个性签名
     personality: '',   // 性格描述
     avatar: '',        // 头像
-    isPublicFigure: false  // 是否为公众人物
+    isPublicFigure: false,  // 是否为公众人物
+    pokeSuffix: ''     // 拍一拍后缀
   })
   
   const [isImporting, setIsImporting] = useState(false)
@@ -80,7 +81,8 @@ const CreateCharacter = () => {
           avatar: converted.avatar,
           signature: converted.signature,
           personality: converted.description,
-          isPublicFigure: false
+          isPublicFigure: false,
+          pokeSuffix: ''
         })
         
         setIsImporting(false)
@@ -343,6 +345,20 @@ const CreateCharacter = () => {
               placeholder="简单描述性格特点..."
               rows={3}
               className="w-full bg-transparent text-gray-900 outline-none text-sm resize-none"
+            />
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
+          {/* 拍一拍后缀 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">拍一拍后缀</label>
+            <input
+              type="text"
+              value={formData.pokeSuffix}
+              onChange={(e) => setFormData({ ...formData, pokeSuffix: e.target.value })}
+              placeholder="如：的小脑袋（可选）"
+              className="w-full bg-transparent text-gray-900 outline-none text-sm"
             />
           </div>
 

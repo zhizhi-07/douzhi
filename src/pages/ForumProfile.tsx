@@ -21,7 +21,14 @@ const ForumProfile = () => {
     <div
       key={post.id}
       onClick={() => navigate(`/forum/post/${post.id}`)}
-      className="py-3 cursor-pointer active:opacity-70 transition-opacity border-b border-gray-100 last:border-b-0"
+      className="forum-profile-post-item py-3 px-3 cursor-pointer active:opacity-70 transition-opacity border-b border-gray-100 last:border-b-0 bg-white rounded-lg mb-2"
+      style={{ 
+        backgroundColor: '#ffffff', 
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        opacity: 1,
+        position: 'relative',
+        zIndex: 10
+      }}
     >
       <h3 className="text-sm font-medium text-gray-800 mb-1">{post.title}</h3>
       <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -34,10 +41,15 @@ const ForumProfile = () => {
 
   return (
     <ForumLayout>
-      <div className="p-4">
+      <div className="p-4" style={{ 
+        backgroundColor: '#f5f5f5 !important', 
+        minHeight: '100vh',
+        position: 'relative',
+        zIndex: 1
+      }}>
         {/* 用户信息卡片 */}
-        <div className="py-4">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="py-4 bg-white rounded-2xl mx-2" style={{ backgroundColor: 'white' }}>
+          <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-16 h-16 rounded-full bg-gray-200" />
             <div>
               <h2 className="text-base font-semibold text-gray-800">当前用户</h2>
@@ -61,8 +73,18 @@ const ForumProfile = () => {
           </div>
         </div>
 
+        {/* 操作按钮 */}
+        <div className="flex gap-3 mt-3 mx-2">
+          <button className="flex-1 py-3 bg-white rounded-2xl text-sm font-medium text-gray-800 border border-gray-200" style={{ backgroundColor: 'white' }}>
+            编辑资料
+          </button>
+          <button className="flex-1 py-3 bg-white rounded-2xl text-sm font-medium text-gray-800 border border-gray-200" style={{ backgroundColor: 'white' }}>
+            分享资料
+          </button>
+        </div>
+
         {/* 标签页 */}
-        <div className="py-3 border-b border-gray-100">
+        <div className="py-3 border-b border-gray-100 bg-white rounded-2xl px-4 mx-2 mt-3" style={{ backgroundColor: 'white' }}>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setActiveTab('posts')}
@@ -98,13 +120,15 @@ const ForumProfile = () => {
         </div>
 
         {/* 内容区 */}
-        <div className="mt-3">
+        <div className="mt-3 bg-white rounded-2xl p-4 mx-2" style={{ backgroundColor: 'white', opacity: 1 }}>
           {activeTab === 'posts' && (
-            <div>
+            <div style={{ backgroundColor: 'white' }}>
               {myPosts.length > 0 ? (
-                myPosts.map(renderPostItem)
+                <div style={{ backgroundColor: 'white' }}>
+                  {myPosts.map(renderPostItem)}
+                </div>
               ) : (
-                <div className="py-20 text-center text-gray-400 text-sm">
+                <div className="py-20 text-center text-gray-400 text-sm" style={{ backgroundColor: 'white' }}>
                   还没有发布过帖子
                 </div>
               )}
@@ -112,11 +136,13 @@ const ForumProfile = () => {
           )}
 
           {activeTab === 'favorites' && (
-            <div>
+            <div style={{ backgroundColor: 'white' }}>
               {favoritePosts.length > 0 ? (
-                favoritePosts.map(renderPostItem)
+                <div style={{ backgroundColor: 'white' }}>
+                  {favoritePosts.map(renderPostItem)}
+                </div>
               ) : (
-                <div className="py-20 text-center text-gray-400 text-sm">
+                <div className="py-20 text-center text-gray-400 text-sm" style={{ backgroundColor: 'white' }}>
                   还没有收藏帖子
                 </div>
               )}
@@ -124,12 +150,13 @@ const ForumProfile = () => {
           )}
 
           {activeTab === 'follows' && (
-            <div>
+            <div style={{ backgroundColor: 'white' }}>
               {follows.length > 0 ? (
                 follows.map((topic, i) => (
                   <div
                     key={i}
-                    className="py-3 border-b border-gray-100 last:border-b-0"
+                    className="py-3 px-3 border-b border-gray-100 last:border-b-0 bg-white rounded-lg mb-2"
+                    style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-800">#{topic}</span>
@@ -140,7 +167,7 @@ const ForumProfile = () => {
                   </div>
                 ))
               ) : (
-                <div className="py-20 text-center text-gray-400 text-sm">
+                <div className="py-20 text-center text-gray-400 text-sm" style={{ backgroundColor: 'white' }}>
                   还没有关注话题
                 </div>
               )}

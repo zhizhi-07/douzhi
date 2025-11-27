@@ -1,8 +1,60 @@
 /**
  * 气泡设置组件
+ * 使用IndexedDB存储CSS数据，解决localStorage空间不足问题
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+// IndexedDB存储工具
+const DB_NAME = 'BubbleStyleDB'
+const STORE_NAME = 'styles'
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'key' })
+      }
+    }
+  })
+}
+
+const saveToIDB = async (key: string, value: string): Promise<boolean> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const store = tx.objectStore(STORE_NAME)
+      store.put({ key, value })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); resolve(false) }
+    })
+  } catch {
+    return false
+  }
+}
+
+const getFromIDB = async (key: string): Promise<string> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly')
+      const store = tx.objectStore(STORE_NAME)
+      const request = store.get(key)
+      request.onsuccess = () => {
+        db.close()
+        resolve(request.result?.value || '')
+      }
+      request.onerror = () => { db.close(); resolve('') }
+    })
+  } catch {
+    return ''
+  }
+}
 
 interface BubbleSettingsProps {
   chatId: string
@@ -10,33 +62,37 @@ interface BubbleSettingsProps {
 }
 
 const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
-  const [userBubbleColor, setUserBubbleColor] = useState(() => 
-    localStorage.getItem(`user_bubble_color_${chatId}`) || '#95EC69'
-  )
-  const [aiBubbleColor, setAiBubbleColor] = useState(() => 
-    localStorage.getItem(`ai_bubble_color_${chatId}`) || '#FFFFFF'
-  )
-  const [userTextColor, setUserTextColor] = useState(() => 
-    localStorage.getItem(`user_text_color_${chatId}`) || '#FFFFFF'
-  )
-  const [aiTextColor, setAiTextColor] = useState(() => 
-    localStorage.getItem(`ai_text_color_${chatId}`) || '#1F2937'
-  )
-  // 🔥 修复：从localStorage读取已保存的CSS
-  const [cssInput, setCSSInput] = useState(() => {
-    const userCSS = localStorage.getItem(`user_bubble_css_${chatId}`) || ''
-    const aiCSS = localStorage.getItem(`ai_bubble_css_${chatId}`) || ''
-    // 如果有保存的CSS，合并显示
-    if (userCSS || aiCSS) {
-      return `${userCSS}\n\n${aiCSS}`.trim()
-    }
-    return ''
-  })
+  const [userBubbleColor, setUserBubbleColor] = useState('#95EC69')
+  const [aiBubbleColor, setAiBubbleColor] = useState('#FFFFFF')
+  const [userTextColor, setUserTextColor] = useState('#FFFFFF')
+  const [aiTextColor, setAiTextColor] = useState('#1F2937')
+  const [cssInput, setCSSInput] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
   const [previewCSS, setPreviewCSS] = useState('')
 
+  // 从IndexedDB加载数据
+  useEffect(() => {
+    const loadData = async () => {
+      const [userCSS, aiCSS, uBubble, aBubble, uText, aText] = await Promise.all([
+        getFromIDB(`user_bubble_css_${chatId}`),
+        getFromIDB(`ai_bubble_css_${chatId}`),
+        getFromIDB(`user_bubble_color_${chatId}`),
+        getFromIDB(`ai_bubble_color_${chatId}`),
+        getFromIDB(`user_text_color_${chatId}`),
+        getFromIDB(`ai_text_color_${chatId}`)
+      ])
+      
+      if (userCSS || aiCSS) setCSSInput(`${userCSS}\n\n${aiCSS}`.trim())
+      if (uBubble) setUserBubbleColor(uBubble)
+      if (aBubble) setAiBubbleColor(aBubble)
+      if (uText) setUserTextColor(uText)
+      if (aText) setAiTextColor(aText)
+    }
+    loadData()
+  }, [chatId])
+
   // 应用CSS代码
-  const handleApplyCSS = () => {
+  const handleApplyCSS = async () => {
     if (!cssInput.trim()) {
       alert('请输入CSS代码')
       return
@@ -91,33 +147,29 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
       }
     }
     
-    localStorage.setItem(`user_bubble_css_${chatId}`, userCSS)
-    localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSS)
+    // 使用IndexedDB存储
+    const [userSuccess, aiSuccess] = await Promise.all([
+      saveToIDB(`user_bubble_css_${chatId}`, userCSS),
+      saveToIDB(`ai_bubble_css_${chatId}`, aiCSS)
+    ])
     
-    // 🔥 修复：更新预览CSS
-    setPreviewCSS(userCSS + '\n' + aiCSS)
-    
-    // 触发更新（使用自定义事件，因为storage事件不会在同窗口触发）
-    window.dispatchEvent(new Event('bubbleStyleUpdate'))
-    onSaved()
-    // 🔥 修复：不清空输入框，保留CSS内容
-    // setCSSInput('')
-    alert('✅ CSS样式已应用！')
+    if (userSuccess && aiSuccess) {
+      setPreviewCSS(userCSS + '\n' + aiCSS)
+      window.dispatchEvent(new Event('bubbleStyleUpdate'))
+      onSaved()
+      alert('✅ CSS样式已应用！')
+    } else {
+      alert('❌ CSS存储失败')
+    }
   }
 
   // 保存颜色选择器设置
-  const saveBubbleColors = () => {
-    // 保存颜色值
-    localStorage.setItem(`user_bubble_color_${chatId}`, userBubbleColor)
-    localStorage.setItem(`ai_bubble_color_${chatId}`, aiBubbleColor)
-    localStorage.setItem(`user_text_color_${chatId}`, userTextColor)
-    localStorage.setItem(`ai_text_color_${chatId}`, aiTextColor)
-    
+  const saveBubbleColors = async () => {
     // 生成CSS
     const userCSS = `.message-container.sent .message-bubble {
   background: ${userBubbleColor} !important;
   color: ${userTextColor} !important;
-  border-radius: 18px !important;
+  border-radius: 18px 18px 4px 18px !important;
   padding: 10px 14px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }`
@@ -125,19 +177,29 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
     const aiCSS = `.message-container.received .message-bubble {
   background: ${aiBubbleColor} !important;
   color: ${aiTextColor} !important;
-  border-radius: 18px !important;
+  border-radius: 18px 18px 18px 4px !important;
   padding: 10px 14px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
   border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }`
     
-    localStorage.setItem(`user_bubble_css_${chatId}`, userCSS)
-    localStorage.setItem(`ai_bubble_css_${chatId}`, aiCSS)
+    // 使用IndexedDB存储
+    const results = await Promise.all([
+      saveToIDB(`user_bubble_color_${chatId}`, userBubbleColor),
+      saveToIDB(`ai_bubble_color_${chatId}`, aiBubbleColor),
+      saveToIDB(`user_text_color_${chatId}`, userTextColor),
+      saveToIDB(`ai_text_color_${chatId}`, aiTextColor),
+      saveToIDB(`user_bubble_css_${chatId}`, userCSS),
+      saveToIDB(`ai_bubble_css_${chatId}`, aiCSS)
+    ])
     
-    // 触发更新
-    window.dispatchEvent(new Event('bubbleStyleUpdate'))
-    onSaved()
-    alert('✅ 颜色设置已应用！')
+    if (results.every(r => r)) {
+      window.dispatchEvent(new Event('bubbleStyleUpdate'))
+      onSaved()
+      alert('✅ 颜色设置已应用！')
+    } else {
+      alert('❌ 保存失败')
+    }
   }
 
   return (
@@ -226,7 +288,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
                 const template = `.message-container.sent .message-bubble {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
   color: #FFFFFF !important;
-  border-radius: 18px !important;
+  border-radius: 18px 18px 4px 18px !important;
   padding: 10px 14px !important;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
 }
@@ -234,7 +296,7 @@ const BubbleSettings = ({ chatId, onSaved }: BubbleSettingsProps) => {
 .message-container.received .message-bubble {
   background: #FFFFFF !important;
   color: #1F2937 !important;
-  border-radius: 18px !important;
+  border-radius: 18px 18px 18px 4px !important;
   padding: 10px 14px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
   border: 1px solid rgba(0, 0, 0, 0.05) !important;

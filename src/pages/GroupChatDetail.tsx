@@ -6,7 +6,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import React, { useState, useEffect, useRef } from 'react'
 import { flushSync } from 'react-dom'
 import StatusBar from '../components/StatusBar'
-import Avatar from '../components/Avatar'
 import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
 import { generateGroupChatSummary } from '../utils/groupChatSummary'
 import { groupChatManager, type GroupMessage } from '../utils/groupChatManager'
@@ -18,8 +17,7 @@ import { getUserInfo } from '../utils/userUtils'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import GroupAddMenu from '../components/GroupAddMenu'
 import { getAllUIIcons } from '../utils/iconStorage'
-import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
-import MessageMenu from '../components/MessageMenu'
+import MessageMenu from '../components/MessageMenu.floating'
 import TransferSender from '../components/TransferSender'
 import PhotoDescriptionInput from '../components/PhotoDescriptionInput'
 import LocationInput from '../components/LocationInput'
@@ -27,6 +25,7 @@ import VoiceInput from '../components/VoiceInput'
 import RedPacketSender from '../components/RedPacketSender'
 import RedPacketOpenModal from '../components/RedPacketOpenModal'
 import RedPacketDetailModal from '../components/RedPacketDetailModal'
+import { GroupMessageItem, GroupInputBar, MentionList } from './GroupChatDetail/components'
 
 // 获取成员头像
 const getMemberAvatar = (userId: string): string => {
@@ -79,6 +78,11 @@ const GroupChatDetail = () => {
   // 🎨 自定义UI图标（与私聊同步）
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   
+  // 🎨 顶栏底栏调整参数（与私聊同步）
+  const [topBarScale, setTopBarScale] = useState(100)
+  const [topBarX, setTopBarX] = useState(0)
+  const [topBarY, setTopBarY] = useState(0)
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const longPressTimer = useRef<number | null>(null)
@@ -118,6 +122,16 @@ const GroupChatDetail = () => {
             console.error('从localStorage恢复图标失败:', err)
           }
         }
+        
+        // 🌍 全局设置：应用到群聊界面（与私聊同步）
+        if (icons['global-topbar']) {
+          // 全局顶栏应用到群聊界面（如果没有单独设置）
+          if (!icons['chat-topbar-bg']) {
+            icons['chat-topbar-bg'] = icons['global-topbar']
+            console.log('🌍 应用全局顶栏到群聊界面')
+          }
+        }
+        
         setCustomIcons(icons)
         console.log('✅ GroupChatDetail加载自定义图标:', Object.keys(icons).length, '个')
       } catch (error) {
@@ -125,13 +139,37 @@ const GroupChatDetail = () => {
       }
     }
     
+    // 🎨 加载顶栏调整参数
+    const loadAdjustParams = () => {
+      const tScale = localStorage.getItem('chat-topbar-bg-scale')
+      const tX = localStorage.getItem('chat-topbar-bg-x')
+      const tY = localStorage.getItem('chat-topbar-bg-y')
+      
+      if (tScale) setTopBarScale(parseInt(tScale))
+      if (tX) setTopBarX(parseInt(tX))
+      if (tY) setTopBarY(parseInt(tY))
+    }
+    
     loadCustomIcons()
+    loadAdjustParams()
     
     const handleIconsChange = () => {
       loadCustomIcons()
+      loadAdjustParams()
+    }
+    const handleAdjust = () => {
+      loadAdjustParams()
     }
     window.addEventListener('ui-icons-changed', handleIconsChange)
-    return () => window.removeEventListener('ui-icons-changed', handleIconsChange)
+    window.addEventListener('uiIconsChanged', handleIconsChange)
+    window.addEventListener('iconAdjust', handleAdjust)
+    window.addEventListener('globalDecorationUpdate', handleIconsChange)
+    return () => {
+      window.removeEventListener('ui-icons-changed', handleIconsChange)
+      window.removeEventListener('uiIconsChanged', handleIconsChange)
+      window.removeEventListener('iconAdjust', handleAdjust)
+      window.removeEventListener('globalDecorationUpdate', handleIconsChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -742,15 +780,26 @@ const GroupChatDetail = () => {
 
   // AI主动回复（用户不发消息，只触发AI聊天）
   const handleAIReply = async () => {
-    if (!id || isAiTyping) return
+    console.log('🚀 [群聊AI] handleAIReply被调用')
+    console.log('🚀 [群聊AI] id:', id, 'isAiTyping:', isAiTyping)
     
+    if (!id || isAiTyping) {
+      console.log('⚠️ [群聊AI] 提前返回：id为空或正在输入中')
+      return
+    }
+    
+    console.log('✅ [群聊AI] 开始处理AI回复...')
     setIsAiTyping(true)
     isAIReplying.current = true  // 🔥 设置AI回复标志
     console.log('🔒 [AI回复] 已设置isAIReplying标志，storage事件将被忽略')
     try {
       // 获取群聊信息
       const group = groupChatManager.getGroup(id)
-      if (!group) return
+      if (!group) {
+        console.log('❌ [群聊AI] 找不到群聊信息，id:', id)
+        return
+      }
+      console.log('📋 [群聊AI] 获取到群聊信息:', group.name)
       
       // 🔥 先从 groupChatManager 重新读取最新消息
       let latestMessages = groupChatManager.getMessages(id)
@@ -891,6 +940,52 @@ const GroupChatDetail = () => {
       
       // 🔥 维护一个本地消息数组，用于逐条显示
       const currentMessages = [...latestMessages]
+      
+      // 🎭 处理小剧场调用（如红包）- 将其插入到 actions 开头
+      const theatreCalls = (script as any).theatreCalls as Array<{templateId: string, data: any}> | undefined
+      if (theatreCalls && theatreCalls.length > 0) {
+        console.log(`🎭 [小剧场] 检测到 ${theatreCalls.length} 个小剧场调用`)
+        
+        for (const call of theatreCalls) {
+          console.log(`🎭 [小剧场] 处理: ${call.templateId}`, call.data)
+          
+          // 根据模板类型处理
+          if (call.templateId === 'red_packet') {
+            // 红包 - 找一个AI成员作为发送者（取第一个AI成员或最近说话的）
+            const sender = members.find(m => m.type === 'character') || members[0]
+            if (sender) {
+              const amount = call.data?.amount || 88
+              const blessing = call.data?.blessing || '恭喜发财'
+              
+              // 添加红包消息到群聊
+              const redPacketMsg = groupChatManager.addMessage(id, {
+                userId: sender.id,
+                userName: sender.name,
+                userAvatar: getMemberAvatar(sender.id),
+                content: `[红包] ${blessing}`,
+                type: 'text',
+                messageType: 'redPacket',
+                redPacket: {
+                  totalAmount: amount,
+                  count: members.length, // 红包个数等于成员数
+                  blessing: blessing,
+                  received: [],
+                  remaining: amount,
+                  remainingCount: members.length
+                }
+              } as any)
+              
+              currentMessages.push(redPacketMsg)
+              console.log(`🧧 [小剧场] ${sender.name} 发送红包 ¥${amount}`)
+              
+              // 立即刷新UI
+              flushSync(() => setMessages([...currentMessages]))
+              scrollToBottom()
+            }
+          }
+          // 可以添加更多模板类型的处理...
+        }
+      }
       
       // 逐条添加AI回复（第一条立即显示，后续间隔1.5秒）
       console.log(`🎬 [AI回复] 开始添加${script.actions.length}条消息，延迟显示`)
@@ -1294,6 +1389,41 @@ const GroupChatDetail = () => {
           if (!content) continue
         }
 
+        // 🧧 检查红包指令：[红包:金额:个数:祝福语]
+        const redPacketMatch = content.match(/\[红包:(\d+(?:\.\d+)?):(\d+):(.+?)\]/)
+        if (redPacketMatch) {
+          const amount = parseFloat(redPacketMatch[1])
+          const count = parseInt(redPacketMatch[2]) || 5  // 默认5个
+          const blessing = redPacketMatch[3].trim()
+          console.log(`🧧 [AI指令] ${member.name} 发送红包: ¥${amount} / ${count}个 - ${blessing}`)
+          
+          const redPacketMsg = groupChatManager.addMessage(id, {
+            userId: member.id,
+            userName: member.name,
+            userAvatar: getMemberAvatar(member.id),
+            content: `[红包] ${blessing}`,
+            type: 'text',
+            messageType: 'redPacket',
+            redPacket: {
+              totalAmount: amount,
+              count: count,
+              blessing: blessing,
+              received: [],
+              remaining: amount,
+              remainingCount: count
+            }
+          } as any)
+          
+          // 🔥 添加到UI并立即渲染
+          currentMessages.push(redPacketMsg)
+          flushSync(() => setMessages([...currentMessages]))
+          scrollToBottom()
+          
+          content = content.replace(/\[红包:\d+(?:\.\d+)?:\d+:.+?\]/, '').trim()
+          hasCommand = true
+          if (!content) continue
+        }
+
         // 检查小剧场指令：[小剧场:模板名] 数据描述
         const theatreMatch = content.match(/\[小剧场:([^\]]+?)\]\s*(.*)/)
         if (theatreMatch) {
@@ -1488,26 +1618,47 @@ const GroupChatDetail = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* 顶部导航 */}
-      <div className="glass-effect border-b border-gray-200/30">
-        <StatusBar />
-        <div className="px-4 py-3 flex items-center justify-between">
+      {/* 顶部导航 - 与私聊同步美化设置 */}
+      <div className="relative glass-effect rounded-b-[20px]">
+        {/* 顶栏装饰背景 */}
+        {(customIcons['chat-topbar-bg'] || chatDecorations.topBar) && (
+          <div 
+            className="absolute inset-0 pointer-events-none z-0 rounded-b-[20px] overflow-hidden"
+            style={{
+              backgroundImage: `url(${customIcons['chat-topbar-bg'] || chatDecorations.topBar})`,
+              backgroundSize: `${topBarScale || 100}%`,
+              backgroundPosition: `calc(50% + ${topBarX || 0}px) calc(50% + ${topBarY || 0}px)`
+            }}
+          />
+        )}
+        <div className="relative z-10">
+          <StatusBar />
+        </div>
+        <div className="relative z-10 px-4 py-3 flex items-center justify-between">
           <button 
             onClick={() => navigate('/wechat')}
-            className="p-1 active:scale-95 transition-transform"
+            className="p-2 active:scale-95 transition-transform rounded-full"
           >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            {customIcons['chat-back'] ? (
+              <img src={customIcons['chat-back']} alt="返回" className="w-8 h-8 object-contain rounded-full" />
+            ) : (
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            )}
           </button>
           <h1 className="text-base font-medium text-gray-900">{groupName}</h1>
           <button 
             onClick={() => navigate(`/group/${id}/settings`)}
-            className="p-1 active:scale-95 transition-transform"
+            className="p-2 active:scale-95 transition-transform rounded-full"
           >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
+            {customIcons['chat-more'] ? (
+              <img src={customIcons['chat-more']} alt="更多" className="w-8 h-8 object-contain" />
+            ) : (
+              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
@@ -1557,7 +1708,6 @@ const GroupChatDetail = () => {
             }
 
             const isSent = msg.userId === 'user'
-            const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
             const char = msg.userId !== 'user' ? characterService.getById(msg.userId) : null
 
             // 计算显示名称：网名 + 角色 + 头衔
@@ -1594,113 +1744,19 @@ const GroupChatDetail = () => {
                   </div>
                 )}
                 
-                <div className={`message-container flex items-start gap-1.5 my-1 ${
-                  isSent ? 'sent flex-row-reverse' : 'received flex-row'
-                }`}>
-                <div className="flex flex-col items-center flex-shrink-0">
-                  <Avatar 
-                    type={isSent ? 'sent' : 'received'}
-                    avatar={isSent ? undefined : avatar}
-                    name={displayName}
-                  />
-                </div>
-                
-                <div className={`flex flex-col max-w-[70%] ${
-                  isSent ? 'items-end' : 'items-start'
-                }`}>
-                  {!isSent && (
-                    <div className="text-xs text-gray-500 mb-1 px-1">{displayName}</div>
-                  )}
-                  <div
-                    onClick={() => {
-                      // 点击消息可以引用（非系统消息）
-                      if (!msg.isRecalled) {
-                        setQuotedMessage(msg)
-                        inputRef.current?.focus()
-                      }
-                    }}
-                    onTouchStart={(e) => handleLongPressStart(msg, e)}
-                    onTouchEnd={handleLongPressEnd}
-                    onMouseDown={(e) => handleLongPressStart(msg, e)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    className="cursor-pointer"
-                  >
-                    {/* 特殊消息类型：转账、语音、位置、图片、红包等 */}
-                    {(msg.messageType === 'transfer' || 
-                      msg.messageType === 'voice' || 
-                      msg.messageType === 'location' || 
-                      msg.messageType === 'photo' ||
-                      msg.messageType === 'redPacket' ||
-                      (msg as any).redPacket) ? (
-                      <SpecialMessageRenderer
-                        message={{
-                          ...msg,
-                          id: parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now(),
-                          type: msg.userId === 'user' ? 'sent' : 'received',
-                          time: msg.time,
-                          timestamp: msg.timestamp || Date.now(),
-                          content: msg.content
-                        } as any}
-                        characterId={msg.userId}
-                        characterName={displayName}
-                        onAcceptInvite={() => {}}
-                        onRejectInvite={() => {}}
-                        onUpdateIntimatePayStatus={() => {}}
-                        onViewForwardedChat={() => {}}
-                        onReceiveTransfer={() => {}}
-                        onRejectTransfer={() => {}}
-                        onPlayVoice={() => {}}
-                        onToggleVoiceText={() => {}}
-                        playingVoiceId={null}
-                        showVoiceTextMap={{}}
-                        onOpenRedPacket={handleOpenRedPacket}
-                      />
-                    ) : msg.type === 'emoji' && msg.emojiUrl ? (
-                      /* 表情包消息 */
-                      <div>
-                        {msg.quotedMessage && (
-                          <div className="mb-2 pb-2 px-2 bg-white/80 rounded-lg">
-                            <div className="text-[11px] text-gray-500">
-                              {msg.quotedMessage.userName}:
-                            </div>
-                            <div className="text-xs text-gray-600 truncate">
-                              {msg.quotedMessage.content}
-                            </div>
-                          </div>
-                        )}
-                        <img
-                          src={msg.emojiUrl}
-                          alt={msg.emojiDescription || msg.content}
-                          className="w-24 h-24 object-cover rounded-lg"
-                        />
-                      </div>
-                    ) : (
-                      /* 文本消息 */
-                      <div className={`message-bubble px-3 py-2 rounded-2xl break-words ${
-                        isSent 
-                          ? 'bg-[#95ec69] text-gray-900' 
-                          : 'bg-white text-gray-900 shadow-sm'
-                      }`}>
-                        {msg.quotedMessage && (
-                          <div className="mb-2 pb-2 px-2 py-1.5 -mx-1 -mt-1 rounded-t-xl border-b bg-gray-50 border-gray-200">
-                            <div className="text-[11px] text-gray-500">
-                              {msg.quotedMessage.userName}:
-                            </div>
-                            <div className="text-xs text-gray-600 truncate">
-                              {msg.quotedMessage.content}
-                            </div>
-                          </div>
-                        )}
-                        
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {renderMessageContent(msg.content)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                </div>
+                <GroupMessageItem
+                  message={msg}
+                  isSent={isSent}
+                  displayName={displayName}
+                  onLongPressStart={handleLongPressStart}
+                  onLongPressEnd={handleLongPressEnd}
+                  onQuoteMessage={(msg) => {
+                    setQuotedMessage(msg)
+                    inputRef.current?.focus()
+                  }}
+                  onOpenRedPacket={handleOpenRedPacket}
+                  renderMessageContent={renderMessageContent}
+                />
               </div>
             )
           })
@@ -1726,129 +1782,28 @@ const GroupChatDetail = () => {
       </div>
 
       {/* 底部输入栏 */}
-      <div className="bg-[#f5f7fa] border-t border-gray-200/50">
-        {/* 引用消息显示区域 */}
-        {quotedMessage && (
-          <div className="px-4 pt-3 pb-1">
-            <div className="bg-gray-100 rounded-xl p-2 flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-gray-700 mb-0.5">
-                  {quotedMessage.userName}
-                </div>
-                <div className="text-xs text-gray-600 truncate">
-                  {quotedMessage.content}
-                </div>
-              </div>
-              <button
-                onClick={() => setQuotedMessage(null)}
-                className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
+      <>
+        <MentionList
+          show={showMentionList}
+          members={getFilteredMembers()}
+          onSelect={handleSelectMention}
+        />
         
-        {/* @成员列表 */}
-        {showMentionList && (
-          <div className="px-4 pb-2 max-h-40 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-              {getFilteredMembers().map((member) => (
-                <button
-                  key={member.id}
-                  onClick={() => handleSelectMention(member.name)}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 border-b last:border-b-0 border-gray-100"
-                >
-                  <span className="text-sm text-gray-900">{member.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        <div className="px-2 py-2 flex items-center gap-1">
-          <button 
-            onClick={() => setShowAddMenu(true)}
-            className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
-          >
-            {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
-              <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-8 h-8 object-contain" />
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            )}
-          </button>
-          <div className="flex-1 flex items-center bg-white rounded-full px-3 py-1.5 shadow-sm touch-transition focus-within:shadow-md focus-within:scale-[1.01] min-w-0 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={handleInputChange}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !isAiTyping) {
-                  if (inputText.trim()) {
-                    handleSend()  // 有文字：发送用户消息
-                  } else {
-                    handleAIReply()  // 无文字：触发 AI 回复
-                  }
-                }
-              }}
-              placeholder={isAiTyping ? 'AI正在回复...' : '发送消息'}
-              disabled={isAiTyping}
-              className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0 disabled:opacity-50"
-            />
-          </div>
-          <button 
-            onClick={() => setShowEmojiPanel(true)}
-            className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
-          >
-            {customIcons['chat-emoji'] ? (
-              <img src={customIcons['chat-emoji']} alt="表情" className="w-8 h-8 object-contain" />
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </button>
-          {inputText.trim() ? (
-            <button
-              onClick={handleSend}
-              disabled={isAiTyping}
-              className="w-9 h-9 flex items-center justify-center ios-button bg-green-500 text-white rounded-full shadow-lg ios-spring btn-press-fast flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {customIcons['chat-send'] ? (
-                <img src={customIcons['chat-send']} alt="发送" className="w-6 h-6 object-contain" />
-              ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              )}
-            </button>
-          ) : (
-            <button 
-              onClick={handleAIReply}
-              disabled={isAiTyping}
-              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="触发AI回复"
-              style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
-            >
-              {isAiTyping ? (
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : customIcons['chat-ai'] ? (
-                <img src={customIcons['chat-ai']} alt="AI回复" className="w-8 h-8 object-contain" />
-              ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
+        <GroupInputBar
+          inputText={inputText}
+          isAiTyping={isAiTyping}
+          quotedMessage={quotedMessage}
+          customIcons={customIcons}
+          chatDecorations={chatDecorations}
+          inputRef={inputRef}
+          onInputChange={handleInputChange}
+          onSend={handleSend}
+          onAIReply={handleAIReply}
+          onCancelQuote={() => setQuotedMessage(null)}
+          onOpenAddMenu={() => setShowAddMenu(true)}
+          onOpenEmojiPanel={() => setShowEmojiPanel(true)}
+        />
+      </>
 
       {/* 消息菜单 */}
       <MessageMenu

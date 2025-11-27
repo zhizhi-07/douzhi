@@ -9,7 +9,7 @@ export interface Message {
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -118,6 +118,11 @@ export interface Message {
     htmlContent: string       // 渲染后的HTML内容
     rawData: string           // AI输出的原始数据
   }
+  poke?: {                    // 拍一拍
+    fromName: string          // 发起人名字
+    toName: string            // 被拍人名字
+    suffix?: string           // 拍一拍后缀
+  }
 }
 
 export interface Character {
@@ -128,6 +133,7 @@ export interface Character {
   avatar?: string
   personality?: string  // 人设描述/性格
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
+  pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
   // 以下为可选扩展字段（兼容外部角色卡/预设）
   world?: string
   scenario?: string

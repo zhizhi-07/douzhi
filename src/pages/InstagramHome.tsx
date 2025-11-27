@@ -14,6 +14,24 @@ const InstagramHome = () => {
   const [posts, setPosts] = useState<ForumPost[]>([])
   const userInfo = getUserInfo()
 
+  // 根据时间戳计算相对时间
+  const formatTimeAgo = (timestamp: number | undefined): string => {
+    if (!timestamp) return '刚刚'
+    
+    const now = Date.now()
+    const diff = now - timestamp
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (minutes < 1) return '刚刚'
+    if (minutes < 60) return `${minutes}分钟前`
+    if (hours < 24) return `${hours}小时前`
+    if (days < 7) return `${days}天前`
+    if (days < 30) return `${Math.floor(days / 7)}周前`
+    return `${Math.floor(days / 30)}月前`
+  }
+
   useEffect(() => {
     loadData()
   }, [])
@@ -66,12 +84,12 @@ const InstagramHome = () => {
               <span className="text-xs text-gray-700 max-w-[64px] truncate">我的</span>
             </div>
             
-            {/* 角色Stories（互关的角色） */}
-            {characters.map((character) => (
+            {/* 角色Stories（互关的角色，过滤掉没有名字的） */}
+            {characters.filter(c => c.nickname || c.realName).map((character) => (
               <div 
                 key={character.id}
                 className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer"
-                onClick={() => navigate(`/chat/${character.id}`)}
+                onClick={() => navigate(`/instagram/user/${character.id}`)}
               >
                 <div className="relative w-16 h-16">
                   <div className="w-full h-full rounded-full bg-white/80 backdrop-blur-sm border border-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] p-0.5">
@@ -129,7 +147,7 @@ const InstagramHome = () => {
                     )}
                     <div>
                       <div className="text-sm font-semibold">{userInfo.nickname || userInfo.realName || '我'}</div>
-                      <div className="text-xs text-gray-500">{post.time}</div>
+                      <div className="text-xs text-gray-500">{formatTimeAgo(post.timestamp)}</div>
                     </div>
                   </div>
                   <button className="p-2 -m-2 active:opacity-60">
@@ -239,7 +257,7 @@ const InstagramHome = () => {
                   />
                   <div>
                     <div className="text-sm font-semibold">{npc.name}</div>
-                    <div className="text-xs text-gray-500">{post.time}</div>
+                    <div className="text-xs text-gray-500">{formatTimeAgo(post.timestamp)}</div>
                   </div>
                 </div>
                 <button className="p-2 -m-2 active:opacity-60">

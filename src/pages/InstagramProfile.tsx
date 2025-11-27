@@ -6,7 +6,9 @@ import InstagramEditProfile from '../components/InstagramEditProfile'
 import { getNPCById, getAllPosts } from '../utils/forumNPC'
 import { getUserData, initUserData, followNPC, unfollowNPC, isFollowingNPC } from '../utils/forumUser'
 import { getUserInfo } from '../utils/userUtils'
+import { getAllCharacters } from '../utils/characterManager'
 import type { ForumNPC, ForumPost } from '../utils/forumNPC'
+import type { Character } from '../services/characterService'
 
 interface Post {
   id: string
@@ -19,6 +21,7 @@ const InstagramProfile = () => {
   const { userId } = useParams()
   const navigate = useNavigate()
   const [npc, setNpc] = useState<ForumNPC | null>(null)
+  const [character, setCharacter] = useState<Character | null>(null)
   const [activeTab, setActiveTab] = useState<'grid' | 'tagged'>('grid')
   const [isFollowing, setIsFollowing] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
@@ -35,25 +38,41 @@ const InstagramProfile = () => {
     loadData()
   }, [userId])
 
-  const loadData = () => {
+  const loadData = async () => {
     // 初始化用户数据
     initUserData()
     
     if (userId) {
-      // 查看NPC主页
+      // 先尝试查找NPC
       const foundNPC = getNPCById(userId)
       if (foundNPC) {
         setNpc(foundNPC)
+        setCharacter(null)
         setIsFollowing(isFollowingNPC(userId))
         setStats({
           posts: Math.floor(Math.random() * 50) + 20,
           followers: foundNPC.followers,
           following: Math.floor(Math.random() * 200) + 50
         })
+      } else {
+        // 如果不是NPC，查找角色
+        const characters = await getAllCharacters()
+        const foundChar = characters.find(c => c.id === userId)
+        if (foundChar) {
+          setCharacter(foundChar)
+          setNpc(null)
+          setIsFollowing(true) // 角色默认互关
+          setStats({
+            posts: Math.floor(Math.random() * 50) + 10,
+            followers: Math.floor(Math.random() * 5000) + 100,
+            following: Math.floor(Math.random() * 200) + 50
+          })
+        }
       }
     } else {
       // 查看自己的主页
       setNpc(null)
+      setCharacter(null)
       
       // 加载用户发布的帖子
       const allPosts = getAllPosts()
@@ -68,7 +87,7 @@ const InstagramProfile = () => {
       })
     }
     
-    // 模拟帖子（用于NPC主页）
+    // 模拟帖子（用于NPC/角色主页）
     const mockPosts: Post[] = Array.from({ length: 12 }, (_, i) => ({
       id: `post-${i}`,
       image: `${i}`,
@@ -115,7 +134,7 @@ const InstagramProfile = () => {
           )}
           
           <h1 className="text-base font-semibold">
-            {npc?.name || '我的'}
+            {npc?.name || character?.nickname || character?.realName || '我的'}
           </h1>
           
           <button 
@@ -137,8 +156,8 @@ const InstagramProfile = () => {
           {/* 头像和统计 */}
           <div className="flex items-start gap-6 mb-4">
             <img
-              src={npc?.avatar || userInfo.avatar || '/default-avatar.png'}
-              alt={npc?.name || userInfo.nickname || '我'}
+              src={npc?.avatar || character?.avatar || userInfo.avatar || '/default-avatar.png'}
+              alt={npc?.name || character?.nickname || character?.realName || userInfo.nickname || '我'}
               className="w-20 h-20 rounded-full object-cover ring-1 ring-gray-200"
             />
             
@@ -171,10 +190,10 @@ const InstagramProfile = () => {
           {/* 名字和简介 */}
           <div className="mb-4">
             <h2 className="text-sm font-semibold mb-1">
-              {npc?.name || userInfo.nickname || userInfo.realName || '我的名字'}
+              {npc?.name || character?.nickname || character?.realName || userInfo.nickname || userInfo.realName || '我的名字'}
             </h2>
             <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {npc?.bio || userInfo.signature || '这是我的个人简介...'}
+              {npc?.bio || character?.signature || userInfo.signature || '这是我的个人简介...'}
             </p>
           </div>
 

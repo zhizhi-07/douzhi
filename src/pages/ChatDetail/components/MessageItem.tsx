@@ -257,11 +257,16 @@ const MessageItemContent = ({
           <PostCard message={message} />
         ) : (
           <div
-            className={'message-bubble px-3 py-2 rounded-lg break-words cursor-pointer message-press ' + (
+            className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
               message.type === 'sent'
-                ? 'rounded-tr-none shadow-sm'
-                : 'bg-white text-gray-900 rounded-tl-none shadow-sm'
+                ? 'shadow-sm'
+                : 'bg-white text-gray-900 shadow-sm'
             )}
+            style={{
+              borderRadius: message.type === 'sent' 
+                ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
+                : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
+            }}
             onTouchStart={(e) => onLongPressStart(message, e)}
             onTouchEnd={onLongPressEnd}
             onMouseDown={(e) => onLongPressStart(message, e)}

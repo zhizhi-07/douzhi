@@ -14,6 +14,7 @@ export interface Character {
   momentsVisibleCount?: number  // AI可见的朋友圈条数，默认10条
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
   isPublicFigure?: boolean  // 是否为公众人物（网络上都认识的人）
+  pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
 }
 
 const STORAGE_KEY = 'characters' // 仅用于迁移旧数据

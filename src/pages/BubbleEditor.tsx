@@ -48,15 +48,16 @@ const BubbleEditor = () => {
 
 要求：
 1. 只输出CSS代码，不要任何解释
-2. 使用 .message-container.sent .message-bubble 选择器
+2. 使用 .message-container.sent .message-bubble 选择器（用户气泡）或 .message-container.received .message-bubble 选择器（AI气泡）
 3. 所有属性都加 !important
 4. 支持渐变、透明度、阴影等效果
-5. 示例输出：
+5. 气泡使用水滴形状：用户气泡右下角小圆角 (18px 18px 4px 18px)，AI气泡左下角小圆角 (18px 18px 18px 4px)
+6. 示例输出：
 \`\`\`css
 .message-container.sent .message-bubble {
   background: linear-gradient(135deg, #FF6B9D 0%, #C06C84 100%) !important;
   color: rgba(255, 255, 255, 0.95) !important;
-  border-radius: 20px !important;
+  border-radius: 18px 18px 4px 18px !important;
   padding: 12px 16px !important;
   box-shadow: 0 4px 12px rgba(192, 108, 132, 0.3) !important;
 }

@@ -193,6 +193,18 @@ const UserProfile = () => {
             />
           </div>
 
+          {/* 拍一拍后缀 */}
+          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+            <span className="text-gray-500 text-sm">拍一拍后缀</span>
+            <input
+              type="text"
+              value={userInfo.pokeSuffix || ''}
+              onChange={(e) => setUserInfo({ ...userInfo, pokeSuffix: e.target.value })}
+              placeholder="如：的小脑袋"
+              className="text-right text-gray-900 outline-none flex-1 ml-4 placeholder:text-gray-400"
+            />
+          </div>
+
           {/* 用户人设 */}
           <div className="px-4 py-4">
             <div className="text-gray-500 text-sm mb-3">用户人设</div>

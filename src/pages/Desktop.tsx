@@ -7,7 +7,7 @@ import { page1Apps, dockApps } from '../config/apps'
 import { AppItem } from '../components/AppGrid'
 import { getCustomIcon, preloadDesktopIcons } from '../utils/iconManager'
 import { playSystemSound } from '../utils/soundManager'
-import { getImage } from '../utils/unifiedStorage'
+import { getImage, getFromIndexedDB } from '../utils/unifiedStorage'
 import { CalendarIcon, ImageIcon, GameIcon, ContactIcon } from '../components/Icons'
 import '../css/character-card.css'
 
@@ -199,14 +199,30 @@ const Desktop = () => {
   // 加载备忘录背景
   useEffect(() => {
     const loadMemoBg = async () => {
-      const bg = await getImage('memo_bg')
-      if (bg) setMemoBg(bg)
+      const bg = await getFromIndexedDB('IMAGES', 'memo_bg')
+      console.log('📝 Desktop加载备忘录背景:', bg ? '有数据' : '无数据', typeof bg)
+      if (bg) {
+        if (typeof bg === 'string') {
+          setMemoBg(bg)
+        } else if (bg instanceof Blob) {
+          // 兼容旧的Blob数据
+          setMemoBg(URL.createObjectURL(bg))
+        }
+      }
     }
     loadMemoBg()
     
     const handleBgUpdate = async () => {
-      const bg = await getImage('memo_bg')
-      setMemoBg(bg || '')
+      const bg = await getFromIndexedDB('IMAGES', 'memo_bg')
+      if (bg) {
+        if (typeof bg === 'string') {
+          setMemoBg(bg)
+        } else if (bg instanceof Blob) {
+          setMemoBg(URL.createObjectURL(bg))
+        }
+      } else {
+        setMemoBg('')
+      }
     }
     window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
@@ -393,11 +409,9 @@ const Desktop = () => {
               {/* 蓝色 - 备忘录widget (右下角) */}
               <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
                 <div 
-                  className="w-full h-full rounded-2xl overflow-hidden flex flex-col"
+                  className="w-full h-full rounded-2xl overflow-hidden flex flex-col relative"
                   style={{
-                    backgroundImage: memoBg ? `url(${memoBg})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    // 有背景图时，主要通过下面的 <img> 显示，这里只保留透明底
                     backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
                     backdropFilter: memoBg ? 'none' : 'blur(20px)',
                     WebkitBackdropFilter: memoBg ? 'none' : 'blur(20px)',
@@ -433,13 +447,24 @@ const Desktop = () => {
                     }
                   }}
                 >
+                  {/* 背景图层：只要有memoBg就一定能看到 */}
+                  {memoBg && (
+                    <img
+                      src={memoBg}
+                      alt="memo background"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  )}
+
                   {/* 顶部标题栏 - 可通过长按切换显示 */}
                   {showMemoHeader && (
                     <div 
                       className="flex items-center justify-between px-3 py-2 border-b cursor-pointer transition-colors"
                       style={{
-                        backgroundColor: memoBg ? 'rgba(255, 255, 255, 0.85)' : 'transparent',
-                        borderColor: memoBg ? 'rgba(255, 255, 255, 0.5)' : '#E5E7EB'
+                        // 有背景图时完全透明，不再叠加白底；无背景时保留浅灰分割线
+                        backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.85)',
+                        borderColor: memoBg ? 'transparent' : '#E5E7EB'
                       }}
                       onClick={() => {
                         setIsEditingMemo(true)
@@ -462,7 +487,8 @@ const Desktop = () => {
                   <div 
                     className="flex-1 px-3 py-2 cursor-text"
                     style={{
-                      backgroundColor: memoBg ? 'rgba(255, 255, 255, 0.85)' : 'transparent'
+                      // 有背景图时不再加任何底色，直接在图片上写字
+                      backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.85)'
                     }}
                     onClick={(e) => {
                       e.stopPropagation()

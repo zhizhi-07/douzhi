@@ -207,5 +207,15 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
     return <TheatreMessage message={message} />
   }
 
+  // 拍一拍
+  if (message.messageType === 'poke' && message.poke) {
+    const suffix = message.poke.suffix ? message.poke.suffix : ''
+    return (
+      <div className="text-sm text-gray-500 text-center py-1">
+        {message.poke.fromName}拍了拍{message.poke.toName}{suffix}
+      </div>
+    )
+  }
+
   return null
 }

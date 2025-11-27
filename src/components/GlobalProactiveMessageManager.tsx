@@ -127,7 +127,20 @@ const GlobalProactiveMessageManager = () => {
 
       const recentMessages = getRecentMessages(messages)
       const apiMessages = convertToApiMessages(recentMessages)
-      const systemPrompt = await buildSystemPrompt(character, chatId)
+      
+      // 🎭 读取小剧场功能开关
+      const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+      let enableTheatreCards = false // 默认关闭
+      if (chatSettingsRaw) {
+        try {
+          const parsed = JSON.parse(chatSettingsRaw)
+          enableTheatreCards = parsed.enableTheatreCards ?? false
+        } catch (e) {
+          console.error('[全局主动发消息] 解析聊天设置失败:', e)
+        }
+      }
+      
+      const systemPrompt = await buildSystemPrompt(character, chatId, messages, enableTheatreCards)
 
       apiMessages.unshift({
         role: 'system',

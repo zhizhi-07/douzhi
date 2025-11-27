@@ -7,18 +7,71 @@ body {
   background: transparent !important;
 }
 
-/* 强制所有页面容器透明，让全局背景显示 */
-.h-screen, .h-full {
+/* 强制所有页面容器透明，让全局背景显示（排除论坛和Instagram） */
+.h-screen:not([data-forum]):not([data-instagram]), 
+.h-full:not([data-forum]):not([data-instagram]) {
   background: transparent !important;
 }
 
-/* 强制所有白色和灰色背景透明，但排除开关按钮、功能弹窗、消息卡片和预览窗口 */
-.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([class*="rounded-xl"]):not([data-preview-phone]):not([data-preview-phone] *), 
-.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *), 
-.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *), 
-.bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *),
-.bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *) {
+/* 强制所有白色和灰色背景透明，但排除开关按钮、功能弹窗、消息卡片、预览窗口、论坛页面和Instagram页面 */
+.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([class*="rounded-xl"]):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
+.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
+.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
+.bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
+.bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *) {
   background: transparent !important;
+}
+
+/* 论坛页面专用样式 - 确保不透明 */
+[data-forum] {
+  background: linear-gradient(to bottom, #f9fafb, #ffffff) !important;
+}
+
+[data-forum] * {
+  background-color: initial;
+}
+
+/* 论坛内所有卡片强制不透明白色背景 */
+[data-forum] .bg-white,
+[data-forum] .bg-gray-50,
+[data-forum] .bg-gray-100,
+[data-forum] .bg-gray-200,
+[data-forum] [class*="glass-card"],
+[data-forum] [class*="glass-effect"],
+[data-forum] .rounded-lg,
+[data-forum] .rounded-xl,
+[data-forum] .rounded-2xl {
+  background: white !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+/* 论坛顶部导航栏保持半透明 */
+[data-forum] .sticky[style*="backdrop"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 论坛个人资料页专用样式 - 强制覆盖 */
+.forum-profile-post-item {
+  background-color: white !important;
+  opacity: 1 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+/* Instagram页面专用样式 - 确保不透明 */
+[data-instagram] {
+  background: white !important;
+}
+
+[data-instagram] .bg-white,
+[data-instagram] .bg-gray-50,
+[data-instagram] .bg-gray-100,
+[data-instagram] .bg-gray-200 {
+  background-color: white !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
 }
 
 /* CSS变量定义 */
