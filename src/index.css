@@ -7,19 +7,16 @@ body {
   background: transparent !important;
 }
 
-/* 修复iOS上100vh比实际可视区域大的问题 */
-html, body, #root {
-  height: 100dvh;
-  height: 100vh; /* fallback for browsers that don't support dvh */
-}
-
-@supports (height: 100dvh) {
-  html, body, #root {
-    height: 100dvh;
-  }
-  
-  .h-screen {
-    height: 100dvh !important;
+/* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh修复100vh问题 */
+@media all and (display-mode: standalone) {
+  @supports (height: 100dvh) and (-webkit-touch-callout: none) {
+    html, body, #root {
+      height: 100dvh;
+    }
+    
+    .h-screen {
+      height: 100dvh !important;
+    }
   }
 }
 
