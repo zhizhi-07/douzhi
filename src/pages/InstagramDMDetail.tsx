@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Smile, Send } from 'lucide-react'
+import { ArrowLeft, Smile, Navigation } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { getDMMessages, sendDMFromUser, sendDMToUser, markDMAsRead, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfo } from '../utils/userUtils'
@@ -122,7 +122,7 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
     }
   }
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!npcId) return
     
     // 没有输入内容时，触发AI主动回复
@@ -131,84 +131,11 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
       return
     }
     
+    // 有文字时，只发送用户消息（不触发AI自动回复）
     const userMessage = inputText.trim()
     sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
     setMessages(getDMMessages(npcId))
     setInputText('')
-
-    // AI回复
-    setIsAiReplying(true)
-    try {
-      const apiConfigs = apiService.getAll()
-      const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
-      const apiConfig = apiConfigs.find(c => c.id === currentId)
-
-      if (!apiConfig) {
-        console.error('没有可用的API配置')
-        setIsAiReplying(false)
-        return
-      }
-
-      // 获取聊天历史
-      const chatHistory = getDMMessages(npcId).slice(-10)
-
-      // 构建prompt
-      const prompt = `你是"${npcName}"，正在论坛私信里和用户聊天。
-${characterPersonality ? `\n**你的性格：**\n${characterPersonality}\n` : ''}
-**用户信息：**
-- 昵称：${userInfo.nickname || userInfo.realName || '用户'}
-
-**聊天记录：**
-${chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n')}
-
-**用户刚发的消息：**
-${userMessage}
-
-**要求：**
-- 完全代入角色性格回复
-- 用自然口语回复，10-50字
-- 直接输出内容`
-
-      // 确保URL包含完整路径
-      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
-        ? apiConfig.baseUrl 
-        : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
-      
-      console.log('🔵 [私聊AI] 发送请求到:', apiUrl)
-      console.log('🔵 [私聊AI] Prompt:', prompt)
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify({
-          model: apiConfig.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.8
-        })
-      })
-
-      const data = await response.json()
-      console.log('🔵 [私聊AI] 返回:', data)
-      const aiReply = data.choices?.[0]?.message?.content?.trim() || ''
-      console.log('🔵 [私聊AI] AI回复:', aiReply)
-
-      if (aiReply) {
-        // 延迟1-3秒回复，模拟打字
-        setTimeout(() => {
-          sendDMToUser(npcId, npcName, npcAvatar, aiReply)
-          setMessages(getDMMessages(npcId))
-          setIsAiReplying(false)
-        }, 1000 + Math.random() * 2000)
-      } else {
-        setIsAiReplying(false)
-      }
-    } catch (error) {
-      console.error('AI回复失败:', error)
-      setIsAiReplying(false)
-    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -258,9 +185,6 @@ ${userMessage}
     
     setMessages(getDMMessages(npcId))
     setShowEmojiPanel(false)
-    
-    // 触发AI回复
-    setTimeout(() => handleSend(), 500)
   }
 
   // 根据名字生成头像渐变色
@@ -343,10 +267,23 @@ ${userMessage}
               )}
               
               <div className={`flex items-end gap-2 mb-3 ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* 头像 - 只在对方消息显示 */}
-                {!msg.isFromUser && (
-                  <div className="flex-shrink-0 mb-1">
-                    {npcAvatar ? (
+                {/* 头像 */}
+                <div className="flex-shrink-0 mb-1">
+                  {msg.isFromUser ? (
+                    // 用户头像
+                    userInfo.avatar ? (
+                      <img src={userInfo.avatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
+                    ) : (
+                      <div 
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
+                        style={{ background: getAvatarGradient(userInfo.nickname || userInfo.realName || '我') }}
+                      >
+                        {(userInfo.nickname || userInfo.realName || '我')[0]}
+                      </div>
+                    )
+                  ) : (
+                    // AI头像
+                    npcAvatar ? (
                       <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
                     ) : (
                       <div 
@@ -355,9 +292,9 @@ ${userMessage}
                       >
                         {(npcName || 'A')[0]}
                       </div>
-                    )}
-                  </div>
-                )}
+                    )
+                  )}
+                </div>
                 
                 {/* 消息气泡 */}
                 <div className={`max-w-[75%] ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
@@ -437,23 +374,17 @@ ${userMessage}
             />
           </div>
           
-          {/* 发送按钮 */}
+          {/* 发送按钮 - 纸飞机图标 */}
           <button
             onClick={handleSend}
             disabled={isAiReplying}
-            className={`h-10 px-4 rounded-full font-medium text-sm transition-all ${
+            className={`w-10 h-10 flex items-center justify-center rounded-full transition-all ${
               isAiReplying
                 ? 'bg-gray-100 text-gray-300'
-                : inputText.trim() 
-                  ? 'bg-blue-500 text-white active:bg-blue-600 shadow-sm' 
-                  : 'bg-green-500 text-white active:bg-green-600 shadow-sm'
+                : 'bg-blue-500 text-white active:bg-blue-600 shadow-sm'
             }`}
           >
-            {inputText.trim() ? (
-              <Send className="w-5 h-5" />
-            ) : (
-              <span>让TA说</span>
-            )}
+            <Navigation className="w-5 h-5" style={{ transform: 'rotate(90deg)' }} />
           </button>
         </div>
       </div>

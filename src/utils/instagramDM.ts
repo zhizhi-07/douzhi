@@ -38,9 +38,20 @@ export function getDMConversations(): DMConversation[] {
   }
 }
 
-// 保存会话列表
+// 保存会话列表（带错误处理）
 export function saveDMConversations(conversations: DMConversation[]) {
-  localStorage.setItem(STORAGE_KEY_DM_CONVERSATIONS, JSON.stringify(conversations))
+  try {
+    localStorage.setItem(STORAGE_KEY_DM_CONVERSATIONS, JSON.stringify(conversations))
+  } catch (e) {
+    console.warn('保存私聊会话失败，尝试清理旧数据', e)
+    // 尝试清理旧的私聊消息
+    try {
+      localStorage.removeItem(STORAGE_KEY_DM_MESSAGES)
+      localStorage.setItem(STORAGE_KEY_DM_CONVERSATIONS, JSON.stringify(conversations))
+    } catch {
+      console.error('清理后仍无法保存')
+    }
+  }
 }
 
 // 获取所有消息
@@ -54,9 +65,31 @@ function getAllDMMessages(): Record<string, DMMessage[]> {
   }
 }
 
-// 保存所有消息
+// 保存所有消息（带错误处理，限制每个会话最多50条）
 function saveAllDMMessages(messages: Record<string, DMMessage[]>) {
-  localStorage.setItem(STORAGE_KEY_DM_MESSAGES, JSON.stringify(messages))
+  // 限制每个会话最多保留50条消息
+  for (const npcId in messages) {
+    if (messages[npcId].length > 50) {
+      messages[npcId] = messages[npcId].slice(-50)
+    }
+  }
+  
+  try {
+    localStorage.setItem(STORAGE_KEY_DM_MESSAGES, JSON.stringify(messages))
+  } catch (e) {
+    console.warn('保存私聊消息失败，尝试减少数据', e)
+    // 每个会话只保留20条
+    for (const npcId in messages) {
+      messages[npcId] = messages[npcId].slice(-20)
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY_DM_MESSAGES, JSON.stringify(messages))
+    } catch {
+      // 清空所有消息
+      localStorage.removeItem(STORAGE_KEY_DM_MESSAGES)
+      console.error('私聊消息已清空以释放空间')
+    }
+  }
 }
 
 // 获取与某人的聊天记录

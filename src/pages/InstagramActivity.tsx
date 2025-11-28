@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, Plus, X, Search } from 'lucide-react'
-import InstagramLayout from '../components/InstagramLayout'
+import { MessageCircle, Plus, X, Search, ArrowLeft } from 'lucide-react'
+import StatusBar from '../components/StatusBar'
 import { getDMConversations, type DMConversation, saveDMConversations } from '../utils/instagramDM'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
@@ -34,7 +34,7 @@ const InstagramActivity = () => {
 
   // 开始和角色私聊
   const startChatWithCharacter = (char: Character) => {
-    const name = char.nickname || char.realName
+    const name = char.nickname || char.realName || ''
     
     // 检查是否已有会话
     const existing = conversations.find(c => c.id === char.id)
@@ -50,8 +50,12 @@ const InstagramActivity = () => {
         updatedAt: Date.now()
       }
       const updated = [newConv, ...conversations]
-      saveDMConversations(updated)
-      setConversations(updated)
+      try {
+        saveDMConversations(updated)
+        setConversations(updated)
+      } catch (e) {
+        console.warn('保存会话失败，直接导航', e)
+      }
     }
     
     setShowNewChat(false)
@@ -60,7 +64,7 @@ const InstagramActivity = () => {
 
   // 过滤角色
   const filteredCharacters = characters.filter(char => {
-    const name = char.nickname || char.realName
+    const name = char.nickname || char.realName || ''
     return name.toLowerCase().includes(searchText.toLowerCase())
   })
 
@@ -70,14 +74,21 @@ const InstagramActivity = () => {
   )
 
   return (
-    <InstagramLayout showHeader={false}>
-      {/* 顶部标题 */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900">私信</h1>
+    <div className="h-screen flex flex-col bg-white">
+      {/* 顶部导航 */}
+      <div className="bg-white sticky top-0 z-10">
+        <StatusBar />
+        <div className="flex items-center justify-between px-4 py-3">
+          <button 
+            onClick={() => navigate('/instagram')}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 -ml-2"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+          <h1 className="text-[17px] font-semibold text-gray-900">私信</h1>
           <button
             onClick={() => setShowNewChat(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-sm active:bg-blue-600 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-sm active:bg-blue-600"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -85,7 +96,7 @@ const InstagramActivity = () => {
       </div>
 
       {/* 私聊列表 */}
-      <div className="pb-20 px-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
         {conversations.length > 0 ? (
           <div className="space-y-2">
             {conversations.map((conv) => (
@@ -160,7 +171,7 @@ const InstagramActivity = () => {
             className="fixed inset-0 bg-black/40 z-50"
             onClick={() => setShowNewChat(false)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80vh] flex flex-col animate-slide-up">
+          <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl max-h-[80vh] flex flex-col animate-slide-up" style={{ backgroundColor: '#ffffff' }}>
             {/* 头部 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">发起私聊</h2>
@@ -187,7 +198,7 @@ const InstagramActivity = () => {
             </div>
             
             {/* 角色列表 */}
-            <div className="flex-1 overflow-y-auto px-4 pb-8">
+            <div className="flex-1 overflow-y-auto px-4 pb-8" style={{ backgroundColor: '#ffffff' }}>
               {/* 已有会话的角色 */}
               {conversations.length > 0 && (
                 <div className="mb-6">
@@ -200,7 +211,8 @@ const InstagramActivity = () => {
                           setShowNewChat(false)
                           navigate(`/instagram/dm/${conv.id}`)
                         }}
-                        className="flex flex-col items-center gap-2 p-2 rounded-xl active:bg-gray-50 cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-2 rounded-xl cursor-pointer"
+                        style={{ backgroundColor: '#f9fafb' }}
                       >
                         {conv.avatar ? (
                           <img src={conv.avatar} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm" />
@@ -228,7 +240,8 @@ const InstagramActivity = () => {
                       <div
                         key={char.id}
                         onClick={() => startChatWithCharacter(char)}
-                        className="flex flex-col items-center gap-2 p-2 rounded-xl active:bg-gray-50 cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-2 rounded-xl cursor-pointer"
+                        style={{ backgroundColor: '#f9fafb' }}
                       >
                         {char.avatar ? (
                           <img src={char.avatar} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm" />
@@ -270,7 +283,7 @@ const InstagramActivity = () => {
           animation: slide-up 0.3s ease-out;
         }
       `}</style>
-    </InstagramLayout>
+    </div>
   )
 }
 
