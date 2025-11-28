@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'DouzhiDB'
-const DB_VERSION = 3
+const DB_VERSION = 4  // 新增私聊stores
 
 // 所有数据存储的stores
 const STORES = {
@@ -15,7 +15,9 @@ const STORES = {
   WALLET: 'wallet',            // 钱包数据
   EMOJIS: 'emojis',           // 表情包
   SETTINGS: 'settings',        // 各种设置（壁纸、未读等）
-  MISC: 'misc'                 // 其他杂项数据
+  MISC: 'misc',                // 其他杂项数据
+  DM_MESSAGES: 'dmMessages',   // 论坛私聊消息
+  DM_CONVERSATIONS: 'dmConversations'  // 论坛私聊会话
 }
 
 let dbInstance: IDBDatabase | null = null

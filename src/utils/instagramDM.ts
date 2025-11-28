@@ -1,4 +1,6 @@
-// Instagram 私聊系统
+// Instagram 私聊系统 - 使用 IndexedDB 存储（支持大量消息）
+
+import * as IDB from './indexedDBManager'
 
 export interface DMMessage {
   id: string
@@ -23,79 +25,73 @@ export interface DMConversation {
   updatedAt: number
 }
 
-const STORAGE_KEY_DM_CONVERSATIONS = 'instagram_dm_conversations'
-const STORAGE_KEY_DM_MESSAGES = 'instagram_dm_messages'
+// 内存缓存
+let conversationsCache: DMConversation[] | null = null
+let messagesCache: Record<string, DMMessage[]> = {}
 
-// 获取所有私聊会话
+// 获取所有私聊会话（同步返回缓存，异步更新）
 export function getDMConversations(): DMConversation[] {
-  const data = localStorage.getItem(STORAGE_KEY_DM_CONVERSATIONS)
-  if (!data) return []
-  try {
-    const conversations = JSON.parse(data) as DMConversation[]
-    return conversations.sort((a, b) => b.updatedAt - a.updatedAt)
-  } catch {
-    return []
-  }
-}
-
-// 保存会话列表（带错误处理）
-export function saveDMConversations(conversations: DMConversation[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY_DM_CONVERSATIONS, JSON.stringify(conversations))
-  } catch (e) {
-    console.warn('保存私聊会话失败，尝试清理旧数据', e)
-    // 尝试清理旧的私聊消息
-    try {
-      localStorage.removeItem(STORAGE_KEY_DM_MESSAGES)
-      localStorage.setItem(STORAGE_KEY_DM_CONVERSATIONS, JSON.stringify(conversations))
-    } catch {
-      console.error('清理后仍无法保存')
-    }
-  }
-}
-
-// 获取所有消息
-function getAllDMMessages(): Record<string, DMMessage[]> {
-  const data = localStorage.getItem(STORAGE_KEY_DM_MESSAGES)
-  if (!data) return {}
-  try {
-    return JSON.parse(data)
-  } catch {
-    return {}
-  }
-}
-
-// 保存所有消息（带错误处理，限制每个会话最多50条）
-function saveAllDMMessages(messages: Record<string, DMMessage[]>) {
-  // 限制每个会话最多保留50条消息
-  for (const npcId in messages) {
-    if (messages[npcId].length > 50) {
-      messages[npcId] = messages[npcId].slice(-50)
-    }
+  // 优先返回缓存
+  if (conversationsCache !== null) {
+    return conversationsCache.sort((a, b) => b.updatedAt - a.updatedAt)
   }
   
+  // 首次加载时尝试从localStorage读取（兼容旧数据）
   try {
-    localStorage.setItem(STORAGE_KEY_DM_MESSAGES, JSON.stringify(messages))
-  } catch (e) {
-    console.warn('保存私聊消息失败，尝试减少数据', e)
-    // 每个会话只保留20条
-    for (const npcId in messages) {
-      messages[npcId] = messages[npcId].slice(-20)
+    const oldData = localStorage.getItem('instagram_dm_conversations')
+    if (oldData) {
+      conversationsCache = JSON.parse(oldData)
+      // 迁移到IndexedDB
+      IDB.setItem(IDB.STORES.DM_CONVERSATIONS, 'all', conversationsCache)
+      localStorage.removeItem('instagram_dm_conversations')
+      console.log('📦 私聊会话已迁移到IndexedDB')
     }
-    try {
-      localStorage.setItem(STORAGE_KEY_DM_MESSAGES, JSON.stringify(messages))
-    } catch {
-      // 清空所有消息
-      localStorage.removeItem(STORAGE_KEY_DM_MESSAGES)
-      console.error('私聊消息已清空以释放空间')
-    }
-  }
+  } catch {}
+  
+  // 异步从IndexedDB加载
+  IDB.getItem<DMConversation[]>(IDB.STORES.DM_CONVERSATIONS, 'all').then(data => {
+    if (data) conversationsCache = data
+  })
+  
+  return conversationsCache || []
 }
 
-// 获取与某人的聊天记录
+// 保存会话列表
+export function saveDMConversations(conversations: DMConversation[]) {
+  conversationsCache = conversations
+  IDB.setItem(IDB.STORES.DM_CONVERSATIONS, 'all', conversations).catch(e => {
+    console.error('保存私聊会话失败:', e)
+  })
+}
+
+// 获取与某人的聊天记录（同步返回缓存）
 export function getDMMessages(npcId: string): DMMessage[] {
-  const all = getAllDMMessages()
-  return all[npcId] || []
+  // 优先返回缓存
+  if (messagesCache[npcId]) {
+    return messagesCache[npcId]
+  }
+  
+  // 首次加载时尝试从localStorage读取（兼容旧数据）
+  try {
+    const oldData = localStorage.getItem('instagram_dm_messages')
+    if (oldData) {
+      const allOld = JSON.parse(oldData) as Record<string, DMMessage[]>
+      messagesCache = allOld
+      // 迁移到IndexedDB
+      for (const id in allOld) {
+        IDB.setItem(IDB.STORES.DM_MESSAGES, id, allOld[id])
+      }
+      localStorage.removeItem('instagram_dm_messages')
+      console.log('📦 私聊消息已迁移到IndexedDB')
+    }
+  } catch {}
+  
+  // 异步从IndexedDB加载
+  IDB.getItem<DMMessage[]>(IDB.STORES.DM_MESSAGES, npcId).then(data => {
+    if (data) messagesCache[npcId] = data
+  })
+  
+  return messagesCache[npcId] || []
 }
 
 // NPC发送私聊消息给用户
@@ -122,13 +118,11 @@ export function sendDMToUser(
     isFromUser: false
   }
   
-  // 保存消息
-  const allMessages = getAllDMMessages()
-  if (!allMessages[npcId]) {
-    allMessages[npcId] = []
-  }
-  allMessages[npcId].push(message)
-  saveAllDMMessages(allMessages)
+  // 保存消息到缓存和IndexedDB
+  const currentMessages = getDMMessages(npcId)
+  currentMessages.push(message)
+  messagesCache[npcId] = currentMessages
+  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()
@@ -180,13 +174,11 @@ export function sendDMFromUser(
     isFromUser: true
   }
   
-  // 保存消息
-  const allMessages = getAllDMMessages()
-  if (!allMessages[npcId]) {
-    allMessages[npcId] = []
-  }
-  allMessages[npcId].push(message)
-  saveAllDMMessages(allMessages)
+  // 保存消息到缓存和IndexedDB
+  const currentMessages = getDMMessages(npcId)
+  currentMessages.push(message)
+  messagesCache[npcId] = currentMessages
+  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()
