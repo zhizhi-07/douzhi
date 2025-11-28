@@ -115,7 +115,7 @@ const AISchedule = () => {
   const characterName = character?.realName || '未命名'
 
   return (
-    <div className="min-h-screen w-full bg-[#FDFBF7] text-[#4A4A4A] flex flex-col relative overflow-hidden">
+    <div className="fixed inset-0 bg-[#FDFBF7] text-[#4A4A4A] flex flex-col">
       {/* 装饰背景纹理 */}
       <div className="fixed inset-0 opacity-[0.02] pointer-events-none" 
         style={{ 

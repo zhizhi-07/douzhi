@@ -134,6 +134,17 @@ export function hasAvatarChanged(currentAvatarUrl: string): boolean {
     return true  // 没有记录，视为首次
   }
   
+  // 🔥 检查描述是否是占位符（之前识别失败）
+  const isPlaceholder = !info.current.description || 
+    info.current.description.includes('待识别') ||
+    info.current.description.includes('未识别') ||
+    info.current.description === ''
+  
+  if (isPlaceholder) {
+    console.log('📷 [头像检查] 描述是占位符，需要重新识别:', info.current.description)
+    return true
+  }
+  
   // 使用指纹比较
   const currentFingerprint = getAvatarFingerprint(currentAvatarUrl)
   const savedFingerprint = info.current.avatarUrl

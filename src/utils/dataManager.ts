@@ -3,59 +3,53 @@
  * 导出、导入、清除所有数据
  */
 
+// 🔥 实际使用的数据库列表
+const INDEXED_DB_NAMES = [
+  'DouzhiDB',        // 主数据库（消息、角色、设置等）
+  'AppStorage',      // 图片、音频
+  'BubbleDB',        // 气泡样式
+  'EmojiDB',         // 表情包
+  'LocationDB',      // 位置历史
+  'CouplePhotosDB',  // 情侣照片
+]
+
 /**
  * 导出所有数据
  */
 export async function exportAllData(): Promise<void> {
   try {
     const data: any = {
-      version: '1.0',
+      version: '2.0',  // 升级版本号
       exportTime: new Date().toISOString(),
       localStorage: {},
       indexedDB: {}
     }
 
-    // 1. 导出 localStorage 数据
+    // 1. 导出 localStorage 数据（过滤掉临时备份数据）
     console.log('📦 开始导出 localStorage...')
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key) {
+        // 跳过消息备份（这些数据在 IndexedDB 里有）
+        if (key.startsWith('msg_backup_')) continue
         data.localStorage[key] = localStorage.getItem(key)
       }
     }
     console.log(`✅ localStorage 导出完成，共 ${Object.keys(data.localStorage).length} 项`)
 
-    // 2. 导出 IndexedDB 数据
+    // 2. 导出所有 IndexedDB 数据库
     console.log('📦 开始导出 IndexedDB...')
     
-    // 导出聊天消息数据库
-    try {
-      const messageDbData = await exportIndexedDB('simple-chat-messages')
-      if (messageDbData) {
-        data.indexedDB['simple-chat-messages'] = messageDbData
+    for (const dbName of INDEXED_DB_NAMES) {
+      try {
+        const dbData = await exportIndexedDB(dbName)
+        if (dbData && Object.keys(dbData).length > 0) {
+          data.indexedDB[dbName] = dbData
+          console.log(`  ✅ ${dbName} 导出成功`)
+        }
+      } catch (err) {
+        console.warn(`  ⚠️ ${dbName} 导出失败:`, err)
       }
-    } catch (err) {
-      console.warn('聊天消息数据库导出失败:', err)
-    }
-
-    // 导出朋友圈数据库
-    try {
-      const momentsDbData = await exportIndexedDB('moments-storage')
-      if (momentsDbData) {
-        data.indexedDB['moments-storage'] = momentsDbData
-      }
-    } catch (err) {
-      console.warn('朋友圈数据库导出失败:', err)
-    }
-
-    // 导出角色数据库
-    try {
-      const charactersDbData = await exportIndexedDB('characters-db')
-      if (charactersDbData) {
-        data.indexedDB['characters-db'] = charactersDbData
-      }
-    } catch (err) {
-      console.warn('角色数据库导出失败:', err)
     }
 
     console.log('✅ IndexedDB 导出完成')
@@ -95,39 +89,61 @@ export async function importAllData(file: File): Promise<void> {
     }
 
     console.log(`📅 备份时间: ${data.exportTime}`)
+    console.log(`📦 备份版本: ${data.version}`)
 
-    // 2. 导入 localStorage
+    // 🔥 2. 先清空 localStorage（防止配额超限）
+    console.log('🗑️ 清空旧的 localStorage...')
+    localStorage.clear()
+
+    // 3. 导入 localStorage
     if (data.localStorage) {
       console.log('📦 开始导入 localStorage...')
-      Object.keys(data.localStorage).forEach(key => {
-        localStorage.setItem(key, data.localStorage[key])
-      })
-      console.log(`✅ localStorage 导入完成，共 ${Object.keys(data.localStorage).length} 项`)
+      let successCount = 0
+      let failCount = 0
+      
+      for (const key of Object.keys(data.localStorage)) {
+        try {
+          localStorage.setItem(key, data.localStorage[key])
+          successCount++
+        } catch (err) {
+          console.warn(`  ⚠️ 跳过大数据项: ${key}`)
+          failCount++
+        }
+      }
+      console.log(`✅ localStorage 导入完成，成功 ${successCount} 项，跳过 ${failCount} 项`)
     }
 
-    // 3. 导入 IndexedDB
+    // 4. 导入 IndexedDB
     if (data.indexedDB) {
       console.log('📦 开始导入 IndexedDB...')
 
-      // 导入聊天消息
-      if (data.indexedDB['simple-chat-messages']) {
-        await importIndexedDB('simple-chat-messages', data.indexedDB['simple-chat-messages'])
+      // 🔥 兼容旧备份：将旧数据库名映射到新的
+      const oldToNewDbMap: Record<string, string> = {
+        'simple-chat-messages': 'DouzhiDB',
+        'moments-storage': 'DouzhiDB', 
+        'characters-db': 'DouzhiDB',
       }
 
-      // 导入朋友圈
-      if (data.indexedDB['moments-storage']) {
-        await importIndexedDB('moments-storage', data.indexedDB['moments-storage'])
-      }
-
-      // 导入角色数据
-      if (data.indexedDB['characters-db']) {
-        await importIndexedDB('characters-db', data.indexedDB['characters-db'])
+      for (const dbName of Object.keys(data.indexedDB)) {
+        try {
+          // 检查是否是旧格式数据库名
+          const targetDb = oldToNewDbMap[dbName] || dbName
+          
+          if (oldToNewDbMap[dbName]) {
+            console.log(`  🔄 转换旧格式: ${dbName} -> ${targetDb}`)
+          }
+          
+          await importIndexedDB(targetDb, data.indexedDB[dbName])
+          console.log(`  ✅ ${targetDb} 导入成功`)
+        } catch (err) {
+          console.warn(`  ⚠️ ${dbName} 导入失败:`, err)
+        }
       }
 
       console.log('✅ IndexedDB 导入完成')
     }
 
-    console.log('✅ 数据导入成功！')
+    console.log('✅ 数据导入成功！请刷新页面以加载新数据。')
   } catch (error) {
     console.error('❌ 导入数据失败:', error)
     throw error
@@ -137,39 +153,60 @@ export async function importAllData(file: File): Promise<void> {
 /**
  * 清除所有数据
  */
-export function clearAllData(): void {
-  try {
-    console.log('🗑️ 开始清除所有数据...')
+export async function clearAllData(): Promise<void> {
+  console.log('🗑️ 开始清除所有数据...')
 
-    // 1. 清除 localStorage
-    console.log('🗑️ 清除 localStorage...')
-    localStorage.clear()
-    console.log('✅ localStorage 已清除')
+  // 1. 清除 localStorage
+  console.log('🗑️ 清除 localStorage...')
+  localStorage.clear()
+  sessionStorage.clear()
+  console.log('✅ localStorage 已清除')
 
-    // 2. 清除 IndexedDB（通过重新加载页面后自动初始化）
-    console.log('🗑️ 清除 IndexedDB...')
-    indexedDB.deleteDatabase('simple-chat-messages')
-    indexedDB.deleteDatabase('moments-storage')
-    indexedDB.deleteDatabase('characters-db')
-    console.log('✅ IndexedDB 已清除')
+  // 2. 清除所有 IndexedDB 数据库（等待每个删除完成）
+  console.log('🗑️ 清除 IndexedDB...')
+  
+  const deletePromises = INDEXED_DB_NAMES.map(dbName => {
+    return new Promise<void>((resolve) => {
+      const request = indexedDB.deleteDatabase(dbName)
+      request.onsuccess = () => {
+        console.log(`  ✅ 删除数据库: ${dbName}`)
+        resolve()
+      }
+      request.onerror = () => {
+        console.warn(`  ⚠️ 删除失败: ${dbName}`)
+        resolve() // 即使失败也继续
+      }
+      request.onblocked = () => {
+        console.warn(`  ⚠️ 数据库被占用: ${dbName}`)
+        resolve()
+      }
+    })
+  })
 
-    console.log('✅ 所有数据清除完成！')
-  } catch (error) {
-    console.error('❌ 清除数据失败:', error)
-    throw error
+  await Promise.all(deletePromises)
+  console.log('✅ IndexedDB 已清除')
+
+  // 3. 清除 Service Worker 缓存
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+    await Promise.all(cacheNames.map(name => caches.delete(name)))
+    console.log('✅ 缓存已清除')
   }
+
+  console.log('✅ 所有数据清除完成！')
 }
 
 /**
  * 导出单个 IndexedDB 数据库
+ * 🔥 修复：同时导出 keys 和 values（支持 key-value 存储）
  */
-async function exportIndexedDB(dbName: string): Promise<Record<string, any[]> | null> {
+async function exportIndexedDB(dbName: string): Promise<Record<string, any> | null> {
   return new Promise((resolve) => {
     const request = indexedDB.open(dbName)
     
     request.onsuccess = async () => {
       const db = request.result
-      const result: Record<string, any[]> = {}
+      const result: Record<string, { keys: string[], values: any[] }> = {}
       
       try {
         const storeNames = Array.from(db.objectStoreNames)
@@ -177,15 +214,23 @@ async function exportIndexedDB(dbName: string): Promise<Record<string, any[]> | 
         for (const storeName of storeNames) {
           const tx = db.transaction(storeName, 'readonly')
           const store = tx.objectStore(storeName)
-          const getAllRequest = store.getAll()
           
-          const data = await new Promise<any[]>((res, rej) => {
-            getAllRequest.onsuccess = () => res(getAllRequest.result)
-            getAllRequest.onerror = () => rej(getAllRequest.error)
+          // 获取所有 keys
+          const keys = await new Promise<string[]>((res, rej) => {
+            const req = store.getAllKeys()
+            req.onsuccess = () => res(req.result as string[])
+            req.onerror = () => rej(req.error)
           })
           
-          result[storeName] = data
-          console.log(`  - ${storeName}: ${data.length} 条`)
+          // 获取所有 values
+          const values = await new Promise<any[]>((res, rej) => {
+            const req = store.getAll()
+            req.onsuccess = () => res(req.result)
+            req.onerror = () => rej(req.error)
+          })
+          
+          result[storeName] = { keys, values }
+          console.log(`  - ${storeName}: ${keys.length} 条`)
         }
         
         db.close()
@@ -206,27 +251,62 @@ async function exportIndexedDB(dbName: string): Promise<Record<string, any[]> | 
 
 /**
  * 导入单个 IndexedDB 数据库
+ * 🔥 修复：支持 key-value 格式和旧格式兼容
  */
-async function importIndexedDB(dbName: string, data: Record<string, any[]>): Promise<void> {
+async function importIndexedDB(dbName: string, data: Record<string, any>): Promise<void> {
+  console.log(`  🗑️ 先删除旧数据库: ${dbName}`)
+  
+  // 🔥 先删除旧数据库，避免版本冲突
+  await new Promise<void>((resolve) => {
+    const deleteReq = indexedDB.deleteDatabase(dbName)
+    deleteReq.onsuccess = () => {
+      console.log(`  ✅ 旧数据库已删除: ${dbName}`)
+      resolve()
+    }
+    deleteReq.onerror = () => {
+      console.warn(`  ⚠️ 删除数据库失败，继续: ${dbName}`)
+      resolve()
+    }
+    deleteReq.onblocked = () => {
+      console.warn(`  ⚠️ 删除被阻塞，继续: ${dbName}`)
+      resolve()
+    }
+    // 3秒超时
+    setTimeout(resolve, 3000)
+  })
+  
+  console.log(`  🔓 正在创建新数据库: ${dbName}`)
+  
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName)
+    // 添加超时
+    const timeout = setTimeout(() => {
+      console.error(`  ❌ 打开数据库超时: ${dbName}`)
+      reject(new Error(`打开数据库超时: ${dbName}`))
+    }, 10000)
+    
+    // 创建新数据库，版本1
+    const request = indexedDB.open(dbName, 1)
     
     request.onupgradeneeded = () => {
       const db = request.result
-      // 创建所有需要的 object store
+      // 创建所有需要的 object store（不使用 keyPath，用外部 key）
       Object.keys(data).forEach(storeName => {
         if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: 'id' })
+          db.createObjectStore(storeName)
+          console.log(`  📦 创建 store: ${storeName}`)
         }
       })
     }
     
     request.onsuccess = async () => {
+      clearTimeout(timeout)
       const db = request.result
+      console.log(`  ✅ 数据库已打开: ${dbName}, stores: ${Array.from(db.objectStoreNames).join(', ')}`)
       
       try {
         for (const storeName of Object.keys(data)) {
           if (!db.objectStoreNames.contains(storeName)) {
+            console.warn(`  ⚠️ store 不存在，跳过: ${storeName}`)
             continue
           }
           
@@ -240,17 +320,32 @@ async function importIndexedDB(dbName: string, data: Record<string, any[]>): Pro
             clearReq.onerror = () => rej(clearReq.error)
           })
           
-          // 导入新数据
-          const records = data[storeName]
-          for (const record of records) {
-            await new Promise((res, rej) => {
-              const putReq = store.put(record)
-              putReq.onsuccess = () => res(true)
-              putReq.onerror = () => rej(putReq.error)
-            })
-          }
+          const storeData = data[storeName]
           
-          console.log(`  - ${storeName}: ${records.length} 条`)
+          // 🔥 检测数据格式：新格式 { keys, values } 或 旧格式 [records]
+          if (storeData && storeData.keys && storeData.values) {
+            // 新格式：key-value 对
+            const { keys, values } = storeData
+            for (let i = 0; i < keys.length; i++) {
+              await new Promise((res, rej) => {
+                const putReq = store.put(values[i], keys[i])
+                putReq.onsuccess = () => res(true)
+                putReq.onerror = () => rej(putReq.error)
+              })
+            }
+            console.log(`  ✅ ${storeName}: ${keys.length} 条 (key-value格式)`)
+          } else if (Array.isArray(storeData)) {
+            // 旧格式：数组，用 id 或索引作为 key
+            for (const record of storeData) {
+              const key = record.id || record.chatId || String(Date.now() + Math.random())
+              await new Promise((res, rej) => {
+                const putReq = store.put(record, key)
+                putReq.onsuccess = () => res(true)
+                putReq.onerror = () => rej(putReq.error)
+              })
+            }
+            console.log(`  ✅ ${storeName}: ${storeData.length} 条 (数组格式)`)
+          }
         }
         
         db.close()
@@ -261,6 +356,16 @@ async function importIndexedDB(dbName: string, data: Record<string, any[]>): Pro
       }
     }
     
-    request.onerror = () => reject(request.error)
+    request.onerror = () => {
+      clearTimeout(timeout)
+      console.error(`  ❌ 打开数据库失败: ${dbName}`, request.error)
+      reject(request.error)
+    }
+    
+    request.onblocked = () => {
+      clearTimeout(timeout)
+      console.warn(`  ⚠️ 数据库被占用: ${dbName}，尝试继续...`)
+      // 被占用时也尝试继续
+    }
   })
 }

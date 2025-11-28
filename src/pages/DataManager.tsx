@@ -98,12 +98,17 @@ const DataManager = () => {
   }
 
   // 清除数据
-  const handleClearData = () => {
+  const handleClearData = async () => {
     if (window.confirm('⚠️ 确定要清除所有数据吗？此操作不可恢复！\n\n建议先导出数据备份。')) {
       if (window.confirm('🚨 最后确认：真的要清除所有数据吗？')) {
-        clearAllData()
-        alert('✅ 所有数据已清除！页面即将刷新')
-        setTimeout(() => window.location.reload(), 1000)
+        try {
+          await clearAllData()
+          alert('✅ 所有数据已清除！页面即将刷新')
+          window.location.reload()
+        } catch (error) {
+          console.error('清除数据失败:', error)
+          alert('❌ 清除失败，请重试')
+        }
       }
     }
   }

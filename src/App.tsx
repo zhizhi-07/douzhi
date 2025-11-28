@@ -147,6 +147,16 @@ function App() {
 
   // 🔥 后台静默迁移（不阻塞UI）
   useEffect(() => {
+    // 🗑️ 注销旧的 Service Worker（残留缓存会导致问题）
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => {
+          registration.unregister()
+          console.log('🗑️ 已注销 Service Worker')
+        })
+      })
+    }
+    
     // 自动迁移 localStorage 到 IndexedDB
     migrateFromLocalStorage().catch(err => {
       console.error('❌ 迁移失败:', err)
