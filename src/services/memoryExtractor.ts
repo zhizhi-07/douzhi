@@ -151,7 +151,7 @@ ${dialogueText}
 ✅ "他的小迷糊" - "他有时候会比较健忘，找不到东西或忘记操作步骤，但我觉得这种小迷糊反而很可爱。"
 ✅ "情侣空间互动" - "我们开始用情侣空间功能互动了，这让我觉得关系更亲密了。"
 
-输出格式（JSON数组，0-2条）：
+输出格式（JSON数组，根据实际情况提取）：
 \`\`\`json
 [
   {
@@ -164,7 +164,7 @@ ${dialogueText}
 ]
 \`\`\`
 
-如果对话只是日常寒暄，没有新的洞察，返回 []。
+有多少值得记录的就提取多少，不要人为限制数量。如果对话只是日常寒暄，没有新的洞察，返回 []。
 直接输出JSON，不要解释。`
 }
 
@@ -379,10 +379,11 @@ export async function extractMemoryFromMoments(
 朋友圈互动：
 ${momentsSummary}
 
-请提取**有长期价值的洞察**（0-2条）：
+请提取**有长期价值的洞察**：
 - 你发朋友圈的**动机和心情**
 - 你对别人朋友圈的**感受和态度**
 - 你和用户的**关系变化**（如果用户有互动）
+- 有多少值得记录的就提取多少
 
 输出JSON格式：
 \`\`\`json
@@ -485,10 +486,11 @@ export async function extractMemoryFromAction(
 ${interactionType}记录：
 ${interactionsSummary}
 
-请提取**有长期价值的洞察**（0-2条）：
+请提取**有长期价值的洞察**：
 - 这些互动反映了什么样的**关系动态**？
 - 你在这些互动中的**感受和心情**
 - 你和对方的**相处模式**
+- 有多少值得记录的就提取多少
 
 输出JSON格式：
 \`\`\`json
@@ -549,46 +551,50 @@ ${interactionsSummary}
 }
 
 /**
- * 互动计数器管理
+ * 按角色的互动计数器管理
+ * 每个角色有独立的计数器
  */
 class InteractionCounter {
-  private storageKey = 'interaction_counter'
   private threshold = 15 // 每15次互动提取一次
   
+  private getStorageKey(characterId: string): string {
+    return `interaction_counter_${characterId}`
+  }
+  
   /**
-   * 获取当前计数
+   * 获取角色的当前计数
    */
-  getCount(): number {
-    const stored = localStorage.getItem(this.storageKey)
+  getCount(characterId: string): number {
+    const stored = localStorage.getItem(this.getStorageKey(characterId))
     return stored ? parseInt(stored, 10) : 0
   }
   
   /**
-   * 增加计数
+   * 增加角色计数
    * @returns 是否达到阈值（需要提取记忆）
    */
-  increment(): boolean {
-    const current = this.getCount()
+  increment(characterId: string): boolean {
+    const current = this.getCount(characterId)
     const newCount = current + 1
     
-    console.log(`📊 [互动计数] ${newCount}/${this.threshold}`)
+    console.log(`📊 [互动计数] ${characterId}: ${newCount}/${this.threshold}`)
     
     if (newCount >= this.threshold) {
       // 达到阈值，重置计数
-      localStorage.setItem(this.storageKey, '0')
+      localStorage.setItem(this.getStorageKey(characterId), '0')
       return true
     } else {
       // 更新计数
-      localStorage.setItem(this.storageKey, newCount.toString())
+      localStorage.setItem(this.getStorageKey(characterId), newCount.toString())
       return false
     }
   }
   
   /**
-   * 重置计数
+   * 重置角色计数
    */
-  reset(): void {
-    localStorage.setItem(this.storageKey, '0')
+  reset(characterId: string): void {
+    localStorage.setItem(this.getStorageKey(characterId), '0')
   }
   
   /**
@@ -602,61 +608,195 @@ class InteractionCounter {
 export const interactionCounter = new InteractionCounter()
 
 /**
- * 统一触发记忆提取（所有类型）
- * @param characterId 角色ID
- * @param characterName 角色名称
+ * 触发单个角色的记忆提取（所有来源）
+ * 包括：私聊、群聊（该角色参与的）、朋友圈、论坛、线下记录
  */
-export async function triggerMemoryExtraction(
+export async function triggerCharacterMemoryExtraction(
   characterId: string,
   characterName: string
-): Promise<{ chat: number; moments: number; action: number }> {
-  console.log('🎯 [统一提取] 达到15次互动，开始提取所有类型的记忆...')
+): Promise<{
+  privateChat: number
+  groupChat: number
+  moments: number
+  forum: number
+  offline: number
+}> {
+  console.log(`🎯 [角色记忆提取] ${characterName} 达到15次互动，开始提取记忆...`)
   
-  const results = { chat: 0, moments: 0, action: 0 }
+  const results = { privateChat: 0, groupChat: 0, moments: 0, forum: 0, offline: 0 }
   
   try {
-    // 1. 提取聊天记忆
-    const chatMessages = (await import('../utils/simpleMessageManager')).loadMessages(characterId)
-    if (chatMessages.length > 0) {
-      results.chat = await extractMemoryFromChat(characterId, characterName, chatMessages, 'chat')
-    }
-    
-    // 2. 提取朋友圈记忆
+    // 1. 提取该角色的私聊记忆
     try {
-      const moments = (await import('../utils/momentsManager')).loadMoments()
-      if (moments.length > 0) {
-        results.moments = await extractMemoryFromMoments(characterId, characterName, moments)
+      const { loadMessages } = await import('../utils/simpleMessageManager')
+      const chatMessages = loadMessages(characterId)
+      if (chatMessages.length > 0) {
+        results.privateChat = await extractMemoryFromChat(characterId, characterName, chatMessages, 'chat')
+        if (results.privateChat > 0) {
+          console.log(`  📱 [私聊] 提取了 ${results.privateChat} 条记忆`)
+        }
       }
     } catch (e) {
-      console.log('⚠️ [统一提取] 朋友圈模块加载失败（可能未实现）')
+      console.log(`  ⚠️ [私聊] 提取失败`)
     }
     
-    // 3. 提取线下/其他互动记忆
-    // 暂时跳过，因为需要额外的数据结构支持
+    // 2. 提取该角色参与的群聊记忆
+    try {
+      const { groupChatManager } = await import('../utils/groupChatManager')
+      const groups = groupChatManager.getAllGroups()
+      
+      for (const group of groups) {
+        // 检查该角色是否是群成员
+        if (!group.members?.some(m => m.id === characterId)) continue
+        
+        const groupMessages = groupChatManager.getMessages(group.id)
+        // 筛选该角色发的消息
+        const charMessages = groupMessages.filter(m => m.userId === characterId)
+        if (charMessages.length > 0) {
+          const formattedMessages: Message[] = charMessages.map((msg, idx) => ({
+            id: idx,
+            content: msg.content,
+            type: 'received' as const,
+            timestamp: msg.timestamp || Date.now(),
+            time: new Date(msg.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          }))
+          
+          const count = await extractMemoryFromChat(
+            characterId,
+            `${characterName}在群聊「${group.name}」`,
+            formattedMessages,
+            'chat'
+          )
+          results.groupChat += count
+          if (count > 0) {
+            console.log(`  👥 [群聊] ${group.name}: 提取了 ${count} 条记忆`)
+          }
+        }
+      }
+    } catch (e) {
+      console.log('  ⚠️ [群聊] 模块加载失败')
+    }
     
-    console.log('✅ [统一提取] 提取完成:', results)
+    // 3. 提取该角色的朋友圈记忆
+    try {
+      const { loadMoments } = await import('../utils/momentsManager')
+      const moments = loadMoments()
+      
+      if (moments.length > 0) {
+        results.moments = await extractMemoryFromMoments(characterId, characterName, moments)
+        if (results.moments > 0) {
+          console.log(`  📸 [朋友圈] 提取了 ${results.moments} 条记忆`)
+        }
+      }
+    } catch (e) {
+      console.log('  ⚠️ [朋友圈] 模块加载失败')
+    }
+    
+    // 4. 提取该角色的论坛互动记忆
+    try {
+      const postsData = localStorage.getItem('instagram_posts')
+      if (postsData) {
+        const posts = JSON.parse(postsData)
+        
+        // 筛选该角色参与的帖子
+        const relevantPosts = posts.filter((p: any) => 
+          p.userId === characterId || 
+          p.comments?.some((c: any) => c.userId === characterId) ||
+          p.likes?.includes(characterId)
+        )
+        
+        if (relevantPosts.length > 0) {
+          const interactions = relevantPosts.map((p: any) => {
+            let summary = `【论坛帖子】`
+            if (p.userId === characterId) {
+              summary += `我发了："${p.content?.substring(0, 50)}"`
+            } else {
+              summary += `${p.userName}发了帖子`
+              const myComments = p.comments?.filter((c: any) => c.userId === characterId) || []
+              if (myComments.length > 0) {
+                summary += `，我评论：${myComments.map((c: any) => c.content).join('、')}`
+              }
+              if (p.likes?.includes(characterId)) {
+                summary += `，我点了赞`
+              }
+            }
+            return summary
+          })
+          
+          results.forum = await extractMemoryFromAction(characterId, characterName, interactions, '论坛互动')
+          if (results.forum > 0) {
+            console.log(`  📝 [论坛] 提取了 ${results.forum} 条记忆`)
+          }
+        }
+      }
+    } catch (e) {
+      console.log('  ⚠️ [论坛] 模块加载失败')
+    }
+    
+    // 5. 提取该角色的线下记录
+    try {
+      const { loadMessages } = await import('../utils/simpleMessageManager')
+      const allMessages = loadMessages(characterId)
+      const offlineRecords = allMessages.filter(m => m.messageType === 'offline-summary')
+      
+      if (offlineRecords.length > 0) {
+        const interactions = offlineRecords.map(r => 
+          `【线下记录】${r.offlineSummary?.title || ''}：${r.offlineSummary?.summary || ''}`
+        )
+        
+        results.offline = await extractMemoryFromAction(characterId, characterName, interactions, '线下记录')
+        if (results.offline > 0) {
+          console.log(`  🏠 [线下] 提取了 ${results.offline} 条记忆`)
+        }
+      }
+    } catch (e) {
+      console.log('  ⚠️ [线下] 模块加载失败')
+    }
+    
+    const total = results.privateChat + results.groupChat + results.moments + results.forum + results.offline
+    console.log(`✅ [角色记忆提取] ${characterName} 提取完成，共 ${total} 条记忆`)
     return results
     
   } catch (error) {
-    console.error('❌ [统一提取] 提取失败:', error)
+    console.error(`❌ [角色记忆提取] ${characterName} 提取失败:`, error)
     return results
   }
 }
 
 /**
- * 便捷函数：增加计数并在达到阈值时自动触发提取
- * @param characterId 角色ID
- * @param characterName 角色名称
+ * 兼容旧接口
+ */
+export async function triggerMemoryExtraction(
+  characterId: string,
+  characterName: string
+): Promise<{ chat: number; moments: number; action: number }> {
+  const results = await triggerCharacterMemoryExtraction(characterId, characterName)
+  return {
+    chat: results.privateChat + results.groupChat,
+    moments: results.moments,
+    action: results.forum + results.offline
+  }
+}
+
+/**
+ * 便捷函数：增加角色计数并在达到阈值时自动触发该角色的记忆提取
+ * @param characterId 角色ID（必填）
+ * @param characterName 角色名称（必填）
  * @returns 是否触发了提取
  */
 export async function recordInteraction(
   characterId: string,
   characterName: string
 ): Promise<boolean> {
-  if (interactionCounter.increment()) {
-    // 达到阈值，异步触发提取（不阻塞当前操作）
-    triggerMemoryExtraction(characterId, characterName).catch(err => {
-      console.error('❌ [记忆提取] 后台提取失败:', err)
+  if (!characterId || !characterName) {
+    console.warn('⚠️ [记忆计数] 缺少角色信息，跳过计数')
+    return false
+  }
+  
+  if (interactionCounter.increment(characterId)) {
+    // 达到阈值，异步触发该角色的记忆提取（不阻塞当前操作）
+    triggerCharacterMemoryExtraction(characterId, characterName).catch(err => {
+      console.error(`❌ [角色记忆提取] ${characterName} 后台提取失败:`, err)
     })
     return true
   }

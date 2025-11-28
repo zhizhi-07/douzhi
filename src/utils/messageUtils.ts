@@ -54,14 +54,15 @@ export function formatMessageTimestamp(timestamp: number): string {
   yesterday.setDate(yesterday.getDate() - 1)
   const isYesterday = msgDate.toDateString() === yesterday.toDateString()
   
-  // 使用圆括号+“发于”前缀，AI不容易模仿这种格式
+  // 用技术化的格式，让AI明显感觉这是元数据不是对话内容
+  // 格式：«T:今天20:47» - 用特殊符号包裹，AI不会模仿
   if (isToday) {
-    return `(发于今天${timeStr})`
+    return `«T:今天${timeStr}»`
   } else if (isYesterday) {
-    return `(发于昨天${timeStr})`
+    return `«T:昨天${timeStr}»`
   } else {
     const dateStr = msgDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-    return `(发于${dateStr} ${timeStr})`
+    return `«T:${dateStr} ${timeStr}»`
   }
 }
 
@@ -532,12 +533,13 @@ export const convertToApiMessages = (
   
   // 🔥 注入状态/行程记录到消息流中
   if (statusRecords.length > 0) {
-    // 把状态记录转换为系统消息格式，带上时间戳
+    // 🔥 修复：用 assistant 角色，因为这是AI自己的状态更新记录
+    // 之前用 system 会被降级为 user，导致AI误以为是用户发的
     const statusMessages: ChatMessage[] = statusRecords.map(record => {
       const timeStr = addTimestamps ? formatMessageTimestamp(record.timestamp) + ' ' : ''
       return {
-        role: 'system' as const,
-        content: `${timeStr}[你更新了状态] ${record.action}`
+        role: 'assistant' as const,
+        content: `${timeStr}[我的状态] ${record.action}`
       }
     })
     

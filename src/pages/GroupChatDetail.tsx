@@ -1612,6 +1612,19 @@ const GroupChatDetail = () => {
     setQuotedMessage(null)  // 清除引用
     setTimeout(scrollToBottom, 100)
     
+    // 🧠 为每个AI成员增加记忆计数
+    const group = groupChatManager.getGroup(id)
+    if (group) {
+      import('../services/memoryExtractor').then(({ recordInteraction }) => {
+        group.memberIds.filter(mid => mid !== 'user').forEach(memberId => {
+          const char = characterService.getById(memberId)
+          if (char) {
+            recordInteraction(char.id, char.realName)
+          }
+        })
+      })
+    }
+    
     // 🔥 修复：不再自动触发AI回复，用户需要手动点击空发送按钮触发
     console.log('✅ [发送完成] 消息已发送，未触发AI回复')
   }

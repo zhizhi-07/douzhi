@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2 } from 'lucide-react'
 import { getAllPosts, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
-import { getPostComments, addReply } from '../utils/forumCommentsDB'
+import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
 import { getUserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
@@ -221,41 +221,79 @@ const InstagramPostDetail = () => {
       // 构建所有待回复的内容
       const repliesText = pendingReplies.map(r => `@${r.targetName}: "${r.content}"`).join('\n')
       
-      // 检查哪些被回复的人是公众人物
-      const publicFigures = pendingReplies.map(r => {
-        const pf = allCharacters.find(c => 
-          (c.nickname === r.targetName || c.realName === r.targetName) && c.isPublicFigure
-        )
-        return pf ? { name: r.targetName, persona: pf.publicPersona || pf.personality || '知名人物' } : null
-      }).filter(Boolean)
+      // 构建当前评论区状态
+      const existingCommentsText = latestComments.slice(0, 10).map(c => {
+        let text = `[主楼] ${c.authorName}：${c.content}`
+        if (c.replies && c.replies.length > 0) {
+          text += '\n' + c.replies.slice(0, 3).map(r => 
+            `  └ ${r.authorName} -> ${r.replyTo || c.authorName}：${r.content}`
+          ).join('\n')
+        }
+        return text
+      }).join('\n')
       
-      const publicFigurePrompt = publicFigures.length > 0 ? `
-**涉及的公众人物：**
-${publicFigures.map(pf => `- ${pf!.name}：${pf!.persona}`).join('\n')}
+      // 检查哪些是AI角色（有完整人设）
+      const aiCharacters = allCharacters.filter(c => c.personality).slice(0, 5).map(c => ({
+        name: c.nickname || c.realName || '未知',
+        personality: c.personality,
+        isPublic: c.isPublicFigure,
+        publicPersona: c.publicPersona
+      }))
+      
+      const aiCharacterPrompt = aiCharacters.length > 0 ? `
+## 🎭 AI角色（有人设，可能参与评论）
+${aiCharacters.map(a => {
+  let info = `**${a.name}**${a.isPublic ? '【公众人物】' : ''}`
+  if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
+  if (a.personality) info += `\n- 人设：${a.personality}`
+  return info
+}).join('\n\n')}
 ` : ''
 
-      const prompt = `你正在一个社交媒体的帖子下参与评论互动。
+      const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
 
-**帖子内容：**
+## 📱 帖子内容
+楼主「${userInfo.nickname || '我'}」发帖：
 ${post.content}
-${publicFigurePrompt}
-**用户「${userInfo.nickname || '我'}」发了以下几条回复：**
+
+## 💬 当前评论区状态
+${existingCommentsText || '(暂无评论)'}
+
+## 🆕 用户刚发的回复
 ${repliesText}
+${aiCharacterPrompt}
+## 🎯 你要生成的评论
 
-**请让被回复的每个人都来回复用户。**
+**必须包含：**
+1. 被@的人必须回复用户（楼中楼回复）
+2. 可能有1-2条新的主楼评论（围观群众看热闹）
+3. 楼中楼可能继续讨论
 
-要求：
-- 每个被@的人都要回复一条
-- 用自然、口语化的方式
-- 回复5-30字，简短有趣
-- 公众人物要符合其人设
-- 格式：每行一条，格式为 "网名：回复内容"
+**评论者类型：**
+- NPC网友（70%）：路人甲、吃瓜群众、小李、阿明、网友A等随机网名
+- AI角色（30%）：如果有人设的角色，按他们的语气说话
+
+**输出格式（严格遵守）：**
+[主楼] 网名：评论内容
+[回复] 回复者 -> 被回复者：回复内容
+
+**示例：**
+[回复] 小李 -> 用户：哈哈你说得对
+[主楼] 吃瓜群众：我也来凑热闹
+[回复] 阿明 -> 小李：同意+1
+
+**要求：**
+- 每条5-30字，自然口语化
+- AI角色必须符合人设语气
+- 生成3-6条评论
 - 直接输出，不要解释`
 
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
         ? apiConfig.baseUrl 
         : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
 
+      console.log('🟢 [批量AI回复] 完整Prompt:')
+      console.log(prompt)
       console.log('🟢 [批量AI回复] 请求...')
 
       const response = await fetch(apiUrl, {
@@ -275,60 +313,81 @@ ${repliesText}
       const aiContent = data.choices?.[0]?.message?.content?.trim() || ''
       console.log('🟢 [批量AI回复] 返回:', aiContent)
 
-      // 解析AI回复并保存
+      // 解析AI回复并保存（支持新格式）
       const lines = aiContent.split('\n').filter((l: string) => l.trim())
+      
+      // 辅助函数：获取角色信息
+      const getCharacterInfo = (name: string) => {
+        const character = allCharacters.find(c => 
+          c.nickname === name || c.realName === name
+        )
+        const charAvatar = character?.avatar && character.avatar !== '/default-avatar.png' ? character.avatar : ''
+        return {
+          id: character?.id || `npc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          avatar: charAvatar || '',
+          character
+        }
+      }
+      
       for (const line of lines) {
-        const match = line.match(/^(.+?)[:：](.+)$/)
-        if (match) {
-          const responderName = match[1].trim()
-          const replyContent = match[2].trim()
+        // 解析 [主楼] 格式
+        const mainMatch = line.match(/^\[主楼\]\s*(.+?)[:：](.+)$/)
+        if (mainMatch) {
+          const authorName = mainMatch[1].trim()
+          const content = mainMatch[2].trim()
+          const { id, avatar } = getCharacterInfo(authorName)
           
-          // 找到对应的待回复项
+          await addComment(postId, id, authorName, avatar, content)
+          console.log(`✅ [主楼] ${authorName}: ${content}`)
+          continue
+        }
+        
+        // 解析 [回复] 格式
+        const replyMatch = line.match(/^\[回复\]\s*(.+?)\s*->\s*(.+?)[:：](.+)$/)
+        if (replyMatch) {
+          const authorName = replyMatch[1].trim()
+          const replyToName = replyMatch[2].trim()
+          const content = replyMatch[3].trim()
+          const { id, avatar } = getCharacterInfo(authorName)
+          
+          // 找到要回复的评论（主楼）
+          // 1. 先在待回复中找（用户刚回复的那条）
+          const pending = pendingReplies.find(r => r.targetName === authorName)
+          let targetCommentId = pending?.commentId
+          
+          // 2. 如果不是针对用户刚回复的，在现有评论中找
+          if (!targetCommentId) {
+            const refreshedComments = await getPostComments(postId)
+            // 找包含被回复人的主楼
+            const targetComment = refreshedComments.find(c => 
+              c.authorName === replyToName || 
+              c.replies?.some(r => r.authorName === replyToName)
+            )
+            targetCommentId = targetComment?.id
+          }
+          
+          if (targetCommentId) {
+            await addReply(targetCommentId, id, authorName, avatar, content, replyToName)
+            console.log(`✅ [回复] ${authorName} -> ${replyToName}: ${content}`)
+          } else {
+            // 找不到目标评论，作为新主楼发
+            await addComment(postId, id, authorName, avatar, `@${replyToName} ${content}`)
+            console.log(`✅ [回复降级主楼] ${authorName}: @${replyToName} ${content}`)
+          }
+          continue
+        }
+        
+        // 兼容旧格式：网名：内容
+        const oldMatch = line.match(/^(.+?)[:：](.+)$/)
+        if (oldMatch) {
+          const responderName = oldMatch[1].trim()
+          const replyContent = oldMatch[2].trim()
+          
+          // 找对应的待回复项
           const pending = pendingReplies.find(r => r.targetName === responderName)
           if (pending) {
-            // 找到原评论（主楼）- 使用最新的评论列表
-            const targetComment = latestComments.find(c => c.id === pending.commentId)
-            
-            // 在主楼或楼中楼中查找被回复人的信息
-            let foundAuthorAvatar = ''
-            let foundAuthorId = ''
-            
-            // 1. 先看主楼作者是不是被回复人
-            if (targetComment && targetComment.authorName === responderName) {
-              foundAuthorAvatar = targetComment.authorAvatar || ''
-              foundAuthorId = targetComment.authorId || ''
-            } else if (targetComment?.replies) {
-              // 2. 在楼中楼中查找
-              const replyAuthor = targetComment.replies.find(r => r.authorName === responderName)
-              if (replyAuthor) {
-                foundAuthorAvatar = replyAuthor.authorAvatar
-                foundAuthorId = replyAuthor.authorId
-              }
-            }
-            
-            // 3. 优先从角色信息获取头像（公众人物）
-            const character = allCharacters.find(c => 
-              c.nickname === responderName || c.realName === responderName
-            )
-            
-            console.log(`🔍 查找角色 "${responderName}":`, character ? `找到! ID=${character.id}, 头像=${character.avatar}` : '未找到')
-            console.log(`🔍 评论中找到: 头像=${foundAuthorAvatar}, ID=${foundAuthorId}`)
-            
-            // 确定最终头像：角色头像 > 评论中找到的头像
-            const charAvatar = character?.avatar && character.avatar !== '/default-avatar.png' ? character.avatar : ''
-            const authorAvatar = charAvatar || (foundAuthorAvatar && foundAuthorAvatar !== '/default-avatar.png' ? foundAuthorAvatar : '')
-            const authorId = character?.id || foundAuthorId || 'npc-random'
-            
-            console.log(`📷 ${responderName} 最终头像: ${authorAvatar || '(空)'}`)
-            
-            await addReply(
-              pending.commentId,
-              authorId,
-              responderName,
-              authorAvatar,
-              replyContent,
-              userInfo.nickname || userInfo.realName || '我'
-            )
+            const { id, avatar } = getCharacterInfo(responderName)
+            await addReply(pending.commentId, id, responderName, avatar, replyContent, userInfo.nickname || '我')
             console.log(`✅ ${responderName} 回复了你: ${replyContent}`)
           }
         }
@@ -348,6 +407,26 @@ ${repliesText}
         currentPost.comments = updatedComments.length
         savePosts(allPosts)
       }
+      
+      // 🧠 为每个回复的AI角色增加记忆计数
+      const respondersSet = new Set<string>()
+      pendingReplies.forEach(r => {
+        const char = characters.find(c => 
+          c.nickname === r.targetName || c.realName === r.targetName
+        )
+        if (char) {
+          respondersSet.add(char.id)
+        }
+      })
+      
+      import('../services/memoryExtractor').then(({ recordInteraction }) => {
+        respondersSet.forEach(charId => {
+          const char = characters.find(c => c.id === charId)
+          if (char) {
+            recordInteraction(char.id, char.realName)
+          }
+        })
+      })
     } catch (error) {
       console.error('发送失败:', error)
     } finally {

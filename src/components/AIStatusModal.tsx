@@ -5,6 +5,7 @@ interface AIStatusModalProps {
   isOpen: boolean
   onClose: () => void
   characterName: string
+  characterId?: string
   characterAvatar?: string
   status: AIStatus | null
   onForceUpdate?: () => void
@@ -14,7 +15,6 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
   isOpen,
   onClose,
   characterName,
-  characterAvatar,
   status,
   onForceUpdate
 }) => {
@@ -28,7 +28,9 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.3)'
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          maxHeight: '70vh',
+          overflowY: 'auto'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -58,42 +60,19 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
             </div>
           </div>
 
-          {/* 状态详情 */}
-          <div className="space-y-3">
+          {/* 当前状态 */}
+          <div className="space-y-3 mb-4">
             {/* 动作 */}
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 border border-green-100">
               <span className="text-2xl flex-shrink-0">🎬</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 mb-1">正在做什么</p>
+                <p className="text-xs text-green-600 mb-1">正在做什么</p>
                 <p className="text-sm text-gray-900 font-medium break-words">{status.action}</p>
               </div>
             </div>
 
-            
-            {/* 服装 */}
-            {status.outfit && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-                <span className="text-2xl flex-shrink-0">👔</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-1">穿着</p>
-                  <p className="text-sm text-gray-900 font-medium break-words">{status.outfit}</p>
-                </div>
-              </div>
-            )}
-
-            {/* 心情 */}
-            {status.mood && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-                <span className="text-2xl flex-shrink-0">💭</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-1">心情</p>
-                  <p className="text-sm text-gray-900 font-medium break-words">{status.mood}</p>
-                </div>
-              </div>
-            )}
-
             {/* 更新时间 */}
-            <div className="pt-2 text-center">
+            <div className="text-center">
               <p className="text-xs text-gray-400">
                 更新于 {new Date(status.updatedAt).toLocaleTimeString('zh-CN', {
                   hour: '2-digit',

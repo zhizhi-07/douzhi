@@ -85,6 +85,13 @@ export default function Moments() {
     }
 
     refresh()
+    
+    // 🧠 为帖子作者增加记忆计数（如果是AI角色）
+    if (moment.userId && moment.userId !== currentUser.id) {
+      import('../services/memoryExtractor').then(({ recordInteraction }) => {
+        recordInteraction(moment.userId, moment.userName)
+      })
+    }
   }
   
   const handleCommentSubmit = async (momentId: string) => {
@@ -96,6 +103,14 @@ export default function Moments() {
     setReplyTo('')
     setShowCommentInput(null)
     refresh()
+    
+    // 🧠 为帖子作者增加记忆计数（如果是AI角色）
+    const moment = moments.find(m => m.id === momentId)
+    if (moment && moment.userId && moment.userId !== currentUser.id) {
+      import('../services/memoryExtractor').then(({ recordInteraction }) => {
+        recordInteraction(moment.userId, moment.userName)
+      })
+    }
   }
   
   const handleReplyComment = (momentId: string, userName: string) => {

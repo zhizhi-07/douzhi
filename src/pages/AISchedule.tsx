@@ -4,7 +4,7 @@ import { BackIcon } from '../components/Icons'
 import { playSystemSound } from '../utils/soundManager'
 import { characterService } from '../services/characterService'
 import StatusBar from '../components/StatusBar'
-import { getTodaySchedule, type ScheduleItem } from '../utils/aiScheduleHistory'
+import { getScheduleHistory, getScheduleDates, type ScheduleItem } from '../utils/aiScheduleHistory'
 import { generatePersonalizedSchedule } from '../services/aiScheduleService'
 
 
@@ -16,6 +16,10 @@ const AISchedule = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   
+  // 日期翻页
+  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [availableDates, setAvailableDates] = useState<string[]>([])
+  
   useEffect(() => {
     const loadCharacter = () => {
       if (!characterId) {
@@ -26,7 +30,13 @@ const AISchedule = () => {
       const char = characterService.getById(characterId)
       if (char) {
         setCharacter(char)
-        setItems(getTodaySchedule(characterId))
+        // 获取所有有记录的日期
+        const dates = getScheduleDates(characterId)
+        setAvailableDates(dates)
+        // 默认选今天
+        const today = new Date().toISOString().split('T')[0]
+        const initialDate = dates.includes(today) ? today : (dates[0] || today)
+        setSelectedDate(initialDate)
       }
       setIsLoading(false)
     }
@@ -34,6 +44,38 @@ const AISchedule = () => {
     const timer = setTimeout(loadCharacter, 200)
     return () => clearTimeout(timer)
   }, [characterId, navigate])
+  
+  // 根据选中日期加载行程
+  useEffect(() => {
+    if (characterId && selectedDate) {
+      const records = getScheduleHistory(characterId, selectedDate)
+      const currentHour = new Date().getHours()
+      const today = new Date().toISOString().split('T')[0]
+      const isToday = selectedDate === today
+      
+      // 转换为 ScheduleItem 格式
+      const scheduleItems: ScheduleItem[] = records.map((record, index) => {
+        const [h] = record.time.split(':').map(Number)
+        let type: 'past' | 'current' | 'future' = 'past'
+        if (isToday) {
+          if (h < currentHour) type = 'past'
+          else if (h === currentHour) type = 'current'
+          else type = 'future'
+        }
+        
+        return {
+          id: `record_${index}`,
+          time: record.time,
+          title: record.action,
+          description: '',
+          type,
+          isReal: true
+        }
+      })
+      
+      setItems(scheduleItems)
+    }
+  }, [characterId, selectedDate])
   
   const handleBack = () => {
     playSystemSound()
@@ -135,11 +177,57 @@ const AISchedule = () => {
           </div>
         </div>
 
-        {/* 日期标题 */}
-        <div className="mb-8 text-center">
-          <div className="text-xs text-[#A0A0A0] tracking-[0.3em] mb-1">TODAY</div>
-          <div className="text-2xl text-[#2C2C2C]" style={{ fontFamily: '"Didot", "Bodoni MT", serif' }}>
-            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+        {/* 日期标题 - 可翻页 */}
+        <div className="mb-8">
+          <div className="flex items-center justify-center gap-6">
+            {/* 左箭头 */}
+            <button
+              onClick={() => {
+                const idx = availableDates.indexOf(selectedDate)
+                if (idx > 0) {
+                  playSystemSound()
+                  setSelectedDate(availableDates[idx - 1])
+                }
+              }}
+              disabled={availableDates.indexOf(selectedDate) <= 0}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                availableDates.indexOf(selectedDate) > 0 
+                  ? 'text-[#8C8C8C] active:bg-black/5' 
+                  : 'text-[#D4D4D4]'
+              }`}
+            >
+              ←
+            </button>
+            
+            {/* 日期 */}
+            <div className="text-center min-w-[140px]">
+              <div className="text-xs text-[#A0A0A0] tracking-[0.3em] mb-1">
+                {selectedDate === new Date().toISOString().split('T')[0] ? 'TODAY' : 
+                 selectedDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] ? 'YESTERDAY' : 'HISTORY'}
+              </div>
+              <div className="text-2xl text-[#2C2C2C]" style={{ fontFamily: '"Didot", "Bodoni MT", serif' }}>
+                {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : ''}
+              </div>
+            </div>
+            
+            {/* 右箭头 */}
+            <button
+              onClick={() => {
+                const idx = availableDates.indexOf(selectedDate)
+                if (idx < availableDates.length - 1) {
+                  playSystemSound()
+                  setSelectedDate(availableDates[idx + 1])
+                }
+              }}
+              disabled={availableDates.indexOf(selectedDate) >= availableDates.length - 1}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                availableDates.indexOf(selectedDate) < availableDates.length - 1 
+                  ? 'text-[#8C8C8C] active:bg-black/5' 
+                  : 'text-[#D4D4D4]'
+              }`}
+            >
+              →
+            </button>
           </div>
           <div className="w-8 h-[1px] bg-[#D4D4D4] mx-auto mt-3"></div>
         </div>

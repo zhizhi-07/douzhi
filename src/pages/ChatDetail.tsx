@@ -49,7 +49,7 @@ const ChatDetail = () => {
   
   // 使用新的hooks
   const { wallpaperStyle, hasCustomWallpaper } = useWallpaper(id)
-  const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages)
+  const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages, chatState.character?.realName)
   const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
   
   // 滚动控制
@@ -1394,6 +1394,7 @@ const ChatDetail = () => {
             isOpen={showAIStatusModal}
             onClose={() => setShowAIStatusModal(false)}
             characterName={character.nickname || character.realName}
+            characterId={id || ''}
             characterAvatar={character.avatar}
             status={currentAIStatus}
             onForceUpdate={async () => {

@@ -105,6 +105,24 @@ const InstagramCreate = () => {
         console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length})`)
         const result = await generateRealAIComments(postId, caption, allCharacters, userPosts)
         
+        // 🧠 为每个参与评论的AI角色增加记忆计数
+        const allComments = await getPostComments(postId)
+        const commentersSet = new Set<string>()
+        allComments.forEach(c => {
+          if (c.authorId && c.authorId !== 'user') {
+            commentersSet.add(c.authorId)
+          }
+        })
+        
+        import('../services/memoryExtractor').then(({ recordInteraction }) => {
+          commentersSet.forEach(commenterId => {
+            const char = allCharacters.find(c => c.id === commenterId)
+            if (char) {
+              recordInteraction(char.id, char.realName)
+            }
+          })
+        })
+        
         // 更新帖子评论数和随机点赞
         const updatedPosts = getAllPosts()
         const post = updatedPosts.find(p => p.id === postId)

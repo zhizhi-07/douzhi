@@ -1747,26 +1747,45 @@ export const statusHandler: CommandHandler = {
 
     const fullContent = match[1].trim()
     
-    // 解析状态和行程（支持 状态:xxx|行程:xxx 格式）
+    // 解析状态、行程、时间（支持 状态:xxx|行程:xxx|时间:xx:xx 格式）
     let statusText = fullContent
     let scheduleText = ''
+    let customTime = ''  // AI指定的时间（用于补全过去的行程）
     
-    const pipeIndex = fullContent.indexOf('|行程:')
+    // 先提取时间（如果有），支持多种格式：
+    // - 19:00（只有时间）
+    // - 昨天19:00 / 昨天 19:00
+    // - 前天19:00
+    // - 11-27 19:00 / 2025-11-27 19:00
+    const timeMatch = fullContent.match(/\|时间[:：]((?:昨天|前天)?[\s]?(?:\d{1,4}-\d{1,2}-?\d{0,2}\s*)?(?:\d{1,2}[:：]\d{2}))/)
+    if (timeMatch) {
+      customTime = timeMatch[1].replace('：', ':')  // 统一成英文冒号
+    }
+    
+    // 移除时间部分后再解析状态和行程
+    const contentWithoutTime = fullContent.replace(/\|时间[:：](?:昨天|前天)?[\s]?(?:\d{1,4}-\d{1,2}-?\d{0,2}\s*)?(?:\d{1,2}[:：]\d{2})/, '').trim()
+    
+    const pipeIndex = contentWithoutTime.indexOf('|行程:')
     if (pipeIndex > 0) {
-      statusText = fullContent.substring(0, pipeIndex).trim()
-      scheduleText = fullContent.substring(pipeIndex + 4).trim() // 跳过 "|行程:"
+      statusText = contentWithoutTime.substring(0, pipeIndex).trim()
+      scheduleText = contentWithoutTime.substring(pipeIndex + 4).trim()
     } else {
       // 兼容旧格式：也检查 |行程： 中文冒号
-      const pipeIndex2 = fullContent.indexOf('|行程：')
+      const pipeIndex2 = contentWithoutTime.indexOf('|行程：')
       if (pipeIndex2 > 0) {
-        statusText = fullContent.substring(0, pipeIndex2).trim()
-        scheduleText = fullContent.substring(pipeIndex2 + 4).trim()
+        statusText = contentWithoutTime.substring(0, pipeIndex2).trim()
+        scheduleText = contentWithoutTime.substring(pipeIndex2 + 4).trim()
+      } else {
+        statusText = contentWithoutTime
       }
     }
 
     console.log(`💫 [AI状态] 更新状态: ${statusText}`)
     if (scheduleText) {
       console.log(`📅 [AI行程] 详细行程: ${scheduleText}`)
+    }
+    if (customTime) {
+      console.log(`⏰ [AI行程] 自定义时间: ${customTime}`)
     }
 
     // 使用新的状态管理器（保存完整状态）
@@ -1778,12 +1797,12 @@ export const statusHandler: CommandHandler = {
       setAIStatus(statusUpdate)
       console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
       
-      // 🔥 记录到行程历史（保存完整的「位置 + 行程」）
+      // 🔥 记录到行程历史（保存完整的「位置 + 行程」，支持自定义时间）
       const recordContent = scheduleText 
         ? `${statusText} - ${scheduleText}`  // 有行程时：在家 - 窝在沙发上刷手机
         : statusText                          // 没有行程时：就用状态
-      saveStatusToSchedule(character.id, recordContent)
-      console.log(`📅 [AI行程] 已记录到行程历史: ${recordContent}`)
+      saveStatusToSchedule(character.id, recordContent, customTime || undefined)
+      console.log(`📅 [AI行程] 已记录到行程历史: ${recordContent}${customTime ? ` (时间: ${customTime})` : ''}`)
       
       // 如果有强制更新标记，清除它
       if (getForceUpdateFlag(character.id)) {

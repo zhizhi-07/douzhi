@@ -9,7 +9,8 @@ import { saveMessages } from '../../../utils/simpleMessageManager'
 export const useOfflineRecord = (
   chatId: string | undefined,
   messages: Message[],
-  setMessages: (messages: Message[]) => void
+  setMessages: (messages: Message[]) => void,
+  characterName?: string // 角色名称，用于记忆计数
 ) => {
   const [showOfflineRecordDialog, setShowOfflineRecordDialog] = useState(false)
   const [editingOfflineRecord, setEditingOfflineRecord] = useState<Message | null>(null)
@@ -48,11 +49,18 @@ export const useOfflineRecord = (
       setMessages(updatedMessages)
       if (chatId) saveMessages(chatId, updatedMessages)
       console.log('✅ 线下记录已添加')
+      
+      // 🧠 为该角色增加记忆计数（仅新建时）
+      if (chatId && characterName) {
+        import('../../../services/memoryExtractor').then(({ recordInteraction }) => {
+          recordInteraction(chatId, characterName)
+        })
+      }
     }
 
     setShowOfflineRecordDialog(false)
     setEditingOfflineRecord(null)
-  }, [messages, setMessages, editingOfflineRecord, chatId])
+  }, [messages, setMessages, editingOfflineRecord, chatId, characterName])
 
   return {
     showOfflineRecordDialog,

@@ -26,24 +26,60 @@ const SCHEDULE_HISTORY_KEY = 'ai_schedule_history_'
 
 /**
  * 保存状态更新到行程历史
+ * @param customDateTime 可选的自定义时间，支持多种格式：
+ *   - "19:00" - 只有时间，用当天日期
+ *   - "昨天19:00" 或 "昨天 19:00" - 昨天
+ *   - "11-27 19:00" 或 "2025-11-27 19:00" - 指定日期
  */
-export function saveStatusToSchedule(characterId: string, action: string): void {
+export function saveStatusToSchedule(characterId: string, action: string, customDateTime?: string): void {
   try {
-    const today = new Date().toISOString().split('T')[0]
-    const time = new Date().toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+    let targetDate = new Date().toISOString().split('T')[0]  // 默认今天
+    let time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    
+    if (customDateTime) {
+      // 解析自定义时间
+      const trimmed = customDateTime.trim()
+      
+      // 检查是否是"昨天xx:xx"格式
+      if (trimmed.startsWith('昨天')) {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        targetDate = yesterday.toISOString().split('T')[0]
+        time = trimmed.replace('昨天', '').trim()
+      }
+      // 检查是否是"前天xx:xx"格式
+      else if (trimmed.startsWith('前天')) {
+        const dayBefore = new Date()
+        dayBefore.setDate(dayBefore.getDate() - 2)
+        targetDate = dayBefore.toISOString().split('T')[0]
+        time = trimmed.replace('前天', '').trim()
+      }
+      // 检查是否包含日期（如 "11-27 19:00" 或 "2025-11-27 19:00"）
+      else if (/\d{1,4}-\d{1,2}-?\d{0,2}/.test(trimmed)) {
+        const dateMatch = trimmed.match(/(\d{4})?-?(\d{1,2})-(\d{1,2})\s*(\d{1,2}[:：]\d{2})/)
+        if (dateMatch) {
+          const year = dateMatch[1] || new Date().getFullYear().toString()
+          const month = dateMatch[2].padStart(2, '0')
+          const day = dateMatch[3].padStart(2, '0')
+          targetDate = `${year}-${month}-${day}`
+          time = dateMatch[4].replace('：', ':')
+        }
+      }
+      // 只有时间（如 "19:00"）
+      else if (/^\d{1,2}[:：]\d{2}$/.test(trimmed)) {
+        time = trimmed.replace('：', ':')
+      }
+    }
     
     const key = SCHEDULE_HISTORY_KEY + characterId
     const history: DailySchedule = JSON.parse(localStorage.getItem(key) || '{}')
     
-    if (!history[today]) {
-      history[today] = []
+    if (!history[targetDate]) {
+      history[targetDate] = []
     }
     
     // 检查是否重复（10分钟内相似内容不重复记录）
-    const lastRecord = history[today][history[today].length - 1]
+    const lastRecord = history[targetDate]?.[history[targetDate]?.length - 1]
     if (lastRecord && Date.now() - lastRecord.timestamp < 10 * 60 * 1000) {
       // 检查相似度：提取关键词对比
       const getKeywords = (text: string) => {
@@ -68,7 +104,7 @@ export function saveStatusToSchedule(characterId: string, action: string): void 
       }
     }
     
-    history[today].push({
+    history[targetDate].push({
       time,
       action,
       timestamp: Date.now()
@@ -104,6 +140,24 @@ export function getScheduleHistory(characterId: string, date?: string): StatusRe
     return history[targetDate] || []
   } catch (error) {
     console.error('获取行程历史失败:', error)
+    return []
+  }
+}
+
+/**
+ * 获取所有有记录的日期列表（按日期倒序）
+ */
+export function getScheduleDates(characterId: string): string[] {
+  try {
+    const key = SCHEDULE_HISTORY_KEY + characterId
+    const history: DailySchedule = JSON.parse(localStorage.getItem(key) || '{}')
+    
+    // 返回有记录的日期，按日期倒序（最近的在前）
+    return Object.keys(history)
+      .filter(date => history[date] && history[date].length > 0)
+      .sort((a, b) => b.localeCompare(a))
+  } catch (error) {
+    console.error('获取行程日期列表失败:', error)
     return []
   }
 }
