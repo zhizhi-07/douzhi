@@ -214,7 +214,7 @@ const Contacts = () => {
       </div>
 
       {/* 底部导航栏 */}
-      <div className="pb-3 px-4 safe-area-bottom">
+      <div className="px-4" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
         <div 
           className="glass-card rounded-[48px] shadow-lg"
           style={customIcons['main-bottombar-bg'] ? {
