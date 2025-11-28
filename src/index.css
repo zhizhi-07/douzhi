@@ -7,6 +7,22 @@ body {
   background: transparent !important;
 }
 
+/* 修复iOS上100vh比实际可视区域大的问题 */
+html, body, #root {
+  height: 100dvh;
+  height: 100vh; /* fallback for browsers that don't support dvh */
+}
+
+@supports (height: 100dvh) {
+  html, body, #root {
+    height: 100dvh;
+  }
+  
+  .h-screen {
+    height: 100dvh !important;
+  }
+}
+
 /* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram和聊天页面） */
 .h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]), 
 .h-full:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]) {
