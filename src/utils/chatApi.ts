@@ -2290,57 +2290,43 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
     // 🔥 强制日志：不依赖开发模式
     console.log(`📱 [朋友圈${number}] 作者: ${author} (ID: ${m.userId}), 图片数: ${m.images?.length || 0}`)
     
-    // 🔥 如果是用户的朋友圈且有图片，收集图片数据
+    // 🔥 处理朋友圈图片：区分已识别和未识别的
     let imagesText = ''
     if (m.images && Array.isArray(m.images) && m.images.length > 0) {
-      imagesText = `\n  📷 配图：${m.images.length}张`
+      // 🔥 分离已识别和未识别的图片
+      const recognizedImages = m.images.filter(img => img.description)
+      const unrecognizedImages = m.images.filter(img => !img.description && img.url)
       
-      // 收集用户发的朋友圈的图片（供AI视觉识别）
-      if (m.userId === 'user') {
-        // 🔥 强制日志：不依赖开发模式
-        console.log(`🖼️ [朋友圈图片识别] 发现用户朋友圈${number}有${m.images.length}张图片，开始收集...`)
+      // 🔥 已识别的图片：只显示描述文字，不发送base64
+      if (recognizedImages.length > 0) {
+        const descriptionsText = recognizedImages.map((img, i) => `图${i + 1}:${img.description}`).join('；')
+        imagesText = `\n  📷 配图（${recognizedImages.length}张）：${descriptionsText}`
+        console.log(`✅ [朋友圈${number}] 已识别${recognizedImages.length}张图片，使用文字描述`)
+      }
+      
+      // 🔥 未识别的图片：收集base64，让AI识别（仅用户的朋友圈）
+      if (unrecognizedImages.length > 0 && m.userId === 'user') {
+        console.log(`🔍 [朋友圈${number}] 发现${unrecognizedImages.length}张未识别图片，需要AI识别`)
         
-        try {
-          // 确保 images 是数组
-          if (Array.isArray(m.images)) {
-            m.images.forEach((img, imgIndex) => {
-              if (img && img.url) {
-                const imageData = {
-                  momentIndex: index + 1,
-                  imageUrl: img.url, // base64格式
-                  description: `朋友圈${number}的第${imgIndex + 1}张图片`
-                }
-                
-                // 🔥 使用局部变量收集，避免竞态条件
-                collectedMomentImages.push(imageData)
-                
-                if (import.meta.env.DEV) {
-                  console.log(`  ✅ 收集图片${imgIndex + 1}: ${img.url.substring(0, 50)}...`)
-                }
-              } else {
-                if (import.meta.env.DEV) {
-                  console.warn(`  ⚠️ 图片${imgIndex + 1}数据无效:`, img)
-                }
-              }
-            })
-            
-            if (import.meta.env.DEV) {
-              console.log(`✅ [朋友圈图片识别] 朋友圈${number}收集完成，共${m.images.length}张图片`)
-            }
-          }
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error(`❌ [朋友圈图片识别] 处理朋友圈${number}图片时出错:`, error)
-          }
-        }
-      } else {
-        if (import.meta.env.DEV) {
-          console.log(`⏭️ [朋友圈图片识别] 跳过AI朋友圈${number}的图片 (作者: ${author})`)
+        unrecognizedImages.forEach((img, imgIndex) => {
+          collectedMomentImages.push({
+            momentId: m.id,
+            momentIndex: index + 1,
+            imageId: img.id,
+            imageUrl: img.url,
+            description: `朋友圈${number}的第${imgIndex + 1}张图片（待识别）`
+          })
+        })
+        
+        // 如果有未识别的，也标记一下
+        if (recognizedImages.length === 0) {
+          imagesText = `\n  📷 配图：${unrecognizedImages.length}张（待识别）`
         }
       }
-    } else {
-      if (import.meta.env.DEV) {
-        console.log(`📝 [朋友圈${number}] 纯文字朋友圈，无图片`)
+      
+      // 如果没有任何图片信息，显示数量
+      if (!imagesText) {
+        imagesText = `\n  📷 配图：${m.images.length}张`
       }
     }
     
@@ -2373,7 +2359,12 @@ ${momentsList}
 - 点赞：点赞01
 - 回复评论：评论01回复张三 你的回复内容
 
-${hasUserMomentImages ? `\n⚠️ 重要：用户朋友圈中的图片你可以看到并识别内容，可以自然地评论图片中的具体内容、场景、人物等细节。` : ''}
+${hasUserMomentImages ? `
+⚠️ 有${collectedMomentImages.length}张新图片需要识别，请在回复开头用以下格式标记每张图片内容（之后不再发送这些图片）：
+[图片识别:朋友圈ID|图片ID|简短描述15字内]
+例：[图片识别:123456|img1|蓝天白云下的草地]
+
+识别后可以自然地评论图片中的具体内容。` : ''}
 自然地使用，不要刻意。`
 }
 

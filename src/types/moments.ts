@@ -5,6 +5,8 @@
 export interface MomentImage {
   id: string
   url: string  // base64 或 URL
+  description?: string  // 🔥 AI识别的图片描述（识别后保存，之后不再发送图片）
+  recognizedAt?: number  // 识别时间戳
 }
 
 export interface MomentComment {

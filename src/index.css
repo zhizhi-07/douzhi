@@ -195,12 +195,14 @@ body {
   height: calc(var(--vh, 1vh) * 100);
   overflow: hidden;
   position: fixed;
-  /* 🍎 iOS安全区域：从刘海下方开始 */
-  top: env(safe-area-inset-top, 0px);
+  top: 0;
   left: 0;
   right: 0;
-  /* 🍎 iOS安全区域：在Home指示器上方结束 */
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: 0;
+  /* 🍎 iOS安全区域：用padding让内容避开刘海和Home指示器 */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
 }
 
 /* 液态玻璃效果 */

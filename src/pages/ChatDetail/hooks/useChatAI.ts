@@ -1008,10 +1008,31 @@ export const useChatAI = (
       // 移除头像描述指令（不显示给用户）
       const messageWithoutAvatar = removeAvatarDescriptionCommand(messageAfterDelete)
       
+      // 🖼️ 提取并保存朋友圈图片识别结果
+      const momentImageMatches = messageWithoutAvatar.matchAll(/\[图片识别[:：]([^|]+)\|([^|]+)\|([^\]]+)\]/g)
+      const imageUpdates: Array<{ momentId: string; imageId: string; description: string }> = []
+      
+      for (const match of momentImageMatches) {
+        imageUpdates.push({
+          momentId: match[1].trim(),
+          imageId: match[2].trim(),
+          description: match[3].trim()
+        })
+      }
+      
+      if (imageUpdates.length > 0) {
+        const { updateMomentImageDescriptions } = await import('../../../utils/momentsManager')
+        const savedCount = updateMomentImageDescriptions(imageUpdates)
+        console.log(`✅ [朋友圈图片识别] 保存了 ${savedCount} 张图片的描述`)
+      }
+      
+      // 移除图片识别指令（不显示给用户）
+      const messageWithoutImageRecog = messageWithoutAvatar.replace(/\[图片识别[:：][^\]]+\]\n?/g, '')
+      
       // 再解析朋友圈互动指令
-      const { interactions, cleanedMessage: messageAfterMoments } = parseMomentsInteractions(messageWithoutAvatar, aiName, aiId)
+      const { interactions, cleanedMessage: messageAfterMoments } = parseMomentsInteractions(messageWithoutImageRecog, aiName, aiId)
 
-      console.log('🔍 [朋友圈互动解析] 原始消息:', messageWithoutAvatar)
+      console.log('🔍 [朋友圈互动解析] 原始消息:', messageWithoutImageRecog)
       console.log('🔍 [朋友圈互动解析] 清理后消息:', messageAfterMoments)
       console.log('🔍 [朋友圈互动解析] 互动数量:', interactions.length)
       

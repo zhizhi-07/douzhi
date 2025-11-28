@@ -282,3 +282,59 @@ export function getUserMoments(userId: string): Moment[] {
   const moments = loadMoments()
   return moments.filter(m => m.userId === userId)
 }
+
+/**
+ * 🔥 更新朋友圈图片的AI识别描述
+ * @param momentId 朋友圈ID
+ * @param imageId 图片ID
+ * @param description AI识别的描述
+ */
+export function updateMomentImageDescription(
+  momentId: string,
+  imageId: string,
+  description: string
+): boolean {
+  const moments = loadMoments()
+  let updated = false
+  
+  const newMoments = moments.map(m => {
+    if (m.id === momentId && m.images) {
+      const newImages = m.images.map(img => {
+        if (img.id === imageId && !img.description) {
+          updated = true
+          console.log(`✅ [朋友圈图片识别] 保存描述: ${description.substring(0, 30)}...`)
+          return {
+            ...img,
+            description,
+            recognizedAt: Date.now()
+          }
+        }
+        return img
+      })
+      return { ...m, images: newImages }
+    }
+    return m
+  })
+  
+  if (updated) {
+    saveMoments(newMoments)
+    console.log(`💾 [朋友圈图片识别] 已保存图片描述到朋友圈 ${momentId}`)
+  }
+  
+  return updated
+}
+
+/**
+ * 🔥 批量更新朋友圈图片描述
+ */
+export function updateMomentImageDescriptions(
+  updates: Array<{ momentId: string; imageId: string; description: string }>
+): number {
+  let count = 0
+  updates.forEach(({ momentId, imageId, description }) => {
+    if (updateMomentImageDescription(momentId, imageId, description)) {
+      count++
+    }
+  })
+  return count
+}
