@@ -286,7 +286,7 @@ const Desktop = () => {
   }
 
   return (
-    <div className="h-screen w-full relative overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
+    <div className="fixed inset-0 overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
       {/* 背景 - 只在有单独桌面背景时显示 */}
       {desktopBg && (
         <div 
