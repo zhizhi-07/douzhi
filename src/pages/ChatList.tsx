@@ -583,7 +583,7 @@ const ChatList = () => {
       </div>
 
       {/* 底部导航栏 */}
-      <div className="pb-3 px-4">
+      <div className="pb-3 px-4 safe-bottom">
         <div 
           className="glass-card rounded-[48px] shadow-lg"
           style={customIcons['main-bottombar-bg'] ? {

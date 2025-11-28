@@ -235,7 +235,7 @@ const Discover = () => {
       </div>
 
       {/* 底部导航栏 */}
-      <div className="pb-3 px-4">
+      <div className="pb-3 px-4 safe-bottom">
         <div className="glass-card rounded-[48px] shadow-lg">
           <div className="grid grid-cols-4 h-14 px-2">
             <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">

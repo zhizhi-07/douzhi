@@ -531,53 +531,16 @@ input[type="range"].slider::-moz-range-thumb:active {
 }
 
 /* ============================================
-   🍎 iOS 安全区域全局支持
-   自动为所有页面添加安全区域padding
+   🍎 iOS 安全区域全局支持（简化版）
    ============================================ */
 
-/* 
- * h-screen页面自动处理安全区域
- * - padding-top: 让内容避开顶部刘海
- * - padding-bottom: 让内容避开底部Home指示器
- */
-.h-screen {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-sizing: border-box;
-}
-
-/* 
- * 第一个非absolute定位的子元素（通常是顶部栏）向上延伸
- * 负margin让它进入安全区域，padding让内容保持在刘海下方
- * 这样顶部栏的背景会延伸到刘海区域
- * 排除absolute定位的元素（如背景层）
- */
-.h-screen > *:not(.absolute):not([class*="absolute"]):first-child,
-.h-screen > .relative:first-child {
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* 如果第一个元素是absolute，则处理第二个元素 */
-.h-screen > .absolute + *:not(.absolute),
-.h-screen > [class*="absolute"] + *:not(.absolute) {
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* StatusBar专用样式 - 固定高度44px */
+/* StatusBar - 自动处理顶部刘海 */
 .status-bar {
-  height: 44px;
-}
-
-/* 固定定位的底部栏需要考虑安全区域 */
-.fixed.bottom-0,
-.sticky.bottom-0 {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* 固定定位的顶部栏需要考虑安全区域 */
-.fixed.top-0,
-.sticky.top-0 {
+  height: calc(44px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* 底部安全区域 - 用于底部导航栏 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
