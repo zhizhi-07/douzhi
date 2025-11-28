@@ -579,6 +579,15 @@ export const useChatAI = (
       
       let aiReply = apiResult.content
       
+      // 🔥 强制清除AI回复中模仿的时间戳（←20:30、←昨天14:20 等）
+      if (typeof aiReply === 'string') {
+        const before = aiReply
+        aiReply = aiReply.replace(/←[^←\n]{0,10}?\d{1,2}:\d{2}/g, '').trim()
+        if (before !== aiReply) {
+          console.log('🧹 [时间戳清理] 已移除AI模仿的时间戳:', before, '=>', aiReply)
+        }
+      }
+      
       // 🎭 处理小剧场 tool_calls（Function Calling）
       if ((apiResult as any).tool_calls && Array.isArray((apiResult as any).tool_calls)) {
         const toolCalls = (apiResult as any).tool_calls
@@ -751,6 +760,14 @@ export const useChatAI = (
             }
             
             aiReply = accumulatedText
+            
+            // 🔥 流式模式也要清除AI模仿的时间戳
+            const beforeClean = aiReply
+            aiReply = aiReply.replace(/←[^←\n]{0,10}?\d{1,2}:\d{2}/g, '').trim()
+            if (beforeClean !== aiReply) {
+              console.log('🧹 [流式时间戳清理] 已移除:', beforeClean, '=>', aiReply)
+            }
+            
             console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')
             
             // 保存到IndexedDB
