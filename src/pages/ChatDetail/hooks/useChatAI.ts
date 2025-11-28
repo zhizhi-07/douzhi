@@ -193,10 +193,22 @@ export const useChatAI = (
       const { hasAvatarChanged } = await import('../../../utils/userAvatarManager')
 
       const userInfo = getUserInfo()
+      
+      // 🔥 强制日志：检查用户头像状态
+      console.log('📷 [头像检查] 用户头像状态:', {
+        hasAvatar: !!userInfo.avatar,
+        avatarLength: userInfo.avatar?.length || 0,
+        avatarPreview: userInfo.avatar?.substring(0, 50) || '无'
+      })
+      
       const needsAvatarRecognition = userInfo.avatar && hasAvatarChanged(userInfo.avatar)
+      
+      console.log('📷 [头像检查] needsAvatarRecognition:', needsAvatarRecognition)
 
       if (needsAvatarRecognition) {
         console.log('🖼️ [头像识别] 检测到用户头像变化或首次识别，将在聊天时一起识别')
+      } else {
+        console.log('📷 [头像检查] 不需要识别头像，原因:', !userInfo.avatar ? '用户没有设置头像' : '头像未变化')
       }
 
       // 检查用户是否拉黑了AI
@@ -503,13 +515,21 @@ export const useChatAI = (
 🖼️ 用户换了头像，回复时用[头像描述:简短描述]记录，15字内，只说主体和特征。例：[头像描述:橘猫，圆眼睛，很萌]`
 
         // 找到最后一条用户消息，附加头像图片
+        console.log('🔍 [头像识别] apiMessages数量:', apiMessages.length)
+        
         if (apiMessages.length > 0) {
           const lastUserMsgIndex = apiMessages.map((m, i) => ({ msg: m, index: i }))
             .filter(item => item.msg.role === 'user')
             .pop()?.index
 
+          console.log('🔍 [头像识别] 最后一条用户消息索引:', lastUserMsgIndex)
+
           if (lastUserMsgIndex !== undefined) {
             const lastUserMsg = apiMessages[lastUserMsgIndex]
+            const originalContent = typeof lastUserMsg.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg.content)
+            
+            console.log('🔍 [头像识别] 原始消息内容:', originalContent.substring(0, 100))
+            console.log('🔍 [头像识别] 头像URL长度:', userInfo.avatar?.length || 0)
 
             // 将文本消息转换为多模态消息
             apiMessages[lastUserMsgIndex] = {
@@ -529,7 +549,12 @@ export const useChatAI = (
             }
 
             console.log('✅ [头像识别] 已在最后一条用户消息中附加头像图片')
+            console.log('🔍 [头像识别] 修改后消息格式:', JSON.stringify(apiMessages[lastUserMsgIndex]).substring(0, 200))
+          } else {
+            console.warn('⚠️ [头像识别] 找不到最后一条用户消息！')
           }
+        } else {
+          console.warn('⚠️ [头像识别] apiMessages为空！')
         }
         }
       }

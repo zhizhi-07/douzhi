@@ -7,15 +7,8 @@ body {
   background: transparent !important;
 }
 
-/* 只在iOS standalone模式（PWA添加到主屏幕）下修复safe area问题 */
+/* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh */
 @media all and (display-mode: standalone) {
-  /* iOS设备：给html设置深色背景，覆盖safe area区域 */
-  @supports (-webkit-touch-callout: none) {
-    html {
-      background: #1a1a2e;
-    }
-  }
-  
   @supports (height: 100dvh) and (-webkit-touch-callout: none) {
     html, body, #root {
       height: 100dvh;

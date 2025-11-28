@@ -5,6 +5,7 @@ import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
 import { cleanupOldMessages } from './utils/cleanupLocalStorage'
+import './utils/storageDiagnostic' // 存储诊断工具（在控制台使用 window.storageDiag）
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
 import Desktop from './pages/Desktop'

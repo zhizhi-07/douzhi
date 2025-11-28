@@ -287,13 +287,14 @@ const Desktop = () => {
 
   return (
     <div className="fixed inset-0 overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
-      {/* 背景 - 只在有单独桌面背景时显示 */}
+      {/* 背景 - 延伸到safe area */}
       {desktopBg && (
         <div 
-          className="desktop-background absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+          className="desktop-background fixed inset-0 bg-cover bg-center transition-opacity duration-300"
           style={{ 
             backgroundImage: `url(${desktopBg})`,
-            opacity: 1
+            opacity: 1,
+            bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))'
           }}
         />
       )}

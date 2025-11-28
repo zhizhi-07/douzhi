@@ -1761,9 +1761,15 @@ const callAIApiInternal = async (
       return msg
     })
     
-    if (import.meta.env.DEV) {
-      console.log('🚀 发送给AI的消息数量:', processedMessages.length)
-      console.log('🖼️ 包含图片的消息数量:', processedMessages.filter((m: any) => Array.isArray(m.content)).length)
+    // 🔥 强制日志：检测多模态消息
+    console.log('🚀 发送给AI的消息数量:', processedMessages.length)
+    const multimodalMsgs = processedMessages.filter((m: any) => Array.isArray(m.content))
+    console.log('🖼️ 包含图片的消息数量:', multimodalMsgs.length)
+    if (multimodalMsgs.length > 0) {
+      console.log('🖼️ 多模态消息详情:', multimodalMsgs.map((m: any) => ({
+        role: m.role,
+        contentTypes: m.content.map((c: any) => c.type)
+      })))
     }
     
     // 🔥 添加朋友圈图片到消息数组（用于视觉识别）

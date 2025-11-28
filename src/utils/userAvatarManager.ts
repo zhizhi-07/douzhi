@@ -125,6 +125,10 @@ export function setUserAvatarDescription(
  */
 export function hasAvatarChanged(currentAvatarUrl: string): boolean {
   const info = getUserAvatarInfo()
+  
+  // 🔥 调试：打印当前头像URL长度
+  console.log('📷 [头像检查] 当前头像URL长度:', currentAvatarUrl?.length || 0)
+  
   if (!info.current) {
     console.log('📷 [头像检查] 无记录，需要首次识别')
     return true  // 没有记录，视为首次
@@ -132,7 +136,17 @@ export function hasAvatarChanged(currentAvatarUrl: string): boolean {
   
   // 使用指纹比较
   const currentFingerprint = getAvatarFingerprint(currentAvatarUrl)
-  const changed = info.current.avatarUrl !== currentFingerprint
+  const savedFingerprint = info.current.avatarUrl
+  const changed = savedFingerprint !== currentFingerprint
+  
+  // 🔥 调试：打印指纹比较详情
+  console.log('📷 [头像检查] 指纹比较:', {
+    saved: savedFingerprint?.substring(0, 50) + '...',
+    current: currentFingerprint?.substring(0, 50) + '...',
+    savedLen: savedFingerprint?.length,
+    currentLen: currentFingerprint?.length,
+    changed
+  })
   
   if (changed) {
     console.log('📷 [头像检查] 头像已变化，需要重新识别')

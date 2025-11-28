@@ -1,12 +1,20 @@
 /**
  * 数据管理页面
- * 导出、导入、清除数据
+ * 导出、导入、清除数据、存储诊断
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { exportAllData, importAllData, clearAllData } from '../utils/dataManager'
+import { analyzeLocalStorage, analyzeIndexedDB, cleanupOldMessages, clearEmojis, clearImages, emergencyCleanup } from '../utils/storageDiagnostic'
+
+interface StorageInfo {
+  localStorageSize: string
+  localStorageItems: Array<{ key: string; sizeStr: string }>
+  indexedDBSize: string
+  browserQuota?: { used: string; total: string; percent: string }
+}
 
 const DataManager = () => {
   const navigate = useNavigate()
@@ -14,6 +22,48 @@ const DataManager = () => {
     const saved = localStorage.getItem('show_status_bar')
     return saved !== 'false'
   })
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [showStorageDetail, setShowStorageDetail] = useState(false)
+
+  // 加载存储信息
+  const loadStorageInfo = async () => {
+    setLoading(true)
+    try {
+      const ls = analyzeLocalStorage()
+      const idb = await analyzeIndexedDB()
+      
+      let browserQuota
+      if (navigator.storage && navigator.storage.estimate) {
+        const estimate = await navigator.storage.estimate()
+        browserQuota = {
+          used: formatSize(estimate.usage || 0),
+          total: formatSize(estimate.quota || 0),
+          percent: ((estimate.usage || 0) / (estimate.quota || 1) * 100).toFixed(1)
+        }
+      }
+
+      setStorageInfo({
+        localStorageSize: ls.sizeStr,
+        localStorageItems: ls.items.slice(0, 5).map(i => ({ key: i.key, sizeStr: i.sizeStr })),
+        indexedDBSize: idb.totalEstimatedSize,
+        browserQuota
+      })
+    } catch (e) {
+      console.error('加载存储信息失败:', e)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadStorageInfo()
+  }, [])
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  }
 
   // 导出数据
   const handleExportData = async () => {
@@ -140,6 +190,159 @@ const DataManager = () => {
           </button>
         </div>
 
+        {/* 存储空间诊断 */}
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 px-1">📊 存储空间</h3>
+          
+          {loading ? (
+            <div className="glass-card rounded-2xl p-4 text-center">
+              <p className="text-gray-500">加载中...</p>
+            </div>
+          ) : storageInfo ? (
+            <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50">
+              {/* 浏览器配额 */}
+              {storageInfo.browserQuota && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">总使用量</span>
+                    <span className="font-medium">{storageInfo.browserQuota.used} / {storageInfo.browserQuota.total}</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${
+                        parseFloat(storageInfo.browserQuota.percent) > 80 ? 'bg-red-500' : 
+                        parseFloat(storageInfo.browserQuota.percent) > 50 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(parseFloat(storageInfo.browserQuota.percent), 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{storageInfo.browserQuota.percent}% 已使用</p>
+                </div>
+              )}
+              
+              {/* 详细信息 */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="text-blue-600 font-medium">LocalStorage</p>
+                  <p className="text-lg font-bold text-blue-800">{storageInfo.localStorageSize}</p>
+                  <p className="text-xs text-blue-500">限制 ~5MB</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3">
+                  <p className="text-purple-600 font-medium">IndexedDB</p>
+                  <p className="text-lg font-bold text-purple-800">{storageInfo.indexedDBSize}</p>
+                  <p className="text-xs text-purple-500">大文件存储</p>
+                </div>
+              </div>
+
+              {/* 展开/收起大文件列表 */}
+              <button 
+                onClick={() => setShowStorageDetail(!showStorageDetail)}
+                className="w-full mt-3 text-sm text-blue-600 py-2"
+              >
+                {showStorageDetail ? '收起详情 ▲' : '查看大文件 ▼'}
+              </button>
+              
+              {showStorageDetail && storageInfo.localStorageItems.length > 0 && (
+                <div className="mt-2 text-xs bg-gray-50 rounded-xl p-3">
+                  <p className="font-medium text-gray-700 mb-2">localStorage 大文件：</p>
+                  {storageInfo.localStorageItems.map((item, i) => (
+                    <div key={i} className="flex justify-between py-1 border-b border-gray-100 last:border-0">
+                      <span className="text-gray-600 truncate mr-2" style={{maxWidth: '70%'}}>{item.key}</span>
+                      <span className="text-gray-900 font-medium">{item.sizeStr}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="glass-card rounded-2xl p-4 text-center">
+              <p className="text-gray-500">无法获取存储信息</p>
+            </div>
+          )}
+        </div>
+
+        {/* 清理选项 */}
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 px-1">🧹 清理空间</h3>
+          <div className="space-y-2">
+            <button
+              onClick={async () => {
+                if (confirm('确定清理旧消息吗？将保留每个对话最近100条消息。')) {
+                  await cleanupOldMessages(100)
+                  await loadStorageInfo()
+                  alert('✅ 旧消息已清理')
+                }
+              }}
+              className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                <span>💬</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">清理旧消息</p>
+                <p className="text-xs text-gray-500">保留最近100条</p>
+              </div>
+            </button>
+
+            <button
+              onClick={async () => {
+                if (confirm('确定清理所有表情包吗？')) {
+                  await clearEmojis()
+                  await loadStorageInfo()
+                  alert('✅ 表情包已清理')
+                }
+              }}
+              className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                <span>😀</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">清理表情包</p>
+                <p className="text-xs text-gray-500">删除所有自定义表情</p>
+              </div>
+            </button>
+
+            <button
+              onClick={async () => {
+                if (confirm('确定清理所有壁纸图片吗？')) {
+                  await clearImages()
+                  await loadStorageInfo()
+                  alert('✅ 壁纸已清理')
+                }
+              }}
+              className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                <span>🖼️</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">清理壁纸</p>
+                <p className="text-xs text-gray-500">删除自定义背景</p>
+              </div>
+            </button>
+
+            <button
+              onClick={async () => {
+                if (confirm('⚠️ 紧急清理将删除大量数据，包括旧消息、表情包等，确定继续吗？')) {
+                  await emergencyCleanup()
+                  await loadStorageInfo()
+                  alert('✅ 紧急清理完成，建议刷新页面')
+                }
+              }}
+              className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 border border-red-200 active:scale-95"
+            >
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                <span>🚨</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-red-600">紧急清理</p>
+                <p className="text-xs text-gray-500">释放最大空间</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* 说明 */}
         <div className="mt-6 p-4 glass-card rounded-2xl backdrop-blur-md bg-white/60 border border-white/50">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">📋 数据说明</h3>
@@ -147,6 +350,7 @@ const DataManager = () => {
             <li>• 导出数据：保存所有角色、聊天记录、朋友圈、设置等</li>
             <li>• 导入数据：从备份文件恢复所有数据</li>
             <li>• 清除数据：删除所有本地数据，慎用！</li>
+            <li>• 手机存储空间有限，建议定期清理旧数据</li>
           </ul>
         </div>
       </div>
@@ -154,7 +358,7 @@ const DataManager = () => {
       {/* 底部提示 */}
       <div className="bg-white border-t border-gray-200 px-4 py-3">
         <p className="text-xs text-gray-500 text-center">
-          💡 建议定期导出数据备份
+          💡 建议定期导出数据备份，存储满时可使用清理功能
         </p>
       </div>
     </div>
