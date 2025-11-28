@@ -124,6 +124,7 @@ export interface Message {
     toName: string            // 被拍人名字
     suffix?: string           // 拍一拍后缀
   }
+  source?: 'dm'               // 消息来源：dm=论坛私聊（同步到主聊天时标记）
 }
 
 export interface Character {

@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Smile, Navigation } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
-import { getDMMessages, sendDMFromUser, sendDMToUser, markDMAsRead, getDMConversations, type DMMessage } from '../utils/instagramDM'
+import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfo } from '../utils/userUtils'
-import { apiService } from '../services/apiService'
 import EmojiPanel from '../components/EmojiPanel'
 import type { Emoji } from '../utils/emojiStorage'
 import { getAllCharacters } from '../utils/characterManager'
+import { buildSystemPrompt, callAIApi } from '../utils/chatApi'
+import { loadMessages, addMessage } from '../utils/simpleMessageManager'
+import { apiService } from '../services/apiService'
+import { convertToApiMessages } from '../utils/messageUtils'
+import type { Message, Character } from '../types/chat'
 
 /**
  * 论坛私聊详情页面 - 现代简约设计
@@ -21,12 +25,26 @@ const InstagramDMDetail = () => {
   const [npcAvatar, setNpcAvatar] = useState<string | undefined>()
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [isAiReplying, setIsAiReplying] = useState(false)
-  const [characterPersonality, setCharacterPersonality] = useState<string>('')
+  const [character, setCharacter] = useState<Character | null>(null)  // 🔥 保存完整的角色对象
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const userInfo = getUserInfo()
 
   useEffect(() => {
     if (!npcId) return
+    
+    // 🔥 强制清理旧的 localStorage 数据（已迁移到 IndexedDB）
+    try {
+      if (localStorage.getItem('instagram_dm_messages')) {
+        console.log('🧹 [私聊] 清理旧的 localStorage 数据...')
+        localStorage.removeItem('instagram_dm_messages')
+      }
+      if (localStorage.getItem('instagram_dm_conversations')) {
+        console.log('🧹 [私聊] 清理旧的会话数据...')
+        localStorage.removeItem('instagram_dm_conversations')
+      }
+    } catch (e) {
+      console.warn('清理旧数据失败:', e)
+    }
     
     const loadData = async () => {
       // 获取会话信息
@@ -41,75 +59,119 @@ const InstagramDMDetail = () => {
       const characters = await getAllCharacters()
       const char = characters.find(c => c.id === npcId)
       if (char) {
-        setCharacterPersonality(char.personality || '')
+        setCharacter(char as Character)  // 🔥 保存完整角色对象
         setNpcName(char.nickname || char.realName)
         setNpcAvatar(char.avatar)
       }
       
-      setMessages(getDMMessages(npcId))
+      // 🔥 使用异步加载消息，确保不丢失
+      const msgs = await getDMMessagesAsync(npcId)
+      setMessages(msgs)
+      console.log('📩 [私聊] 加载消息:', msgs.length, '条')
       markDMAsRead(npcId)
     }
     
     loadData()
+    
+    // 🔥 监听消息加载完成事件（IndexedDB异步加载后触发）
+    const handleMessagesLoaded = (e: CustomEvent) => {
+      if (e.detail.npcId === npcId) {
+        setMessages(getDMMessages(npcId))
+        console.log('📩 [私聊] 消息已更新')
+      }
+    }
+    window.addEventListener('dm-messages-loaded', handleMessagesLoaded as EventListener)
+    
+    return () => {
+      window.removeEventListener('dm-messages-loaded', handleMessagesLoaded as EventListener)
+    }
   }, [npcId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // AI主动回复（没有输入内容时触发）
-  const handleAIReply = async () => {
+  // 🔥 同步消息到主聊天记录
+  const syncToMainChat = (content: string, type: 'sent' | 'received', aiReadableContent?: string) => {
     if (!npcId) return
+    
+    const msg: Message = {
+      id: Date.now(),
+      type,
+      content,
+      aiReadableContent: aiReadableContent || `[论坛私聊] ${content}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      source: 'dm'  // 🔥 标记为论坛私聊消息
+    }
+    
+    addMessage(npcId, msg)
+    console.log('🔄 [私聊] 同步到主聊天:', { type, content })
+  }
+
+  // AI主动回复（没有输入内容时触发）- 🔥 使用和微信一样的规则
+  const handleAIReply = async () => {
+    if (!npcId || !character) {
+      console.warn('⚠️ [私聊] 缺少角色信息，无法AI回复')
+      return
+    }
     setIsAiReplying(true)
     
     try {
+      // 🔥 读取主聊天记录（和微信一样）
+      const mainMessages = loadMessages(npcId)
+      const userName = userInfo.realName || userInfo.nickname || '用户'
+      
+      console.log('📩 [私聊] 读取主聊天记录:', mainMessages.length, '条')
+      
+      // 🔥 使用和微信一样的系统提示词
+      const systemPrompt = await buildSystemPrompt(character, userName, mainMessages)
+      
+      // 🔥 转换消息格式（和微信一样）
+      const apiMessages = convertToApiMessages(mainMessages.slice(-30), false, true)
+      
+      // 添加论坛私聊场景提示
+      const dmContextPrompt = `
+
+【当前场景】
+你们现在在论坛私信里聊天。用户可能是第一次通过私信联系你，也可能是之前在微信聊过的朋友。
+请根据你们的关系和聊天历史自然地回复。`
+      
+      const fullSystemPrompt = systemPrompt + dmContextPrompt
+      
+      console.log('📤 [私聊] 系统提示词长度:', fullSystemPrompt.length)
+      console.log('📤 [私聊] 消息历史条数:', apiMessages.length)
+      
+      // 🔥 调用AI
       const apiConfigs = apiService.getAll()
       const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
       const apiConfig = apiConfigs.find(c => c.id === currentId)
-
+      
       if (!apiConfig) {
+        console.error('❌ [私聊] 未配置API')
         setIsAiReplying(false)
         return
       }
-
-      const chatHistory = getDMMessages(npcId).slice(-10)
-
-      const prompt = `你是"${npcName}"，正在论坛私信里主动找用户聊天。
-${characterPersonality ? `\n**你的性格：**\n${characterPersonality}\n` : ''}
-**用户信息：**
-- 昵称：${userInfo.nickname || userInfo.realName || '用户'}
-
-**聊天记录：**
-${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n') : '这是你们第一次聊天'}
-
-**要求：**
-- 完全代入角色性格
-- 主动打招呼或找话题
-- 10-50字，直接输出`
-
-      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
-        ? apiConfig.baseUrl 
-        : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify({
-          model: apiConfig.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.8
-        })
-      })
-
-      const data = await response.json()
-      const aiReply = data.choices?.[0]?.message?.content?.trim() || ''
+      
+      // 构建完整的消息列表
+      const fullMessages = [
+        { role: 'system' as const, content: fullSystemPrompt },
+        ...apiMessages
+      ]
+      
+      const result = await callAIApi(fullMessages, apiConfig, false)
+      const aiReply = result.content?.trim() || ''
+      
+      console.log('📩 [私聊] AI回复:', aiReply)
 
       if (aiReply) {
         setTimeout(() => {
+          // 保存到私聊记录
           sendDMToUser(npcId, npcName, npcAvatar, aiReply)
+          
+          // 🔥 同步到主聊天记录
+          syncToMainChat(aiReply, 'received', `[论坛私聊回复] ${aiReply}`)
+          
           setMessages(getDMMessages(npcId))
           setIsAiReplying(false)
         }, 500 + Math.random() * 1000)
@@ -133,7 +195,12 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
     
     // 有文字时，只发送用户消息（不触发AI自动回复）
     const userMessage = inputText.trim()
+    console.log('📤 [私聊] 用户发送消息:', userMessage)
     sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
+    
+    // 🔥 同步到主聊天记录
+    syncToMainChat(userMessage, 'sent', `[论坛私聊] ${userMessage}`)
+    
     setMessages(getDMMessages(npcId))
     setInputText('')
   }
@@ -149,42 +216,15 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
   const handleSendEmoji = (emoji: Emoji) => {
     if (!npcId) return
     
-    // 保存表情包消息
-    const now = Date.now()
-    const time = new Date().toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    // 使用 IndexedDB 存储，不再使用 localStorage
+    sendEmojiFromUser(npcId, npcName, npcAvatar, emoji.url, emoji.description)
     
-    // 通过修改instagramDM来支持表情包（使用content存储描述，emojiUrl存储图片）
-    const allMessages = JSON.parse(localStorage.getItem('instagram_dm_messages') || '{}')
-    if (!allMessages[npcId]) allMessages[npcId] = []
-    
-    allMessages[npcId].push({
-      id: `${now}-${Math.random().toString(36).substr(2, 9)}`,
-      senderId: 'user',
-      senderName: '我',
-      content: `[表情包] ${emoji.description}`,
-      timestamp: now,
-      time,
-      isFromUser: true,
-      type: 'emoji',
-      emojiUrl: emoji.url
-    })
-    localStorage.setItem('instagram_dm_messages', JSON.stringify(allMessages))
-    
-    // 更新会话
-    const conversations = getDMConversations()
-    const conv = conversations.find(c => c.id === npcId)
-    if (conv) {
-      conv.lastMessage = `[表情包]`
-      conv.lastTime = time
-      conv.updatedAt = now
-      localStorage.setItem('instagram_dm_conversations', JSON.stringify(conversations))
-    }
+    // 🔥 同步到主聊天记录
+    syncToMainChat(`[表情包] ${emoji.description}`, 'sent', `[论坛私聊] 发送了表情包: ${emoji.description}`)
     
     setMessages(getDMMessages(npcId))
     setShowEmojiPanel(false)
+    console.log('📤 [私聊] 发送表情包:', emoji.description)
   }
 
   // 根据名字生成头像渐变色
@@ -228,8 +268,8 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
             )}
             <div>
               <h1 className="text-[15px] font-semibold text-gray-900">{npcName || '私聊'}</h1>
-              {characterPersonality && (
-                <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{characterPersonality.slice(0, 20)}</p>
+              {character?.personality && (
+                <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{character.personality.slice(0, 20)}</p>
               )}
             </div>
           </div>

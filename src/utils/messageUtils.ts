@@ -54,15 +54,14 @@ export function formatMessageTimestamp(timestamp: number): string {
   yesterday.setDate(yesterday.getDate() - 1)
   const isYesterday = msgDate.toDateString() === yesterday.toDateString()
   
-  // 返回纯时间，由调用方决定放在哪里
-  // 放在消息末尾，用 ←时间 格式，AI不会在回复开头模仿
+  // 用自然语言格式让AI能读懂，系统层面会过滤掉AI模仿的部分
   if (isToday) {
-    return `←${timeStr}`
+    return `(发于${timeStr})`
   } else if (isYesterday) {
-    return `←昨天${timeStr}`
+    return `(发于昨天${timeStr})`
   } else {
     const dateStr = msgDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-    return `←${dateStr}${timeStr}`
+    return `(发于${dateStr} ${timeStr})`
   }
 }
 
