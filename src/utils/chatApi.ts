@@ -2260,10 +2260,16 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   // 获取朋友圈列表
   const allMoments = loadMoments()
   
-  // 显示用户发的朋友圈 + AI自己发的朋友圈
-  const visibleToAI = allMoments.filter(m => 
-    m.userId === 'user' || m.userId === characterId
-  )
+  // 🔥 只显示最近3天内的朋友圈，避免很久以前的一直提醒AI
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+  const now = Date.now()
+  
+  // 显示用户发的朋友圈 + AI自己发的朋友圈，且在3天内
+  const visibleToAI = allMoments.filter(m => {
+    const isRelevant = m.userId === 'user' || m.userId === characterId
+    const isRecent = now - m.createdAt < THREE_DAYS_MS
+    return isRelevant && isRecent
+  })
   const visibleMoments = visibleToAI.slice(0, momentsVisibleCount)
   
   if (visibleMoments.length === 0) {

@@ -195,10 +195,12 @@ body {
   height: calc(var(--vh, 1vh) * 100);
   overflow: hidden;
   position: fixed;
-  top: 0;
+  /* 🍎 iOS安全区域：从刘海下方开始 */
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
-  bottom: 0;
+  /* 🍎 iOS安全区域：在Home指示器上方结束 */
+  bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* 液态玻璃效果 */
@@ -531,16 +533,12 @@ input[type="range"].slider::-moz-range-thumb:active {
 }
 
 /* ============================================
-   🍎 iOS 安全区域全局支持（简化版）
+   🍎 iOS 安全区域说明
+   #root 已通过 top/bottom: env(safe-area-inset-*) 避开刘海和Home指示器
+   所有页面内容自动在安全区域内显示
    ============================================ */
 
-/* StatusBar - 自动处理顶部刘海 */
+/* StatusBar - 固定高度44px */
 .status-bar {
-  height: calc(44px + env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* 底部安全区域 - 用于底部导航栏 */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: 44px;
 }
