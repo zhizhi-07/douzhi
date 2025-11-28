@@ -77,9 +77,9 @@ const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
     return `${hours}:${minutes}`
   }
 
-  // 如果关闭了状态栏，返回空占位（保持高度）
+  // 如果关闭了状态栏，完全不渲染
   if (!showStatusBar) {
-    return <div className="status-bar" />
+    return null
   }
 
   return (
