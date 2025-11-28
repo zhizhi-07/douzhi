@@ -9,6 +9,8 @@ export interface DMMessage {
   timestamp: number
   time: string
   isFromUser: boolean  // 是否是用户发的
+  type?: 'text' | 'emoji'  // 消息类型
+  emojiUrl?: string  // 表情包URL
 }
 
 export interface DMConversation {

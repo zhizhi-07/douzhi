@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MoreHorizontal, Send } from 'lucide-react'
+import { ArrowLeft, Smile, Send } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { getDMMessages, sendDMFromUser, sendDMToUser, markDMAsRead, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfo } from '../utils/userUtils'
-import { getAllPosts } from '../utils/forumNPC'
 import { apiService } from '../services/apiService'
+import EmojiPanel from '../components/EmojiPanel'
+import type { Emoji } from '../utils/emojiStorage'
+import { getAllCharacters } from '../utils/characterManager'
 
 /**
- * Instagram 私聊详情页面
+ * 论坛私聊详情页面 - 现代简约设计
  */
 const InstagramDMDetail = () => {
   const navigate = useNavigate()
@@ -17,28 +19,43 @@ const InstagramDMDetail = () => {
   const [inputText, setInputText] = useState('')
   const [npcName, setNpcName] = useState('')
   const [npcAvatar, setNpcAvatar] = useState<string | undefined>()
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false)
+  const [isAiReplying, setIsAiReplying] = useState(false)
+  const [characterPersonality, setCharacterPersonality] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const userInfo = getUserInfo()
 
   useEffect(() => {
     if (!npcId) return
     
-    const conversations = getDMConversations()
-    const conv = conversations.find(c => c.id === npcId)
-    if (conv) {
-      setNpcName(conv.name)
-      setNpcAvatar(conv.avatar)
+    const loadData = async () => {
+      // 获取会话信息
+      const conversations = getDMConversations()
+      const conv = conversations.find(c => c.id === npcId)
+      if (conv) {
+        setNpcName(conv.name)
+        setNpcAvatar(conv.avatar)
+      }
+      
+      // 尝试获取角色详细信息（如果是角色的话）
+      const characters = await getAllCharacters()
+      const char = characters.find(c => c.id === npcId)
+      if (char) {
+        setCharacterPersonality(char.personality || '')
+        setNpcName(char.nickname || char.realName)
+        setNpcAvatar(char.avatar)
+      }
+      
+      setMessages(getDMMessages(npcId))
+      markDMAsRead(npcId)
     }
     
-    setMessages(getDMMessages(npcId))
-    markDMAsRead(npcId)
+    loadData()
   }, [npcId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
-
-  const [isAiReplying, setIsAiReplying] = useState(false)
 
   // AI主动回复（没有输入内容时触发）
   const handleAIReply = async () => {
@@ -55,32 +72,20 @@ const InstagramDMDetail = () => {
         return
       }
 
-      const userPosts = getAllPosts()
-        .filter(p => p.npcId === 'user')
-        .slice(0, 5)
-        .map(p => p.content)
-
       const chatHistory = getDMMessages(npcId).slice(-10)
 
-      const prompt = `你是一个社交平台上的网友“${npcName}”，正在和用户私聊。
-
-**你的身份：**
-- 网名：${npcName}
-
+      const prompt = `你是"${npcName}"，正在论坛私信里主动找用户聊天。
+${characterPersonality ? `\n**你的性格：**\n${characterPersonality}\n` : ''}
 **用户信息：**
 - 昵称：${userInfo.nickname || userInfo.realName || '用户'}
 
-**用户最近发的帖子：**
-${userPosts.length > 0 ? userPosts.map((p, i) => `${i + 1}. ${p}`).join('\n') : '暂无'}
-
 **聊天记录：**
-${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n') : '暂无聊天记录'}
+${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n') : '这是你们第一次聊天'}
 
 **要求：**
-- 你主动找用户聊天
-- 可以问问题、评论帖子、或者随便聊聊
-- 回复10-50字
-- 直接输出回复内容`
+- 完全代入角色性格
+- 主动打招呼或找话题
+- 10-50字，直接输出`
 
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
         ? apiConfig.baseUrl 
@@ -144,28 +149,14 @@ ${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npc
         return
       }
 
-      // 获取用户最近的帖子
-      const userPosts = getAllPosts()
-        .filter(p => p.npcId === 'user')
-        .slice(0, 5)
-        .map(p => p.content)
-
       // 获取聊天历史
       const chatHistory = getDMMessages(npcId).slice(-10)
 
       // 构建prompt
-      const prompt = `你是一个社交平台上的网友"${npcName}"，正在和用户私聊。
-
-**你的身份：**
-- 网名：${npcName}
-- 你是通过用户发的帖子来私聊用户的
-
+      const prompt = `你是"${npcName}"，正在论坛私信里和用户聊天。
+${characterPersonality ? `\n**你的性格：**\n${characterPersonality}\n` : ''}
 **用户信息：**
 - 昵称：${userInfo.nickname || userInfo.realName || '用户'}
-- 签名：${userInfo.signature || '无'}
-
-**用户最近发的帖子：**
-${userPosts.length > 0 ? userPosts.map((p, i) => `${i + 1}. ${p}`).join('\n') : '暂无'}
 
 **聊天记录：**
 ${chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n')}
@@ -174,10 +165,9 @@ ${chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).jo
 ${userMessage}
 
 **要求：**
-- 用自然、口语化的方式回复
-- 回复10-50字
-- 可以聊帖子内容、问问题、闲聊等
-- 直接输出回复内容，不要加任何前缀`
+- 完全代入角色性格回复
+- 用自然口语回复，10-50字
+- 直接输出内容`
 
       // 确保URL包含完整路径
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
@@ -228,79 +218,194 @@ ${userMessage}
     }
   }
 
-  // 根据名字生成头像颜色
-  const getAvatarColor = (name: string) => {
-    return `hsl(${name.charCodeAt(0) * 37 % 360}, 60%, 50%)`
+  // 发送表情包
+  const handleSendEmoji = (emoji: Emoji) => {
+    if (!npcId) return
+    
+    // 保存表情包消息
+    const now = Date.now()
+    const time = new Date().toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    
+    // 通过修改instagramDM来支持表情包（使用content存储描述，emojiUrl存储图片）
+    const allMessages = JSON.parse(localStorage.getItem('instagram_dm_messages') || '{}')
+    if (!allMessages[npcId]) allMessages[npcId] = []
+    
+    allMessages[npcId].push({
+      id: `${now}-${Math.random().toString(36).substr(2, 9)}`,
+      senderId: 'user',
+      senderName: '我',
+      content: `[表情包] ${emoji.description}`,
+      timestamp: now,
+      time,
+      isFromUser: true,
+      type: 'emoji',
+      emojiUrl: emoji.url
+    })
+    localStorage.setItem('instagram_dm_messages', JSON.stringify(allMessages))
+    
+    // 更新会话
+    const conversations = getDMConversations()
+    const conv = conversations.find(c => c.id === npcId)
+    if (conv) {
+      conv.lastMessage = `[表情包]`
+      conv.lastTime = time
+      conv.updatedAt = now
+      localStorage.setItem('instagram_dm_conversations', JSON.stringify(conversations))
+    }
+    
+    setMessages(getDMMessages(npcId))
+    setShowEmojiPanel(false)
+    
+    // 触发AI回复
+    setTimeout(() => handleSend(), 500)
+  }
+
+  // 根据名字生成头像渐变色
+  const getAvatarGradient = (name: string) => {
+    const hue = name.charCodeAt(0) * 37 % 360
+    return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
+  }
+
+  // 格式化时间显示
+  const formatMessageTime = (timestamp: number, index: number) => {
+    if (index === 0) return true
+    const prev = messages[index - 1]
+    // 超过5分钟显示时间
+    return timestamp - prev.timestamp > 5 * 60 * 1000
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200">
+    <div className="h-screen flex flex-col bg-[#f5f5f5]">
+      {/* 顶部导航 - 简约风格 */}
+      <div className="bg-white/80 backdrop-blur-xl sticky top-0 z-10">
         <StatusBar />
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center px-4 py-3">
           <button 
             onClick={() => navigate('/instagram/activity')}
-            className="flex items-center"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors -ml-2"
           >
-            <ArrowLeft className="w-6 h-6 text-gray-800" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <h1 className="text-base font-semibold text-gray-900">{npcName}</h1>
-          <button className="p-2 -m-2">
-            <MoreHorizontal className="w-6 h-6 text-gray-800" />
-          </button>
+          
+          <div className="flex-1 flex items-center justify-center gap-3 -ml-10">
+            {/* 头像 */}
+            {npcAvatar ? (
+              <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-sm" />
+            ) : (
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
+                style={{ background: getAvatarGradient(npcName || 'A') }}
+              >
+                {(npcName || 'A')[0]}
+              </div>
+            )}
+            <div>
+              <h1 className="text-[15px] font-semibold text-gray-900">{npcName || '私聊'}</h1>
+              {characterPersonality && (
+                <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{characterPersonality.slice(0, 20)}</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex items-end gap-2 mb-4 ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            {/* 头像 */}
-            <div className="flex-shrink-0">
-              {(msg.isFromUser ? userInfo.avatar : npcAvatar) ? (
-                <img
-                  src={msg.isFromUser ? userInfo.avatar : npcAvatar}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                  style={{ backgroundColor: getAvatarColor(msg.isFromUser ? '我' : npcName) }}
-                >
-                  {(msg.isFromUser ? '我' : npcName)[0]}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+            <div 
+              className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-medium mb-4 shadow-lg"
+              style={{ background: getAvatarGradient(npcName || 'A') }}
+            >
+              {(npcName || 'A')[0]}
+            </div>
+            <p className="text-sm">开始和 {npcName} 聊天吧</p>
+            <p className="text-xs text-gray-300 mt-1">发送消息或点击"让TA说"</p>
+          </div>
+        ) : (
+          messages.map((msg, index) => (
+            <div key={msg.id}>
+              {/* 时间分隔 */}
+              {formatMessageTime(msg.timestamp, index) && (
+                <div className="flex justify-center my-4">
+                  <span className="text-[11px] text-gray-400 bg-gray-200/60 px-3 py-1 rounded-full">
+                    {new Date(msg.timestamp).toLocaleString('zh-CN', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
                 </div>
               )}
-            </div>
-            
-            {/* 消息气泡 - 白色背景黑色字 */}
-            <div className={`max-w-[70%] ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
-              <div style={{ backgroundColor: '#ffffff' }} className="text-gray-900 px-3 py-2 rounded-2xl shadow-sm">
-                <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+              
+              <div className={`flex items-end gap-2 mb-3 ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* 头像 - 只在对方消息显示 */}
+                {!msg.isFromUser && (
+                  <div className="flex-shrink-0 mb-1">
+                    {npcAvatar ? (
+                      <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
+                    ) : (
+                      <div 
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
+                        style={{ background: getAvatarGradient(npcName || 'A') }}
+                      >
+                        {(npcName || 'A')[0]}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 消息气泡 */}
+                <div className={`max-w-[75%] ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
+                  {msg.type === 'emoji' && msg.emojiUrl ? (
+                    // 表情包消息
+                    <img 
+                      src={msg.emojiUrl} 
+                      alt={msg.content} 
+                      className="w-32 h-32 object-contain rounded-xl"
+                    />
+                  ) : (
+                    // 文字消息
+                    <div 
+                      className={`px-4 py-2.5 rounded-[20px] shadow-sm ${
+                        msg.isFromUser 
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                          : 'bg-white text-gray-800'
+                      }`}
+                    >
+                      <p className="text-[15px] leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
         
         {/* AI正在输入提示 */}
         {isAiReplying && (
-          <div className="flex items-end gap-2 mb-4">
-            <div className="flex-shrink-0">
-              <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                style={{ backgroundColor: getAvatarColor(npcName) }}
-              >
-                {npcName[0]}
-              </div>
+          <div className="flex items-end gap-2 mb-3">
+            <div className="flex-shrink-0 mb-1">
+              {npcAvatar ? (
+                <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
+              ) : (
+                <div 
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
+                  style={{ background: getAvatarGradient(npcName || 'A') }}
+                >
+                  {(npcName || 'A')[0]}
+                </div>
+              )}
             </div>
-            <div style={{ backgroundColor: '#ffffff' }} className="text-gray-500 px-3 py-2 rounded-2xl shadow-sm">
-              <div className="flex items-center gap-1">
-                <span className="text-sm">正在输入</span>
-                <span className="animate-pulse">...</span>
+            <div className="bg-white px-4 py-3 rounded-[20px] shadow-sm">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -309,36 +414,56 @@ ${userMessage}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 底部输入框 */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="发送消息..."
-            className="flex-1 bg-gray-100 text-gray-900 text-sm px-4 py-2.5 rounded-full outline-none placeholder-gray-400"
-          />
+      {/* 底部输入区域 - 现代风格 */}
+      <div className="bg-white/95 backdrop-blur-xl px-4 py-3 safe-area-inset-bottom">
+        <div className="flex items-center gap-2">
+          {/* 表情按钮 */}
+          <button
+            onClick={() => setShowEmojiPanel(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
+          >
+            <Smile className="w-6 h-6 text-gray-500" />
+          </button>
+          
+          {/* 输入框 */}
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="发消息..."
+              className="w-full bg-gray-100 text-gray-900 text-[15px] px-4 py-2.5 rounded-full outline-none placeholder-gray-400 focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+          </div>
+          
+          {/* 发送按钮 */}
           <button
             onClick={handleSend}
             disabled={isAiReplying}
-            className={`p-2 rounded-full transition-colors ${
+            className={`h-10 px-4 rounded-full font-medium text-sm transition-all ${
               isAiReplying
-                ? 'text-gray-300'
+                ? 'bg-gray-100 text-gray-300'
                 : inputText.trim() 
-                  ? 'text-blue-500 active:bg-blue-50' 
-                  : 'text-green-500 active:bg-green-50'
+                  ? 'bg-blue-500 text-white active:bg-blue-600 shadow-sm' 
+                  : 'bg-green-500 text-white active:bg-green-600 shadow-sm'
             }`}
           >
             {inputText.trim() ? (
-              <Send className="w-6 h-6" />
+              <Send className="w-5 h-5" />
             ) : (
-              <span className="text-xs font-medium">让TA说</span>
+              <span>让TA说</span>
             )}
           </button>
         </div>
       </div>
+
+      {/* 表情包面板 */}
+      <EmojiPanel
+        show={showEmojiPanel}
+        onClose={() => setShowEmojiPanel(false)}
+        onSelect={handleSendEmoji}
+      />
     </div>
   )
 }

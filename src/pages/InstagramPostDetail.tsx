@@ -305,7 +305,8 @@ ${aiCharacterPrompt}
         body: JSON.stringify({
           model: apiConfig.model,
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0.8
+          temperature: 0.8,
+          max_tokens: 2000  // 🔥 避免回复被截断
         })
       })
 
@@ -526,14 +527,18 @@ ${aiCharacterPrompt}
         {/* 评论区标题 */}
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
           <span className="font-bold text-base text-gray-800">评论 ({comments.length})</span>
+          <span className="text-xs text-gray-400 ml-2">最新在前</span>
         </div>
 
-        {/* 评论列表 */}
+        {/* 评论列表 - 最新在前 */}
         <div className="divide-y divide-gray-100 bg-white">
           {comments.length > 0 ? (
             <>
-              {comments.map((comment) => (
-                <div key={comment.id} className="px-4 py-4">
+              {[...comments].sort((a, b) => b.timestamp - a.timestamp).map((comment) => {
+                // 判断是否是新评论（5分钟内）
+                const isNew = Date.now() - comment.timestamp < 5 * 60 * 1000
+                return (
+                <div key={comment.id} className={`px-4 py-4 ${isNew ? 'bg-blue-50/50' : ''}`}>
                   {/* 主楼评论 */}
                   <div className="flex items-start gap-3">
                     {/* 头像：有真实头像就显示，否则首字 */}
@@ -606,7 +611,7 @@ ${aiCharacterPrompt}
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
             </>
           ) : (
             <div className="py-8 text-center">
