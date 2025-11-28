@@ -190,14 +190,6 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* 🍎 iOS底部安全区域 - 全局生效 */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-sizing: border-box;
-}
-
-/* 🍎 修复h-screen在iOS上的高度问题 */
-.h-screen {
-  height: 100% !important;
 }
 
 /* 液态玻璃效果 */
