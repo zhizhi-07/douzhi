@@ -76,6 +76,14 @@ export const characterService = {
     if (!charactersCache) charactersCache = []
     charactersCache.push(newCharacter)
     
+    // 🔥 立即同步备份到 localStorage（防止刷新丢失）
+    try {
+      localStorage.setItem('characters', JSON.stringify(charactersCache))
+      console.log('💾 角色已同步备份到 localStorage')
+    } catch (e) {
+      console.warn('localStorage 备份失败:', e)
+    }
+    
     // 后台异步保存到 IndexedDB
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 
       console.error('保存角色失败:', e)
@@ -88,6 +96,11 @@ export const characterService = {
   delete: (id: string): void => {
     if (!charactersCache) return
     charactersCache = charactersCache.filter(c => c.id !== id)
+    
+    // 🔥 立即同步备份
+    try {
+      localStorage.setItem('characters', JSON.stringify(charactersCache))
+    } catch {}
     
     // 后台异步保存
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 
@@ -103,6 +116,11 @@ export const characterService = {
     if (index === -1) return null
     
     charactersCache[index] = { ...charactersCache[index], ...updates }
+    
+    // 🔥 立即同步备份
+    try {
+      localStorage.setItem('characters', JSON.stringify(charactersCache))
+    } catch {}
     
     // 后台异步保存
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 

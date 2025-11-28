@@ -333,17 +333,32 @@ export async function getMessageCount(chatId: string): Promise<number> {
  * 🔥 新增：在进入聊天时调用，确保消息已加载
  */
 export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
-  // 先等待预加载完成
+  // 🔥 加超时，防止永久卡住
   if (preloadPromise) {
-    await preloadPromise
+    try {
+      await Promise.race([
+        preloadPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('预加载超时')), 3000))
+      ])
+    } catch (e) {
+      console.warn('⚠️ 预加载超时，继续执行')
+    }
   }
   
   // 再次尝试从缓存读取
   let messages = messageCache.get(chatId)
   
   if (!messages) {
-    // 如果还是没有，直接从IndexedDB读取
-    let loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    // 如果还是没有，直接从IndexedDB读取（加超时）
+    let loaded: Message[] | null = null
+    try {
+      loaded = await Promise.race([
+        IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+      ])
+    } catch (e) {
+      console.warn('⚠️ IndexedDB读取超时')
+    }
     
     // 🔥 如果IndexedDB也没有，尝试从localStorage备份恢复
     if (!loaded || loaded.length === 0) {

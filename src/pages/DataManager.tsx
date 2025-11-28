@@ -352,6 +352,51 @@ const DataManager = () => {
         <div className="mt-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-3 px-1">🔍 数据诊断</h3>
           
+          {/* 🔥 清理 localStorage 腾出空间 */}
+          <button
+            onClick={() => {
+              const keysToRemove: string[] = []
+              let freedSize = 0
+              
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key) {
+                  const value = localStorage.getItem(key) || ''
+                  const size = value.length * 2 // UTF-16
+                  
+                  // 删除消息备份（已经在 IndexedDB 了）
+                  if (key.startsWith('msg_backup_')) {
+                    keysToRemove.push(key)
+                    freedSize += size
+                  }
+                  // 删除大于 500KB 的非关键数据
+                  else if (size > 500 * 1024 && 
+                           !key.includes('characters') && 
+                           !key.includes('chat_list') &&
+                           !key.includes('user_info') &&
+                           !key.includes('api')) {
+                    keysToRemove.push(key)
+                    freedSize += size
+                  }
+                }
+              }
+              
+              keysToRemove.forEach(key => localStorage.removeItem(key))
+              
+              const freedMB = (freedSize / 1024 / 1024).toFixed(2)
+              alert(`✅ 已清理 ${keysToRemove.length} 项，释放约 ${freedMB} MB\n\n现在可以正常使用了。`)
+            }}
+            className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95 mb-2 border-2 border-red-300"
+          >
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+              <span>🧹</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-red-600">清理存储空间</p>
+              <p className="text-xs text-gray-500">删除备份文件腾出空间</p>
+            </div>
+          </button>
+          
           {/* 强制恢复聊天记录 */}
           <button
             onClick={async () => {
@@ -424,14 +469,21 @@ const DataManager = () => {
                     }
                   })
                   
-                  // 保存聊天列表
+                  // 保存聊天列表到 IndexedDB
                   const tx2 = db.transaction('settings', 'readwrite')
                   tx2.objectStore('settings').put(chatList, 'chat_list')
                   
+                  // 🔥 同时保存到 localStorage（双保险）
+                  localStorage.setItem('chat_list', JSON.stringify(chatList))
+                  
                   db.close()
                   
+                  // 🔥 强制清除页面状态
+                  sessionStorage.clear()
+                  
                   alert(`✅ 已恢复 ${restored} 个聊天！\n\n点击确定刷新页面。`)
-                  window.location.reload()
+                  // 强制硬刷新
+                  window.location.href = window.location.origin + '/wechat'
                 }
                 
                 dbRequest.onerror = () => {

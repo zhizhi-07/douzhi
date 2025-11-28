@@ -4,19 +4,26 @@
  */
 
 const DB_NAME = 'EmojiDB'
-const DB_VERSION = 1
+const DB_VERSION = 3  // 🔥 再次提高版本号
 const STORE_NAME = 'emojis'
 
 let dbInstance: IDBDatabase | null = null
+let dbInitPromise: Promise<IDBDatabase> | null = null
 
 /**
  * 初始化数据库连接
  */
 function initDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  // 防止并发初始化
+  if (dbInitPromise) return dbInitPromise
+  
+  dbInitPromise = new Promise((resolve, reject) => {
+    // 🔥 先关闭旧连接
     if (dbInstance) {
-      resolve(dbInstance)
-      return
+      try {
+        dbInstance.close()
+      } catch {}
+      dbInstance = null
     }
 
     const request = indexedDB.open(DB_NAME, DB_VERSION)
@@ -36,9 +43,12 @@ function initDB(): Promise<IDBDatabase> {
       // 如果对象存储不存在，创建它
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME)
+        console.log('📦 创建表情包存储')
       }
     }
   })
+  
+  return dbInitPromise
 }
 
 /**
