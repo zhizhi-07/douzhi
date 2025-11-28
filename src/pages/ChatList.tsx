@@ -10,8 +10,6 @@ import { getUserInfo } from '../utils/userUtils'
 import { loadChatList, saveChatList } from '../utils/chatListManager'
 import { playSystemSound } from '../utils/soundManager'
 import { getImage } from '../utils/unifiedStorage'
-import { getAIStatus } from '../utils/aiStatusManager'
-import { getScheduleHistory } from '../utils/aiScheduleHistory'
 
 interface Chat {
   id: string
@@ -38,15 +36,7 @@ const ChatList = () => {
   const [wechatBg, setWechatBg] = useState('')
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   
-  // 行程详情弹窗
-  const [scheduleModal, setScheduleModal] = useState<{
-    show: boolean
-    characterId: string
-    characterName: string
-    status: string
-    schedules: Array<{ time: string; action: string }>
-  }>({ show: false, characterId: '', characterName: '', status: '', schedules: [] })
-  
+    
   // 加载调整参数
   const [topbarScale, setTopbarScale] = useState(100)
   const [topbarX, setTopbarX] = useState(0)
@@ -426,20 +416,7 @@ const ChatList = () => {
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
   }, [])
 
-  // 打开行程详情弹窗
-  const openScheduleModal = (characterId: string, characterName: string, e: React.MouseEvent) => {
-    e.stopPropagation() // 阻止冒泡到聊天列表项
-    const status = getAIStatus(characterId)
-    const schedules = getScheduleHistory(characterId)
-    setScheduleModal({
-      show: true,
-      characterId,
-      characterName,
-      status: status?.action || '暂无状态',
-      schedules: schedules.slice(-5) // 最近5条
-    })
-  }
-
+  
   return (
     <div 
       className="h-screen flex flex-col page-enter"
@@ -545,24 +522,7 @@ const ChatList = () => {
                     {/* 消息内容 */}
                     <div className="flex-1 ml-3 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
-                          {/* 状态标签 - 点击显示详细行程 */}
-                          {!chat.isGroup && (() => {
-                            const status = getAIStatus(chat.characterId)
-                            if (status?.action) {
-                              return (
-                                <button
-                                  onClick={(e) => openScheduleModal(chat.characterId, chat.name, e)}
-                                  className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[80px] hover:bg-gray-200 transition-colors"
-                                >
-                                  {status.action}
-                                </button>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
+                        <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
                         <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">{chat.time}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -604,24 +564,7 @@ const ChatList = () => {
                     {/* 消息内容 */}
                     <div className="flex-1 ml-3 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
-                          {/* 状态标签 - 点击显示详细行程 */}
-                          {!chat.isGroup && (() => {
-                            const status = getAIStatus(chat.characterId)
-                            if (status?.action) {
-                              return (
-                                <button
-                                  onClick={(e) => openScheduleModal(chat.characterId, chat.name, e)}
-                                  className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[80px] hover:bg-gray-200 transition-colors"
-                                >
-                                  {status.action}
-                                </button>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
+                        <span className="font-medium text-[15px] text-gray-900 truncate">{chat.name}</span>
                         <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">{chat.time}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -640,73 +583,6 @@ const ChatList = () => {
           </>
         )}
       </div>
-
-      {/* 行程详情弹窗 */}
-      {scheduleModal.show && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setScheduleModal(prev => ({ ...prev, show: false }))}
-        >
-          <div 
-            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden animate-scale-in"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* 头部 */}
-            <div className="px-5 py-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">{scheduleModal.characterName} 的行程</h3>
-                <button 
-                  onClick={() => setScheduleModal(prev => ({ ...prev, show: false }))}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {/* 当前状态 */}
-              <div className="mt-2 text-sm text-gray-500">
-                当前状态：<span className="text-gray-700">{scheduleModal.status}</span>
-              </div>
-            </div>
-            
-            {/* 行程列表 */}
-            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
-              {scheduleModal.schedules.length > 0 ? (
-                <div className="space-y-3">
-                  {scheduleModal.schedules.map((item, index) => (
-                    <div key={index} className="flex gap-3">
-                      <div className="text-xs text-gray-400 w-12 flex-shrink-0 pt-0.5">{item.time}</div>
-                      <div className="flex-1 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-                        {item.action}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <div className="text-3xl mb-2">📝</div>
-                  <div className="text-sm">暂无行程记录</div>
-                  <div className="text-xs mt-1">聊天时 TA 会更新状态</div>
-                </div>
-              )}
-            </div>
-            
-            {/* 底部按钮 */}
-            <div className="px-5 py-3 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setScheduleModal(prev => ({ ...prev, show: false }))
-                  navigate(`/ai-schedule/${scheduleModal.characterId}`)
-                }}
-                className="w-full py-2.5 text-sm text-green-600 font-medium hover:bg-green-50 rounded-lg transition-colors"
-              >
-                查看完整行程 →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 底部导航栏 */}
       <div className="pb-3 px-4 safe-area-bottom">

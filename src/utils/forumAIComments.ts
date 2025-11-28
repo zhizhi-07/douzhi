@@ -146,8 +146,8 @@ ${mentionedPublicFigures.map(pf => {
   const publicFigureCharacters = aiCharacterInfos.filter(a => a.isPublicFigure)
   const normalCharacters = aiCharacterInfos.filter(a => !a.isPublicFigure)
   
-  // 🔥 限制人设长度，避免prompt过长导致API错误
-  const truncatePersonality = (p: string, maxLen = 300) => 
+  // 🔥 人设基本不截断（2000字足够了），聊天记录适当限制
+  const truncatePersonality = (p: string, maxLen = 2000) => 
     p.length > maxLen ? p.substring(0, maxLen) + '...' : p
   const truncateChat = (c: string, maxLines = 5) => 
     c ? c.split('\n').slice(-maxLines).join('\n') : ''

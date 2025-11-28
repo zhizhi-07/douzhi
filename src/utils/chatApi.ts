@@ -571,6 +571,12 @@ export const buildSystemPrompt = async (character: Character, userName: string =
       hint += `注意这个时间间隔，根据你的人设和你们的关系自然地开场。`
     }
     
+    // 如果间隔已经是「小时级」或者「天级」，这次聊天要当成一轮新的对话：
+    if (timeSinceLastMessage.includes('小时') || timeSinceLastMessage.includes('天')) {
+      hint += `
+长时间没聊天以后，你不能假装你们还在"刚刚那句"的当场对话里。之前几小时/几天前说过的话，只能当成"以前吵过/聊过/开过的玩笑"来偶尔提起，不能说"刚刚还在说你有病"、"你一直在说xxx"这种好像你们聊天从没断过的句式。`
+    }
+    
     return hint
   })()
 
@@ -664,9 +670,10 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     const lastRecord = todayRecords[todayRecords.length - 1]
     scheduleHint = `\n📅 你今天的生活记录：${recentRecords}
 
-💡 更新状态格式：[状态:位置|行程:场景]
-- 状态 = 你在哪（简略）
-- 行程 = 动作+环境+心情
+💡 更新状态格式：[状态:在哪|行程:场景]
+- 「在哪」= 你现在所在的地方（在家/在公司/在咖啡店）
+- 「行程」= 动作+环境+心情
+- ⚠️ 这是「状态」指令，不要和「位置」指令搞混！
 - 即使对方没问，只要你的生活有了明显变化，也可以顺手发一条状态来记录此刻。
 
 ⚠️ 重要：状态要有进展！
@@ -676,9 +683,10 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 - 生活是流动的，不是定格在一个画面`
   } else {
     // 没有记录时，提醒AI表现出自己的生活
-    scheduleHint = `\n💡 你是有自己生活的人。用 [状态:位置|行程:场景] 记录。
-- 状态 = 你在哪（简略）
-- 行程 = 动作+环境+心情
+    scheduleHint = `\n💡 你是有自己生活的人。用 [状态:在哪|行程:场景] 记录。
+- 「在哪」= 你现在所在的地方（在家/在公司/在咖啡店）
+- 「行程」= 动作+环境+心情
+- ⚠️ 这是「状态」指令，不要和「位置」指令搞混！
 - 不用等对方特地来问，只要你觉得"这一刻值得记一下"，就可以主动发一条状态。
 
 ⚠️ 状态要有进展，不要一直重复同一个场景！
@@ -826,11 +834,11 @@ ${await buildUnifiedMemoryContext(character.id, userNickname)}
 - 你现在的状态：${statusText}${scheduleHint}
 ${forceUpdateStatus ? `
 ⚠️ 【强制状态修正】：必须更新状态，当前状态已不符合实际时间。
-- 现在是${timeOfDay}${hour}点，用 [状态:简略位置|行程:详细场景] 更新。
+- 现在是${timeOfDay}${hour}点，用 [状态:在哪|行程:详细场景] 更新。
 - 必须在回复的第一句话就更新，不要拖到后面。` : statusExpired ? `
-你的状态已过期（超过6小时没更新）。用 [状态:简略位置|行程:详细场景] 更新。
+你的状态已过期（超过6小时没更新）。用 [状态:在哪|行程:详细场景] 更新。
 行程要写清楚：你在做什么 + 周围环境 + 心情想法。` : `- 距离上次对方发消息大概过去：${timeSinceLastMessage || '（刚刚）'}
-${timeSinceLastMessage && (timeSinceLastMessage.includes('小时') || timeSinceLastMessage.includes('天')) ? `这中间过了一段时间，可以先用 [状态:位置|行程:场景] 更新你现在的状态。` : ''}`}
+${timeSinceLastMessage && (timeSinceLastMessage.includes('小时') || timeSinceLastMessage.includes('天')) ? `这中间过了一段时间，可以先用 [状态:在哪|行程:场景] 更新你现在的状态。` : ''}`}
 
 - 更新状态时要让前后是连贯的：如果上一条状态你还在外面（公司/地铁/外出），现在不要瞬间就"已经到家"，可以写出中间发生了什么，或者用一个模糊但合理的状态。
 ${lastGapHint || ''}
@@ -862,9 +870,10 @@ ${emojiListPrompt}
 
 你可以用的基本指令（用户看不到中括号，只看到效果）：
 
-- 状态：[状态:简略位置|行程:详细场景]
+- 状态：[状态:在哪|行程:详细场景]
   什么时候用：当你的状态变了，想记录你在做什么时，不需要等对方先问你在干嘛。
-  状态=简略位置，行程=动作+环境+心情。
+  「在哪」=你现在所在的地方（在家/在公司/在咖啡店），「行程」=动作+环境+心情。
+  ⚠️ 这是「状态」指令，不要和「位置」指令搞混！位置是发地图分享。
   例：[状态:在家|行程:窝在床上刷手机，外面在下雨有点困]
 
 - 修改资料：[网名:新网名]、[个性签名:新签名]
