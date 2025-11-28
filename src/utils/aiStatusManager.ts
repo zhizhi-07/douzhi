@@ -182,20 +182,43 @@ export function extractStatusFromReply(reply: string, characterId: string): AISt
   
   if (!match) return null
   
-  let statusText = match[1].trim()
+  const fullContent = match[1].trim()
   
-  // 🔥 如果包含 |行程:，只提取状态部分
-  const pipeIndex = statusText.indexOf('|行程')
-  if (pipeIndex > 0) {
-    statusText = statusText.substring(0, pipeIndex).trim()
+  // 🔥 解析格式：[状态:在哪|行程:详细场景]
+  let location = ''   // 简略位置（绿色点后面）
+  let action = ''     // 完整行程（"正在做什么"）
+  
+  // 检查是否有行程部分
+  const pipeMatch = fullContent.match(/^(.+?)\|行程[:：](.+)$/)
+  if (pipeMatch) {
+    location = pipeMatch[1].trim()  // 在哪（如"在家"）
+    action = pipeMatch[2].trim()    // 详细行程
+  } else {
+    // 🔥 AI 没按格式写，尝试智能提取位置
+    // 常见位置关键词
+    const locationKeywords = ['在家', '家里', '公司', '学校', '图书馆', '咖啡厅', '咖啡店', 
+      '地铁', '公交', '车上', '床上', '沙发', '书桌', '餐厅', '超市', '商场', '医院',
+      '公园', '健身房', '办公室', '宿舍', '厨房', '卫生间', '阳台', '客厅', '卧室']
+    
+    // 尝试从内容开头提取位置
+    let foundLocation = ''
+    for (const kw of locationKeywords) {
+      if (fullContent.includes(kw)) {
+        foundLocation = kw
+        break
+      }
+    }
+    
+    location = foundLocation || '未知'  // 找不到就显示"未知"
+    action = fullContent                 // 整个内容作为行程
   }
   
   const currentStatus = getAIStatus(characterId)
   
   return {
     characterId,
-    action: statusText,
-    location: currentStatus?.location,
+    action,      // 完整行程描述
+    location,    // 简略位置
     outfit: currentStatus?.outfit,
     mood: currentStatus?.mood,
     updatedAt: Date.now()

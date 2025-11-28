@@ -146,9 +146,7 @@ ${mentionedPublicFigures.map(pf => {
   const publicFigureCharacters = aiCharacterInfos.filter(a => a.isPublicFigure)
   const normalCharacters = aiCharacterInfos.filter(a => !a.isPublicFigure)
   
-  // 🔥 人设基本不截断（2000字足够了），聊天记录适当限制
-  const truncatePersonality = (p: string, maxLen = 2000) => 
-    p.length > maxLen ? p.substring(0, maxLen) + '...' : p
+  // 🔥 聊天记录适当限制，人设完整读取
   const truncateChat = (c: string, maxLines = 5) => 
     c ? c.split('\n').slice(-maxLines).join('\n') : ''
   
@@ -159,7 +157,7 @@ ${publicFigureCharacters.length > 0 ? `### 公众人物（NPC网友可能会讨�
 ${publicFigureCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**【公众人物】`
     if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
-    if (a.personality) info += `\n- 人设：${truncatePersonality(a.personality)}`
+    if (a.personality) info += `\n- 人设：${a.personality}`
     if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
     return info
   }).join('\n\n')}
@@ -168,7 +166,7 @@ ${publicFigureCharacters.slice(0, 5).map(a => {
 ${normalCharacters.length > 0 ? `### 普通AI角色（按自己的语气评论）
 ${normalCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**`
-    if (a.personality) info += `\n- 人设：${truncatePersonality(a.personality)}`
+    if (a.personality) info += `\n- 人设：${a.personality}`
     if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
     return info
   }).join('\n\n')}

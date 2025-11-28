@@ -1769,15 +1769,19 @@ export const statusHandler: CommandHandler = {
       console.log(`📅 [AI行程] 详细行程: ${scheduleText}`)
     }
 
-    // 使用新的状态管理器（保存简略状态）
-    const fakeMatch = `[状态:${statusText}]`
+    // 使用新的状态管理器（保存完整状态）
+    const fakeMatch = scheduleText 
+      ? `[状态:${statusText}|行程:${scheduleText}]`  // 完整格式
+      : `[状态:${statusText}]`                        // 只有位置
     const statusUpdate = extractStatusFromReply(fakeMatch, character.id)
     if (statusUpdate) {
       setAIStatus(statusUpdate)
       console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
       
-      // 🔥 记录到行程历史（如果有详细行程就用详细的，否则用状态）
-      const recordContent = scheduleText || statusText
+      // 🔥 记录到行程历史（保存完整的「位置 + 行程」）
+      const recordContent = scheduleText 
+        ? `${statusText} - ${scheduleText}`  // 有行程时：在家 - 窝在沙发上刷手机
+        : statusText                          // 没有行程时：就用状态
       saveStatusToSchedule(character.id, recordContent)
       console.log(`📅 [AI行程] 已记录到行程历史: ${recordContent}`)
       

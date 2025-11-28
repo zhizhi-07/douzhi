@@ -69,17 +69,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
               </div>
             </div>
 
-            {/* 地点 */}
-            {status.location && (
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-                <span className="text-2xl flex-shrink-0">📍</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-1">所在位置</p>
-                  <p className="text-sm text-gray-900 font-medium break-words">{status.location}</p>
-                </div>
-              </div>
-            )}
-
+            
             {/* 服装 */}
             {status.outfit && (
               <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">

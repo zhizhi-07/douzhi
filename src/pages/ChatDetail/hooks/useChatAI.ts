@@ -16,8 +16,10 @@ import {
   createMessage,
   getRecentMessages,
   parseAIMessages,
-  convertToApiMessages
+  convertToApiMessages,
+  StatusRecord
 } from '../../../utils/messageUtils'
+import { getScheduleHistory } from '../../../utils/aiScheduleHistory'
 import { loadMessages, addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
@@ -449,7 +451,10 @@ export const useChatAI = (
         }
       }
       
-      let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory)
+      // 🔥 获取今天的状态/行程记录，注入到消息流中
+      const statusRecords: StatusRecord[] = character ? getScheduleHistory(character.id) : []
+      
+      let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory, true, statusRecords)
       
       // 🔥 详细日志：显示AI实际读取的所有消息
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')

@@ -39,25 +39,30 @@ export const getMessageLimitSetting = (chatId: string): number => {
 let messageIdCounter = 0
 
 /**
- * 格式化消息时间戳（用于让AI感知时间）
- * 例如：[11月26日 14:32]
+ * 格式化消息时间戳
+ * 使用圆括号+“发于”前缀，让AI知道这是元数据而不是消息内容
  */
-const formatMessageTimestamp = (timestamp?: number): string => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
+export function formatMessageTimestamp(timestamp: number): string {
   const now = new Date()
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  const msgDate = new Date(timestamp)
   
-  // 今天的消息只显示时间
-  if (diffDays === 0) {
-    return `[今天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}]`
+  const timeStr = msgDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  
+  // 判断是今天、昨天还是更早
+  const isToday = msgDate.toDateString() === now.toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday = msgDate.toDateString() === yesterday.toDateString()
+  
+  // 使用圆括号+“发于”前缀，AI不容易模仿这种格式
+  if (isToday) {
+    return `(发于今天${timeStr})`
+  } else if (isYesterday) {
+    return `(发于昨天${timeStr})`
+  } else {
+    const dateStr = msgDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+    return `(发于${dateStr} ${timeStr})`
   }
-  // 昨天的消息
-  if (diffDays === 1) {
-    return `[昨天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}]`
-  }
-  // 更早的消息显示完整日期
-  return `[${date.getMonth() + 1}月${date.getDate()}日 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}]`
 }
 
 /**
@@ -104,12 +109,27 @@ export const createSystemMessage = (content: string): Message => {
 }
 
 /**
+ * 状态记录类型（用于注入行程历史）
+ */
+export interface StatusRecord {
+  time: string      // '09:30'
+  action: string    // '在图书馆自习'
+  timestamp: number
+}
+
+/**
  * 转换消息为API格式
  * @param messages 消息列表
  * @param hideTheatreHistory 是否隐藏小剧场历史（开启后AI看不到卡片）
  * @param addTimestamps 是否给每条消息添加时间戳（帮助AI感知时间）
+ * @param statusRecords 状态/行程记录，会按时间戳插入到消息流中
  */
-export const convertToApiMessages = (messages: Message[], hideTheatreHistory: boolean = false, addTimestamps: boolean = true): ChatMessage[] => {
+export const convertToApiMessages = (
+  messages: Message[], 
+  hideTheatreHistory: boolean = false, 
+  addTimestamps: boolean = true,
+  statusRecords: StatusRecord[] = []
+): ChatMessage[] => {
   const result = messages
     .filter(msg => {
       // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
@@ -508,6 +528,27 @@ export const convertToApiMessages = (messages: Message[], hideTheatreHistory: bo
     }
   } catch (e) {
     // 忽略错误
+  }
+  
+  // 🔥 注入状态/行程记录到消息流中
+  if (statusRecords.length > 0) {
+    // 把状态记录转换为系统消息格式，带上时间戳
+    const statusMessages: ChatMessage[] = statusRecords.map(record => {
+      const timeStr = addTimestamps ? formatMessageTimestamp(record.timestamp) + ' ' : ''
+      return {
+        role: 'system' as const,
+        content: `${timeStr}[你更新了状态] ${record.action}`
+      }
+    })
+    
+    // 🔥 按时间顺序合并：把状态消息插入到消息流的正确位置
+    // 由于result里的消息已经失去了timestamp，我们需要一种方式来排序
+    // 简单方案：把状态消息追加到最后（因为它们通常是最近的）
+    // 更好的方案：在消息转换前就合并，但这需要大改
+    // 目前先追加到消息末尾，效果已经比放在系统提示词里好
+    result.push(...statusMessages)
+    
+    console.log('📅 [messageUtils] 注入状态记录:', statusRecords.length, '条')
   }
   
   return result

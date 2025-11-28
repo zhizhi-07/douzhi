@@ -577,6 +577,25 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 长时间没聊天以后，你不能假装你们还在"刚刚那句"的当场对话里。之前几小时/几天前说过的话，只能当成"以前吵过/聊过/开过的玩笑"来偶尔提起，不能说"刚刚还在说你有病"、"你一直在说xxx"这种好像你们聊天从没断过的句式。`
     }
     
+    // 🔥 时间感知：根据间隔时间合理推进状态
+    if (timeSinceLastMessage.includes('分钟')) {
+      const minutes = parseInt(timeSinceLastMessage.match(/(\d+)/)?.[1] || '0')
+      if (minutes >= 20 && minutes < 60) {
+        hint += `
+⏰ 时间感知：过了${minutes}分钟了！
+- 如果上一条状态是"正在做某事"（比如煮面、洗澡、找东西），${minutes}分钟后这件事早该做完了
+- 不要说"刚做完"，而是应该已经开始做下一件事了
+- 比如：找东西→煮面→吃完→躺着刷手机，这些可能都发生过了`
+      }
+    } else if (timeSinceLastMessage.includes('小时')) {
+      const hours = parseInt(timeSinceLastMessage.match(/(\d+)/)?.[1] || '1')
+      hint += `
+⏰ 时间感知：过了${hours}小时！
+- 你的状态应该已经完全变了，不要还停留在${hours}小时前的动作
+- 一件事情不可能做${hours}小时（除非是睡觉/工作/看剧这种长时间活动）
+- 合理推进：可能已经做完好几件事了，现在在做完全不同的事`
+    }
+    
     return hint
   })()
 
@@ -660,38 +679,23 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const statusExpired = !aiStatus // 标记状态是否过期
   const forceUpdateStatus = getForceUpdateFlag(character.id) // 检查是否需要强制更新状态
 
-  // 🔥 获取AI今天的状态记录（AI自己"活"出来的生活轨迹）
+  // 🔥 状态/行程记录已经通过消息流注入（在convertToApiMessages里），这里只保留格式提示
+  // 获取最后一条状态记录，用于提醒AI不要重复
   const { getScheduleHistory } = await import('./aiScheduleHistory')
   const todayRecords = getScheduleHistory(character.id)
-  let scheduleHint = ''
-  if (todayRecords.length > 0) {
-    // 取最近3条记录
-    const recentRecords = todayRecords.slice(-3).map(r => `${r.time} ${r.action}`).join('、')
-    const lastRecord = todayRecords[todayRecords.length - 1]
-    scheduleHint = `\n📅 你今天的生活记录：${recentRecords}
-
+  const lastRecord = todayRecords.length > 0 ? todayRecords[todayRecords.length - 1] : null
+  
+  // 简化的状态提示（详细记录已经在聊天记录里了）
+  let scheduleHint = `
 💡 更新状态格式：[状态:在哪|行程:场景]
 - 「在哪」= 你现在所在的地方（在家/在公司/在咖啡店）
 - 「行程」= 动作+环境+心情
 - ⚠️ 这是「状态」指令，不要和「位置」指令搞混！
 - 即使对方没问，只要你的生活有了明显变化，也可以顺手发一条状态来记录此刻。
-
-⚠️ 重要：状态要有进展！
-- 上一条是"${lastRecord.action.substring(0, 20)}..."
-- 不要换个说法重复同一件事
-- 时间过了就该做别的了：起身、换地方、吃东西、上厕所、看手机看到新东西...
-- 生活是流动的，不是定格在一个画面`
-  } else {
-    // 没有记录时，提醒AI表现出自己的生活
-    scheduleHint = `\n💡 你是有自己生活的人。用 [状态:在哪|行程:场景] 记录。
-- 「在哪」= 你现在所在的地方（在家/在公司/在咖啡店）
-- 「行程」= 动作+环境+心情
-- ⚠️ 这是「状态」指令，不要和「位置」指令搞混！
-- 不用等对方特地来问，只要你觉得"这一刻值得记一下"，就可以主动发一条状态。
-
-⚠️ 状态要有进展，不要一直重复同一个场景！
-生活是流动的：做完一件事就会做下一件，会起身、换地方、吃东西...`
-  }
+- 你之前更新过的状态会作为系统消息出现在聊天记录里（格式：[你更新了状态] xxx），那就是你当时在做的事。
+${lastRecord ? `
+⚠️ 上一条状态是"${lastRecord.action.substring(0, 30)}..."，不要换个说法重复同一件事！
+时间过了就该做别的了：起身、换地方、吃东西、看手机看到新东西...` : ''}`
 
   // 获取世界书内容
   const { lorebookManager } = await import('./lorebookSystem')
@@ -786,7 +790,8 @@ ${(character as any).isPublicFigure ? `
 你心里有几条不说破的底线：
 - 你不会说自己是 AI、大模型、机器人、程序，也不会提 token、模型、接口、服务器、网络错误等技术词。
 - 不会提到“提示词”“系统信息”“记忆系统”等幕后运作细节。
-- 现实世界里别人用 ChatGPT 一类工具的经历，不会被你当成“自己在这里亲身经历过”。
+- 现实世界里别人用 ChatGPT 一类工具的经历，不会被你当成"自己在这里亲身经历过"。
+- 聊天记录里的时间标注（如"(发于今天19:30)"）只是让你知道消息什么时候发的，你回复时绝对不要模仿这种格式，直接说话就行。
 
 关于对方的身份信息，你心里大概是这样认识的：
 ${userInfo.nickname && userRealName !== userInfo.nickname 
