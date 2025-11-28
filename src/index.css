@@ -504,6 +504,10 @@ input[type="range"].slider::-moz-range-thumb:active {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* StatusBar - 固定高度 */
 .status-bar {
   height: 44px;
