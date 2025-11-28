@@ -348,6 +348,138 @@ const DataManager = () => {
           </div>
         </div>
 
+        {/* 数据诊断 */}
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 px-1">🔍 数据诊断</h3>
+          
+          {/* 强制恢复聊天记录 */}
+          <button
+            onClick={async () => {
+              try {
+                // 从 localStorage 备份恢复到 IndexedDB
+                let restored = 0
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i)
+                  if (key?.startsWith('msg_backup_')) {
+                    const chatId = key.replace('msg_backup_', '')
+                    const backup = localStorage.getItem(key)
+                    if (backup) {
+                      const parsed = JSON.parse(backup)
+                      if (parsed.messages && parsed.messages.length > 0) {
+                        // 动态导入并保存
+                        const IDB = await import('../utils/indexedDBManager')
+                        await IDB.setItem(IDB.STORES.MESSAGES, chatId, parsed.messages)
+                        restored++
+                        console.log(`✅ 恢复: ${chatId}, ${parsed.messages.length} 条消息`)
+                      }
+                    }
+                  }
+                }
+                
+                if (restored > 0) {
+                  alert(`✅ 已恢复 ${restored} 个聊天的消息！\n\n请刷新页面。`)
+                  window.location.reload()
+                } else {
+                  alert('没有找到可恢复的消息备份')
+                }
+              } catch (e) {
+                alert(`恢复失败: ${e}`)
+              }
+            }}
+            className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95 mb-2 border-2 border-green-300"
+          >
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+              <span>💾</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-green-600">恢复聊天记录</p>
+              <p className="text-xs text-gray-500">从备份恢复所有消息</p>
+            </div>
+          </button>
+          
+          <button
+            onClick={async () => {
+              let report = '📊 数据诊断报告:\n\n'
+              
+              // 检查 DouzhiDB
+              try {
+                const result = await new Promise<string>((resolve) => {
+                  const req = indexedDB.open('DouzhiDB')
+                  req.onsuccess = () => {
+                    const db = req.result
+                    const stores = Array.from(db.objectStoreNames)
+                    let info = `DouzhiDB stores: ${stores.join(', ')}\n`
+                    
+                    let pending = stores.length
+                    if (pending === 0) {
+                      db.close()
+                      resolve(info)
+                      return
+                    }
+                    
+                    stores.forEach(storeName => {
+                      try {
+                        const tx = db.transaction(storeName, 'readonly')
+                        tx.objectStore(storeName).count().onsuccess = (e: any) => {
+                          info += `  - ${storeName}: ${e.target.result} 条\n`
+                          pending--
+                          if (pending === 0) {
+                            db.close()
+                            resolve(info)
+                          }
+                        }
+                      } catch {
+                        pending--
+                        if (pending === 0) {
+                          db.close()
+                          resolve(info)
+                        }
+                      }
+                    })
+                  }
+                  req.onerror = () => resolve('DouzhiDB: 无法打开\n')
+                })
+                report += result
+              } catch (e) {
+                report += `DouzhiDB: 错误 ${e}\n`
+              }
+              
+              // 检查 localStorage
+              report += `\nlocalStorage: ${localStorage.length} 项\n`
+              
+              // 检查消息备份
+              let backupCount = 0
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key?.startsWith('msg_backup_')) backupCount++
+              }
+              report += `消息备份: ${backupCount} 个\n`
+              
+              // 检查角色
+              const chars = localStorage.getItem('characters')
+              if (chars) {
+                try {
+                  const parsed = JSON.parse(chars)
+                  report += `角色(localStorage): ${parsed.length} 个\n`
+                } catch {
+                  report += `角色(localStorage): 解析失败\n`
+                }
+              }
+              
+              alert(report)
+            }}
+            className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <span>🔍</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">检查数据是否存在</p>
+              <p className="text-xs text-gray-500">查看数据库里有什么数据</p>
+            </div>
+          </button>
+        </div>
+
         {/* 说明 */}
         <div className="mt-6 p-4 glass-card rounded-2xl backdrop-blur-md bg-white/60 border border-white/50">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">📋 数据说明</h3>
