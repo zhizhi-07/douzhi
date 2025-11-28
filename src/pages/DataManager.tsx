@@ -356,11 +356,10 @@ const DataManager = () => {
           <button
             onClick={async () => {
               try {
-                const IDB = await import('../utils/indexedDBManager')
-                
-                // 1. 从 localStorage 备份恢复消息到 IndexedDB
+                // 1. 收集所有消息备份
                 let restored = 0
                 const chatIds: string[] = []
+                const messagesData: Record<string, any[]> = {}
                 
                 for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i)
@@ -370,55 +369,73 @@ const DataManager = () => {
                     if (backup) {
                       const parsed = JSON.parse(backup)
                       if (parsed.messages && parsed.messages.length > 0) {
-                        await IDB.setItem(IDB.STORES.MESSAGES, chatId, parsed.messages)
+                        messagesData[chatId] = parsed.messages
                         chatIds.push(chatId)
                         restored++
-                        console.log(`✅ 恢复消息: ${chatId}, ${parsed.messages.length} 条`)
                       }
                     }
                   }
                 }
                 
-                // 2. 恢复聊天列表
-                if (chatIds.length > 0) {
-                  // 获取现有聊天列表
-                  let chatList = await IDB.getItem<any[]>(IDB.STORES.SETTINGS, 'chat_list') || []
-                  const existingIds = new Set(chatList.map((c: any) => c.id))
-                  
-                  // 添加缺失的聊天
-                  for (const chatId of chatIds) {
-                    if (!existingIds.has(chatId)) {
-                      // 尝试从角色数据获取信息
-                      const chars = localStorage.getItem('characters')
-                      let charInfo = null
-                      if (chars) {
-                        try {
-                          const parsed = JSON.parse(chars)
-                          charInfo = parsed.find((c: any) => c.id === chatId)
-                        } catch {}
-                      }
-                      
-                      chatList.push({
-                        id: chatId,
-                        name: charInfo?.realName || charInfo?.nickname || `聊天${chatId.slice(-4)}`,
-                        avatar: charInfo?.avatar || '',
-                        lastMessage: '消息已恢复',
-                        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-                        unread: 0
-                      })
-                      console.log(`✅ 添加聊天列表: ${chatId}`)
-                    }
-                  }
-                  
-                  await IDB.setItem(IDB.STORES.SETTINGS, 'chat_list', chatList)
-                  console.log(`✅ 聊天列表已更新: ${chatList.length} 个`)
-                }
-                
-                if (restored > 0) {
-                  alert(`✅ 已恢复 ${restored} 个聊天！\n\n点击确定后会自动刷新。`)
-                  setTimeout(() => window.location.reload(), 100)
-                } else {
+                if (restored === 0) {
                   alert('没有找到可恢复的消息备份')
+                  return
+                }
+                
+                // 2. 直接用原生 IndexedDB API 保存（版本4）
+                const dbRequest = indexedDB.open('DouzhiDB', 4)
+                
+                dbRequest.onupgradeneeded = (event) => {
+                  const db = (event.target as IDBOpenDBRequest).result
+                  const stores = ['messages', 'moments', 'characters', 'userInfo', 'wallet', 'emojis', 'settings', 'misc', 'dmMessages', 'dmConversations']
+                  stores.forEach(name => {
+                    if (!db.objectStoreNames.contains(name)) {
+                      db.createObjectStore(name)
+                    }
+                  })
+                }
+                
+                dbRequest.onsuccess = async () => {
+                  const db = dbRequest.result
+                  
+                  // 保存消息
+                  for (const chatId of chatIds) {
+                    const tx = db.transaction('messages', 'readwrite')
+                    tx.objectStore('messages').put(messagesData[chatId], chatId)
+                    console.log(`✅ 恢复消息: ${chatId}`)
+                  }
+                  
+                  // 构建聊天列表
+                  const chatList = chatIds.map(chatId => {
+                    const chars = localStorage.getItem('characters')
+                    let charInfo = null
+                    if (chars) {
+                      try {
+                        charInfo = JSON.parse(chars).find((c: any) => c.id === chatId)
+                      } catch {}
+                    }
+                    return {
+                      id: chatId,
+                      characterId: chatId,
+                      name: charInfo?.realName || charInfo?.nickname || `聊天${chatId.slice(-4)}`,
+                      avatar: charInfo?.avatar || '',
+                      lastMessage: '消息已恢复',
+                      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                    }
+                  })
+                  
+                  // 保存聊天列表
+                  const tx2 = db.transaction('settings', 'readwrite')
+                  tx2.objectStore('settings').put(chatList, 'chat_list')
+                  
+                  db.close()
+                  
+                  alert(`✅ 已恢复 ${restored} 个聊天！\n\n点击确定刷新页面。`)
+                  window.location.reload()
+                }
+                
+                dbRequest.onerror = () => {
+                  alert('数据库打开失败，请刷新页面重试')
                 }
               } catch (e) {
                 console.error('恢复失败:', e)
@@ -450,6 +467,17 @@ const DataManager = () => {
                   const text = await file.text()
                   const data = JSON.parse(text)
                   
+                  // 🔥 先清理消息备份腾出空间
+                  const keysToRemove: string[] = []
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i)
+                    if (key?.startsWith('msg_backup_')) {
+                      keysToRemove.push(key)
+                    }
+                  }
+                  keysToRemove.forEach(key => localStorage.removeItem(key))
+                  console.log(`🗑️ 清理了 ${keysToRemove.length} 个消息备份`)
+                  
                   // 恢复角色数据
                   if (data.localStorage?.characters) {
                     localStorage.setItem('characters', data.localStorage.characters)
@@ -462,10 +490,22 @@ const DataManager = () => {
                     console.log('✅ 聊天列表已恢复')
                   }
                   
-                  // 恢复用户信息
+                  // 恢复用户信息（压缩一下）
                   if (data.localStorage?.user_info) {
-                    localStorage.setItem('user_info', data.localStorage.user_info)
-                    console.log('✅ 用户信息已恢复')
+                    try {
+                      const userInfo = JSON.parse(data.localStorage.user_info)
+                      // 只保留必要字段
+                      const essentialInfo = {
+                        nickname: userInfo.nickname,
+                        avatar: userInfo.avatar?.slice(0, 50000), // 限制头像大小
+                        realName: userInfo.realName,
+                        signature: userInfo.signature
+                      }
+                      localStorage.setItem('user_info', JSON.stringify(essentialInfo))
+                      console.log('✅ 用户信息已恢复')
+                    } catch {
+                      console.warn('用户信息恢复失败，跳过')
+                    }
                   }
                   
                   alert('✅ 已从备份文件恢复角色数据！\n\n点击确定刷新页面。')

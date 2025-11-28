@@ -47,18 +47,8 @@ const ChatList = () => {
 
   // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
-    return chatList.filter(chat => {
-      // 如果不是群聊，检查角色是否还存在
-      if (!chat.isGroup) {
-        const character = characterService.getById(chat.characterId)
-        // 如果角色已被删除，过滤掉这个聊天
-        if (!character) {
-          console.log(`🗑️ 过滤已删除角色的聊天: ${chat.name} (${chat.characterId})`)
-          return false
-        }
-      }
-      return true
-    }).map(chat => {
+    // 🔥 不再过滤角色不存在的聊天，防止数据恢复后看不到
+    return chatList.map(chat => {
       // 获取角色最新信息（包括头像）
       const character = characterService.getById(chat.characterId)
       
