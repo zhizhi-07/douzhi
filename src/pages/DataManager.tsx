@@ -436,6 +436,57 @@ const DataManager = () => {
             </div>
           </button>
           
+          {/* 从备份文件恢复角色 */}
+          <button
+            onClick={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = '.备份'
+              input.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (!file) return
+                
+                try {
+                  const text = await file.text()
+                  const data = JSON.parse(text)
+                  
+                  // 恢复角色数据
+                  if (data.localStorage?.characters) {
+                    localStorage.setItem('characters', data.localStorage.characters)
+                    console.log('✅ 角色数据已恢复')
+                  }
+                  
+                  // 恢复聊天列表
+                  if (data.localStorage?.chat_list) {
+                    localStorage.setItem('chat_list', data.localStorage.chat_list)
+                    console.log('✅ 聊天列表已恢复')
+                  }
+                  
+                  // 恢复用户信息
+                  if (data.localStorage?.user_info) {
+                    localStorage.setItem('user_info', data.localStorage.user_info)
+                    console.log('✅ 用户信息已恢复')
+                  }
+                  
+                  alert('✅ 已从备份文件恢复角色数据！\n\n点击确定刷新页面。')
+                  window.location.reload()
+                } catch (e) {
+                  alert(`恢复失败: ${e}`)
+                }
+              }
+              input.click()
+            }}
+            className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95 mb-2 border-2 border-orange-300"
+          >
+            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+              <span>👤</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-orange-600">从备份恢复角色</p>
+              <p className="text-xs text-gray-500">选择备份文件恢复角色数据</p>
+            </div>
+          </button>
+          
           <button
             onClick={async () => {
               let report = '📊 数据诊断报告:\n\n'
