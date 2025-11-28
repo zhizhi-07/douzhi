@@ -8,6 +8,12 @@ interface StatusBarProps {
 const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
   const [currentTime, setCurrentTime] = useState(new Date())
   
+  // 是否显示状态栏
+  const [showStatusBar, setShowStatusBar] = useState(() => {
+    const saved = localStorage.getItem('show_status_bar')
+    return saved !== 'false'
+  })
+  
   // 专注模式设置
   const [focusMode, setFocusMode] = useState(() => {
     const saved = localStorage.getItem('focus_mode')
@@ -32,12 +38,16 @@ const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
     return () => clearInterval(timer)
   }, [])
   
-  // 监听专注模式和时间设置变化
+  // 监听设置变化
   useEffect(() => {
+    const handleStatusBarChange = () => {
+      const saved = localStorage.getItem('show_status_bar')
+      setShowStatusBar(saved !== 'false')
+    }
+    
     const handleFocusModeChange = () => {
       const saved = localStorage.getItem('focus_mode')
       setFocusMode(saved ? JSON.parse(saved) : null)
-      console.log('📡 StatusBar收到专注模式更新:', saved)
     }
     
     const handleTimeSettingChange = () => {
@@ -47,14 +57,15 @@ const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
         showBg: enabled !== 'false',
         color: color || '#22c55e'
       })
-      console.log('📡 StatusBar收到时间设置更新')
     }
     
     // 监听自定义事件
+    window.addEventListener('statusBarChanged', handleStatusBarChange)
     window.addEventListener('focusModeChanged', handleFocusModeChange)
     window.addEventListener('timeSettingChanged', handleTimeSettingChange)
     
     return () => {
+      window.removeEventListener('statusBarChanged', handleStatusBarChange)
       window.removeEventListener('focusModeChanged', handleFocusModeChange)
       window.removeEventListener('timeSettingChanged', handleTimeSettingChange)
     }
@@ -64,6 +75,11 @@ const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
     const hours = date.getHours().toString().padStart(2, '0')
     const minutes = date.getMinutes().toString().padStart(2, '0')
     return `${hours}:${minutes}`
+  }
+
+  // 如果关闭了状态栏，返回空占位（保持高度）
+  if (!showStatusBar) {
+    return <div className="status-bar" />
   }
 
   return (

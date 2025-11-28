@@ -17,6 +17,7 @@ const StatusBarCustomize = () => {
     const newValue = !showStatusBar
     setShowStatusBar(newValue)
     localStorage.setItem('show_status_bar', String(newValue))
+    window.dispatchEvent(new Event('statusBarChanged'))
   }
   
   // 专注模式相关状态
