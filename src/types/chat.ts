@@ -7,6 +7,7 @@ export interface Message {
   type: 'sent' | 'received' | 'system'
   content?: string
   aiReadableContent?: string  // AI读取的内容（如果与用户看到的不同）
+  aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
   messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke'

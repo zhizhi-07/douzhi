@@ -7,8 +7,11 @@ import { useState, useRef } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
+import { characterService } from '../services/characterService'
+import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
+import type { Message } from '../types/chat'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
-import { recognizeUserAvatar, setUserAvatarDescription, hasAvatarChanged } from '../utils/userAvatarManager'
+import { recognizeUserAvatar, setUserAvatarDescription } from '../utils/userAvatarManager'
 
 const UserProfile = () => {
   const navigate = useNavigate()
@@ -79,21 +82,67 @@ const UserProfile = () => {
       trackAvatarChange(finalUserInfo.avatar)
       
       // 🔥 触发AI头像识别（异步，不阻塞导航）
+      // 换头像时强制重新识别，不管之前是否有记录
       const avatarUrl = finalUserInfo.avatar
-      if (hasAvatarChanged(avatarUrl)) {
-        console.log('🔍 检测到头像变更，准备调用AI识别...')
-        recognizeUserAvatar(avatarUrl).then(description => {
-          if (description) {
-            setUserAvatarDescription(description, avatarUrl)
-            console.log('✅ 头像识别完成:', description)
-          }
-        }).catch(error => {
-          console.error('❌ 头像识别失败:', error)
-        })
-      }
+      console.log('🔍 检测到头像变更，准备调用AI识别...')
+      recognizeUserAvatar(avatarUrl).then(description => {
+        if (description) {
+          setUserAvatarDescription(description, avatarUrl)
+          console.log('✅ 头像识别完成:', description)
+        } else {
+          // 🔥 即使识别失败，也更新URL（防止重复尝试）
+          // 但设置一个占位描述
+          setUserAvatarDescription('（头像待识别）', avatarUrl)
+          console.log('⚠️ 头像识别失败，已设置占位描述')
+        }
+      }).catch(error => {
+        console.error('❌ 头像识别失败:', error)
+        // 识别出错也更新URL
+        setUserAvatarDescription('（头像待识别）', avatarUrl)
+      })
     }
     
-    // 移除自动通知AI的功能 - 用户修改个人信息不需要告诉AI
+    // 🔥 给所有AI聊天添加隐藏系统消息（AI能看见，用户看不见）
+    const changes: string[] = []
+    if (nicknameChanged && oldUserInfo.nickname) {
+      changes.push(`用户将网名从"${oldUserInfo.nickname}"改为"${finalUserInfo.nickname}"`)
+    }
+    if (signatureChanged) {
+      if (oldUserInfo.signature && finalUserInfo.signature) {
+        changes.push(`用户将个性签名从"${oldUserInfo.signature}"改为"${finalUserInfo.signature}"`)
+      } else if (finalUserInfo.signature) {
+        changes.push(`用户设置了个性签名："${finalUserInfo.signature}"`)
+      } else if (oldUserInfo.signature) {
+        changes.push(`用户清空了个性签名`)
+      }
+    }
+    if (avatarChanged) {
+      changes.push(`用户换了新头像`)
+    }
+    
+    // 如果有变更，给所有AI聊天添加隐藏消息
+    if (changes.length > 0) {
+      const allCharacters = characterService.getAll()
+      const changeText = changes.join('；')
+      
+      for (const char of allCharacters) {
+        const messages = loadMessages(char.id)
+        const now = Date.now()
+        const aiOnlyMessage: Message = {
+          id: now * 10000 + Math.floor(Math.random() * 10000),
+          type: 'system',
+          content: changeText,
+          aiReadableContent: `【用户信息变更】${changeText}`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: now,
+          messageType: 'system',
+          aiOnly: true  // 🔥 只给AI看，用户界面不显示
+        }
+        messages.push(aiOnlyMessage)
+        saveMessages(char.id, messages)
+        console.log(`📝 已向 ${char.nickname || char.realName} 的聊天添加用户信息变更通知`)
+      }
+    }
     
     navigate(-1)
   }
@@ -206,7 +255,7 @@ const UserProfile = () => {
           </div>
 
           {/* 用户人设 */}
-          <div className="px-4 py-4">
+          <div className="px-4 py-4 border-b border-gray-100">
             <div className="text-gray-500 text-sm mb-3">用户人设</div>
             <textarea
               value={userInfo.persona || ''}
@@ -216,6 +265,37 @@ const UserProfile = () => {
               rows={4}
             />
           </div>
+
+          {/* 公众人物开关 */}
+          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+            <div>
+              <span className="text-gray-500 text-sm">公众人物</span>
+              <div className="text-xs text-gray-400 mt-0.5">开启后，论坛网友会认识你</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={userInfo.isPublicFigure || false}
+                onChange={(e) => setUserInfo({ ...userInfo, isPublicFigure: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+            </label>
+          </div>
+
+          {/* 公众形象（仅公众人物可见） */}
+          {userInfo.isPublicFigure && (
+            <div className="px-4 py-4">
+              <div className="text-gray-500 text-sm mb-3">公众形象/社会印象</div>
+              <textarea
+                value={userInfo.publicPersona || ''}
+                onChange={(e) => setUserInfo({ ...userInfo, publicPersona: e.target.value })}
+                placeholder="描述你在公众面前的形象，比如：知名博主、网红、明星、企业家等。网友在论坛看到你时会根据这个印象来评论..."
+                className="w-full text-gray-900 outline-none resize-none placeholder:text-gray-400"
+                rows={3}
+              />
+            </div>
+          )}
         </div>
 
         {/* 提示信息 */}

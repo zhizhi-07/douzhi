@@ -11,6 +11,7 @@ import { collectCharactersInfo, formatMomentsHistory, formatAIMemory } from './d
 import { buildDirectorPrompt, SYSTEM_PROMPT } from './promptTemplate'
 import { parseDirectorResponse } from './responseParser'
 import { scheduleAction } from './actionScheduler'
+import { getEmojis } from '../emojiStorage'
 
 /**
  * 压缩图片
@@ -223,6 +224,22 @@ export async function aiDirectorArrangeScene(
   
   // 🔥 构建提示词（包含缓存图片描述 + 新图片处理说明）
   let prompt = buildDirectorPrompt(moment, charactersInfo, momentsHistory, aiMemory, publisherPersonality) + cachedImageDescriptions
+  
+  // 🔥 添加表情包列表
+  try {
+    const emojis = await getEmojis()
+    if (emojis.length > 0) {
+      const emojiList = emojis.map(e => `[表情:${e.description}]`).join('、')
+      prompt += `
+
+## 可用表情包
+${emojiList}
+- 在评论或私聊中可以使用 [表情:描述] 格式
+- 不要每条都用，自然随机使用`
+    }
+  } catch (e) {
+    console.error('获取表情包失败:', e)
+  }
   
   // 如果有新图片，添加图片理解说明
   if (compressedImages.length > 0) {

@@ -7,9 +7,9 @@ body {
   background: transparent !important;
 }
 
-/* 强制所有页面容器透明，让全局背景显示（排除论坛和Instagram） */
-.h-screen:not([data-forum]):not([data-instagram]), 
-.h-full:not([data-forum]):not([data-instagram]) {
+/* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram和聊天页面） */
+.h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]), 
+.h-full:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]) {
   background: transparent !important;
 }
 
@@ -160,17 +160,33 @@ input {
   box-sizing: border-box;
 }
 
+html {
+  /* 确保html占满整个屏幕包括安全区域 */
+  height: 100%;
+  width: 100%;
+}
+
 body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #f5f7fa;
   overflow: hidden;
+  /* 确保body占满整个屏幕 */
+  height: 100%;
+  width: 100%;
+  /* 禁用iOS橡皮筋效果 */
+  overscroll-behavior: none;
 }
 
 /* iOS Safari 全屏适配 */
 :root {
   --vh: 1vh;
+  /* iOS安全区域变量 */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
 }
 
 #root {
@@ -490,4 +506,78 @@ input[type="range"].slider::-moz-range-thumb:active {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* iOS安全区域辅助类 */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-all {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* iOS全屏高度 - 考虑安全区域 */
+.h-screen-safe {
+  height: 100vh;
+  height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+/* ============================================
+   🍎 iOS 安全区域全局支持
+   自动为所有页面添加安全区域padding
+   ============================================ */
+
+/* 
+ * h-screen页面自动处理安全区域
+ * - padding-top: 让内容避开顶部刘海
+ * - padding-bottom: 让内容避开底部Home指示器
+ */
+.h-screen {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+}
+
+/* 
+ * 第一个非absolute定位的子元素（通常是顶部栏）向上延伸
+ * 负margin让它进入安全区域，padding让内容保持在刘海下方
+ * 这样顶部栏的背景会延伸到刘海区域
+ * 排除absolute定位的元素（如背景层）
+ */
+.h-screen > *:not(.absolute):not([class*="absolute"]):first-child,
+.h-screen > .relative:first-child {
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* 如果第一个元素是absolute，则处理第二个元素 */
+.h-screen > .absolute + *:not(.absolute),
+.h-screen > [class*="absolute"] + *:not(.absolute) {
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* StatusBar专用样式 - 固定高度44px */
+.status-bar {
+  height: 44px;
+}
+
+/* 固定定位的底部栏需要考虑安全区域 */
+.fixed.bottom-0,
+.sticky.bottom-0 {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 固定定位的顶部栏需要考虑安全区域 */
+.fixed.top-0,
+.sticky.top-0 {
+  padding-top: env(safe-area-inset-top, 0px);
 }

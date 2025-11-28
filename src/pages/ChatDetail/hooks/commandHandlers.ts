@@ -25,6 +25,10 @@ import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpda
 import { generateAvatarForAI } from '../../../utils/imageGenerator'
 import { getUserInfo } from '../../../utils/userUtils'
 import { fillTemplate } from '../../../data/theatreTemplates'
+import { getAllPosts, savePosts, getAllNPCs, saveNPCs } from '../../../utils/forumNPC'
+import { generateRealAIComments } from '../../../utils/forumAIComments'
+import { getAllCharacters } from '../../../utils/characterManager'
+import { saveStatusToSchedule } from '../../../utils/aiScheduleHistory'
 
 /**
  * 指令处理器接口
@@ -930,12 +934,13 @@ export const coupleSpaceInviteHandler: CommandHandler = {
       }
     }
     
-    // 创建情侣空间邀请消息
+    // 创建情侣空间邀请消息（charName 已在上面声明）
     const inviteMsg = createMessageObj('text', {
       content: '',
+      aiReadableContent: `[系统消息] 你（${charName}）向用户发送了情侣空间邀请，等待用户回应。`,
       coupleSpaceInvite: {
         status: 'pending' as const,
-        senderName: character.nickname || character.realName,
+        senderName: charName,
         senderAvatar: character.avatar
       }
     })
@@ -1728,7 +1733,9 @@ export const changeSignatureHandler: CommandHandler = {
 
 /**
  * 状态管理处理器
- * 支持格式：[状态:正在吃火锅] 或 [状态更新:躺在床上]
+ * 支持格式：
+ * - [状态:正在吃火锅] - 只更新状态
+ * - [状态:在图书馆|行程:下午去了图书馆复习考试] - 同时更新状态和详细行程
  */
 export const statusHandler: CommandHandler = {
   pattern: /[\[【]状态(?:更新)?[:\：](.+?)[\]】]/,
@@ -1738,15 +1745,41 @@ export const statusHandler: CommandHandler = {
       return { handled: false }
     }
 
-    const newAction = match[1].trim()
+    const fullContent = match[1].trim()
+    
+    // 解析状态和行程（支持 状态:xxx|行程:xxx 格式）
+    let statusText = fullContent
+    let scheduleText = ''
+    
+    const pipeIndex = fullContent.indexOf('|行程:')
+    if (pipeIndex > 0) {
+      statusText = fullContent.substring(0, pipeIndex).trim()
+      scheduleText = fullContent.substring(pipeIndex + 4).trim() // 跳过 "|行程:"
+    } else {
+      // 兼容旧格式：也检查 |行程： 中文冒号
+      const pipeIndex2 = fullContent.indexOf('|行程：')
+      if (pipeIndex2 > 0) {
+        statusText = fullContent.substring(0, pipeIndex2).trim()
+        scheduleText = fullContent.substring(pipeIndex2 + 4).trim()
+      }
+    }
 
-    console.log(`💫 [AI状态] 更新状态: ${newAction}`)
+    console.log(`💫 [AI状态] 更新状态: ${statusText}`)
+    if (scheduleText) {
+      console.log(`📅 [AI行程] 详细行程: ${scheduleText}`)
+    }
 
-    // 使用新的状态管理器
-    const statusUpdate = extractStatusFromReply(match[0], character.id)
+    // 使用新的状态管理器（保存简略状态）
+    const fakeMatch = `[状态:${statusText}]`
+    const statusUpdate = extractStatusFromReply(fakeMatch, character.id)
     if (statusUpdate) {
       setAIStatus(statusUpdate)
       console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
+      
+      // 🔥 记录到行程历史（如果有详细行程就用详细的，否则用状态）
+      const recordContent = scheduleText || statusText
+      saveStatusToSchedule(character.id, recordContent)
+      console.log(`📅 [AI行程] 已记录到行程历史: ${recordContent}`)
       
       // 如果有强制更新标记，清除它
       if (getForceUpdateFlag(character.id)) {
@@ -2672,6 +2705,200 @@ export const postHandler: CommandHandler = {
 }
 
 /**
+ * AI发布论坛帖子处理器
+ * 格式：[发帖:帖子内容|点赞:数量|粉丝:数量]
+ * 例如：[发帖:今天心情不错～|点赞:128|粉丝:20]
+ * 发布后会自动调用API生成评论
+ */
+export const forumPostHandler: CommandHandler = {
+  pattern: /[\[【](?:发布论坛帖子|发帖|论坛发帖)[:：]([^\]】]+)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    console.log('📋 [AI发布论坛帖子] 处理器被调用')
+    
+    const fullContent = match[1].trim()
+    
+    // 从后往前解析，避免帖子内容中的|干扰
+    // 格式：帖子内容|点赞:数量|粉丝:数量
+    let likes = 0
+    let newFollowers = 0
+    let postContent = fullContent
+    
+    // 先用正则提取点赞和粉丝（从末尾匹配）
+    const likesMatch = fullContent.match(/\|点赞[:：]?\s*(\d+)/)
+    const followersMatch = fullContent.match(/\|粉丝[:：]?\s*(\d+)/)
+    
+    if (likesMatch) {
+      likes = parseInt(likesMatch[1])
+    }
+    if (followersMatch) {
+      newFollowers = parseInt(followersMatch[1])
+    }
+    
+    // 移除末尾的参数部分，剩下的就是帖子内容
+    // 找到第一个 |点赞 或 |粉丝 的位置
+    const paramStart = fullContent.search(/\|(?:点赞|粉丝)[:：]?\s*\d+/)
+    if (paramStart > 0) {
+      postContent = fullContent.substring(0, paramStart).trim()
+    }
+    
+    if (!postContent) {
+      console.warn('⚠️ [AI发布论坛帖子] 帖子内容为空')
+      return { handled: false }
+    }
+    
+    const aiName = character?.nickname || character?.realName || 'AI'
+    console.log(`✅ [AI发布论坛帖子] ${aiName} 发帖:`, postContent)
+    console.log(`   点赞: ${likes}, 新增粉丝: ${newFollowers}`)
+    
+    try {
+      // 获取现有帖子和NPC
+      const currentPosts = getAllPosts()
+      const existingNPCs = getAllNPCs()
+      const baseTimestamp = Date.now()
+      
+      // 创建NPC（如果不存在）
+      const npcId = character?.id || `ai-npc-${baseTimestamp}`
+      const npcAvatar = character?.avatar || '/default-avatar.png'
+      
+      const existingNPC = existingNPCs.find(n => n.id === npcId)
+      if (!existingNPC) {
+        existingNPCs.push({
+          id: npcId,
+          name: aiName,
+          avatar: npcAvatar,
+          bio: character?.publicPersona || character?.personality?.substring(0, 50) || '论坛活跃用户',
+          followers: newFollowers
+        })
+      } else {
+        // 增加粉丝数
+        existingNPC.followers = (existingNPC.followers || 0) + newFollowers
+        console.log(`📈 [AI发布论坛帖子] ${aiName} 粉丝增加 ${newFollowers}，当前: ${existingNPC.followers}`)
+      }
+      saveNPCs(existingNPCs)
+      
+      // 创建帖子
+      const postId = `ai-post-${baseTimestamp}-${Math.random().toString(36).substr(2, 9)}`
+      const newPost = {
+        id: postId,
+        npcId: npcId,
+        content: postContent,
+        images: 0,
+        likes: likes,
+        comments: 0,
+        time: '刚刚',
+        timestamp: baseTimestamp,
+        isLiked: false
+      }
+      
+      currentPosts.unshift(newPost)
+      savePosts(currentPosts)
+      
+      console.log(`✅ [AI发布论坛帖子] 帖子已创建: ${postId}, 点赞: ${likes}`)
+      
+      // 发送帖子卡片给用户看
+      const postMessageId = generateMessageId()
+      const statsText = likes > 0 || newFollowers > 0 
+        ? `\n📊 ${likes > 0 ? `获得${likes}个赞` : ''}${likes > 0 && newFollowers > 0 ? '，' : ''}${newFollowers > 0 ? `涨了${newFollowers}个粉` : ''}`
+        : ''
+      
+      // 格式化帖子内容，让PostCard能正确识别楼主
+      const formattedContent = `楼主（${aiName}）：${postContent}`
+      const postMsg: Message = {
+        id: postMessageId,
+        type: 'received',
+        content: formattedContent + statsText,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'post',
+        post: {
+          content: formattedContent,
+          prompt: `${aiName} 在论坛发布了帖子${statsText}`
+        },
+        // AI读取的简洁版本
+        aiReadableContent: `【论坛发帖】${postContent}${statsText}`
+      }
+      
+      await addMessage(postMsg, setMessages, chatId)
+      
+      // 异步生成评论（不阻塞）
+      setTimeout(async () => {
+        try {
+          console.log(`🚀 [AI发布论坛帖子] 开始生成评论: ${postId}`)
+          const allCharacters = await getAllCharacters()
+          
+          // 获取楼主（AI角色）的历史帖子
+          const authorPosts = getAllPosts()
+            .filter(p => p.npcId === npcId)
+            .slice(0, 10)
+            .map(p => p.content.substring(0, 80))
+          console.log(`📝 楼主历史帖子: ${authorPosts.length}条`)
+          
+          // 获取最近的聊天记录（让AI角色参与评论时有上下文）
+          let chatContext = ''
+          if (chatId) {
+            const { loadMessages } = await import('../../../utils/simpleMessageManager')
+            const recentMessages = loadMessages(chatId).slice(-10)
+            if (recentMessages.length > 0) {
+              chatContext = recentMessages
+                .filter(m => m.content && !m.aiOnly)
+                .map(m => `${m.type === 'sent' ? '用户' : aiName}: ${m.content?.substring(0, 50)}`)
+                .join('\n')
+              console.log(`💬 聊天上下文: ${recentMessages.length}条消息`)
+            }
+          }
+          
+          // 传入帖子作者名称（无论是否公众人物都要告诉评论生成器谁是楼主）
+          await generateRealAIComments(postId, postContent, allCharacters, authorPosts, aiName, chatContext)
+          
+          // 更新帖子评论数
+          const { getPostComments } = await import('../../../utils/forumCommentsDB')
+          const postComments = await getPostComments(postId)
+          
+          const updatedPosts = getAllPosts()
+          const targetPost = updatedPosts.find(p => p.id === postId)
+          if (targetPost) {
+            targetPost.comments = postComments.length
+            savePosts(updatedPosts)
+            console.log(`✅ [AI发布论坛帖子] 评论数: ${postComments.length}`)
+          }
+          
+          // 把评论汇总作为AI可读消息插入（用户界面不显示）
+          if (postComments.length > 0) {
+            // 取前几条热门评论
+            const topComments = postComments.slice(0, 3).map(c => `${c.authorName}：${c.content}`).join('\n')
+            const commentSummary = `【帖子评论】收到${postComments.length}条评论：\n${topComments}${postComments.length > 3 ? '\n...' : ''}`
+            
+            const commentMsgId = generateMessageId()
+            const commentMsg: Message = {
+              id: commentMsgId,
+              type: 'system',
+              content: commentSummary,
+              aiOnly: true,  // 只给AI看，用户界面不显示
+              time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+              timestamp: Date.now()
+            }
+            await addMessage(commentMsg, setMessages, chatId)
+          }
+        } catch (error) {
+          console.error('❌ [AI发布论坛帖子] 生成评论失败:', error)
+        }
+      }, 1000)
+      
+    } catch (error) {
+      console.error('❌ [AI发布论坛帖子] 发帖失败:', error)
+      return { handled: false }
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 小剧场处理器
  * 支持多种格式：
  * 1. [小剧场:模板名|字段1:值1|字段2:值2]
@@ -2884,6 +3111,7 @@ export const commandHandlers: CommandHandler[] = [
   aiOrderFoodHandler,  // AI主动点外卖
   aiRequestPaymentHandler,  // AI请求用户代付
   postHandler,  // AI发送帖子
+  forumPostHandler,  // AI发布论坛帖子（自动生成评论）
   videoCallHandler,
   endCallHandler,
   aiMuteHandler,  // AI静音

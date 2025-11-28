@@ -31,7 +31,7 @@ const InstagramProfile = () => {
     following: 0
   })
   const [showEditProfile, setShowEditProfile] = useState(false)
-  const [userInfo, setUserInfo] = useState(getUserInfo())
+  const [userInfo, setUserInfo] = useState(getUserInfo()) // 微信资料（主用）
   const [userPosts, setUserPosts] = useState<ForumPost[]>([])
 
   useEffect(() => {
@@ -80,10 +80,12 @@ const InstagramProfile = () => {
       setUserPosts(myPosts)
       
       const userData = getUserData()
+      // 获取创建的角色数量作为关注数（角色默认互关）
+      const characters = await getAllCharacters()
       setStats({
-        posts: myPosts.length, // 使用真实的帖子数量
+        posts: myPosts.length,
         followers: userData.followers,
-        following: userData.following
+        following: characters.length // 创建的角色都是互关的
       })
     }
     
@@ -113,7 +115,7 @@ const InstagramProfile = () => {
   }
 
   const handleSaveProfile = () => {
-    // 刷新用户信息
+    // 刷新用户资料
     setUserInfo(getUserInfo())
   }
 
@@ -157,7 +159,7 @@ const InstagramProfile = () => {
           <div className="flex items-start gap-6 mb-4">
             <img
               src={npc?.avatar || character?.avatar || userInfo.avatar || '/default-avatar.png'}
-              alt={npc?.name || character?.nickname || character?.realName || userInfo.nickname || '我'}
+              alt={npc?.name || character?.nickname || character?.realName || userInfo.nickname || userInfo.realName || '我'}
               className="w-20 h-20 rounded-full object-cover ring-1 ring-gray-200"
             />
             

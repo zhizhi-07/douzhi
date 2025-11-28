@@ -71,6 +71,8 @@ import InstagramActivity from './pages/InstagramActivity'
 import InstagramCreate from './pages/InstagramCreate'
 import InstagramPostDetail from './pages/InstagramPostDetail'
 import InstagramDMDetail from './pages/InstagramDMDetail'
+import InstagramSettings from './pages/InstagramSettings'
+import InstagramTopicDetail from './pages/InstagramTopicDetail'
 import Map from './pages/Map'
 import LocationHistory from './pages/LocationHistory'
 import PaymentRequest from './pages/PaymentRequest'
@@ -449,6 +451,8 @@ function App() {
       <Route path="/instagram/create" element={<InstagramCreate />} />
       <Route path="/instagram/post/:postId" element={<InstagramPostDetail />} />
       <Route path="/instagram/dm/:npcId" element={<InstagramDMDetail />} />
+      <Route path="/instagram/settings" element={<InstagramSettings />} />
+      <Route path="/instagram/topic/:topicName" element={<InstagramTopicDetail />} />
       <Route path="/map" element={<Map />} />
       <Route path="/location-history/:characterId" element={<LocationHistory />} />
       <Route path="/chat/:id/payment-request" element={<PaymentRequest />} />

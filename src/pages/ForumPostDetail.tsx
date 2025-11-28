@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import { getPost, getPostComments, createComment, incrementViews } from '../utils/forumManager'
 import type { ForumPost, ForumComment } from '../types/forum'
 
@@ -178,7 +179,7 @@ const ForumPostDetail = () => {
 
                 {/* 评论内容 */}
                 <p className="text-sm text-gray-600 mb-2 leading-relaxed">
-                  {comment.content}
+                  <EmojiContentRenderer content={comment.content} emojiSize={28} />
                 </p>
 
                 {/* 评论互动 */}
@@ -207,7 +208,7 @@ const ForumPostDetail = () => {
                           </div>
                         </div>
                         <p className="text-xs text-gray-600 mb-1 leading-relaxed">
-                          {reply.content}
+                          <EmojiContentRenderer content={reply.content} emojiSize={24} />
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-400">
                           <button className="hover:text-gray-600">点赞 {reply.likes}</button>

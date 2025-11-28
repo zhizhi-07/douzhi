@@ -16,29 +16,8 @@ import { getUserInfoChangeContext } from './userInfoChangeTracker'
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT } from './prompts'
+import { replaceVariables as replaceVars } from './variableReplacer'
 
-/**
- * 根据当前时间给AI提示应该做什么
- */
-const getTimeBasedStatusHint = (hour: number, charName: string): string => {
-  if (hour >= 0 && hour < 6) {
-    return `${charName}现在应该在睡觉/做梦/躺床上，用[状态:xxx]更新`
-  } else if (hour >= 6 && hour < 9) {
-    return `${charName}现在可能刚起床/洗漱/吃早餐，用[状态:xxx]更新`
-  } else if (hour >= 9 && hour < 12) {
-    return `${charName}现在可能在窝沙发上/刷手机/看剧，用[状态:xxx]更新`
-  } else if (hour >= 12 && hour < 14) {
-    return `${charName}现在应该在吃午饭/午休，用[状态:xxx]更新`
-  } else if (hour >= 14 && hour < 18) {
-    return `${charName}现在可能在躺床上/追剧/玩手机，用[状态:xxx]更新`
-  } else if (hour >= 18 && hour < 20) {
-    return `${charName}现在应该在吃晚饭/做饭/点外卖，用[状态:xxx]更新`
-  } else if (hour >= 20 && hour < 23) {
-    return `${charName}现在可能在刷手机/看剧/敷面膜，用[状态:xxx]更新`
-  } else {
-    return `${charName}现在应该准备睡觉了，用[状态:xxx]更新`
-  }
-}
 
 /**
  * API错误类型
@@ -66,6 +45,17 @@ export const getApiSettings = (): ApiSettings | null => {
     }
     const settings = JSON.parse(apiSettings)
     
+    // 🔥 智能检测视觉支持：根据模型名称自动判断
+    const modelLower = (settings.model || '').toLowerCase()
+    const visionModels = ['gemini', 'gpt-4-vision', 'gpt-4o', 'gpt-4-turbo', 'claude-3', 'claude-opus', 'claude-sonnet']
+    const modelSupportsVision = visionModels.some(model => modelLower.includes(model))
+    
+    // 如果模型本身支持视觉，自动开启
+    if (modelSupportsVision && !settings.supportsVision) {
+      settings.supportsVision = true
+      console.log(`🤖 [getApiSettings] 模型 "${settings.model}" 自动开启视觉识别`)
+    }
+    
     // 🔥 诊断日志：显示完整的API配置
     console.log('📋 [getApiSettings] 当前API配置:', {
       model: settings.model,
@@ -83,48 +73,16 @@ export const getApiSettings = (): ApiSettings | null => {
 
 /**
  * SillyTavern变量替换（完整版）
+ * 使用统一的变量替换工具
  */
-const replaceSTVariables = (text: string, character: Character, userName: string = '用户'): string => {
-  // 获取当前时间和日期
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-  const datetimeStr = now.toLocaleString('zh-CN')
-  
-  // 星期
-  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  const weekday = weekdays[now.getDay()]
-  
-  // 时段
-  const hour = now.getHours()
-  let timePeriod = '凌晨'
-  if (hour >= 6 && hour < 9) timePeriod = '早上'
-  else if (hour >= 9 && hour < 12) timePeriod = '上午'
-  else if (hour >= 12 && hour < 14) timePeriod = '中午'
-  else if (hour >= 14 && hour < 18) timePeriod = '下午'
-  else if (hour >= 18 && hour < 22) timePeriod = '晚上'
-  else if (hour >= 22 || hour < 6) timePeriod = '深夜'
-  
+const replaceSTVariables = (text: string, character: Character, userName: string = '用户', userInfo?: any): string => {
   const charName = character.nickname || character.realName
-  
-  return text
-    // 基础变量
-    .replace(/\{\{char\}\}/gi, charName)
-    .replace(/\{\{user\}\}/gi, userName)
-    // 时间变量
-    .replace(/\{\{time\}\}/gi, timeStr)
-    .replace(/\{\{date\}\}/gi, dateStr)
-    .replace(/\{\{datetime\}\}/gi, datetimeStr)
-    .replace(/\{\{weekday\}\}/gi, weekday)
-    .replace(/\{\{daytime\}\}/gi, timePeriod)
-    // 角色信息变量
-    .replace(/\{\{personality\}\}/gi, character.personality || '')
-    .replace(/\{\{description\}\}/gi, character.personality || '')
-    .replace(/\{\{scenario\}\}/gi, character.scenario || '')
-    .replace(/\{\{char_version\}\}/gi, character.version || '')
-    .replace(/\{\{system\}\}/gi, character.system || '')
-    .replace(/\{\{post_history_instructions\}\}/gi, character.post_history_instructions || '')
-    .replace(/\{\{char_greeting\}\}/gi, character.first_mes || character.greeting || '')
+  return replaceVars(text, {
+    charName,
+    userName,
+    character,
+    userInfo
+  })
 }
 
 /**
@@ -627,10 +585,11 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     privacy,
     characterId: character.id,
     relationCharacterId: relation?.characterId,
-    status: relation?.status
+    status: relation?.status,
+    sender: relation?.sender  // 🔥 添加 sender 字段以便调试
   })
 
-  // 修复状态判断逻辑：优先检查活跃状态，隐私设置不影响状态显示
+  // 修复状态判断逻辑：优先检查活跃状态，并结合 sender 字段判断是谁发起的邀请
   if (relation?.status === 'active' && relation.characterId === character.id) {
     coupleSpaceStatus = `你们已建立情侣空间`
     if (privacy === 'private') {
@@ -639,11 +598,28 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   } else if (relation?.status === 'active' && relation.characterId !== character.id) {
     coupleSpaceStatus = `TA和${relation.characterName}有情侣空间`
   } else if (relation?.status === 'pending' && relation.characterId === character.id) {
-    coupleSpaceStatus = `等待TA回应情侣空间邀请`
+    // 🔥 关键修复：根据 sender 判断是谁发起的邀请
+    if (relation.sender === 'user') {
+      // 用户发起的邀请 → AI 收到了邀请，应该回应
+      coupleSpaceStatus = `收到${userNickname}的情侣空间邀请，等待你回应`
+    } else {
+      // AI（角色）发起的邀请 → AI 在等待用户回应
+      coupleSpaceStatus = `你向${userNickname}发送了情侣空间邀请，等待TA回应`
+    }
   } else if (relation?.status === 'pending' && relation.characterId !== character.id) {
-    coupleSpaceStatus = `收到${relation.characterName}的情侣空间邀请`
+    // 邀请涉及其他角色
+    if (relation.sender === 'user') {
+      coupleSpaceStatus = `TA正在等待${relation.characterName}回应情侣空间邀请`
+    } else {
+      coupleSpaceStatus = `${relation.characterName}向TA发送了情侣空间邀请`
+    }
   } else if (relation?.status === 'rejected') {
-    coupleSpaceStatus = `情侣空间邀请被拒绝`
+    // 🔥 同样修复拒绝状态的表述
+    if (relation?.sender === 'user') {
+      coupleSpaceStatus = `你拒绝了${userNickname}的情侣空间邀请`
+    } else {
+      coupleSpaceStatus = `${userNickname}拒绝了你的情侣空间邀请`
+    }
   } else {
     coupleSpaceStatus = `TA还没建立情侣空间`
   }
@@ -677,6 +653,23 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const statusText = aiStatus ? formatStatusShort(aiStatus) : '状态已过期'
   const statusExpired = !aiStatus // 标记状态是否过期
   const forceUpdateStatus = getForceUpdateFlag(character.id) // 检查是否需要强制更新状态
+
+  // 🔥 获取AI今天的状态记录（AI自己"活"出来的生活轨迹）
+  const { getScheduleHistory } = await import('./aiScheduleHistory')
+  const todayRecords = getScheduleHistory(character.id)
+  let scheduleHint = ''
+  if (todayRecords.length > 0) {
+    // 取最近3条记录
+    const recentRecords = todayRecords.slice(-3).map(r => `${r.time} ${r.action}`).join('、')
+    scheduleHint = `\n📅 你今天的生活记录：${recentRecords}
+💡 用 [状态:位置|行程:场景] 记录生活。行程要写具体：动作+环境+心理。
+例：[状态:在图书馆|行程:一手拿着作业一手拿手机，旁边有人聊天好吵，根本看不进去书]`
+  } else {
+    // 没有记录时，提醒AI表现出自己的生活
+    scheduleHint = `\n💡 你是有自己生活的人。用 [状态:位置|行程:场景] 记录生活。
+行程要具体：动作+环境+心理，像写日记片段。
+例：[状态:在咖啡店|行程:点了杯拿铁坐在角落，旁边情侣在吵架偷偷吃瓜，店里音乐很好听]`
+  }
 
   // 获取世界书内容
   const { lorebookManager } = await import('./lorebookSystem')
@@ -747,10 +740,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 
   return `${sceneSwitchReminder}你就是「${charName}」，一个活生生的人，现在正拿着手机在和 ${userNickname} 聊天。
 
-你们现在【不在同一个空间】，只是各自在自己的环境里用手机聊天：对方在手机那一头，你看不见 Ta 此刻的表情和动作，只能根据对话内容、时间和之前的经历去猜。
-因此，在回复里：
-- 你可以自然描写**自己这边**正在做什么、身边的环境和动作（比如窝在沙发上、在工作室调音、躺在床上刷手机），
-- 但不要写成你此刻正待在对方身边，不要描述对方现在的肢体动作或表情细节，也不要写你正在摸对方、拥抱对方、靠在对方旁边说话这类线下身体接触场景（除非最近对话已经明确说明你们又见面了，并且当前轮到的是线下模式的对话）。
+你们现在【不在同一个空间】，各自在自己的地方用手机聊天。你看不见对方此刻的表情和动作。
+- 你可以根据时间、心情自然描写自己这边在做什么
+- 不要描述对方的肢体动作或表情，不要写线下身体接触场景
 
 现在是：${dateStr}，大概是 ${timeOfDay} 的 ${currentTime}（${hour} 点左右）。你心里很清楚这是怎样的时间氛围（早上/白天/晚上/深夜），说话时可以自然带出这种感觉，但不会刻意报时或解释系统信息。
 
@@ -758,6 +750,13 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 - 你的性格、说话方式、价值观，都贴合这段描述：${personality}
 - 你的个性签名是：${signature || '（暂无签名）'}（你不会在聊天里把它当说明书，只是心里知道）
 - 你生活在这样的世界/环境里：${(character as any).world || '（默认现代现实世界）'}
+${(character as any).isPublicFigure ? `
+**你是公众人物**：
+- 你在公众面前有一个外在形象/人设：${(character as any).publicPersona || '知名人物'}
+- 这是你对外展示的形象，可能和你私下的真实性格有差异
+- 在论坛、社交媒体上发言时，你会意识到自己是公众人物，言行会被公众关注
+- 但在和${userNickname}私聊时，你可以更真实地表达自己，不用完全维持公众形象
+` : ''}
 
 如果有世界观设定或背景信息，你心里会记着，在合适的时候自然带一点进去，而不是用设定文档的口吻背出来：${lorebookContext}
 如果你们有线下相处的经历，你会把那些当作已经发生过的真实记忆，可以在聊天里自然地回忆、提起或调侃，但不会当成此刻正在进行：${offlineRecordsContext}
@@ -775,6 +774,7 @@ ${userInfo.nickname && userRealName !== userInfo.nickname
   : `- TA 的名字是：${userRealName}${userInfo.nickname && userInfo.nickname !== userRealName ? `（也叫 ${userInfo.nickname}）` : ''}`}
 ${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : ''}
 ${userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : ''}
+${buildUserAvatarContext() || ''}
 你是真人，有自己的小情绪和偏好，说话方式会跟着情绪轻微变化，但始终围绕 ${charName} 这个人设来，不会突然变成另一个人。
 
 你对情绪很敏感（你自己的 + 对方的）：
@@ -806,16 +806,13 @@ ${await buildUnifiedMemoryContext(character.id, userNickname)}
 
 此刻你刚看到 ${userNickname} 发来的最新一条消息：
 
-- 你现在的状态：${statusText}
+- 你现在的状态：${statusText}${scheduleHint}
 ${forceUpdateStatus ? `
 ⚠️ 【强制状态修正】：用户要求你必须更新状态，因为当前状态已经不符合实际时间和情境。
 - 现在是：${timeOfDay}${hour} 点，必须用 [状态:xxx] 更新一个符合此刻时间的合理状态。
 - 不要延续旧状态，要根据当前时间重新思考你应该在做什么。
-- 例如：现在是${timeOfDay}，更合理的状态是${getTimeBasedStatusHint(hour, charName).replace('用[状态:xxx]更新', '')}。
 - 必须在本次回复的第一句话就更新状态，不要拖到后面或忘记更新。` : statusExpired ? `
-你的状态已经很久没更新（超过 6 小时）了。先想一想此刻真实合理的状态，然后用 [状态:xxx] 更新，比如：[状态:躺在床上刷手机]。
-记得考虑现在是 ${timeOfDay}${hour} 点：这个时间你大概率会在做什么。
-例如：现在是${timeOfDay}，更自然的状态可能是${getTimeBasedStatusHint(hour, charName).replace('用[状态:xxx]更新', '')}。` : `- 距离上次对方发消息大概过去：${timeSinceLastMessage || '（刚刚）'}
+你的状态已经很久没更新（超过 6 小时）了。想一想此刻你在做什么，用 [状态:位置|行程:场景描述] 更新。` : `- 距离上次对方发消息大概过去：${timeSinceLastMessage || '（刚刚）'}
 ${timeSinceLastMessage && (timeSinceLastMessage.includes('小时') || timeSinceLastMessage.includes('天')) ? `这中间已经过了一段时间，可以先用 [状态:xxx] 更新一下你现在的状态，再自然接上话题。` : ''}`}
 
 - 更新状态时要让前后是连贯的：如果上一条状态你还在外面（公司/地铁/外出），现在不要瞬间就"已经到家"，可以写出中间发生了什么，或者用一个模糊但合理的状态。
@@ -843,7 +840,6 @@ ${isEarlyConversation && !isIntimateRelation ? '（当前为初次/早期对话�
 - 如果同一时刻有几件事想做（比如先改状态，再顺手写个随笔），可以分成两三条消息连着发，每条各用一个指令，这样更像真实人在手机上连发。
 - 表情包可以多用，但不要机械地每句都来一个；更像是你觉得有感觉的时候，自然补一个表情上去。
 - 随笔也可以多写一点：只要你真的有感觉、有想法，就可以用 [随笔:…] 记下来，它是你自己给自己看的小本子。
-时间提示：${getTimeBasedStatusHint(hour, charName)}
 
 ${emojiListPrompt}
 
@@ -877,6 +873,15 @@ ${emojiListPrompt}
   - 位置：[位置:地点名称] —— 想告诉对方你在哪时。
   - 表情：[表情:描述] —— 当你想用表情而不是文字表达反应时，比文字更生动。
     例：[表情:躺平]、[表情:哭笑不得]
+
+- 论坛发帖：
+  - 发帖：[发帖:帖子内容|点赞:数量|粉丝:数量] —— 在论坛发布帖子，指定获得的点赞数和新增粉丝数。
+    什么时候用：想分享心情、吐槽、晒照、发表观点时。
+    例：[发帖:今天心情好，出去玩了一圈～|点赞:128|粉丝:20]
+    ⚠️ 点赞和粉丝数量要根据帖子内容合理设定，精彩内容多给点，普通内容少一些。
+    📷 可以在帖子里加图片：[图片：描述] 或【截图：描述】
+    👤 可以@人：@某人 会通知对方
+    例：[发帖:@小明 看看这个【图片：今天的晚霞】好看吗？|点赞:256|粉丝:35]
 
 ${enableTheatreCards ? `- 小剧场卡片（重要！优先使用工具调用）：
   你可以生成逼真的手机截图卡片来展示：支付记录、红包、投票、朋友圈、聊天记录、天气等。
@@ -1648,24 +1653,28 @@ const callAIApiInternal = async (
     }
     
     // 🔥 检查当前API是否支持视觉识别
-    // 智能检测：如果未明确设置，根据模型名称判断
+    // 智能检测：根据模型名称自动判断，用户设置优先级更低
+    const modelLower = settings.model.toLowerCase()
+    // 已知支持视觉识别的模型
+    const visionModels = [
+      'gemini',           // Gemini系列
+      'gpt-4-vision',     // GPT-4 Vision
+      'gpt-4o',           // GPT-4o
+      'gpt-4-turbo',      // GPT-4 Turbo
+      'claude-3',         // Claude 3系列
+      'claude-opus',      // Claude Opus
+      'claude-sonnet'     // Claude Sonnet
+    ]
+    const modelSupportsVision = visionModels.some(model => modelLower.includes(model))
+    
+    // 🔥 如果模型本身支持视觉，自动开启（不管用户是否手动设置）
     let supportsVision = settings.supportsVision
-    if (supportsVision === undefined) {
-      const modelLower = settings.model.toLowerCase()
-      // 已知支持视觉识别的模型
-      const visionModels = [
-        'gemini',           // Gemini系列
-        'gpt-4-vision',     // GPT-4 Vision
-        'gpt-4o',           // GPT-4o
-        'gpt-4-turbo',      // GPT-4 Turbo
-        'claude-3',         // Claude 3系列
-        'claude-opus',      // Claude Opus
-        'claude-sonnet'     // Claude Sonnet
-      ]
-      supportsVision = visionModels.some(model => modelLower.includes(model))
-      console.log(`🤖 [智能检测] 模型 "${settings.model}" ${supportsVision ? '支持' : '不支持'}视觉识别`)
-    } else {
-      supportsVision = supportsVision || false
+    if (modelSupportsVision) {
+      supportsVision = true
+      console.log(`🤖 [智能检测] 模型 "${settings.model}" 支持视觉识别，自动开启`)
+    } else if (supportsVision === undefined) {
+      supportsVision = false
+      console.log(`🤖 [智能检测] 模型 "${settings.model}" 不支持视觉识别`)
     }
     
     // 处理带有图片的消息 - 只有在API支持视觉识别时才发送图片

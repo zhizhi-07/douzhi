@@ -13,6 +13,8 @@ export interface UserInfo {
   avatar?: string  // 头像（图片base64或URL）
   persona?: string  // 用户人设（影响AI对用户的态度）
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
+  isPublicFigure?: boolean  // 是否是公众人物
+  publicPersona?: string  // 公众形象/社会印象（公众人物专用）
 }
 
 /**

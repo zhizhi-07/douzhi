@@ -199,7 +199,8 @@ export async function unlikeMoment(momentId: string, userId: string): Promise<vo
 export async function commentMoment(
   momentId: string,
   user: User,
-  content: string
+  content: string,
+  replyTo?: string  // 回复谁
 ): Promise<void> {
   const moments = loadMoments()
   let updatedMoment: Moment | null = null
@@ -216,7 +217,8 @@ export async function commentMoment(
             userName: user.name,
             userAvatar: user.avatar,
             content,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            replyTo  // 回复谁
           }
         ]
       }

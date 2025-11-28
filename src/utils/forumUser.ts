@@ -1,5 +1,36 @@
 // 论坛用户数据系统
 
+// 论坛用户资料（独立于微信资料）
+export interface ForumUserProfile {
+  nickname: string
+  avatar: string
+  signature: string
+}
+
+const DEFAULT_FORUM_PROFILE: ForumUserProfile = {
+  nickname: '',
+  avatar: '',
+  signature: ''
+}
+
+// 获取论坛用户资料
+export function getForumProfile(): ForumUserProfile {
+  const stored = localStorage.getItem('forum_user_profile')
+  if (stored) {
+    try {
+      return { ...DEFAULT_FORUM_PROFILE, ...JSON.parse(stored) }
+    } catch {
+      return DEFAULT_FORUM_PROFILE
+    }
+  }
+  return DEFAULT_FORUM_PROFILE
+}
+
+// 保存论坛用户资料
+export function saveForumProfile(profile: ForumUserProfile) {
+  localStorage.setItem('forum_user_profile', JSON.stringify(profile))
+}
+
 export interface ForumUserData {
   followers: number      // 粉丝数
   following: number      // 关注数

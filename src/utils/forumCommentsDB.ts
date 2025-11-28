@@ -14,6 +14,7 @@ export interface Comment {
   likes: number
   isLiked: boolean
   replies: Reply[]
+  isPublicFigure?: boolean  // 是否公众人物评论
 }
 
 export interface Reply {
@@ -91,7 +92,16 @@ export async function getPostComments(postId: string): Promise<Comment[]> {
   try {
     const db = await getDB()
     const allComments = await db.getAllFromIndex('comments', 'by-postId', postId)
-    return allComments.sort((a, b) => b.timestamp - a.timestamp)
+    // 排序规则：公众人物评论优先 > 点赞数高的在前 > 最新的在前
+    return allComments.sort((a, b) => {
+      // 公众人物优先
+      if (a.isPublicFigure && !b.isPublicFigure) return -1
+      if (!a.isPublicFigure && b.isPublicFigure) return 1
+      // 点赞数高的在前
+      if (a.likes !== b.likes) return b.likes - a.likes
+      // 时间作为最后排序依据
+      return b.timestamp - a.timestamp
+    })
   } catch (error) {
     console.error('获取帖子评论失败:', error)
     return []
@@ -104,7 +114,9 @@ export async function addComment(
   authorId: string, 
   authorName: string, 
   authorAvatar: string, 
-  content: string
+  content: string,
+  initialLikes?: number,  // 可选的初始点赞数
+  isPublicFigure?: boolean  // 是否公众人物
 ): Promise<Comment> {
   const timestamp = Date.now()
   
@@ -117,9 +129,10 @@ export async function addComment(
     content,
     timestamp,
     time: formatTime(timestamp),
-    likes: 0,
+    likes: initialLikes ?? 0,
     isLiked: false,
-    replies: []
+    replies: [],
+    isPublicFigure: isPublicFigure || false
   }
   
   try {
@@ -140,7 +153,8 @@ export async function addReply(
   authorName: string, 
   authorAvatar: string, 
   content: string,
-  replyTo?: string
+  replyTo?: string,
+  initialLikes?: number  // 可选的初始点赞数
 ): Promise<Reply> {
   const timestamp = Date.now()
   const newReply: Reply = {
@@ -153,7 +167,7 @@ export async function addReply(
     replyTo,
     timestamp,
     time: formatTime(timestamp),
-    likes: 0,
+    likes: initialLikes ?? 0,
     isLiked: false
   }
   

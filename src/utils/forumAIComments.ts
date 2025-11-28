@@ -1,9 +1,14 @@
-// 论坛AI评论生成系统 - 真实调用API（单次调用生成完整评论生态）
+// 论坛AI评论生成系统 - 类似朋友圈导演的统一调配模式
+// NPC网友评论为主（70-80%），AI角色少量参与（20-30%）
 
 import { apiService } from '../services/apiService'
 import type { ApiConfig } from '../services/apiService'
 import { addComment, addReply } from './forumCommentsDB'
 import type { Character } from '../services/characterService'
+import { getEmojis } from './emojiStorage'
+import { replaceVariables } from './variableReplacer'
+import { loadMessages } from './simpleMessageManager'
+import type { Message } from '../types/chat'
 
 interface CommentActor {
   id: string
@@ -11,6 +16,10 @@ interface CommentActor {
   avatar: string
   personality?: string
   signature?: string
+  isPublicFigure?: boolean
+  publicPersona?: string  // 网络人设（如：全网黑、网红等）
+  recentChat?: string  // 🔥 最近聊天记录摘要
+  isAICharacter?: boolean  // 是否是AI角色（有人设的）
 }
 
 export interface GeneratedComment {
@@ -22,16 +31,66 @@ export interface GeneratedComment {
   replyToName?: string
 }
 
-function buildActorsForPrompt(characters: Character[]): CommentActor[] {
+/**
+ * 获取角色的最近聊天记录摘要
+ */
+function getRecentChatSummary(characterId: string, limit: number = 10): string {
+  try {
+    const messages = loadMessages(characterId)
+    if (!messages || messages.length === 0) return ''
+    
+    // 只取最近的文本消息
+    const textMessages = messages
+      .filter((m: Message) => !m.messageType || m.messageType === 'text')
+      .slice(-limit)
+    
+    if (textMessages.length === 0) return ''
+    
+    return textMessages.map((m: Message) => {
+      const sender = m.type === 'sent' ? '用户' : 'AI'
+      return `${sender}: ${m.content?.substring(0, 50) || ''}`
+    }).join('\n')
+  } catch {
+    return ''
+  }
+}
+
+function buildActorsForPrompt(characters: Character[], userName: string = '用户', userInfo?: any): CommentActor[] {
   return characters
-    .filter(c => c && c.id && (c.realName || c.nickname))
-    .map(c => ({
-      id: c.id,
-      name: c.nickname || c.realName,
-      avatar: c.avatar || '/default-avatar.png',
-      personality: c.personality || '',
-      signature: c.signature || ''
-    }))
+    // 过滤掉无效的角色数据（没有名字或名字太短）
+    .filter(c => c && c.id && (c.realName || c.nickname) && 
+      ((c.realName && c.realName.length > 1) || (c.nickname && c.nickname.length > 1)))
+    .map(c => {
+      const charName = c.nickname || c.realName
+      // 🔥 使用统一的变量替换工具，支持所有变量
+      const replacedPersonality = replaceVariables(c.personality || '', {
+        charName,
+        userName,
+        character: c,
+        userInfo
+      })
+      // 🔥 获取最近聊天记录
+      const recentChat = getRecentChatSummary(c.id, 10)
+      
+      return {
+        id: c.id,
+        name: charName,
+        avatar: c.avatar || '/default-avatar.png',
+        personality: replacedPersonality,
+        signature: c.signature || '',
+        isPublicFigure: c.isPublicFigure || false,
+        publicPersona: c.publicPersona || '',
+        recentChat,
+        isAICharacter: true  // 这些都是有人设的AI角色
+      }
+    })
+}
+
+// 公众人物信息
+interface PublicFigureInfo {
+  name: string
+  personality: string
+  publicPersona: string  // 网络人设
 }
 
 // 单次调用：批量生成评论列表
@@ -39,66 +98,164 @@ async function callAIForCommentsBatch(
   actors: CommentActor[],
   postContent: string,
   apiConfig: ApiConfig,
-  userPreviousPosts: string[] = []
+  userPreviousPosts: string[] = [],
+  mentionedPublicFigures: PublicFigureInfo[] = [],
+  mentionedUserInfo: string = '',
+  postAuthorInfo: PublicFigureInfo | null = null,  // 帖子作者（楼主）信息
+  chatContext?: string  // 楼主和用户的聊天记录上下文
 ): Promise<GeneratedComment[]> {
-  // 构造一个清晰、可解析的JSON协议
-  const actorsForPrompt = actors.map(a => ({
-    id: a.id,
-    name: a.name,
-    personality: a.personality,
-    signature: a.signature
-  }))
+  // 只传角色名字，不传人设（人设信息只用于检测公众人物）
+  const actorsForPrompt = actors.map(a => a.name)
 
-  let systemPrompt = `你是社交平台评论区生成器。模拟真实网友评论。
+  // 构建楼主信息
+  const postAuthorPrompt = postAuthorInfo ? `
+**⚠️ 重要：帖子作者（楼主）是「${postAuthorInfo.name}」**
+${postAuthorInfo.publicPersona ? `- 公众形象：${postAuthorInfo.publicPersona}（网友都认识TA）` : ''}
+${postAuthorInfo.personality ? `- 性格人设：${postAuthorInfo.personality}` : ''}
+- 楼主「${postAuthorInfo.name}」发了这个帖子，网友们会围观、评论
+- 楼主「${postAuthorInfo.name}」自己也可能在评论区回复网友
+- **注意：楼主是发帖的人，不是被@的人！楼主的评论语气应该是回应网友，不是被质问**
+- 楼主的评论必须符合TA的性格人设
+${chatContext ? `
+**楼主最近和用户的聊天记录（上下文）：**
+${chatContext}
+- 楼主回复评论时可以参考这些对话内容` : ''}
+` : ''
+
+  // 构建帖子中@的其他公众人物说明
+  const publicFigurePrompt = mentionedPublicFigures.length > 0 ? `
+**帖子中提到的公众人物（网友都认识他们）：**
+${mentionedPublicFigures.map(pf => {
+    const desc = []
+    if (pf.publicPersona) desc.push(`网络形象：${pf.publicPersona}`)
+    if (pf.personality) desc.push(`性格人设：${pf.personality}`)
+    return `- ${pf.name}${desc.length > 0 ? '：' + desc.join('，') : ''}`
+  }).join('\n')}
+
+**公众人物互动规则：**
+- 网友评论时会针对这些公众人物发表看法（支持/反对/调侃/吐槽）
+- 公众人物本人（${mentionedPublicFigures.map(pf => pf.name).join('、')}）也会参与评论，为自己辩解、回应网友、发表观点
+- **重要：公众人物的评论必须完全符合他们的性格人设**
+- 可能形成公众人物和网友之间的对话
+` : ''
+
+  // 🔥 构建AI角色信息（所有有人设的角色都要读，用于扮演语气）
+  const aiCharacterInfos = actors.filter(a => a.isAICharacter && a.personality)
+  
+  // 分开公众人物和普通角色
+  const publicFigureCharacters = aiCharacterInfos.filter(a => a.isPublicFigure)
+  const normalCharacters = aiCharacterInfos.filter(a => !a.isPublicFigure)
+  
+  // 🔥 限制人设长度，避免prompt过长导致API错误
+  const truncatePersonality = (p: string, maxLen = 300) => 
+    p.length > maxLen ? p.substring(0, maxLen) + '...' : p
+  const truncateChat = (c: string, maxLines = 5) => 
+    c ? c.split('\n').slice(-maxLines).join('\n') : ''
+  
+  const aiCharacterPrompt = aiCharacterInfos.length > 0 ? `
+## 🎭 AI角色（都有人设，可能参与评论）
+
+${publicFigureCharacters.length > 0 ? `### 公众人物（NPC网友可能会讨论/cue他们）
+${publicFigureCharacters.slice(0, 5).map(a => {
+    let info = `**${a.name}**【公众人物】`
+    if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
+    if (a.personality) info += `\n- 人设：${truncatePersonality(a.personality)}`
+    if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
+    return info
+  }).join('\n\n')}
+` : ''}
+
+${normalCharacters.length > 0 ? `### 普通AI角色（按自己的语气评论）
+${normalCharacters.slice(0, 5).map(a => {
+    let info = `**${a.name}**`
+    if (a.personality) info += `\n- 人设：${truncatePersonality(a.personality)}`
+    if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
+    return info
+  }).join('\n\n')}
+` : ''}
+
+**AI角色参与规则：**
+- AI角色评论必须符合自己的人设和说话风格
+- 最多1-3个AI角色参与评论
+- 公众人物如果被@或被讨论，必须出来回应
+` : ''
+
+  let systemPrompt = `你是论坛评论区的导演，负责生成真实的评论生态。
+
+## 📋 核心规则
+
+**评论占比（非常重要！）：**
+- 🟢 **NPC网友**：70-80%（随机编造的路人网友）
+- 🟡 **AI角色**：20-30%（只有相关的才评论）
 
 **要求：生成至少40条评论（主楼+回复），越多越好**
-
-**评论者都是普通网友：**
-- 网名风格：2-4个字（小李、阿明、路人甲、网友A、吃瓜群众等）
-- 不要用明星名
+${postAuthorPrompt}
+${aiCharacterPrompt}
+## 👥 NPC网友规则（评论主体）
+- 网名风格：2-4个字（小李、阿明、路人甲、网友A、吃瓜群众、热心市民等）
+- 不要用明星名或AI角色的名字
 - 每个名字只出现一次
+- 评论风格：随意、口语化、简短（5-35字）
+- 可以有不同立场：赞同/反对/吐槽/调侃/问问题/围观/歪楼
 
-**评论风格（真实网友口吻）：**
-- 随意、口语化、简短
-- 赞同/反对/吐槽/调侃/问问题/围观/歪楼
-- 带网络梗、表情、拼音缩写（yyds、绝绝子、笑死、+1等）
-${userPreviousPosts.length > 0 ? '\n**可以引用发帖用户的历史：**\n- 下面会提供用户之前发的帖子内容\n- 评论里可以提到"之前你说xxx"、"上次那个xxx"等\n- 但不要每条都提，自然随机地提几次就行' : ''}
+${userPreviousPosts.length > 0 ? `
+**楼主的历史帖子（网友可以引用）：**
+${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
+- 评论里可以提到"你之前说xxx"、"上次那个帖子xxx"等
+- 但不要每条都提，自然随机地提几次就行` : ''}
+${publicFigurePrompt}
+${mentionedUserInfo}
+## 🏢 公众人物反应规则
+如果帖子涉及公众人物（楼主是公众人物、或@了公众人物）：
+- NPC网友会对公众人物发表看法（支持/反对/调侃/吐槽/爆料/质疑）
+- 公众人物本人可能会下场回应（必须符合人设）
+- 可能形成公众人物和网友的对话
 
-**楼中楼规则：**
+## 📝 楼中楼规则
 - 50%的主楼要有1-4条回复
-- 回复可以回复主楼，也可以回复楼中楼的其他人（形成对话）
+- 回复可以回复主楼，也可以回复楼中楼的其他人（形成对话链）
 - 例如：A发主楼 → B回复A → C回复B → D回复A
 
-**格式：**
-[主楼] 网名：评论内容
-[回复] 网名 -> 被回复网名：回复内容
+## 📄 输出格式（非常重要！）
 
-**示例：**
+**格式规则：**
+- **[主楼]** = 独立评论，不回复任何人
+- **[回复]** = 回复别人的评论，必须带 ->
+
+✅ 正确格式：
 [主楼] 小李：哈哈哈笑死了
-[回复] 阿明 -> 小李：确实
-[回复] 小王 -> 阿明：+1
-[主楼] 路人甲：？？？
-[主楼] 网友A：说得对
-[回复] 吃瓜群众 -> 网友A：同意
-[主楼] 热心市民：有一说一
-[回复] 小张 -> 热心市民：没毛病
-[回复] 老王 -> 小张：哈哈
-[主楼] 匿名用户：yyds
+[回复] 阿明 -> 小李：确实说得对
+[回复] 黄兆宇 -> 唐秋水：你谁啊？
 
-**私聊：**
-- 可能有网友想私聊发帖者，用 [私聊] 网名：内容
+❌ 错误格式（不要这样写）：
+[主楼] 黄兆宇 -> 唐秋水：xxx  ← 这应该是[回复]！
 
-**挂人帖子：**
-- 如果帖子内容有争议或让人不爽，可能有网友发帖挂发帖者
-- 用 [挂人] 网名：帖子内容
-- 挂人帖子内容可以是：质疑、嘲讽、反驳、截图说明、骂人等
-- 挂人帖子也会有评论，但评论由系统另外生成
+**完整示例：**
+[主楼] 小李：哈哈哈笑死了
+[回复] 阿明 -> 小李：确实 @小李 你说得对
+[主楼] 路人甲：@楼主 这也太真实了
+[回复] 吃瓜群众 -> 路人甲：同意
+[主楼] 汁汁：这个我有话说
+[回复] 网友A -> 汁汁：你谁啊
+[回复] 汁汁 -> 网友A：关你什么事
 
-**重要：**
-- 50%主楼有1-4条回复
-- 回复要形成连续对话
-- 评论5-35字
-- 直接输出，不要解释`
+**直接输出评论，不要解释！**`
+
+  // 🔥 添加表情包列表（限制数量避免prompt过长）
+  try {
+    const emojis = await getEmojis()
+    if (emojis.length > 0) {
+      const emojiList = emojis.slice(0, 20).map(e => `[表情:${e.description}]`).join('、')
+      systemPrompt += `
+
+**可用表情包（评论可以使用）：**
+${emojiList}
+- 使用方法：在评论中插入 [表情:描述]，如"哈哈哈[表情:笑死]"
+- 不要每条都用，自然随机使用`
+    }
+  } catch (e) {
+    console.error('获取表情包失败:', e)
+  }
 
   // 获取当前时间
   const now = new Date()
@@ -120,7 +277,8 @@ ${userPreviousPosts.length > 0 ? '\n**可以引用发帖用户的历史：**\n- 
       message: '发帖用户的历史帖子（可以在评论里提到）:',
       posts: userPreviousPosts
     } : undefined,
-    actors: actorsForPrompt
+    // 只传名字列表作为参考，AI主要自己编造评论者名字
+    knownNames: actorsForPrompt.length > 0 ? actorsForPrompt : undefined
   }
 
   // 🔍 打印完整的prompt给用户看
@@ -203,11 +361,36 @@ ${userPreviousPosts.length > 0 ? '\n**可以引用发帖用户的历史：**\n- 
     return newId
   }
 
+  // 🔥 追踪谁发过主楼（用于处理没有指定回复对象的回复）
+  const parseTimeMainCommentMap = new Set<string>()
+  let lastSpeaker = ''
+
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
 
-    // 匹配主楼：[主楼] 名字：评论内容
+    // 🔥 先检查：如果是 [主楼] 但包含 ->，其实是回复（AI格式错误）
+    const mainAsReplyMatch = trimmed.match(/^\[主楼\]\s*(.+?)\s*->\s*(.+?)[:：](.+)$/)
+    if (mainAsReplyMatch) {
+      const name = mainAsReplyMatch[1].trim()
+      const replyToName = mainAsReplyMatch[2].trim()
+      const commentContent = mainAsReplyMatch[3].trim()
+      
+      if (name && commentContent) {
+        results.push({
+          type: 'reply',
+          characterId: getOrCreateId(name),
+          characterName: name,
+          content: commentContent,
+          replyToName
+        })
+        lastSpeaker = name
+        console.log(`⚠️ 修正格式：[主楼] ${name} -> ${replyToName} 应为 [回复]`)
+      }
+      continue
+    }
+
+    // 匹配主楼：[主楼] 名字：评论内容（不带 ->）
     const mainMatch = trimmed.match(/^\[主楼\]\s*(.+?)[:：](.+)$/)
     if (mainMatch) {
       const name = mainMatch[1].trim()
@@ -220,6 +403,9 @@ ${userPreviousPosts.length > 0 ? '\n**可以引用发帖用户的历史：**\n- 
           characterName: name,
           content: commentContent
         })
+        // 记录这个人发过主楼
+        parseTimeMainCommentMap.add(name)
+        lastSpeaker = name
       }
       continue
     }
@@ -239,6 +425,31 @@ ${userPreviousPosts.length > 0 ? '\n**可以引用发帖用户的历史：**\n- 
           content: commentContent,
           replyToName
         })
+        // 记录这个人最后发言
+        lastSpeaker = name
+      }
+      continue
+    }
+
+    // 🔥 匹配没有指定回复对象的回复：[回复] 名字：内容
+    // 这种情况通常是同一个人连续发多条，作为对自己上一条的补充
+    const replyNoTargetMatch = trimmed.match(/^\[回复\]\s*(.+?)[:：](.+)$/)
+    if (replyNoTargetMatch) {
+      const name = replyNoTargetMatch[1].trim()
+      const commentContent = replyNoTargetMatch[2].trim()
+      
+      if (name && commentContent) {
+        // 如果这个人之前发过主楼，就挂在自己的主楼下
+        // 否则挂在上一个发言人的评论下
+        const targetName = parseTimeMainCommentMap.has(name) ? name : (lastSpeaker || '楼主')
+        results.push({
+          type: 'reply',
+          characterId: getOrCreateId(name),
+          characterName: name,
+          content: commentContent,
+          replyToName: targetName
+        })
+        lastSpeaker = name
       }
       continue
     }
@@ -392,19 +603,131 @@ export async function generateRealAIComments(
   postId: string,
   postContent: string,
   characters: Character[],
-  userPreviousPosts: string[] = []
+  userPreviousPosts: string[] = [],
+  postAuthor?: string,  // 帖子作者名称（如果是公众人物）
+  chatContext?: string  // 楼主和用户的聊天记录上下文
 ): Promise<GenerateResult> {
   if (!postId || !postContent) {
     console.error('❌ 帖子ID或内容为空')
     return { dmList: [], roastPosts: [] }
   }
 
-  const actors = buildActorsForPrompt(characters)
+  console.log('\n' + '🔷'.repeat(30))
+  console.log('🚀 开始生成AI评论')
+  console.log('🔷'.repeat(30))
+  console.log('📄 帖子内容:', postContent.substring(0, 100) + (postContent.length > 100 ? '...' : ''))
+  console.log('👤 传入角色数量:', characters.length)
   
-  if (actors.length === 0) {
-    console.log(`🎨 AI自由发挥模式：将自己编造评论者名字`)
-  } else {
-    console.log(`👥 评论候选：${actors.length} 人`)
+  // 🔥 先获取用户名，用于替换人设中的变量
+  const { getUserInfo } = await import('./userUtils')
+  const userInfo = getUserInfo()
+  const currentUserName = userInfo.nickname || userInfo.realName || '用户'
+  
+  const actors = buildActorsForPrompt(characters, currentUserName, userInfo)
+  
+  // 打印所有角色信息（包含聊天记录状态）
+  if (actors.length > 0) {
+    console.log('📋 AI角色列表（可能参与评论）:')
+    actors.forEach((a, i) => {
+      const chatInfo = a.recentChat ? `有${a.recentChat.split('\n').length}条聊天` : '无聊天'
+      console.log(`  ${i + 1}. ${a.name} | 公众=${a.isPublicFigure ? '是' : '否'} | ${chatInfo} | 人设=${a.personality ? '有' : '无'}`)
+    })
+    
+    // 统计公众人物
+    const publicFigures = actors.filter(a => a.isPublicFigure)
+    if (publicFigures.length > 0) {
+      console.log(`🌟 公众人物：${publicFigures.map(a => a.name).join('、')}`)
+    }
+  }
+  
+  console.log(`👥 AI角色：${actors.length} 人（预计参与20-30%）`)
+  console.log(`🎭 NPC网友：将由AI编造（预计占70-80%）`)
+
+  // 检测帖子作者（楼主）信息
+  let postAuthorInfo: PublicFigureInfo | null = null
+  if (postAuthor) {
+    const authorActor = actors.find(a => a.name === postAuthor)
+    if (authorActor) {
+      postAuthorInfo = {
+        name: authorActor.name,
+        personality: authorActor.personality || '',
+        publicPersona: authorActor.publicPersona || ''
+      }
+      console.log(`📢 楼主: ${postAuthor}${authorActor.isPublicFigure ? ' (公众人物)' : ''}`)
+      console.log(`   性格人设: ${authorActor.personality || '无'}`)
+      if (authorActor.isPublicFigure) {
+        console.log(`   网络形象: ${authorActor.publicPersona || '无'}`)
+      }
+    } else {
+      // 即使找不到角色信息，也要记录楼主名字
+      postAuthorInfo = {
+        name: postAuthor,
+        personality: '',
+        publicPersona: ''
+      }
+      console.log(`📢 楼主: ${postAuthor}`)
+    }
+  }
+
+  // 检测帖子中@的其他公众人物（不包括楼主自己）
+  const mentionedPublicFigures: PublicFigureInfo[] = []
+  for (const actor of actors) {
+    if (actor.isPublicFigure && actor.name !== postAuthor) {
+      // 检查帖子内容是否提到了这个公众人物（@名字 或 直接提到名字）
+      const namePattern = new RegExp(`(@${actor.name}|${actor.name})`, 'i')
+      if (namePattern.test(postContent)) {
+        mentionedPublicFigures.push({
+          name: actor.name,
+          personality: actor.personality || '',
+          publicPersona: actor.publicPersona || ''
+        })
+        console.log(`🌟 帖子@了公众人物: ${actor.name}`)
+        console.log(`   网络形象: ${actor.publicPersona || '无'}`)
+        console.log(`   性格人设: ${actor.personality || '无'}`)
+      }
+    }
+  }
+  
+  if (mentionedPublicFigures.length > 0) {
+    console.log(`🎭 帖子涉及 ${mentionedPublicFigures.length} 个被@的公众人物，他们将参与评论互动`)
+  }
+
+  // 检测帖子中是否@了用户，如果是则读取用户信息
+  let mentionedUserInfo = ''
+  try {
+    const { getAllPosts } = await import('./forumNPC')
+    
+    // 检查帖子是否@了用户（使用前面获取的currentUserName和userInfo）
+    if (postContent.includes(`@${currentUserName}`) || postContent.includes(currentUserName)) {
+      console.log(`👤 帖子@了用户: ${currentUserName}`)
+      
+      // 读取用户最近10条帖子（所有用户都读）
+      const userPosts = getAllPosts().filter(p => p.npcId === 'user').slice(0, 10)
+      const userPostsText = userPosts.length > 0 
+        ? userPosts.map((p, i) => `${i + 1}. ${p.content.substring(0, 80)}`).join('\n') 
+        : '暂无帖子'
+      
+      // 公众人物：额外读取公众形象
+      const publicFigureText = userInfo.isPublicFigure ? `
+**⚠️ 这是公众人物！网友都认识TA：**
+- 公众形象：${userInfo.publicPersona || '知名人物'}
+- 网友评论时会根据这个公众形象来评论（支持/反对/调侃/吐槽）
+- 用户本人（${currentUserName}）也可能在评论区回复
+` : ''
+      
+      mentionedUserInfo = `
+**帖子中@了用户（${currentUserName}）：**
+- 个性签名：${userInfo.signature || '无'}
+- 用户最近发的帖子：
+${userPostsText}
+${publicFigureText}
+- 网友评论时可能会@这个用户，或者提到TA
+`
+      console.log(`   是否公众人物: ${userInfo.isPublicFigure ? '是' : '否'}`)
+      console.log(`   帖子数: ${userPosts.length}`)
+    }
+  } catch (e) {
+    // 忽略错误
   }
 
   // 获取当前API配置
@@ -420,7 +743,7 @@ export async function generateRealAIComments(
   let generated: GeneratedComment[] = []
 
   try {
-    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts)
+    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo, chatContext)
     console.log(`📝 批量生成评论 ${generated.length} 条`)
   } catch (error) {
     console.error('❌ 批量AI评论生成失败，使用本地模板降级：', error)
@@ -437,6 +760,23 @@ export async function generateRealAIComments(
   for (const actor of actors) {
     actorMap.set(actor.id, actor)
   }
+  
+  // 建立名字到actor的映射（用于匹配公众人物本人）
+  const nameToActor = new Map<string, CommentActor>()
+  for (const actor of actors) {
+    nameToActor.set(actor.name, actor)
+  }
+  // 同时用原始角色的nickname和realName建立映射
+  // 注意：需要根据名字匹配，而不是索引（因为actors是过滤后的）
+  for (const char of characters) {
+    if (!char) continue
+    // 找到对应的actor（通过名字匹配）
+    const actor = actors.find(a => a.name === char.nickname || a.name === char.realName)
+    if (actor) {
+      if (char.nickname) nameToActor.set(char.nickname, actor)
+      if (char.realName) nameToActor.set(char.realName, actor)
+    }
+  }
 
   // 建立名字到主楼评论ID的映射（用于楼中楼）
   const nameToMainCommentId = new Map<string, string>()
@@ -448,11 +788,27 @@ export async function generateRealAIComments(
     const content = item.content.trim()
     if (!content) continue
 
-    // 优先从actorMap获取，否则用动态名字
-    const actor = actorMap.get(item.characterId)
+    // 优先通过名字匹配角色（特别是公众人物），使用他们的真实头像
+    const actorByName = nameToActor.get(item.characterName)
+    const actor = actorByName || actorMap.get(item.characterId)
+    // 重要：始终使用AI生成的原始名字，只从角色获取ID和头像
     const authorId = actor?.id || item.characterId
-    const authorName = actor?.name || item.characterName
+    const authorName = item.characterName  // 始终用AI生成的名字！
     const authorAvatar = actor?.avatar || '/default-avatar.png'
+    
+    // 打印匹配情况
+    console.log(`💬 保存评论: "${authorName}" | AI生成名=${item.characterName} | 匹配角色=${actorByName ? actorByName.name : '否'} | 头像=${authorAvatar === '/default-avatar.png' ? '默认' : '有'}`)
+    
+    // 如果是公众人物本人下场，打印日志
+    if (actorByName?.isPublicFigure) {
+      console.log(`  🌟 这是公众人物！头像=${actor?.avatar}`)
+    }
+
+    // 计算随机点赞数：公众人物的评论点赞更多
+    const isPublicFigure = actorByName?.isPublicFigure
+    const baseLikes = isPublicFigure 
+      ? Math.floor(Math.random() * 500) + 100  // 公众人物：100-600
+      : Math.floor(Math.random() * 50) + 5     // 普通网友：5-55
 
     try {
       if (item.type === 'main') {
@@ -462,7 +818,9 @@ export async function generateRealAIComments(
           authorId,
           authorName,
           authorAvatar,
-          content
+          content,
+          baseLikes,
+          isPublicFigure  // 公众人物标记
         )
         // 记录这个人发的主楼ID
         nameToMainCommentId.set(authorName, comment.id)
@@ -480,13 +838,18 @@ export async function generateRealAIComments(
         }
         
         if (targetMainCommentId) {
+          // 楼中楼回复的点赞数较少
+          const replyLikes = isPublicFigure 
+            ? Math.floor(Math.random() * 200) + 50  // 公众人物回复：50-250
+            : Math.floor(Math.random() * 20) + 1    // 普通回复：1-21
           await addReply(
             targetMainCommentId,
             authorId,
             authorName,
             authorAvatar,
             content,
-            item.replyToName
+            item.replyToName,
+            replyLikes
           )
           // 记录这个人参与了这个主楼的讨论
           nameToLastMainComment.set(authorName, targetMainCommentId)
@@ -498,7 +861,8 @@ export async function generateRealAIComments(
             authorId,
             authorName,
             authorAvatar,
-            content
+            content,
+            baseLikes
           )
           nameToMainCommentId.set(authorName, comment.id)
           nameToLastMainComment.set(authorName, comment.id)

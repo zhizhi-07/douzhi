@@ -146,8 +146,21 @@ const AISchedule = () => {
 
         {/* 时间轴列表 */}
         <div className="relative max-w-md mx-auto">
-          {/* 垂直连接线 */}
-          <div className="absolute left-[55px] top-3 bottom-3 w-[1px] bg-[#E8E4DF]"></div>
+          {items.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-5xl mb-4 opacity-30">📝</div>
+              <div className="text-[#8C8C8C] mb-2">暂无行程记录</div>
+              <div className="text-sm text-[#B0B0B0]">
+                TA 还没有更新过状态<br/>
+                聊天时 TA 会用 [状态:xxx] 记录生活
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* 垂直连接线 */}
+              <div className="absolute left-[55px] top-3 bottom-3 w-[1px] bg-[#E8E4DF]"></div>
+            </>
+          )}
 
           {items.map((item) => (
             <div key={item.id} className="relative flex mb-10 group last:mb-0">

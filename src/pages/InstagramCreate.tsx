@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Image, Smile, MapPin, UserPlus, Music2, Search } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
 import { incrementPosts, incrementFollowers } from '../utils/forumUser'
-import { getAllPosts, savePosts } from '../utils/forumNPC'
+import { getAllPosts, savePosts, getAllNPCs, saveNPCs } from '../utils/forumNPC'
 import { generateRealAIComments } from '../utils/forumAIComments'
 import { getPostComments } from '../utils/forumCommentsDB'
 import { sendDMToUser } from '../utils/instagramDM'
+import { getInstagramSettings } from './InstagramSettings'
+import { getEmojis, type Emoji } from '../utils/emojiStorage'
 import type { Character } from '../services/characterService'
 
 const InstagramCreate = () => {
@@ -17,7 +19,14 @@ const InstagramCreate = () => {
   const [showLocationSearch, setShowLocationSearch] = useState(false)
   const [showUserTag, setShowUserTag] = useState(false)
   const [showMusicSearch, setShowMusicSearch] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojis, setEmojis] = useState<Emoji[]>([])
   const [location, setLocation] = useState('')
+  
+  // 加载表情包
+  useEffect(() => {
+    getEmojis().then(setEmojis).catch(console.error)
+  }, [])
   const [locationSearch, setLocationSearch] = useState('')
   const [taggedUsers, setTaggedUsers] = useState<Character[]>([])
   const [userSearch, setUserSearch] = useState('')
@@ -91,9 +100,10 @@ const InstagramCreate = () => {
           .slice(0, 10)
           .map(p => `[${formatTimeAgo(p.timestamp)}] ${p.content}`)
         
-        // 不传固定NPC，让AI自己编造评论者名字
-        console.log(`🤖 开始生成评论... (AI自由发挥)`)
-        const result = await generateRealAIComments(postId, caption, [], userPosts)
+        // 传入所有角色（包括公众人物），让AI能识别并让公众人物参与评论
+        const allCharacters = await getAllCharacters()
+        console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length})`)
+        const result = await generateRealAIComments(postId, caption, allCharacters, userPosts)
         
         // 更新帖子评论数和随机点赞
         const updatedPosts = getAllPosts()
@@ -123,10 +133,26 @@ const InstagramCreate = () => {
             })
           }
           
-          // 创建挂人帖子（NPC发的帖子）
-          if (result.roastPosts && result.roastPosts.length > 0) {
+          // 创建挂人帖子（NPC发的帖子）- 根据设置决定是否启用
+          const instagramSettings = getInstagramSettings()
+          if (instagramSettings.allowRoastPost && result.roastPosts && result.roastPosts.length > 0) {
             result.roastPosts.forEach((roast, index) => {
               setTimeout(() => {
+                // 先创建NPC记录（如果不存在）
+                const existingNPCs = getAllNPCs()
+                if (!existingNPCs.find(n => n.id === roast.npcId)) {
+                  const newNPC = {
+                    id: roast.npcId,
+                    name: roast.npcName,
+                    avatar: '/default-avatar.png',
+                    bio: '论坛活跃用户',
+                    followers: Math.floor(Math.random() * 500) + 100
+                  }
+                  existingNPCs.push(newNPC)
+                  saveNPCs(existingNPCs)
+                  console.log(`✨ 创建挂人帖NPC: ${roast.npcName}`)
+                }
+                
                 const roastPostId = `roast-${Date.now()}-${index}`
                 const roastPost = {
                   id: roastPostId,
@@ -152,7 +178,8 @@ const InstagramCreate = () => {
                 
                 // 挂人帖子也生成评论（延迟）
                 setTimeout(async () => {
-                  await generateRealAIComments(roastPostId, roast.content, [], [])
+                  const chars = await getAllCharacters()
+                  await generateRealAIComments(roastPostId, roast.content, chars, [])
                   const latestPosts = getAllPosts()
                   const roastP = latestPosts.find(p => p.id === roastPostId)
                   if (roastP) {
@@ -212,7 +239,10 @@ const InstagramCreate = () => {
                 <Image className="w-4 h-4" />
                 {selectedImages > 0 && <span>{selectedImages}</span>}
               </button>
-              <button className="text-gray-400 active:opacity-60">
+              <button 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`active:opacity-60 ${showEmojiPicker ? 'text-blue-500' : 'text-gray-400'}`}
+              >
                 <Smile className="w-5 h-5" />
               </button>
             </div>
@@ -220,6 +250,36 @@ const InstagramCreate = () => {
               {caption.length}/2,200
             </div>
           </div>
+          
+          {/* 表情包选择面板 */}
+          {showEmojiPicker && emojis.length > 0 && (
+            <div className="mt-3 p-2 bg-gray-50 rounded-lg max-h-40 overflow-y-auto">
+              <div className="grid grid-cols-6 gap-2">
+                {emojis.map((emoji) => (
+                  <button
+                    key={emoji.id}
+                    onClick={() => {
+                      setCaption(prev => prev + `[表情:${emoji.description}]`)
+                      setShowEmojiPicker(false)
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded active:scale-95 transition-transform"
+                  >
+                    <img 
+                      src={emoji.url} 
+                      alt={emoji.description}
+                      className="w-10 h-10 object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {showEmojiPicker && emojis.length === 0 && (
+            <div className="mt-3 p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-400">
+              还没有表情包，去聊天页面添加吧
+            </div>
+          )}
         </div>
 
         {/* 添加位置 */}
@@ -330,38 +390,48 @@ const InstagramCreate = () => {
               />
             </div>
             <div className="flex-1 overflow-y-auto">
-              {characters.filter(c => 
-                c.realName.includes(userSearch) || c.nickname?.includes(userSearch)
-              ).map((char) => (
-                <button
-                  key={char.id}
-                  onClick={() => {
-                    if (taggedUsers.find(u => u.id === char.id)) {
-                      setTaggedUsers(taggedUsers.filter(u => u.id !== char.id))
-                    } else {
-                      setTaggedUsers([...taggedUsers, char])
-                    }
-                  }}
-                  className="w-full px-4 py-3 flex items-center gap-3 border-b border-gray-100 active:bg-gray-50"
-                >
-                  <img
-                    src={char.avatar || '/default-avatar.png'}
-                    alt={char.realName}
-                    className="w-11 h-11 rounded-full object-cover"
-                  />
-                  <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold">{char.nickname || char.realName}</div>
-                    <div className="text-xs text-gray-500">{char.realName}</div>
-                  </div>
-                  {taggedUsers.find(u => u.id === char.id) && (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+              {characters.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <UserPlus className="w-12 h-12 mb-2 opacity-50" />
+                  <p className="text-sm">还没有创建角色</p>
+                  <p className="text-xs mt-1">创建角色后可以在这里@他们</p>
+                </div>
+              ) : (
+                characters.filter(c => 
+                  (c.realName || '').includes(userSearch) || (c.nickname || '').includes(userSearch)
+                ).map((char) => (
+                  <button
+                    key={char.id}
+                    onClick={() => {
+                      if (taggedUsers.find(u => u.id === char.id)) {
+                        setTaggedUsers(taggedUsers.filter(u => u.id !== char.id))
+                      } else {
+                        setTaggedUsers([...taggedUsers, char])
+                      }
+                    }}
+                    className="w-full px-4 py-3 flex items-center gap-3 border-b border-gray-100 active:bg-gray-50"
+                  >
+                    <img
+                      src={char.avatar || '/default-avatar.png'}
+                      alt={char.realName || char.nickname || '角色'}
+                      className="w-11 h-11 rounded-full object-cover"
+                    />
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-semibold">{char.nickname || char.realName}</div>
+                      {char.realName && char.nickname && (
+                        <div className="text-xs text-gray-500">{char.realName}</div>
+                      )}
                     </div>
-                  )}
-                </button>
-              ))}
+                    {taggedUsers.find(u => u.id === char.id) && (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>

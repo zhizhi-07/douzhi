@@ -35,7 +35,7 @@ const AIScheduleSelect = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#FDFBF7] text-[#4A4A4A] flex flex-col relative overflow-hidden">
+    <div className="h-screen w-full bg-[#FDFBF7] text-[#4A4A4A] flex flex-col relative overflow-hidden">
       {/* 装饰背景纹理 */}
       <div className="fixed inset-0 opacity-[0.02] pointer-events-none" 
         style={{ 

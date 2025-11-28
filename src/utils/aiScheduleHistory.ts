@@ -121,12 +121,90 @@ export function getTodaySchedule(characterId: string): ScheduleItem[] {
     }
   })
   
-  // 如果没有真实记录，生成默认行程
-  if (realItems.length === 0) {
-    return generateDefaultSchedule(currentHour)
+  // 只返回真实记录，不再生成默认行程
+  return realItems
+}
+
+/**
+ * 🔥 获取AI当前的行程状态（用于聊天提示词）
+ * 返回一句话描述"TA现在在干嘛"
+ */
+export function getCurrentScheduleStatus(characterId: string): {
+  summary: string      // 一句话描述当前状态
+  activity: string     // 当前活动
+  timeSlot: string     // 时间段
+  isDefault: boolean   // 是否是默认生成的
+} | null {
+  const schedule = getTodaySchedule(characterId)
+  if (schedule.length === 0) return null
+  
+  const now = new Date()
+  const currentHour = now.getHours()
+  const currentMinute = now.getMinutes()
+  const currentTotalMinutes = currentHour * 60 + currentMinute
+  
+  // 把行程按时间排序
+  const sortedSchedule = [...schedule].sort((a, b) => {
+    const [aH, aM] = a.time.split(':').map(Number)
+    const [bH, bM] = b.time.split(':').map(Number)
+    return (aH * 60 + aM) - (bH * 60 + bM)
+  })
+  
+  // 找当前时间对应的行程段
+  let currentItem: ScheduleItem | null = null
+  let nextItem: ScheduleItem | null = null
+  
+  for (let i = 0; i < sortedSchedule.length; i++) {
+    const item = sortedSchedule[i]
+    const [h, m] = item.time.split(':').map(Number)
+    const itemMinutes = h * 60 + m
+    
+    if (itemMinutes <= currentTotalMinutes) {
+      currentItem = item
+      nextItem = sortedSchedule[i + 1] || null
+    }
   }
   
-  return realItems
+  // 如果当前时间在第一个行程之前
+  if (!currentItem && sortedSchedule.length > 0) {
+    const first = sortedSchedule[0]
+    return {
+      summary: `还没到${first.time}的"${first.title}"，大概还在睡觉或刚醒`,
+      activity: '睡觉/刚醒',
+      timeSlot: `${first.time}之前`,
+      isDefault: true
+    }
+  }
+  
+  if (!currentItem) return null
+  
+  // 构建描述
+  const timeOfDay = currentHour < 6 ? '凌晨' :
+                    currentHour < 9 ? '早上' :
+                    currentHour < 12 ? '上午' :
+                    currentHour < 14 ? '中午' :
+                    currentHour < 18 ? '下午' :
+                    currentHour < 22 ? '晚上' : '深夜'
+  
+  let summary = `${timeOfDay}${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}，`
+  
+  if (currentItem.isReal) {
+    summary += `正在"${currentItem.title}"`
+  } else {
+    summary += `按日常习惯应该在"${currentItem.title}"`
+  }
+  
+  // 如果有下一个行程，可以提一下
+  if (nextItem) {
+    summary += `，${nextItem.time}之后会去"${nextItem.title}"`
+  }
+  
+  return {
+    summary,
+    activity: currentItem.title,
+    timeSlot: currentItem.time,
+    isDefault: !currentItem.isReal
+  }
 }
 
 /**

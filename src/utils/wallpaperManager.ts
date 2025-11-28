@@ -65,6 +65,18 @@ const WALLPAPER_KEY_PREFIX = 'chat_wallpaper_'
 const WALLPAPER_IMAGE_PREFIX = 'wallpaper_img_'
 
 /**
+ * 检查是否有用户设置的聊天壁纸
+ */
+export function hasChatWallpaper(chatId: string): boolean {
+  try {
+    const saved = localStorage.getItem(WALLPAPER_KEY_PREFIX + chatId)
+    return !!saved
+  } catch {
+    return false
+  }
+}
+
+/**
  * 获取聊天壁纸
  */
 export function getChatWallpaper(chatId: string): Wallpaper {

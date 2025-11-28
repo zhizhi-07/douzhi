@@ -8,6 +8,86 @@ import { getUserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
 
+// 解析帖子内容，把[图片：描述]或【截图：描述】标记转换成图片卡片
+const parsePostContent = (content: string) => {
+  // 同时匹配英文方括号[]和中文方括号【】
+  const imagePattern = /[\[【](图片|照片|截图)[:：]([^\]】]+)[\]】]/g
+  
+  const hasImages = imagePattern.test(content)
+  if (!hasImages) {
+    return <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">{content}</p>
+  }
+  
+  imagePattern.lastIndex = 0
+  
+  const elements: React.ReactNode[] = []
+  const images: { type: string; desc: string }[] = []
+  let lastIndex = 0
+  let match
+  
+  while ((match = imagePattern.exec(content)) !== null) {
+    // 添加图片前的文字
+    if (match.index > lastIndex) {
+      const text = content.slice(lastIndex, match.index)
+      if (text.trim()) {
+        // 如果有累积的图片，先渲染图片
+        if (images.length > 0) {
+          elements.push(
+            <div key={`imgs-${lastIndex}`} className="grid grid-cols-3 gap-1 my-2">
+              {images.map((img, i) => (
+                <div key={i} className="aspect-square bg-gray-100 rounded overflow-hidden p-1.5">
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-xs text-gray-500 text-center leading-tight line-clamp-3">{img.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+          images.length = 0
+        }
+        elements.push(
+          <p key={`text-${lastIndex}`} className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap mb-2">
+            {text}
+          </p>
+        )
+      }
+    }
+    
+    // 累积图片
+    images.push({ type: match[1], desc: match[2] })
+    lastIndex = match.index + match[0].length
+  }
+  
+  // 渲染剩余的图片
+  if (images.length > 0) {
+    elements.push(
+      <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-2">
+        {images.map((img, i) => (
+          <div key={i} className="aspect-square bg-gray-200 rounded-lg overflow-hidden p-2">
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-xs text-gray-700 font-medium text-center leading-tight line-clamp-3">{img.desc}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
+  // 添加剩余的文字
+  if (lastIndex < content.length) {
+    const text = content.slice(lastIndex)
+    if (text.trim()) {
+      elements.push(
+        <p key={`text-${lastIndex}`} className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">
+          {text}
+        </p>
+      )
+    }
+  }
+  
+  return <>{elements}</>
+}
+
 const InstagramHome = () => {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
@@ -53,6 +133,20 @@ const InstagramHome = () => {
   const handleLike = (postId: string) => {
     const updatedPosts = toggleLike(postId)
     setPosts(updatedPosts)
+  }
+
+  // 获取NPC的真实头像（优先从角色获取，解决头像不同步问题）
+  const getRealAvatar = (npcId: string, npcAvatar: string): string => {
+    // 检查是否是角色ID
+    const character = characters.find(c => c.id === npcId)
+    if (character?.avatar) {
+      return character.avatar
+    }
+    // 如果NPC头像是默认的，用名字首字母生成
+    if (!npcAvatar || npcAvatar === '/default-avatar.png') {
+      return '/default-avatar.png'
+    }
+    return npcAvatar
   }
 
   return (
@@ -198,30 +292,30 @@ const InstagramHome = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-4">
                       <button onClick={() => handleLike(post.id)} className="active:scale-110 transition-transform">
-                        <Heart className={`w-6 h-6 ${post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
+                        <Heart className={`w-5 h-5 ${post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
                       </button>
                       <button className="active:opacity-60">
-                        <MessageCircle className="w-6 h-6" />
+                        <MessageCircle className="w-5 h-5" />
                       </button>
                       <button className="active:opacity-60">
-                        <Send className="w-6 h-6" />
+                        <Send className="w-5 h-5" />
                       </button>
                     </div>
                     <button className="active:opacity-60">
-                      <Bookmark className="w-6 h-6" />
+                      <Bookmark className="w-5 h-5" />
                     </button>
                   </div>
 
-                  <div className="text-sm font-semibold mb-2">{post.likes.toLocaleString()} 次赞</div>
+                  <div className="text-base font-semibold mb-2">{post.likes.toLocaleString()} 次赞</div>
                   {post.images > 0 && post.content && (
-                    <div className="text-sm">
+                    <div className="text-base">
                       <span className="font-semibold mr-2">{userInfo.nickname || userInfo.realName || '我'}</span>
                       <span className="text-gray-900">{post.content}</span>
                     </div>
                   )}
                   {post.comments > 0 && (
                     <button 
-                      className="text-sm text-gray-500 mt-2" 
+                      className="text-base text-gray-500 mt-2" 
                       onClick={() => {
                         console.log('👉 准备跳转到评论页:', post.id)
                         navigate(`/instagram/post/${post.id}`)
@@ -243,7 +337,7 @@ const InstagramHome = () => {
           }
           
           return (
-            <div key={post.id} className="mb-4 bg-white">
+            <div key={post.id} className="mb-3 bg-white border-b-8 border-gray-100">
               {/* Post Header */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div 
@@ -251,13 +345,13 @@ const InstagramHome = () => {
                   onClick={() => navigate(`/instagram/user/${npc.id}`)}
                 >
                   <img
-                    src={npc.avatar}
+                    src={getRealAvatar(npc.id, npc.avatar)}
                     alt={npc.name}
                     className="w-8 h-8 rounded-full object-cover"
                   />
                   <div>
-                    <div className="text-sm font-semibold">{npc.name}</div>
-                    <div className="text-xs text-gray-500">{formatTimeAgo(post.timestamp)}</div>
+                    <div className="text-base font-semibold">{npc.name}</div>
+                    <div className="text-sm text-gray-500">{formatTimeAgo(post.timestamp)}</div>
                   </div>
                 </div>
                 <button className="p-2 -m-2 active:opacity-60">
@@ -267,11 +361,9 @@ const InstagramHome = () => {
 
             {/* Post Content - 纯文字或图片 */}
             {post.images === 0 ? (
-              // 纯文字帖子
-              <div className="px-4 py-6">
-                <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">
-                  {post.content}
-                </p>
+              // 纯文字帖子（但可能包含[图片]标记）
+              <div className="px-4 py-4">
+                {parsePostContent(post.content)}
               </div>
             ) : post.images === 1 ? (
               /* 单图 - 最大宽度，自适应高度 */
@@ -371,31 +463,31 @@ const InstagramHome = () => {
                     className="active:scale-110 transition-transform"
                   >
                     <Heart 
-                      className={`w-6 h-6 ${
+                      className={`w-5 h-5 ${
                         post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-900'
                       }`}
                     />
                   </button>
                   <button className="active:opacity-60">
-                    <MessageCircle className="w-6 h-6" />
+                    <MessageCircle className="w-5 h-5" />
                   </button>
                   <button className="active:opacity-60">
-                    <Send className="w-6 h-6" />
+                    <Send className="w-5 h-5" />
                   </button>
                 </div>
                 <button className="active:opacity-60">
-                  <Bookmark className="w-6 h-6" />
+                  <Bookmark className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Likes */}
-              <div className="text-sm font-semibold mb-2">
+              <div className="text-base font-semibold mb-2">
                 {post.likes.toLocaleString()} 次赞
               </div>
 
               {/* Caption - 只在有图片且有文字时显示 */}
               {post.images > 0 && post.content && (
-                <div className="text-sm">
+                <div className="text-base">
                   <span className="font-semibold mr-2">{npc.name}</span>
                   <span className="text-gray-900">{post.content}</span>
                 </div>
@@ -404,7 +496,7 @@ const InstagramHome = () => {
               {/* View Comments */}
               {post.comments > 0 && (
                 <button 
-                  className="text-sm text-gray-500 mt-2"
+                  className="text-base text-gray-500 mt-2"
                   onClick={() => navigate(`/instagram/post/${post.id}`)}
                 >
                   查看全部 {post.comments} 条评论

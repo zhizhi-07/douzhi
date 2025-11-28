@@ -3,9 +3,13 @@
  */
 
 import { useState, useEffect } from 'react'
-import { getChatWallpaper, getWallpaperStyle } from '../../../utils/wallpaperManager'
+import { getChatWallpaper, hasChatWallpaper } from '../../../utils/wallpaperManager'
 
 export const useWallpaper = (chatId: string | undefined) => {
+  // 🔥 是否有用户设置的聊天壁纸（用于决定是否覆盖全局壁纸）
+  const [hasCustomWallpaper, setHasCustomWallpaper] = useState(() =>
+    chatId ? hasChatWallpaper(chatId) : false
+  )
   const [wallpaper, setWallpaper] = useState(() =>
     chatId ? getChatWallpaper(chatId) : null
   )
@@ -16,6 +20,10 @@ export const useWallpaper = (chatId: string | undefined) => {
     if (!chatId) return
     
     const checkWallpaper = async () => {
+      // 🔥 检查是否有用户设置的壁纸
+      const hasWallpaper = hasChatWallpaper(chatId)
+      setHasCustomWallpaper(hasWallpaper)
+      
       const wp = getChatWallpaper(chatId)
       setWallpaper(wp)
       
@@ -50,24 +58,63 @@ export const useWallpaper = (chatId: string | undefined) => {
   }, [chatId])
 
   // 壁纸样式
+  // 🔥 只有用户设置了聊天壁纸时才覆盖全局背景，否则让全局背景透过来
   const wallpaperStyle = (() => {
-    if (!wallpaper) return { backgroundColor: '#f5f7fa' }
+    // 如果没有用户设置的壁纸，返回空样式，让全局壁纸透过来
+    if (!hasCustomWallpaper) {
+      return {}
+    }
     
-    if (wallpaper.type === 'custom' && wallpaperImageUrl) {
-      return {
-        backgroundImage: `url(${wallpaperImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+    // 有用户设置的壁纸，需要覆盖全局背景
+    const baseOverride = {
+      position: 'relative' as const,
+      zIndex: 1,
+      isolation: 'isolate' as const,
+    }
+    
+    const baseStyle = {
+      ...baseOverride,
+      backgroundColor: '#f5f7fa'
+    }
+    
+    if (!wallpaper) return baseStyle
+    
+    // 自定义壁纸（图片）
+    if (wallpaper.type === 'custom') {
+      if (wallpaperImageUrl) {
+        return {
+          ...baseOverride,
+          backgroundImage: `url(${wallpaperImageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }
+      } else {
+        // 图片还在加载中
+        return baseStyle
       }
     }
     
-    return getWallpaperStyle(wallpaper)
+    // 预设壁纸（渐变或纯色）
+    if (wallpaper.type === 'gradient') {
+      return {
+        ...baseOverride,
+        background: wallpaper.value
+      }
+    } else if (wallpaper.type === 'solid') {
+      return {
+        ...baseOverride,
+        backgroundColor: wallpaper.value
+      }
+    }
+    
+    return baseStyle
   })()
 
   return {
     wallpaper,
     wallpaperImageUrl,
-    wallpaperStyle
+    wallpaperStyle,
+    hasCustomWallpaper  // 🔥 返回是否有自定义壁纸
   }
 }

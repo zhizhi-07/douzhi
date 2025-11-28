@@ -446,25 +446,36 @@ const CoupleSpace = () => {
                </div>
             </div>
 
-            {/* 隐私与设置 */}
-            <div className="flex justify-center gap-4 text-white/60 text-xs pb-4">
-              {!isPreviewMode && (
-                <button onClick={handleEndRelation} className="hover:text-white transition-colors">
-                  解除关系
-                </button>
-              )}
-              <button 
-                onClick={() => {
-                   if(isPreviewMode) return;
-                   const newMode = privacyMode === 'public' ? 'private' : 'public'
-                   setCoupleSpacePrivacy(newMode)
-                   setPrivacyMode(newMode)
-                }}
-                className="hover:text-white transition-colors"
-              >
-                {privacyMode === 'public' ? '设置私密' : '设为公开'}
-              </button>
-            </div>
+            {/* 设置区域 - 更明显的布局 */}
+            {!isPreviewMode && (
+              <div className="mx-6 mb-6 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                <div className="text-white/80 text-sm font-medium mb-3 px-1">设置</div>
+                <div className="space-y-2">
+                  {/* 隐私设置 */}
+                  <button 
+                    onClick={() => {
+                      const newMode = privacyMode === 'public' ? 'private' : 'public'
+                      setCoupleSpacePrivacy(newMode)
+                      setPrivacyMode(newMode)
+                    }}
+                    className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors"
+                  >
+                    <span className="text-white/90 text-sm">隐私模式</span>
+                    <span className="text-white/60 text-xs">{privacyMode === 'public' ? '公开' : '私密'}</span>
+                  </button>
+                  {/* 解除关系 - 明显的红色按钮 */}
+                  <button 
+                    onClick={handleEndRelation}
+                    className="w-full flex items-center justify-between p-3 bg-red-500/20 rounded-xl hover:bg-red-500/30 transition-colors border border-red-400/30"
+                  >
+                    <span className="text-red-200 text-sm">解除情侣空间</span>
+                    <svg className="w-4 h-4 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
             
             {/* 强制清除按钮（用于清除缓存残留） */}
             {!isPreviewMode && (

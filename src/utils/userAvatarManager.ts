@@ -21,13 +21,37 @@ export interface UserAvatarHistory {
 const STORAGE_KEY = 'user_avatar_info'
 
 /**
+ * 生成头像指纹（用于快速比较，避免存储完整base64）
+ */
+function getAvatarFingerprint(avatarUrl: string): string {
+  if (!avatarUrl) return ''
+  // 使用前100字符 + 长度 + 后50字符作为指纹
+  const len = avatarUrl.length
+  const prefix = avatarUrl.substring(0, 100)
+  const suffix = avatarUrl.substring(Math.max(0, len - 50))
+  return `${prefix}|${len}|${suffix}`
+}
+
+/**
  * 获取用户头像信息
  */
 export function getUserAvatarInfo(): UserAvatarHistory {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      return JSON.parse(saved)
+      const data = JSON.parse(saved)
+      
+      // 🔥 迁移旧数据：如果avatarUrl太长（超过500字符），说明是旧的完整base64格式
+      // 清除旧数据，让系统重新识别一次
+      if (data.current && data.current.avatarUrl && data.current.avatarUrl.length > 500) {
+        console.log('🔄 [头像数据迁移] 检测到旧格式数据，需要重新识别一次')
+        return {
+          current: null,
+          history: []
+        }
+      }
+      
+      return data
     }
   } catch (error) {
     console.error('读取用户头像信息失败:', error)
@@ -61,14 +85,18 @@ export function setUserAvatarDescription(
   const info = getUserAvatarInfo()
   const now = Date.now()
   
+  // 使用指纹而不是完整URL
+  const fingerprint = getAvatarFingerprint(avatarUrl)
+  
   // 如果是首次识别
   if (!info.current) {
     info.current = {
       description,
       identifiedAt: now,
-      avatarUrl
+      avatarUrl: fingerprint  // 存储指纹
     }
     console.log('✨ 首次识别用户头像:', description)
+    console.log('💾 头像指纹已保存')
   } else {
     // 如果是更新（头像变化）
     info.history.push({
@@ -80,7 +108,7 @@ export function setUserAvatarDescription(
     info.current = {
       description,
       identifiedAt: now,
-      avatarUrl
+      avatarUrl: fingerprint  // 存储指纹
     }
     
     console.log('🔄 用户头像已更新:', {
@@ -98,10 +126,21 @@ export function setUserAvatarDescription(
 export function hasAvatarChanged(currentAvatarUrl: string): boolean {
   const info = getUserAvatarInfo()
   if (!info.current) {
+    console.log('📷 [头像检查] 无记录，需要首次识别')
     return true  // 没有记录，视为首次
   }
   
-  return info.current.avatarUrl !== currentAvatarUrl
+  // 使用指纹比较
+  const currentFingerprint = getAvatarFingerprint(currentAvatarUrl)
+  const changed = info.current.avatarUrl !== currentFingerprint
+  
+  if (changed) {
+    console.log('📷 [头像检查] 头像已变化，需要重新识别')
+  } else {
+    console.log('📷 [头像检查] 头像未变化，无需识别。已识别描述:', info.current.description)
+  }
+  
+  return changed
 }
 
 /**

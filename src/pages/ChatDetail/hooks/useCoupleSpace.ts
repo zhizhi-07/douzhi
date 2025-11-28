@@ -86,6 +86,7 @@ export const useCoupleSpace = (
       id: Date.now(),
       type: 'sent',
       content: '情侣空间邀请',
+      aiReadableContent: `[系统消息] 用户向你发送了情侣空间邀请，等待你回应。你可以用 [同意情侣空间] 接受，或用 [拒绝情侣空间] 拒绝。`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
       coupleSpaceInvite: {

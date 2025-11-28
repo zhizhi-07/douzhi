@@ -20,6 +20,7 @@ const CreateCharacter = () => {
     personality: '',   // 性格描述
     avatar: '',        // 头像
     isPublicFigure: false,  // 是否为公众人物
+    publicPersona: '', // 网络人设描述
     pokeSuffix: ''     // 拍一拍后缀
   })
   
@@ -82,6 +83,7 @@ const CreateCharacter = () => {
           signature: converted.signature,
           personality: converted.description,
           isPublicFigure: false,
+          publicPersona: '',
           pokeSuffix: ''
         })
         
@@ -385,6 +387,22 @@ const CreateCharacter = () => {
               />
             </button>
           </div>
+
+          {/* 网络人设描述 - 只在公众人物开启时显示 */}
+          {formData.isPublicFigure && (
+            <div className="mt-3">
+              <div className="text-sm text-gray-900 mb-1">网络人设</div>
+              <div className="text-xs text-gray-400 mb-2">描述这个人在网络上的状态（如：全网黑、网红、争议人物等）</div>
+              <textarea
+                value={formData.publicPersona}
+                onChange={(e) => setFormData({ ...formData, publicPersona: e.target.value })}
+                placeholder="如：全网黑，因之前的丑闻被网友群嘴..."
+                className="w-full bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none resize-none"
+                rows={2}
+                maxLength={200}
+              />
+            </div>
+          )}
 
         </div>
 

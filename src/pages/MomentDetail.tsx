@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react'
 import ForumLayout from '../components/ForumLayout'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
 
@@ -302,7 +303,7 @@ const MomentDetail = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-sm font-medium">{comment.author}</span>
-                        <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+                        <p className="text-sm text-gray-700 mt-1"><EmojiContentRenderer content={comment.content} emojiSize={24} /></p>
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-xs text-gray-500">{comment.time}</span>
                           <button className="text-xs text-gray-500">回复</button>

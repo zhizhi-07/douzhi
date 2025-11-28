@@ -4,6 +4,8 @@
 
 import type { Message, ChatMessage } from '../types/chat'
 import { loadMessages, saveMessages } from './simpleMessageManager'
+import { loadMoments } from './momentsManager'
+import { getAllPosts } from './forumNPC'
 
 /**
  * 配置常量
@@ -85,7 +87,7 @@ export const createSystemMessage = (content: string): Message => {
  * @param hideTheatreHistory 是否隐藏小剧场历史（开启后AI看不到卡片）
  */
 export const convertToApiMessages = (messages: Message[], hideTheatreHistory: boolean = false): ChatMessage[] => {
-  return messages
+  const result = messages
     .filter(msg => {
       // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
       // 线下总结（messageType === 'offline-summary'）会在后面单独处理
@@ -186,6 +188,16 @@ export const convertToApiMessages = (messages: Message[], hideTheatreHistory: bo
       if (msg.type === 'system') {
         console.log('🔍 检查系统消息:', msg.content)
         
+        // 🔥 如果是 aiOnly 消息，直接传给AI（用户看不见但AI能看见）
+        if (msg.aiOnly) {
+          const formattedContent = msg.aiReadableContent || msg.content || ''
+          console.log('  ✅ AI专属消息:', formattedContent)
+          return {
+            role: 'system' as const,
+            content: formattedContent
+          }
+        }
+        
         // 重要系统消息列表（这些消息需要让AI看到）
         const importantKeywords = [
           '亲密付',
@@ -200,7 +212,13 @@ export const convertToApiMessages = (messages: Message[], hideTheatreHistory: bo
           '未接通',
           '取消了',
           '拍了拍',
-          '踢了踢'
+          '踢了踢',
+          '更换了头像',
+          '换了头像',
+          '换头像',
+          '头像变更',
+          '网名',
+          '个性签名'
         ]
         
         // 使用 aiReadableContent（如果有）或 content 来检查
@@ -394,6 +412,68 @@ export const convertToApiMessages = (messages: Message[], hideTheatreHistory: bo
       }
     })
     .filter((msg): msg is Exclude<typeof msg, null> => msg !== null) as ChatMessage[]
+  
+  // 🔥 动态注入用户最近的朋友圈记录（如果消息列表中没有）
+  try {
+    const userMoments = loadMoments().filter(m => m.userId === 'user').slice(0, 5)
+    
+    if (userMoments.length > 0) {
+      // 检查消息列表中是否已经有朋友圈记录
+      const hasExistingMoments = result.some(m => 
+        typeof m.content === 'string' && m.content.includes('【用户发朋友圈】')
+      )
+      
+      if (!hasExistingMoments) {
+        const momentsText = userMoments.map(m => {
+          const time = new Date(m.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          const images = m.images?.length ? ` [${m.images.length}张图]` : ''
+          return `${time}: ${m.content || '[纯图片]'}${images}`
+        }).join('\n')
+        
+        result.unshift({
+          role: 'system' as const,
+          content: `【用户最近的朋友圈】\n${momentsText}`
+        })
+        console.log('📷 [messageUtils] 注入用户朋友圈记录:', userMoments.length, '条')
+      }
+    }
+  } catch (e) {
+    // 忽略错误
+  }
+  
+  // 🔥 动态注入用户最近的论坛帖子（让AI知道用户发了什么帖子）
+  try {
+    const userPosts = getAllPosts()
+      .filter(p => p.npcId === 'user')
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5)
+    
+    if (userPosts.length > 0) {
+      // 检查消息列表中是否已经有论坛帖子记录
+      const hasExistingPosts = result.some(m => 
+        typeof m.content === 'string' && m.content.includes('【用户最近的论坛帖子】')
+      )
+      
+      if (!hasExistingPosts) {
+        const postsText = userPosts.map(p => {
+          const time = new Date(p.timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          const images = p.images > 0 ? ` [${p.images}张图]` : ''
+          const comments = p.comments > 0 ? ` (${p.comments}条评论, ${p.likes}赞)` : ''
+          return `${time}: ${p.content}${images}${comments}`
+        }).join('\n')
+        
+        result.unshift({
+          role: 'system' as const,
+          content: `【用户最近的论坛帖子】\n${postsText}\n（你可以在聊天中自然提到"看到你发的帖子了"之类的，让对话更真实）`
+        })
+        console.log('📝 [messageUtils] 注入用户论坛帖子记录:', userPosts.length, '条')
+      }
+    }
+  } catch (e) {
+    // 忽略错误
+  }
+  
+  return result
 }
 
 /**

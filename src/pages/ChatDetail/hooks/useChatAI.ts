@@ -1203,7 +1203,7 @@ export const useChatAI = (
         console.log('🧹 [小剧场文本格式] 已从消息中移除 call_tool 指令')
       }
 
-      // 🔥 提取并保存AI状态更新
+      // 🔥 提取并保存AI状态更新（行程历史由 statusHandler 统一保存，这里只更新状态）
       const { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } = await import('../../../utils/aiStatusManager')
       const statusUpdate = extractStatusFromReply(cleanedMessage, aiId)
       if (statusUpdate) {

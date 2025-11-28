@@ -67,7 +67,9 @@ const StatusBar = ({ theme = 'light' }: StatusBarProps) => {
   }
 
   return (
-    <div className={`h-11 flex items-center justify-between pl-6 pr-2 text-sm font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+    <div 
+      className={`status-bar flex items-center justify-between pl-6 pr-2 text-sm font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}
+    >
       {/* 左侧：时间（可自定义背景） */}
       <div className="flex items-center gap-2">
         <span 

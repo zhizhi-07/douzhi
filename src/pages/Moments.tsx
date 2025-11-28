@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
 import { getUserInfo } from '../utils/userUtils'
 import { playLikeSound } from '../utils/soundManager'
@@ -89,13 +90,8 @@ export default function Moments() {
   const handleCommentSubmit = async (momentId: string) => {
     if (!commentText.trim()) return
     
-    // 如果是回复，在评论前加上@
-    let finalComment = commentText.trim()
-    if (replyTo) {
-      finalComment = `@${replyTo} ${finalComment}`
-    }
-    
-    await commentMoment(momentId, currentUser, finalComment)
+    // 直接使用评论内容，replyTo作为参数传递
+    await commentMoment(momentId, currentUser, commentText.trim(), replyTo || undefined)
     setCommentText('')
     setReplyTo('')
     setShowCommentInput(null)
@@ -319,8 +315,14 @@ export default function Moments() {
                             className="text-sm cursor-pointer hover:bg-gray-100/50 -mx-1 px-1 py-0.5 rounded transition-colors"
                             onClick={() => handleReplyComment(moment.id, comment.userName)}
                           >
-                            <span className="text-blue-600 font-medium">{comment.userName.length > 8 ? comment.userName.slice(0, 8) + '...' : comment.userName}：</span>
-                            <span className="text-gray-700">{comment.content}</span>
+                            <span className="text-blue-600 font-medium">{comment.userName.length > 8 ? comment.userName.slice(0, 8) + '...' : comment.userName}</span>
+                            {comment.replyTo && (
+                              <>
+                                <span className="text-gray-500">回复</span>
+                                <span className="text-blue-600 font-medium">{comment.replyTo.length > 8 ? comment.replyTo.slice(0, 8) + '...' : comment.replyTo}</span>
+                              </>
+                            )}
+                            <span className="text-gray-700">：<EmojiContentRenderer content={comment.content} emojiSize={24} /></span>
                           </div>
                         ))}
                       </div>

@@ -132,9 +132,30 @@ export function getAllNPCs(): ForumNPC[] {
   return npcs
 }
 
-// 保存NPC列表
+// 保存NPC列表（优化存储：不保存base64头像，太大会导致localStorage爆掉）
 export function saveNPCs(npcs: ForumNPC[]) {
-  localStorage.setItem('forum_npcs', JSON.stringify(npcs))
+  // 清理NPC：只保留最近100个，避免无限增长
+  const recentNPCs = npcs.slice(-100)
+  
+  // 对头像进行压缩：base64头像替换为默认头像（角色头像会在显示时实时获取）
+  const compressedNPCs = recentNPCs.map(npc => ({
+    ...npc,
+    avatar: npc.avatar?.startsWith('data:') ? '/default-avatar.png' : npc.avatar
+  }))
+  
+  try {
+    localStorage.setItem('forum_npcs', JSON.stringify(compressedNPCs))
+  } catch (e) {
+    console.warn('⚠️ NPC保存失败，尝试清理旧数据:', e)
+    // 如果还是太大，只保留最近50个
+    const smallerNPCs = compressedNPCs.slice(-50)
+    try {
+      localStorage.setItem('forum_npcs', JSON.stringify(smallerNPCs))
+    } catch {
+      // 最后手段：清空所有
+      localStorage.removeItem('forum_npcs')
+    }
+  }
 }
 
 // 获取所有帖子
@@ -233,8 +254,31 @@ export function getNPCById(npcId: string): ForumNPC | null {
   return npcs.find(npc => npc.id === npcId) || null
 }
 
+// 清理NPC存储（一次性迁移：清理base64头像）
+export function cleanupNPCStorage() {
+  const storedNPCs = localStorage.getItem('forum_npcs')
+  if (storedNPCs) {
+    try {
+      const npcs = JSON.parse(storedNPCs)
+      // 检查是否有base64头像
+      const hasBase64 = npcs.some((npc: ForumNPC) => npc.avatar?.startsWith('data:'))
+      if (hasBase64) {
+        console.log('🧹 清理NPC存储中的base64头像...')
+        saveNPCs(npcs) // saveNPCs会自动压缩
+        console.log('✅ NPC存储清理完成')
+      }
+    } catch {
+      // 解析失败，清空
+      localStorage.removeItem('forum_npcs')
+    }
+  }
+}
+
 // 初始化论坛数据
 export function initForumData() {
+  // 先清理旧数据
+  cleanupNPCStorage()
+  
   // 确保NPC数据存在
   const storedNPCs = localStorage.getItem('forum_npcs')
   if (!storedNPCs) {

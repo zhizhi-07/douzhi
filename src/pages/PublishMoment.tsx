@@ -11,6 +11,8 @@ import { getUserInfo } from '../utils/userUtils'
 import type { MomentImage } from '../types/moments'
 import { characterService } from '../services/characterService'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
+import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
+import type { Message } from '../types/chat'
 
 export default function PublishMoment() {
   const navigate = useNavigate()
@@ -100,6 +102,28 @@ export default function PublishMoment() {
       )
       
       console.log('✅ 朋友圈发布成功，触发AI互动')
+      
+      // 往所有聊天记录中插入一条aiOnly消息，让AI知道用户发了朋友圈
+      const momentText = content.trim() || '[纯图片]'
+      const imagesText = images.length > 0 ? ` [${images.length}张图]` : ''
+      const locationText = location.trim() ? ` 📍${location.trim()}` : ''
+      const mentionsText = mentions.length > 0 ? ` @${mentions.join(' @')}` : ''
+      
+      allCharacters.forEach(char => {
+        const chatId = char.id
+        const messages = loadMessages(chatId)
+        const momentMsg: Message = {
+          id: Date.now() + Math.random(),
+          type: 'system',
+          content: `【用户发朋友圈】${momentText}${imagesText}${locationText}${mentionsText}`,
+          aiOnly: true,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
+        }
+        messages.push(momentMsg)
+        saveMessages(chatId, messages)
+        console.log(`📝 已记录朋友圈到聊天: ${char.nickname || char.realName}`)
+      })
       
       // 触发AI角色查看和互动
       triggerAIMomentsInteraction(newMoment)

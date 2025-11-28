@@ -64,17 +64,11 @@ export async function executeCommentAction(
 ): Promise<void> {
   const avatar = character?.avatar || '🤖'
   
-  // 如果是回复别人的评论，在评论内容前加上 @回复对象
+  // 评论内容（不需要加@，因为显示时会显示"回复xxx"）
   let finalComment = action.commentContent || ''
-  if (action.replyTo) {
-    // 检查评论内容是否已经包含@回复对象的名字
-    const hasCorrectMention = finalComment.includes(`@${action.replyTo}`)
-    
-    if (!hasCorrectMention) {
-      // AI没有自己加@，我们来加
-      finalComment = `@${action.replyTo} ${action.commentContent}`
-    }
-    // 如果已经包含正确的@，说明AI导演已经自己加了，直接使用
+  // 如果评论内容开头有@回复对象，去掉它（因为现在用replyTo字段）
+  if (action.replyTo && finalComment.startsWith(`@${action.replyTo}`)) {
+    finalComment = finalComment.replace(`@${action.replyTo}`, '').trim()
   }
   
   // 🔥 注意：AI的评论不应该触发新的互动编排，所以这里不会触发
@@ -83,7 +77,7 @@ export async function executeCommentAction(
     id: action.characterId,
     name: action.characterName,
     avatar
-  }, finalComment)
+  }, finalComment, action.replyTo)  // 传入回复谁
   
   console.log(`💬 ${action.characterName} 评论: ${finalComment}`)
   

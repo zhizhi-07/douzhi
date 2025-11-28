@@ -200,7 +200,7 @@ export const useTransfer = (
             ...msg,
             transfer: {
               ...msg.transfer!,
-              status: 'rejected' as const
+              status: 'expired' as const  // 🔥 修复：使用正确的状态值'expired'而非'rejected'
             },
             aiReadableContent: `[${userName}退还了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
           }

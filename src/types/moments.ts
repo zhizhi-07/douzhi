@@ -14,6 +14,7 @@ export interface MomentComment {
   userAvatar: string
   content: string
   createdAt: number  // 时间戳
+  replyTo?: string   // 回复谁的用户名（如果是回复评论）
 }
 
 export interface MomentLike {

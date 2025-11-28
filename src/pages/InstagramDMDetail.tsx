@@ -40,8 +40,91 @@ const InstagramDMDetail = () => {
 
   const [isAiReplying, setIsAiReplying] = useState(false)
 
+  // AI主动回复（没有输入内容时触发）
+  const handleAIReply = async () => {
+    if (!npcId) return
+    setIsAiReplying(true)
+    
+    try {
+      const apiConfigs = apiService.getAll()
+      const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
+      const apiConfig = apiConfigs.find(c => c.id === currentId)
+
+      if (!apiConfig) {
+        setIsAiReplying(false)
+        return
+      }
+
+      const userPosts = getAllPosts()
+        .filter(p => p.npcId === 'user')
+        .slice(0, 5)
+        .map(p => p.content)
+
+      const chatHistory = getDMMessages(npcId).slice(-10)
+
+      const prompt = `你是一个社交平台上的网友“${npcName}”，正在和用户私聊。
+
+**你的身份：**
+- 网名：${npcName}
+
+**用户信息：**
+- 昵称：${userInfo.nickname || userInfo.realName || '用户'}
+
+**用户最近发的帖子：**
+${userPosts.length > 0 ? userPosts.map((p, i) => `${i + 1}. ${p}`).join('\n') : '暂无'}
+
+**聊天记录：**
+${chatHistory.length > 0 ? chatHistory.map(m => `${m.isFromUser ? '用户' : npcName}：${m.content}`).join('\n') : '暂无聊天记录'}
+
+**要求：**
+- 你主动找用户聊天
+- 可以问问题、评论帖子、或者随便聊聊
+- 回复10-50字
+- 直接输出回复内容`
+
+      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
+        ? apiConfig.baseUrl 
+        : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.8
+        })
+      })
+
+      const data = await response.json()
+      const aiReply = data.choices?.[0]?.message?.content?.trim() || ''
+
+      if (aiReply) {
+        setTimeout(() => {
+          sendDMToUser(npcId, npcName, npcAvatar, aiReply)
+          setMessages(getDMMessages(npcId))
+          setIsAiReplying(false)
+        }, 500 + Math.random() * 1000)
+      } else {
+        setIsAiReplying(false)
+      }
+    } catch (error) {
+      console.error('AI回复失败:', error)
+      setIsAiReplying(false)
+    }
+  }
+
   const handleSend = async () => {
-    if (!inputText.trim() || !npcId) return
+    if (!npcId) return
+    
+    // 没有输入内容时，触发AI主动回复
+    if (!inputText.trim()) {
+      handleAIReply()
+      return
+    }
     
     const userMessage = inputText.trim()
     sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
@@ -239,13 +322,20 @@ ${userMessage}
           />
           <button
             onClick={handleSend}
+            disabled={isAiReplying}
             className={`p-2 rounded-full transition-colors ${
-              inputText.trim() 
-                ? 'text-blue-500 active:bg-blue-50' 
-                : 'text-gray-300'
+              isAiReplying
+                ? 'text-gray-300'
+                : inputText.trim() 
+                  ? 'text-blue-500 active:bg-blue-50' 
+                  : 'text-green-500 active:bg-green-50'
             }`}
           >
-            <Send className="w-6 h-6" />
+            {inputText.trim() ? (
+              <Send className="w-6 h-6" />
+            ) : (
+              <span className="text-xs font-medium">让TA说</span>
+            )}
           </button>
         </div>
       </div>

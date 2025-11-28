@@ -48,7 +48,7 @@ const ChatDetail = () => {
   const chatState = useChatState(id || '')
   
   // 使用新的hooks
-  const { wallpaperStyle } = useWallpaper(id)
+  const { wallpaperStyle, hasCustomWallpaper } = useWallpaper(id)
   const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages)
   const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
   
@@ -411,6 +411,7 @@ const ChatDetail = () => {
     <div 
       className="h-screen flex flex-col"
       style={wallpaperStyle}
+      {...(hasCustomWallpaper ? { 'data-chat-wallpaper': true } : {})}
     >
       <ChatHeader
         characterName={character.nickname || character.realName}
@@ -531,19 +532,47 @@ const ChatDetail = () => {
             playingVoiceId={voice.playingVoiceId}
             showVoiceTextMap={voice.showVoiceTextMap}
             onUpdateIntimatePayStatus={async (messageId, newStatus) => {
+              // 🔥 获取用户名称
+              const userInfo = getUserInfo()
+              const userName = userInfo.nickname || userInfo.realName || '用户'
+              const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
+              
               let updatedMessages: Message[] = []
               chatState.setMessages(prev => {
-                updatedMessages = prev.map(msg =>
-                  msg.id === messageId && msg.intimatePay
-                    ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus } }
-                    : msg
-                )
+                updatedMessages = prev.map(msg => {
+                  if (msg.id === messageId && msg.intimatePay) {
+                    // 🔥 根据状态生成AI可读内容
+                    const monthlyLimit = msg.intimatePay.monthlyLimit
+                    let aiReadableContent = ''
+                    if (msg.type === 'received') {
+                      // AI发给用户的亲密付
+                      if (newStatus === 'accepted') {
+                        aiReadableContent = `[${userName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                      } else if (newStatus === 'rejected') {
+                        aiReadableContent = `[${userName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                      }
+                    } else {
+                      // 用户发给AI的亲密付
+                      if (newStatus === 'accepted') {
+                        aiReadableContent = `[${characterName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                      } else if (newStatus === 'rejected') {
+                        aiReadableContent = `[${characterName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                      }
+                    }
+                    return {
+                      ...msg,
+                      intimatePay: { ...msg.intimatePay, status: newStatus },
+                      aiReadableContent
+                    }
+                  }
+                  return msg
+                })
                 return updatedMessages
               })
               // 🔥 保存到IndexedDB
               if (id && updatedMessages.length > 0) {
                 await saveMessages(id, updatedMessages)
-                console.log('💾 [亲密付状态更新] 已保存到数据库')
+                console.log('💾 [亲密付状态更新] 已保存到数据库，AI可读内容已添加')
               }
             }}
             onAcceptCoupleSpace={coupleSpace.acceptInvite}
@@ -638,6 +667,11 @@ const ChatDetail = () => {
           }
           
           if (message.type === 'system') {
+            // 🔥 如果是只给AI看的消息，不在界面显示
+            if (message.aiOnly) {
+              return null
+            }
+            
             if (message.isRecalled && message.recalledContent) {
               return (
                 <div key={message.id}>
@@ -840,19 +874,47 @@ const ChatDetail = () => {
                     onAcceptMusicInvite={musicInvite.acceptInvite}
                     onRejectMusicInvite={musicInvite.rejectInvite}
                     onUpdateIntimatePayStatus={async (messageId, newStatus) => {
+                      // 🔥 获取用户名称
+                      const userInfo = getUserInfo()
+                      const userName = userInfo.nickname || userInfo.realName || '用户'
+                      const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
+                      
                       let updatedMessages: Message[] = []
                       chatState.setMessages(prev => {
-                        updatedMessages = prev.map(msg =>
-                          msg.id === messageId && msg.intimatePay
-                            ? { ...msg, intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' } }
-                            : msg
-                        )
+                        updatedMessages = prev.map(msg => {
+                          if (msg.id === messageId && msg.intimatePay) {
+                            // 🔥 根据状态生成AI可读内容
+                            const monthlyLimit = msg.intimatePay.monthlyLimit
+                            let aiReadableContent = ''
+                            if (msg.type === 'received') {
+                              // AI发给用户的亲密付
+                              if (newStatus === 'accepted') {
+                                aiReadableContent = `[${userName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                              } else if (newStatus === 'rejected') {
+                                aiReadableContent = `[${userName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                              }
+                            } else {
+                              // 用户发给AI的亲密付
+                              if (newStatus === 'accepted') {
+                                aiReadableContent = `[${characterName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                              } else if (newStatus === 'rejected') {
+                                aiReadableContent = `[${characterName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                              }
+                            }
+                            return {
+                              ...msg,
+                              intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' },
+                              aiReadableContent
+                            }
+                          }
+                          return msg
+                        })
                         return updatedMessages
                       })
                       // 🔥 保存到IndexedDB
                       if (id && updatedMessages.length > 0) {
                         await saveMessages(id, updatedMessages)
-                        console.log('💾 [亲密付状态更新] 已保存到数据库')
+                        console.log('💾 [亲密付状态更新] 已保存到数据库，AI可读内容已添加')
                       }
                     }}
                     onViewForwardedChat={forward.setViewingForwardedChat}

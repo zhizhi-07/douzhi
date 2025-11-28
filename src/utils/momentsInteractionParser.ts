@@ -237,7 +237,8 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           userName: interaction.aiName,
           userAvatar: '🤖',  // AI默认头像
           content: interaction.content,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          replyTo: interaction.replyTo  // 🔥 添加回复对象
         })
         results.push({
           success: true,

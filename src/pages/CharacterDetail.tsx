@@ -14,7 +14,8 @@ const CharacterDetail = () => {
     signature: '',
     personality: '',
     avatar: '',
-    isPublicFigure: false
+    isPublicFigure: false,
+    publicPersona: ''
   })
 
   useEffect(() => {
@@ -28,7 +29,8 @@ const CharacterDetail = () => {
           signature: data.signature || '',
           personality: data.personality || '',
           avatar: data.avatar || '',
-          isPublicFigure: data.isPublicFigure || false
+          isPublicFigure: data.isPublicFigure || false,
+          publicPersona: data.publicPersona || ''
         })
       }
     }
@@ -234,6 +236,26 @@ const CharacterDetail = () => {
               <p className="text-sm text-gray-900">{character.isPublicFigure ? '是' : '否'}</p>
             )}
           </div>
+
+          {/* 网络人设 - 只在公众人物开启时显示 */}
+          {(isEditing ? formData.isPublicFigure : character?.isPublicFigure) && (
+            <div className="mt-3">
+              <div className="text-sm text-gray-900 mb-1">网络人设</div>
+              <div className="text-xs text-gray-400 mb-2">描述这个人在网络上的状态</div>
+              {isEditing ? (
+                <textarea
+                  value={formData.publicPersona}
+                  onChange={(e) => setFormData({ ...formData, publicPersona: e.target.value })}
+                  placeholder="如：全网黑，因之前的丑闻被网友群嘴..."
+                  className="w-full bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none resize-none"
+                  rows={2}
+                  maxLength={200}
+                />
+              ) : (
+                <p className="text-gray-900 text-sm">{character?.publicPersona || '未设置'}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 删除按钮 */}

@@ -1,20 +1,88 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Heart, MessageCircle, Send, X } from 'lucide-react'
+import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2 } from 'lucide-react'
 import { getAllPosts, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
 import { getPostComments, addReply } from '../utils/forumCommentsDB'
 import { getUserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
+import { getAllCharacters } from '../utils/characterManager'
 import StatusBar from '../components/StatusBar'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Comment } from '../utils/forumCommentsDB'
 
-// 待发送的回复
-interface PendingReply {
-  id: string
-  targetCommentId: string
-  targetName: string
-  content: string
+// 解析帖子内容，把[图片：描述]标记转换成图片卡片
+const parsePostContent = (content: string) => {
+  const imagePattern = /\[(图片|照片|截图)[:：]([^\]]+)\]/g
+  
+  const hasImages = imagePattern.test(content)
+  if (!hasImages) {
+    return <p className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed">{content}</p>
+  }
+  
+  imagePattern.lastIndex = 0
+  
+  const elements: React.ReactNode[] = []
+  const images: { type: string; desc: string }[] = []
+  let lastIndex = 0
+  let match
+  
+  while ((match = imagePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const text = content.slice(lastIndex, match.index)
+      if (text.trim()) {
+        if (images.length > 0) {
+          elements.push(
+            <div key={`imgs-${lastIndex}`} className="grid grid-cols-3 gap-1 my-2">
+              {images.map((img, i) => (
+                <div key={i} className="aspect-square bg-gray-100 rounded overflow-hidden p-1.5">
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-xs text-gray-500 text-center leading-tight line-clamp-3">{img.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+          images.length = 0
+        }
+        elements.push(
+          <p key={`text-${lastIndex}`} className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed mb-2">
+            {text}
+          </p>
+        )
+      }
+    }
+    
+    images.push({ type: match[1], desc: match[2] })
+    lastIndex = match.index + match[0].length
+  }
+  
+  if (images.length > 0) {
+    elements.push(
+      <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-2">
+        {images.map((img, i) => (
+          <div key={i} className="aspect-square bg-gray-100 rounded overflow-hidden p-1.5">
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-xs text-gray-500 text-center leading-tight line-clamp-3">{img.desc}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
+  if (lastIndex < content.length) {
+    const text = content.slice(lastIndex)
+    if (text.trim()) {
+      elements.push(
+        <p key={`text-${lastIndex}`} className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
+          {text}
+        </p>
+      )
+    }
+  }
+  
+  return <>{elements}</>
 }
 
 const InstagramPostDetail = () => {
@@ -23,10 +91,23 @@ const InstagramPostDetail = () => {
   const [post, setPost] = useState<ForumPost | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
-  const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([])
   const [replyingTo, setReplyingTo] = useState<{id: string, name: string} | null>(null)
+  const [pendingReplies, setPendingReplies] = useState<{id: string, commentId: string, targetName: string, content: string}[]>([])
   const [isSending, setIsSending] = useState(false)
+  const [characters, setCharacters] = useState<any[]>([])
   const userInfo = getUserInfo()
+
+  // 获取NPC的真实头像（优先从角色获取）
+  const getRealAvatar = (npcId: string, npcAvatar?: string): string => {
+    const character = characters.find(c => c.id === npcId)
+    if (character?.avatar) {
+      return character.avatar
+    }
+    if (!npcAvatar || npcAvatar === '/default-avatar.png') {
+      return '/default-avatar.png'
+    }
+    return npcAvatar
+  }
 
   const formatTimeAgo = (timestamp: number): string => {
     const now = Date.now()
@@ -48,6 +129,10 @@ const InstagramPostDetail = () => {
 
   const loadPostAndComments = async () => {
     if (!postId) return
+    
+    // 加载角色列表（用于获取真实头像）
+    const chars = await getAllCharacters()
+    setCharacters(chars)
     
     const posts = getAllPosts()
     const foundPost = posts.find(p => p.id === postId)
@@ -74,22 +159,23 @@ const InstagramPostDetail = () => {
     setNewComment(`@${authorName} `)
   }
 
-  // 添加回复到待发送列表
+  // 添加回复到待发送列表（不触发AI）
   const addPendingReply = async () => {
     if (!newComment.trim() || !replyingTo || !postId) return
     
-    // 提取回复内容（去掉@名字部分）
     const content = newComment.replace(new RegExp(`^@${replyingTo.name}\\s*`), '').trim()
     if (!content) return
 
-    const reply: PendingReply = {
+    // 添加到待发送列表
+    const newPending = {
       id: `pending-${Date.now()}`,
-      targetCommentId: replyingTo.id,
+      commentId: replyingTo.id,
       targetName: replyingTo.name,
       content
     }
-
-    // 1）先把你的这句回复真实写入评论DB（不调API）
+    setPendingReplies(prev => [...prev, newPending])
+    
+    // 保存用户评论到数据库
     await addReply(
       replyingTo.id,
       'user',
@@ -98,72 +184,79 @@ const InstagramPostDetail = () => {
       content,
       replyingTo.name
     )
-
-    // 刷新这条帖子的评论数
+    
+    // 刷新评论
     const updatedComments = await getPostComments(postId)
     setComments(updatedComments)
-    const allPosts = getAllPosts()
-    const currentPost = allPosts.find(p => p.id === postId)
-    if (currentPost) {
-      currentPost.comments = updatedComments.length
-      savePosts(allPosts)
-    }
-
-    // 2）再把这句放进待发送列表，后面纸飞机用它去调API回你
-    setPendingReplies(prev => [...prev, reply])
+    
     setNewComment('')
     setReplyingTo(null)
+    console.log(`📝 添加待发送回复: @${newPending.targetName}: ${content}`)
   }
 
-  // 删除待发送的回复
-  const removePendingReply = (id: string) => {
-    setPendingReplies(prev => prev.filter(r => r.id !== id))
-  }
-
-  // 批量发送所有回复 - 调用AI生成回复内容
+  // 点击纸飞机：批量发送并触发AI回复
   const handleSendAll = async () => {
-    if (pendingReplies.length === 0 || !post) return
+    if (pendingReplies.length === 0 || !post || !postId) return
     
     setIsSending(true)
     try {
-      // 获取API配置
       const apiConfigs = apiService.getAll()
       const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
       const apiConfig = apiConfigs.find(c => c.id === currentId)
 
       if (!apiConfig) {
-        alert('没有可用的API配置')
+        console.warn('没有可用的API配置')
         setIsSending(false)
         return
       }
 
-      // 构建prompt
-      const commentsToReply = pendingReplies.map(r => `@${r.targetName}: ${r.content}`).join('\n')
-      const prompt = `你是帖子作者，需要回复以下评论。
+      // 重新获取最新的评论列表（包含之前添加的用户回复）
+      const latestComments = await getPostComments(postId)
+      console.log('📋 最新评论数:', latestComments.length)
 
-**你的信息：**
-- 昵称：${userInfo.nickname || userInfo.realName || '我'}
-- 签名：${userInfo.signature || '无'}
+      // 获取所有角色信息（用于匹配公众人物）
+      const allCharacters = await getAllCharacters()
+      console.log('📋 所有角色:', allCharacters.map(c => ({ name: c.nickname || c.realName, avatar: c.avatar ? '有头像' : '无头像', isPublic: c.isPublicFigure })))
+      
+      // 构建所有待回复的内容
+      const repliesText = pendingReplies.map(r => `@${r.targetName}: "${r.content}"`).join('\n')
+      
+      // 检查哪些被回复的人是公众人物
+      const publicFigures = pendingReplies.map(r => {
+        const pf = allCharacters.find(c => 
+          (c.nickname === r.targetName || c.realName === r.targetName) && c.isPublicFigure
+        )
+        return pf ? { name: r.targetName, persona: pf.publicPersona || pf.personality || '知名人物' } : null
+      }).filter(Boolean)
+      
+      const publicFigurePrompt = publicFigures.length > 0 ? `
+**涉及的公众人物：**
+${publicFigures.map(pf => `- ${pf!.name}：${pf!.persona}`).join('\n')}
+` : ''
 
-**你发的帖子：**
+      const prompt = `你正在一个社交媒体的帖子下参与评论互动。
+
+**帖子内容：**
 ${post.content}
+${publicFigurePrompt}
+**用户「${userInfo.nickname || '我'}」发了以下几条回复：**
+${repliesText}
 
-**需要回复的评论（格式：@评论者: 评论内容）：**
-${commentsToReply}
+**请让被回复的每个人都来回复用户。**
 
-**要求：**
-- 用自然、口语化的方式回复每条评论
-- 每条回复5-30字
-- 格式：@评论者名字：回复内容
-- 直接输出回复，不要解释`
+要求：
+- 每个被@的人都要回复一条
+- 用自然、口语化的方式
+- 回复5-30字，简短有趣
+- 公众人物要符合其人设
+- 格式：每行一条，格式为 "网名：回复内容"
+- 直接输出，不要解释`
 
-      // 确保URL包含完整路径
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
         ? apiConfig.baseUrl 
         : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
 
-      console.log('🟢 [评论AI] 发送请求到:', apiUrl)
-      console.log('🟢 [评论AI] Prompt:', prompt)
+      console.log('🟢 [批量AI回复] 请求...')
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -179,39 +272,73 @@ ${commentsToReply}
       })
 
       const data = await response.json()
-      console.log('🟢 [评论AI] 返回:', data)
-      const aiReply = data.choices?.[0]?.message?.content || ''
-      console.log('🟢 [评论AI] AI回复:', aiReply)
+      const aiContent = data.choices?.[0]?.message?.content?.trim() || ''
+      console.log('🟢 [批量AI回复] 返回:', aiContent)
 
-      // 解析AI回复并发送（由随机网友来回你，不再用你的身份）
-      const lines = aiReply.split('\n').filter((l: string) => l.trim())
-      const randomNames = ['路人甲', '网友A', '吃瓜群众', '围观的猫', '匿名用户', '热心市民']
-
+      // 解析AI回复并保存
+      const lines = aiContent.split('\n').filter((l: string) => l.trim())
       for (const line of lines) {
-        const match = line.match(/@(.+?)[:：](.+)/)
+        const match = line.match(/^(.+?)[:：](.+)$/)
         if (match) {
-          const replyToName = match[1].trim()
+          const responderName = match[1].trim()
           const replyContent = match[2].trim()
           
-          // 找到对应的评论（你刚刚那句）
-          const targetReply = pendingReplies.find(r => r.targetName === replyToName)
-          if (targetReply) {
-            const aiName = randomNames[Math.floor(Math.random() * randomNames.length)]
-            await addReply(
-              targetReply.targetCommentId,
-              `npc-${aiName}`,
-              aiName,
-              '',
-              replyContent,
-              replyToName
+          // 找到对应的待回复项
+          const pending = pendingReplies.find(r => r.targetName === responderName)
+          if (pending) {
+            // 找到原评论（主楼）- 使用最新的评论列表
+            const targetComment = latestComments.find(c => c.id === pending.commentId)
+            
+            // 在主楼或楼中楼中查找被回复人的信息
+            let foundAuthorAvatar = ''
+            let foundAuthorId = ''
+            
+            // 1. 先看主楼作者是不是被回复人
+            if (targetComment && targetComment.authorName === responderName) {
+              foundAuthorAvatar = targetComment.authorAvatar || ''
+              foundAuthorId = targetComment.authorId || ''
+            } else if (targetComment?.replies) {
+              // 2. 在楼中楼中查找
+              const replyAuthor = targetComment.replies.find(r => r.authorName === responderName)
+              if (replyAuthor) {
+                foundAuthorAvatar = replyAuthor.authorAvatar
+                foundAuthorId = replyAuthor.authorId
+              }
+            }
+            
+            // 3. 优先从角色信息获取头像（公众人物）
+            const character = allCharacters.find(c => 
+              c.nickname === responderName || c.realName === responderName
             )
-            console.log(`✅ 网友 ${aiName} 回复 @${replyToName}: ${replyContent}`)
+            
+            console.log(`🔍 查找角色 "${responderName}":`, character ? `找到! ID=${character.id}, 头像=${character.avatar}` : '未找到')
+            console.log(`🔍 评论中找到: 头像=${foundAuthorAvatar}, ID=${foundAuthorId}`)
+            
+            // 确定最终头像：角色头像 > 评论中找到的头像
+            const charAvatar = character?.avatar && character.avatar !== '/default-avatar.png' ? character.avatar : ''
+            const authorAvatar = charAvatar || (foundAuthorAvatar && foundAuthorAvatar !== '/default-avatar.png' ? foundAuthorAvatar : '')
+            const authorId = character?.id || foundAuthorId || 'npc-random'
+            
+            console.log(`📷 ${responderName} 最终头像: ${authorAvatar || '(空)'}`)
+            
+            await addReply(
+              pending.commentId,
+              authorId,
+              responderName,
+              authorAvatar,
+              replyContent,
+              userInfo.nickname || userInfo.realName || '我'
+            )
+            console.log(`✅ ${responderName} 回复了你: ${replyContent}`)
           }
         }
       }
 
+      // 清空待发送列表
+      setPendingReplies([])
+      
       // 刷新评论
-      const updatedComments = await getPostComments(postId!)
+      const updatedComments = await getPostComments(postId)
       setComments(updatedComments)
       
       // 更新帖子评论数
@@ -221,11 +348,8 @@ ${commentsToReply}
         currentPost.comments = updatedComments.length
         savePosts(allPosts)
       }
-
-      setPendingReplies([])
     } catch (error) {
       console.error('发送失败:', error)
-      alert('发送失败，请重试')
     } finally {
       setIsSending(false)
     }
@@ -242,7 +366,7 @@ ${commentsToReply}
   const isUserPost = post.npcId === 'user'
   const npc = !isUserPost ? getNPCById(post.npcId) : null
   const authorName = isUserPost ? (userInfo.nickname || userInfo.realName || '我') : (npc?.name || '未知')
-  const authorAvatar = isUserPost ? userInfo.avatar : npc?.avatar
+  const authorAvatar = isUserPost ? userInfo.avatar : getRealAvatar(post.npcId, npc?.avatar)
 
   return (
     <div className="h-screen bg-white flex flex-col" data-instagram>
@@ -256,20 +380,25 @@ ${commentsToReply}
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-base font-semibold">
-            评论{pendingReplies.length > 0 && ` (待发${pendingReplies.length}条)`}
-          </h1>
-          <button 
-            onClick={handleSendAll}
-            disabled={isSending || pendingReplies.length === 0}
-            className={`p-2 -m-2 active:opacity-60 ${pendingReplies.length > 0 ? 'text-blue-500' : 'text-gray-400'}`}
-          >
-            {isSending ? (
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Send className="w-6 h-6" />
-            )}
-          </button>
+          <h1 className="text-base font-semibold">评论</h1>
+          {/* 删除按钮 - 只有用户自己的帖子显示 */}
+          {post.npcId === 'user' ? (
+            <button 
+              onClick={() => {
+                if (confirm('确定要删除这条帖子吗？')) {
+                  const posts = getAllPosts()
+                  const newPosts = posts.filter(p => p.id !== postId)
+                  savePosts(newPosts)
+                  navigate(-1)
+                }
+              }}
+              className="p-2 -m-2 text-red-500 active:opacity-60"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-6" />
+          )}
         </div>
       </div>
 
@@ -294,9 +423,7 @@ ${commentsToReply}
                 <span className="font-bold text-base">{authorName}</span>
                 <span className="text-sm text-gray-500">{post.time}</span>
               </div>
-              <p className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
-                {post.content}
-              </p>
+              {parsePostContent(post.content)}
             </div>
           </div>
 
@@ -330,15 +457,19 @@ ${commentsToReply}
                 <div key={comment.id} className="px-4 py-4">
                   {/* 主楼评论 */}
                   <div className="flex items-start gap-3">
-                    {/* 首字头像 */}
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold text-base flex-shrink-0">
-                      {comment.authorName[0]}
-                    </div>
+                    {/* 头像：有真实头像就显示，否则首字 */}
+                    {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
+                      <img src={comment.authorAvatar} alt={comment.authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold text-base flex-shrink-0">
+                        {comment.authorName[0]}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="mb-2">
                         <span className="font-bold text-base mr-2">{comment.authorName}</span>
                       </div>
-                      <p className="text-base text-gray-900 break-words leading-relaxed mb-2">{comment.content}</p>
+                      <p className="text-base text-gray-900 break-words leading-relaxed mb-2"><EmojiContentRenderer content={comment.content} emojiSize={32} /></p>
                       <div className="flex items-center gap-4 text-sm text-gray-400">
                         <span>{formatTimeAgo(comment.timestamp)}</span>
                         <button className="font-medium hover:text-gray-600">
@@ -359,10 +490,14 @@ ${commentsToReply}
                     <div className="mt-4 ml-12 space-y-4 pl-4 border-l-2 border-gray-200">
                       {comment.replies.map((reply) => (
                         <div key={reply.id} className="flex items-start gap-3">
-                          {/* 首字头像 */}
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm flex-shrink-0">
-                            {reply.authorName[0]}
-                          </div>
+                          {/* 头像：有真实头像就显示，否则首字 */}
+                          {reply.authorAvatar && reply.authorAvatar !== '/default-avatar.png' ? (
+                            <img src={reply.authorAvatar} alt={reply.authorName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm flex-shrink-0">
+                              {reply.authorName[0]}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="mb-1">
                               <span className="font-bold text-sm mr-2">{reply.authorName}</span>
@@ -373,11 +508,17 @@ ${commentsToReply}
                                 </>
                               )}
                             </div>
-                            <p className="text-sm text-gray-800 break-words leading-relaxed mb-1">{reply.content}</p>
+                            <p className="text-sm text-gray-800 break-words leading-relaxed mb-1"><EmojiContentRenderer content={reply.content} emojiSize={28} /></p>
                             <div className="flex items-center gap-4 text-xs text-gray-400">
                               <span>{formatTimeAgo(reply.timestamp)}</span>
                               <button className="font-medium hover:text-gray-600">
                                 {reply.likes > 0 ? `${reply.likes} 赞` : '赞'}
+                              </button>
+                              <button 
+                                className="font-medium text-blue-500 hover:text-blue-600"
+                                onClick={() => handleReplyClick(comment.id, reply.authorName)}
+                              >
+                                回复
                               </button>
                             </div>
                           </div>
@@ -396,27 +537,6 @@ ${commentsToReply}
           )}
         </div>
       </div>
-
-      {/* 待发送回复列表 */}
-      {pendingReplies.length > 0 && (
-        <div className="border-t border-gray-200 bg-blue-50 px-4 py-2">
-          <div className="text-xs text-gray-500 mb-2">待发送的回复：</div>
-          <div className="space-y-2">
-            {pendingReplies.map(reply => (
-              <div key={reply.id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2">
-                <span className="text-sm text-blue-500">@{reply.targetName}</span>
-                <span className="text-sm text-gray-700 flex-1 truncate">{reply.content}</span>
-                <button 
-                  onClick={() => removePendingReply(reply.id)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 底部评论输入框 */}
       <div className="border-t border-gray-100 bg-white">
@@ -447,6 +567,7 @@ ${commentsToReply}
             onChange={(e) => setNewComment(e.target.value)}
             className="flex-1 outline-none text-sm"
           />
+          {/* 添加回复按钮 */}
           {newComment.trim() && replyingTo && (
             <button
               onClick={addPendingReply}
@@ -455,7 +576,38 @@ ${commentsToReply}
               添加
             </button>
           )}
+          {/* 纸飞机发送按钮 - 有待发送回复时显示 */}
+          {pendingReplies.length > 0 && (
+            <button
+              onClick={handleSendAll}
+              disabled={isSending}
+              className="ml-2 p-2 rounded-full bg-blue-500 text-white disabled:opacity-50 flex items-center gap-1"
+            >
+              <Send className="w-4 h-4" />
+              <span className="text-xs font-bold">{pendingReplies.length}</span>
+            </button>
+          )}
         </div>
+        {/* 待发送回复列表 */}
+        {pendingReplies.length > 0 && (
+          <div className="px-4 py-2 bg-blue-50 border-t border-blue-100">
+            <div className="text-xs text-blue-600 mb-1">待发送 ({pendingReplies.length}条)：</div>
+            <div className="space-y-1">
+              {pendingReplies.map(r => (
+                <div key={r.id} className="text-xs text-gray-600 flex items-center gap-1">
+                  <span className="text-blue-500">@{r.targetName}</span>
+                  <span className="truncate">{r.content}</span>
+                  <button 
+                    onClick={() => setPendingReplies(prev => prev.filter(p => p.id !== r.id))}
+                    className="ml-auto text-gray-400 hover:text-red-500"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -14,7 +14,8 @@ const AddApi = () => {
     model: '',
     provider: 'openai' as const,
     temperature: 0.7,
-    maxTokens: 8000
+    maxTokens: 8000,
+    supportsVision: false
   })
 
   const [fetchingModels, setFetchingModels] = useState(false)
@@ -271,7 +272,7 @@ const AddApi = () => {
               </div>
             </div>
 
-            <div className="px-4 py-3">
+            <div className="px-4 py-3 border-b border-gray-100">
               <label className="block text-xs text-gray-500 mb-2">最大Token数</label>
               <input
                 type="number"
@@ -280,6 +281,27 @@ const AddApi = () => {
                 placeholder="8000"
                 className="w-full bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
               />
+            </div>
+
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm text-gray-900 font-medium">支持视觉识别</label>
+                  <p className="text-xs text-gray-500 mt-0.5">开启后可识别图片（头像、朋友圈图片等）</p>
+                </div>
+                <button
+                  onClick={() => setFormData({ ...formData, supportsVision: !formData.supportsVision })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    formData.supportsVision ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      formData.supportsVision ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>

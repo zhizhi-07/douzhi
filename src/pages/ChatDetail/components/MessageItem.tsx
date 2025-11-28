@@ -94,6 +94,11 @@ const MessageItemContent = ({
 
   // 系统消息
   if (message.type === 'system') {
+    // 🔥 如果是只给AI看的消息，不在界面显示
+    if (message.aiOnly) {
+      return null
+    }
+    
     // 撤回消息
     if (message.isRecalled && message.recalledContent) {
       return (
@@ -253,7 +258,7 @@ const MessageItemContent = ({
             onAccept={() => onAcceptMusicInvite?.(message.id)}
             onReject={() => onRejectMusicInvite?.(message.id)}
           />
-        ) : (message.messageType === 'post' || message.post) && message.post ? (
+        ) : message.messageType === 'post' && message.post ? (
           <PostCard message={message} />
         ) : (
           <div
