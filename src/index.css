@@ -195,6 +195,11 @@ body {
   box-sizing: border-box;
 }
 
+/* 🍎 修复h-screen在iOS上的高度问题 */
+.h-screen {
+  height: 100% !important;
+}
+
 /* 液态玻璃效果 */
 .glass-card {
   background: rgba(255, 255, 255, 0.15);

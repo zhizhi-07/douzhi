@@ -42,12 +42,30 @@ export function saveStatusToSchedule(characterId: string, action: string): void 
       history[today] = []
     }
     
-    // 检查是否重复（5分钟内相同状态不重复记录）
+    // 检查是否重复（10分钟内相似内容不重复记录）
     const lastRecord = history[today][history[today].length - 1]
-    if (lastRecord && 
-        lastRecord.action === action && 
-        Date.now() - lastRecord.timestamp < 5 * 60 * 1000) {
-      return
+    if (lastRecord && Date.now() - lastRecord.timestamp < 10 * 60 * 1000) {
+      // 检查相似度：提取关键词对比
+      const getKeywords = (text: string) => {
+        // 移除常见词，只保留关键词
+        const stopWords = ['的', '了', '在', '上', '着', '是', '有', '和', '就', '都', '也', '很', '把', '被', '给', '跟', '让', '向', '从', '到', '为', '以', '于', '对', '等', '这', '那', '什么', '怎么', '一', '不', '没', '只', '还', '又', '再', '已', '正', '刚', '才']
+        return text.split('').filter(char => 
+          /[\u4e00-\u9fa5]/.test(char) && !stopWords.includes(char)
+        ).join('')
+      }
+      
+      const lastKeywords = getKeywords(lastRecord.action)
+      const newKeywords = getKeywords(action)
+      
+      // 计算重叠率
+      const overlap = [...lastKeywords].filter(char => newKeywords.includes(char)).length
+      const similarity = overlap / Math.max(lastKeywords.length, newKeywords.length, 1)
+      
+      // 相似度超过50%就认为是重复
+      if (similarity > 0.5) {
+        console.log('📅 [行程记录] 跳过相似内容:', { last: lastRecord.action, new: action, similarity: (similarity * 100).toFixed(0) + '%' })
+        return
+      }
     }
     
     history[today].push({
@@ -207,67 +225,3 @@ export function getCurrentScheduleStatus(characterId: string): {
   }
 }
 
-/**
- * 生成默认行程（当没有真实记录时）
- */
-function generateDefaultSchedule(currentHour: number): ScheduleItem[] {
-  const defaultItems = [
-    {
-      time: '07:30',
-      title: '晨间苏醒',
-      description: '在晨光中醒来，整理思绪，准备新的一天。'
-    },
-    {
-      time: '09:00', 
-      title: '晨间时光',
-      description: '翻开一本书，在文字间寻找灵感与宁静。'
-    },
-    {
-      time: '11:30',
-      title: '上午活动', 
-      description: '在附近的小路上散步，感受微风与阳光。'
-    },
-    {
-      time: '14:00',
-      title: '午后时光',
-      description: '泡一杯茶，听着轻音乐，享受慵懒的午后。'
-    },
-    {
-      time: '16:30',
-      title: '下午茶',
-      description: '准备点心，翻阅相册，回忆美好时光。'
-    },
-    {
-      time: '19:00',
-      title: '晚间思绪', 
-      description: '整理今天的想法，写下一些零散的文字。'
-    },
-    {
-      time: '22:00',
-      title: '夜晚',
-      description: '在星光下准备休息，期待明天的相遇。'
-    }
-  ]
-  
-  return defaultItems.map((item, index) => {
-    const hour = parseInt(item.time.split(':')[0])
-    let type: 'past' | 'current' | 'future'
-    
-    if (hour < currentHour) {
-      type = 'past'
-    } else if (hour === currentHour || (hour === currentHour + 1 && new Date().getMinutes() > 30)) {
-      type = 'current'
-    } else {
-      type = 'future'
-    }
-    
-    return {
-      id: `default_${index}`,
-      time: item.time,
-      title: item.title,
-      description: item.description,
-      type,
-      isReal: false
-    }
-  })
-}
