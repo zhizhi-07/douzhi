@@ -100,23 +100,6 @@ function App() {
   const musicPlayer = useMusicPlayer()
   const [globalBackground, setGlobalBackground] = useState<string>('')
   
-  // 屏幕设置（用于解决iOS黑边问题）
-  const [screenSettings, setScreenSettings] = useState(() => ({
-    topOffset: parseInt(localStorage.getItem('screen_top_offset') || '0'),
-    bottomOffset: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
-  }))
-  
-  // 监听屏幕设置变化
-  useEffect(() => {
-    const handleScreenSettingsChange = () => {
-      setScreenSettings({
-        topOffset: parseInt(localStorage.getItem('screen_top_offset') || '0'),
-        bottomOffset: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
-      })
-    }
-    window.addEventListener('screenSettingsChanged', handleScreenSettingsChange)
-    return () => window.removeEventListener('screenSettingsChanged', handleScreenSettingsChange)
-  }, [])
 
   // 加载全局背景和按钮颜色
   useEffect(() => {
@@ -387,11 +370,6 @@ function App() {
     }
   }, [])
 
-  // 应用屏幕偏移设置到CSS变量
-  useEffect(() => {
-    document.documentElement.style.setProperty('--screen-top-offset', `${screenSettings.topOffset}px`)
-    document.documentElement.style.setProperty('--screen-bottom-offset', `${screenSettings.bottomOffset}px`)
-  }, [screenSettings.topOffset, screenSettings.bottomOffset])
 
   // 渲染主内容
   const renderContent = () => (

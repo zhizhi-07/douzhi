@@ -17,14 +17,24 @@ html, body, #root {
   }
 }
 
-/* 让app-container填满可用空间，支持用户自定义偏移 */
+/* 让app-container填满可用空间 */
 .app-container {
   position: fixed;
-  top: var(--screen-top-offset, 0px);
+  top: 0;
   left: 0;
   right: 0;
-  bottom: var(--screen-bottom-offset, 0px);
+  bottom: 0;
   overflow: hidden;
+}
+
+/* 修复h-screen在iOS上的问题 - 使用100%而不是100vh */
+.h-screen {
+  height: 100% !important;
+}
+
+/* 确保min-h-screen也正确 */
+.min-h-screen {
+  min-height: 100% !important;
 }
 
 /* 全局背景透明 - 让App.tsx的全局背景显示 */
