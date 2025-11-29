@@ -143,6 +143,55 @@ export async function importAllData(file: File): Promise<void> {
       console.log('✅ IndexedDB 导入完成')
     }
 
+    // 🔥 5. 从 localStorage 的消息备份恢复到 IndexedDB
+    console.log('📦 检查 localStorage 消息备份...')
+    let restoredMessages = 0
+    
+    for (const key of Object.keys(data.localStorage || {})) {
+      if (key.startsWith('msg_backup_')) {
+        try {
+          const backup = JSON.parse(data.localStorage[key])
+          if (backup.messages && backup.messages.length > 0) {
+            const chatId = key.replace('msg_backup_', '')
+            
+            // 直接写入 DouzhiDB
+            const dbReq = indexedDB.open('DouzhiDB', 4)
+            await new Promise<void>((resolve) => {
+              dbReq.onsuccess = () => {
+                const db = dbReq.result
+                if (db.objectStoreNames.contains('messages')) {
+                  const tx = db.transaction('messages', 'readwrite')
+                  tx.objectStore('messages').put(backup.messages, chatId)
+                  tx.oncomplete = () => {
+                    console.log(`  ✅ 恢复消息: ${chatId}, ${backup.messages.length} 条`)
+                    restoredMessages++
+                    db.close()
+                    resolve()
+                  }
+                  tx.onerror = () => {
+                    db.close()
+                    resolve()
+                  }
+                } else {
+                  db.close()
+                  resolve()
+                }
+              }
+              dbReq.onerror = () => resolve()
+              // 超时
+              setTimeout(resolve, 5000)
+            })
+          }
+        } catch (e) {
+          console.warn(`  ⚠️ 恢复消息备份失败: ${key}`, e)
+        }
+      }
+    }
+    
+    if (restoredMessages > 0) {
+      console.log(`✅ 从备份恢复了 ${restoredMessages} 个聊天的消息`)
+    }
+
     console.log('✅ 数据导入成功！请刷新页面以加载新数据。')
   } catch (error) {
     console.error('❌ 导入数据失败:', error)
@@ -254,28 +303,7 @@ async function exportIndexedDB(dbName: string): Promise<Record<string, any> | nu
  * 🔥 修复：支持 key-value 格式和旧格式兼容
  */
 async function importIndexedDB(dbName: string, data: Record<string, any>): Promise<void> {
-  console.log(`  🗑️ 先删除旧数据库: ${dbName}`)
-  
-  // 🔥 先删除旧数据库，避免版本冲突
-  await new Promise<void>((resolve) => {
-    const deleteReq = indexedDB.deleteDatabase(dbName)
-    deleteReq.onsuccess = () => {
-      console.log(`  ✅ 旧数据库已删除: ${dbName}`)
-      resolve()
-    }
-    deleteReq.onerror = () => {
-      console.warn(`  ⚠️ 删除数据库失败，继续: ${dbName}`)
-      resolve()
-    }
-    deleteReq.onblocked = () => {
-      console.warn(`  ⚠️ 删除被阻塞，继续: ${dbName}`)
-      resolve()
-    }
-    // 3秒超时
-    setTimeout(resolve, 3000)
-  })
-  
-  console.log(`  🔓 正在创建新数据库: ${dbName}`)
+  console.log(`  🔓 正在打开数据库: ${dbName}`)
   
   return new Promise((resolve, reject) => {
     // 添加超时
@@ -284,8 +312,8 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
       reject(new Error(`打开数据库超时: ${dbName}`))
     }, 10000)
     
-    // 创建新数据库，版本1
-    const request = indexedDB.open(dbName, 1)
+    // 打开数据库（不指定版本，用现有版本）
+    const request = indexedDB.open(dbName)
     
     request.onupgradeneeded = () => {
       const db = request.result

@@ -33,7 +33,16 @@ async function preloadMessages() {
         console.log(`🔍 [预加载] 发现 ${backupKeys.length} 个 localStorage 备份`)
       }
       
-      const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
+      // 🔥 加超时保护，防止 IndexedDB 卡死
+      let allKeys: string[] = []
+      try {
+        allKeys = await Promise.race([
+          IDB.getAllKeys(IDB.STORES.MESSAGES),
+          new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 3000))
+        ])
+      } catch {
+        console.warn('⚠️ [预加载] IndexedDB getAllKeys 超时')
+      }
       if (import.meta.env.DEV) {
         console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
       }
@@ -46,7 +55,16 @@ async function preloadMessages() {
       })
       
       for (const chatId of allChatIds) {
-        let messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+        // 🔥 单个聊天加载加超时
+        let messages: Message[] | null = null
+        try {
+          messages = await Promise.race([
+            IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+          ])
+        } catch {
+          console.warn(`⚠️ [预加载] chatId=${chatId} 加载超时`)
+        }
         
         // 🔥 如果IndexedDB没有数据，尝试从 localStorage备份恢复
         if (!messages || messages.length === 0) {

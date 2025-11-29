@@ -36,25 +36,30 @@ try {
   console.error('从 localStorage 加载失败:', e)
 }
 
-// 后台异步从 IndexedDB 加载最新数据
-CharacterManager.getAllCharacters().then(characters => {
+// 🔥 后台异步从 IndexedDB 加载（加超时保护）
+Promise.race([
+  CharacterManager.getAllCharacters(),
+  new Promise<Character[]>((_, reject) => setTimeout(() => reject(new Error('超时')), 3000))
+]).then(characters => {
   if (characters.length === 0) {
-    // 如果 IndexedDB 是空的，说明是首次使用或需要迁移
+    // IndexedDB 是空的，用 localStorage 数据
     if (charactersCache.length > 0) {
-      // 有 localStorage 数据，迁移到 IndexedDB
       console.log(`📦 迁移 ${charactersCache.length} 个角色到 IndexedDB`)
       CharacterManager.saveAllCharacters(charactersCache)
-      // 迁移后清理 localStorage
-      localStorage.removeItem(STORAGE_KEY)
+      // 🔥 不删除 localStorage 备份！保留作为安全网
     }
-    // 完全新用户，不保存任何默认角色
   } else {
-    // IndexedDB 有数据，使用 IndexedDB 的数据（最新）
+    // IndexedDB 有数据
     charactersCache = characters
-    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色（覆盖临时缓存）`)
+    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色`)
+    // 🔥 同步更新 localStorage 备份
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
+    } catch {}
   }
 }).catch(e => {
-  console.error('从 IndexedDB 加载失败:', e)
+  console.warn('⚠️ IndexedDB 加载失败或超时，使用 localStorage 缓存:', e)
+  // 🔥 关键：失败时保持 localStorage 数据，不清空
 })
 
 export const characterService = {
