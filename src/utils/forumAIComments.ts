@@ -27,7 +27,7 @@ interface CommentActor {
  * 获取角色的最近聊天记录摘要（用于编排关系，不能公开透露）
  * 同时读取微信聊天和论坛私聊，标注来源
  */
-function getRecentChatSummary(characterId: string, limit: number = 10): string {
+function getRecentChatSummary(characterId: string, limit: number = 20): string {
   const allMessages: { source: string; sender: string; content: string; timestamp: number }[] = []
   
   try {
@@ -97,8 +97,8 @@ function buildActorsForPrompt(characters: Character[], userName: string = '用�
         character: c,
         userInfo
       })
-      // 获取最近聊天记录（用于编排关系）
-      const recentChat = getRecentChatSummary(c.id, 10)
+      // 获取最近聊天记录（用于编排关系）- 至少20条
+      const recentChat = getRecentChatSummary(c.id, 20)
       
       return {
         id: c.id,

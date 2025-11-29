@@ -6,7 +6,7 @@ import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
 import { getUserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
-import { addMessage } from '../utils/simpleMessageManager'
+import { addMessage, loadMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 import StatusBar from '../components/StatusBar'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
@@ -306,19 +306,34 @@ const InstagramPostDetail = () => {
       }).join('\n')
       
       // 检查哪些是AI角色（有完整人设）- 不截断
-      const aiCharacters = allCharacters.filter(c => c.personality).slice(0, 5).map(c => ({
-        name: c.nickname || c.realName || '未知',
-        personality: c.personality,
-        isPublic: c.isPublicFigure,
-        publicPersona: c.publicPersona
-      }))
+      const aiCharactersWithChat = await Promise.all(
+        allCharacters.filter(c => c.personality).slice(0, 5).map(async c => {
+          const name = c.nickname || c.realName || '未知'
+          // 读取和这个角色的最近20条聊天记录
+          const chatId = c.id
+          const messages = loadMessages(chatId)
+          const recentChat = messages.slice(-20).map(m => {
+            const sender = m.type === 'sent' ? userInfo.nickname || '用户' : name
+            return `${sender}: ${m.content?.slice(0, 100) || ''}`
+          }).join('\n')
+          
+          return {
+            name,
+            personality: c.personality,
+            isPublic: c.isPublicFigure,
+            publicPersona: c.publicPersona,
+            recentChat
+          }
+        })
+      )
       
-      const aiCharacterPrompt = aiCharacters.length > 0 ? `
+      const aiCharacterPrompt = aiCharactersWithChat.length > 0 ? `
 ## 🎭 AI角色（有人设，可能参与评论）
-${aiCharacters.map(a => {
+${aiCharactersWithChat.map(a => {
   let info = `**${a.name}**${a.isPublic ? '【公众人物】' : ''}`
   if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
   if (a.personality) info += `\n- 人设：${a.personality}`
+  if (a.recentChat) info += `\n- 🔥 和用户的最近聊天记录：\n${a.recentChat}`
   return info
 }).join('\n\n')}
 ` : ''
