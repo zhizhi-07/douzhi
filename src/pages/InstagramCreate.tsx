@@ -123,15 +123,30 @@ const InstagramCreate = () => {
           })
         })
         
-        // 更新帖子评论数和随机点赞
+        // 更新帖子评论数和点赞
         const updatedPosts = getAllPosts()
         const post = updatedPosts.find(p => p.id === postId)
         if (post) {
           const comments = await getPostComments(postId)
           post.comments = comments.length
           
-          // 随机点赞：评论数的2-5倍
-          const likesCount = Math.floor(comments.length * (2 + Math.random() * 3))
+          // 检查是否有公众人物参与评论或被@
+          const hasPublicFigureComment = comments.some(c => c.isPublicFigure)
+          const hasPublicFigureTagged = (post.taggedUsers || []).some(userId => {
+            const char = allCharacters.find(c => c.id === userId)
+            return char?.isPublicFigure
+          })
+          const hasPublicFigureInvolved = hasPublicFigureComment || hasPublicFigureTagged
+          
+          // 点赞数：有公众人物参与则大幅增加
+          let likesCount: number
+          if (hasPublicFigureInvolved) {
+            // 有公众人物参与：几千到几万点赞
+            likesCount = Math.floor(Math.random() * 50000) + 5000
+          } else {
+            // 普通帖子：评论数的10-30倍
+            likesCount = Math.floor(comments.length * (10 + Math.random() * 20)) + 50
+          }
           post.likes = likesCount
           
           savePosts(updatedPosts)
@@ -155,7 +170,7 @@ const InstagramCreate = () => {
           const instagramSettings = getInstagramSettings()
           if (instagramSettings.allowRoastPost && result.roastPosts && result.roastPosts.length > 0) {
             result.roastPosts.forEach((roast, index) => {
-              setTimeout(() => {
+              setTimeout(async () => {
                 // 先创建NPC记录（如果不存在）
                 const existingNPCs = getAllNPCs()
                 if (!existingNPCs.find(n => n.id === roast.npcId)) {
@@ -172,12 +187,20 @@ const InstagramCreate = () => {
                 }
                 
                 const roastPostId = `roast-${Date.now()}-${index}`
+                
+                // 检查发帖人是否是公众人物
+                const chars = await getAllCharacters()
+                const posterChar = chars.find(c => c.id === roast.npcId)
+                const roastLikes = posterChar?.isPublicFigure 
+                  ? Math.floor(Math.random() * 50000) + 10000  // 公众人物：1万-6万
+                  : Math.floor(Math.random() * 50) + 10        // 普通NPC：10-60
+                
                 const roastPost = {
                   id: roastPostId,
                   npcId: roast.npcId,
                   content: roast.content,
                   images: 0,
-                  likes: Math.floor(Math.random() * 50) + 10,
+                  likes: roastLikes,
                   comments: 0,
                   time: '刚刚',
                   timestamp: Date.now(),

@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS全屏适配 */
+html, body, #root {
+  height: 100%;
+  /* 支持dvh的浏览器用dvh，否则用100% */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* iOS PWA模式下确保填满整个屏幕 */
+@supports (-webkit-touch-callout: none) {
+  html, body, #root {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* 让app-container填满可用空间，支持用户自定义偏移 */
+.app-container {
+  position: fixed;
+  top: var(--screen-top-offset, 0px);
+  left: 0;
+  right: 0;
+  bottom: var(--screen-bottom-offset, 0px);
+  overflow: hidden;
+}
+
 /* 全局背景透明 - 让App.tsx的全局背景显示 */
 body {
   background: transparent !important;
@@ -91,7 +116,7 @@ body {
 :root {
   --switch-knob-color: #ffffff;
   --switch-active-color: #475569;
-  --global-button-color: #475569;
+  --global-button-color: #ffffff;
   --slider-thumb-color: #1e293b;
 }
 
@@ -114,9 +139,9 @@ button.bg-slate-700,
 button.bg-slate-600,
 button.bg-gray-700,
 button.bg-gray-600,
-/* 世界书条目按钮 */
-div[class*="bg-slate-"][class*="rounded"],
-div[class*="bg-gray-"][class*="rounded"][class*="cursor-pointer"] {
+/* 世界书条目按钮 - 只在世界书页面生效 */
+[data-worldbook] div[class*="bg-slate-"][class*="rounded"],
+[data-worldbook] div[class*="bg-gray-"][class*="rounded"][class*="cursor-pointer"] {
   background: var(--global-button-color) !important;
 }
 

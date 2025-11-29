@@ -50,7 +50,7 @@ export function setAIStatus(status: AIStatus): void {
 /**
  * 获取AI状态（不自动生成）
  * 🔥 修改：不再自动生成默认状态，让AI自己决定状态
- * 🔥 新增：检查状态是否过期（超过6小时），过期则返回 null
+ * 🔥 修改：不再清空过期状态！即使过了很久，也要让AI知道上一条状态是什么，才能合理过渡
  */
 export function getOrCreateAIStatus(characterId: string, characterName: string): AIStatus | null {
   const status = getAIStatus(characterId)
@@ -60,16 +60,8 @@ export function getOrCreateAIStatus(characterId: string, characterName: string):
     return null
   }
 
-  // 🔥 检查状态是否过期（超过6小时）
-  const now = Date.now()
-  const timeSinceUpdate = now - status.updatedAt
-  const SIX_HOURS = 6 * 60 * 60 * 1000
-  
-  if (timeSinceUpdate > SIX_HOURS) {
-    console.log(`💫 [AI状态] 状态已过期（${Math.floor(timeSinceUpdate / 1000 / 60 / 60)}小时前），需要更新`)
-    return null // 返回 null，让提示词告诉 AI 必须更新状态
-  }
-
+  // 🔥 不再清空过期状态！AI需要知道上一条状态才能做合理过渡
+  // 时间间隔的处理交给 chatApi.ts 的 lastGapHint 来做
   return status
 }
 

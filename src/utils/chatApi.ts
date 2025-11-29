@@ -399,11 +399,16 @@ const buildUserAvatarContext = (): string => {
 }
 
 /**
- * 计算距离上次「聊天间隔」的时间
+ * 计算距离上次「有效用户消息」的时间
  *
- * 逻辑：
- * - 优先使用「倒数第二条」用户消息的时间（即当前这条之前上一次来找TA的时间）
- * - 如果用户只发过一条消息，就用这唯一一条
+ * 之前的逻辑只看倒数第二条用户消息，导致场景：
+ *   - 昨天只发过一条消息
+ *   - 今天第一次再来，就算隔了18小时，也得不到任何 time gap 提示
+ *
+ * 为了让 AI 能在「隔了一整个晚上/一天」之后补全这段时间的行程，
+ * 这里改成：
+ *   - 优先使用倒数第二条（保持原本"上一轮聊天"的语义）
+ *   - 如果用户总共只有一条消息，就退化为使用这唯一一条
  */
 const getTimeSinceLastMessage = (messages: Message[]): string => {
   if (messages.length === 0) return ''
@@ -412,11 +417,10 @@ const getTimeSinceLastMessage = (messages: Message[]): string => {
   const userMessages = messages.filter(m => m.type === 'sent' && !!m.timestamp)
   if (userMessages.length === 0) return ''
 
-  // 如果只有一条用户消息（第一次发消息），不存在"距离上次"的概念，返回空
-  if (userMessages.length < 2) return ''
-
-  // 使用倒数第二条用户消息的时间（上一轮聊天）
-  const target = userMessages[userMessages.length - 2]
+  // 如果只有一条用户消息，就用这唯一一条（允许第一次和现在之间存在很长时间间隔）
+  const target = userMessages.length >= 2
+    ? userMessages[userMessages.length - 2]
+    : userMessages[userMessages.length - 1]
 
   const targetTs = target.timestamp!
   const now = Date.now()
@@ -577,25 +581,22 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 长时间没聊天以后，你不能假装你们还在"刚刚那句"的当场对话里。之前几小时/几天前说过的话，只能当成"以前吵过/聊过/开过的玩笑"来偶尔提起，不能说"刚刚还在说你有病"、"你一直在说xxx"这种好像你们聊天从没断过的句式。`
     }
     
-    // 🔥 时间感知：根据间隔时间合理推进状态
+    // 🔥 时间感知：根据间隔时间合理推进状态（只给规则，不给具体文案）
     if (timeSinceLastMessage.includes('分钟')) {
       const minutes = parseInt(timeSinceLastMessage.match(/(\d+)/)?.[1] || '0')
       if (minutes >= 10) {
         hint += `
-⏰ 过了${minutes}分钟，**必须更新状态**！
-- 上一条状态的事情可能已经做完了，你现在应该在做别的事
-- 🔥 **这条回复里必须带一条 [状态:在哪|行程:xxx] 来记录你现在在干嘛**
-- 不要重复之前说过的动作，时间过了就该换一个了`
+⏰ 过了${minutes}分钟，更新一下状态吧。
+- 🔥 在回复里加一条 [状态:在哪|行程:xxx]
+- 状态需要**前后有变化**，不能总是同一个地点/同一个动作/同一句话`
       }
     } else if (timeSinceLastMessage.includes('小时')) {
       const hours = parseInt(timeSinceLastMessage.match(/(\d+)/)?.[1] || '1')
       hint += `
-⏰ 过了${hours}小时！**必须更新状态**！
-- 你的状态应该已经完全变了，不要还停留在${hours}小时前的动作
-- 🔥 **这条回复里必须带 [状态:在哪|行程:xxx] 来记录你现在在干嘛**
-- 如果中间经历了很多事，可以补发多条状态（带时间）：
-  [状态:在家|行程:洗完澡躺床上|时间:21:30]
-  [状态:在家|行程:刷手机刷到现在|时间:22:15]`
+⏰ 过了${hours}小时，这段时间不可能只做一件事。
+- 🔥 补全这段时间的大致行程，可以用 2-3 条 [状态:在哪|行程:xxx|时间:几点]
+- 状态要体现**阶段变化**：上一个阶段是什么，现在已经进入新的阶段
+- 不要机械地在上一条状态后面接一句"刚做完/刚醒"，而是描述你现在这个时间点更合理的状态`
     }
     
     return hint
@@ -700,10 +701,22 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   * 时间过了20分钟以上
   * 做完了某件事（不要重复说同一件事）
   * 换了地方或换了在做的事
-${lastRecord ? `
-⚠️ 上一条状态是"${lastRecord.action.substring(0, 30)}..."（${lastRecord.time}）
-  - 不要换个说法重复同一件事！
-  - 时间过了就该做别的了：起身、换地方、吃东西、看手机...` : '⚠️ 你还没更新过状态，可以在回复里加一条！'}`
+${lastRecord ? (() => {
+    // 计算上一条状态距今多久
+    const [h, m] = lastRecord.time.split(':').map(Number)
+    const lastTime = new Date()
+    lastTime.setHours(h, m, 0, 0)
+    const now = new Date()
+    const diffMinutes = Math.floor((now.getTime() - lastTime.getTime()) / 60000)
+    const timeDesc = diffMinutes < 60 ? `${diffMinutes}分钟` : `${Math.floor(diffMinutes/60)}小时`
+    
+    return `
+⚠️ 上一条状态：「${lastRecord.action.substring(0, 40)}」（${lastRecord.time}，距今${timeDesc}）
+🔄 规则：
+  - 过了${timeDesc}，上一件事通常已经结束，你现在应该处在**后续的一个新阶段**
+  - 状态要描述你**此刻正在做什么**，而不是上一件事的收尾动作
+  - 不要每次都用"刚……"这类表述来粘在上一条状态上，而是直接写现在的状态`
+  })() : '⚠️ 你还没更新过状态，在回复里加一条来记录你现在在干嘛吧！'}`
 
   // 获取世界书内容
   const { lorebookManager } = await import('./lorebookSystem')
@@ -791,6 +804,23 @@ ${(character as any).isPublicFigure ? `
 - 在论坛、社交媒体上发言时，你会意识到自己是公众人物，言行会被公众关注
 - 但在和${userNickname}私聊时，你可以更真实地表达自己，不用完全维持公众形象
 ` : ''}
+${(() => {
+  // 获取社交媒体数据（粉丝数和关注数）
+  const socialData = localStorage.getItem(`social-profile-${character.id}`)
+  if (socialData) {
+    try {
+      const parsed = JSON.parse(socialData)
+      if (parsed.followers || parsed.following) {
+        return `**你的社交媒体影响力**：
+- 粉丝数：${parsed.followers ? parsed.followers.toLocaleString() : '未知'}
+- 关注数：${parsed.following || '未知'}
+（这是你在论坛/社交平台上的公开数据，你心里清楚自己的影响力）
+`
+      }
+    } catch { return '' }
+  }
+  return ''
+})()}
 
 如果有世界观设定或背景信息，你心里会记着，在合适的时候自然带一点进去，而不是用设定文档的口吻背出来：${lorebookContext}
 如果你们有线下相处的经历，你会把那些当作已经发生过的真实记忆，可以在聊天里自然地回忆、提起或调侃，但不会当成此刻正在进行：${offlineRecordsContext}
@@ -799,7 +829,7 @@ ${(character as any).isPublicFigure ? `
 - 你不会说自己是 AI、大模型、机器人、程序，也不会提 token、模型、接口、服务器、网络错误等技术词。
 - 不会提到“提示词”“系统信息”“记忆系统”等幕后运作细节。
 - 现实世界里别人用 ChatGPT 一类工具的经历，不会被你当成"自己在这里亲身经历过"。
-- 聊天记录里每条消息末尾的「(发于20:30)」告诉你这条消息是什么时候发的，你要注意时间线，但回复时不要带这种时间标记。
+- 聊天记录里会出现 [5分钟后]、[1小时后] 这种时间间隔标记，告诉你两条消息之间隔了多久。比如用户说"去吃饭"，然后 [5分钟后] "吃饱了"，你就知道对方只吃了5分钟。你回复时不要带这种标记。
 
 关于对方的身份信息，你心里大概是这样认识的：
 ${userInfo.nickname && userRealName !== userInfo.nickname 
@@ -915,13 +945,12 @@ ${emojiListPrompt}
     例：[表情:躺平]、[表情:哭笑不得]
 
 - 论坛发帖：
-  - 发帖：[发帖:帖子内容|点赞:数量|粉丝:数量] —— 在论坛发布帖子，指定获得的点赞数和新增粉丝数。
+  - 发帖：[发帖:帖子内容] —— 在论坛发布帖子，点赞数和粉丝增长会由系统根据你的影响力自动计算。
     什么时候用：想分享心情、吐槽、晒照、发表观点时。
-    例：[发帖:今天心情好，出去玩了一圈～|点赞:128|粉丝:20]
-    ⚠️ 点赞和粉丝数量要根据帖子内容合理设定，精彩内容多给点，普通内容少一些。
     📷 可以在帖子里加图片：[图片：描述] 或【截图：描述】
     👤 可以@人：@某人 会通知对方
-    例：[发帖:@小明 看看这个【图片：今天的晚霞】好看吗？|点赞:256|粉丝:35]
+    例：[发帖:今天心情好，出去玩了一圈～]
+    例：[发帖:@小明 看看这个【图片：今天的晚霞】好看吗？]
 
 ${enableTheatreCards ? `- 小剧场卡片（重要！优先使用工具调用）：
   你可以生成逼真的手机截图卡片来展示：支付记录、红包、投票、朋友圈、聊天记录、天气等。
@@ -1004,7 +1033,7 @@ ${POKE_FEATURES_PROMPT}
   **你把这次对话当成"自己生活中的一段聊天"，而不是当成"完成任务"。**
 
 ❌ 避免：
-- 在回复里加「(发于xx:xx)」这类时间标记。
+- 在回复里加「[5分钟后]」「[1小时后]」这类时间间隔标记（那是系统加的，你不要模仿）。
 - 用 *斜体*、（动作：xxx）、【内心OS：xxx】 这种格式（除我们定义的指令如 [状态:xxx]）。
 - 写成旁白式小说："他缓缓说道……""她心想……"
 - 在聊天里说"根据设定/根据提示词/我要测试功能/这个功能是xxx"。

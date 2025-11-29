@@ -42,27 +42,40 @@ let messageIdCounter = 0
  * 格式化消息时间戳
  * 使用圆括号+“发于”前缀，让AI知道这是元数据而不是消息内容
  */
-export function formatMessageTimestamp(timestamp: number): string {
-  const now = new Date()
-  const msgDate = new Date(timestamp)
+/**
+ * 计算两条消息之间的时间间隔，返回自然语言描述
+ * 只有间隔超过1分钟才返回，否则返回空字符串
+ */
+export function formatTimeGap(currentTimestamp: number, previousTimestamp: number | null): string {
+  if (!previousTimestamp) return ''
   
-  const timeStr = msgDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const gapMs = currentTimestamp - previousTimestamp
+  const gapMinutes = Math.floor(gapMs / 60000)
+  const gapHours = Math.floor(gapMinutes / 60)
+  const gapDays = Math.floor(gapHours / 24)
   
-  // 判断是今天、昨天还是更早
-  const isToday = msgDate.toDateString() === now.toDateString()
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday = msgDate.toDateString() === yesterday.toDateString()
+  // 间隔小于1分钟不标注
+  if (gapMinutes < 1) return ''
   
-  // 用自然语言格式让AI能读懂，系统层面会过滤掉AI模仿的部分
-  if (isToday) {
-    return `(发于${timeStr})`
-  } else if (isYesterday) {
-    return `(发于昨天${timeStr})`
-  } else {
-    const dateStr = msgDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-    return `(发于${dateStr} ${timeStr})`
+  // 间隔1-59分钟
+  if (gapMinutes < 60) {
+    return `[${gapMinutes}分钟后]`
   }
+  
+  // 间隔1-23小时
+  if (gapHours < 24) {
+    const remainMinutes = gapMinutes % 60
+    if (remainMinutes > 0) {
+      return `[${gapHours}小时${remainMinutes}分钟后]`
+    }
+    return `[${gapHours}小时后]`
+  }
+  
+  // 间隔超过1天
+  if (gapDays === 1) {
+    return `[隔了一天]`
+  }
+  return `[隔了${gapDays}天]`
 }
 
 /**
@@ -121,45 +134,51 @@ export interface StatusRecord {
  * 转换消息为API格式
  * @param messages 消息列表
  * @param hideTheatreHistory 是否隐藏小剧场历史（开启后AI看不到卡片）
- * @param addTimestamps 是否给每条消息添加时间戳（帮助AI感知时间）
+ * @param addTimeGaps 是否添加时间间隔标记（用相对时间，AI无法模仿）
  * @param statusRecords 状态/行程记录，会按时间戳插入到消息流中
  */
 export const convertToApiMessages = (
   messages: Message[], 
   hideTheatreHistory: boolean = false, 
-  addTimestamps: boolean = true,
+  addTimeGaps: boolean = true,
   statusRecords: StatusRecord[] = []
 ): ChatMessage[] => {
-  const result = messages
-    .filter(msg => {
-      // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
-      // 线下总结（messageType === 'offline-summary'）会在后面单独处理
-      if (msg.sceneMode === 'offline' && msg.messageType !== 'offline-summary') {
-        console.log('🚫 [线下消息过滤] 跳过原始线下对话:', msg.content?.substring(0, 30))
-        return false
+  // 过滤后的消息列表
+  const filteredMessages = messages.filter(msg => {
+    // 🔥 过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
+    if (msg.sceneMode === 'offline' && msg.messageType !== 'offline-summary') {
+      console.log('🚫 [线下消息过滤] 跳过原始线下对话:', msg.content?.substring(0, 30))
+      return false
+    }
+    
+    // 🎭 如果开启"隐藏小剧场历史"，过滤掉所有theatre类型消息
+    if (hideTheatreHistory && msg.messageType === 'theatre') {
+      console.log('🚫 [小剧场过滤] 已隐藏卡片历史:', msg.theatre?.templateName || '卡片')
+      return false
+    }
+    
+    return true
+  })
+  
+  // 🔥 用 reduce 来追踪前一条消息的时间戳，计算时间间隔
+  let prevTimestamp: number | null = null
+  
+  const result = filteredMessages.map(msg => {
+    // 计算与前一条消息的时间间隔（放在消息开头，表示"X分钟后"）
+    const timeGap = addTimeGaps ? formatTimeGap(msg.timestamp, prevTimestamp) : ''
+    prevTimestamp = msg.timestamp
+    
+    // 处理撤回的消息
+    if (msg.isRecalled && msg.recalledContent) {
+      const isUserRecalled = msg.originalType === 'sent'
+      const content = isUserRecalled 
+        ? `[撤回了消息: "${msg.recalledContent}"]`
+        : `[我撤回了消息: "${msg.recalledContent}"]`
+      return {
+        role: isUserRecalled ? 'user' as const : 'assistant' as const,
+        content: timeGap ? timeGap + ' ' + content : content
       }
-      
-      // 🎭 如果开启"隐藏小剧场历史"，过滤掉所有theatre类型消息
-      if (hideTheatreHistory && msg.messageType === 'theatre') {
-        console.log('🚫 [小剧场过滤] 已隐藏卡片历史:', msg.theatre?.templateName || '卡片')
-        return false
-      }
-      
-      return true
-    })
-    .map(msg => {
-      // 处理撤回的消息
-      if (msg.isRecalled && msg.recalledContent) {
-        const isUserRecalled = msg.originalType === 'sent'
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
-        const content = isUserRecalled 
-          ? `[撤回了消息: "${msg.recalledContent}"]`
-          : `[我撤回了消息: "${msg.recalledContent}"]`
-        return {
-          role: isUserRecalled ? 'user' as const : 'assistant' as const,
-          content: content + timeSuffix
-        }
-      }
+    }
       
       // 视频通话记录转换为AI可读格式
       if (msg.messageType === 'video-call-record' && msg.videoCallRecord) {
@@ -177,7 +196,7 @@ export const convertToApiMessages = (
           })
           .join('\n')
         
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const callInfo = `[视频通话记录 - 时长${durationText}]\n通话内容:\n${conversations}`
         
         console.log('📞 [messageUtils] 视频通话记录已转换为AI可读格式', {
@@ -189,7 +208,7 @@ export const convertToApiMessages = (
         
         return {
           role: 'system' as const,
-          content: callInfo + timeSuffix
+          content: callInfo + timeGap
         }
       }
       
@@ -214,7 +233,7 @@ export const convertToApiMessages = (
           })
           .join('\n')
         
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const forwardedInfo = msg.type === 'sent'
           ? `[用户转发了聊天记录]\n标题: ${title}\n共${messageCount}条消息\n聊天内容:\n${chatContent}`
           : `[对方转发了聊天记录]\n标题: ${title}\n共${messageCount}条消息\n聊天内容:\n${chatContent}`
@@ -227,7 +246,7 @@ export const convertToApiMessages = (
         
         return {
           role: msg.type === 'sent' ? ('user' as const) : ('assistant' as const),
-          content: forwardedInfo + timeSuffix
+          content: forwardedInfo + timeGap
         }
       }
       
@@ -237,12 +256,12 @@ export const convertToApiMessages = (
         
         // 🔥 如果是 aiOnly 消息，直接传给AI（用户看不见但AI能看见）
         if (msg.aiOnly) {
-          const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+          // 使用已计算的 timeGap
           const formattedContent = msg.aiReadableContent || msg.content || ''
           console.log('  ✅ AI专属消息:', formattedContent)
           return {
             role: 'system' as const,
-            content: formattedContent + timeSuffix
+            content: formattedContent + timeGap
           }
         }
         
@@ -278,7 +297,7 @@ export const convertToApiMessages = (
         if (isImportant) {
           // 优先使用 aiReadableContent，如果没有则使用 content
           let formattedContent = msg.aiReadableContent || msg.content || ''
-          const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+          // 使用已计算的 timeGap
           
           // 格式化亲密付使用通知
           if (formattedContent.includes('的亲密付被使用了')) {
@@ -289,7 +308,7 @@ export const convertToApiMessages = (
           console.log('  ✅ AI将看到系统通知:', formattedContent)
           return {
             role: 'system' as const,
-            content: formattedContent + timeSuffix
+            content: formattedContent + timeGap
           }
         }
         
@@ -301,7 +320,7 @@ export const convertToApiMessages = (
       // 转账消息转换为AI可读格式
       if (msg.messageType === 'transfer' && msg.transfer) {
         const isUserSent = msg.type === 'sent'
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const statusText = msg.transfer.status === 'pending' ? '待处理' 
                          : msg.transfer.status === 'received' ? '已收款' 
                          : '已退还'
@@ -312,14 +331,14 @@ export const convertToApiMessages = (
         
         return {
           role: isUserSent ? 'user' as const : 'assistant' as const,
-          content: transferInfo + timeSuffix
+          content: transferInfo + timeGap
         }
       }
       
       // 代付消息转换为AI可读格式
       if (msg.messageType === 'paymentRequest' && msg.paymentRequest) {
         const isUserSent = msg.type === 'sent'
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const statusText = msg.paymentRequest.status === 'pending' ? '待处理' 
                          : msg.paymentRequest.status === 'paid' ? '已支付' 
                          : '已拒绝'
@@ -330,34 +349,34 @@ export const convertToApiMessages = (
         
         return {
           role: isUserSent ? 'user' as const : 'assistant' as const,
-          content: paymentInfo + timeSuffix
+          content: paymentInfo + timeGap
         }
       }
       
       // 语音消息转换为AI可读格式
       if (msg.messageType === 'voice' && msg.voiceText) {
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const voiceInfo = `[语音: ${msg.voiceText}]`
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-          content: voiceInfo + timeSuffix
+          content: voiceInfo + timeGap
         }
       }
       
       // 位置消息转换为AI可读格式
       if (msg.messageType === 'location' && msg.location) {
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const locationInfo = `[位置: ${msg.location.name} - ${msg.location.address}]`
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-          content: locationInfo + timeSuffix
+          content: locationInfo + timeGap
         }
       }
       
       // 照片消息转换为AI可读格式
       if (msg.messageType === 'photo' && msg.photoDescription) {
         // 🔥 添加消息ID，让AI能够引用这张图片（用于换头像等功能）
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const photoInfo = msg.type === 'sent'
           ? `[用户发了照片: ${msg.photoDescription}] (消息ID: ${msg.id})`
           : `[你发了照片: ${msg.photoDescription}]`
@@ -365,7 +384,7 @@ export const convertToApiMessages = (
         // 如果有base64编码且是用户发送的照片，添加imageUrl字段供视觉识别API使用
         const chatMessage: ChatMessage = {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-          content: photoInfo + timeSuffix
+          content: photoInfo + timeGap
         }
         
         if (msg.photoBase64 && msg.type === 'sent') {
@@ -383,13 +402,13 @@ export const convertToApiMessages = (
       if (msg.messageType === 'emoji' && msg.emoji) {
         // 🔥 修复：让AI看到的格式和AI应该使用的格式一致，避免AI混淆
         // AI看到：[表情:描述] → AI学会：也要用[表情:描述]格式发送
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const emojiInfo = msg.type === 'sent'
           ? `[用户发了表情包] [表情:${msg.emoji.description}]`
           : `[表情:${msg.emoji.description}]`  // AI自己发的，直接显示指令格式
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-          content: emojiInfo + timeSuffix
+          content: emojiInfo + timeGap
         }
       }
       
@@ -440,12 +459,12 @@ export const convertToApiMessages = (
         }
         
         // 直接描述内容，不加"你生成了/用户发送了"
-        const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+        // 使用已计算的 timeGap
         const theatreInfo = `[${summary || templateName}]`
         
         return {
           role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-          content: theatreInfo + timeSuffix
+          content: theatreInfo + timeGap
         }
       }
       
@@ -463,10 +482,10 @@ export const convertToApiMessages = (
         textContent = quotedPrefix + textContent
       }
       // 🔥 如果开启时间戳，给消息加上时间标记（放在末尾，AI不会模仿）
-      const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(msg.timestamp) : ''
+      // 使用已计算的 timeGap
       return {
         role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
-        content: textContent + timeSuffix
+        content: textContent + timeGap
       }
     })
     .filter((msg): msg is Exclude<typeof msg, null> => msg !== null) as ChatMessage[]
@@ -483,9 +502,8 @@ export const convertToApiMessages = (
       
       if (!hasExistingMoments) {
         const momentsText = userMoments.map(m => {
-          const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(m.createdAt) : ''
           const images = m.images?.length ? ` [图片${m.images.length}张]` : ''
-          return `${m.content || '[纯图片]'}${images}${timeSuffix}`
+          return `${m.content || '[纯图片]'}${images}`
         }).join('\n')
         
         result.unshift({
@@ -514,10 +532,9 @@ export const convertToApiMessages = (
       
       if (!hasExistingPosts) {
         const postsText = userPosts.map(p => {
-          const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(p.timestamp) : ''
           const images = p.images > 0 ? ` [图片${p.images}张]` : ''
           const comments = p.comments > 0 ? ` (${p.comments}条评论, ${p.likes}赞)` : ''
-          return `${p.content}${images}${comments}${timeSuffix}`
+          return `${p.content}${images}${comments}`
         }).join('\n')
         
         result.unshift({
@@ -531,26 +548,16 @@ export const convertToApiMessages = (
     // 忽略错误
   }
   
-  // 🔥 注入状态/行程记录到消息流中
+  // 🔥 注入状态/行程记录到消息流中（仅供AI回忆参考，不注入到对话）
+  // 不再注入状态记录到消息流，因为：
+  // 1. system角色会被降级为user，AI会以为是用户发的
+  // 2. assistant角色+任何格式，AI都会学习模仿
+  // 3. 状态信息已经通过 scheduleHint 在系统提示词里告诉AI了
+  // 所以这里只打日志，不再注入
   if (statusRecords.length > 0) {
-    // 🔥 修复：用 assistant 角色，因为这是AI自己的状态更新记录
-    // 之前用 system 会被降级为 user，导致AI误以为是用户发的
-    const statusMessages: ChatMessage[] = statusRecords.map(record => {
-      const timeSuffix = addTimestamps ? ' ' + formatMessageTimestamp(record.timestamp) : ''
-      return {
-        role: 'assistant' as const,
-        content: `[我的状态] ${record.action}${timeSuffix}`
-      }
-    })
-    
-    // 🔥 按时间顺序合并：把状态消息插入到消息流的正确位置
-    // 由于result里的消息已经失去了timestamp，我们需要一种方式来排序
-    // 简单方案：把状态消息追加到最后（因为它们通常是最近的）
-    // 更好的方案：在消息转换前就合并，但这需要大改
-    // 目前先追加到消息末尾，效果已经比放在系统提示词里好
-    result.push(...statusMessages)
-    
-    console.log('📅 [messageUtils] 注入状态记录:', statusRecords.length, '条')
+    console.log('📍 [messageUtils] 状态记录（不注入对话，仅供调试）:', statusRecords.map(r => `${r.time} ${r.action}`))
+    // 不再创建 statusMessages，状态信息由 chatApi.ts 的 scheduleHint 处理
+    // 不再注入 statusMessages 到 result，状态信息已在系统提示词的 scheduleHint 里
   }
   
   return result

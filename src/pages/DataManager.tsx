@@ -579,6 +579,142 @@ const DataManager = () => {
             </div>
           </button>
           
+          {/* 测试并修复 IndexedDB */}
+          <button
+            onClick={async () => {
+              try {
+                // 1. 测试 IndexedDB 是否可写
+                const testResult = await new Promise<boolean>((resolve) => {
+                  const req = indexedDB.open('DouzhiDB', 4)
+                  req.onupgradeneeded = (e) => {
+                    const db = (e.target as IDBOpenDBRequest).result
+                    const stores = ['messages', 'moments', 'characters', 'userInfo', 'wallet', 'emojis', 'settings', 'misc', 'dmMessages', 'dmConversations']
+                    stores.forEach(name => {
+                      if (!db.objectStoreNames.contains(name)) {
+                        db.createObjectStore(name)
+                        console.log(`📦 创建 store: ${name}`)
+                      }
+                    })
+                  }
+                  req.onsuccess = () => {
+                    const db = req.result
+                    try {
+                      const tx = db.transaction('misc', 'readwrite')
+                      tx.objectStore('misc').put({ test: Date.now() }, '__test__')
+                      tx.oncomplete = () => {
+                        console.log('✅ IndexedDB 写入测试成功')
+                        db.close()
+                        resolve(true)
+                      }
+                      tx.onerror = () => {
+                        console.error('❌ IndexedDB 写入测试失败')
+                        db.close()
+                        resolve(false)
+                      }
+                    } catch (e) {
+                      db.close()
+                      resolve(false)
+                    }
+                  }
+                  req.onerror = () => resolve(false)
+                  setTimeout(() => resolve(false), 5000)
+                })
+                
+                if (!testResult) {
+                  alert('❌ IndexedDB 无法写入！\n\n可能原因：\n1. 浏览器隐私模式\n2. 存储空间不足\n3. Safari 有bug\n\n请尝试清除浏览器缓存后重试')
+                  return
+                }
+                
+                // 2. 迁移 localStorage 数据到 IndexedDB
+                const migrateResult = await new Promise<number>((resolve) => {
+                  const dbReq = indexedDB.open('DouzhiDB', 4)
+                  dbReq.onsuccess = async () => {
+                    const db = dbReq.result
+                    let migrated = 0
+                    const promises: Promise<void>[] = []
+                    
+                    // 收集所有消息备份
+                    const backupKeys: string[] = []
+                    for (let i = 0; i < localStorage.length; i++) {
+                      const key = localStorage.key(i)
+                      if (key?.startsWith('msg_backup_')) {
+                        backupKeys.push(key)
+                      }
+                    }
+                    
+                    console.log(`🔍 找到 ${backupKeys.length} 个消息备份`)
+                    
+                    // 逐个迁移
+                    for (const key of backupKeys) {
+                      const chatId = key.replace('msg_backup_', '')
+                      const backup = localStorage.getItem(key)
+                      if (backup) {
+                        try {
+                          const parsed = JSON.parse(backup)
+                          if (parsed.messages?.length > 0) {
+                            const p = new Promise<void>((res, rej) => {
+                              const tx = db.transaction('messages', 'readwrite')
+                              const store = tx.objectStore('messages')
+                              store.put(parsed.messages, chatId)
+                              tx.oncomplete = () => {
+                                console.log(`✅ 迁移消息: ${chatId} (${parsed.messages.length}条)`)
+                                res()
+                              }
+                              tx.onerror = () => rej(tx.error)
+                            })
+                            promises.push(p)
+                            migrated++
+                          }
+                        } catch (e) {
+                          console.error(`❌ 解析备份失败: ${key}`, e)
+                        }
+                      }
+                    }
+                    
+                    // 迁移角色
+                    const chars = localStorage.getItem('characters')
+                    if (chars) {
+                      try {
+                        const parsed = JSON.parse(chars)
+                        if (parsed.length > 0) {
+                          const p = new Promise<void>((res, rej) => {
+                            const tx = db.transaction('characters', 'readwrite')
+                            tx.objectStore('characters').put(parsed, 'all')
+                            tx.oncomplete = () => {
+                              console.log(`✅ 迁移 ${parsed.length} 个角色`)
+                              res()
+                            }
+                            tx.onerror = () => rej(tx.error)
+                          })
+                          promises.push(p)
+                        }
+                      } catch {}
+                    }
+                    
+                    // 等待所有事务完成
+                    await Promise.all(promises)
+                    db.close()
+                    resolve(migrated)
+                  }
+                  dbReq.onerror = () => resolve(0)
+                })
+                
+                alert(`✅ IndexedDB 正常！\n\n已迁移 ${migrateResult} 个聊天记录到 IndexedDB\n\n刷新页面后生效`)
+              } catch (e) {
+                alert(`错误: ${e}`)
+              }
+            }}
+            className="w-full glass-card rounded-2xl p-3 text-left flex items-center gap-3 active:scale-95 mb-2 border-2 border-purple-300"
+          >
+            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+              <span>🔧</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-purple-600">修复 IndexedDB</p>
+              <p className="text-xs text-gray-500">测试并迁移数据到 IndexedDB</p>
+            </div>
+          </button>
+          
           <button
             onClick={async () => {
               let report = '📊 数据诊断报告:\n\n'

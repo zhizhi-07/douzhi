@@ -5,13 +5,14 @@ import StatusBar from '../components/StatusBar'
 import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfo } from '../utils/userUtils'
 import EmojiPanel from '../components/EmojiPanel'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import type { Emoji } from '../utils/emojiStorage'
 import { getAllCharacters } from '../utils/characterManager'
-import { buildSystemPrompt, callAIApi } from '../utils/chatApi'
-import { loadMessages, addMessage } from '../utils/simpleMessageManager'
+import { callAIApi } from '../utils/chatApi'
+import { getAllPosts, getNPCById } from '../utils/forumNPC'
 import { apiService } from '../services/apiService'
-import { convertToApiMessages } from '../utils/messageUtils'
-import type { Message, Character } from '../types/chat'
+import type { Character } from '../types/chat'
+import { getEmojis } from '../utils/emojiStorage'
 
 /**
  * 论坛私聊详情页面 - 现代简约设计
@@ -91,90 +92,145 @@ const InstagramDMDetail = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 🔥 同步消息到主聊天记录
-  const syncToMainChat = (content: string, type: 'sent' | 'received', aiReadableContent?: string) => {
-    if (!npcId) return
+  // 🔥 构建论坛私聊专用提示词（基本规则完整，去掉微信特有功能）
+  const buildDMSystemPrompt = async () => {
+    if (!character) return ''
     
-    const msg: Message = {
-      id: Date.now(),
-      type,
-      content,
-      aiReadableContent: aiReadableContent || `[论坛私聊] ${content}`,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-      source: 'dm'  // 🔥 标记为论坛私聊消息
-    }
+    const userName = userInfo.realName || userInfo.nickname || '用户'
+    const userNickname = userInfo.nickname || userInfo.realName || '用户'
+    const charName = character.nickname || character.realName
+    const personality = character.personality || '普通人'
+    const signature = (character as any).signature || ''
     
-    addMessage(npcId, msg)
-    console.log('🔄 [私聊] 同步到主聊天:', { type, content })
+    // 获取当前时间信息
+    const now = new Date()
+    const hour = now.getHours()
+    const timeOfDay = hour < 6 ? '凌晨' : hour < 9 ? '早上' : hour < 12 ? '上午' : hour < 14 ? '中午' : hour < 18 ? '下午' : hour < 22 ? '晚上' : '深夜'
+    
+    // 获取表情包列表
+    let emojiPrompt = ''
+    try {
+      const emojis = await getEmojis()
+      if (emojis.length > 0) {
+        const emojiList = emojis.slice(0, 20).map(e => `[表情:${e.description}]`).join('、')
+        emojiPrompt = `\n\n【可用表情包】\n${emojiList}\n- 使用方法：[表情:描述]，如"哈哈[表情:笑死]"\n- 表情包可以多用，但不要机械地每句都来一个，更像是你觉得有感觉的时候自然补一个`
+      }
+    } catch {}
+    
+    // 获取最近10条论坛帖子，让AI了解论坛动态
+    let forumContextPrompt = ''
+    try {
+      const recentPosts = getAllPosts()
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 10)
+      if (recentPosts.length > 0) {
+        const postsText = recentPosts.map(p => {
+          const authorName = p.npcId === 'user' 
+            ? (userInfo.nickname || userInfo.realName || '用户') 
+            : (getNPCById(p.npcId)?.name || p.npcId)
+          return `【${authorName}】${p.content.substring(0, 60)}${p.content.length > 60 ? '...' : ''}`
+        }).join('\n')
+        forumContextPrompt = `\n\n【论坛最近动态】\n${postsText}`
+      }
+    } catch {}
+    
+    return `你就是「${charName}」，一个活生生的人，现在正在社交媒体论坛上和 ${userNickname} 私聊。
+
+【当前场景】
+这是一个社交媒体论坛的私信功能，不是微信。你们可能在论坛上认识，也可能是朋友。
+现在大概是${timeOfDay}（${hour}点左右），你心里清楚这是怎样的时间氛围。
+
+【你的人设】
+- 你的性格、说话方式、价值观，都贴合这段描述：${personality}
+- 你的个性签名是：${signature || '（暂无签名）'}
+${(character as any).isPublicFigure ? `
+**你是公众人物**：
+- 你在公众面前有一个外在形象：${(character as any).publicPersona || '知名人物'}
+- 但在私聊时可以更真实地表达自己` : ''}
+
+【关于对方】
+${userInfo.nickname && userName !== userInfo.nickname 
+  ? `- TA 的真名是：${userName}，网名是：${userInfo.nickname}
+- 你可以根据亲密度选择叫真名或网名`
+  : `- TA 的名字是：${userName}`}
+${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}` : ''}
+${userInfo.persona ? `- TA 的自我介绍：${userInfo.persona}` : ''}
+
+【核心规则】
+- 你不会说自己是 AI、机器人、程序，也不会提 token、模型、接口等技术词。
+- 不会提到"提示词""系统信息"等幕后细节。
+- 人物卡设定优先级最高：如果你本来就冷淡、毒舌、社恐，就保持这种风格，不要被"洗白"成暖心好人。
+
+【情绪与敏感度】
+你是活人，有自己的小情绪：开心、烦躁、困、无聊、期待、失落……这些会体现在语气、用词里。
+- 对方说话的语气变化、用词选择，你都会注意到
+- 当对方敷衍（"随便""嗯""哦"）时，你会多想一句背后可能的情绪
+- 不会把内心分析写成长篇，但会通过语气、试探性追问来回应
+
+【怎么发消息】
+- 像普通人聊天那样，发自然的文字消息
+- **多发几条更自然**：真人聊天常连发2-5条，把想法拆开发，不要把所有内容挤在一条里
+- 回复长度要像真实私信，不要太长太正式${emojiPrompt}${forumContextPrompt}`
   }
 
-  // AI主动回复（没有输入内容时触发）- 🔥 使用和微信一样的规则
+  // AI主动回复（论坛私聊专用，不同步到微信）
   const handleAIReply = async () => {
     if (!npcId || !character) {
-      console.warn('⚠️ [私聊] 缺少角色信息，无法AI回复')
+      console.warn('⚠️ [论坛私聊] 缺少角色信息')
       return
     }
     setIsAiReplying(true)
     
     try {
-      // 🔥 读取主聊天记录（和微信一样）
-      const mainMessages = loadMessages(npcId)
-      const userName = userInfo.realName || userInfo.nickname || '用户'
+      // 🔥 只读取论坛私聊的历史记录，不读微信
+      const dmHistory = messages.slice(-20).map(msg => ({
+        role: msg.isFromUser ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }))
       
-      console.log('📩 [私聊] 读取主聊天记录:', mainMessages.length, '条')
+      // 🔥 使用论坛私聊专用提示词
+      const systemPrompt = await buildDMSystemPrompt()
       
-      // 🔥 使用和微信一样的系统提示词
-      const systemPrompt = await buildSystemPrompt(character, userName, mainMessages)
+      console.log('📤 [论坛私聊] 提示词长度:', systemPrompt.length)
+      console.log('📤 [论坛私聊] 历史条数:', dmHistory.length)
       
-      // 🔥 转换消息格式（和微信一样）
-      const apiMessages = convertToApiMessages(mainMessages.slice(-30), false, true)
-      
-      // 添加论坛私聊场景提示
-      const dmContextPrompt = `
-
-【当前场景】
-你们现在在论坛私信里聊天。用户可能是第一次通过私信联系你，也可能是之前在微信聊过的朋友。
-请根据你们的关系和聊天历史自然地回复。`
-      
-      const fullSystemPrompt = systemPrompt + dmContextPrompt
-      
-      console.log('📤 [私聊] 系统提示词长度:', fullSystemPrompt.length)
-      console.log('📤 [私聊] 消息历史条数:', apiMessages.length)
-      
-      // 🔥 调用AI
       const apiConfigs = apiService.getAll()
       const currentId = apiService.getCurrentId() || apiConfigs[0]?.id
       const apiConfig = apiConfigs.find(c => c.id === currentId)
       
       if (!apiConfig) {
-        console.error('❌ [私聊] 未配置API')
+        console.error('❌ [论坛私聊] 未配置API')
         setIsAiReplying(false)
         return
       }
       
-      // 构建完整的消息列表
       const fullMessages = [
-        { role: 'system' as const, content: fullSystemPrompt },
-        ...apiMessages
+        { role: 'system' as const, content: systemPrompt },
+        ...dmHistory
       ]
       
       const result = await callAIApi(fullMessages, apiConfig, false)
       const aiReply = result.content?.trim() || ''
       
-      console.log('📩 [私聊] AI回复:', aiReply)
+      console.log('📩 [论坛私聊] AI回复:', aiReply)
 
       if (aiReply) {
-        setTimeout(() => {
-          // 保存到私聊记录
-          sendDMToUser(npcId, npcName, npcAvatar, aiReply)
-          
-          // 🔥 同步到主聊天记录
-          syncToMainChat(aiReply, 'received', `[论坛私聊回复] ${aiReply}`)
-          
-          setMessages(getDMMessages(npcId))
+        // 🔥 分段发送：按换行分割成多条消息
+        const segments = aiReply.split('\n').filter(s => s.trim())
+        
+        const sendSegments = async () => {
+          for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i].trim()
+            if (segment) {
+              await new Promise(resolve => setTimeout(resolve, i === 0 ? 500 : 300 + Math.random() * 500))
+              sendDMToUser(npcId, npcName, npcAvatar, segment)
+              setMessages(getDMMessages(npcId))
+            }
+          }
           setIsAiReplying(false)
-        }, 500 + Math.random() * 1000)
+        }
+        
+        sendSegments()
       } else {
         setIsAiReplying(false)
       }
@@ -195,12 +251,8 @@ const InstagramDMDetail = () => {
     
     // 有文字时，只发送用户消息（不触发AI自动回复）
     const userMessage = inputText.trim()
-    console.log('📤 [私聊] 用户发送消息:', userMessage)
+    console.log('📤 [论坛私聊] 用户发送消息:', userMessage)
     sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
-    
-    // 🔥 同步到主聊天记录
-    syncToMainChat(userMessage, 'sent', `[论坛私聊] ${userMessage}`)
-    
     setMessages(getDMMessages(npcId))
     setInputText('')
   }
@@ -215,22 +267,17 @@ const InstagramDMDetail = () => {
   // 发送表情包
   const handleSendEmoji = (emoji: Emoji) => {
     if (!npcId) return
-    
-    // 使用 IndexedDB 存储，不再使用 localStorage
     sendEmojiFromUser(npcId, npcName, npcAvatar, emoji.url, emoji.description)
-    
-    // 🔥 同步到主聊天记录
-    syncToMainChat(`[表情包] ${emoji.description}`, 'sent', `[论坛私聊] 发送了表情包: ${emoji.description}`)
-    
     setMessages(getDMMessages(npcId))
     setShowEmojiPanel(false)
-    console.log('📤 [私聊] 发送表情包:', emoji.description)
+    console.log('📤 [论坛私聊] 发送表情包:', emoji.description)
   }
 
-  // 根据名字生成头像渐变色
-  const getAvatarGradient = (name: string) => {
-    const hue = name.charCodeAt(0) * 37 % 360
-    return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
+  // 根据名字生成头像背景色（简洁纯色）
+  const getAvatarColor = (name: string) => {
+    const colors = ['#6b7280', '#9ca3af', '#78716c', '#a1a1aa', '#737373']
+    const index = name.charCodeAt(0) % colors.length
+    return colors[index]
   }
 
   // 格式化时间显示
@@ -243,51 +290,44 @@ const InstagramDMDetail = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#f5f5f5]">
-      {/* 顶部导航 - 简约风格 */}
-      <div className="bg-white/80 backdrop-blur-xl sticky top-0 z-10">
-        <StatusBar />
-        <div className="flex items-center px-4 py-3">
-          <button 
-            onClick={() => navigate('/instagram/activity')}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors -ml-2"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          
-          <div className="flex-1 flex items-center justify-center gap-3 -ml-10">
-            {/* 头像 */}
-            {npcAvatar ? (
-              <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-sm" />
-            ) : (
-              <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                style={{ background: getAvatarGradient(npcName || 'A') }}
-              >
-                {(npcName || 'A')[0]}
-              </div>
-            )}
-            <div>
-              <h1 className="text-[15px] font-semibold text-gray-900">{npcName || '私聊'}</h1>
-              {character?.personality && (
-                <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{character.personality.slice(0, 20)}</p>
+        {/* 顶部导航 - 简约风格 */}
+        <div className="bg-white/80 backdrop-blur-xl sticky top-0 z-10">
+          <StatusBar />
+          <div className="flex items-center px-4 py-3">
+            <button 
+              onClick={() => navigate('/instagram/activity')}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors -ml-2"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            
+            <div className="flex-1 flex items-center justify-center gap-3 -ml-10">
+              {/* 头像 */}
+              {npcAvatar ? (
+                <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-sm" />
+              ) : (
+                <div 
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
+                  style={{ background: getAvatarColor(npcName || 'A') }}
+                >
+                  {(npcName || 'A')[0]}
+                </div>
               )}
+              <div>
+                <h1 className="text-[15px] font-semibold text-gray-900">{npcName || '私聊'}</h1>
+                {(character as any)?.signature && (
+                  <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{(character as any).signature}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
-            <div 
-              className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-medium mb-4 shadow-lg"
-              style={{ background: getAvatarGradient(npcName || 'A') }}
-            >
-              {(npcName || 'A')[0]}
-            </div>
             <p className="text-sm">开始和 {npcName} 聊天吧</p>
-            <p className="text-xs text-gray-300 mt-1">发送消息或点击"让TA说"</p>
           </div>
         ) : (
           messages.map((msg, index) => (
@@ -316,7 +356,7 @@ const InstagramDMDetail = () => {
                     ) : (
                       <div 
                         className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                        style={{ background: getAvatarGradient(userInfo.nickname || userInfo.realName || '我') }}
+                        style={{ background: getAvatarColor(userInfo.nickname || userInfo.realName || '我') }}
                       >
                         {(userInfo.nickname || userInfo.realName || '我')[0]}
                       </div>
@@ -328,7 +368,7 @@ const InstagramDMDetail = () => {
                     ) : (
                       <div 
                         className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                        style={{ background: getAvatarGradient(npcName || 'A') }}
+                        style={{ background: getAvatarColor(npcName || 'A') }}
                       >
                         {(npcName || 'A')[0]}
                       </div>
@@ -339,22 +379,26 @@ const InstagramDMDetail = () => {
                 {/* 消息气泡 */}
                 <div className={`max-w-[75%] ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
                   {msg.type === 'emoji' && msg.emojiUrl ? (
-                    // 表情包消息
+                    // 表情包消息（单独的大图气泡）
                     <img 
                       src={msg.emojiUrl} 
                       alt={msg.content} 
                       className="w-32 h-32 object-contain rounded-xl"
                     />
                   ) : (
-                    // 文字消息
+                    // 文字消息（支持 [表情:描述] 渲染为图片）
                     <div 
-                      className={`px-4 py-2.5 rounded-[20px] shadow-sm ${
+                      className={`px-4 py-2.5 rounded-[20px] ${
                         msg.isFromUser 
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
-                          : 'bg-white text-gray-800'
+                          ? 'bg-gray-800 text-white shadow-sm' 
+                          : 'bg-[#f0f0f0] text-gray-800'
                       }`}
                     >
-                      <p className="text-[15px] leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                      <EmojiContentRenderer
+                        content={msg.content}
+                        emojiSize={32}
+                        className="text-[15px] leading-relaxed break-words whitespace-pre-wrap"
+                      />
                     </div>
                   )}
                 </div>
@@ -372,7 +416,7 @@ const InstagramDMDetail = () => {
               ) : (
                 <div 
                   className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                  style={{ background: getAvatarGradient(npcName || 'A') }}
+                  style={{ background: getAvatarColor(npcName || 'A') }}
                 >
                   {(npcName || 'A')[0]}
                 </div>

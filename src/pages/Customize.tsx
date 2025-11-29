@@ -27,8 +27,7 @@ const Customize = () => {
       id: 'voice',
       name: '语音设置',
       description: '配置MiniMax等语音API',
-      route: '/voice-settings',
-      badge: 'NEW'
+      route: '/voice-settings'
     },
     {
       id: 'statusbar',
@@ -47,6 +46,12 @@ const Customize = () => {
       name: '系统声音',
       description: '点击音效和提示音',
       route: '/sound-customizer'
+    },
+    {
+      id: 'screen',
+      name: '屏幕设置',
+      description: '屏幕尺寸、边框模式',
+      route: '/screen-settings'
     },
     {
       id: 'data',

@@ -133,25 +133,26 @@ ${publicFigurePrompt}
 - 网名2-4个字（如：小李、阿明、路人甲等）${mentionedPublicFigures.length > 0 ? `\n- 公众人物本人（${mentionedPublicFigures.map(pf => pf.nickname || pf.realName).join('、')}）也可以发帖或评论` : ''}
 - 帖子内容20-150字，评论5-50字
 - 可以有不同观点：支持、反对、调侃、提问等
+- **每条帖子要标注点赞数**：公众人物发的帖子点赞应该很高（几万到几百万），普通人的帖子点赞较少
 
 **输出格式：**
 ===帖子1===
-发帖人|帖子内容
+发帖人|帖子内容|点赞数
 [评论] 网名：评论内容
 [回复] 网名 -> 被回复人：回复内容
 ===帖子2===
-发帖人|帖子内容
+发帖人|帖子内容|点赞数
 [评论] 网名：评论内容
 ...
 
 **示例：**
 ===帖子1===
-小李|这个话题太有意思了，大家怎么看？
+小李|这个话题太有意思了，大家怎么看？|156
 [评论] 阿明：确实挺有意思的
 [回复] 路人甲 -> 阿明：同意！
 [评论] 网友A：我有不同看法
 ===帖子2===
-老王|我来说两句...
+某明星|我来回应一下大家的质疑...|328000
 [评论] 小张：说得好！
 
 直接输出，不要其他内容。`
@@ -205,13 +206,14 @@ ${publicFigurePrompt}
         const lines = block.split('\n').filter((l: string) => l.trim())
         if (lines.length === 0) continue
         
-        // 第一行是帖子：发帖人|帖子内容
+        // 第一行是帖子：发帖人|帖子内容|点赞数（点赞数可选）
         const postLine = lines[0]
-        const postMatch = postLine.match(/^(.+?)\|(.+)$/)
+        const postMatch = postLine.match(/^(.+?)\|(.+?)(?:\|(\d+))?$/)
         if (!postMatch) continue
         
         const posterName = postMatch[1].trim()
         const postContent = postMatch[2].trim()
+        const aiGeneratedLikes = postMatch[3] ? parseInt(postMatch[3]) : null
         
         // 检查是否是公众人物
         const publicFigure = allChars.find(c => 
@@ -297,13 +299,17 @@ ${publicFigurePrompt}
           }
         }
         
-        // 创建帖子
+        // 创建帖子 - 优先使用AI生成的点赞数
+        const fallbackLikes = publicFigure?.isPublicFigure 
+          ? Math.floor(Math.random() * 50000) + 10000  // 公众人物默认：1万-6万
+          : Math.floor(Math.random() * 100) + 10       // 普通人默认：10-110
+        
         const newPost = {
           id: postId,
           npcId,
           content: `#${topicName} ${postContent}`,
           images: 0,
-          likes: Math.floor(Math.random() * 100) + 10,
+          likes: aiGeneratedLikes ?? fallbackLikes,  // 优先用AI生成的
           comments: commentCount,
           time: '刚刚',
           timestamp: baseTimestamp - index * 60000,

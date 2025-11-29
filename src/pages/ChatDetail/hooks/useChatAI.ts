@@ -604,16 +604,17 @@ export const useChatAI = (
       
       let aiReply = apiResult.content
       
-      // 🔥 强制清除AI回复中模仿的时间戳（发于xx:xx 等格式）
+      // 🔥 强制清除AI回复中模仿的时间间隔标记（[5分钟后] 等格式）
       if (typeof aiReply === 'string') {
         const before = aiReply
-        // 匹配 (发于...) 或 ←时间 格式
+        // 匹配 [X分钟后]、[X小时后]、[隔了X天] 等格式
         aiReply = aiReply
-          .replace(/[（\(]发于[^）\)]{0,20}[）\)]/g, '')
-          .replace(/←[^←\n]{0,10}?\d{1,2}:\d{2}/g, '')
+          .replace(/\[\d+分钟后\]/g, '')
+          .replace(/\[\d+小时\d*分*钟*后\]/g, '')
+          .replace(/\[隔了[一\d]+天\]/g, '')
           .trim()
         if (before !== aiReply) {
-          console.log('🧹 [时间戳清理] 已移除AI模仿的时间戳:', before, '=>', aiReply)
+          console.log('🧹 [时间间隔清理] 已移除AI模仿的标记:', before, '=>', aiReply)
         }
       }
       
@@ -790,14 +791,15 @@ export const useChatAI = (
             
             aiReply = accumulatedText
             
-            // 🔥 流式模式也要清除AI模仿的时间戳
+            // 🔥 流式模式也要清除AI模仿的时间间隔标记
             const beforeClean = aiReply
             aiReply = aiReply
-              .replace(/[（\(]发于[^）\)]{0,20}[）\)]/g, '')
-              .replace(/←[^←\n]{0,10}?\d{1,2}:\d{2}/g, '')
+              .replace(/\[\d+分钟后\]/g, '')
+              .replace(/\[\d+小时\d*分*钟*后\]/g, '')
+              .replace(/\[隔了[一\d]+天\]/g, '')
               .trim()
             if (beforeClean !== aiReply) {
-              console.log('🧹 [流式时间戳清理] 已移除:', beforeClean, '=>', aiReply)
+              console.log('🧹 [流式时间间隔清理] 已移除:', beforeClean, '=>', aiReply)
             }
             
             console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')

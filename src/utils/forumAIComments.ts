@@ -9,6 +9,7 @@ import { getEmojis } from './emojiStorage'
 import { replaceVariables } from './variableReplacer'
 import { loadMessages } from './simpleMessageManager'
 import type { Message } from '../types/chat'
+import { getDMMessages } from './instagramDM'
 
 interface CommentActor {
   id: string
@@ -18,8 +19,61 @@ interface CommentActor {
   signature?: string
   isPublicFigure?: boolean
   publicPersona?: string  // 网络人设（如：全网黑、网红等）
-  recentChat?: string  // 🔥 最近聊天记录摘要
+  recentChat?: string  // 最近聊天记录摘要（用于编排，不能公开说出来）
   isAICharacter?: boolean  // 是否是AI角色（有人设的）
+}
+
+/**
+ * 获取角色的最近聊天记录摘要（用于编排关系，不能公开透露）
+ * 同时读取微信聊天和论坛私聊，标注来源
+ */
+function getRecentChatSummary(characterId: string, limit: number = 10): string {
+  const allMessages: { source: string; sender: string; content: string; timestamp: number }[] = []
+  
+  try {
+    // 1. 读取微信聊天记录
+    const wechatMessages = loadMessages(characterId)
+    if (wechatMessages && wechatMessages.length > 0) {
+      wechatMessages
+        .filter((m: Message) => !m.messageType || m.messageType === 'text')
+        .slice(-limit)
+        .forEach((m: Message) => {
+          allMessages.push({
+            source: '微信',
+            sender: m.type === 'sent' ? '用户' : 'AI',
+            content: m.content?.substring(0, 50) || '',
+            timestamp: m.timestamp || 0
+          })
+        })
+    }
+  } catch {}
+  
+  try {
+    // 2. 读取论坛私聊记录
+    const dmMessages = getDMMessages(characterId)
+    if (dmMessages && dmMessages.length > 0) {
+      dmMessages
+        .filter(m => m.type === 'text')
+        .slice(-limit)
+        .forEach(m => {
+          allMessages.push({
+            source: '论坛',
+            sender: m.isFromUser ? '用户' : 'AI',
+            content: m.content?.substring(0, 50) || '',
+            timestamp: m.timestamp || 0
+          })
+        })
+    }
+  } catch {}
+  
+  if (allMessages.length === 0) return ''
+  
+  // 按时间排序，取最近的
+  allMessages.sort((a, b) => b.timestamp - a.timestamp)
+  const recentMessages = allMessages.slice(0, limit)
+  
+  // 格式：[来源] 发送者: 内容
+  return recentMessages.map(m => `[${m.source}] ${m.sender}: ${m.content}`).join('\n')
 }
 
 export interface GeneratedComment {
@@ -31,45 +85,19 @@ export interface GeneratedComment {
   replyToName?: string
 }
 
-/**
- * 获取角色的最近聊天记录摘要
- */
-function getRecentChatSummary(characterId: string, limit: number = 10): string {
-  try {
-    const messages = loadMessages(characterId)
-    if (!messages || messages.length === 0) return ''
-    
-    // 只取最近的文本消息
-    const textMessages = messages
-      .filter((m: Message) => !m.messageType || m.messageType === 'text')
-      .slice(-limit)
-    
-    if (textMessages.length === 0) return ''
-    
-    return textMessages.map((m: Message) => {
-      const sender = m.type === 'sent' ? '用户' : 'AI'
-      return `${sender}: ${m.content?.substring(0, 50) || ''}`
-    }).join('\n')
-  } catch {
-    return ''
-  }
-}
-
 function buildActorsForPrompt(characters: Character[], userName: string = '用户', userInfo?: any): CommentActor[] {
   return characters
-    // 过滤掉无效的角色数据（没有名字或名字太短）
     .filter(c => c && c.id && (c.realName || c.nickname) && 
       ((c.realName && c.realName.length > 1) || (c.nickname && c.nickname.length > 1)))
     .map(c => {
       const charName = c.nickname || c.realName
-      // 🔥 使用统一的变量替换工具，支持所有变量
       const replacedPersonality = replaceVariables(c.personality || '', {
         charName,
         userName,
         character: c,
         userInfo
       })
-      // 🔥 获取最近聊天记录
+      // 获取最近聊天记录（用于编排关系）
       const recentChat = getRecentChatSummary(c.id, 10)
       
       return {
@@ -81,7 +109,7 @@ function buildActorsForPrompt(characters: Character[], userName: string = '用�
         isPublicFigure: c.isPublicFigure || false,
         publicPersona: c.publicPersona || '',
         recentChat,
-        isAICharacter: true  // 这些都是有人设的AI角色
+        isAICharacter: true
       }
     })
 }
@@ -101,8 +129,7 @@ async function callAIForCommentsBatch(
   userPreviousPosts: string[] = [],
   mentionedPublicFigures: PublicFigureInfo[] = [],
   mentionedUserInfo: string = '',
-  postAuthorInfo: PublicFigureInfo | null = null,  // 帖子作者（楼主）信息
-  chatContext?: string  // 楼主和用户的聊天记录上下文
+  postAuthorInfo: PublicFigureInfo | null = null  // 帖子作者（楼主）信息
 ): Promise<GeneratedComment[]> {
   // 只传角色名字，不传人设（人设信息只用于检测公众人物）
   const actorsForPrompt = actors.map(a => a.name)
@@ -116,10 +143,6 @@ ${postAuthorInfo.personality ? `- 性格人设：${postAuthorInfo.personality}` 
 - 楼主「${postAuthorInfo.name}」自己也可能在评论区回复网友
 - **注意：楼主是发帖的人，不是被@的人！楼主的评论语气应该是回应网友，不是被质问**
 - 楼主的评论必须符合TA的性格人设
-${chatContext ? `
-**楼主最近和用户的聊天记录（上下文）：**
-${chatContext}
-- 楼主回复评论时可以参考这些对话内容` : ''}
 ` : ''
 
   // 构建帖子中@的其他公众人物说明
@@ -146,19 +169,15 @@ ${mentionedPublicFigures.map(pf => {
   const publicFigureCharacters = aiCharacterInfos.filter(a => a.isPublicFigure)
   const normalCharacters = aiCharacterInfos.filter(a => !a.isPublicFigure)
   
-  // 🔥 聊天记录适当限制，人设完整读取
-  const truncateChat = (c: string, maxLines = 5) => 
-    c ? c.split('\n').slice(-maxLines).join('\n') : ''
-  
   const aiCharacterPrompt = aiCharacterInfos.length > 0 ? `
 ## 🎭 AI角色（都有人设，可能参与评论）
 
-${publicFigureCharacters.length > 0 ? `### 公众人物（NPC网友可能会讨论/cue他们）
+${publicFigureCharacters.length > 0 ? `### 公众人物（NPC网友会大量讨论/cue他们）
 ${publicFigureCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**【公众人物】`
     if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
     if (a.personality) info += `\n- 人设：${a.personality}`
-    if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
+    if (a.recentChat) info += `\n- 【私密】与用户的聊天关系：\n${a.recentChat.split('\n').slice(-5).map(l => '  ' + l).join('\n')}`
     return info
   }).join('\n\n')}
 ` : ''}
@@ -167,26 +186,31 @@ ${normalCharacters.length > 0 ? `### 普通AI角色（按自己的语气评论�
 ${normalCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**`
     if (a.personality) info += `\n- 人设：${a.personality}`
-    if (a.recentChat) info += `\n- 最近聊天：\n${truncateChat(a.recentChat).split('\n').map(l => '  ' + l).join('\n')}`
+    if (a.recentChat) info += `\n- 【私密】与用户的聊天关系：\n${a.recentChat.split('\n').slice(-5).map(l => '  ' + l).join('\n')}`
     return info
   }).join('\n\n')}
 ` : ''}
 
 **AI角色参与规则：**
 - AI角色评论必须符合自己的人设和说话风格
-- 最多1-3个AI角色参与评论
+- 根据人设和帖子内容自然决定是否参与评论
+- ⚠️ **重要**：如果帖子没有明确@某个角色，AI角色不要假设帖子是在说自己！
+  - 例如：用户发"我喜欢很多人"，AI角色不要理解成"用户在说喜欢我"
+  - AI角色只是普通网友围观评论，不要过度解读、对号入座
+  - 只有帖子明确@了某人，或者明确提到某人名字，才是在说那个人
 - 公众人物如果被@或被讨论，必须出来回应
+- ❗❗❗ 【私密】标记的聊天记录是私下关系，只用于判断亲疏和语气，绝对不能在公开评论中透露聊天内容！
 ` : ''
 
   let systemPrompt = `你是论坛评论区的导演，负责生成真实的评论生态。
 
 ## 📋 核心规则
 
-**评论占比（非常重要！）：**
-- 🟢 **NPC网友**：70-80%（随机编造的路人网友）
-- 🟡 **AI角色**：20-30%（只有相关的才评论）
+**评论生态：**
+- 🟢 **NPC网友**：随机编造的路人网友，是评论区的主体
+- 🟡 **AI角色**：根据人设和帖子内容自然决定是否参与
 
-**要求：生成至少40条评论（主楼+回复），越多越好**
+**要求：生成充足的评论（主楼+回复），越多越好**
 ${postAuthorPrompt}
 ${aiCharacterPrompt}
 ## 👥 NPC网友规则（评论主体）
@@ -195,6 +219,7 @@ ${aiCharacterPrompt}
 - 每个名字只出现一次
 - 评论风格：随意、口语化、简短（5-35字）
 - 可以有不同立场：赞同/反对/吐槽/调侃/问问题/围观/歪楼
+- ⚠️ **重要**：只评论帖子内容本身！如果帖子没有发图片，就不要讨论图片；如果帖子没有发视频，就不要讨论视频
 
 ${userPreviousPosts.length > 0 ? `
 **楼主的历史帖子（网友可以引用）：**
@@ -203,11 +228,18 @@ ${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 - 但不要每条都提，自然随机地提几次就行` : ''}
 ${publicFigurePrompt}
 ${mentionedUserInfo}
-## 🏢 公众人物反应规则
+## 🏢 公众人物反应规则（特别重要！）
 如果帖子涉及公众人物（楼主是公众人物、或@了公众人物）：
-- NPC网友会对公众人物发表看法（支持/反对/调侃/吐槽/爆料/质疑）
-- 公众人物本人可能会下场回应（必须符合人设）
-- 可能形成公众人物和网友的对话
+- 🔥 **爆点效应**：公众人物的帖子会吸引更多围观和讨论，评论量应该更多
+- 🔥 **网友讨论公众人物**：NPC网友会大量讨论公众人物（支持/反对/调侃/吐槽/爆料/质疑/追星/无感）
+- 🔥 **公众人物的影响力**：即使帖子不是公众人物发的，也可能有网友随机cue公众人物
+- 公众人物本人会下场回应（必须符合人设）
+- 可能形成公众人物和网友的热烈对话
+
+## ⚠️ 隐私规则（强制）
+- AI角色和用户的私聊内容是私密的，绝对不能在评论中提及
+- 只能根据聊天关系调整语气（熟络/生疏/亲密），不能透露具体内容
+- 例如：如果聊天记录显示关系亲密，评论语气可以更随意；但不能说“我们之前聊过xxx”
 
 ## 📝 楼中楼规则
 - 50%的主楼要有1-4条回复
@@ -602,8 +634,7 @@ export async function generateRealAIComments(
   postContent: string,
   characters: Character[],
   userPreviousPosts: string[] = [],
-  postAuthor?: string,  // 帖子作者名称（如果是公众人物）
-  chatContext?: string  // 楼主和用户的聊天记录上下文
+  postAuthor?: string  // 帖子作者名称（如果是公众人物）
 ): Promise<GenerateResult> {
   if (!postId || !postContent) {
     console.error('❌ 帖子ID或内容为空')
@@ -623,12 +654,11 @@ export async function generateRealAIComments(
   
   const actors = buildActorsForPrompt(characters, currentUserName, userInfo)
   
-  // 打印所有角色信息（包含聊天记录状态）
+  // 打印所有角色信息
   if (actors.length > 0) {
     console.log('📋 AI角色列表（可能参与评论）:')
     actors.forEach((a, i) => {
-      const chatInfo = a.recentChat ? `有${a.recentChat.split('\n').length}条聊天` : '无聊天'
-      console.log(`  ${i + 1}. ${a.name} | 公众=${a.isPublicFigure ? '是' : '否'} | ${chatInfo} | 人设=${a.personality ? '有' : '无'}`)
+      console.log(`  ${i + 1}. ${a.name} | 公众=${a.isPublicFigure ? '是' : '否'} | 人设=${a.personality ? '有' : '无'}`)
     })
     
     // 统计公众人物
@@ -741,7 +771,7 @@ ${publicFigureText}
   let generated: GeneratedComment[] = []
 
   try {
-    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo, chatContext)
+    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo)
     console.log(`📝 批量生成评论 ${generated.length} 条`)
   } catch (error) {
     console.error('❌ 批量AI评论生成失败，使用本地模板降级：', error)

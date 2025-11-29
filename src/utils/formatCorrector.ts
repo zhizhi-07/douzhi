@@ -115,12 +115,14 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 4. 照片格式修正 ==========
   
-  // 🔥 只要包含"照片"就修正
-  fixed = fixed.replace(/\[([^\[\]]*?照片[^\[\]]*?)\]/g, (match, content) => {
-    let cleaned = content
-      .replace(/(?:你|我)发了?照片[:\：]?\s*/g, '')
-      .replace(/^照片[:\：]?\s*/g, '')
-      .trim()
+  // 🔥 修正：只匹配以"照片"开头或"发了照片"的格式，不要匹配到状态指令里的"照片"
+  // 避免把 [状态:在家|行程:看照片] 错误修正成 [照片:xxx]
+  fixed = fixed.replace(/\[(?:(?:你|我)发了?)?照片[:\：]?\s*([^\[\]]+?)\]/g, (match, content) => {
+    // 如果内容里包含"状态"或"行程"，说明是状态指令，不要修正
+    if (content.includes('状态') || content.includes('行程')) {
+      return match
+    }
+    const cleaned = content.trim()
     if (cleaned) {
       corrections.push(`照片格式：统一为标准格式`)
       return `[照片:${cleaned}]`
@@ -130,9 +132,14 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 5. 位置格式修正 ==========
   
-  // 🔥 只要包含"位置"就修正
-  fixed = fixed.replace(/\[([^\[\]]*?位置[^\[\]]*?)\]/g, (match, content) => {
-    let cleaned = content.replace(/^位置[:\：]?\s*/g, '').trim()
+  // 🔥 修正：只匹配以"位置"开头的格式，不要匹配到状态指令里的"位置"
+  // 避免把 [状态:在家|行程:分享位置] 错误修正
+  fixed = fixed.replace(/\[位置[:\：]?\s*([^\[\]]+?)\]/g, (match, content) => {
+    // 如果内容里包含"状态"或"行程"，说明是状态指令，不要修正
+    if (content.includes('状态') || content.includes('行程')) {
+      return match
+    }
+    const cleaned = content.trim()
     if (cleaned) {
       corrections.push(`位置格式：统一为标准格式`)
       return `[位置:${cleaned}]`

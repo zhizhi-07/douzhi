@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, Plus, X, Search, ArrowLeft } from 'lucide-react'
-import StatusBar from '../components/StatusBar'
+import { MessageCircle, X, Search, ArrowLeft } from 'lucide-react'
+import InstagramLayout from '../components/InstagramLayout'
 import { getDMConversations, type DMConversation, saveDMConversations } from '../utils/instagramDM'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
@@ -74,24 +74,19 @@ const InstagramActivity = () => {
   )
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      {/* 顶部导航 */}
-      <div className="bg-white sticky top-0 z-10">
-        <StatusBar />
-        <div className="flex items-center justify-between px-4 py-3">
-          <button 
-            onClick={() => navigate('/instagram')}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 -ml-2"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <h1 className="text-[17px] font-semibold text-gray-900">私信</h1>
-          <button
-            onClick={() => setShowNewChat(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-sm active:bg-blue-600"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+    <InstagramLayout showHeader={false}>
+      <div className="h-full flex flex-col bg-white">
+        {/* 顶部导航 */}
+        <div className="bg-white sticky top-0 z-10">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button 
+              onClick={() => navigate('/instagram')}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 -ml-2"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <h1 className="text-[17px] font-semibold text-gray-900">私信</h1>
+            <div className="w-10" />
         </div>
       </div>
 
@@ -103,7 +98,8 @@ const InstagramActivity = () => {
               <div
                 key={conv.id}
                 onClick={() => navigate(`/instagram/dm/${conv.id}`)}
-                className="flex items-center gap-3 p-3 bg-white rounded-2xl shadow-sm active:bg-gray-50 cursor-pointer transition-colors"
+                className="flex items-center gap-3 p-3 rounded-2xl shadow-sm cursor-pointer transition-colors"
+                style={{ backgroundColor: '#ffffff' }}
               >
                 {/* 头像 */}
                 <div className="relative">
@@ -144,19 +140,16 @@ const InstagramActivity = () => {
           </div>
         ) : (
           <div className="py-16 text-center">
-            <div 
-              className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-            >
-              <MessageCircle className="w-12 h-12 text-white" />
+            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gray-100 flex items-center justify-center">
+              <MessageCircle className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">还没有私信</h3>
+            <h3 className="text-base font-medium text-gray-600 mb-2">还没有私信</h3>
             <p className="text-sm text-gray-400 mb-6">
               点击右上角 + 开始和角色聊天
             </p>
             <button
               onClick={() => setShowNewChat(true)}
-              className="px-6 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-full shadow-sm active:bg-blue-600 transition-colors"
+              className="px-6 py-2.5 bg-gray-800 text-white text-sm font-medium rounded-full active:bg-gray-900 transition-colors"
             >
               发起私聊
             </button>
@@ -274,16 +267,17 @@ const InstagramActivity = () => {
         </>
       )}
 
-      <style>{`
-        @keyframes slide-up {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
-    </div>
+        <style>{`
+          @keyframes slide-up {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+          .animate-slide-up {
+            animation: slide-up 0.3s ease-out;
+          }
+        `}</style>
+      </div>
+    </InstagramLayout>
   )
 }
 

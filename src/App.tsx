@@ -88,6 +88,7 @@ import Landlord from './pages/Landlord'
 import Calendar from './pages/Calendar'
 import AISchedule from './pages/AISchedule'
 import AIScheduleSelect from './pages/AIScheduleSelect'
+import ScreenSettings from './pages/ScreenSettings'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
@@ -98,6 +99,24 @@ function App() {
   const location = useLocation()
   const musicPlayer = useMusicPlayer()
   const [globalBackground, setGlobalBackground] = useState<string>('')
+  
+  // 屏幕设置（用于解决iOS黑边问题）
+  const [screenSettings, setScreenSettings] = useState(() => ({
+    topOffset: parseInt(localStorage.getItem('screen_top_offset') || '0'),
+    bottomOffset: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
+  }))
+  
+  // 监听屏幕设置变化
+  useEffect(() => {
+    const handleScreenSettingsChange = () => {
+      setScreenSettings({
+        topOffset: parseInt(localStorage.getItem('screen_top_offset') || '0'),
+        bottomOffset: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
+      })
+    }
+    window.addEventListener('screenSettingsChanged', handleScreenSettingsChange)
+    return () => window.removeEventListener('screenSettingsChanged', handleScreenSettingsChange)
+  }, [])
 
   // 加载全局背景和按钮颜色
   useEffect(() => {
@@ -368,7 +387,14 @@ function App() {
     }
   }, [])
 
-  return (
+  // 应用屏幕偏移设置到CSS变量
+  useEffect(() => {
+    document.documentElement.style.setProperty('--screen-top-offset', `${screenSettings.topOffset}px`)
+    document.documentElement.style.setProperty('--screen-bottom-offset', `${screenSettings.bottomOffset}px`)
+  }, [screenSettings.topOffset, screenSettings.bottomOffset])
+
+  // 渲染主内容
+  const renderContent = () => (
     <div 
       className="app-container"
       style={globalBackground ? {
@@ -376,8 +402,7 @@ function App() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        minHeight: '100vh'
-      } : {}}
+      } : undefined}
     >
     <ContactsProvider>
       {/* 全局灵动岛 */}
@@ -442,6 +467,7 @@ function App() {
       <Route path="/sound-customizer" element={<SoundCustomizer />} />
       {/* <Route path="/icon-customizer" element={<IconCustomizer />} /> */} {/* 已整合到GlobalDecoration */}
       <Route path="/voice-settings" element={<VoiceSettings />} />
+      <Route path="/screen-settings" element={<ScreenSettings />} />
       <Route path="/world-book" element={<WorldBook />} />
       <Route path="/edit-world-book/:id" element={<EditWorldBook />} />
       <Route path="/preset" element={<PresetManager />} />
@@ -483,6 +509,8 @@ function App() {
     </ContactsProvider>
     </div>
   )
+
+  return renderContent()
 }
 
 export default App

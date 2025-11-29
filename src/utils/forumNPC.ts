@@ -164,34 +164,21 @@ export function getAllPosts(): ForumPost[] {
   if (stored) {
     try {
       const posts = JSON.parse(stored)
-      // 如果帖子为空，重新生成
-      if (!posts || posts.length === 0) {
-        const newPosts = generateDefaultPosts()
-        savePosts(newPosts)
-        return newPosts
+      if (!posts || !Array.isArray(posts)) {
+        return []
       }
       // 过滤掉npcId为undefined的无效帖子
       const validPosts = posts.filter((post: ForumPost) => post.npcId !== undefined && post.npcId !== null)
-      // 如果过滤后为空，重新生成
-      if (validPosts.length === 0) {
-        const newPosts = generateDefaultPosts()
-        savePosts(newPosts)
-        return newPosts
-      }
       // 如果有帖子被过滤掉，保存清洗后的数据
       if (validPosts.length !== posts.length) {
         savePosts(validPosts)
       }
       return validPosts
     } catch {
-      const newPosts = generateDefaultPosts()
-      savePosts(newPosts)
-      return newPosts
+      return []
     }
   }
-  const newPosts = generateDefaultPosts()
-  savePosts(newPosts)
-  return newPosts
+  return []
 }
 
 // 保存帖子列表
@@ -199,27 +186,9 @@ export function savePosts(posts: ForumPost[]) {
   localStorage.setItem('forum_posts', JSON.stringify(posts))
 }
 
-// 生成默认帖子
+// 生成默认帖子（已禁用，返回空数组）
 function generateDefaultPosts(): ForumPost[] {
-  const npcs = getAllNPCs()
-  const now = Date.now()
-  
-  return POST_TEMPLATES.map((template, index) => {
-    const npc = npcs[index % npcs.length]
-    const hoursAgo = index * 2 + Math.floor(Math.random() * 3)
-    
-    return {
-      id: `post-${index + 1}`,
-      npcId: npc.id,
-      content: template.content,
-      images: template.images,
-      likes: Math.floor(Math.random() * 500) + 50,
-      comments: Math.floor(Math.random() * 100) + 5,
-      time: formatTime(hoursAgo),
-      timestamp: now - hoursAgo * 60 * 60 * 1000,
-      isLiked: false
-    }
-  }).sort((a, b) => b.timestamp - a.timestamp)
+  return []  // 不再生成预设帖子
 }
 
 // 格式化时间
@@ -286,12 +255,9 @@ export function initForumData() {
     saveNPCs(generateRandomNPCs(8))
   }
   
-  // 确保帖子数据存在
+  // 确保帖子数据存在（不再自动生成预设帖子）
   const storedPosts = localStorage.getItem('forum_posts')
   if (!storedPosts) {
-    console.log('初始化帖子数据')
-    const posts = generateDefaultPosts()
-    console.log('生成的帖子:', posts)
-    savePosts(posts)
+    savePosts([])  // 初始化为空数组
   }
 }

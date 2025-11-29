@@ -449,7 +449,7 @@ const MusicPlayer = () => {
       )}
 
       {/* 主内容区 */}
-      <div className="relative z-10 flex flex-col items-center flex-1 w-full px-6 pt-4 pb-8">
+      <div className="relative z-10 flex flex-col items-center w-full px-6 pt-4 pb-4">
         
         {/* 头像显示 - 两个头像连线 */}
         <div className="w-full flex items-center justify-center mb-4 relative h-16">
@@ -502,7 +502,7 @@ const MusicPlayer = () => {
         </div>
         
         {/* 唱片封面和歌词容器 */}
-        <div className="flex-1 w-full flex items-center justify-center min-h-[300px] relative mt-4">
+        <div className="w-full flex items-center justify-center h-[340px] relative">
           
           {/* 唱片盘 */}
           <div 
@@ -579,7 +579,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 底部信息和控制区 */}
-        <div className="w-full mt-auto space-y-6">
+        <div className="w-full mt-4 space-y-6">
           {/* 歌曲信息 */}
           <div className="flex items-center justify-between px-2">
             <div className="flex-1 min-w-0 pr-4">

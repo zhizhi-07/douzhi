@@ -2729,39 +2729,54 @@ export const postHandler: CommandHandler = {
 
 /**
  * AI发布论坛帖子处理器
- * 格式：[发帖:帖子内容|点赞:数量|粉丝:数量]
- * 例如：[发帖:今天心情不错～|点赞:128|粉丝:20]
- * 发布后会自动调用API生成评论
+ * 格式：[发帖:帖子内容]
+ * 例如：[发帖:今天心情不错～]
+ * 发布后会自动调用API生成评论，点赞数和粉丝增长由API根据帖子内容决定
  */
 export const forumPostHandler: CommandHandler = {
   pattern: /[\[【](?:发布论坛帖子|发帖|论坛发帖)[:：]([^\]】]+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('📋 [AI发布论坛帖子] 处理器被调用')
     
-    const fullContent = match[1].trim()
+    const postContent = match[1].trim()
     
-    // 从后往前解析，避免帖子内容中的|干扰
-    // 格式：帖子内容|点赞:数量|粉丝:数量
-    let likes = 0
-    let newFollowers = 0
-    let postContent = fullContent
+    // 调用API根据帖子内容决定点赞数和粉丝增长
+    const isPublicFigure = (character as any)?.isPublicFigure || false
+    const charName = character?.nickname || character?.realName || 'AI'
+    const personality = character?.personality || ''
     
-    // 先用正则提取点赞和粉丝（从末尾匹配）
-    const likesMatch = fullContent.match(/\|点赞[:：]?\s*(\d+)/)
-    const followersMatch = fullContent.match(/\|粉丝[:：]?\s*(\d+)/)
+    let likes = 100  // 默认值
+    let newFollowers = 5  // 默认值
     
-    if (likesMatch) {
-      likes = parseInt(likesMatch[1])
-    }
-    if (followersMatch) {
-      newFollowers = parseInt(followersMatch[1])
-    }
-    
-    // 移除末尾的参数部分，剩下的就是帖子内容
-    // 找到第一个 |点赞 或 |粉丝 的位置
-    const paramStart = fullContent.search(/\|(?:点赞|粉丝)[:：]?\s*\d+/)
-    if (paramStart > 0) {
-      postContent = fullContent.substring(0, paramStart).trim()
+    try {
+      const { callZhizhiApi } = await import('../../../services/zhizhiapi')
+      const prompt = `你是社交媒体数据分析师。根据以下帖子内容和发帖人信息，判断这条帖子能获得多少点赞和涨多少粉丝。
+
+发帖人：${charName}
+${isPublicFigure ? '身份：公众人物/明星' : '身份：普通用户'}
+${personality ? `人设：${personality}` : ''}
+
+帖子内容：${postContent}
+
+请根据帖子的劲爆程度、话题性、情感共鸣等因素判断，输出JSON：
+{
+  "likes": 点赞数,
+  "followers": 新增粉丝数
+}
+
+只输出JSON，不要其他内容。`
+
+      const result = await callZhizhiApi([{ role: 'user', content: prompt }], { temperature: 0.7 })
+      if (result) {
+        const jsonMatch = result.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0])
+          likes = parsed.likes || likes
+          newFollowers = parsed.followers || newFollowers
+        }
+      }
+    } catch (e) {
+      console.error('获取帖子数据失败，使用默认值:', e)
     }
     
     if (!postContent) {
@@ -2871,7 +2886,7 @@ export const forumPostHandler: CommandHandler = {
           }
           
           // 传入帖子作者名称（无论是否公众人物都要告诉评论生成器谁是楼主）
-          await generateRealAIComments(postId, postContent, allCharacters, authorPosts, aiName, chatContext)
+          await generateRealAIComments(postId, postContent, allCharacters, authorPosts, aiName)
           
           // 更新帖子评论数
           const { getPostComments } = await import('../../../utils/forumCommentsDB')

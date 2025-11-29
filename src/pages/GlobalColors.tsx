@@ -10,7 +10,7 @@ const GlobalColors = () => {
   const navigate = useNavigate()
   const [knobColor, setKnobColor] = useState(localStorage.getItem('switch_knob_color') || '#ffffff')
   const [activeColor, setActiveColor] = useState(localStorage.getItem('switch_active_color') || '#475569')
-  const [buttonColor, setButtonColor] = useState(localStorage.getItem('global_button_color') || '#475569')
+  const [buttonColor, setButtonColor] = useState(localStorage.getItem('global_button_color') || '#ffffff')
   const [sliderThumbColor, setSliderThumbColor] = useState(localStorage.getItem('slider_thumb_color') || '#1e293b')
 
   // 页面加载时应用颜色

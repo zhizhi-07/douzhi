@@ -6,6 +6,8 @@ import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
 import { getUserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
+import { addMessage } from '../utils/simpleMessageManager'
+import type { Message } from '../types/chat'
 import StatusBar from '../components/StatusBar'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import type { ForumPost } from '../utils/forumNPC'
@@ -109,6 +111,15 @@ const InstagramPostDetail = () => {
     return npcAvatar
   }
 
+  // 🔥 把角色ID转换成名字
+  const getCharacterName = (id: string): string => {
+    const char = characters.find(c => c.id === id)
+    if (char) return char.nickname || char.realName || id
+    const npc = getNPCById(id)
+    if (npc) return npc.name
+    return id
+  }
+
   const formatTimeAgo = (timestamp: number): string => {
     const now = Date.now()
     const diff = now - timestamp
@@ -153,45 +164,107 @@ const InstagramPostDetail = () => {
     }
   }
 
+  // 🔥 同步论坛评论互动到主聊天记录
+  const syncForumInteractionToChat = (
+    characterId: string, 
+    content: string, 
+    type: 'sent' | 'received',
+    contextInfo: string
+  ) => {
+    if (!characterId || characterId === 'user') return
+    
+    const msg: Message = {
+      id: Date.now(),
+      type,
+      content,
+      aiReadableContent: `[论坛评论互动] ${contextInfo}: ${content}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      source: 'dm'  // 标记为论坛来源
+    }
+    
+    addMessage(characterId, msg)
+    console.log(`🔄 [论坛互动同步] ${type === 'sent' ? '用户->AI' : 'AI->用户'}: ${content.slice(0, 30)}...`)
+  }
+
   // 点击回复按钮，设置回复目标
   const handleReplyClick = (commentId: string, authorName: string) => {
     setReplyingTo({ id: commentId, name: authorName })
     setNewComment(`@${authorName} `)
   }
 
-  // 添加回复到待发送列表（不触发AI）
+  // 添加评论或回复到待发送列表（不触发AI，等点纸飞机）
   const addPendingReply = async () => {
-    if (!newComment.trim() || !replyingTo || !postId) return
+    if (!newComment.trim() || !postId) return
     
-    const content = newComment.replace(new RegExp(`^@${replyingTo.name}\\s*`), '').trim()
-    if (!content) return
+    // 如果是回复某人
+    if (replyingTo) {
+      const content = newComment.replace(new RegExp(`^@${replyingTo.name}\\s*`), '').trim()
+      if (!content) return
 
-    // 添加到待发送列表
-    const newPending = {
-      id: `pending-${Date.now()}`,
-      commentId: replyingTo.id,
-      targetName: replyingTo.name,
-      content
+      // 添加到待发送列表
+      const newPending = {
+        id: `pending-${Date.now()}`,
+        commentId: replyingTo.id,
+        targetName: replyingTo.name,
+        content,
+        isReply: true
+      }
+      setPendingReplies(prev => [...prev, newPending])
+      
+      // 保存用户评论到数据库
+      await addReply(
+        replyingTo.id,
+        'user',
+        userInfo.nickname || userInfo.realName || '我',
+        userInfo.avatar || '/default-avatar.png',
+        content,
+        replyingTo.name
+      )
+      
+      console.log(`📝 添加待发送回复: @${newPending.targetName}: ${content}`)
+    } else {
+      // 直接发表一级评论 - 也加入待发送列表
+      const content = newComment.trim()
+      
+      // 添加到待发送列表（一级评论没有targetName）
+      const newPending = {
+        id: `pending-${Date.now()}`,
+        commentId: '',  // 一级评论没有commentId
+        targetName: post?.npcId ? (getNPCById(post.npcId)?.name || '楼主') : '楼主',
+        content,
+        isReply: false
+      }
+      setPendingReplies(prev => [...prev, newPending])
+      
+      // 保存用户评论到数据库
+      await addComment(
+        postId,
+        'user',
+        userInfo.nickname || userInfo.realName || '我',
+        userInfo.avatar || '/default-avatar.png',
+        content
+      )
+      
+      console.log(`📝 添加待发送评论: ${content}`)
     }
-    setPendingReplies(prev => [...prev, newPending])
-    
-    // 保存用户评论到数据库
-    await addReply(
-      replyingTo.id,
-      'user',
-      userInfo.nickname || userInfo.realName || '我',
-      userInfo.avatar || '/default-avatar.png',
-      content,
-      replyingTo.name
-    )
     
     // 刷新评论
     const updatedComments = await getPostComments(postId)
     setComments(updatedComments)
     
+    // 更新帖子评论数
+    if (post) {
+      const updatedPosts = getAllPosts()
+      const targetPost = updatedPosts.find(p => p.id === postId)
+      if (targetPost) {
+        targetPost.comments = updatedComments.length
+        savePosts(updatedPosts)
+      }
+    }
+    
     setNewComment('')
     setReplyingTo(null)
-    console.log(`📝 添加待发送回复: @${newPending.targetName}: ${content}`)
   }
 
   // 点击纸飞机：批量发送并触发AI回复
@@ -221,18 +294,18 @@ const InstagramPostDetail = () => {
       // 构建所有待回复的内容
       const repliesText = pendingReplies.map(r => `@${r.targetName}: "${r.content}"`).join('\n')
       
-      // 构建当前评论区状态
+      // 构建当前评论区状态（完整内容，不截断）
       const existingCommentsText = latestComments.slice(0, 10).map(c => {
         let text = `[主楼] ${c.authorName}：${c.content}`
         if (c.replies && c.replies.length > 0) {
-          text += '\n' + c.replies.slice(0, 3).map(r => 
+          text += '\n' + c.replies.slice(0, 5).map(r => 
             `  └ ${r.authorName} -> ${r.replyTo || c.authorName}：${r.content}`
           ).join('\n')
         }
         return text
       }).join('\n')
       
-      // 检查哪些是AI角色（有完整人设）
+      // 检查哪些是AI角色（有完整人设）- 不截断
       const aiCharacters = allCharacters.filter(c => c.personality).slice(0, 5).map(c => ({
         name: c.nickname || c.realName || '未知',
         personality: c.personality,
@@ -249,7 +322,7 @@ ${aiCharacters.map(a => {
   return info
 }).join('\n\n')}
 ` : ''
-
+      
       const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
 
 ## 📱 帖子内容
@@ -266,12 +339,13 @@ ${aiCharacterPrompt}
 
 **必须包含：**
 1. 被@的人必须回复用户（楼中楼回复）
-2. 可能有1-2条新的主楼评论（围观群众看热闹）
-3. 楼中楼可能继续讨论
+2. 3-5条新的主楼评论（围观群众看热闹、吃瓜、起哄）
+3. 楼中楼继续讨论（2-4条回复）
+4. AI角色如果相关必须参与
 
 **评论者类型：**
-- NPC网友（70%）：路人甲、吃瓜群众、小李、阿明、网友A等随机网名
-- AI角色（30%）：如果有人设的角色，按他们的语气说话
+- NPC网友（60%）：路人甲、吃瓜群众、小李、阿明、网友A、今天也是吃瓜人、楷我的神、xx的老婆、暴躁老哥等随机网名
+- AI角色（40%）：如果有人设的角色，按他们的语气说话
 
 **输出格式（严格遵守）：**
 [主楼] 网名：评论内容
@@ -281,19 +355,23 @@ ${aiCharacterPrompt}
 [回复] 小李 -> 用户：哈哈你说得对
 [主楼] 吃瓜群众：我也来凑热闹
 [回复] 阿明 -> 小李：同意+1
+[主楼] 今天也是吃瓜人：正主说话了！快打起来！
+[回复] 网友A -> 吃瓜群众：+1
+[主楼] 暴躁老哥：这也太离谱了吧
 
 **要求：**
-- 每条5-30字，自然口语化
+- 每条5-50字，自然口语化，可以用emoji
 - AI角色必须符合人设语气
-- 生成3-6条评论
+- 🔥 必须生成8-15条评论，越热闹越好！
 - 直接输出，不要解释`
 
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
         ? apiConfig.baseUrl 
         : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
 
-      console.log('🟢 [批量AI回复] 完整Prompt:')
-      console.log(prompt)
+      console.log('🟢 [批量AI回复] Prompt长度:', prompt.length, '字')
+      console.log('🟢 [批量AI回复] 帖子内容长度:', post.content.length, '字')
+      console.log('🟢 [批量AI回复] 待发送:', pendingReplies.map((r: any) => `${r.isReply ? '回复' : '评论'}: ${r.content.slice(0, 30)}`))
       console.log('🟢 [批量AI回复] 请求...')
 
       const response = await fetch(apiUrl, {
@@ -306,13 +384,57 @@ ${aiCharacterPrompt}
           model: apiConfig.model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.8,
-          max_tokens: 2000  // 🔥 避免回复被截断
+          max_tokens: 100000  // 🔥 不限制token
         })
       })
 
       const data = await response.json()
-      const aiContent = data.choices?.[0]?.message?.content?.trim() || ''
+      console.log('🟢 [批量AI回复] API响应:', data)
+      console.log('🟢 [批量AI回复] choices:', data.choices)
+      console.log('🟢 [批量AI回复] choices[0]:', data.choices?.[0])
+      console.log('🟢 [批量AI回复] message:', data.choices?.[0]?.message)
+      
+      if (data.error) {
+        console.error('❌ [批量AI回复] API错误:', data.error)
+        setPendingReplies([])
+        setIsSending(false)
+        return
+      }
+      
+      // 兼容不同API格式（包括思考模型）
+      const message = data.choices?.[0]?.message
+      let aiContent = message?.content?.trim() 
+        || data.choices?.[0]?.text?.trim()  // 某些API用text
+        || data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()  // Gemini原生格式
+        || ''
+      
+      // 🔥 如果content为空但有reasoning_content（思考模型），尝试从中提取评论
+      if (!aiContent && message?.reasoning_content) {
+        console.log('🟢 [批量AI回复] 从思考内容中提取...')
+        // 尝试提取思考内容中的评论格式
+        const reasoningContent = message.reasoning_content as string
+        const lines = reasoningContent.split('\n')
+        const commentLines = lines.filter((l: string) => 
+          l.match(/^\[主楼\]/) || l.match(/^\[回复\]/) || l.match(/^[^:：]+[:：].+/)
+        )
+        if (commentLines.length > 0) {
+          aiContent = commentLines.join('\n')
+          console.log('🟢 [批量AI回复] 从思考中提取到:', commentLines.length, '条')
+        }
+      }
+      
       console.log('🟢 [批量AI回复] 返回:', aiContent)
+      
+      if (!aiContent) {
+        console.warn('⚠️ [批量AI回复] AI返回内容为空')
+        // 仍然清空待发送列表，因为用户评论已经保存了
+        setPendingReplies([])
+        setIsSending(false)
+        // 刷新评论
+        const updatedComments = await getPostComments(postId)
+        setComments(updatedComments)
+        return
+      }
 
       // 解析AI回复并保存（支持新格式）
       const lines = aiContent.split('\n').filter((l: string) => l.trim())
@@ -375,6 +497,20 @@ ${aiCharacterPrompt}
             await addComment(postId, id, authorName, avatar, `@${replyToName} ${content}`)
             console.log(`✅ [回复降级主楼] ${authorName}: @${replyToName} ${content}`)
           }
+          
+          // 🔥 如果AI回复的是用户，同步到主聊天记录
+          const userName = userInfo.nickname || userInfo.realName || '用户'
+          if (replyToName === userName || replyToName === '用户' || replyToName === '我' || replyToName === '楼主') {
+            const { character } = getCharacterInfo(authorName)
+            if (character) {
+              syncForumInteractionToChat(
+                character.id,
+                content,
+                'received',
+                `${authorName}在论坛评论区回复了用户`
+              )
+            }
+          }
           continue
         }
         
@@ -387,9 +523,19 @@ ${aiCharacterPrompt}
           // 找对应的待回复项
           const pending = pendingReplies.find(r => r.targetName === responderName)
           if (pending) {
-            const { id, avatar } = getCharacterInfo(responderName)
+            const { id, avatar, character } = getCharacterInfo(responderName)
             await addReply(pending.commentId, id, responderName, avatar, replyContent, userInfo.nickname || '我')
             console.log(`✅ ${responderName} 回复了你: ${replyContent}`)
+            
+            // 🔥 同步到主聊天记录
+            if (character) {
+              syncForumInteractionToChat(
+                character.id,
+                replyContent,
+                'received',
+                `${responderName}在论坛评论区回复了用户`
+              )
+            }
           }
         }
       }
@@ -504,6 +650,16 @@ ${aiCharacterPrompt}
                 <span className="text-sm text-gray-500">{post.time}</span>
               </div>
               {parsePostContent(post.content)}
+              
+              {/* 显示标记的人 */}
+              {post.taggedUsers && post.taggedUsers.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-3 text-sm text-gray-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>提到了 {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(' ')}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -649,10 +805,11 @@ ${aiCharacterPrompt}
             placeholder={replyingTo ? `回复 @${replyingTo.name}...` : "添加评论..."}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && newComment.trim() && addPendingReply()}
             className="flex-1 outline-none text-sm"
           />
-          {/* 添加回复按钮 */}
-          {newComment.trim() && replyingTo && (
+          {/* 添加按钮 - 有内容时显示，加入待发送列表 */}
+          {newComment.trim() && (
             <button
               onClick={addPendingReply}
               className="text-sm font-semibold text-blue-500"
@@ -672,14 +829,18 @@ ${aiCharacterPrompt}
             </button>
           )}
         </div>
-        {/* 待发送回复列表 */}
+        {/* 待发送评论/回复列表 */}
         {pendingReplies.length > 0 && (
           <div className="px-4 py-2 bg-blue-50 border-t border-blue-100">
             <div className="text-xs text-blue-600 mb-1">待发送 ({pendingReplies.length}条)：</div>
             <div className="space-y-1">
-              {pendingReplies.map(r => (
+              {pendingReplies.map((r: any) => (
                 <div key={r.id} className="text-xs text-gray-600 flex items-center gap-1">
-                  <span className="text-blue-500">@{r.targetName}</span>
+                  {r.isReply ? (
+                    <span className="text-blue-500">回复 @{r.targetName}</span>
+                  ) : (
+                    <span className="text-green-500">评论</span>
+                  )}
                   <span className="truncate">{r.content}</span>
                   <button 
                     onClick={() => setPendingReplies(prev => prev.filter(p => p.id !== r.id))}

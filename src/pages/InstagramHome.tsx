@@ -7,6 +7,7 @@ import { getAllCharacters } from '../utils/characterManager'
 import { getUserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
+import EmojiContentRenderer from '../components/EmojiContentRenderer'
 
 // 解析帖子内容，把[图片：描述]或【截图：描述】标记转换成图片卡片
 const parsePostContent = (content: string) => {
@@ -15,7 +16,7 @@ const parsePostContent = (content: string) => {
   
   const hasImages = imagePattern.test(content)
   if (!hasImages) {
-    return <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">{content}</p>
+    return <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap"><EmojiContentRenderer content={content} emojiSize={32} /></p>
   }
   
   imagePattern.lastIndex = 0
@@ -125,14 +126,25 @@ const InstagramHome = () => {
     setCharacters(chars)
     
     const loadedPosts = getAllPosts()
-    console.log('加载的帖子数量:', loadedPosts.length)
-    console.log('帖子数据:', loadedPosts)
-    setPosts(loadedPosts)
+    // 过滤掉话题帖子，话题帖子只在话题详情页显示
+    const mainPosts = loadedPosts.filter(p => !p.topicId)
+    console.log('加载的帖子数量:', mainPosts.length, '（已过滤话题帖子）')
+    setPosts(mainPosts)
   }
 
   const handleLike = (postId: string) => {
     const updatedPosts = toggleLike(postId)
     setPosts(updatedPosts)
+  }
+
+  // 🔥 把角色ID转换成名字
+  const getCharacterName = (id: string): string => {
+    const char = characters.find(c => c.id === id)
+    if (char) return char.nickname || char.realName || id
+    // 如果找不到角色，检查是否是NPC
+    const npc = getNPCById(id)
+    if (npc) return npc.name
+    return id // 找不到就返回原ID
   }
 
   // 获取NPC的真实头像（优先从角色获取，解决头像不同步问题）
@@ -254,7 +266,7 @@ const InstagramHome = () => {
                   // 纯文字帖子
                   <div className="px-4 py-6">
                     <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">
-                      {post.content}
+                      <EmojiContentRenderer content={post.content} emojiSize={32} />
                     </p>
                   </div>
                 ) : post.images === 1 ? (
@@ -310,9 +322,20 @@ const InstagramHome = () => {
                   {post.images > 0 && post.content && (
                     <div className="text-base">
                       <span className="font-semibold mr-2">{userInfo.nickname || userInfo.realName || '我'}</span>
-                      <span className="text-gray-900">{post.content}</span>
+                      <span className="text-gray-900"><EmojiContentRenderer content={post.content} emojiSize={24} /></span>
                     </div>
                   )}
+                  
+                  {/* 显示标记的人 */}
+                  {post.taggedUsers && post.taggedUsers.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-2 text-sm text-gray-500">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span>提到了 {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(' ')}</span>
+                    </div>
+                  )}
+                  
                   {post.comments > 0 && (
                     <button 
                       className="text-base text-gray-500 mt-2" 
@@ -489,7 +512,17 @@ const InstagramHome = () => {
               {post.images > 0 && post.content && (
                 <div className="text-base">
                   <span className="font-semibold mr-2">{npc.name}</span>
-                  <span className="text-gray-900">{post.content}</span>
+                  <span className="text-gray-900"><EmojiContentRenderer content={post.content} emojiSize={24} /></span>
+                </div>
+              )}
+
+              {/* 显示标记的人 */}
+              {post.taggedUsers && post.taggedUsers.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-2 text-sm text-gray-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>提到了 {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(' ')}</span>
                 </div>
               )}
 
