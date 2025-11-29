@@ -8,8 +8,6 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { unifiedMemoryService, type UnifiedMemory, type MemoryDomain } from '../services/unifiedMemoryService'
 import { characterService } from '../services/characterService'
-import { extractMemoryFromChat } from '../services/memoryExtractor'
-import { loadMessages } from '../utils/simpleMessageManager'
 
 // 角色类型
 interface Character {
@@ -31,7 +29,6 @@ const UnifiedMemory = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string>('all')
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [isExtracting, setIsExtracting] = useState(false)
   
   // 添加记忆表单
   const [newMemory, setNewMemory] = useState<{
@@ -41,20 +38,155 @@ const UnifiedMemory = () => {
     summary: string
     importance: 'high' | 'normal' | 'low'
     tags: string
+    date: string
+    startTime: string
+    endTime: string
   }>({
     characterId: '',
     domain: 'chat',
     title: '',
     summary: '',
     importance: 'normal',
-    tags: ''
+    tags: '',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '',
+    endTime: ''
   })
 
-  // 加载数据
+  // 加载数据 + 自动迁移旧记忆
   useEffect(() => {
-    loadCharacters()
-    loadMemories()
+    const init = async () => {
+      await loadCharacters()
+      await migrateOldMemories()  // 自动迁移
+      await loadMemories()
+    }
+    init()
   }, [])
+  
+  // 自动迁移旧记忆（静默执行）
+  const migrateOldMemories = async () => {
+    const allChars = characterService.getAll()
+    let migrated = 0
+    
+    for (const char of allChars) {
+      // 1. 迁移 memories_${id} 的数据
+      const memoriesKey = `memories_${char.id}`
+      const oldData = localStorage.getItem(memoriesKey)
+      if (oldData) {
+        try {
+          const memoriesArray = JSON.parse(oldData) as Array<[string, any]>
+          for (const [_, memory] of memoriesArray) {
+            await unifiedMemoryService.addMemory({
+              domain: 'action',  // 记忆类型
+              characterId: char.id,
+              characterName: char.nickname || char.realName,
+              characterAvatar: char.avatar,
+              title: memory.type || '记忆',
+              summary: memory.content,
+              importance: memory.importance >= 7 ? 'high' : memory.importance >= 4 ? 'normal' : 'low',
+              tags: memory.tags || [],
+              timestamp: memory.timestamp || Date.now(),
+              emotionalTone: 'neutral',
+              extractedBy: 'manual'
+            })
+            migrated++
+          }
+          localStorage.removeItem(memoriesKey)
+          console.log(`✅ 已迁移 ${char.realName} 的 ${memoriesArray.length} 条记忆`)
+        } catch (e) {
+          console.error(`迁移记忆失败:`, e)
+        }
+      }
+      
+      // 2. 迁移 memory_timeline_${id} 的时间线数据
+      const timelineKey = `memory_timeline_${char.id}`
+      const timelineData = localStorage.getItem(timelineKey)
+      if (timelineData && timelineData.trim()) {
+        try {
+          // 从时间线文本中解析真实的时间范围
+          // 格式如：[11/28 22:24-11/28 22:29] 或 [11/28 22:24-22:29]
+          const timeMatches = timelineData.match(/\[(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})-(?:(\d{1,2})\/(\d{1,2})\s+)?(\d{1,2}):(\d{2})\]/g)
+          
+          let startTime: number | undefined
+          let endTime: number | undefined
+          
+          if (timeMatches && timeMatches.length > 0) {
+            // 只解析第一个事件的时间范围
+            const firstEventMatch = timeMatches[0].match(/\[(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})-(?:(\d{1,2})\/(\d{1,2})\s+)?(\d{1,2}):(\d{2})\]/)
+            if (firstEventMatch) {
+              const now = new Date()
+              // 开始时间
+              startTime = new Date(now.getFullYear(), parseInt(firstEventMatch[1]) - 1, parseInt(firstEventMatch[2]), parseInt(firstEventMatch[3]), parseInt(firstEventMatch[4])).getTime()
+              // 结束时间（如果没有独立的月/日，使用开始时间的月/日）
+              const endMonth = firstEventMatch[5] ? parseInt(firstEventMatch[5]) - 1 : parseInt(firstEventMatch[1]) - 1
+              const endDay = firstEventMatch[6] ? parseInt(firstEventMatch[6]) : parseInt(firstEventMatch[2])
+              endTime = new Date(now.getFullYear(), endMonth, endDay, parseInt(firstEventMatch[7]), parseInt(firstEventMatch[8])).getTime()
+            }
+          }
+          
+          // 如果解析失败，使用最后处理时间
+          if (!startTime || !endTime) {
+            const lastProcessedTs = localStorage.getItem(`memory_last_processed_ts_${char.id}`)
+            endTime = lastProcessedTs ? parseInt(lastProcessedTs) : Date.now()
+            startTime = endTime - (7 * 24 * 60 * 60 * 1000)  // 往前7天
+          }
+          
+          await unifiedMemoryService.addMemory({
+            domain: 'chat',  // 总结类型
+            characterId: char.id,
+            characterName: char.nickname || char.realName,
+            characterAvatar: char.avatar,
+            title: '历史总结',
+            summary: timelineData,
+            importance: 'high',
+            tags: ['时间线', '总结'],
+            timestamp: endTime,
+            emotionalTone: 'neutral',
+            extractedBy: 'manual',
+            timeRange: {
+              start: startTime,
+              end: endTime
+            }
+          })
+          migrated++
+          localStorage.removeItem(timelineKey)
+          localStorage.removeItem(`memory_last_processed_ts_${char.id}`)
+          console.log(`✅ 已迁移 ${char.realName} 的时间线总结`)
+        } catch (e) {
+          console.error(`迁移时间线失败:`, e)
+        }
+      }
+    }
+    
+    if (migrated > 0) {
+      console.log(`📦 总共迁移了 ${migrated} 条数据`)
+    }
+    
+    // 3. 修复已迁移但没有正确timeRange的记忆（只取第一个事件的时间）
+    const allMemories = await unifiedMemoryService.getAllMemories()
+    for (const mem of allMemories) {
+      if (mem.title === '历史总结' && mem.summary) {
+        // 尝试从文本解析第一个事件的时间
+        const firstEventMatch = mem.summary.match(/\[(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})-(?:(\d{1,2})\/(\d{1,2})\s+)?(\d{1,2}):(\d{2})\]/)
+        
+        if (firstEventMatch) {
+          const now = new Date()
+          const startTime = new Date(now.getFullYear(), parseInt(firstEventMatch[1]) - 1, parseInt(firstEventMatch[2]), parseInt(firstEventMatch[3]), parseInt(firstEventMatch[4])).getTime()
+          const endMonth = firstEventMatch[5] ? parseInt(firstEventMatch[5]) - 1 : parseInt(firstEventMatch[1]) - 1
+          const endDay = firstEventMatch[6] ? parseInt(firstEventMatch[6]) : parseInt(firstEventMatch[2])
+          const endTime = new Date(now.getFullYear(), endMonth, endDay, parseInt(firstEventMatch[7]), parseInt(firstEventMatch[8])).getTime()
+          
+          // 只有当解析出的时间和现有的不同时才更新
+          if (!mem.timeRange || mem.timeRange.start !== startTime || mem.timeRange.end !== endTime) {
+            await unifiedMemoryService.updateMemory(mem.id, {
+              timeRange: { start: startTime, end: endTime }
+            })
+            console.log(`🔧 已修复 ${mem.characterName} 的历史总结时间范围`)
+          }
+        }
+      }
+    }
+  }
 
   const loadCharacters = () => {
     // 从角色服务加载真实角色
@@ -145,22 +277,31 @@ const UnifiedMemory = () => {
     }
   }
 
-  // 统计数据
+  // 统计数据（按类型统计：总结=chat, 记忆=其他）
   const stats = useMemo(() => {
     return {
       total: memories.length,
-      chat: memories.filter(m => m.domain === 'chat').length,
-      moments: memories.filter(m => m.domain === 'moments').length,
+      summary: memories.filter(m => m.domain === 'chat').length,
+      memory: memories.filter(m => m.domain !== 'chat').length,
     }
   }, [memories])
 
-  // 过滤记忆
+  // 过滤记忆（按类型过滤：summary=chat, memory=其他）+ 按时间排序
   const filteredMemories = useMemo(() => {
-    return memories.filter(memory => {
-      if (selectedDomain !== 'all' && memory.domain !== selectedDomain) return false
-      if (selectedCharacter !== 'all' && memory.characterId !== selectedCharacter) return false
-      return true
-    })
+    return memories
+      .filter(memory => {
+        // 按类型过滤
+        if (selectedDomain === 'summary' && memory.domain !== 'chat') return false
+        if (selectedDomain === 'memory' && memory.domain === 'chat') return false
+        if (selectedCharacter !== 'all' && memory.characterId !== selectedCharacter) return false
+        return true
+      })
+      // 按时间排序（优先用timeRange.start，否则用timestamp）
+      .sort((a, b) => {
+        const timeA = a.timeRange?.start || a.timestamp
+        const timeB = b.timeRange?.start || b.timestamp
+        return timeB - timeA  // 新的在前
+      })
   }, [memories, selectedDomain, selectedCharacter])
 
   // 格式化日期 - 文艺风格
@@ -176,69 +317,38 @@ const UnifiedMemory = () => {
       full: date.toLocaleString('zh-CN', { hour12: false, month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
   }
-
-  // 域名映射
-  const domainMap: Record<string, string> = {
-    all: '全部',
-    chat: '对话',
-    moments: '瞬间',
-    action: '回响'
+  
+  // 格式化时间范围（只显示时间，不显示日期）
+  const formatTimeRange = (memory: any) => {
+    if (memory.timeRange) {
+      const start = new Date(memory.timeRange.start)
+      const end = new Date(memory.timeRange.end)
+      const formatTime = (d: Date) => 
+        `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+      return `${formatTime(start)}-${formatTime(end)}`
+    }
+    return ''
+  }
+  
+  // 清理summary中的垃圾文字
+  const cleanSummary = (summary: any) => {
+    if (!summary || typeof summary !== 'string') {
+      return ''
+    }
+    return summary
+      .replace(/【记忆更新[^】]*】[^\n]*/g, '')  // 删除【记忆更新...】行
+      .replace(/提取记忆:\s*\d+\s*条/g, '')  // 删除"提取记忆: X 条"
+      .replace(/\[\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}-(?:\d{1,2}\/\d{1,2}\s+)?\d{1,2}:\d{2}\]\s*/g, '')  // 删除[11/28 22:24-22:29]
+      .replace(/━+/g, '')  // 删除分隔线
+      .replace(/\n{3,}/g, '\n\n')  // 多余空行合并
+      .trim()
   }
 
-  // 强制提取记忆（用于测试）
-  const handleForceExtract = async () => {
-    if (characters.length === 0) {
-      alert('没有可用的角色')
-      return
-    }
-
-    // 默认选择第一个角色
-    const targetChar = selectedCharacter !== 'all' 
-      ? characters.find(c => c.id === selectedCharacter) 
-      : characters[0]
-    
-    if (!targetChar) {
-      alert('请选择一个角色')
-      return
-    }
-
-    setIsExtracting(true)
-    
-    try {
-      // 加载该角色的聊天记录（chatId就是characterId）
-      const chatId = targetChar.id
-      const messages = loadMessages(chatId)
-      
-      if (messages.length === 0) {
-        alert(`${targetChar.name} 还没有聊天记录`)
-        setIsExtracting(false)
-        return
-      }
-
-      console.log(`🔍 [强制提取] 开始从 ${targetChar.name} 的 ${messages.length} 条消息中提取记忆...`)
-      
-      // 调用提取服务
-      const count = await extractMemoryFromChat(
-        targetChar.id,
-        targetChar.name,
-        messages,
-        'chat'
-      )
-      
-      if (count > 0) {
-        alert(`✅ 成功提取了 ${count} 条记忆！`)
-        // 刷新列表
-        await loadMemories()
-      } else {
-        alert('ℹ️ AI认为暂时没有值得记录的内容')
-      }
-      
-    } catch (error) {
-      console.error('❌ [强制提取] 提取失败:', error)
-      alert('提取失败，请查看控制台')
-    } finally {
-      setIsExtracting(false)
-    }
+  // 分类映射（简化版：总结 + 记忆）
+  const categoryMap: Record<string, string> = {
+    all: '全部',
+    summary: '总结',
+    memory: '记忆'
   }
 
   // 处理添加记忆
@@ -259,6 +369,19 @@ const UnifiedMemory = () => {
       .map(t => t.trim())
       .filter(t => t)
 
+    // 构建timeRange
+    let timeRange: { start: number; end: number } | undefined
+    if (newMemory.date && newMemory.startTime) {
+      const startDate = new Date(`${newMemory.date}T${newMemory.startTime}`)
+      const endDate = newMemory.endTime 
+        ? new Date(`${newMemory.date}T${newMemory.endTime}`)
+        : startDate
+      timeRange = {
+        start: startDate.getTime(),
+        end: endDate.getTime()
+      }
+    }
+
     await unifiedMemoryService.addMemory({
       domain: newMemory.domain,
       characterId: selectedChar.id,
@@ -270,7 +393,8 @@ const UnifiedMemory = () => {
       tags: tagsArray,
       timestamp: Date.now(),
       emotionalTone: 'neutral',
-      extractedBy: 'manual'
+      extractedBy: 'manual',
+      timeRange
     })
 
     // 刷新列表
@@ -283,7 +407,10 @@ const UnifiedMemory = () => {
       title: '',
       summary: '',
       importance: 'normal',
-      tags: ''
+      tags: '',
+      date: new Date().toISOString().split('T')[0],
+      startTime: '',
+      endTime: ''
     })
 
     setShowAddModal(false)
@@ -306,16 +433,6 @@ const UnifiedMemory = () => {
           </button>
           
           <div className="flex items-center gap-2">
-            {/* 强制提取记忆按钮（测试用） */}
-            <button 
-              onClick={handleForceExtract}
-              disabled={isExtracting}
-              className="px-3 py-1.5 text-xs bg-yellow-500 hover:bg-yellow-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              title="强制提取当前角色的记忆（测试功能）"
-            >
-              {isExtracting ? '提取中...' : '🧠 提取记忆'}
-            </button>
-            
             {/* 添加记忆按钮 */}
             <button 
               onClick={() => setShowAddModal(true)}
@@ -337,9 +454,9 @@ const UnifiedMemory = () => {
           <div className="flex items-center gap-4 text-xs text-gray-400 tracking-wider uppercase">
             <span>Total {stats.total}</span>
             <span className="w-1 h-1 bg-gray-300 rounded-full" />
-            <span>Chat {stats.chat}</span>
+            <span>总结 {stats.summary}</span>
             <span className="w-1 h-1 bg-gray-300 rounded-full" />
-            <span>Moments {stats.moments}</span>
+            <span>记忆 {stats.memory}</span>
           </div>
         </div>
 
@@ -393,20 +510,20 @@ const UnifiedMemory = () => {
           ))}
         </div>
 
-        {/* 分类Tab - 文字式 */}
+        {/* 分类Tab：总结 + 记忆 */}
         <div className="flex gap-8 mt-4 border-b border-gray-200/60 pb-1 overflow-x-auto scrollbar-hide">
-          {(['all', 'chat', 'moments', 'action'] as MemoryDomain[]).map(domain => (
+          {(['all', 'summary', 'memory'] as const).map(cat => (
             <button
-              key={domain}
-              onClick={() => setSelectedDomain(domain)}
+              key={cat}
+              onClick={() => setSelectedDomain(cat as any)}
               className={`pb-3 text-sm tracking-widest transition-colors relative whitespace-nowrap ${
-                selectedDomain === domain
+                selectedDomain === cat
                   ? 'text-gray-900 font-medium'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >
-              {domainMap[domain]}
-              {selectedDomain === domain && (
+              {categoryMap[cat]}
+              {selectedDomain === cat && (
                 <span className="absolute bottom-0 left-0 w-full h-[1px] bg-gray-900" />
               )}
             </button>
@@ -418,7 +535,10 @@ const UnifiedMemory = () => {
       <div className="flex-1 overflow-y-auto px-6 pb-8">
         <div className="space-y-8">
           {filteredMemories.map((memory, index) => {
-            const timeData = formatDate(memory.timestamp)
+            // 使用timeRange.start作为日期，否则用timestamp
+            const displayTime = memory.timeRange?.start || memory.timestamp
+            const timeData = formatDate(displayTime)
+            const timeRangeStr = formatTimeRange(memory)
             return (
               <div
                 key={memory.id}
@@ -441,7 +561,7 @@ const UnifiedMemory = () => {
                           <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
                         )}
                         <span className="text-xs text-gray-400 tracking-wide">
-                           {timeData.date.split('.')[0]}月 · {memory.characterName}
+                           {timeRangeStr ? `${timeRangeStr} · ` : ''}{memory.characterName}
                         </span>
                       </div>
                     </div>
@@ -451,7 +571,7 @@ const UnifiedMemory = () => {
                     </h3>
 
                     <p className="text-sm text-gray-500 leading-relaxed line-clamp-3 font-light">
-                      {memory.summary}
+                      {cleanSummary(memory.summary)}
                     </p>
 
                     {/* 底部标签 */}
@@ -504,7 +624,7 @@ const UnifiedMemory = () => {
               <div className="flex items-center gap-3 mb-6 text-sm text-gray-400 font-light tracking-widest uppercase">
                 <span>{formatDate(selectedMemory.timestamp).full}</span>
                 <span className="w-px h-3 bg-gray-300" />
-                <span>{domainMap[selectedMemory.domain]}</span>
+                <span>{selectedMemory.domain === 'chat' ? '总结' : '记忆'}</span>
               </div>
 
               {/* 标题 */}
@@ -554,11 +674,12 @@ const UnifiedMemory = () => {
       {/* 添加记忆弹窗 */}
       {showAddModal && (
         <div 
-          className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center animate-fade-in p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: '#ffffff' }}
           onClick={() => setShowAddModal(false)}
         >
           <div 
-            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 标题栏 */}
@@ -591,21 +712,21 @@ const UnifiedMemory = () => {
                 </select>
               </div>
 
-              {/* 记忆类型 */}
+              {/* 类型 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">记忆类型</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">类型</label>
                 <div className="flex gap-3">
-                  {(['chat', 'moments', 'action'] as const).map(domain => (
+                  {(['summary', 'memory'] as const).map(cat => (
                     <button
-                      key={domain}
-                      onClick={() => setNewMemory(prev => ({ ...prev, domain }))}
+                      key={cat}
+                      onClick={() => setNewMemory(prev => ({ ...prev, domain: cat === 'summary' ? 'chat' : 'action' }))}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        newMemory.domain === domain
+                        (cat === 'summary' && newMemory.domain === 'chat') || (cat === 'memory' && newMemory.domain !== 'chat')
                           ? 'bg-gray-900 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
-                      {domainMap[domain]}
+                      {categoryMap[cat]}
                     </button>
                   ))}
                 </div>
@@ -653,6 +774,34 @@ const UnifiedMemory = () => {
                   rows={5}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
                 />
+              </div>
+
+              {/* 时间 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">发生时间</label>
+                <div className="flex gap-3">
+                  <input
+                    type="date"
+                    value={newMemory.date}
+                    onChange={(e) => setNewMemory(prev => ({ ...prev, date: e.target.value }))}
+                    className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                  <input
+                    type="time"
+                    value={newMemory.startTime}
+                    onChange={(e) => setNewMemory(prev => ({ ...prev, startTime: e.target.value }))}
+                    placeholder="开始"
+                    className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                  <span className="flex items-center text-gray-400">-</span>
+                  <input
+                    type="time"
+                    value={newMemory.endTime}
+                    onChange={(e) => setNewMemory(prev => ({ ...prev, endTime: e.target.value }))}
+                    placeholder="结束"
+                    className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                </div>
               </div>
 
               {/* 标签 */}

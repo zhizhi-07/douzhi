@@ -346,52 +346,53 @@ ${userInfo.persona ? `- TA 的自我介绍：${userInfo.persona}` : ''}
                 </div>
               )}
               
-              <div className={`flex items-end gap-2 mb-3 ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* 头像 */}
-                <div className="flex-shrink-0 mb-1">
-                  {msg.isFromUser ? (
-                    // 用户头像
-                    userInfo.avatar ? (
-                      <img src={userInfo.avatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
+              <div className={`flex flex-col mb-4 ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
+                {/* 头像和名字 */}
+                <div className={`flex items-center gap-2 mb-1.5 ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className="flex-shrink-0">
+                    {msg.isFromUser ? (
+                      userInfo.avatar ? (
+                        <img src={userInfo.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                          style={{ background: getAvatarColor(userInfo.nickname || userInfo.realName || '我') }}
+                        >
+                          {(userInfo.nickname || userInfo.realName || '我')[0]}
+                        </div>
+                      )
                     ) : (
-                      <div 
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                        style={{ background: getAvatarColor(userInfo.nickname || userInfo.realName || '我') }}
-                      >
-                        {(userInfo.nickname || userInfo.realName || '我')[0]}
-                      </div>
-                    )
-                  ) : (
-                    // AI头像
-                    npcAvatar ? (
-                      <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover shadow-sm" />
-                    ) : (
-                      <div 
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                        style={{ background: getAvatarColor(npcName || 'A') }}
-                      >
-                        {(npcName || 'A')[0]}
-                      </div>
-                    )
-                  )}
+                      npcAvatar ? (
+                        <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                          style={{ background: getAvatarColor(npcName || 'A') }}
+                        >
+                          {(npcName || 'A')[0]}
+                        </div>
+                      )
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {msg.isFromUser ? (userInfo.nickname || userInfo.realName || '我') : npcName}
+                  </span>
                 </div>
                 
                 {/* 消息气泡 */}
-                <div className={`max-w-[75%] ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[85%] ${msg.isFromUser ? 'mr-10' : 'ml-10'}`}>
                   {msg.type === 'emoji' && msg.emojiUrl ? (
-                    // 表情包消息（单独的大图气泡）
                     <img 
                       src={msg.emojiUrl} 
                       alt={msg.content} 
                       className="w-32 h-32 object-contain rounded-xl"
                     />
                   ) : (
-                    // 文字消息（支持 [表情:描述] 渲染为图片）
                     <div 
                       className={`px-4 py-2.5 rounded-[20px] ${
                         msg.isFromUser 
-                          ? 'bg-gray-800 text-white shadow-sm' 
-                          : 'bg-[#f0f0f0] text-gray-800'
+                          ? 'bg-gray-800 text-white' 
+                          : 'bg-white text-gray-800'
                       }`}
                     >
                       <EmojiContentRenderer
@@ -458,14 +459,14 @@ ${userInfo.persona ? `- TA 的自我介绍：${userInfo.persona}` : ''}
             />
           </div>
           
-          {/* 发送按钮 - 纸飞机图标 */}
+          {/* 发送按钮 - 简洁纸飞机 */}
           <button
             onClick={handleSend}
             disabled={isAiReplying}
-            className={`w-10 h-10 flex items-center justify-center rounded-full transition-all ${
+            className={`w-10 h-10 flex items-center justify-center transition-all ${
               isAiReplying
-                ? 'bg-gray-100 text-gray-300'
-                : 'bg-blue-500 text-white active:bg-blue-600 shadow-sm'
+                ? 'text-gray-300'
+                : 'text-gray-600 active:text-gray-900'
             }`}
           >
             <Navigation className="w-5 h-5" style={{ transform: 'rotate(90deg)' }} />

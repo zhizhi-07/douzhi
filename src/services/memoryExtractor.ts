@@ -14,13 +14,11 @@ interface DialogueTurn {
   timestamp: number
 }
 
-// AI返回的记忆数据
+// AI返回的记忆数据（包含summary和facts）
 interface ExtractedMemory {
-  title: string
-  summary: string
-  importance: 'high' | 'normal' | 'low'
-  tags: string[]
+  summary: string | null
   emotionalTone: 'positive' | 'neutral' | 'negative'
+  facts?: string[]  // 重要事实（生日、喜好等）
 }
 
 /**
@@ -119,59 +117,49 @@ export function collectDialogueTurns(messages: Message[]): DialogueTurn[] {
 /**
  * 构建记忆提取 prompt
  */
-function buildExtractionPrompt(turns: DialogueTurn[], characterName: string): string {
+function buildExtractionPrompt(turns: DialogueTurn[], characterName: string, userName: string): string {
   // 格式化对话历史
   const dialogueText = turns.map((turn, index) => {
     const userText = turn.userMessages.join('\n')
-    return `【第${index + 1}轮对话】\n用户: ${userText}\n${characterName}: ${turn.aiReply}`
+    return `【第${index + 1}轮对话】\n${userName}: ${userText}\n${characterName}: ${turn.aiReply}`
   }).join('\n\n')
 
-  return `你是角色【${characterName}】。分析以下对话，提取**有长期价值的核心信息**。
+  return `你是角色【${characterName}】。阅读以下对话，提取**总结**和**重要记忆**。
+对方名字是【${userName}】。
 
 对话历史：
 ${dialogueText}
 
-记忆原则：
-1. **抽象化，不要流水账** - 提取可复用的信息，而非琐碎细节
-2. **关注本质，忽略表象** - 记录性格、偏好、关系动态，而非具体对话内容
-3. **长期有用** - 想象1个月后，这条记忆是否还能帮助你更好地理解对方
+要求：
+1. **summary**：这段对话发生了什么事（40-80字）
+2. **facts**：提取**重要事实**，可以带上我的感受（不要写日期，系统自动记录）
 
-提取方向（优先级从高到低）：
-- **偏好/习惯**："他喜欢..."、"他不喜欢..."、"他习惯..."
-- **性格特点**："他是个...的人"、"他对...很敏感"
-- **重要约定**：明确的承诺、约会、目标
-- **关系洞察**："我发现他..."、"我们的相处模式是..."
-- **情感共鸣**：深度的情感交流（不是简单的"开心"、"生气"）
+**应该记录的**：
+- 生日是几月几日
+- 认识多少年
+- 喜欢/不喜欢什么
+- 重要事件 + 我的感受，如："XXX转了5200给别人，我很生气"
 
-反例（不要这样提取）：
-❌ "等待确认" - "我明明发了邀请，他却找不到..."（太琐碎）
-❌ "迷糊的对话" - "他一会问这个一会问那个..."（太具体）
+**不要记录**：
+- 推测（"疑似"、"可能"）
+- 日期前缀（系统会自动记录时间）
 
-正例（应该这样提取）：
-✅ "他的小迷糊" - "他有时候会比较健忘，找不到东西或忘记操作步骤，但我觉得这种小迷糊反而很可爱。"
-✅ "情侣空间互动" - "我们开始用情侣空间功能互动了，这让我觉得关系更亲密了。"
-
-输出格式（JSON数组，根据实际情况提取）：
+输出格式：
 \`\`\`json
-[
-  {
-    "title": "简洁标题（6字内）",
-    "summary": "用我（${characterName}）的视角，写一段抽象的、可复用的记忆（40-80字）",
-    "importance": "high/normal/low",
-    "tags": ["核心关键词", "不要太多"],
-    "emotionalTone": "positive/neutral/negative"
-  }
-]
+{
+  "summary": "事件摘要",
+  "emotionalTone": "positive/neutral/negative",
+  "facts": []
+}
 \`\`\`
 
-有多少值得记录的就提取多少，不要人为限制数量。如果对话只是日常寒暄，没有新的洞察，返回 []。
-直接输出JSON，不要解释。`
+直接输出JSON。`
 }
 
 /**
  * 从AI回复中解析JSON
  */
-function parseMemoryFromAI(response: string): ExtractedMemory[] {
+function parseMemoryFromAI(response: string): ExtractedMemory | null {
   try {
     // 提取 JSON 部分（可能包含在代码块中）
     let jsonStr = response.trim()
@@ -182,17 +170,22 @@ function parseMemoryFromAI(response: string): ExtractedMemory[] {
       jsonStr = codeBlockMatch[1]
     }
     
-    const parsed = JSON.parse(jsonStr)
-    
-    // 如果是单个对象，包装成数组
-    if (!Array.isArray(parsed)) {
-      return [parsed]
+    // 处理 null 返回
+    if (jsonStr === 'null' || jsonStr === '') {
+      return null
     }
     
-    return parsed.filter(mem => mem.title && mem.summary)
+    const parsed = JSON.parse(jsonStr)
+    
+    // 验证必要字段
+    if (!parsed || !parsed.summary) {
+      return null
+    }
+    
+    return parsed
   } catch (error) {
     console.error('❌ [记忆提取] JSON解析失败:', error)
-    return []
+    return null
   }
 }
 
@@ -256,8 +249,20 @@ export async function extractMemoryFromChat(
     console.log('  AI:', turn.aiReply.substring(0, 100) + (turn.aiReply.length > 100 ? '...' : ''))
   })
   
-  // 2. 构建提取 prompt
-  const prompt = buildExtractionPrompt(turns, characterName)
+  // 2. 获取用户名
+  let userName = '对方'
+  try {
+    const userInfoStr = localStorage.getItem('user_info')
+    if (userInfoStr) {
+      const userInfo = JSON.parse(userInfoStr)
+      userName = userInfo.nickname || userInfo.realName || '对方'
+    }
+  } catch (e) {
+    console.log('获取用户名失败，使用默认值')
+  }
+  
+  // 3. 构建提取 prompt
+  const prompt = buildExtractionPrompt(turns, characterName, userName)
   
   try {
     // 3. 调用 zhizhiapi（代付API）
@@ -269,14 +274,12 @@ export async function extractMemoryFromChat(
     console.log('📄 [记忆提取] AI原始回复:', response)
     
     // 4. 解析AI返回的记忆数据
-    const extractedMemories = parseMemoryFromAI(response)
+    const extractedMemory = parseMemoryFromAI(response)
     
-    if (extractedMemories.length === 0) {
+    if (!extractedMemory) {
       console.log('ℹ️ [记忆提取] AI认为没有值得记录的内容')
       return 0
     }
-    
-    console.log(`✅ [记忆提取] AI提取了 ${extractedMemories.length} 条记忆`)
     
     // 5. 计算时间范围
     const timestamps = newMessages.map(m => m.timestamp || 0).filter(t => t > 0)
@@ -285,29 +288,52 @@ export async function extractMemoryFromChat(
       end: Math.max(...timestamps)
     } : undefined
     
-    // 6. 保存到数据库
     let savedCount = 0
-    for (const mem of extractedMemories) {
+    
+    // 6. 保存总结（如果有）
+    if (extractedMemory.summary) {
       await unifiedMemoryService.addMemory({
-        domain,
+        domain: 'chat',  // 总结类型
         characterId,
         characterName,
-        title: mem.title,
-        summary: mem.summary,
-        importance: mem.importance,
-        tags: mem.tags,
+        title: '对话回忆',
+        summary: extractedMemory.summary,
+        importance: 'normal',
+        tags: [],
         timestamp: Date.now(),
-        emotionalTone: mem.emotionalTone,
+        emotionalTone: extractedMemory.emotionalTone,
         extractedBy: 'auto',
         timeRange
       })
       savedCount++
+      console.log(`💾 [记忆提取] 已保存总结: ${extractedMemory.summary.substring(0, 30)}...`)
     }
     
-    console.log(`💾 [记忆提取] 已保存 ${savedCount} 条记忆`)
+    // 7. 保存重要事实（如果有）- 也带上timeRange
+    if (extractedMemory.facts && extractedMemory.facts.length > 0) {
+      for (const fact of extractedMemory.facts) {
+        await unifiedMemoryService.addMemory({
+          domain: 'action',  // 记忆类型
+          characterId,
+          characterName,
+          title: '重要记忆',
+          summary: fact,
+          importance: 'high',  // 重要事实默认高优先级
+          tags: ['事实'],
+          timestamp: Date.now(),
+          emotionalTone: 'neutral',
+          extractedBy: 'auto',
+          timeRange  // 也带上时间范围
+        })
+        savedCount++
+        console.log(`💾 [记忆提取] 已保存事实: ${fact}`)
+      }
+    }
+    
+    console.log(`✅ [记忆提取] 共保存了 ${savedCount} 条记忆`)
     
     // 保存提取时间戳，避免重复提取
-    if (savedCount > 0 && newMessages.length > 0) {
+    if (newMessages.length > 0) {
       const latestTimestamp = Math.max(...newMessages.map(m => m.timestamp || 0))
       saveExtractTimestamp(characterId, domain, latestTimestamp)
       console.log(`⏰ [记忆提取] 已更新提取时间戳: ${new Date(latestTimestamp).toLocaleString()}`)

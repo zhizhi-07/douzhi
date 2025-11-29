@@ -2895,9 +2895,11 @@ ${personality ? `人设：${personality}` : ''}
           const updatedPosts = getAllPosts()
           const targetPost = updatedPosts.find(p => p.id === postId)
           if (targetPost) {
-            targetPost.comments = postComments.length
+            // 🔥 计算总评论数：主楼 + 所有楼中楼
+            const totalComments = postComments.reduce((sum: number, c: any) => sum + 1 + (c.replies?.length || 0), 0)
+            targetPost.comments = totalComments
             savePosts(updatedPosts)
-            console.log(`✅ [AI发布论坛帖子] 评论数: ${postComments.length}`)
+            console.log(`✅ [AI发布论坛帖子] 评论数: ${totalComments}`)
           }
           
           // 把评论汇总作为AI可读消息插入（用户界面不显示）

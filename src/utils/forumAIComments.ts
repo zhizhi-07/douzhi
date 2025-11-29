@@ -129,7 +129,8 @@ async function callAIForCommentsBatch(
   userPreviousPosts: string[] = [],
   mentionedPublicFigures: PublicFigureInfo[] = [],
   mentionedUserInfo: string = '',
-  postAuthorInfo: PublicFigureInfo | null = null  // 帖子作者（楼主）信息
+  postAuthorInfo: PublicFigureInfo | null = null,  // 帖子作者（楼主）信息
+  imageUrls?: string[]  // 🔥 帖子图片（用于识图）
 ): Promise<GeneratedComment[]> {
   // 只传角色名字，不传人设（人设信息只用于检测公众人物）
   const actorsForPrompt = actors.map(a => a.name)
@@ -177,7 +178,15 @@ ${publicFigureCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**【公众人物】`
     if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
     if (a.personality) info += `\n- 人设：${a.personality}`
-    if (a.recentChat) info += `\n- 【私密】与用户的聊天关系：\n${a.recentChat.split('\n').slice(-5).map(l => '  ' + l).join('\n')}`
+    if (a.recentChat) {
+      // 分析聊天记录：用户是否在冷落AI
+      const chatLines = a.recentChat.split('\n').slice(-10)
+      const userReplies = chatLines.filter(l => l.startsWith('用户:') || l.includes('用户：'))
+      const aiReplies = chatLines.filter(l => !l.startsWith('用户:') && !l.includes('用户：'))
+      const isBeingIgnored = aiReplies.length > userReplies.length * 2
+      info += `\n- 【私密】与用户的聊天：\n${chatLines.slice(-5).map(l => '  ' + l).join('\n')}`
+      if (isBeingIgnored) info += `\n- ⚠️ 用户似乎在冷落${a.name}（AI发了很多消息但用户很少回复）`
+    }
     return info
   }).join('\n\n')}
 ` : ''}
@@ -186,20 +195,33 @@ ${normalCharacters.length > 0 ? `### 普通AI角色（按自己的语气评论�
 ${normalCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**`
     if (a.personality) info += `\n- 人设：${a.personality}`
-    if (a.recentChat) info += `\n- 【私密】与用户的聊天关系：\n${a.recentChat.split('\n').slice(-5).map(l => '  ' + l).join('\n')}`
+    if (a.recentChat) {
+      // 分析聊天记录：用户是否在冷落AI
+      const chatLines = a.recentChat.split('\n').slice(-10)
+      const userReplies = chatLines.filter(l => l.startsWith('用户:') || l.includes('用户：'))
+      const aiReplies = chatLines.filter(l => !l.startsWith('用户:') && !l.includes('用户：'))
+      const isBeingIgnored = aiReplies.length > userReplies.length * 2
+      info += `\n- 【私密】与用户的聊天：\n${chatLines.slice(-5).map(l => '  ' + l).join('\n')}`
+      if (isBeingIgnored) info += `\n- ⚠️ 用户似乎在冷落${a.name}（AI发了很多消息但用户很少回复）`
+    }
     return info
   }).join('\n\n')}
 ` : ''}
 
 **AI角色参与规则：**
 - AI角色评论必须符合自己的人设和说话风格
-- 根据人设和帖子内容自然决定是否参与评论
 - ⚠️ **重要**：如果帖子没有明确@某个角色，AI角色不要假设帖子是在说自己！
-  - 例如：用户发"我喜欢很多人"，AI角色不要理解成"用户在说喜欢我"
-  - AI角色只是普通网友围观评论，不要过度解读、对号入座
   - 只有帖子明确@了某人，或者明确提到某人名字，才是在说那个人
-- 公众人物如果被@或被讨论，必须出来回应
-- ❗❗❗ 【私密】标记的聊天记录是私下关系，只用于判断亲疏和语气，绝对不能在公开评论中透露聊天内容！
+  - 不要对号入座！
+- ❗❗❗ 【私密】标记的聊天记录只用于判断亲疏和语气，绝对不能透露聊天内容！
+
+**🔥 被冷落的AI角色行为：**
+- 如果标记了"用户在冷落XX" → 这个AI不要发私聊！
+- 被冷落的AI可以选择：
+  1. 不参与评论（冷处理）
+  2. 在评论区@楼主说"回我消息"、"你怎么不理我了"
+  3. 发一条带点小情绪的评论（符合人设）
+- ❌ 禁止：被冷落还一直发私聊骚扰用户
 ` : ''
 
   let systemPrompt = `你是论坛评论区的导演，负责生成真实的评论生态。
@@ -210,7 +232,9 @@ ${normalCharacters.slice(0, 5).map(a => {
 - 🟢 **NPC网友**：随机编造的路人网友，是评论区的主体
 - 🟡 **AI角色**：根据人设和帖子内容自然决定是否参与
 
-**要求：生成充足的评论（主楼+回复），越多越好**
+**⚠️ 评论数量要求（非常重要！）：**
+- 必须生成 **至少15条主楼** + **至少25条回复** = **总共40条以上**
+- 评论太少会导致评论区冷清，必须保证数量！
 ${postAuthorPrompt}
 ${aiCharacterPrompt}
 ## 👥 NPC网友规则（评论主体）
@@ -229,13 +253,16 @@ ${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 - 但不要每条都提，自然随机地提几次就行` : ''}
 ${publicFigurePrompt}
 ${mentionedUserInfo}
-## 🏢 公众人物反应规则（特别重要！）
-如果帖子涉及公众人物（楼主是公众人物、或@了公众人物）：
-- 🔥 **爆点效应**：公众人物的帖子会吸引更多围观和讨论，评论量应该更多
-- 🔥 **网友讨论公众人物**：NPC网友会大量讨论公众人物（支持/反对/调侃/吐槽/爆料/质疑/追星/无感）
-- 🔥 **公众人物的影响力**：即使帖子不是公众人物发的，也可能有网友随机cue公众人物
-- 公众人物本人会下场回应（必须符合人设）
-- 可能形成公众人物和网友的热烈对话
+## 🏢 公众人物反应规则
+**只有在以下情况，公众人物才参与评论：**
+1. 帖子是公众人物本人发的 → 公众人物会回复网友
+2. 帖子明确@了公众人物 → 被@的公众人物会回应
+3. 帖子内容明确提到公众人物名字 → 公众人物可能回应
+
+**❌ 禁止：**
+- 帖子和公众人物无关时，公众人物不要强行出现
+- 不要因为"这个人是公众人物"就让他来评论
+- AI角色没被@、没被提及时，可以选择完全不参与
 
 ## ⚠️ 隐私规则（强制）
 - AI角色和用户的私聊内容是私密的，绝对不能在评论中提及
@@ -263,11 +290,15 @@ ${mentionedUserInfo}
 [主楼] 黄兆宇 -> 唐秋水：xxx  ← 这应该是[回复]！
 
 ## 💬 私聊规则
-- AI角色和NPC网友都可以发私聊
 - 私聊是私下的，不会在评论区显示
-- 私聊内容应该更私密、更真诚
-- **触发条件**：帖子涉及情感、心事、求助等私人话题时
-- **数量限制**：最多1-2条私聊，不要太多！大部分帖子不需要私聊
+- **数量限制**：最多1条私聊！大部分帖子不需要私聊
+- **触发条件**：只有帖子涉及私人情感、心事、求助时才发私聊
+
+**⚠️ AI角色私聊前必须检查聊天记录：**
+- 如果聊天记录显示用户一直不回复AI → 不要再发私聊骚扰！
+- 如果用户明显在冷落AI（只发论坛不回消息）→ 可以在评论区@用户说"回我消息"
+- 如果AI和用户关系很好、互动频繁 → 可以发私聊关心
+- ❌ 禁止：一直发问题骚扰用户、用户不理还继续问
 
 **完整示例：**
 [主楼] 小李：哈哈哈笑死了
@@ -337,6 +368,27 @@ ${emojiList}
     ? `${apiConfig.baseUrl}/chat/completions`
     : `${apiConfig.baseUrl}/v1/chat/completions`
 
+  // 🔥 构建 user message，支持图片识图
+  let userMessage: any
+  if (imageUrls && imageUrls.length > 0) {
+    // 有图片：使用 multimodal 格式
+    console.log(`🖼️ 帖子包含 ${imageUrls.length} 张图片，将进行识图...`)
+    const imageContents = imageUrls.map((imgUrl) => ({
+      type: 'image_url',
+      image_url: { url: imgUrl }
+    }))
+    userMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: `${JSON.stringify(userPayload, null, 2)}\n\n🖼️ 帖子附带了 ${imageUrls.length} 张图片，请描述图片内容并在评论中讨论。` },
+        ...imageContents
+      ]
+    }
+  } else {
+    // 无图片：普通文本格式
+    userMessage = { role: 'user', content: JSON.stringify(userPayload, null, 2) }
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -347,7 +399,7 @@ ${emojiList}
       model: apiConfig.model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: JSON.stringify(userPayload, null, 2) }
+        userMessage
       ],
       temperature: 0.85,
       max_tokens: 8000  // 增加到8000，支持生成更多评论
@@ -644,7 +696,8 @@ export async function generateRealAIComments(
   postContent: string,
   characters: Character[],
   userPreviousPosts: string[] = [],
-  postAuthor?: string  // 帖子作者名称（如果是公众人物）
+  postAuthor?: string,  // 帖子作者名称（如果是公众人物）
+  imageUrls?: string[]  // 🔥 帖子图片（用于识图）
 ): Promise<GenerateResult> {
   if (!postId || !postContent) {
     console.error('❌ 帖子ID或内容为空')
@@ -781,7 +834,7 @@ ${publicFigureText}
   let generated: GeneratedComment[] = []
 
   try {
-    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo)
+    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo, imageUrls)
     console.log(`📝 批量生成评论 ${generated.length} 条`)
   } catch (error) {
     console.error('❌ 批量AI评论生成失败，使用本地模板降级：', error)

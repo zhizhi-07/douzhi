@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Image, Smile, MapPin, UserPlus, Music2, Search } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
@@ -15,7 +15,8 @@ import type { Character } from '../services/characterService'
 const InstagramCreate = () => {
   const navigate = useNavigate()
   const [caption, setCaption] = useState('')
-  const [selectedImages, setSelectedImages] = useState<number>(0)
+  const [selectedImages, setSelectedImages] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [showLocationSearch, setShowLocationSearch] = useState(false)
   const [showUserTag, setShowUserTag] = useState(false)
   const [showMusicSearch, setShowMusicSearch] = useState(false)
@@ -35,8 +36,28 @@ const InstagramCreate = () => {
   const [characters, setCharacters] = useState<Character[]>([])
 
   const handleSelectImage = () => {
-    // 模拟选择图片
-    setSelectedImages(prev => prev + 1)
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string
+        setSelectedImages(prev => [...prev, base64])
+      }
+      reader.readAsDataURL(file)
+    })
+
+    // 清空input以便可以重复选择同一张图片
+    e.target.value = ''
+  }
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
   }
 
   const loadCharacters = async () => {
@@ -46,7 +67,7 @@ const InstagramCreate = () => {
 
   const handlePost = async () => {
     // 必须至少有文字或图片其一
-    if (selectedImages === 0 && !caption.trim()) {
+    if (selectedImages.length === 0 && !caption.trim()) {
       alert('请输入文字或选择图片')
       return
     }
@@ -58,7 +79,8 @@ const InstagramCreate = () => {
       id: postId,
       npcId: 'user', // 标记为用户发布
       content: caption,
-      images: selectedImages,
+      images: selectedImages.length, // 图片数量
+      imageUrls: selectedImages.length > 0 ? selectedImages : undefined, // 实际图片
       likes: 0,
       comments: 0,
       time: '刚刚',
@@ -102,8 +124,9 @@ const InstagramCreate = () => {
         
         // 传入所有角色（包括公众人物），让AI能识别并让公众人物参与评论
         const allCharacters = await getAllCharacters()
-        console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length})`)
-        const result = await generateRealAIComments(postId, caption, allCharacters, userPosts)
+        console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length}, 图片数: ${selectedImages.length})`)
+        // 🔥 传入图片，让AI能看到图片内容
+        const result = await generateRealAIComments(postId, caption, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined)
         
         // 🧠 为每个参与评论的AI角色增加记忆计数
         const allComments = await getPostComments(postId)
@@ -128,7 +151,9 @@ const InstagramCreate = () => {
         const post = updatedPosts.find(p => p.id === postId)
         if (post) {
           const comments = await getPostComments(postId)
-          post.comments = comments.length
+          // 🔥 计算总评论数：主楼 + 所有楼中楼
+          const totalComments = comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
+          post.comments = totalComments
           
           // 检查是否有公众人物参与评论或被@
           const hasPublicFigureComment = comments.some(c => c.isPublicFigure)
@@ -262,6 +287,40 @@ const InstagramCreate = () => {
       </div>
 
       <div className="pb-4">
+        {/* 隐藏的文件输入 */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*"
+          multiple
+          className="hidden"
+        />
+
+        {/* 图片预览区 */}
+        {selectedImages.length > 0 && (
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {selectedImages.map((img, index) => (
+                <div key={index} className="relative flex-shrink-0">
+                  <img 
+                    src={img} 
+                    alt={`图片${index + 1}`}
+                    className="w-24 h-24 object-cover rounded-lg"
+                  />
+                  {/* 删除按钮 */}
+                  <button
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 说明文字 */}
         <div className="p-4 border-b border-gray-100">
           <textarea
@@ -278,7 +337,7 @@ const InstagramCreate = () => {
                 className="flex items-center gap-1 text-xs text-gray-500 active:opacity-60"
               >
                 <Image className="w-4 h-4" />
-                {selectedImages > 0 && <span>{selectedImages}</span>}
+                {selectedImages.length > 0 && <span>{selectedImages.length}</span>}
               </button>
               <button 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}

@@ -127,7 +127,7 @@ const InstagramHome = () => {
     
     const loadedPosts = getAllPosts()
     // 过滤掉话题帖子，话题帖子只在话题详情页显示
-    const mainPosts = loadedPosts.filter(p => !p.topicId)
+    const mainPosts = loadedPosts.filter(p => !(p as any).topicId)
     console.log('加载的帖子数量:', mainPosts.length, '（已过滤话题帖子）')
     setPosts(mainPosts)
   }
@@ -261,37 +261,32 @@ const InstagramHome = () => {
                   </button>
                 </div>
 
-                {/* Post Content - 纯文字或图片 */}
-                {post.images === 0 ? (
-                  // 纯文字帖子
-                  <div className="px-4 py-6">
+                {/* Post Content - 先显示文字 */}
+                {post.content && (
+                  <div className="px-4 py-3">
                     <p className="text-base leading-relaxed text-gray-900 whitespace-pre-wrap">
                       <EmojiContentRenderer content={post.content} emojiSize={32} />
                     </p>
                   </div>
-                ) : post.images === 1 ? (
+                )}
+
+                {/* 显示实际图片 */}
+                {post.imageUrls && post.imageUrls.length > 0 ? (
                   <div className="px-4 mb-3">
-                    <div className="max-w-sm mx-auto rounded-xl overflow-hidden bg-gray-100">
-                      <div className="aspect-[4/3]">
-                        <div className="w-full h-full bg-gradient-to-br from-blue-200 to-purple-200" />
-                      </div>
-                    </div>
-                  </div>
-                ) : post.images === 2 ? (
-                  <div className="px-4 mb-3">
-                    <div className="grid grid-cols-2 gap-1">
-                      {Array.from({ length: 2 }).map((_, index) => (
+                    <div className={`grid gap-1 ${post.imageUrls.length === 1 ? 'grid-cols-1' : post.imageUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                      {post.imageUrls.slice(0, 9).map((url, index) => (
                         <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                          <div className="w-full h-full bg-gradient-to-br from-blue-200 to-purple-200" />
+                          <img src={url} alt={`图片${index + 1}`} className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
                   </div>
-                ) : post.images >= 3 ? (
+                ) : post.images > 0 ? (
+                  // 兼容旧数据：没有实际图片时显示占位
                   <div className="px-4 mb-3">
-                    <div className="grid grid-cols-3 gap-1">
+                    <div className={`grid gap-1 ${post.images === 1 ? 'grid-cols-1' : post.images === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                       {Array.from({ length: Math.min(post.images, 9) }).map((_, index) => (
-                        <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100 relative">
+                        <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                           <div className="w-full h-full bg-gradient-to-br from-blue-200 to-purple-200" />
                         </div>
                       ))}
@@ -319,12 +314,6 @@ const InstagramHome = () => {
                   </div>
 
                   <div className="text-base font-semibold mb-2">{post.likes.toLocaleString()} 次赞</div>
-                  {post.images > 0 && post.content && (
-                    <div className="text-base">
-                      <span className="font-semibold mr-2">{userInfo.nickname || userInfo.realName || '我'}</span>
-                      <span className="text-gray-900"><EmojiContentRenderer content={post.content} emojiSize={24} /></span>
-                    </div>
-                  )}
                   
                   {/* 显示标记的人 */}
                   {post.taggedUsers && post.taggedUsers.length > 0 && (

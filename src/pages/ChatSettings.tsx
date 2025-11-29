@@ -605,22 +605,6 @@ const ChatSettings = () => {
           <div className="text-sm font-semibold text-slate-700 mb-3">AI 记忆</div>
           
           <button
-            onClick={() => navigate(`/chat/${id}/memory-viewer`)}
-            className="w-full flex items-center justify-between py-2 active:scale-[0.98] transition-transform"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-xl"></span>
-              <div className="text-left">
-                <div className="text-sm text-gray-900">查看记忆</div>
-                <div className="text-xs text-gray-400">查看 AI 记住的关于你的信息</div>
-              </div>
-            </div>
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          
-          <button
             onClick={() => navigate(`/chat/${id}/memory-summary`)}
             className="w-full flex items-center justify-between py-2 active:scale-[0.98] transition-transform"
           >

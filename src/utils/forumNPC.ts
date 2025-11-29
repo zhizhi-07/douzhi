@@ -12,7 +12,8 @@ export interface ForumPost {
   id: string
   npcId: string // 'user' 表示用户发布
   content: string
-  images: number // 图片数量
+  images: number // 图片数量（兼容旧数据）
+  imageUrls?: string[] // 🔥 实际图片base64数组
   likes: number
   comments: number
   time: string

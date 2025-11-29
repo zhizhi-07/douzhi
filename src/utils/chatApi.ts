@@ -1101,33 +1101,22 @@ const buildUnifiedMemoryContext = async (characterId: string, userName: string):
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 10)
     
-    // 格式化记忆时间范围
+    // 格式化记忆时间范围（精确到小时分钟）
     const formatMemoryTimeRange = (memory: any) => {
       if (!memory.timeRange) {
         // 如果没有时间范围，显示提取时间
         const date = new Date(memory.timestamp)
-        return date.toLocaleDateString('zh-CN', {
-          month: 'long',
-          day: 'numeric'
-        })
+        return `${date.getMonth() + 1}月${date.getDate()}日`
       }
       
       const startDate = new Date(memory.timeRange.start)
       const endDate = new Date(memory.timeRange.end)
       
-      // 格式化为"11月20日-11月24日"或"11月20日-25日"（同月简化）
-      const startMonth = startDate.getMonth() + 1
-      const startDay = startDate.getDate()
-      const endMonth = endDate.getMonth() + 1
-      const endDay = endDate.getDate()
+      const formatDateTime = (d: Date) => 
+        `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
       
-      if (startMonth === endMonth) {
-        // 同月：11月20日-24日
-        return `${startMonth}月${startDay}日-${endDay}日`
-      } else {
-        // 不同月：11月20日-12月5日
-        return `${startMonth}月${startDay}日-${endMonth}月${endDay}日`
-      }
+      // 格式化为"11/28 22:24 到 11/28 22:29"
+      return `${formatDateTime(startDate)} 到 ${formatDateTime(endDate)}`
     }
     
     // 统一显示所有记忆（按时间顺序，不分类）
@@ -1138,10 +1127,10 @@ const buildUnifiedMemoryContext = async (characterId: string, userName: string):
     return `
 ══════════════════════════════════
 
-💭 你对 ${userName} 的记忆（这些是你从之前互动中提取的重要信息）：
+💭 你和 ${userName} 的回忆片段（这些是你们相处过程中的重要瞬间）：
 ${memoryText}
 
-这些记忆反映了你对 Ta 的了解、你们的关系动态、Ta 的喜好和习惯。当对方问"你还记得吗""我喜欢什么"这类问题时，可以参考这些记忆回答。但不要机械地复述记忆内容，要自然地融入对话。
+这些是你记下的小日记，记录了你们之间发生过的事和当时的感受。当对方问"你还记得吗""上次那个事"这类问题时，可以自然地回忆起来。不要机械复述，像真的在回忆一样。
 
 ══════════════════════════════════
 `

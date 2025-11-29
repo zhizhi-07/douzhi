@@ -1697,51 +1697,16 @@ export const useChatAI = (
                   
                   console.log(`[自动总结] 本次增量处理 ${conversationPairs.length} 组对话`)
                   
-                  // 🔥 批量合并对话内容，一次API调用处理所有对话
-                  const batchUserContent = conversationPairs.map((pair, idx) => 
-                    `[对话${idx + 1}] ${pair.userMsg}`
-                  ).join('\n\n')
-                  
-                  const batchAiContent = conversationPairs.map((pair, idx) => 
-                    `[对话${idx + 1}] ${pair.aiMsg}`
-                  ).join('\n\n')
-                  
-                  const memorySystem = memoryManager.getSystem(chatId)
-                  const result = await memorySystem.extractMemoriesFromConversation(
-                    batchUserContent,
-                    batchAiContent,
+                  // 🔥 使用新的统一记忆系统提取记忆
+                  const { extractMemoryFromChat } = await import('../../../services/memoryExtractor')
+                  const count = await extractMemoryFromChat(
+                    chatId,
                     character?.realName || 'AI',
-                    character?.personality || '',
-                    '用户'  // 用户名，暂时固定，后续可以从用户系统获取
+                    newMessages,
+                    'chat'
                   )
-
-                  if (result.summary && result.summary.trim()) {
-                    const oldSummary = localStorage.getItem(`memory_summary_${chatId}`) || ''
-                    const timestamp = new Date().toLocaleString('zh-CN')
-                    const newEntry = `【自动总结 - ${timestamp}】\n基于最近 ${conversationPairs.length} 轮对话生成\n\n${result.summary}`
-                    
-                    // 限制总结历史数量（只保留最近5次）
-                    let summaryHistory = oldSummary
-                    if (oldSummary) {
-                      const entries = oldSummary.split('\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n')
-                      // 只保留最近4次（加上新的这次就是5次）
-                      if (entries.length >= 5) {
-                        summaryHistory = entries.slice(-4).join('\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n')
-                      }
-                    }
-                    
-                    const separator = summaryHistory ? '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' : ''
-                    const newSummary = summaryHistory + separator + newEntry
-                    
-                    localStorage.setItem(`memory_summary_${chatId}`, newSummary)
-                    console.log(`[自动总结] 总结已保存，提取了 ${result.memories.length} 条记忆，历史总结数量已限制`)
-                  }
-
-                  // 更新“已处理到哪里”的时间戳标记，供下次增量使用
-                  const lastMsg = newMessages[newMessages.length - 1]
-                  const newLastTs = lastMsg.timestamp || Date.now()
-                  localStorage.setItem(`memory_last_processed_ts_${chatId}`, String(newLastTs))
-                  console.log('[自动总结] 已更新 last_processed_timestamp 为', newLastTs)
+                  
+                  console.log(`[自动总结] 已提取 ${count} 条记忆到统一记忆系统`)
                 } catch (error) {
                   console.error('[自动总结] 生成失败:', error)
                 } finally {
