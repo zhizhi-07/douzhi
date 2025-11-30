@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2 } from 'lucide-react'
-import { getAllPosts, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
+import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2, MoreHorizontal, Share2 } from 'lucide-react'
+import { getAllPostsAsync, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
 import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
 import { getUserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
@@ -16,19 +16,19 @@ import type { Comment } from '../utils/forumCommentsDB'
 // 解析帖子内容，把[图片：描述]标记转换成图片卡片
 const parsePostContent = (content: string) => {
   const imagePattern = /\[(图片|照片|截图)[:：]([^\]]+)\]/g
-  
+
   const hasImages = imagePattern.test(content)
   if (!hasImages) {
-    return <p className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed">{content}</p>
+    return <p className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed">{content}</p>
   }
-  
+
   imagePattern.lastIndex = 0
-  
+
   const elements: React.ReactNode[] = []
   const images: { type: string; desc: string }[] = []
   let lastIndex = 0
   let match
-  
+
   while ((match = imagePattern.exec(content)) !== null) {
     if (match.index > lastIndex) {
       const text = content.slice(lastIndex, match.index)
@@ -48,17 +48,17 @@ const parsePostContent = (content: string) => {
           images.length = 0
         }
         elements.push(
-          <p key={`text-${lastIndex}`} className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed mb-2">
+          <p key={`text-${lastIndex}`} className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed mb-2">
             {text}
           </p>
         )
       }
     }
-    
+
     images.push({ type: match[1], desc: match[2] })
     lastIndex = match.index + match[0].length
   }
-  
+
   if (images.length > 0) {
     elements.push(
       <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-2">
@@ -72,18 +72,18 @@ const parsePostContent = (content: string) => {
       </div>
     )
   }
-  
+
   if (lastIndex < content.length) {
     const text = content.slice(lastIndex)
     if (text.trim()) {
       elements.push(
-        <p key={`text-${lastIndex}`} className="text-base text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
+        <p key={`text-${lastIndex}`} className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed">
           {text}
         </p>
       )
     }
   }
-  
+
   return <>{elements}</>
 }
 
@@ -93,11 +93,12 @@ const InstagramPostDetail = () => {
   const [post, setPost] = useState<ForumPost | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
-  const [replyingTo, setReplyingTo] = useState<{id: string, name: string} | null>(null)
-  const [pendingReplies, setPendingReplies] = useState<{id: string, commentId: string, targetName: string, content: string}[]>([])
+  const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null)
+  const [pendingReplies, setPendingReplies] = useState<{ id: string, commentId: string, targetName: string, content: string }[]>([])
   const [isSending, setIsSending] = useState(false)
   const [characters, setCharacters] = useState<any[]>([])
   const userInfo = getUserInfo()
+  const commentsEndRef = useRef<HTMLDivElement>(null)
 
   // 获取NPC的真实头像（优先从角色获取）
   const getRealAvatar = (npcId: string, npcAvatar?: string): string => {
@@ -140,24 +141,24 @@ const InstagramPostDetail = () => {
 
   const loadPostAndComments = async () => {
     if (!postId) return
-    
+
     // 加载角色列表（用于获取真实头像）
     const chars = await getAllCharacters()
     setCharacters(chars)
-    
-    const posts = getAllPosts()
+
+    const posts = await getAllPostsAsync()
     const foundPost = posts.find(p => p.id === postId)
     if (foundPost) {
       setPost(foundPost)
     }
-    
+
     const postComments = await getPostComments(postId)
     setComments(postComments)
   }
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!postId) return
-    const updatedPosts = toggleLike(postId)
+    const updatedPosts = await toggleLike(postId)
     const updatedPost = updatedPosts.find(p => p.id === postId)
     if (updatedPost) {
       setPost(updatedPost)
@@ -166,13 +167,13 @@ const InstagramPostDetail = () => {
 
   // 🔥 同步论坛评论互动到主聊天记录
   const syncForumInteractionToChat = (
-    characterId: string, 
-    content: string, 
+    characterId: string,
+    content: string,
     type: 'sent' | 'received',
     contextInfo: string
   ) => {
     if (!characterId || characterId === 'user') return
-    
+
     const msg: Message = {
       id: Date.now(),
       type,
@@ -182,7 +183,7 @@ const InstagramPostDetail = () => {
       timestamp: Date.now(),
       source: 'dm'  // 标记为论坛来源
     }
-    
+
     addMessage(characterId, msg)
     console.log(`🔄 [论坛互动同步] ${type === 'sent' ? '用户->AI' : 'AI->用户'}: ${content.slice(0, 30)}...`)
   }
@@ -196,7 +197,7 @@ const InstagramPostDetail = () => {
   // 添加评论或回复到待发送列表（不触发AI，等点纸飞机）
   const addPendingReply = async () => {
     if (!newComment.trim() || !postId) return
-    
+
     // 如果是回复某人
     if (replyingTo) {
       const content = newComment.replace(new RegExp(`^@${replyingTo.name}\\s*`), '').trim()
@@ -211,7 +212,7 @@ const InstagramPostDetail = () => {
         isReply: true
       }
       setPendingReplies(prev => [...prev, newPending])
-      
+
       // 保存用户评论到数据库
       await addReply(
         replyingTo.id,
@@ -221,12 +222,12 @@ const InstagramPostDetail = () => {
         content,
         replyingTo.name
       )
-      
+
       console.log(`📝 添加待发送回复: @${newPending.targetName}: ${content}`)
     } else {
       // 直接发表一级评论 - 也加入待发送列表
       const content = newComment.trim()
-      
+
       // 添加到待发送列表（一级评论没有targetName）
       const newPending = {
         id: `pending-${Date.now()}`,
@@ -236,7 +237,7 @@ const InstagramPostDetail = () => {
         isReply: false
       }
       setPendingReplies(prev => [...prev, newPending])
-      
+
       // 保存用户评论到数据库
       await addComment(
         postId,
@@ -245,34 +246,39 @@ const InstagramPostDetail = () => {
         userInfo.avatar || '/default-avatar.png',
         content
       )
-      
+
       console.log(`📝 添加待发送评论: ${content}`)
     }
-    
+
     // 刷新评论
     const updatedComments = await getPostComments(postId)
     setComments(updatedComments)
-    
+
     // 更新帖子评论数
     if (post) {
-      const updatedPosts = getAllPosts()
-      const targetPost = updatedPosts.find(p => p.id === postId)
+      const updatedPosts = await getAllPostsAsync()
+      const targetPost = updatedPosts.find((p: ForumPost) => p.id === postId)
       if (targetPost) {
         // 🔥 计算总评论数：主楼 + 所有楼中楼
         const totalComments = updatedComments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
         targetPost.comments = totalComments
-        savePosts(updatedPosts)
+        await savePosts(updatedPosts)
       }
     }
-    
+
     setNewComment('')
     setReplyingTo(null)
+
+    // 滚动到底部
+    setTimeout(() => {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
   }
 
   // 点击纸飞机：批量发送并触发AI回复
   const handleSendAll = async () => {
     if (pendingReplies.length === 0 || !post || !postId) return
-    
+
     setIsSending(true)
     try {
       const apiConfigs = apiService.getAll()
@@ -292,21 +298,21 @@ const InstagramPostDetail = () => {
       // 获取所有角色信息（用于匹配公众人物）
       const allCharacters = await getAllCharacters()
       console.log('📋 所有角色:', allCharacters.map(c => ({ name: c.nickname || c.realName, avatar: c.avatar ? '有头像' : '无头像', isPublic: c.isPublicFigure })))
-      
+
       // 构建所有待回复的内容（明确标注被@的人）
       const repliesText = pendingReplies.map(r => `用户回复「${r.targetName}」说：${r.content}`).join('\n')
-      
+
       // 构建当前评论区状态（完整内容，不截断）
       const existingCommentsText = latestComments.slice(0, 10).map(c => {
         let text = `[主楼] ${c.authorName}：${c.content}`
         if (c.replies && c.replies.length > 0) {
-          text += '\n' + c.replies.slice(0, 5).map(r => 
+          text += '\n' + c.replies.slice(0, 5).map(r =>
             `  └ ${r.authorName} -> ${r.replyTo || c.authorName}：${r.content}`
           ).join('\n')
         }
         return text
       }).join('\n')
-      
+
       // 检查哪些是AI角色（有完整人设）- 不截断
       const aiCharactersWithChat = await Promise.all(
         allCharacters.filter(c => c.personality).slice(0, 5).map(async c => {
@@ -318,7 +324,7 @@ const InstagramPostDetail = () => {
             const sender = m.type === 'sent' ? userInfo.nickname || '用户' : name
             return `${sender}: ${m.content?.slice(0, 100) || ''}`
           }).join('\n')
-          
+
           return {
             name,
             personality: c.personality,
@@ -328,18 +334,18 @@ const InstagramPostDetail = () => {
           }
         })
       )
-      
+
       const aiCharacterPrompt = aiCharactersWithChat.length > 0 ? `
 ## 🎭 AI角色（有人设，可能参与评论）
 ${aiCharactersWithChat.map(a => {
-  let info = `**${a.name}**${a.isPublic ? '【公众人物】' : ''}`
-  if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
-  if (a.personality) info += `\n- 人设：${a.personality}`
-  if (a.recentChat) info += `\n- 🔥 和用户的最近聊天记录：\n${a.recentChat}`
-  return info
-}).join('\n\n')}
+        let info = `**${a.name}**${a.isPublic ? '【公众人物】' : ''}`
+        if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
+        if (a.personality) info += `\n- 人设：${a.personality}`
+        if (a.recentChat) info += `\n- 🔥 和用户的最近聊天记录：\n${a.recentChat}`
+        return info
+      }).join('\n\n')}
 ` : ''
-      
+
       const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
 
 ## 📱 帖子内容
@@ -382,8 +388,8 @@ ${aiCharacterPrompt}
 - 生成5-10条评论，自然就好，不要硬凑
 - 直接输出，不要解释`
 
-      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
-        ? apiConfig.baseUrl 
+      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions')
+        ? apiConfig.baseUrl
         : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
 
       console.log('🟢 [批量AI回复] Prompt长度:', prompt.length, '字')
@@ -410,28 +416,28 @@ ${aiCharacterPrompt}
       console.log('🟢 [批量AI回复] choices:', data.choices)
       console.log('🟢 [批量AI回复] choices[0]:', data.choices?.[0])
       console.log('🟢 [批量AI回复] message:', data.choices?.[0]?.message)
-      
+
       if (data.error) {
         console.error('❌ [批量AI回复] API错误:', data.error)
         setPendingReplies([])
         setIsSending(false)
         return
       }
-      
+
       // 兼容不同API格式（包括思考模型）
       const message = data.choices?.[0]?.message
-      let aiContent = message?.content?.trim() 
+      let aiContent = message?.content?.trim()
         || data.choices?.[0]?.text?.trim()  // 某些API用text
         || data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()  // Gemini原生格式
         || ''
-      
+
       // 🔥 如果content为空但有reasoning_content（思考模型），尝试从中提取评论
       if (!aiContent && message?.reasoning_content) {
         console.log('🟢 [批量AI回复] 从思考内容中提取...')
         // 尝试提取思考内容中的评论格式
         const reasoningContent = message.reasoning_content as string
         const lines = reasoningContent.split('\n')
-        const commentLines = lines.filter((l: string) => 
+        const commentLines = lines.filter((l: string) =>
           l.match(/^\[主楼\]/) || l.match(/^\[回复\]/) || l.match(/^[^:：]+[:：].+/)
         )
         if (commentLines.length > 0) {
@@ -439,9 +445,9 @@ ${aiCharacterPrompt}
           console.log('🟢 [批量AI回复] 从思考中提取到:', commentLines.length, '条')
         }
       }
-      
+
       console.log('🟢 [批量AI回复] 返回:', aiContent)
-      
+
       if (!aiContent) {
         console.warn('⚠️ [批量AI回复] AI返回内容为空')
         // 仍然清空待发送列表，因为用户评论已经保存了
@@ -455,10 +461,10 @@ ${aiCharacterPrompt}
 
       // 解析AI回复并保存（支持新格式）
       const lines = aiContent.split('\n').filter((l: string) => l.trim())
-      
+
       // 辅助函数：获取角色信息
       const getCharacterInfo = (name: string) => {
-        const character = allCharacters.find(c => 
+        const character = allCharacters.find(c =>
           c.nickname === name || c.realName === name
         )
         const charAvatar = character?.avatar && character.avatar !== '/default-avatar.png' ? character.avatar : ''
@@ -468,7 +474,7 @@ ${aiCharacterPrompt}
           character
         }
       }
-      
+
       for (const line of lines) {
         // 解析 [主楼] 格式
         const mainMatch = line.match(/^\[主楼\]\s*(.+?)[:：](.+)$/)
@@ -476,12 +482,12 @@ ${aiCharacterPrompt}
           const authorName = mainMatch[1].trim()
           const content = mainMatch[2].trim()
           const { id, avatar } = getCharacterInfo(authorName)
-          
+
           await addComment(postId, id, authorName, avatar, content)
           console.log(`✅ [主楼] ${authorName}: ${content}`)
           continue
         }
-        
+
         // 解析 [回复] 格式
         const replyMatch = line.match(/^\[回复\]\s*(.+?)\s*->\s*(.+?)[:：](.+)$/)
         if (replyMatch) {
@@ -489,23 +495,23 @@ ${aiCharacterPrompt}
           const replyToName = replyMatch[2].trim()
           const content = replyMatch[3].trim()
           const { id, avatar } = getCharacterInfo(authorName)
-          
+
           // 找到要回复的评论（主楼）
           // 1. 先在待回复中找（用户刚回复的那条）
           const pending = pendingReplies.find(r => r.targetName === authorName)
           let targetCommentId = pending?.commentId
-          
+
           // 2. 如果不是针对用户刚回复的，在现有评论中找
           if (!targetCommentId) {
             const refreshedComments = await getPostComments(postId)
             // 找包含被回复人的主楼
-            const targetComment = refreshedComments.find(c => 
-              c.authorName === replyToName || 
+            const targetComment = refreshedComments.find(c =>
+              c.authorName === replyToName ||
               c.replies?.some(r => r.authorName === replyToName)
             )
             targetCommentId = targetComment?.id
           }
-          
+
           if (targetCommentId) {
             await addReply(targetCommentId, id, authorName, avatar, content, replyToName)
             console.log(`✅ [回复] ${authorName} -> ${replyToName}: ${content}`)
@@ -514,7 +520,7 @@ ${aiCharacterPrompt}
             await addComment(postId, id, authorName, avatar, `@${replyToName} ${content}`)
             console.log(`✅ [回复降级主楼] ${authorName}: @${replyToName} ${content}`)
           }
-          
+
           // 🔥 如果AI回复的是用户，同步到主聊天记录
           const userName = userInfo.nickname || userInfo.realName || '用户'
           if (replyToName === userName || replyToName === '用户' || replyToName === '我' || replyToName === '楼主') {
@@ -530,20 +536,20 @@ ${aiCharacterPrompt}
           }
           continue
         }
-        
+
         // 兼容旧格式：网名：内容
         const oldMatch = line.match(/^(.+?)[:：](.+)$/)
         if (oldMatch) {
           const responderName = oldMatch[1].trim()
           const replyContent = oldMatch[2].trim()
-          
+
           // 找对应的待回复项
           const pending = pendingReplies.find(r => r.targetName === responderName)
           if (pending) {
             const { id, avatar, character } = getCharacterInfo(responderName)
             await addReply(pending.commentId, id, responderName, avatar, replyContent, userInfo.nickname || '我')
             console.log(`✅ ${responderName} 回复了你: ${replyContent}`)
-            
+
             // 🔥 同步到主聊天记录
             if (character) {
               syncForumInteractionToChat(
@@ -559,32 +565,32 @@ ${aiCharacterPrompt}
 
       // 清空待发送列表
       setPendingReplies([])
-      
+
       // 刷新评论
       const updatedComments = await getPostComments(postId)
       setComments(updatedComments)
-      
+
       // 更新帖子评论数
-      const allPosts = getAllPosts()
+      const allPosts = await getAllPostsAsync()
       const currentPost = allPosts.find(p => p.id === postId)
       if (currentPost) {
         // 🔥 计算总评论数：主楼 + 所有楼中楼
         const totalComments = updatedComments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
         currentPost.comments = totalComments
-        savePosts(allPosts)
+        await savePosts(allPosts)
       }
-      
+
       // 🧠 为每个回复的AI角色增加记忆计数
       const respondersSet = new Set<string>()
       pendingReplies.forEach(r => {
-        const char = characters.find(c => 
+        const char = characters.find(c =>
           c.nickname === r.targetName || c.realName === r.targetName
         )
         if (char) {
           respondersSet.add(char.id)
         }
       })
-      
+
       import('../services/memoryExtractor').then(({ recordInteraction }) => {
         respondersSet.forEach(charId => {
           const char = characters.find(c => c.id === charId)
@@ -615,64 +621,75 @@ ${aiCharacterPrompt}
 
   return (
     <div className="h-screen bg-white flex flex-col" data-instagram>
-      {/* 顶部导航 */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      {/* 顶部导航 - 玻璃拟态 */}
+      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <StatusBar />
         <div className="flex items-center justify-between px-4 py-3">
-          <button 
+          <button
             onClick={() => navigate(-1)}
-            className="p-2 -m-2 active:opacity-60"
+            className="p-2 -m-2 active:opacity-60 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-6 h-6 text-gray-900" />
           </button>
-          <h1 className="text-base font-semibold">评论</h1>
-          {/* 删除按钮 - 只有用户自己的帖子显示 */}
-          {post.npcId === 'user' ? (
-            <button 
-              onClick={() => {
-                if (confirm('确定要删除这条帖子吗？')) {
-                  const posts = getAllPosts()
-                  const newPosts = posts.filter(p => p.id !== postId)
-                  savePosts(newPosts)
-                  navigate(-1)
-                }
-              }}
-              className="p-2 -m-2 text-red-500 active:opacity-60"
-            >
-              <Trash2 className="w-5 h-5" />
+          <h1 className="text-base font-semibold text-gray-900">正文</h1>
+          <div className="flex items-center gap-2">
+            {post.npcId === 'user' && (
+              <button
+                onClick={async () => {
+                  if (confirm('确定要删除这条帖子吗？')) {
+                    const posts = await getAllPostsAsync()
+                    const newPosts = posts.filter((p: ForumPost) => p.id !== postId)
+                    await savePosts(newPosts)
+                    navigate(-1)
+                  }
+                }}
+                className="p-2 -m-2 text-gray-500 hover:text-red-500 active:opacity-60 transition-colors"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+            <button className="p-2 -m-2 text-gray-500 hover:text-gray-900 active:opacity-60 transition-colors">
+              <MoreHorizontal className="w-6 h-6" />
             </button>
-          ) : (
-            <div className="w-6" />
-          )}
+          </div>
         </div>
       </div>
 
       {/* 帖子和评论 */}
-      <div className="flex-1 overflow-y-auto">
-        {/* 用户帖子内容 - 突出显示 */}
-        <div className="bg-white border-b-4 border-gray-200 mb-2">
-          <div className="flex items-start gap-4 px-4 py-4">
+      <div className="flex-1 overflow-y-auto bg-white">
+        {/* 用户帖子内容 */}
+        <div className="bg-white pb-4">
+          <div className="flex items-start gap-3 px-4 py-4">
             {authorAvatar ? (
               <img
                 src={authorAvatar}
                 alt={authorName}
-                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-100"
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 {authorName[0]}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-bold text-base">{authorName}</span>
-                <span className="text-sm text-gray-500">{post.time}</span>
+              <div className="flex flex-col mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[15px] text-[#333]">{authorName}</span>
+                  {characters.find(c => c.id === post.npcId)?.isPublicFigure && (
+                    <span className="bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle">官方</span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400">{formatTimeAgo(post.timestamp)}</span>
               </div>
-              {parsePostContent(post.content)}
-              
+
+              {/* 帖子正文 */}
+              <div className="mb-3">
+                {parsePostContent(post.content)}
+              </div>
+
               {/* 显示标记的人 */}
               {post.taggedUsers && post.taggedUsers.length > 0 && (
-                <div className="flex items-center gap-1.5 mt-3 text-sm text-gray-500">
+                <div className="flex items-center gap-1.5 mb-3 text-sm text-blue-600">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -682,196 +699,203 @@ ${aiCharacterPrompt}
             </div>
           </div>
 
-          {/* 帖子操作按钮 */}
-          <div className="px-4 pb-4">
-            <div className="flex items-center gap-5 mb-2">
-              <button onClick={handleLike} className="active:scale-110 transition-transform">
-                <Heart className={`w-6 h-6 ${post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
+          {/* 帖子操作按钮 - 简约风格 */}
+          <div className="px-4 flex items-center justify-between border-b border-gray-50 pb-3">
+            <div className="flex items-center gap-6">
+              <button
+                onClick={handleLike}
+                className="flex items-center gap-1.5 group active:scale-95 transition-transform"
+              >
+                <Heart className={`w-5 h-5 ${post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-600 group-hover:text-gray-900'}`} />
+                <span className={`text-sm ${post.isLiked ? 'text-red-500' : 'text-gray-600'}`}>
+                  {post.likes > 0 ? post.likes : '赞'}
+                </span>
               </button>
-              <button className="active:opacity-60">
-                <MessageCircle className="w-6 h-6" />
+              <button className="flex items-center gap-1.5 group active:scale-95 transition-transform">
+                <MessageCircle className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
+                <span className="text-sm text-gray-600">
+                  {comments.length > 0 ? comments.length : '评论'}
+                </span>
               </button>
-              <button className="active:opacity-60">
-                <Send className="w-6 h-6" />
+              <button className="flex items-center gap-1.5 group active:scale-95 transition-transform">
+                <Share2 className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
+                <span className="text-sm text-gray-600">分享</span>
               </button>
             </div>
-            <div className="text-base font-bold">{post.likes.toLocaleString()} 次赞</div>
           </div>
         </div>
 
         {/* 评论区标题 */}
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="font-bold text-base text-gray-800">评论 ({comments.length})</span>
-          <span className="text-xs text-gray-400 ml-2">最新在前</span>
+        <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 sticky top-0 z-0">
+          <span className="font-bold text-sm text-gray-600">全部评论 {comments.length}</span>
         </div>
 
-        {/* 评论列表 - 最新在前 */}
-        <div className="divide-y divide-gray-100 bg-white">
+        {/* 评论列表 - 微博/贴吧风格 */}
+        <div className="pb-20">
           {comments.length > 0 ? (
-            <>
+            <div className="divide-y divide-gray-50">
               {[...comments].sort((a, b) => b.timestamp - a.timestamp).map((comment) => {
-                // 判断是否是新评论（5分钟内）
                 const isNew = Date.now() - comment.timestamp < 5 * 60 * 1000
                 return (
-                <div key={comment.id} className={`px-4 py-4 ${isNew ? 'bg-blue-50/50' : ''}`}>
-                  {/* 主楼评论 */}
-                  <div className="flex items-start gap-3">
-                    {/* 头像：有真实头像就显示，否则首字 */}
-                    {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
-                      <img src={comment.authorAvatar} alt={comment.authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold text-base flex-shrink-0">
-                        {comment.authorName[0]}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="mb-2">
-                        <span className="font-bold text-base mr-2">{comment.authorName}</span>
-                      </div>
-                      <p className="text-base text-gray-900 break-words leading-relaxed mb-2"><EmojiContentRenderer content={comment.content} emojiSize={32} /></p>
-                      <div className="flex items-center gap-4 text-sm text-gray-400">
-                        <span>{formatTimeAgo(comment.timestamp)}</span>
-                        <button className="font-medium hover:text-gray-600">
-                          {comment.likes > 0 ? `${comment.likes} 赞` : '赞'}
-                        </button>
-                        <button 
-                          className="font-medium text-blue-500 hover:text-blue-600"
-                          onClick={() => handleReplyClick(comment.id, comment.authorName)}
-                        >
-                          回复
-                        </button>
+                  <div key={comment.id} className={`px-4 py-3 ${isNew ? 'bg-blue-50/30' : 'bg-white'}`}>
+                    {/* 主楼评论 */}
+                    <div className="flex items-start gap-3">
+                      {/* 头像 */}
+                      {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
+                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-gray-100" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-sm flex-shrink-0">
+                          {comment.authorName[0]}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[14px] text-[#333]">{comment.authorName}</span>
+                            {characters.find(c => c.id === comment.authorId)?.isPublicFigure && (
+                              <span className="bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle">官方</span>
+                            )}
+                          </div>
+                          <button className="text-gray-400 hover:text-gray-600">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="text-[15px] text-[#333] break-words leading-relaxed mb-2">
+                          <EmojiContentRenderer content={comment.content} emojiSize={20} />
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-gray-400 mb-2">
+                          <span>{formatTimeAgo(comment.timestamp)}</span>
+                          {comment.likes > 0 && <span>{comment.likes} 赞</span>}
+                          <button
+                            className="font-medium text-gray-500 hover:text-blue-600"
+                            onClick={() => handleReplyClick(comment.id, comment.authorName)}
+                          >
+                            回复
+                          </button>
+                        </div>
+
+                        {/* 楼中楼回复 - 灰色背景块 */}
+                        {comment.replies && comment.replies.length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                            {comment.replies.map((reply) => (
+                              <div key={reply.id} className="text-[14px] leading-relaxed">
+                                <span className="font-bold text-[#333]">{reply.authorName}</span>
+                                {reply.replyTo && (
+                                  <span className="text-gray-500 mx-1">回复</span>
+                                )}
+                                {reply.replyTo && (
+                                  <span className="font-bold text-[#333]">{reply.replyTo}</span>
+                                )}
+                                <span className="text-[#333]">：</span>
+                                <span className="text-[#333]">
+                                  <EmojiContentRenderer content={reply.content} emojiSize={18} />
+                                </span>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-400">{formatTimeAgo(reply.timestamp)}</span>
+                                  <button
+                                    className="text-xs text-gray-500 hover:text-blue-600"
+                                    onClick={() => handleReplyClick(comment.id, reply.authorName)}
+                                  >
+                                    回复
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  
-                  {/* 楼中楼回复 */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-4 ml-12 space-y-4 pl-4 border-l-2 border-gray-200">
-                      {comment.replies.map((reply) => (
-                        <div key={reply.id} className="flex items-start gap-3">
-                          {/* 头像：有真实头像就显示，否则首字 */}
-                          {reply.authorAvatar && reply.authorAvatar !== '/default-avatar.png' ? (
-                            <img src={reply.authorAvatar} alt={reply.authorName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm flex-shrink-0">
-                              {reply.authorName[0]}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="mb-1">
-                              <span className="font-bold text-sm mr-2">{reply.authorName}</span>
-                              {reply.replyTo && (
-                                <>
-                                  <span className="text-sm text-gray-400 mr-1">回复</span>
-                                  <span className="font-bold text-sm text-blue-500 mr-2">@{reply.replyTo}</span>
-                                </>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-800 break-words leading-relaxed mb-1"><EmojiContentRenderer content={reply.content} emojiSize={28} /></p>
-                            <div className="flex items-center gap-4 text-xs text-gray-400">
-                              <span>{formatTimeAgo(reply.timestamp)}</span>
-                              <button className="font-medium hover:text-gray-600">
-                                {reply.likes > 0 ? `${reply.likes} 赞` : '赞'}
-                              </button>
-                              <button 
-                                className="font-medium text-blue-500 hover:text-blue-600"
-                                onClick={() => handleReplyClick(comment.id, reply.authorName)}
-                              >
-                                回复
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )})}
-            </>
+                )
+              })}
+            </div>
           ) : (
-            <div className="py-8 text-center">
-              <p className="text-sm text-gray-400">还没有评论</p>
-              <p className="text-xs text-gray-400 mt-1">快来发表第一条评论吧</p>
+            <div className="py-12 text-center">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-sm text-gray-400">还没有评论，快来抢沙发~</p>
             </div>
           )}
+          <div ref={commentsEndRef} />
         </div>
       </div>
 
-      {/* 底部评论输入框 */}
-      <div className="border-t border-gray-100 bg-white">
-        {replyingTo && (
-          <div className="px-4 py-2 bg-gray-50 flex items-center justify-between">
-            <span className="text-sm text-gray-500">回复 @{replyingTo.name}</span>
-            <button onClick={() => { setReplyingTo(null); setNewComment('') }} className="text-gray-400">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        <div className="flex items-center gap-3 px-4 py-3">
-          {userInfo.avatar ? (
-            <img
-              src={userInfo.avatar}
-              alt="我"
-              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold text-sm flex-shrink-0">
-              我
-            </div>
-          )}
-          <input
-            type="text"
-            placeholder={replyingTo ? `回复 @${replyingTo.name}...` : "添加评论..."}
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && newComment.trim() && addPendingReply()}
-            className="flex-1 outline-none text-sm"
-          />
-          {/* 添加按钮 - 有内容时显示，加入待发送列表 */}
-          {newComment.trim() && (
-            <button
-              onClick={addPendingReply}
-              className="text-sm font-semibold text-blue-500"
-            >
-              添加
-            </button>
-          )}
-          {/* 纸飞机发送按钮 - 有待发送回复时显示 */}
-          {pendingReplies.length > 0 && (
-            <button
-              onClick={handleSendAll}
-              disabled={isSending}
-              className="ml-2 p-2 rounded-full bg-blue-500 text-white disabled:opacity-50 flex items-center gap-1"
-            >
-              <Send className="w-4 h-4" />
-              <span className="text-xs font-bold">{pendingReplies.length}</span>
-            </button>
-          )}
-        </div>
-        {/* 待发送评论/回复列表 */}
+      {/* 底部评论输入框 - 悬浮设计 */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 safe-area-inset-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {/* 待发送列表提示 */}
         {pendingReplies.length > 0 && (
-          <div className="px-4 py-2 bg-blue-50 border-t border-blue-100">
-            <div className="text-xs text-blue-600 mb-1">待发送 ({pendingReplies.length}条)：</div>
-            <div className="space-y-1">
-              {pendingReplies.map((r: any) => (
-                <div key={r.id} className="text-xs text-gray-600 flex items-center gap-1">
-                  {r.isReply ? (
-                    <span className="text-blue-500">回复 @{r.targetName}</span>
-                  ) : (
-                    <span className="text-green-500">评论</span>
-                  )}
-                  <span className="truncate">{r.content}</span>
-                  <button 
-                    onClick={() => setPendingReplies(prev => prev.filter(p => p.id !== r.id))}
-                    className="ml-auto text-gray-400 hover:text-red-500"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="absolute bottom-full left-0 right-0 bg-blue-50 px-4 py-2 text-xs text-blue-600 flex items-center justify-between border-t border-blue-100">
+            <span>
+              {pendingReplies.length} 条评论待发送...
+              {isSending && <span className="ml-2 animate-pulse">正在通知大家...</span>}
+            </span>
+            {!isSending && (
+              <button
+                onClick={() => setPendingReplies([])}
+                className="text-blue-400 hover:text-blue-600"
+              >
+                清空
+              </button>
+            )}
           </div>
         )}
+
+        {/* 回复提示 */}
+        {replyingTo && (
+          <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 rounded-t-lg text-xs text-gray-500 mb-2">
+            <span>回复 @{replyingTo.name}</span>
+            <button onClick={() => {
+              setReplyingTo(null)
+              setNewComment('')
+            }}>
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-end gap-3">
+          <div className="flex-1 bg-gray-100 rounded-[20px] px-4 py-2 flex items-center">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder={replyingTo ? `回复 ${replyingTo.name}...` : "说点什么..."}
+              className="flex-1 bg-transparent border-none outline-none text-sm max-h-24 resize-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  addPendingReply()
+                }
+              }}
+            />
+          </div>
+
+          {/* 发送按钮 - 纸飞机图标 */}
+          <button
+            onClick={pendingReplies.length > 0 ? handleSendAll : addPendingReply}
+            disabled={(!newComment.trim() && pendingReplies.length === 0) || isSending}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${(newComment.trim() || pendingReplies.length > 0) && !isSending
+              ? 'bg-blue-500 text-white shadow-md active:scale-95'
+              : 'bg-gray-100 text-gray-400'
+              }`}
+          >
+            {isSending ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : pendingReplies.length > 0 ? (
+              <div className="relative">
+                <Send className="w-5 h-5 -ml-0.5 mt-0.5 -rotate-45" />
+                <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center border border-white">
+                  {pendingReplies.length}
+                </span>
+              </div>
+            ) : (
+              <Send className="w-5 h-5 -ml-0.5 mt-0.5 -rotate-45" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

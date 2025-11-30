@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Image, Smile, MapPin, UserPlus, Music2, Search } from 'lucide-react'
+import { X, Image as ImageIcon, Smile, MapPin, UserPlus, Music2, Search, ChevronRight, Plus } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
 import { incrementPosts, incrementFollowers } from '../utils/forumUser'
-import { getAllPosts, savePosts, getAllNPCs, saveNPCs } from '../utils/forumNPC'
+import { getAllPosts, getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../utils/forumNPC'
 import { generateRealAIComments } from '../utils/forumAIComments'
 import { getPostComments } from '../utils/forumCommentsDB'
 import { sendDMToUser } from '../utils/instagramDM'
@@ -23,7 +23,7 @@ const InstagramCreate = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [emojis, setEmojis] = useState<Emoji[]>([])
   const [location, setLocation] = useState('')
-  
+
   // 加载表情包
   useEffect(() => {
     getEmojis().then(setEmojis).catch(console.error)
@@ -31,7 +31,7 @@ const InstagramCreate = () => {
   const [locationSearch, setLocationSearch] = useState('')
   const [taggedUsers, setTaggedUsers] = useState<Character[]>([])
   const [userSearch, setUserSearch] = useState('')
-  const [music, setMusic] = useState<{name: string, artist: string} | null>(null)
+  const [music, setMusic] = useState<{ name: string, artist: string } | null>(null)
   const [musicSearch, setMusicSearch] = useState('')
   const [characters, setCharacters] = useState<Character[]>([])
 
@@ -73,7 +73,7 @@ const InstagramCreate = () => {
     }
 
     // 创建用户帖子
-    const posts = getAllPosts()
+    const posts = await getAllPostsAsync()
     const postId = `user-post-${Date.now()}`
     const newPost = {
       id: postId,
@@ -90,16 +90,16 @@ const InstagramCreate = () => {
       taggedUsers: taggedUsers.map(u => u.id),
       music: music || undefined
     }
-    
+
     posts.unshift(newPost)
-    savePosts(posts)
-    
+    await savePosts(posts)
+
     // 更新用户统计
     incrementPosts()
-    
+
     // 立即跳转回主页
     navigate('/instagram')
-    
+
     // 异步生成评论（真实调用API）
     setTimeout(async () => {
       try {
@@ -116,18 +116,20 @@ const InstagramCreate = () => {
           if (days < 7) return `${days}天前`
           return `${Math.floor(days / 7)}周前`
         }
-        
-        const userPosts = getAllPosts()
+
+        const userPosts = (await getAllPostsAsync())
           .filter(p => p.npcId === 'user')
           .slice(0, 10)
           .map(p => `[${formatTimeAgo(p.timestamp)}] ${p.content}`)
-        
+
         // 传入所有角色（包括公众人物），让AI能识别并让公众人物参与评论
         const allCharacters = await getAllCharacters()
         console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length}, 图片数: ${selectedImages.length})`)
         // 🔥 传入图片，让AI能看到图片内容
-        const result = await generateRealAIComments(postId, caption, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined)
-        
+        // 如果没有文字只有图片，给AI一个提示
+        const contentForAI = caption.trim() || (selectedImages.length > 0 ? '[用户发布了图片]' : '')
+        const result = await generateRealAIComments(postId, contentForAI, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined)
+
         // 🧠 为每个参与评论的AI角色增加记忆计数
         const allComments = await getPostComments(postId)
         const commentersSet = new Set<string>()
@@ -136,7 +138,7 @@ const InstagramCreate = () => {
             commentersSet.add(c.authorId)
           }
         })
-        
+
         import('../services/memoryExtractor').then(({ recordInteraction }) => {
           commentersSet.forEach(commenterId => {
             const char = allCharacters.find(c => c.id === commenterId)
@@ -145,16 +147,16 @@ const InstagramCreate = () => {
             }
           })
         })
-        
+
         // 更新帖子评论数和点赞
-        const updatedPosts = getAllPosts()
+        const updatedPosts = await getAllPostsAsync()
         const post = updatedPosts.find(p => p.id === postId)
         if (post) {
           const comments = await getPostComments(postId)
           // 🔥 计算总评论数：主楼 + 所有楼中楼
           const totalComments = comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
           post.comments = totalComments
-          
+
           // 检查是否有公众人物参与评论或被@
           const hasPublicFigureComment = comments.some(c => c.isPublicFigure)
           const hasPublicFigureTagged = (post.taggedUsers || []).some(userId => {
@@ -162,7 +164,7 @@ const InstagramCreate = () => {
             return char?.isPublicFigure
           })
           const hasPublicFigureInvolved = hasPublicFigureComment || hasPublicFigureTagged
-          
+
           // 点赞数：有公众人物参与则大幅增加
           let likesCount: number
           if (hasPublicFigureInvolved) {
@@ -173,14 +175,14 @@ const InstagramCreate = () => {
             likesCount = Math.floor(comments.length * (10 + Math.random() * 20)) + 50
           }
           post.likes = likesCount
-          
-          savePosts(updatedPosts)
+
+          await savePosts(updatedPosts)
           console.log(`✅ 帖子评论数已更新: ${comments.length}，点赞数: ${likesCount}`)
-          
+
           // 发帖后增加粉丝：1-5个
           const newFollowers = Math.floor(Math.random() * 5) + 1
           incrementFollowers(newFollowers)
-          
+
           // 使用AI生成的私聊
           if (result.dmList && result.dmList.length > 0) {
             result.dmList.forEach((dm, index) => {
@@ -190,7 +192,7 @@ const InstagramCreate = () => {
               }, 3000 + index * 2000)
             })
           }
-          
+
           // 创建挂人帖子（NPC发的帖子）- 根据设置决定是否启用
           const instagramSettings = getInstagramSettings()
           if (instagramSettings.allowRoastPost && result.roastPosts && result.roastPosts.length > 0) {
@@ -210,16 +212,16 @@ const InstagramCreate = () => {
                   saveNPCs(existingNPCs)
                   console.log(`✨ 创建挂人帖NPC: ${roast.npcName}`)
                 }
-                
+
                 const roastPostId = `roast-${Date.now()}-${index}`
-                
+
                 // 检查发帖人是否是公众人物
                 const chars = await getAllCharacters()
                 const posterChar = chars.find(c => c.id === roast.npcId)
-                const roastLikes = posterChar?.isPublicFigure 
+                const roastLikes = posterChar?.isPublicFigure
                   ? Math.floor(Math.random() * 50000) + 10000  // 公众人物：1万-6万
                   : Math.floor(Math.random() * 50) + 10        // 普通NPC：10-60
-                
+
                 const roastPost = {
                   id: roastPostId,
                   npcId: roast.npcId,
@@ -231,7 +233,7 @@ const InstagramCreate = () => {
                   timestamp: Date.now(),
                   isLiked: false
                 }
-                const currentPosts = getAllPosts()
+                const currentPosts = await getAllPostsAsync()
                 // 插入到用户帖子后面
                 const userPostIndex = currentPosts.findIndex(p => p.id === postId)
                 if (userPostIndex >= 0) {
@@ -239,20 +241,20 @@ const InstagramCreate = () => {
                 } else {
                   currentPosts.unshift(roastPost)
                 }
-                savePosts(currentPosts)
+                await savePosts(currentPosts)
                 console.log(`🔥 [挂人帖] ${roast.npcName} 发了帖子: "${roast.content}"`)
-                
+
                 // 挂人帖子也生成评论（延迟）
                 setTimeout(async () => {
                   const chars = await getAllCharacters()
                   await generateRealAIComments(roastPostId, roast.content, chars, [])
-                  const latestPosts = getAllPosts()
+                  const latestPosts = await getAllPostsAsync()
                   const roastP = latestPosts.find(p => p.id === roastPostId)
                   if (roastP) {
                     const roastComments = await getPostComments(roastPostId)
                     roastP.comments = roastComments.length
                     roastP.likes = Math.floor(roastComments.length * (2 + Math.random() * 3))
-                    savePosts(latestPosts)
+                    await savePosts(latestPosts)
                   }
                 }, 5000)
               }, 5000 + index * 3000)
@@ -267,26 +269,26 @@ const InstagramCreate = () => {
 
   return (
     <InstagramLayout showHeader={false} showTabBar={false}>
-      {/* 顶部导航 */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      {/* 顶部导航 - 极简白底 */}
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
-          <button 
+          <button
             onClick={() => navigate(-1)}
-            className="p-2 -m-2 active:opacity-60"
+            className="p-2 -m-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 text-gray-900" />
           </button>
-          <h1 className="text-base font-semibold">新帖子</h1>
-          <button 
+          <h1 className="text-[17px] font-bold text-gray-900">新帖子</h1>
+          <button
             onClick={handlePost}
-            className="text-blue-500 font-semibold text-sm active:opacity-60"
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-full hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
           >
-            分享
+            发布
           </button>
         </div>
       </div>
 
-      <div className="pb-4">
+      <div className="max-w-screen-md mx-auto pb-10">
         {/* 隐藏的文件输入 */}
         <input
           type="file"
@@ -297,160 +299,181 @@ const InstagramCreate = () => {
           className="hidden"
         />
 
-        {/* 图片预览区 */}
-        {selectedImages.length > 0 && (
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {selectedImages.map((img, index) => (
-                <div key={index} className="relative flex-shrink-0">
-                  <img 
-                    src={img} 
-                    alt={`图片${index + 1}`}
-                    className="w-24 h-24 object-cover rounded-lg"
-                  />
-                  {/* 删除按钮 */}
-                  <button
-                    onClick={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center"
-                  >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 说明文字 */}
-        <div className="p-4 border-b border-gray-100">
-          <textarea
-            placeholder="添加说明..."
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            className="w-full outline-none resize-none text-sm"
-            rows={4}
-          />
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-3">
-              <button 
+        <div className="p-4 space-y-6">
+          {/* 图片选择区 - 优化网格布局 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">照片</h2>
+              <button
                 onClick={handleSelectImage}
-                className="flex items-center gap-1 text-xs text-gray-500 active:opacity-60"
+                className="text-sm text-blue-600 font-medium hover:text-blue-700"
               >
-                <Image className="w-4 h-4" />
-                {selectedImages.length > 0 && <span>{selectedImages.length}</span>}
+                选择照片
               </button>
-              <button 
+            </div>
+
+            {selectedImages.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {selectedImages.map((img, index) => (
+                  <div key={index} className="relative aspect-square group">
+                    <img
+                      src={img}
+                      alt={`图片${index + 1}`}
+                      className="w-full h-full object-cover rounded-xl border border-gray-100 shadow-sm"
+                    />
+                    <button
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <X className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={handleSelectImage}
+                  className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-400 hover:text-blue-500"
+                >
+                  <Plus className="w-8 h-8 mb-1" />
+                  <span className="text-xs font-medium">添加</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleSelectImage}
+                className="w-full h-40 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-400 hover:text-blue-500"
+              >
+                <ImageIcon className="w-10 h-10 mb-2" />
+                <span className="text-sm font-medium">点击选择照片</span>
+              </button>
+            )}
+          </div>
+
+          {/* 内容输入区 - 优化排版 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">正文</h2>
+              <span className="text-xs text-gray-400">{caption.length}/2,200</span>
+            </div>
+            <div className="relative">
+              <textarea
+                placeholder="分享你的想法..."
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                className="w-full min-h-[120px] p-4 bg-gray-50 rounded-xl outline-none resize-none text-[15px] text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+              <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`active:opacity-60 ${showEmojiPicker ? 'text-blue-500' : 'text-gray-400'}`}
+                className="absolute bottom-3 right-3 p-2 text-gray-400 hover:text-yellow-500 hover:bg-gray-200/50 rounded-full transition-colors"
               >
                 <Smile className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-xs text-gray-400">
-              {caption.length}/2,200
-            </div>
-          </div>
-          
-          {/* 表情包选择面板 */}
-          {showEmojiPicker && emojis.length > 0 && (
-            <div className="mt-3 p-2 bg-gray-50 rounded-lg max-h-40 overflow-y-auto">
-              <div className="grid grid-cols-6 gap-2">
-                {emojis.map((emoji) => (
-                  <button
-                    key={emoji.id}
-                    onClick={() => {
-                      setCaption(prev => prev + `[表情:${emoji.description}]`)
-                      setShowEmojiPicker(false)
-                    }}
-                    className="p-1 hover:bg-gray-200 rounded active:scale-95 transition-transform"
-                  >
-                    <img 
-                      src={emoji.url} 
-                      alt={emoji.description}
-                      className="w-10 h-10 object-contain"
-                    />
-                  </button>
-                ))}
+
+            {/* 表情包选择面板 */}
+            {showEmojiPicker && emojis.length > 0 && (
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-8 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                  {emojis.map((emoji) => (
+                    <button
+                      key={emoji.id}
+                      onClick={() => {
+                        setCaption(prev => prev + `[表情:${emoji.description}]`)
+                        setShowEmojiPicker(false)
+                      }}
+                      className="aspect-square p-1 hover:bg-white rounded-lg active:scale-95 transition-all"
+                    >
+                      <img
+                        src={emoji.url}
+                        alt={emoji.description}
+                        className="w-full h-full object-contain"
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          
-          {showEmojiPicker && emojis.length === 0 && (
-            <div className="mt-3 p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-400">
-              还没有表情包，去聊天页面添加吧
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* 选项列表 - 现代化列表设计 */}
+          <div className="bg-gray-50 rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
+            <button
+              onClick={() => setShowLocationSearch(true)}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-[15px] font-medium text-gray-900">添加位置</span>
+                  {location && <span className="text-xs text-blue-600">{location}</span>}
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button
+              onClick={() => {
+                loadCharacters()
+                setShowUserTag(true)
+              }}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-[15px] font-medium text-gray-900">标记用户</span>
+                  {taggedUsers.length > 0 && (
+                    <span className="text-xs text-blue-600">已标记 {taggedUsers.length} 人</span>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button
+              onClick={() => setShowMusicSearch(true)}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                  <Music2 className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-[15px] font-medium text-gray-900">添加音乐</span>
+                  {music && <span className="text-xs text-blue-600">{music.name} - {music.artist}</span>}
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
         </div>
-
-        {/* 添加位置 */}
-        <button 
-          onClick={() => setShowLocationSearch(true)}
-          className="w-full px-4 py-3 flex items-center justify-between border-b border-gray-100 active:bg-gray-50"
-        >
-          <div className="flex items-center gap-3">
-            <MapPin className="w-5 h-5 text-gray-600" />
-            <span className="text-sm">{location || '添加位置'}</span>
-          </div>
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
-        {/* 标记用户 */}
-        <button 
-          onClick={() => {
-            loadCharacters()
-            setShowUserTag(true)
-          }}
-          className="w-full px-4 py-3 flex items-center justify-between border-b border-gray-100 active:bg-gray-50"
-        >
-          <div className="flex items-center gap-3">
-            <UserPlus className="w-5 h-5 text-gray-600" />
-            <span className="text-sm">
-              {taggedUsers.length > 0 ? `已标记 ${taggedUsers.length} 人` : '标记用户'}
-            </span>
-          </div>
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
-        {/* 添加音乐 */}
-        <button 
-          onClick={() => setShowMusicSearch(true)}
-          className="w-full px-4 py-3 flex items-center justify-between active:bg-gray-50"
-        >
-          <div className="flex items-center gap-3">
-            <Music2 className="w-5 h-5 text-gray-600" />
-            <span className="text-sm">
-              {music ? `${music.name} - ${music.artist}` : '添加音乐'}
-            </span>
-          </div>
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
       </div>
 
-      {/* 位置搜索模态框 */}
+      {/* 位置搜索模态框 - 优化样式 */}
       {showLocationSearch && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
           <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowLocationSearch(false)}>
-                <X className="w-6 h-6" />
+              <button onClick={() => setShowLocationSearch(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="w-6 h-6 text-gray-600" />
               </button>
-              <input
-                type="text"
-                placeholder="搜索位置..."
-                value={locationSearch}
-                onChange={(e) => setLocationSearch(e.target.value)}
-                className="flex-1 outline-none"
-                autoFocus
-              />
+              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索位置..."
+                  value={locationSearch}
+                  onChange={(e) => setLocationSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区'].filter(loc => 
+              {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区'].filter(loc =>
                 loc.includes(locationSearch)
               ).map((loc, i) => (
                 <button
@@ -459,11 +482,13 @@ const InstagramCreate = () => {
                     setLocation(loc)
                     setShowLocationSearch(false)
                   }}
-                  className="w-full px-4 py-3 text-left border-b border-gray-100 active:bg-gray-50"
+                  className="w-full px-4 py-4 text-left border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-gray-400" />
-                    <span>{loc}</span>
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <MapPin className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <span className="text-[15px] text-gray-900">{loc}</span>
                   </div>
                 </button>
               ))}
@@ -472,32 +497,34 @@ const InstagramCreate = () => {
         </div>
       )}
 
-      {/* 标记用户模态框 */}
+      {/* 标记用户模态框 - 优化样式 */}
       {showUserTag && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
           <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowUserTag(false)}>
-                <X className="w-6 h-6" />
+              <button onClick={() => setShowUserTag(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="w-6 h-6 text-gray-600" />
               </button>
-              <input
-                type="text"
-                placeholder="搜索用户..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className="flex-1 outline-none"
-                autoFocus
-              />
+              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索用户..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               {characters.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <UserPlus className="w-12 h-12 mb-2 opacity-50" />
                   <p className="text-sm">还没有创建角色</p>
-                  <p className="text-xs mt-1">创建角色后可以在这里@他们</p>
                 </div>
               ) : (
-                characters.filter(c => 
+                characters.filter(c =>
                   (c.realName || '').includes(userSearch) || (c.nickname || '').includes(userSearch)
                 ).map((char) => (
                   <button
@@ -509,25 +536,27 @@ const InstagramCreate = () => {
                         setTaggedUsers([...taggedUsers, char])
                       }
                     }}
-                    className="w-full px-4 py-3 flex items-center gap-3 border-b border-gray-100 active:bg-gray-50"
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
                   >
                     <img
                       src={char.avatar || '/default-avatar.png'}
                       alt={char.realName || char.nickname || '角色'}
-                      className="w-11 h-11 rounded-full object-cover"
+                      className="w-12 h-12 rounded-full object-cover border border-gray-100"
                     />
                     <div className="flex-1 text-left">
-                      <div className="text-sm font-semibold">{char.nickname || char.realName}</div>
+                      <div className="text-[15px] font-semibold text-gray-900">{char.nickname || char.realName}</div>
                       {char.realName && char.nickname && (
                         <div className="text-xs text-gray-500">{char.realName}</div>
                       )}
                     </div>
-                    {taggedUsers.find(u => u.id === char.id) && (
-                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    {taggedUsers.find(u => u.id === char.id) ? (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full border-2 border-gray-200"></div>
                     )}
                   </button>
                 ))
@@ -537,23 +566,25 @@ const InstagramCreate = () => {
         </div>
       )}
 
-      {/* 音乐搜索模态框 */}
+      {/* 音乐搜索模态框 - 优化样式 */}
       {showMusicSearch && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
           <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowMusicSearch(false)}>
-                <X className="w-6 h-6" />
+              <button onClick={() => setShowMusicSearch(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="w-6 h-6 text-gray-600" />
               </button>
-              <input
-                type="text"
-                placeholder="搜索音乐..."
-                value={musicSearch}
-                onChange={(e) => setMusicSearch(e.target.value)}
-                className="flex-1 outline-none"
-                autoFocus
-              />
-              <Search className="w-5 h-5 text-gray-400" />
+              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索音乐..."
+                  value={musicSearch}
+                  onChange={(e) => setMusicSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               {[
@@ -562,7 +593,7 @@ const InstagramCreate = () => {
                 { name: '稻香', artist: '周杰伦' },
                 { name: '告白气球', artist: '周杰伦' },
                 { name: '夜曲', artist: '周杰伦' }
-              ].filter(m => 
+              ].filter(m =>
                 m.name.includes(musicSearch) || m.artist.includes(musicSearch)
               ).map((m, i) => (
                 <button
@@ -571,11 +602,13 @@ const InstagramCreate = () => {
                     setMusic(m)
                     setShowMusicSearch(false)
                   }}
-                  className="w-full px-4 py-3 flex items-center gap-3 border-b border-gray-100 active:bg-gray-50"
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
                 >
-                  <Music2 className="w-10 h-10 text-gray-400" />
+                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                    <Music2 className="w-6 h-6" />
+                  </div>
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-semibold">{m.name}</div>
+                    <div className="text-[15px] font-semibold text-gray-900">{m.name}</div>
                     <div className="text-xs text-gray-500">{m.artist}</div>
                   </div>
                 </button>

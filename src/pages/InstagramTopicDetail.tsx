@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Hash } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
-import { getAllPosts, toggleLike, getNPCById } from '../utils/forumNPC'
+import { getAllPostsAsync, toggleLike, getNPCById } from '../utils/forumNPC'
 import type { ForumPost } from '../utils/forumNPC'
 
 // 解析帖子内容，把[图片：描述]或【截图：描述】标记转换成图片卡片
@@ -82,17 +82,18 @@ const InstagramTopicDetail = () => {
   useEffect(() => {
     if (decodedName) {
       // 筛选包含该话题标签的帖子
-      const allPosts = getAllPosts()
-      const topicPosts = allPosts.filter(post => 
-        post.content.includes(`#${decodedName}`) || 
-        (post as any).topicId === decodedName
-      )
-      setPosts(topicPosts)
+      getAllPostsAsync().then(allPosts => {
+        const topicPosts = allPosts.filter(post => 
+          post.content.includes(`#${decodedName}`) || 
+          (post as any).topicId === decodedName
+        )
+        setPosts(topicPosts)
+      })
     }
   }, [decodedName])
 
-  const handleLike = (postId: string) => {
-    const updatedPosts = toggleLike(postId)
+  const handleLike = async (postId: string) => {
+    const updatedPosts = await toggleLike(postId)
     // 重新筛选
     const topicPosts = updatedPosts.filter(post => 
       post.content.includes(`#${decodedName}`) || 

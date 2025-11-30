@@ -1,5 +1,115 @@
 // 论坛NPC系统
 
+// ========== IndexedDB 帖子存储 ==========
+const DB_NAME = 'forum_db'
+const DB_VERSION = 1
+const POSTS_STORE = 'posts'
+const MAX_POSTS = 200 // 最多保存200条帖子
+
+let dbInstance: IDBDatabase | null = null
+let postsCache: ForumPost[] | null = null // 内存缓存
+
+function openDB(): Promise<IDBDatabase> {
+  if (dbInstance) return Promise.resolve(dbInstance)
+  
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = () => {
+      dbInstance = request.result
+      resolve(dbInstance)
+    }
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(POSTS_STORE)) {
+        db.createObjectStore(POSTS_STORE, { keyPath: 'id' })
+      }
+    }
+  })
+}
+
+// 从 IndexedDB 加载帖子
+async function loadPostsFromDB(): Promise<ForumPost[]> {
+  if (postsCache) return postsCache
+  
+  try {
+    const db = await openDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(POSTS_STORE, 'readonly')
+      const store = tx.objectStore(POSTS_STORE)
+      const request = store.getAll()
+      
+      request.onsuccess = () => {
+        const posts = request.result || []
+        // 按时间排序
+        posts.sort((a: ForumPost, b: ForumPost) => b.timestamp - a.timestamp)
+        postsCache = posts
+        resolve(posts)
+      }
+      
+      request.onerror = () => resolve([])
+    })
+  } catch {
+    return []
+  }
+}
+
+// 保存帖子到 IndexedDB
+async function savePostsToDB(posts: ForumPost[]): Promise<void> {
+  try {
+    const db = await openDB()
+    const tx = db.transaction(POSTS_STORE, 'readwrite')
+    const store = tx.objectStore(POSTS_STORE)
+    
+    // 清空旧数据
+    store.clear()
+    
+    // 只保留最近的帖子
+    const recentPosts = posts.slice(0, MAX_POSTS)
+    
+    // 批量写入
+    for (const post of recentPosts) {
+      store.put(post)
+    }
+    
+    // 更新缓存
+    postsCache = recentPosts
+    
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch (e) {
+    console.error('保存帖子到IndexedDB失败:', e)
+  }
+}
+
+// 迁移 localStorage 到 IndexedDB
+async function migratePostsToIndexedDB(): Promise<void> {
+  const stored = localStorage.getItem('forum_posts')
+  if (!stored) return
+  
+  try {
+    const posts = JSON.parse(stored)
+    if (Array.isArray(posts) && posts.length > 0) {
+      console.log(`🔄 迁移 ${posts.length} 条帖子到 IndexedDB...`)
+      await savePostsToDB(posts)
+      localStorage.removeItem('forum_posts') // 迁移成功后删除
+      console.log('✅ 帖子迁移完成')
+    } else {
+      localStorage.removeItem('forum_posts')
+    }
+  } catch (e) {
+    console.warn('迁移帖子失败，清理旧数据:', e)
+    localStorage.removeItem('forum_posts')
+  }
+}
+
+// ========================================
+
 export interface ForumNPC {
   id: string
   name: string
@@ -159,32 +269,28 @@ export function saveNPCs(npcs: ForumNPC[]) {
   }
 }
 
-// 获取所有帖子
+// 获取所有帖子（同步版本，返回缓存）
 export function getAllPosts(): ForumPost[] {
-  const stored = localStorage.getItem('forum_posts')
-  if (stored) {
-    try {
-      const posts = JSON.parse(stored)
-      if (!posts || !Array.isArray(posts)) {
-        return []
-      }
-      // 过滤掉npcId为undefined的无效帖子
-      const validPosts = posts.filter((post: ForumPost) => post.npcId !== undefined && post.npcId !== null)
-      // 如果有帖子被过滤掉，保存清洗后的数据
-      if (validPosts.length !== posts.length) {
-        savePosts(validPosts)
-      }
-      return validPosts
-    } catch {
-      return []
-    }
-  }
-  return []
+  return postsCache || []
 }
 
-// 保存帖子列表
-export function savePosts(posts: ForumPost[]) {
-  localStorage.setItem('forum_posts', JSON.stringify(posts))
+// 异步获取所有帖子
+export async function getAllPostsAsync(): Promise<ForumPost[]> {
+  // 先尝试迁移
+  await migratePostsToIndexedDB()
+  return loadPostsFromDB()
+}
+
+// 保存帖子列表（异步）
+export async function savePosts(posts: ForumPost[]): Promise<void> {
+  // 过滤无效帖子
+  const validPosts = posts.filter(post => post.npcId !== undefined && post.npcId !== null)
+  await savePostsToDB(validPosts)
+}
+
+// 同步保存（用于简单场景，实际是异步执行）
+export function savePostsSync(posts: ForumPost[]) {
+  savePosts(posts).catch(e => console.error('保存帖子失败:', e))
 }
 
 // 生成默认帖子（已禁用，返回空数组）
@@ -202,8 +308,8 @@ function formatTime(hoursAgo: number): string {
 }
 
 // 点赞帖子
-export function toggleLike(postId: string): ForumPost[] {
-  const posts = getAllPosts()
+export async function toggleLike(postId: string): Promise<ForumPost[]> {
+  const posts = await getAllPostsAsync()
   const updatedPosts = posts.map(post => {
     if (post.id === postId) {
       return {
@@ -214,7 +320,7 @@ export function toggleLike(postId: string): ForumPost[] {
     }
     return post
   })
-  savePosts(updatedPosts)
+  await savePosts(updatedPosts)
   return updatedPosts
 }
 
@@ -245,7 +351,7 @@ export function cleanupNPCStorage() {
 }
 
 // 初始化论坛数据
-export function initForumData() {
+export async function initForumData() {
   // 先清理旧数据
   cleanupNPCStorage()
   
@@ -256,9 +362,7 @@ export function initForumData() {
     saveNPCs(generateRandomNPCs(8))
   }
   
-  // 确保帖子数据存在（不再自动生成预设帖子）
-  const storedPosts = localStorage.getItem('forum_posts')
-  if (!storedPosts) {
-    savePosts([])  // 初始化为空数组
-  }
+  // 迁移并加载帖子数据
+  await migratePostsToIndexedDB()
+  await loadPostsFromDB()
 }

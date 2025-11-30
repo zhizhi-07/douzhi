@@ -25,7 +25,7 @@ import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpda
 import { generateAvatarForAI } from '../../../utils/imageGenerator'
 import { getUserInfo } from '../../../utils/userUtils'
 import { fillTemplate } from '../../../data/theatreTemplates'
-import { getAllPosts, savePosts, getAllNPCs, saveNPCs } from '../../../utils/forumNPC'
+import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../../../utils/forumNPC'
 import { generateRealAIComments } from '../../../utils/forumAIComments'
 import { getAllCharacters } from '../../../utils/characterManager'
 import { saveStatusToSchedule } from '../../../utils/aiScheduleHistory'
@@ -2790,7 +2790,7 @@ ${personality ? `人设：${personality}` : ''}
     
     try {
       // 获取现有帖子和NPC
-      const currentPosts = getAllPosts()
+      const currentPosts = await getAllPostsAsync()
       const existingNPCs = getAllNPCs()
       const baseTimestamp = Date.now()
       
@@ -2829,7 +2829,7 @@ ${personality ? `人设：${personality}` : ''}
       }
       
       currentPosts.unshift(newPost)
-      savePosts(currentPosts)
+      await savePosts(currentPosts)
       
       console.log(`✅ [AI发布论坛帖子] 帖子已创建: ${postId}, 点赞: ${likes}`)
       
@@ -2865,7 +2865,7 @@ ${personality ? `人设：${personality}` : ''}
           const allCharacters = await getAllCharacters()
           
           // 获取楼主（AI角色）的历史帖子
-          const authorPosts = getAllPosts()
+          const authorPosts = (await getAllPostsAsync())
             .filter(p => p.npcId === npcId)
             .slice(0, 10)
             .map(p => p.content.substring(0, 80))
@@ -2892,13 +2892,13 @@ ${personality ? `人设：${personality}` : ''}
           const { getPostComments } = await import('../../../utils/forumCommentsDB')
           const postComments = await getPostComments(postId)
           
-          const updatedPosts = getAllPosts()
+          const updatedPosts = await getAllPostsAsync()
           const targetPost = updatedPosts.find(p => p.id === postId)
           if (targetPost) {
             // 🔥 计算总评论数：主楼 + 所有楼中楼
             const totalComments = postComments.reduce((sum: number, c: any) => sum + 1 + (c.replies?.length || 0), 0)
             targetPost.comments = totalComments
-            savePosts(updatedPosts)
+            await savePosts(updatedPosts)
             console.log(`✅ [AI发布论坛帖子] 评论数: ${totalComments}`)
           }
           

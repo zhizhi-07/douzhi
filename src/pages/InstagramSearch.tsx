@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Hash, Plus, X } from 'lucide-react'
 import InstagramLayout from '../components/InstagramLayout'
 import { apiService } from '../services/apiService'
-import { getAllPosts, savePosts, getAllNPCs, saveNPCs, cleanupNPCStorage } from '../utils/forumNPC'
+import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs, cleanupNPCStorage } from '../utils/forumNPC'
 import { getAllCharacters } from '../utils/characterManager'
 
 interface Topic {
@@ -193,7 +193,7 @@ ${publicFigurePrompt}
       
       // 解析帖子和评论（新格式：===帖子N=== 分割）
       const postBlocks = content.split(/===帖子\d+===/).filter((b: string) => b.trim())
-      const currentPosts = getAllPosts()
+      const currentPosts = await getAllPostsAsync()
       const existingNPCs = getAllNPCs()
       const baseTimestamp = Date.now()
       const createdPostIds: string[] = []
@@ -321,7 +321,7 @@ ${publicFigurePrompt}
       }
       
       saveNPCs(existingNPCs)
-      savePosts(currentPosts)
+      await savePosts(currentPosts)
       
       console.log('📝 创建的帖子ID:', createdPostIds)
       
