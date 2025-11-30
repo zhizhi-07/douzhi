@@ -40,8 +40,6 @@ html, body, #root {
 /* 全局背景透明 - 让App.tsx的全局背景显示 */
 body {
   background: transparent !important;
-  /* 默认高级渐变背景，当没有自定义壁纸时显示 */
-  background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
 }
 
 /* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh */
