@@ -46,12 +46,12 @@ const ChatDetail = () => {
 
   // 核心状态
   const chatState = useChatState(id || '')
-  
+
   // 使用新的hooks
   const { wallpaperStyle, hasCustomWallpaper } = useWallpaper(id)
   const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages, chatState.character?.realName)
   const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
-  
+
   // 滚动控制
   const { scrollContainerRef, scrollToBottom, isNearBottom } = useScrollControl(
     chatState.messages,
@@ -64,10 +64,10 @@ const ChatDetail = () => {
   // 记录加载更多前的滚动位置，用于保持视口不跳动
   const previousScrollHeightRef = useRef<number | null>(null)
   const previousScrollTopRef = useRef<number | null>(null)
-  
+
   // 气泡样式
   useChatBubbles(id)
-  
+
   // Token 统计详情面板状态
   const [showTokenDetail, setShowTokenDetail] = useState(false)
 
@@ -77,7 +77,7 @@ const ChatDetail = () => {
   // AI状态弹窗
   const [showAIStatusModal, setShowAIStatusModal] = useState(false)
   const [currentAIStatus, setCurrentAIStatus] = useState<any>(null)
-  
+
   // 处理状态栏点击
   const handleStatusClick = async () => {
     if (!id || !chatState.character) return
@@ -86,7 +86,7 @@ const ChatDetail = () => {
     setCurrentAIStatus(status)
     setShowAIStatusModal(true)
   }
-  
+
   // 读取聊天设置（包括是否隐藏Token）
   const [hideTokenStats, setHideTokenStats] = useState(false)
   useEffect(() => {
@@ -101,7 +101,7 @@ const ChatDetail = () => {
       }
     }
   }, [id])
-  
+
   // 监听角色信息更新事件
   useEffect(() => {
     const handleCharacterUpdate = (e: Event) => {
@@ -111,21 +111,21 @@ const ChatDetail = () => {
         chatState.refreshCharacter()
       }
     }
-    
+
     window.addEventListener('character-updated', handleCharacterUpdate)
     return () => window.removeEventListener('character-updated', handleCharacterUpdate)
   }, [id, chatState])
-  
-  
+
+
   // 移除组件卸载时的保存逻辑，因为addMessage已经会自动备份了
   // 组件卸载时保存可能会用过时的React状态覆盖最新的备份
-  
+
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
-  
+
   // 拍一拍功能
   const { handlePoke } = usePoke(id, chatState.character, chatState.messages, chatState.setMessages)
-  
+
   const transfer = useTransfer(chatState.setMessages, chatState.character?.nickname || chatState.character?.realName || '未知', id || '')
   const voice = useVoice(chatState.setMessages, id || '')
   const locationMsg = useLocationMsg(chatState.setMessages, id || '')
@@ -137,12 +137,12 @@ const ChatDetail = () => {
     chatState.character?.nickname || chatState.character?.realName || 'AI',
     chatState.setMessages
   )
-  
+
   // 通知和未读消息管理
   useChatNotifications({
     chatId: id
   })
-  
+
   const coupleSpace = useCoupleSpace(id, chatState.character, chatState.setMessages)
   const modals = useModals()
   const musicInvite = useMusicInvite(id || '', chatState.setMessages, id)
@@ -157,28 +157,28 @@ const ChatDetail = () => {
   // 格式修正处理器
   const handleFormatCorrection = useCallback(async () => {
     if (!id) return
-    
+
     // 获取最后一轮AI消息（从最后一条用户消息之后的所有AI消息）
     const lastUserMsgIndex = [...chatState.messages].reverse().findIndex(m => m.type === 'sent')
     if (lastUserMsgIndex === -1) {
       alert('没有找到用户消息')
       return
     }
-    
+
     const actualIndex = chatState.messages.length - 1 - lastUserMsgIndex
     const lastRoundAIMessages = chatState.messages.slice(actualIndex + 1).filter(m => m.type === 'received')
-    
+
     if (lastRoundAIMessages.length === 0) {
       alert('没有找到AI消息')
       return
     }
-    
+
     // 修正所有消息
     let totalCorrections: string[] = []
     const updatedMessages = chatState.messages.map(msg => {
       const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
       if (!isTargetMessage) return msg
-      
+
       const result = correctAIMessageFormat(msg.content || '')
       if (result.corrected) {
         totalCorrections.push(...result.corrections.map(c => `[${String(msg.id).slice(0, 8)}] ${c}`))
@@ -186,20 +186,20 @@ const ChatDetail = () => {
       }
       return msg
     })
-    
+
     if (totalCorrections.length === 0) {
       alert('格式正确，无需修正')
       return
     }
-    
+
     // 🔥 重新执行命令处理：从 commandHandlers 导入
     const { commandHandlers } = await import('./ChatDetail/hooks/commandHandlers')
-    
+
     // 处理每条修正后的消息
     for (const msg of updatedMessages) {
       const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
       if (!isTargetMessage || !msg.content) continue
-      
+
       // 遍历所有指令处理器
       for (const handler of commandHandlers) {
         const match = msg.content.match(handler.pattern)
@@ -216,13 +216,13 @@ const ChatDetail = () => {
         }
       }
     }
-    
+
     // 保存到存储
     saveMessages(id, updatedMessages)
-    
+
     // 更新React状态
     chatState.setMessages(updatedMessages)
-    
+
     // 显示修正结果
     alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}\n\n命令已重新执行，请查看效果`)
   }, [id, chatState.messages, chatState.setMessages, chatState.character])
@@ -243,15 +243,15 @@ const ChatDetail = () => {
     () => postGenerator.setShowPostGenerator(true),  // 帖子生成
     handleFormatCorrection  // 格式修正
   )
-  
+
   // 多选模式
   const multiSelect = useMultiSelect(id || '', chatState.messages, chatState.setMessages)
-  
+
   // 处理转发确认
   const handleForwardConfirm = useCallback((targetCharacterId: string) => {
     const selectedMessages = multiSelect.getSelectedMessages()
     const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
-    
+
     // 转换消息格式
     const formattedMessages = selectedMessages.map(msg => ({
       senderName: msg.type === 'sent' ? '我' : characterName,
@@ -259,11 +259,11 @@ const ChatDetail = () => {
       messageType: msg.messageType,
       time: msg.time
     }))
-    
+
     forward.forwardMessages(targetCharacterId, formattedMessages as any)
     multiSelect.exitMultiSelectMode()
   }, [multiSelect, chatState.character, forward])
-  
+
   const messageMenu = useMessageMenu(id || '', chatState.setMessages, multiSelect.enterMultiSelectMode)
   const longPress = useLongPress((msg, position) => {
     // 多选模式下不显示菜单
@@ -276,7 +276,7 @@ const ChatDetail = () => {
 
   // 🔥 禁用虚拟化，只使用分页加载（虚拟化有白屏BUG）
   const shouldUseVirtualization = false
-  
+
 
   // 🔥 优化：使用useCallback确保返回按钮始终可用
   const handleBack = useCallback(() => {
@@ -317,23 +317,23 @@ const ChatDetail = () => {
       }, 500)
       return
     }
-    
+
     if (!id || !chatState.character) return
-    
+
     const missedCallKey = `missed_call_${id}`
     const missedCallData = sessionStorage.getItem(missedCallKey)
-    
+
     if (missedCallData) {
       try {
         const missedCall = JSON.parse(missedCallData)
         const timeDiff = Date.now() - missedCall.timestamp
-        
+
         // 如果未接来电在1分钟内，重新触发来电界面
         if (timeDiff < 60000) {
           console.log('📞 检测到未接来电，重新显示来电界面')
           // 清除未接来电记录
           sessionStorage.removeItem(missedCallKey)
-          
+
           // 触发来电界面
           setTimeout(() => {
             videoCall.receiveIncomingCall()
@@ -341,7 +341,7 @@ const ChatDetail = () => {
         } else {
           // 超过1分钟，清除记录并添加未接来电提示
           sessionStorage.removeItem(missedCallKey)
-          
+
           const missedCallMsg: Message = {
             id: Date.now(),
             type: 'system',
@@ -358,31 +358,31 @@ const ChatDetail = () => {
       }
     }
   }, [id, chatState.character, videoCall, chatState.setMessages])
-  
+
   const handleRecallMessage = (message: Message) => {
     const isUserMessage = message.type === 'sent'
     const originalMessageType = message.type === 'sent' ? 'sent' as const : 'received' as const
-    
+
     // 从IndexedDB加载消息
     const messages = loadMessages(id || '')
-    const updatedMessages = messages.map(msg => 
-      msg.id === message.id 
-        ? { 
-            ...msg, 
-            isRecalled: true,
-            recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '特殊消息',
-            recallReason: '',
-            originalType: originalMessageType,
-            content: isUserMessage ? '你撤回了一条消息' : (chatState.character?.realName || '对方') + '撤回了一条消息',
-            type: 'system' as const,
-            messageType: 'system' as const
-          }
+    const updatedMessages = messages.map(msg =>
+      msg.id === message.id
+        ? {
+          ...msg,
+          isRecalled: true,
+          recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '特殊消息',
+          recallReason: '',
+          originalType: originalMessageType,
+          content: isUserMessage ? '你撤回了一条消息' : (chatState.character?.realName || '对方') + '撤回了一条消息',
+          type: 'system' as const,
+          messageType: 'system' as const
+        }
         : msg
     )
-    
+
     // 保存到IndexedDB
     saveMessages(id || '', updatedMessages)
-    
+
     // 更新React状态
     chatState.setMessages(() => updatedMessages)
   }
@@ -398,17 +398,17 @@ const ChatDetail = () => {
       </div>
     )
   }
-  
+
   const character = chatState.character
 
   // 减少日志频率，避免输入时刷屏
   if (import.meta.env.DEV && chatState.messages.length % 10 === 0) {
     console.log(`📊 [ChatDetail] 消息数量: ${chatState.messages.length}, 虚拟化: ${shouldUseVirtualization ? '✅启用' : '❌关闭'}, 还有更多: ${chatState.hasMoreMessages}`)
   }
-  
+
 
   return (
-    <div 
+    <div
       className="h-screen flex flex-col"
       style={wallpaperStyle}
       {...(hasCustomWallpaper ? { 'data-chat-wallpaper': true } : {})}
@@ -426,13 +426,13 @@ const ChatDetail = () => {
         topBarY={topBarY}
         customIcons={customIcons}
       />
-      
+
       {/* Token 详情面板 - 显示在头部下方 */}
       {showTokenDetail && chatAI.tokenStats.total > 0 && (
         <div className="mx-4 mt-2 p-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-700">本次请求统计</span>
-            <button 
+            <button
               onClick={() => setShowTokenDetail(false)}
               className="text-gray-400 hover:text-gray-600"
             >
@@ -441,7 +441,7 @@ const ChatDetail = () => {
               </svg>
             </button>
           </div>
-          
+
           {/* Token 使用 */}
           <div className="space-y-1">
             <div className="flex justify-between items-center">
@@ -475,7 +475,7 @@ const ChatDetail = () => {
               <span className="text-gray-700">{chatAI.tokenStats.messages.toLocaleString()}</span>
             </div>
           </div>
-          
+
           {/* 输出Token */}
           {chatAI.tokenStats.outputTokens && chatAI.tokenStats.outputTokens > 0 && (
             <div className="pt-2 mt-2 border-t border-gray-200">
@@ -485,25 +485,25 @@ const ChatDetail = () => {
               </div>
             </div>
           )}
-          
+
           {/* 响应时间 */}
           {chatAI.tokenStats.responseTime && chatAI.tokenStats.responseTime > 0 && (
             <div className="pt-2 mt-2 border-t border-gray-200">
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-500">响应时间</span>
-                <span className="text-gray-600">{(chatAI.tokenStats.responseTime/1000).toFixed(2)}s</span>
+                <span className="text-gray-600">{(chatAI.tokenStats.responseTime / 1000).toFixed(2)}s</span>
               </div>
             </div>
           )}
         </div>
       )}
-      
+
       {chatState.error && (
         <div className="mx-4 mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm">
           {chatState.error}
         </div>
       )}
-      
+
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
@@ -536,7 +536,7 @@ const ChatDetail = () => {
               const userInfo = getUserInfo()
               const userName = userInfo.nickname || userInfo.realName || '用户'
               const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
-              
+
               let updatedMessages: Message[] = []
               chatState.setMessages(prev => {
                 updatedMessages = prev.map(msg => {
@@ -623,355 +623,355 @@ const ChatDetail = () => {
             {chatState.messages
               .filter(m => m.sceneMode !== 'offline')  // 🔥 过滤掉线下模式的消息
               .map((message, index) => {
-          // 获取过滤后的消息列表用于计算时间戳
-          const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline')
-          // 判断是否需要显示时间戳（两条消息间隔超过5分钟就显示）
-          const prevMsg = visibleMessages[index - 1]
-          let shouldShow5MinTimestamp = false
-          
-          if (index === 0) {
-            shouldShow5MinTimestamp = true
-          } else if (message.timestamp && prevMsg?.timestamp) {
-            // 计算两条消息之间的时间差
-            const timeDiff = message.timestamp - prevMsg.timestamp
-            // 如果时间差超过5分钟，显示时间戳
-            shouldShow5MinTimestamp = timeDiff >= 5 * 60 * 1000  // 5分钟 = 300000毫秒
-          }
-          
-          // 格式化5分钟时间戳
-          let timestamp5MinText = ''
-          if (shouldShow5MinTimestamp) {
-            const msgDate = new Date(message.timestamp)
-            const today = new Date()
-            
-            // 判断是否是今天
-            const isToday = msgDate.getDate() === today.getDate() &&
-                           msgDate.getMonth() === today.getMonth() &&
-                           msgDate.getFullYear() === today.getFullYear()
-            
-            if (isToday) {
-              // 今天只显示时间
-              timestamp5MinText = msgDate.toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            } else {
-              // 昨天及以前显示日期+时间
-              timestamp5MinText = msgDate.toLocaleString('zh-CN', {
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            }
-          }
-          
-          if (message.type === 'system') {
-            // 🔥 如果是只给AI看的消息，不在界面显示
-            if (message.aiOnly) {
-              return null
-            }
-            
-            if (message.isRecalled && message.recalledContent) {
-              return (
-                <div key={message.id}>
-                  {shouldShow5MinTimestamp && (
-                    <div className="flex justify-center my-2">
-                      <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                        <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                // 获取过滤后的消息列表用于计算时间戳
+                const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline')
+                // 判断是否需要显示时间戳（两条消息间隔超过5分钟就显示）
+                const prevMsg = visibleMessages[index - 1]
+                let shouldShow5MinTimestamp = false
+
+                if (index === 0) {
+                  shouldShow5MinTimestamp = true
+                } else if (message.timestamp && prevMsg?.timestamp) {
+                  // 计算两条消息之间的时间差
+                  const timeDiff = message.timestamp - prevMsg.timestamp
+                  // 如果时间差超过5分钟，显示时间戳
+                  shouldShow5MinTimestamp = timeDiff >= 5 * 60 * 1000  // 5分钟 = 300000毫秒
+                }
+
+                // 格式化5分钟时间戳
+                let timestamp5MinText = ''
+                if (shouldShow5MinTimestamp) {
+                  const msgDate = new Date(message.timestamp)
+                  const today = new Date()
+
+                  // 判断是否是今天
+                  const isToday = msgDate.getDate() === today.getDate() &&
+                    msgDate.getMonth() === today.getMonth() &&
+                    msgDate.getFullYear() === today.getFullYear()
+
+                  if (isToday) {
+                    // 今天只显示时间
+                    timestamp5MinText = msgDate.toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })
+                  } else {
+                    // 昨天及以前显示日期+时间
+                    timestamp5MinText = msgDate.toLocaleString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })
+                  }
+                }
+
+                if (message.type === 'system') {
+                  // 🔥 如果是只给AI看的消息，不在界面显示
+                  if (message.aiOnly) {
+                    return null
+                  }
+
+                  if (message.isRecalled && message.recalledContent) {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-center my-1">
+                          <div
+                            className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
+                            onClick={() => modals.setViewingRecalledMessage(message)}
+                          >
+                            {message.content}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // 视频通话记录
+                  if (message.messageType === 'video-call-record' && message.videoCallRecord) {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-center my-1">
+                          <div
+                            className="bg-white/80 backdrop-blur-sm rounded-[32px] p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
+                            onClick={() => modals.setViewingCallRecord(message)}
+                          >
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
+                                <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                              </svg>
+                              <span>{message.content}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // 🔥 线下记录
+                  if (message.messageType === 'offline-summary' && message.offlineSummary) {
+                    return (
+                      <div key={message.id}>
+                        <OfflineSummaryCard
+                          message={message}
+                          onEdit={(msg: Message) => {
+                            setEditingOfflineRecord(msg)
+                            setShowOfflineRecordDialog(true)
+                          }}
+                        />
+                      </div>
+                    )
+                  }
+
+                  // 带有头像提示词的系统消息（AI 换头像），点击可查看详细提示词
+                  const avatarPrompt = (message as any).avatarPrompt as string | undefined
+
+                  return (
+                    <div key={message.id}>
+                      {shouldShow5MinTimestamp && (
+                        <div className="flex justify-center my-2">
+                          <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                            <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-center my-1">
+                        {avatarPrompt ? (
+                          <button
+                            className="text-xs text-gray-500 px-4 py-1 rounded-full bg-white/70 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:text-gray-700 transition-colors"
+                            onClick={() => {
+                              alert(`本次换头像使用的提示词:\n\n${avatarPrompt}`)
+                            }}
+                          >
+                            {message.content}
+                          </button>
+                        ) : (
+                          <div className="text-xs text-gray-400 px-4 py-1">
+                            {message.content}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                  <div className="flex justify-center my-1">
-                    <div 
-                      className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
-                      onClick={() => modals.setViewingRecalledMessage(message)}
+                  )
+                }
+
+                // 线下模式消息不在聊天窗口显示
+                if (message.sceneMode === 'offline') {
+                  return null
+                }
+
+                const isSelectable = multiSelect.isMessageSelectable(message)
+                const isSelected = multiSelect.selectedMessageIds.has(message.id)
+
+                return (
+                  <div key={message.id} className="flex flex-col gap-0.5">
+                    {/* 5分钟时间戳 */}
+                    {shouldShow5MinTimestamp && (
+                      <div className="flex justify-center my-2">
+                        <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                          <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div
+                      className={'message-container flex items-start gap-1.5 my-1 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
                     >
-                      {message.content}
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-            
-            // 视频通话记录
-            if (message.messageType === 'video-call-record' && message.videoCallRecord) {
-              return (
-                <div key={message.id}>
-                  {shouldShow5MinTimestamp && (
-                    <div className="flex justify-center my-2">
-                      <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                        <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      {/* 多选模式下的复选框 */}
+                      {multiSelect.isMultiSelectMode && (
+                        <div
+                          className="flex items-center justify-center flex-shrink-0 mt-1"
+                          onClick={() => isSelectable && multiSelect.toggleMessageSelection(message.id)}
+                        >
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                            }`}>
+                            {isSelected && (
+                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <Avatar
+                          type={message.type}
+                          avatar={character.avatar}
+                          name={character.realName}
+                          chatId={id}
+                          onPoke={message.type === 'received' ? handlePoke : undefined}
+                        />
+                      </div>
+
+                      <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+                        {/* 引用消息（显示在所有消息类型上方） */}
+                        {message.quotedMessage && (
+                          <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
+                            message.type === 'sent'
+                              ? 'bg-gray-200'
+                              : 'bg-gray-200'
+                          )}>
+                            <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-gray-900' : 'text-blue-500')}>
+                              {message.quotedMessage.senderName}
+                            </div>
+                            <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-gray-700' : 'text-gray-600')}>
+                              {message.quotedMessage.content}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 消息内容和拉黑标记的容器 */}
+                        <div className="flex items-end gap-2">
+
+                          {/* 用户被AI拉黑的警告图标（左侧） */}
+                          {message.blockedByReceiver && message.type === 'sent' && (
+                            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                              <span className="text-white text-xs font-bold">!</span>
+                            </div>
+                          )}
+
+                          {/* 消息内容：特殊消息或文本气泡 */}
+                          {message.coupleSpaceInvite ||
+                            message.messageType === 'intimatePay' ||
+                            message.messageType === 'forwarded-chat' ||
+                            message.messageType === 'emoji' ||
+                            message.messageType === 'transfer' ||
+                            message.messageType === 'voice' ||
+                            message.messageType === 'location' ||
+                            message.messageType === 'photo' ||
+                            message.messageType === 'paymentRequest' ||
+                            message.messageType === 'productCard' ||
+                            message.messageType === 'post' ||
+                            message.messageType === 'theatre' ||
+                            message.messageType === 'poke' ||
+                            message.messageType === 'musicShare' ||
+                            (message.messageType as any) === 'musicInvite' ? (
+                            <SpecialMessageRenderer
+                              message={message}
+                              characterId={chatState.character?.id || ''}
+                              characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                              onAcceptInvite={coupleSpace.acceptInvite}
+                              onRejectInvite={coupleSpace.rejectInvite}
+                              onAcceptMusicInvite={musicInvite.acceptInvite}
+                              onRejectMusicInvite={musicInvite.rejectInvite}
+                              onUpdateIntimatePayStatus={async (messageId, newStatus) => {
+                                // 🔥 获取用户名称
+                                const userInfo = getUserInfo()
+                                const userName = userInfo.nickname || userInfo.realName || '用户'
+                                const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
+
+                                let updatedMessages: Message[] = []
+                                chatState.setMessages(prev => {
+                                  updatedMessages = prev.map(msg => {
+                                    if (msg.id === messageId && msg.intimatePay) {
+                                      // 🔥 根据状态生成AI可读内容
+                                      const monthlyLimit = msg.intimatePay.monthlyLimit
+                                      let aiReadableContent = ''
+                                      if (msg.type === 'received') {
+                                        // AI发给用户的亲密付
+                                        if (newStatus === 'accepted') {
+                                          aiReadableContent = `[${userName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                                        } else if (newStatus === 'rejected') {
+                                          aiReadableContent = `[${userName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                                        }
+                                      } else {
+                                        // 用户发给AI的亲密付
+                                        if (newStatus === 'accepted') {
+                                          aiReadableContent = `[${characterName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                                        } else if (newStatus === 'rejected') {
+                                          aiReadableContent = `[${characterName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
+                                        }
+                                      }
+                                      return {
+                                        ...msg,
+                                        intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' },
+                                        aiReadableContent
+                                      }
+                                    }
+                                    return msg
+                                  })
+                                  return updatedMessages
+                                })
+                                // 🔥 保存到IndexedDB
+                                if (id && updatedMessages.length > 0) {
+                                  await saveMessages(id, updatedMessages)
+                                  console.log('💾 [亲密付状态更新] 已保存到数据库，AI可读内容已添加')
+                                }
+                              }}
+                              onViewForwardedChat={forward.setViewingForwardedChat}
+                              onReceiveTransfer={transfer.handleReceiveTransfer}
+                              onRejectTransfer={transfer.handleRejectTransfer}
+                              onPlayVoice={voice.handlePlayVoice}
+                              onToggleVoiceText={voice.handleToggleVoiceText}
+                              playingVoiceId={voice.playingVoiceId}
+                              showVoiceTextMap={voice.showVoiceTextMap}
+                              onAcceptPayment={paymentRequest.acceptPayment}
+                              onRejectPayment={paymentRequest.rejectPayment}
+                            />
+                          ) : (
+                            <MessageBubble
+                              message={message}
+                              onLongPressStart={longPress.handleLongPressStart}
+                              onLongPressEnd={longPress.handleLongPressEnd}
+                            />
+                          )}
+
+                          {/* AI被拉黑的警告图标 - 和消息在同一行 */}
+                          {message.blocked && message.type === 'received' && (
+                            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                              <span className="text-white text-xs font-bold">!</span>
+                            </div>
+                          )}
+
+                        </div>
+
+                        {/* 时间戳 - 显示在气泡下方居中 */}
+                        <div className="flex justify-center mt-1">
+                          <div className="text-xs text-gray-400">
+                            {message.time}
+                          </div>
+                        </div>
+
                       </div>
                     </div>
-                  )}
-                  <div className="flex justify-center my-1">
-                    <div 
-                      className="bg-white/80 backdrop-blur-sm rounded-[32px] p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
-                      onClick={() => modals.setViewingCallRecord(message)}
-                    >
-                      <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                          <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                        </svg>
-                        <span>{message.content}</span>
+
+                    {/* 用户被AI拉黑的提示文字 - 独立居中显示 */}
+                    {message.blockedByReceiver && message.type === 'sent' && (
+                      <div className="flex justify-center w-full">
+                        <div className="text-xs text-gray-400">
+                          消息已送达但对方拒收了
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-            
-            // 🔥 线下记录
-            if (message.messageType === 'offline-summary' && message.offlineSummary) {
-              return (
-                <div key={message.id}>
-                  <OfflineSummaryCard 
-                    message={message} 
-                    onEdit={(msg: Message) => {
-                      setEditingOfflineRecord(msg)
-                      setShowOfflineRecordDialog(true)
-                    }}
-                  />
-                </div>
-              )
-            }
-            
-            // 带有头像提示词的系统消息（AI 换头像），点击可查看详细提示词
-            const avatarPrompt = (message as any).avatarPrompt as string | undefined
-
-            return (
-              <div key={message.id}>
-                {shouldShow5MinTimestamp && (
-                  <div className="flex justify-center my-2">
-                    <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                      <div className="text-xs text-gray-500">{timestamp5MinText}</div>
-                    </div>
-                  </div>
-                )}
-                <div className="flex justify-center my-1">
-                  {avatarPrompt ? (
-                    <button
-                      className="text-xs text-gray-500 px-4 py-1 rounded-full bg-white/70 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:text-gray-700 transition-colors"
-                      onClick={() => {
-                        alert(`本次换头像使用的提示词:\n\n${avatarPrompt}`)
-                      }}
-                    >
-                      {message.content}
-                    </button>
-                  ) : (
-                    <div className="text-xs text-gray-400 px-4 py-1">
-                      {message.content}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          }
-
-          // 线下模式消息不在聊天窗口显示
-          if (message.sceneMode === 'offline') {
-            return null
-          }
-
-          const isSelectable = multiSelect.isMessageSelectable(message)
-          const isSelected = multiSelect.selectedMessageIds.has(message.id)
-          
-          return (
-            <div key={message.id} className="flex flex-col gap-0.5">
-            {/* 5分钟时间戳 */}
-            {shouldShow5MinTimestamp && (
-              <div className="flex justify-center my-2">
-                <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                  <div className="text-xs text-gray-500">{timestamp5MinText}</div>
-                </div>
-              </div>
-            )}
-            <div
-              className={'message-container flex items-start gap-1.5 my-1 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
-            >
-              {/* 多选模式下的复选框 */}
-              {multiSelect.isMultiSelectMode && (
-                <div 
-                  className="flex items-center justify-center flex-shrink-0 mt-1"
-                  onClick={() => isSelectable && multiSelect.toggleMessageSelection(message.id)}
-                >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                    !isSelectable
-                      ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
-                      : isSelected
-                        ? 'border-blue-500 bg-blue-500'
-                        : 'border-gray-400 bg-white cursor-pointer active:scale-90'
-                  }`}>
-                    {isSelected && (
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
                     )}
                   </div>
-                </div>
-              )}
-              
-              <div className="flex flex-col items-center flex-shrink-0">
-                <Avatar 
-                  type={message.type}
-                  avatar={character.avatar}
-                  name={character.realName}
-                  chatId={id}
-                  onPoke={message.type === 'received' ? handlePoke : undefined}
-                />
-              </div>
-              
-              <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
-                {/* 引用消息（显示在所有消息类型上方） */}
-                {message.quotedMessage && (
-                  <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
-                    message.type === 'sent' 
-                      ? 'bg-gray-200' 
-                      : 'bg-gray-200'
-                  )}>
-                    <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-gray-900' : 'text-blue-500')}>
-                      {message.quotedMessage.senderName}
-                    </div>
-                    <div className={'text-xs opacity-80 overflow-hidden text-ellipsis whitespace-nowrap ' + (message.type === 'sent' ? 'text-gray-700' : 'text-gray-600')}>
-                      {message.quotedMessage.content}
-                    </div>
-                  </div>
-                )}
-                
-                {/* 消息内容和拉黑标记的容器 */}
-                <div className="flex items-end gap-2">
-                
-                {/* 用户被AI拉黑的警告图标（左侧） */}
-                {message.blockedByReceiver && message.type === 'sent' && (
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
-                    <span className="text-white text-xs font-bold">!</span>
-                  </div>
-                )}
-                
-                {/* 消息内容：特殊消息或文本气泡 */}
-                {message.coupleSpaceInvite || 
-                 message.messageType === 'intimatePay' || 
-                 message.messageType === 'forwarded-chat' || 
-                 message.messageType === 'emoji' || 
-                 message.messageType === 'transfer' || 
-                 message.messageType === 'voice' || 
-                 message.messageType === 'location' || 
-                 message.messageType === 'photo' ||
-                 message.messageType === 'paymentRequest' ||
-                 message.messageType === 'productCard' ||
-                 message.messageType === 'post' ||
-                 message.messageType === 'theatre' ||
-                 message.messageType === 'poke' ||
-                 (message.messageType as any) === 'musicInvite' ? (
-                  <SpecialMessageRenderer
-                    message={message}
-                    characterId={chatState.character?.id || ''}
-                    characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                    onAcceptInvite={coupleSpace.acceptInvite}
-                    onRejectInvite={coupleSpace.rejectInvite}
-                    onAcceptMusicInvite={musicInvite.acceptInvite}
-                    onRejectMusicInvite={musicInvite.rejectInvite}
-                    onUpdateIntimatePayStatus={async (messageId, newStatus) => {
-                      // 🔥 获取用户名称
-                      const userInfo = getUserInfo()
-                      const userName = userInfo.nickname || userInfo.realName || '用户'
-                      const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
-                      
-                      let updatedMessages: Message[] = []
-                      chatState.setMessages(prev => {
-                        updatedMessages = prev.map(msg => {
-                          if (msg.id === messageId && msg.intimatePay) {
-                            // 🔥 根据状态生成AI可读内容
-                            const monthlyLimit = msg.intimatePay.monthlyLimit
-                            let aiReadableContent = ''
-                            if (msg.type === 'received') {
-                              // AI发给用户的亲密付
-                              if (newStatus === 'accepted') {
-                                aiReadableContent = `[${userName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                              } else if (newStatus === 'rejected') {
-                                aiReadableContent = `[${userName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                              }
-                            } else {
-                              // 用户发给AI的亲密付
-                              if (newStatus === 'accepted') {
-                                aiReadableContent = `[${characterName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                              } else if (newStatus === 'rejected') {
-                                aiReadableContent = `[${characterName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                              }
-                            }
-                            return {
-                              ...msg,
-                              intimatePay: { ...msg.intimatePay, status: newStatus as 'pending' | 'accepted' | 'rejected' },
-                              aiReadableContent
-                            }
-                          }
-                          return msg
-                        })
-                        return updatedMessages
-                      })
-                      // 🔥 保存到IndexedDB
-                      if (id && updatedMessages.length > 0) {
-                        await saveMessages(id, updatedMessages)
-                        console.log('💾 [亲密付状态更新] 已保存到数据库，AI可读内容已添加')
-                      }
-                    }}
-                    onViewForwardedChat={forward.setViewingForwardedChat}
-                    onReceiveTransfer={transfer.handleReceiveTransfer}
-                    onRejectTransfer={transfer.handleRejectTransfer}
-                    onPlayVoice={voice.handlePlayVoice}
-                    onToggleVoiceText={voice.handleToggleVoiceText}
-                    playingVoiceId={voice.playingVoiceId}
-                    showVoiceTextMap={voice.showVoiceTextMap}
-                    onAcceptPayment={paymentRequest.acceptPayment}
-                    onRejectPayment={paymentRequest.rejectPayment}
-                  />
-                ) : (
-                  <MessageBubble
-                    message={message}
-                    onLongPressStart={longPress.handleLongPressStart}
-                    onLongPressEnd={longPress.handleLongPressEnd}
-                  />
-                )}
-                
-                {/* AI被拉黑的警告图标 - 和消息在同一行 */}
-                {message.blocked && message.type === 'received' && (
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
-                    <span className="text-white text-xs font-bold">!</span>
-                  </div>
-                )}
-                
-                </div>
-                
-                {/* 时间戳 - 显示在气泡下方居中 */}
-                <div className="flex justify-center mt-1">
-                  <div className="text-xs text-gray-400">
-                    {message.time}
-                  </div>
-                </div>
-                
-              </div>
-            </div>
-            
-            {/* 用户被AI拉黑的提示文字 - 独立居中显示 */}
-            {message.blockedByReceiver && message.type === 'sent' && (
-              <div className="flex justify-center w-full">
-                <div className="text-xs text-gray-400">
-                  消息已送达但对方拒收了
-                </div>
-              </div>
-            )}
-          </div>
-          )
-        })}
+                )
+              })}
           </>
         )}
-        
+
         {chatAI.isAiTyping && (
           <div className="flex items-start gap-1.5 my-1 message-enter message-enter-left">
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
-              <Avatar 
+              <Avatar
                 type="received"
                 avatar={character.avatar}
                 name={character.realName}
@@ -979,7 +979,7 @@ const ChatDetail = () => {
                 onPoke={handlePoke}
               />
             </div>
-            
+
             <div className="flex flex-col items-start">
               <div className="bg-white px-3 py-2 rounded-lg rounded-tl-none shadow-sm typing-indicator text-sm">
                 <div className="flex gap-1">
@@ -991,11 +991,11 @@ const ChatDetail = () => {
             </div>
           </div>
         )}
-        
+
         {/* 消息结束标记 - 用于滚动定位 */}
         <div ref={chatAI.messagesEndRef} id="messages-end" />
       </div>
-      
+
       {/* 多选模式底部操作栏 */}
       {multiSelect.isMultiSelectMode && (
         <div className="backdrop-blur-sm bg-white/90 border-t border-gray-200 px-4 py-3">
@@ -1016,11 +1016,10 @@ const ChatDetail = () => {
               <button
                 onClick={multiSelect.openForwardModal}
                 disabled={multiSelect.selectedMessageIds.size === 0}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  multiSelect.selectedMessageIds.size > 0
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${multiSelect.selectedMessageIds.size > 0
                     ? 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 转发
               </button>
@@ -1028,11 +1027,10 @@ const ChatDetail = () => {
               <button
                 onClick={multiSelect.deleteSelectedMessages}
                 disabled={multiSelect.selectedMessageIds.size === 0}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  multiSelect.selectedMessageIds.size > 0
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${multiSelect.selectedMessageIds.size > 0
                     ? 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 删除
               </button>
@@ -1040,129 +1038,129 @@ const ChatDetail = () => {
           </div>
         </div>
       )}
-      
+
       {/* 底部输入栏 - 毛玻璃效果 */}
       {!multiSelect.isMultiSelectMode && (
-      <div className="relative bg-transparent">
-        {/* 底栏装饰背景 */}
-        {(customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar) && (
-          <div 
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{
-              backgroundImage: `url(${customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar})`,
-              backgroundSize: `${bottomBarScale}%`,
-              backgroundPosition: `calc(50% + ${bottomBarX}px) calc(50% + ${bottomBarY}px)`
-            }}
-          />
-        )}
-        {modals.quotedMessage && (
-          <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-blue-600 font-medium">
-                {modals.quotedMessage.type === 'sent' ? '我' : character.nickname || character.realName}
-              </div>
-              <div className="text-sm text-gray-600 truncate">
-                {modals.quotedMessage.content}
-              </div>
-            </div>
-            <button
-              onClick={() => modals.setQuotedMessage(null)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        
-        <div className="relative z-10 px-2 py-2 flex items-center gap-1">
-          <button
-            onClick={() => {
-              playSystemSound() // 🎵 统一使用系统点击音效
-              addMenu.setShowAddMenu(true)
-            }}
-            className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
-          >
-            {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
-              <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-8 h-8 object-contain" />
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            )}
-          </button>
-          <div 
-            className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0"
-            style={customIcons['chat-input-bg'] ? {
-              backgroundImage: `url(${customIcons['chat-input-bg']})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            } : {}}
-          >
-            <input
-              type="text"
-              value={chatState.inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="发送消息"
-              className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
+        <div className="relative bg-transparent">
+          {/* 底栏装饰背景 */}
+          {(customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar) && (
+            <div
+              className="absolute inset-0 pointer-events-none z-0"
               style={{
-                transform: 'translateZ(0)', // 🚀 GPU加速
-                willChange: 'contents'
+                backgroundImage: `url(${customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar})`,
+                backgroundSize: `${bottomBarScale}%`,
+                backgroundPosition: `calc(50% + ${bottomBarX}px) calc(50% + ${bottomBarY}px)`
               }}
             />
-          </div>
-          <button 
-            onClick={() => emoji.setShowEmojiPanel(true)}
-            className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
-          >
-            {customIcons['chat-emoji'] ? (
-              <img src={customIcons['chat-emoji']} alt="表情" className="w-8 h-8 object-contain" />
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </button>
-          {chatState.inputValue.trim() ? (
-            <button
-              onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
-              disabled={chatAI.isAiTyping}
-              className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
-            >
-              {customIcons['chat-send'] ? (
-                <img src={customIcons['chat-send']} alt="发送" className="w-6 h-6 object-contain" />
-              ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              )}
-            </button>
-          ) : (
-            <button 
-              onClick={() => chatAI.handleAIReply()}
-              disabled={chatAI.isAiTyping}
-              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
-              style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
-            >
-              {chatAI.isAiTyping ? (
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : customIcons['chat-ai'] ? (
-                <img src={customIcons['chat-ai']} alt="AI回复" className="w-8 h-8 object-contain" />
-              ) : (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              )}
-            </button>
           )}
+          {modals.quotedMessage && (
+            <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-blue-600 font-medium">
+                  {modals.quotedMessage.type === 'sent' ? '我' : character.nickname || character.realName}
+                </div>
+                <div className="text-sm text-gray-600 truncate">
+                  {modals.quotedMessage.content}
+                </div>
+              </div>
+              <button
+                onClick={() => modals.setQuotedMessage(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="relative z-10 px-2 py-2 flex items-center gap-1">
+            <button
+              onClick={() => {
+                playSystemSound() // 🎵 统一使用系统点击音效
+                addMenu.setShowAddMenu(true)
+              }}
+              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
+            >
+              {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
+                <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-8 h-8 object-contain" />
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              )}
+            </button>
+            <div
+              className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0"
+              style={customIcons['chat-input-bg'] ? {
+                backgroundImage: `url(${customIcons['chat-input-bg']})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              } : {}}
+            >
+              <input
+                type="text"
+                value={chatState.inputValue}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="发送消息"
+                className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
+                style={{
+                  transform: 'translateZ(0)', // 🚀 GPU加速
+                  willChange: 'contents'
+                }}
+              />
+            </div>
+            <button
+              onClick={() => emoji.setShowEmojiPanel(true)}
+              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
+            >
+              {customIcons['chat-emoji'] ? (
+                <img src={customIcons['chat-emoji']} alt="表情" className="w-8 h-8 object-contain" />
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </button>
+            {chatState.inputValue.trim() ? (
+              <button
+                onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
+                disabled={chatAI.isAiTyping}
+                className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
+              >
+                {customIcons['chat-send'] ? (
+                  <img src={customIcons['chat-send']} alt="发送" className="w-6 h-6 object-contain" />
+                ) : (
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => chatAI.handleAIReply()}
+                disabled={chatAI.isAiTyping}
+                className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
+                style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
+              >
+                {chatAI.isAiTyping ? (
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : customIcons['chat-ai'] ? (
+                  <img src={customIcons['chat-ai']} alt="AI回复" className="w-8 h-8 object-contain" />
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
+          <div className="flex justify-center pb-2">
+            <div className="w-32 h-1 bg-gray-900 rounded-full opacity-40"></div>
+          </div>
         </div>
-        <div className="flex justify-center pb-2">
-          <div className="w-32 h-1 bg-gray-900 rounded-full opacity-40"></div>
-        </div>
-      </div>
       )}
 
       <AddMenu
@@ -1377,7 +1375,7 @@ const ChatDetail = () => {
         >
           <span className="font-medium">{(chatAI.tokenStats.total / 1000).toFixed(1)}k</span>
           {chatAI.tokenStats.responseTime && chatAI.tokenStats.responseTime > 0 && (
-            <span className="text-[9px] opacity-60">·{(chatAI.tokenStats.responseTime/1000).toFixed(1)}s</span>
+            <span className="text-[9px] opacity-60">·{(chatAI.tokenStats.responseTime / 1000).toFixed(1)}s</span>
           )}
         </button>
       )}

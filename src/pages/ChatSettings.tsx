@@ -154,7 +154,7 @@ const ChatSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPinned, setIsPinned] = useState(false)
   const [character, setCharacter] = useState<any>(null)
-  const [pokeSuffix, setPokeSuffix] = useState('')
+  const [userPokeSuffix, setUserPokeSuffix] = useState('')
   
   // 检查拉黑状态和置顶状态，加载角色信息
   useEffect(() => {
@@ -162,13 +162,20 @@ const ChatSettings = () => {
       const blocked = blacklistManager.isBlockedByMe('user', id)
       setIsBlocked(blocked)
       
+      // 加载用户的拍一拍后缀
+      const loadUserPokeSuffix = async () => {
+        const { getUserInfo } = await import('../utils/userUtils')
+        const userInfo = getUserInfo()
+        setUserPokeSuffix(userInfo.pokeSuffix || '')
+      }
+      loadUserPokeSuffix()
+      
       // 加载角色信息
       const loadCharacter = async () => {
         const characters = await getAllCharacters()
         const char = characters.find(c => c.id === id)
         if (char) {
           setCharacter(char)
-          setPokeSuffix(char.pokeSuffix || '')
         }
       }
       loadCharacter()
@@ -331,21 +338,12 @@ const ChatSettings = () => {
     }
   }
   
-  // 保存拍一拍后缀
-  const savePokeSuffix = async (newSuffix: string) => {
-    if (!character || !id) return
-    
-    // 使用characterService的update方法更新
-    const { characterService } = await import('../services/characterService')
-    const updatedCharacter = characterService.update(id, { pokeSuffix: newSuffix })
-    
-    if (updatedCharacter) {
-      setCharacter(updatedCharacter)
-      console.log('✅ 拍一拍后缀已保存:', newSuffix)
-      
-      // 触发角色信息更新事件，让聊天页面刷新
-      window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: id } }))
-    }
+  // 保存用户的拍一拍后缀
+  const saveUserPokeSuffix = async (newSuffix: string) => {
+    const { getUserInfo, saveUserInfo } = await import('../utils/userUtils')
+    const userInfo = getUserInfo()
+    saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
+    console.log('✅ 用户拍一拍后缀已保存:', newSuffix)
   }
 
   // 切换置顶状态
@@ -466,9 +464,9 @@ const ChatSettings = () => {
           </div>
         </div>
         
-        {/* 角色设置 */}
+        {/* 互动设置 */}
         <div className="glass-card rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
-          <div className="text-sm font-semibold text-slate-700">角色设置</div>
+          <div className="text-sm font-semibold text-slate-700">互动设置</div>
           
           {/* 拍一拍后缀 */}
           <div>
@@ -476,20 +474,20 @@ const ChatSettings = () => {
             <div className="flex gap-2">
               <input
                 type="text"
-                value={pokeSuffix}
+                value={userPokeSuffix}
                 onChange={(e) => {
-                  setPokeSuffix(e.target.value)
+                  setUserPokeSuffix(e.target.value)
                 }}
                 onBlur={(e) => {
                   // 失去焦点时保存
-                  savePokeSuffix(e.target.value)
+                  saveUserPokeSuffix(e.target.value)
                 }}
                 placeholder="如：的小脑袋"
                 className="flex-1 px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              设置后，拍一拍时会显示"XX拍了拍YY{pokeSuffix && pokeSuffix.trim() ? pokeSuffix : '（示例：的小脑袋）'}"
+              这是你的后缀，{character?.nickname || character?.realName || 'TA'}拍你时显示："{character?.nickname || character?.realName || 'TA'}拍了拍你{userPokeSuffix && userPokeSuffix.trim() ? userPokeSuffix : '（示例：的小脑袋）'}"
             </p>
           </div>
         </div>

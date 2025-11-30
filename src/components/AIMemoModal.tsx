@@ -1,9 +1,9 @@
 /**
- * AI随笔弹窗 - 文艺手账版
- * 适配移动端，采用单页信笺/手账风格
+ * AI随笔弹窗 - Lace Notes 风格
+ * 极简、柔软、蕾丝日记本风格
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { getAllDates, getMemosForDate, type AIMemo } from '../utils/aiMemoManager'
 
 interface AIMemoModalProps {
@@ -18,22 +18,16 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
   const [currentIndex, setCurrentIndex] = useState(0)
   const [memos, setMemos] = useState<AIMemo[]>([])
   const [animState, setAnimState] = useState<'entering' | 'active' | 'leaving'>('active')
-  
-  // 字体定义
-  const handwritingFont = "'KaiTi', 'STKaiti', 'DFKai-SB', 'Ma Shan Zheng', serif"
-  const serifFont = "'Noto Serif SC', 'Songti SC', 'SimSun', serif"
 
-  // 调试日志
-  useEffect(() => {
-    // console.log('📝 AIMemoModal 状态:', { isOpen, characterId, characterName, dates: allDates.length, memos: memos.length })
-  }, [isOpen, characterId, characterName, allDates, memos])
+  // 字体定义
+  const serifFont = "'Noto Serif SC', 'Songti SC', 'SimSun', serif"
 
   // 加载数据
   useEffect(() => {
     if (!isOpen || !characterId) return
 
     const dates = getAllDates(characterId)
-    
+
     if (dates.length === 0) {
       // 空状态演示数据
       const today = new Date()
@@ -51,101 +45,89 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
   // 切换日期动画处理
   const changeDate = (direction: 'prev' | 'next') => {
     if (animState !== 'active') return
-    
+
     const newIndex = direction === 'prev' ? currentIndex + 1 : currentIndex - 1
     if (newIndex < 0 || newIndex >= allDates.length) return
 
     setAnimState('leaving')
-    
+
     setTimeout(() => {
       const date = allDates[newIndex]
       const dateMemos = getMemosForDate(characterId, date)
       setMemos(dateMemos)
       setCurrentIndex(newIndex)
       setAnimState('entering')
-      
+
       setTimeout(() => {
         setAnimState('active')
       }, 50)
     }, 300)
   }
 
-  // 格式化日期
-  const formatDateDisplay = (dateStr: string) => {
-    if (!dateStr) return null
-    const date = new Date(dateStr)
-    const weekDays = ['日', '一', '二', '三', '四', '五', '六']
-    
-    return {
-      year: date.getFullYear(),
-      month: String(date.getMonth() + 1).padStart(2, '0'),
-      day: String(date.getDate()).padStart(2, '0'),
-      week: `星期${weekDays[date.getDay()]}`,
-      fullDate: date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
-    }
-  }
-
   if (!isOpen) return null
 
   const currentDate = allDates[currentIndex]
-  const dateInfo = currentDate ? formatDateDisplay(currentDate) : null
-  const canGoPrev = currentIndex < allDates.length - 1 // 往过去翻
-  const canGoNext = currentIndex > 0 // 往未来翻
+  const canGoPrev = currentIndex < allDates.length - 1
+  const canGoNext = currentIndex > 0
+
+  // 装饰符号列表
+  const symbols = ['†', '♡', '☆', '☁', '☾', '♪']
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&display=swap');
 
-        .memo-paper-texture {
-          background-color: #fcfbf9;
-          background-image: 
-            linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px);
-          background-size: 20px 20px;
-          box-shadow: 
-            0 1px 3px rgba(0,0,0,0.05),
-            inset 0 0 80px rgba(139, 69, 19, 0.05);
+        .lace-modal-enter {
+          opacity: 0;
+          transform: scale(0.98) translateY(5px);
         }
-
-        .memo-torn-edge {
-          position: relative;
+        .lace-modal-active {
+          opacity: 1;
+          transform: scale(1) translateY(0);
         }
-        .memo-torn-edge::before {
+        
+        .paperclip {
+          position: absolute;
+          top: -15px;
+          right: 40px;
+          width: 20px;
+          height: 60px;
+          border: 2px solid #b0b0b0;
+          border-radius: 10px;
+          border-bottom: none;
+          z-index: 30;
+          box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .paperclip::after {
           content: '';
           position: absolute;
-          top: -4px;
-          left: 0;
-          right: 0;
-          height: 8px;
-          background: radial-gradient(circle, transparent 4px, #fcfbf9 4px) repeat-x;
-          background-size: 12px 8px;
-          transform: rotate(180deg);
+          top: 10px;
+          right: -2px;
+          width: 20px;
+          height: 40px;
+          border: 2px solid #b0b0b0;
+          border-radius: 10px;
+          border-top: none;
+          z-index: 30;
         }
 
-        .memo-content-enter {
+        .content-fade-enter {
           opacity: 0;
-          transform: translateY(10px);
+          transform: translateY(5px);
           transition: all 0.4s ease-out;
         }
-        .memo-content-active {
+        .content-fade-active {
           opacity: 1;
           transform: translateY(0);
           transition: all 0.4s ease-out;
         }
-        .memo-content-leave {
+        .content-fade-leave {
           opacity: 0;
-          transform: translateY(-10px);
+          transform: translateY(-5px);
           transition: all 0.3s ease-in;
         }
-
-        /* 垂直书写样式 */
-        .vertical-text {
-          writing-mode: vertical-rl;
-          text-orientation: mixed;
-        }
         
-        /* 隐藏滚动条但保持滚动 */
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
@@ -153,153 +135,126 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
+
+        /* 柔光背景效果 */
+        .soft-glow {
+          position: absolute;
+          width: 150px;
+          height: 150px;
+          background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
       `}</style>
 
-      {/* 背景遮罩 */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 sm:p-8"
+      {/* 背景遮罩 - 极淡的灰色 */}
+      <div
+        className="fixed inset-0 bg-[#f0f0f0]/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* 信笺卡片容器 */}
-        <div 
-          className="w-full max-w-md md:max-w-lg h-[85vh] relative flex flex-col shadow-2xl transition-transform duration-300 bg-[#fcfbf9]"
+        {/* 卡片主体 */}
+        <div
+          className="relative w-full max-w-[360px] aspect-[3/5] bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all duration-500 lace-modal-active flex flex-col overflow-hidden border border-white/50"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* 纸张主体 */}
-          <div className="memo-paper-texture w-full h-full rounded-lg overflow-hidden flex flex-col relative bg-[#fcfbf9] z-10">
-            
-            {/* 顶部装饰条 */}
-            <div className="h-2 w-full bg-[#8b4513]/10 border-b border-[#8b4513]/10"></div>
-            
-            {/* 头部信息 */}
-            <div className="px-6 pt-6 pb-4 flex justify-between items-start relative z-10">
-              {/* 日期展示 - 邮戳风格 */}
-              <div className="flex flex-col">
-                <div className="flex items-baseline gap-2 text-[#5d4037]">
-                  <span className="text-5xl font-bold" style={{ fontFamily: serifFont }}>
-                    {dateInfo?.day || '01'}
-                  </span>
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm tracking-widest uppercase border-b border-[#5d4037]/30 pb-0.5 mb-0.5">
-                      {dateInfo?.year}.{dateInfo?.month}
-                    </span>
-                    <span className="text-sm font-serif text-[#8d6e63]">
-                      {dateInfo?.week}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          {/* 装饰：柔光 */}
+          <div className="soft-glow top-[-20px] left-[-20px]"></div>
+          <div className="soft-glow bottom-[-20px] right-[-20px]"></div>
 
-              {/* 关闭按钮 */}
-              <button 
-                onClick={onClose}
-                className="w-10 h-10 rounded-full hover:bg-[#8b4513]/5 flex items-center justify-center text-[#8d6e63] transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          {/* 内容区域 */}
+          <div className="flex-1 flex flex-col px-8 py-10 relative z-10">
+
+            {/* 顶部标题 */}
+            <div className="text-center mb-6">
+              <h2 className="text-sm text-gray-500 tracking-wide">
+                {characterName}的随笔
+              </h2>
             </div>
 
-            {/* 内容滚动区域 */}
-            <div className="flex-1 overflow-y-auto px-6 pb-20 custom-scrollbar relative">
-              <div className={`
-                ${animState === 'entering' ? 'memo-content-enter' : ''}
-                ${animState === 'active' ? 'memo-content-active' : ''}
-                ${animState === 'leaving' ? 'memo-content-leave' : ''}
-              `}>
+            {/* 滚动内容区 */}
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              <div className={`space-y-8 ${animState === 'entering' ? 'content-fade-enter' :
+                  animState === 'leaving' ? 'content-fade-leave' : 'content-fade-active'
+                }`}>
                 {memos.length === 0 ? (
-                  <div className="h-64 flex flex-col items-center justify-center text-[#8d6e63]/40 space-y-4">
-                    <div className="w-12 h-12 border-2 border-current rounded-full flex items-center justify-center opacity-50">
-                      <span className="text-xl font-serif">空</span>
-                    </div>
-                    <p className="font-serif tracking-widest text-sm">今日无随笔</p>
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-300 space-y-3">
+                    <span className="text-xl opacity-30">☁</span>
+                    <p className="font-serif text-xs tracking-widest opacity-50">Empty Heart</p>
                   </div>
                 ) : (
-                  <div className="space-y-8 py-4">
-                    {memos.map((memo, idx) => (
-                      <div key={memo.id} className="relative group">
-                        {/* 序号装饰 */}
-                        <div className="absolute -left-3 top-1 w-1 h-16 bg-[#8b4513]/10 rounded-full opacity-50"></div>
-                        
-                        <div className="pl-4">
-                          {/* 内容 */}
-                          <div 
-                            className="text-[#3e2723] text-lg leading-loose text-justify whitespace-pre-wrap"
-                            style={{ 
-                              fontFamily: handwritingFont,
-                              lineHeight: '2.2' 
-                            }}
+                  memos.map((memo, idx) => (
+                    <div key={memo.id} className="group">
+                      {/* 装饰符号 + 内容 */}
+                      <div className="flex gap-2 items-start">
+                        <span className="text-xs text-gray-400 mt-1 font-serif select-none">
+                          {symbols[idx % symbols.length]}
+                        </span>
+                        <div className="flex-1 space-y-2">
+                          <div
+                            className="text-[#555] text-sm leading-relaxed text-justify font-serif tracking-wide"
+                            style={{ fontFamily: serifFont }}
                           >
-                            {memo.content}
+                            「 {memo.content} 」
                           </div>
-                          
-                          {/* 时间戳 */}
-                          <div className="mt-3 flex items-center justify-end gap-2 opacity-40">
-                            <div className="h-px w-8 bg-[#5d4037]"></div>
-                            <span className="text-xs font-serif tracking-wider text-[#5d4037]">
-                              {new Date(memo.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                          <div className="text-[10px] text-gray-400 pl-1">
+                            {new Date(memo.timestamp).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
-                        
-                        {/* 分隔装饰 */}
-                        {idx < memos.length - 1 && (
-                          <div className="my-8 flex justify-center opacity-20">
-                            <span className="text-[#5d4037] tracking-[1em] text-xs">♦ ♦ ♦</span>
-                          </div>
-                        )}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 )}
-                
-                {/* 底部落款 - 已移除 */}
-                <div className="mt-12 mb-8"></div>
               </div>
             </div>
 
-            {/* 底部导航栏 - 悬浮在纸张底部 */}
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#fcfbf9] via-[#fcfbf9]/90 to-transparent flex items-center justify-between px-8 pb-2 z-20">
-              <button
-                onClick={() => changeDate('prev')}
-                disabled={!canGoPrev}
-                className={`flex items-center gap-1 text-[#5d4037] transition-all ${
-                  canGoPrev ? 'opacity-60 hover:opacity-100 cursor-pointer hover:-translate-x-1' : 'opacity-20 cursor-not-allowed'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="text-sm font-serif hidden sm:inline">前一天</span>
-              </button>
+            {/* 底部装饰与导航 */}
+            <div className="mt-auto pt-6 flex flex-col items-center gap-4">
+              
+              {/* 装饰文字 */}
+              <div className="text-[10px] text-gray-300 font-serif tracking-widest opacity-60">
+                ☆ Moments ☆ Written in the heart
+              </div>
 
-              <span className="text-xs text-[#8d6e63]/40 font-serif tracking-widest">
-                {currentIndex + 1} / {allDates.length}
-              </span>
+              {/* 导航按钮 */}
+              <div className="flex items-center justify-between w-full px-4 opacity-40 hover:opacity-80 transition-opacity duration-300">
+                <button
+                  onClick={() => changeDate('prev')}
+                  disabled={!canGoPrev}
+                  className={`p-2 transition-transform active:scale-90 ${!canGoPrev && 'invisible'}`}
+                >
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
 
-              <button
-                onClick={() => changeDate('next')}
-                disabled={!canGoNext}
-                className={`flex items-center gap-1 text-[#5d4037] transition-all ${
-                  canGoNext ? 'opacity-60 hover:opacity-100 cursor-pointer hover:translate-x-1' : 'opacity-20 cursor-not-allowed'
-                }`}
-              >
-                <span className="text-sm font-serif hidden sm:inline">后一天</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+                <span className="text-[10px] text-gray-300 font-serif tracking-[0.2em]">
+                  {currentDate ? currentDate.replace(/-/g, '.') : ''}
+                </span>
+
+                <button
+                  onClick={() => changeDate('next')}
+                  disabled={!canGoNext}
+                  className={`p-2 transition-transform active:scale-90 ${!canGoNext && 'invisible'}`}
+                >
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            {/* 装饰水印 */}
-            <div className="absolute bottom-20 right-4 opacity-[0.03] pointer-events-none select-none">
-              <svg width="150" height="150" viewBox="0 0 100 100" fill="currentColor" className="text-[#5d4037]">
-                <path d="M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0zm0 90C27.9 90 10 72.1 10 50S27.9 10 50 10s40 17.9 40 40-17.9 40-40 40z"/>
-                <path d="M50 20c-1.7 0-3 1.3-3 3v24H23c-1.7 0-3 1.3-3 3s1.3 3 3 3h27v24c0 1.7 1.3 3 3 3s3-1.3 3-3V53h24c1.7 0 3-1.3 3-3s-1.3-3-3-3H56V23c0-1.7-1.3-3-3-3z"/>
-              </svg>
-            </div>
           </div>
+
+          {/* 关闭按钮 - 极其隐蔽/极简 */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 left-4 w-6 h-6 flex items-center justify-center text-gray-300 hover:text-gray-500 transition-colors z-30"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
         </div>
       </div>
     </>

@@ -1821,6 +1821,48 @@ export const statusHandler: CommandHandler = {
 }
 
 /**
+ * 分享音乐：发送音乐分享卡片
+ */
+export const musicShareHandler: CommandHandler = {
+  pattern: /[\[【]分享音乐[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId, isBlocked }) => {
+    const songTitle = match[1].trim()
+    const songArtist = match[2].trim()
+
+    console.log(`🎵 [分享音乐] ${songTitle} - ${songArtist}`)
+
+    const musicShareMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'received',
+      messageType: 'musicShare',
+      content: `分享音乐：${songTitle} - ${songArtist}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      musicShare: {
+        songTitle,
+        songArtist,
+        songCover: ''
+      },
+      blockedByReceiver: isBlocked
+    }
+
+    setMessages(prev => {
+      const updated = [...prev, musicShareMsg]
+      saveMessages(chatId, updated)
+      console.log('💾 [分享音乐] 已保存到IndexedDB')
+      return updated
+    })
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 一起听：AI发送邀请
  */
 export const musicInviteHandler: CommandHandler = {
@@ -3171,6 +3213,7 @@ export const commandHandlers: CommandHandler[] = [
   coupleSpaceInviteHandler,
   coupleSpaceAcceptHandler,
   coupleSpaceRejectHandler,
+  musicShareHandler,   // 分享音乐卡片
   musicInviteHandler,  // AI发送一起听邀请
   musicAcceptHandler,  // AI接受一起听
   musicRejectHandler,  // AI拒绝一起听

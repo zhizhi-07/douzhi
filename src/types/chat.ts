@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -91,6 +91,11 @@ export interface Message {
     songCover?: string        // 封面图片
     inviterName: string       // 邀请人姓名
     status: 'pending' | 'accepted' | 'rejected'  // 邀请状态
+  }
+  musicShare?: {              // 分享音乐
+    songTitle: string         // 歌曲标题
+    songArtist: string        // 歌手
+    songCover?: string        // 封面图片
   }
   paymentRequest?: {          // 代付请求
     itemName: string          // 商品/项目名称（外卖、衣服等）

@@ -117,11 +117,33 @@ export const useChatAI = (
         type: quotedMessage.type
       } : undefined
       
-      const userMessage: Message = {
-        ...createMessage(inputValue, 'sent'),
-        blockedByReceiver: isUserBlocked,
-        sceneMode: sceneMode || 'online',  // 添加场景模式
-        quotedMessage: cleanQuotedMessage
+      // 🎵 检查是否是音乐分享格式
+      const musicShareMatch = inputValue.match(/[\[【]分享音乐[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/)
+      
+      let userMessage: Message
+      if (musicShareMatch) {
+        const songTitle = musicShareMatch[1].trim()
+        const songArtist = musicShareMatch[2].trim()
+        userMessage = {
+          ...createMessage(`分享音乐：${songTitle} - ${songArtist}`, 'sent'),
+          messageType: 'musicShare',
+          musicShare: {
+            songTitle,
+            songArtist,
+            songCover: ''
+          },
+          blockedByReceiver: isUserBlocked,
+          sceneMode: sceneMode || 'online',
+          quotedMessage: cleanQuotedMessage
+        }
+        console.log(`🎵 [用户分享音乐] ${songTitle} - ${songArtist}`)
+      } else {
+        userMessage = {
+          ...createMessage(inputValue, 'sent'),
+          blockedByReceiver: isUserBlocked,
+          sceneMode: sceneMode || 'online',
+          quotedMessage: cleanQuotedMessage
+        }
       }
       
       console.log('📤 [handleSend] 发送消息:', {

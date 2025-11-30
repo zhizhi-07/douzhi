@@ -47,7 +47,7 @@ const Landlord = () => {
   
   // UI适配
   const [scale, setScale] = useState(1)
-  const [rotate, setRotate] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   
   // 游戏状态
   const [gameState, setGameState] = useState<'selecting' | 'dealing' | 'bidding' | 'playing' | 'gameover'>('selecting')
@@ -102,12 +102,19 @@ const Landlord = () => {
     const handleResize = () => {
       const w = window.innerWidth
       const h = window.innerHeight
-      if (h > w && w < 768) {
-        setRotate(true)
-        setScale(h / 1334)
+      // 手机竖屏：不旋转，直接缩放适配屏幕
+      const mobile = w < 768
+      setIsMobile(mobile)
+      if (mobile) {
+        // 计算缩放比例，确保宽度和高度都能完整显示
+        const scaleW = w / 750 // 设计宽度750
+        const scaleH = h / 1000 // 设计高度1000
+        setScale(Math.min(scaleW, scaleH, 1))
       } else {
-        setRotate(false)
-        setScale(Math.min(1, w / 1280))
+        // 桌面端：横向布局
+        const scaleW = w / 1334
+        const scaleH = h / 750
+        setScale(Math.min(scaleW, scaleH, 1))
       }
     }
     handleResize()
@@ -321,9 +328,11 @@ const Landlord = () => {
       
       if (decision.pass) {
         // AI pass时不显示默认的"不出"消息，因为AI已经说话了
-        handlePass(position, false)
+        // 传递最新的hands状态，避免闭包问题
+        handlePass(position, false, currentHands)
       } else {
-        handlePlay(position, decision.cards)
+        // 传递最新的hands状态，避免闭包问题
+        handlePlay(position, decision.cards, currentHands)
       }
       
     } catch (error) {
@@ -331,7 +340,7 @@ const Landlord = () => {
       // 出错时随机出一张（使用传入的手牌，避免闭包问题）
       const aiCards = providedCards || hands[position]
       if (aiCards && aiCards.length > 0) {
-        handlePlay(position, [aiCards[0]])
+        handlePlay(position, [aiCards[0]], currentHands)
       }
     } finally {
       setIsAIThinking(false)
@@ -465,9 +474,11 @@ const Landlord = () => {
   }
   
   // 统一出牌处理
-  const handlePlay = (position: Position, cards: Card[]) => {
+  const handlePlay = (position: Position, cards: Card[], providedHands?: typeof hands) => {
+    const currentHands = providedHands || hands // 使用传入的hands或当前状态
+    
     console.log(`🎮 [出牌处理] ${position} 出牌:`, cards.map(c => ({id: c.id, rank: c.rank})))
-    console.log(`🎮 [出牌处理] 更新前 ${position} 手牌数:`, hands[position].length)
+    console.log(`🎮 [出牌处理] 更新前 ${position} 手牌数:`, currentHands[position].length)
     
     // 记录要移除的卡牌ID
     const cardsToRemove = new Set(cards.map(c => c.id))
@@ -475,18 +486,18 @@ const Landlord = () => {
     
     // 计算新的手牌状态
     const newHands = {
-      ...hands,
-      [position]: hands[position].filter(c => !cardsToRemove.has(c.id))
+      ...currentHands,
+      [position]: currentHands[position].filter(c => !cardsToRemove.has(c.id))
     }
     
     console.log(`🎮 [出牌处理] 更新后 ${position} 手牌数:`, newHands[position].length)
-    console.log(`🎮 [出牌处理] 移除的卡牌数:`, hands[position].length - newHands[position].length)
+    console.log(`🎮 [出牌处理] 移除的卡牌数:`, currentHands[position].length - newHands[position].length)
     
     // 验证移除是否成功
-    if (hands[position].length === newHands[position].length) {
+    if (currentHands[position].length === newHands[position].length) {
       console.error(`❌ [出牌处理] 警告：没有牌被移除！可能是ID不匹配`)
       console.error(`❌ [出牌处理] 要移除的ID:`, Array.from(cardsToRemove))
-      console.error(`❌ [出牌处理] 手牌ID:`, hands[position].map(c => c.id))
+      console.error(`❌ [出牌处理] 手牌ID:`, currentHands[position].map(c => c.id))
     }
     
     setHands(newHands)
@@ -514,10 +525,11 @@ const Landlord = () => {
   }
   
   // 统一pass处理
-  const handlePass = (position: Position, showMessage: boolean = true) => {
+  const handlePass = (position: Position, showMessage: boolean = true, providedHands?: typeof hands) => {
     console.log(`🎮 [Pass处理] ${position} pass，当前passCount: ${passCount}`)
     
     const newPassCount = passCount + 1
+    const currentHands = providedHands || hands // 使用传入的hands或当前状态
     
     // 显示pass提示（AI在handleAITurn中已经显示了message，这里不重复显示）
     if (showMessage) {
@@ -546,7 +558,7 @@ const Landlord = () => {
     
     // 下一个玩家（pass时传递当前的lastPlayed，如果2人pass则传空）
     const cardsForNext = newPassCount >= 2 ? [] : lastPlayed.cards
-    nextTurn(position, hands, cardsForNext)
+    nextTurn(position, currentHands, cardsForNext)
   }
   
   // 下一回合
@@ -605,9 +617,9 @@ const Landlord = () => {
       <div 
         className="absolute left-1/2 top-1/2 origin-center transition-all duration-300 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"
         style={{ 
-          width: 1334, 
-          height: 750, 
-          transform: `translate(-50%, -50%) ${rotate ? 'rotate(90deg)' : ''} scale(${scale})`
+          width: isMobile ? 750 : 1334, 
+          height: isMobile ? 1000 : 750, 
+          transform: `translate(-50%, -50%) scale(${scale})`
         }}
       >
         {/* 背景装饰 */}
@@ -694,7 +706,7 @@ const Landlord = () => {
         
         {/* 左侧玩家 */}
         {players.left && (
-          <div className="absolute left-8 top-1/3 -translate-y-1/2 flex flex-col items-center gap-2 z-30">
+          <div className={`absolute flex flex-col items-center gap-2 z-30 ${isMobile ? 'left-4 top-[15%]' : 'left-8 top-1/3 -translate-y-1/2'}`}>
             <div className="text-white text-xs font-bold">{players.left.name}</div>
             <div className="relative">
               <div className={`relative w-16 h-16 rounded-full border-2 ${currentTurn === 'left' ? 'border-yellow-400 ring-2 ring-yellow-400' : 'border-white/30'} overflow-hidden bg-gray-800 transition-all`}>
@@ -715,7 +727,7 @@ const Landlord = () => {
         
         {/* 右侧玩家 */}
         {players.right && (
-          <div className="absolute right-8 top-1/3 -translate-y-1/2 flex flex-col items-center gap-2 z-30">
+          <div className={`absolute flex flex-col items-center gap-2 z-30 ${isMobile ? 'right-4 top-[15%]' : 'right-8 top-1/3 -translate-y-1/2'}`}>
             <div className="text-white text-xs font-bold">{players.right.name}</div>
             <div className="relative">
               <div className={`relative w-16 h-16 rounded-full border-2 ${currentTurn === 'right' ? 'border-yellow-400 ring-2 ring-yellow-400' : 'border-white/30'} overflow-hidden bg-gray-800 transition-all`}>
@@ -812,7 +824,7 @@ const Landlord = () => {
         </div>
         
         {/* 底部自己区域 */}
-        <div className="absolute bottom-0 left-0 right-0 h-[280px] flex flex-col justify-end items-center">
+        <div className="absolute bottom-0 left-0 right-0 h-[320px] flex flex-col justify-end items-center pb-4">
           {/* 玩家信息 */}
           {players.me && (
             <div className="absolute left-8 bottom-6 flex gap-3 items-center z-40">
@@ -900,7 +912,7 @@ const Landlord = () => {
           )}
           
           {/* 手牌区域 */}
-          <div className="relative h-[160px] w-full flex justify-center items-end pb-4">
+          <div className="relative h-[140px] w-full flex justify-center items-end">
             {hands.me.map((card, i) => {
               const isSelected = selectedCards.includes(card.id)
               return (

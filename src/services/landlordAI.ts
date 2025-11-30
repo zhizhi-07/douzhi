@@ -4,7 +4,7 @@
  */
 
 import { Card, rankToText, recognizePattern, getPatternName } from '../utils/landlordRules'
-import { callAIApi, getApiSettings, type ApiResponse } from '../utils/chatApi'
+import { callZhizhiApi } from './zhizhiapi'
 import { characterService } from './characterService'
 
 export interface AIPlayDecision {
@@ -87,7 +87,7 @@ export const getAIPlayDecision = async (
   meCardsCount: number, // 用户(me)的牌数
   leftCardsCount: number,
   rightCardsCount: number,
-  useProxyAPI: boolean = false, // 是否使用代付API
+  _useProxyAPI: boolean = false, // 废弃参数，现在统一使用zhizhiApi
   recentChat: Array<{position: string, text: string}> = [], // 最近的聊天记录
   playHistory: Array<{position: string, cards: Card[], action: 'play' | 'pass'}> = [], // 出牌历史
   teamInfo: {teammates: string[], enemies: string[], teammate?: string, opponent?: string, teammatePos?: string, opponentPos?: string} = {teammates: [], enemies: []} // 队友关系
@@ -98,8 +98,7 @@ export const getAIPlayDecision = async (
     characterName,
     myCardsCount: myCards.length,
     lastPlayedCount: lastPlayedCards.length,
-    isLandlord,
-    useProxyAPI
+    isLandlord
   })
   
   const myCardsText = cardsToText(myCards)
@@ -308,45 +307,18 @@ ${lastPlayedCards.length === 0 ? '你先出牌。分析手牌，选择最佳的�
   })
 
   try {
-    // 获取API设置
-    // useProxyAPI为true时使用代付API（SiliconFlow DeepSeek-V3）
-    // useProxyAPI为false时使用主API（用户当前选择的API）
-    let responseContent: string
+    // 统一使用zhizhiApi
+    console.log(`🎮 [斗地主] ${characterName} 使用zhizhiApi`)
+    const responseContent = await callZhizhiApi(
+      [
+        { role: 'system', content: `你是${characterName}，正在玩斗地主。` },
+        { role: 'user', content: prompt }
+      ],
+      { temperature: 0.7, max_tokens: 2000 }
+    )
     
-    if (useProxyAPI) {
-      // 使用汁汁代付API
-      console.log(`🎮 [斗地主] ${characterName} 使用汁汁代付API`)
-      const { callZhizhiApi } = await import('./zhizhiapi')
-      responseContent = await callZhizhiApi(
-        [
-          { role: 'system', content: `你是${characterName}，正在玩斗地主。` },
-          { role: 'user', content: prompt }
-        ],
-        { temperature: 0.7, max_tokens: 2000 }
-      )
-      
-      console.log('🤖 [汁汁API输出] 完整回复:')
-      console.log(responseContent)
-    } else {
-      // 使用主API（用户配置的API）
-      console.log(`🎮 [斗地主] ${characterName} 使用主API（用户）`)
-      const apiSettings = getApiSettings()
-      if (!apiSettings) {
-        throw new Error('未配置API')
-      }
-      const response: ApiResponse = await callAIApi(
-        [
-          { role: 'system', content: `你是${characterName}，正在玩斗地主。` },
-          { role: 'user', content: prompt }
-        ],
-        apiSettings,
-        false // 不需要theatre卡片
-      )
-      responseContent = response.content
-      
-      console.log('🤖 [主API输出] 完整回复:')
-      console.log(responseContent)
-    }
+    console.log('🤖 [zhizhiApi输出] 完整回复:')
+    console.log(responseContent)
     
     // 解析AI回复
     const lines = responseContent.split('\n').map((l: string) => l.trim()).filter((l: string) => l)
@@ -413,89 +385,7 @@ ${lastPlayedCards.length === 0 ? '你先出牌。分析手牌，选择最佳的�
   } catch (error) {
     console.error('AI出牌失败:', error)
     
-    // 如果使用的是副API且失败了，尝试降级到主API
-    if (useProxyAPI) {
-      console.warn('⚠️ 副API调用失败，尝试使用主API重试...')
-      try {
-        const mainApiSettings = getApiSettings()
-        if (mainApiSettings) {
-          const response: ApiResponse = await callAIApi(
-            [
-              { role: 'system', content: `你是${characterName}，正在玩斗地主。` },
-              { role: 'user', content: prompt }
-            ],
-            mainApiSettings,
-            false
-          )
-          
-          console.log('🤖 [主API重试输出] 完整回复:')
-          console.log(response.content)
-          
-          // 解析AI回复
-          const lines = response.content.split('\n').map((l: string) => l.trim()).filter((l: string) => l)
-          
-          let pass = false
-          let selectedCards: Card[] = []
-          let message = ''
-          
-          for (const line of lines) {
-            if (line.startsWith('[pass]')) {
-              pass = true
-            } else if (line.startsWith('[出牌]')) {
-              const cardsText = line.replace('[出牌]', '').trim()
-              selectedCards = parseCardsFromText(cardsText, myCards)
-            } else if (line.startsWith('[说话]')) {
-              message = line.replace('[说话]', '').trim()
-            }
-          }
-          
-          if (!pass && selectedCards.length === 0) {
-            selectedCards = [myCards[0]]
-            message = message || '出牌！'
-          }
-          
-          // 重试时也要验证牌型
-          if (!pass && selectedCards.length > 0) {
-            const { recognizePattern } = await import('../utils/landlordRules')
-            const pattern = recognizePattern(selectedCards)
-            
-            if (pattern.type === 'invalid') {
-              console.error('🤖 [重试验证] AI出了无效牌型:', selectedCards.map(c => rankToText(c.rank)).join(' '))
-              
-              // 智能修正
-              const correctedCards = findValidCardPattern(selectedCards, myCards)
-              
-              if (correctedCards.length > 0) {
-                selectedCards = correctedCards
-                console.log('🤖 [重试修正] 修正为有效牌型:', selectedCards.map(c => rankToText(c.rank)).join(' '))
-                message = '重试修正！'
-              } else {
-                selectedCards = [myCards[0]]
-                message = '出牌！'
-              }
-            } else {
-              console.log('🤖 [重试验证] 牌型验证通过:', pattern.type)
-            }
-          }
-          
-          const result = { cards: selectedCards, message, pass }
-          console.log('🤖 [AI决策] 最终结果:', {
-            pass: result.pass,
-            cards: result.cards.map(c => rankToText(c.rank)).join(' '),
-            message: result.message,
-            cardsCount: result.cards.length,
-            isValid: !result.pass ? '已验证' : 'N/A'
-          })
-          
-          console.log('✅ 主API重试成功')
-          return result
-        }
-      } catch (retryError) {
-        console.error('主API重试也失败了:', retryError)
-      }
-    }
-    
-    // 如果所有API都失败，随机出一张牌
+    // API失败，随机出一张牌
     const fallbackResult = {
       cards: [myCards[0]],
       message: '出牌',

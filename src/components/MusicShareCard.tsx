@@ -1,3 +1,5 @@
+
+
 interface MusicShareCardProps {
   songTitle: string
   songArtist: string
@@ -12,50 +14,57 @@ const MusicShareCard = ({
   onClick
 }: MusicShareCardProps) => {
   return (
-    <div 
-      className="bg-white/90 backdrop-blur-xl rounded-xl shadow-lg overflow-hidden max-w-[280px] border border-white/20 cursor-pointer hover:shadow-xl transition-shadow"
+    <div
+      className="group relative w-[260px] bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-100 select-none"
       onClick={onClick}
     >
-      {/* 卡片头部 */}
-      <div className="bg-white/60 backdrop-blur-md px-4 py-3 flex items-center gap-2 border-b border-gray-100/50">
-        <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-        </svg>
-        <span className="text-gray-800 font-medium text-sm">音乐分享</span>
-      </div>
+      {/* 背景模糊效果 */}
+      {songCover && (
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-[0.08] blur-xl scale-150 saturate-150"
+          style={{ backgroundImage: `url(${songCover})` }}
+        />
+      )}
 
-      {/* 歌曲信息 */}
-      <div className="p-4">
-        <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm rounded-lg p-3 border border-gray-100/50">
-          {/* 封面 */}
-          <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+      <div className="relative z-10 p-3 flex items-center gap-3">
+        {/* 封面图 */}
+        <div className="relative w-12 h-12 flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
+          <div className="w-full h-full rounded-lg overflow-hidden shadow-sm ring-1 ring-black/5">
             {songCover ? (
               <img src={songCover} alt={songTitle} className="w-full h-full object-cover" />
             ) : (
-              <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
+              <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+              </div>
             )}
-          </div>
-
-          {/* 歌曲详情 */}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-gray-900 truncate">{songTitle}</div>
-            <div className="text-xs text-gray-500 truncate">{songArtist}</div>
-          </div>
-
-          {/* 音乐波纹动画 */}
-          <div className="flex items-center gap-0.5">
-            <span className="w-0.5 h-3 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-            <span className="w-0.5 h-4 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-            <span className="w-0.5 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-            <span className="w-0.5 h-5 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
           </div>
         </div>
 
-        {/* 提示文字 */}
-        <div className="text-xs text-gray-400 text-center mt-2">
-          点击查看详情
+        {/* 歌曲信息 */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+          <h3 className="text-[13px] font-medium text-gray-900 truncate pr-2 leading-tight">{songTitle}</h3>
+          <p className="text-[11px] text-gray-500 truncate">{songArtist}</p>
+        </div>
+
+        {/* 播放按钮 */}
+        <div className="w-7 h-7 rounded-full bg-red-50 flex items-center justify-center text-red-500 group-hover:bg-red-500 group-hover:text-white transition-all duration-300 shadow-sm">
+          <svg className="w-3.5 h-3.5 fill-current ml-0.5" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      </div>
+
+      {/* 底部来源标识 */}
+      <div className="relative z-10 px-3 pb-2 flex items-center justify-between opacity-80">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3.5 h-3.5 rounded-full bg-[#C20C0C] flex items-center justify-center shadow-sm">
+            <svg className="w-2 h-2 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+            </svg>
+          </div>
+          <span className="text-[10px] text-gray-400 font-medium">音乐分享</span>
         </div>
       </div>
     </div>

@@ -22,15 +22,15 @@ const AIPhoneSelect = () => {
       try {
         // 🔥 使用 characterService，与微信聊天列表保持一致
         const latestCharacters = characterService.getAll()
-        
+
         // 🔥 过滤掉无效的角色数据（兼容旧数据）
         const validCharacters = latestCharacters.filter((char: any) => {
           return char && typeof char === 'object' && char.id && (char.name || char.realName)
         })
-        
+
         setCharacters(validCharacters)
         setRefreshKey(prev => prev + 1)
-        
+
         // 自动展开第一个有历史记录的角色
         if (validCharacters.length > 0) {
           try {
@@ -43,7 +43,7 @@ const AIPhoneSelect = () => {
                 return false
               }
             })
-            
+
             if (firstCharacterWithHistory) {
               setExpandedCharacterId(firstCharacterWithHistory.id)
             }
@@ -55,13 +55,13 @@ const AIPhoneSelect = () => {
         console.error('加载角色失败:', error)
       }
     }
-    
+
     // 🔥 等待 characterService 的异步加载完成
     const timer = setTimeout(() => {
       loadCharacters()
       setIsLoading(false)
     }, 500) // 等待 500ms 让 characterService 从 IndexedDB 加载
-    
+
     return () => clearTimeout(timer)
   }, [])
 
@@ -99,7 +99,7 @@ const AIPhoneSelect = () => {
       {/* 状态栏和导航栏容器 */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <StatusBar />
-        
+
         {/* 顶部导航栏 */}
         <div className="flex items-center justify-between px-4 py-3">
           <button
@@ -122,128 +122,128 @@ const AIPhoneSelect = () => {
       ) : (
         /* 角色列表 */
         <div className="p-4 space-y-3">
-        {characters.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-gray-500 mb-2">暂无角色</div>
-            <div className="text-sm text-gray-400">请先在微信中添加AI角色</div>
-          </div>
-        ) : (
-          characters.map((character: any) => {
-            // 🔥 安全获取历史记录，避免旧数据导致崩溃
-            let history: PhoneHistory[] = []
-            try {
-              history = getPhoneHistory(character.id) || []
-            } catch (e) {
-              console.warn(`获取角色 ${character.id} 历史记录失败:`, e)
-            }
-            const isExpanded = expandedCharacterId === character.id
-            // 🔥 获取角色名称，兼容 name 和 realName
-            const characterName = character.name || character.realName || '未命名'
-            
-            return (
-              <div key={`${character.id}-${refreshKey}`} className="space-y-2">
-                {/* 角色主卡片 */}
-                <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
-                  <button
-                    onClick={() => handleCharacterSelect({ id: character.id, name: characterName })}
-                    className="w-full p-4 flex items-center gap-4 hover:bg-gray-100 transition-all ios-button"
-                  >
-                    {/* 头像 */}
-                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      {character.avatar ? (
-                        <img 
-                          src={character.avatar} 
-                          alt={character.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-2xl text-gray-500">{characterName[0]}</span>
-                      )}
-                    </div>
-                    
-                    {/* 信息 */}
-                    <div className="flex-1 text-left">
-                      <div className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                        {characterName}
-                        {history.length > 0 && !isExpanded && (
-                          <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">
-                            {history.length}条记录
-                          </span>
+          {characters.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-gray-500 mb-2">暂无角色</div>
+              <div className="text-sm text-gray-400">请先在微信中添加AI角色</div>
+            </div>
+          ) : (
+            characters.map((character: any) => {
+              // 🔥 安全获取历史记录，避免旧数据导致崩溃
+              let history: PhoneHistory[] = []
+              try {
+                history = getPhoneHistory(character.id) || []
+              } catch (e) {
+                console.warn(`获取角色 ${character.id} 历史记录失败:`, e)
+              }
+              const isExpanded = expandedCharacterId === character.id
+              // 🔥 获取角色名称，兼容 name 和 realName
+              const characterName = character.name || character.realName || '未命名'
+
+              return (
+                <div key={`${character.id}-${refreshKey}`} className="space-y-2">
+                  {/* 角色主卡片 */}
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
+                    <button
+                      onClick={() => handleCharacterSelect({ id: character.id, name: characterName })}
+                      className="w-full p-4 flex items-center gap-4 hover:bg-gray-100 transition-all ios-button"
+                    >
+                      {/* 头像 */}
+                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        {character.avatar ? (
+                          <img
+                            src={character.avatar}
+                            alt={character.name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl text-gray-500">{characterName[0]}</span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">生成新内容</div>
-                    </div>
-                    
-                    {/* 箭头 */}
-                    <div className="text-gray-400">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  </button>
 
-                  {/* 历史记录按钮 */}
-                  {history.length > 0 && (
-                    <button
-                      onClick={() => toggleExpand(character.id)}
-                      className="w-full px-4 py-2 border-t border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
-                    >
-                      <span className="text-sm text-gray-600">
-                        历史记录 ({history.length})
-                      </span>
-                      <svg 
-                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      {/* 信息 */}
+                      <div className="flex-1 text-left">
+                        <div className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                          {characterName}
+                          {history.length > 0 && !isExpanded && (
+                            <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">
+                              {history.length}条记录
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">生成新内容</div>
+                      </div>
+
+                      {/* 箭头 */}
+                      <div className="text-gray-400">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
                     </button>
+
+                    {/* 历史记录按钮 */}
+                    {history.length > 0 && (
+                      <button
+                        onClick={() => toggleExpand(character.id)}
+                        className="w-full px-4 py-2 border-t border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="text-sm text-gray-600">
+                          历史记录 ({history.length})
+                        </span>
+                        <svg
+                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 历史记录列表 */}
+                  {isExpanded && history.length > 0 && (
+                    <div className="ml-4 space-y-2">
+                      {history.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleHistorySelect(item)}
+                          className="w-full bg-white rounded-xl p-3 border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-3 text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                              <line x1="12" y1="18" x2="12" y2="18"></line>
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">
+                              {new Date(item.timestamp).toLocaleString('zh-CN', {
+                                month: 'numeric',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              点击查看此次记录
+                            </div>
+                          </div>
+                          <div className="text-gray-400">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-
-                {/* 历史记录列表 */}
-                {isExpanded && history.length > 0 && (
-                  <div className="ml-4 space-y-2">
-                    {history.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleHistorySelect(item)}
-                        className="w-full bg-white rounded-xl p-3 border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-3 text-left"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
-                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                            <line x1="12" y1="18" x2="12" y2="18"></line>
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
-                            {new Date(item.timestamp).toLocaleString('zh-CN', {
-                              month: 'numeric',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            点击查看此次记录
-                          </div>
-                        </div>
-                        <div className="text-gray-400">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
+              )
+            })
+          )}
         </div>
       )}
 
@@ -253,13 +253,12 @@ const AIPhoneSelect = () => {
           {backgroundTasks.map((task) => (
             <div
               key={task.characterId}
-              className={`px-4 py-3 rounded-xl shadow-lg border bg-white ${
-                task.status === 'generating'
+              className={`px-4 py-3 rounded-xl shadow-lg border bg-white ${task.status === 'generating'
                   ? 'border-gray-300'
                   : task.status === 'completed'
-                  ? 'border-gray-400'
-                  : 'border-gray-300'
-              }`}
+                    ? 'border-gray-400'
+                    : 'border-gray-300'
+                }`}
             >
               <div className="flex items-center gap-3">
                 {task.status === 'generating' && (

@@ -65,7 +65,7 @@ const NotesApp = ({ content }: NotesAppProps) => {
 
   // 列表页 - 仿iOS备忘录
   return (
-    <div className="w-full h-full bg-[#F2F2F7] flex flex-col">
+    <div className="w-full h-full bg-[#F2F2F7] flex flex-col absolute inset-0">
       {/* 顶部大标题 */}
       <div className="px-4 pt-10 pb-2 bg-white/80 backdrop-blur-xl sticky top-0 z-10">
         <h1 className="text-3xl font-bold text-black mb-2">备忘录</h1>

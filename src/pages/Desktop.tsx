@@ -21,7 +21,7 @@ const Desktop = () => {
   const touchStartY = useRef(0)
   const touchEndY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
-  
+
   // 桌面背景 - 在初始化时同步读取缓存
   const [desktopBg, setDesktopBg] = useState<string | null>(() => {
     const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
@@ -38,19 +38,19 @@ const Desktop = () => {
     }
     return null
   })
-  
+
   // 加载桌面背景
   useEffect(() => {
     const loadDesktopBg = async () => {
       // 如果已经有缓存，跳过
       if (desktopBg) return
-      
+
       // 从 IndexedDB 加载
       const bg = await getImage('desktop_bg')
       if (bg) setDesktopBg(bg)
     }
     loadDesktopBg()
-    
+
     // 监听背景更新事件
     const handleBgUpdate = async () => {
       const bg = await getImage('desktop_bg')
@@ -66,10 +66,10 @@ const Desktop = () => {
     window.addEventListener('desktopBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('desktopBackgroundUpdate', handleBgUpdate)
   }, [])
-  
+
   // 强制刷新图标
   const [iconRefresh, setIconRefresh] = useState(0)
-  
+
   // 备忘录状态
   const [memoText, setMemoText] = useState(() => {
     return localStorage.getItem('desktop_memo') || '今天要做的事情...'
@@ -102,7 +102,7 @@ const Desktop = () => {
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const labelRef = useRef<HTMLInputElement>(null)
   const [gridPhoto, setGridPhoto] = useState('')
-  
+
   // 从IndexedDB加载网格照片
   useEffect(() => {
     const loadGridPhoto = async () => {
@@ -139,7 +139,7 @@ const Desktop = () => {
       }
     }
     loadUIIcons()
-    
+
     // 加载缩放和位置参数
     const loadParams = () => {
       const scale = localStorage.getItem('desktop-time-bg-scale')
@@ -151,7 +151,7 @@ const Desktop = () => {
       console.log('📐 加载时间调整参数:', { scale, x, y })
     }
     loadParams()
-    
+
     // 监听图标更新
     const handleIconsChange = () => {
       loadUIIcons()
@@ -177,7 +177,7 @@ const Desktop = () => {
       if (bg2) setBubble2BgImage(bg2)
     }
     loadBubbleBackgrounds()
-    
+
     const handleBubbleBgUpdate = async () => {
       const bg1 = await getImage('desktop_bubble1_bg')
       const bg2 = await getImage('desktop_bubble2_bg')
@@ -187,7 +187,7 @@ const Desktop = () => {
     window.addEventListener('bubbleBackgroundUpdate', handleBubbleBgUpdate)
     return () => window.removeEventListener('bubbleBackgroundUpdate', handleBubbleBgUpdate)
   }, [])
-  
+
   // 更新时间
   useEffect(() => {
     const timer = setInterval(() => {
@@ -195,7 +195,7 @@ const Desktop = () => {
     }, 1000)
     return () => clearInterval(timer)
   }, [])
-  
+
   // 加载备忘录背景
   useEffect(() => {
     const loadMemoBg = async () => {
@@ -211,7 +211,7 @@ const Desktop = () => {
       }
     }
     loadMemoBg()
-    
+
     const handleBgUpdate = async () => {
       const bg = await getFromIndexedDB('IMAGES', 'memo_bg')
       if (bg) {
@@ -227,12 +227,12 @@ const Desktop = () => {
     window.addEventListener('memoBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('memoBackgroundUpdate', handleBgUpdate)
   }, [])
-  
+
   // 预加载桌面图标
   useEffect(() => {
     preloadDesktopIcons()
   }, [])
-  
+
   // 监听图标变化
   useEffect(() => {
     const handleIconChange = () => {
@@ -289,16 +289,16 @@ const Desktop = () => {
     <div className="fixed inset-0 overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
       {/* 背景 - 延伸到safe area */}
       {desktopBg && (
-        <div 
+        <div
           className="desktop-background fixed inset-0 bg-cover bg-center transition-opacity duration-300"
-          style={{ 
+          style={{
             backgroundImage: `url(${desktopBg})`,
             opacity: 1,
             bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))'
           }}
         />
       )}
-      
+
       {/* 内容容器 */}
       <div className="relative h-full flex flex-col">
         <div style={{ background: 'transparent', position: 'relative', zIndex: 1 }}>
@@ -306,7 +306,7 @@ const Desktop = () => {
         </div>
 
         {/* 主要内容区域 - 整页滑动 */}
-        <div 
+        <div
           ref={containerRef}
           className="flex-1 overflow-hidden"
           style={{ touchAction: 'none' }}
@@ -314,7 +314,7 @@ const Desktop = () => {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div 
+          <div
             className="h-full flex transition-transform duration-300 ease-out"
             style={{ transform: `translateX(-${currentPage * 100}%)` }}
           >
@@ -322,7 +322,7 @@ const Desktop = () => {
             <div className="min-w-full h-full relative overflow-hidden pb-20">
               {/* 黄色 - 时间widget (顶部横条) */}
               <div className="absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20">
-                <div 
+                <div
                   className="text-center p-6 rounded-3xl relative"
                   style={customIcons['desktop-time-bg'] ? {
                     backgroundImage: `url(${customIcons['desktop-time-bg']})`,
@@ -335,8 +335,8 @@ const Desktop = () => {
                     {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div className="text-base font-medium text-gray-600 relative z-10">
-                    {currentTime.toLocaleDateString('zh-CN', { 
-                      month: 'long', 
+                    {currentTime.toLocaleDateString('zh-CN', {
+                      month: 'long',
                       day: 'numeric',
                       weekday: 'long'
                     })}
@@ -365,14 +365,14 @@ const Desktop = () => {
                 {page1Apps.slice(0, 4).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const hasCustomIcon = getCustomIcon(app.id)
-                  
+
                   return (
                     <div
                       key={app.id}
                       className="flex flex-col items-center gap-2"
                     >
                       {hasCustomIcon ? (
-                        <div 
+                        <div
                           className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
                           style={{
                             backgroundColor: 'transparent'
@@ -382,7 +382,7 @@ const Desktop = () => {
                           <img src={getCustomIcon(app.id)!} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : isImageIcon ? (
-                        <div 
+                        <div
                           className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
                           style={{
                             backgroundColor: 'transparent'
@@ -392,7 +392,7 @@ const Desktop = () => {
                           <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div 
+                        <div
                           className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30 cursor-pointer hover:scale-105 transition-transform`}
                           onClick={(e) => handleAppClick(e, app)}
                         >
@@ -409,14 +409,14 @@ const Desktop = () => {
 
               {/* 蓝色 - 备忘录widget (右下角) */}
               <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
-                <div 
+                <div
                   className="w-full h-full rounded-2xl overflow-hidden flex flex-col relative"
                   style={{
                     // 有背景图时，主要通过下面的 <img> 显示，这里只保留透明底
-                    backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                    backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.65)',
                     backdropFilter: memoBg ? 'none' : 'blur(20px)',
                     WebkitBackdropFilter: memoBg ? 'none' : 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                    border: '1px solid rgba(255, 255, 255, 0.4)'
                   }}
                   onMouseDown={() => {
                     memoLongPressTimer.current = setTimeout(() => {
@@ -460,12 +460,12 @@ const Desktop = () => {
 
                   {/* 顶部标题栏 - 可通过长按切换显示 */}
                   {showMemoHeader && (
-                    <div 
+                    <div
                       className="flex items-center justify-between px-3 py-2 border-b cursor-pointer transition-colors"
                       style={{
                         // 有背景图时完全透明，不再叠加白底；无背景时保留浅灰分割线
-                        backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.85)',
-                        borderColor: memoBg ? 'transparent' : '#E5E7EB'
+                        backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.5)',
+                        borderColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.3)'
                       }}
                       onClick={() => {
                         setIsEditingMemo(true)
@@ -483,13 +483,13 @@ const Desktop = () => {
                       <span className="text-xs text-blue-500 font-medium">Edit</span>
                     </div>
                   )}
-                  
+
                   {/* 内容区域 */}
-                  <div 
+                  <div
                     className="flex-1 px-3 py-2 cursor-text"
                     style={{
                       // 有背景图时不再加任何底色，直接在图片上写字
-                      backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.85)'
+                      backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.5)'
                     }}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -527,14 +527,14 @@ const Desktop = () => {
                     {musicPlayer.currentSong ? musicPlayer.currentSong.title : '暂无播放'}
                   </span>
                   <span className="text-gray-500">
-                    {musicPlayer.currentSong 
+                    {musicPlayer.currentSong
                       ? `${Math.floor(musicPlayer.currentTime / 60)}:${String(Math.floor(musicPlayer.currentTime % 60)).padStart(2, '0')} / ${Math.floor(musicPlayer.duration / 60)}:${String(Math.floor(musicPlayer.duration % 60)).padStart(2, '0')}`
                       : '--:--'
                     }
                   </span>
                 </div>
                 <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E0E0E0' }}>
-                  <div 
+                  <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
                       width: musicPlayer.duration > 0 ? `${(musicPlayer.currentTime / musicPlayer.duration) * 100}%` : '0%',
@@ -549,7 +549,7 @@ const Desktop = () => {
                 {page1Apps.slice(4, 5).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const customIcon = getCustomIcon(app.id)
-                  
+
                   return (
                     <div
                       key={`${app.id}-${iconRefresh}`}
@@ -575,9 +575,9 @@ const Desktop = () => {
                     </div>
                   )
                 })}
-                
+
                 {/* 美化图标 */}
-                <div 
+                <div
                   key={`decoration-${iconRefresh}`}
                   className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                   onClick={() => navigate('/decoration')}
@@ -603,7 +603,7 @@ const Desktop = () => {
             {/* ========== 第二页 ========== */}
             <div className="min-w-full h-full relative overflow-hidden pb-20">
               {/* 红色圆形头像 - 左上 */}
-              <div 
+              <div
                 className="absolute cursor-pointer"
                 style={{ top: '2%', left: '17%' }}
                 onClick={() => {
@@ -625,7 +625,7 @@ const Desktop = () => {
                   input.click()
                 }}
               >
-                <div 
+                <div
                   className="w-18 h-18 rounded-full overflow-hidden flex items-center justify-center shadow-md"
                   style={{
                     backgroundColor: avatarImage ? 'transparent' : '#FFFFFF',
@@ -643,18 +643,20 @@ const Desktop = () => {
               </div>
 
               {/* 气泡1 - 右上，与头像同行 */}
-              <div 
+              <div
                 className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden"
                 style={{
                   top: '8%',
                   left: '42%',
-                  backgroundColor: bubble1BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                  backgroundColor: bubble1BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.65)',
                   backgroundImage: bubble1BgImage ? `url(${bubble1BgImage})` : 'none',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   height: '38px',
                   width: '170px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)'
                 }}
                 onClick={() => {
                   setIsEditingBubble1(true)
@@ -683,18 +685,20 @@ const Desktop = () => {
               </div>
 
               {/* 气泡2 - 错位到下方 */}
-              <div 
+              <div
                 className="absolute rounded-full px-4 py-2 cursor-text overflow-hidden"
                 style={{
                   top: '16%',
                   left: '24%',
-                  backgroundColor: bubble2BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
+                  backgroundColor: bubble2BgImage ? 'transparent' : 'rgba(255, 255, 255, 0.65)',
                   backgroundImage: bubble2BgImage ? `url(${bubble2BgImage})` : 'none',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   height: '38px',
                   width: '180px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)'
                 }}
                 onClick={() => {
                   setIsEditingBubble2(true)
@@ -723,7 +727,7 @@ const Desktop = () => {
               </div>
 
               {/* 纯文字标注 - 靠左上方 */}
-              <div 
+              <div
                 className="absolute cursor-text"
                 style={{ top: '25%', left: '10%' }}
                 onClick={() => {
@@ -765,7 +769,7 @@ const Desktop = () => {
                     const customIcon = getCustomIcon(app.id)
                     return (
                       <div key={index} className="flex flex-col items-center gap-1">
-                        <div 
+                        <div
                           className={`w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${customIcon ? '' : 'glass-card border border-white/30'}`}
                           onClick={() => app.route && navigate(app.route)}
                         >
@@ -784,7 +788,7 @@ const Desktop = () => {
                 </div>
 
                 {/* 右侧：4x4照片网格 */}
-                <div 
+                <div
                   className="cursor-pointer"
                   style={{
                     width: '140px',
@@ -829,7 +833,7 @@ const Desktop = () => {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                        <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   )}
@@ -859,7 +863,7 @@ const Desktop = () => {
 
         {/* Dock 栏 */}
         <div className="px-4" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))' }}>
-          <div 
+          <div
             className="rounded-3xl p-3"
             style={{
               background: 'rgba(255, 255, 255, 0.05)',

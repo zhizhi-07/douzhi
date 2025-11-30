@@ -8,6 +8,7 @@ import VoiceCard from '../../../components/VoiceCard'
 import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
+import MusicShareCard from '../../../components/MusicShareCard'
 import PaymentRequestCard from '../../../components/PaymentRequestCard'
 import ProductCard from '../../../components/ProductCard'
 import PostCard from '../../../components/PostCard'
@@ -176,6 +177,28 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         isSent={message.type === 'sent'}
         onAccept={() => onAcceptMusicInvite?.(message.id)}
         onReject={() => onRejectMusicInvite?.(message.id)}
+      />
+    )
+  }
+
+  // 分享音乐
+  if (message.messageType === 'musicShare' && message.musicShare) {
+    return (
+      <MusicShareCard
+        songTitle={message.musicShare.songTitle}
+        songArtist={message.musicShare.songArtist}
+        songCover={message.musicShare.songCover}
+        onClick={() => {
+          // 触发播放该歌曲
+          window.dispatchEvent(
+            new CustomEvent('change-song', {
+              detail: {
+                songTitle: message.musicShare!.songTitle,
+                songArtist: message.musicShare!.songArtist
+              }
+            })
+          )
+        }}
       />
     )
   }

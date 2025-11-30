@@ -40,6 +40,8 @@ html, body, #root {
 /* 全局背景透明 - 让App.tsx的全局背景显示 */
 body {
   background: transparent !important;
+  /* 默认高级渐变背景，当没有自定义壁纸时显示 */
+  background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
 }
 
 /* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh */
@@ -61,13 +63,36 @@ body {
   background: transparent !important;
 }
 
-/* 强制所有白色和灰色背景透明，但排除开关按钮、功能弹窗、消息卡片、预览窗口、论坛页面和Instagram页面 */
-.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([class*="rounded-xl"]):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
+/* ==========================================================================
+   🌟 全局毛玻璃风格重构 (Global Glassmorphism)
+   ========================================================================== */
+
+/* 定义毛玻璃变量 */
+:root {
+  --glass-bg-primary: rgba(255, 255, 255, 0.65);
+  --glass-bg-secondary: rgba(255, 255, 255, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  --glass-blur: blur(20px);
+}
+
+/* 核心毛玻璃类 - 替换原本的透明/纯白逻辑 */
+/* 排除列表：按钮、弹窗、特定功能区、论坛、Instagram */
+.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
 .bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
 .bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
 .bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
 .bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *) {
-  background: transparent !important;
+  background-color: var(--glass-bg-primary) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+/* 针对深色背景（如gray-100）使用稍深一点的毛玻璃 */
+.bg-gray-100:not(button):not([data-forum] *):not([data-instagram] *) {
+  background-color: rgba(243, 244, 246, 0.5) !important;
 }
 
 /* 论坛页面专用样式 - 确保不透明 */
@@ -240,22 +265,22 @@ body {
   overflow: hidden;
 }
 
-/* 液态玻璃效果 */
+/* 液态玻璃效果 - 增强版 */
 .glass-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
 }
 
 .glass-effect {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 
 /* 小巧的应用图标 */
@@ -283,17 +308,17 @@ body {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* Dock区域 */
+/* Dock区域 - 增强毛玻璃 */
 .dock {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
-  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 28px;
+  padding: 10px 18px;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
 /* 滚动条隐藏 */
