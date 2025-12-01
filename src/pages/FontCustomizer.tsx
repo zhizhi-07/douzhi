@@ -112,7 +112,10 @@ const FontCustomizer = () => {
           }
         `
         document.head.appendChild(style)
-        // base64数据不存到localStorage，只存fontName引用
+        // 🔥 CDN链接可以存，只有base64数据不存（超过5KB就是base64）
+        if (!fontUrl.startsWith('data:')) {
+          fontConfig.url = fontUrl
+        }
       }
     }
 
