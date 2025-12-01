@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Image as ImageIcon, Smile, MapPin, UserPlus, Music2, Search, ChevronRight, Plus } from 'lucide-react'
+import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
 import { incrementPosts, incrementFollowers } from '../utils/forumUser'
@@ -269,354 +270,348 @@ const InstagramCreate = () => {
 
   return (
     <InstagramLayout showHeader={false} showTabBar={false}>
-      {/* 顶部导航 - 极简白底 */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 -m-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6 text-gray-900" />
-          </button>
-          <h1 className="text-[17px] font-bold text-gray-900">新帖子</h1>
-          <button
-            onClick={handlePost}
-            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-full hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
-          >
-            发布
-          </button>
+      <div className="min-h-screen bg-transparent font-serif text-[#2C2C2C]">
+        {/* 顶部导航 - 玻璃拟态（包含状态栏） */}
+        <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
+          <StatusBar />
+          <div className="flex items-center justify-between px-5 pb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
+            >
+              <X className="w-5 h-5 stroke-[1.5]" />
+            </button>
+            <h1 className="text-sm font-medium text-[#2C2C2C]">发帖</h1>
+            <button
+              onClick={handlePost}
+              className="text-[#2C2C2C] text-xs font-medium tracking-widest uppercase hover:opacity-70 transition-opacity"
+            >
+              发布
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-screen-md mx-auto pb-10">
-        {/* 隐藏的文件输入 */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*"
-          multiple
-          className="hidden"
-        />
+        <div className="max-w-screen-md mx-auto pb-10">
+          {/* 隐藏的文件输入 */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            multiple
+            className="hidden"
+          />
 
-        <div className="p-4 space-y-6">
-          {/* 图片选择区 - 优化网格布局 */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">照片</h2>
-              <button
-                onClick={handleSelectImage}
-                className="text-sm text-blue-600 font-medium hover:text-blue-700"
-              >
-                选择照片
-              </button>
-            </div>
-
-            {selectedImages.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {selectedImages.map((img, index) => (
-                  <div key={index} className="relative aspect-square group">
-                    <img
-                      src={img}
-                      alt={`图片${index + 1}`}
-                      className="w-full h-full object-cover rounded-xl border border-gray-100 shadow-sm"
-                    />
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <X className="w-3.5 h-3.5 text-white" />
-                    </button>
-                  </div>
-                ))}
+          <div className="p-5 space-y-8">
+            {/* 图片选择区 - 玻璃卡片 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[10px] text-[#8C8C8C]">图片</h2>
                 <button
                   onClick={handleSelectImage}
-                  className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-400 hover:text-blue-500"
+                  className="text-[10px] text-[#2C2C2C] tracking-widest uppercase hover:opacity-70"
                 >
-                  <Plus className="w-8 h-8 mb-1" />
-                  <span className="text-xs font-medium">添加</span>
+                  选择
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={handleSelectImage}
-                className="w-full h-40 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-400 hover:text-blue-500"
-              >
-                <ImageIcon className="w-10 h-10 mb-2" />
-                <span className="text-sm font-medium">点击选择照片</span>
-              </button>
-            )}
-          </div>
 
-          {/* 内容输入区 - 优化排版 */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">正文</h2>
-              <span className="text-xs text-gray-400">{caption.length}/2,200</span>
-            </div>
-            <div className="relative">
-              <textarea
-                placeholder="分享你的想法..."
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="w-full min-h-[120px] p-4 bg-gray-50 rounded-xl outline-none resize-none text-[15px] text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-100 transition-all"
-              />
-              <button
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="absolute bottom-3 right-3 p-2 text-gray-400 hover:text-yellow-500 hover:bg-gray-200/50 rounded-full transition-colors"
-              >
-                <Smile className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* 表情包选择面板 */}
-            {showEmojiPicker && emojis.length > 0 && (
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="grid grid-cols-8 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-                  {emojis.map((emoji) => (
-                    <button
-                      key={emoji.id}
-                      onClick={() => {
-                        setCaption(prev => prev + `[表情:${emoji.description}]`)
-                        setShowEmojiPicker(false)
-                      }}
-                      className="aspect-square p-1 hover:bg-white rounded-lg active:scale-95 transition-all"
-                    >
+              {selectedImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {selectedImages.map((img, index) => (
+                    <div key={index} className="relative aspect-square group">
                       <img
-                        src={emoji.url}
-                        alt={emoji.description}
-                        className="w-full h-full object-contain"
+                        src={img}
+                        alt={`图片${index + 1}`}
+                        className="w-full h-full object-cover border border-white/40 rounded-sm shadow-sm"
                       />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 选项列表 - 现代化列表设计 */}
-          <div className="bg-gray-50 rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
-            <button
-              onClick={() => setShowLocationSearch(true)}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-[15px] font-medium text-gray-900">添加位置</span>
-                  {location && <span className="text-xs text-blue-600">{location}</span>}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-
-            <button
-              onClick={() => {
-                loadCharacters()
-                setShowUserTag(true)
-              }}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <UserPlus className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-[15px] font-medium text-gray-900">标记用户</span>
-                  {taggedUsers.length > 0 && (
-                    <span className="text-xs text-blue-600">已标记 {taggedUsers.length} 人</span>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-
-            <button
-              onClick={() => setShowMusicSearch(true)}
-              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-100/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                  <Music2 className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-[15px] font-medium text-gray-900">添加音乐</span>
-                  {music && <span className="text-xs text-blue-600">{music.name} - {music.artist}</span>}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 位置搜索模态框 - 优化样式 */}
-      {showLocationSearch && (
-        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
-          <div className="h-full flex flex-col">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowLocationSearch(false)} className="p-1 hover:bg-gray-100 rounded-full">
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="搜索位置..."
-                  value={locationSearch}
-                  onChange={(e) => setLocationSearch(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm"
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区'].filter(loc =>
-                loc.includes(locationSearch)
-              ).map((loc, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setLocation(loc)
-                    setShowLocationSearch(false)
-                  }}
-                  className="w-full px-4 py-4 text-left border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                      <MapPin className="w-4 h-4 text-gray-500" />
+                      <button
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-[#2C2C2C]/80 hover:bg-black rounded-full flex items-center justify-center backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <X className="w-3 h-3 text-[#F9F8F4]" />
+                      </button>
                     </div>
-                    <span className="text-[15px] text-gray-900">{loc}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 标记用户模态框 - 优化样式 */}
-      {showUserTag && (
-        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
-          <div className="h-full flex flex-col">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowUserTag(false)} className="p-1 hover:bg-gray-100 rounded-full">
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="搜索用户..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm"
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {characters.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                  <UserPlus className="w-12 h-12 mb-2 opacity-50" />
-                  <p className="text-sm">还没有创建角色</p>
+                  ))}
+                  <button
+                    onClick={handleSelectImage}
+                    className="aspect-square flex flex-col items-center justify-center border border-dashed border-white/40 bg-white/20 hover:bg-white/30 transition-colors group rounded-sm backdrop-blur-sm"
+                  >
+                    <Plus className="w-6 h-6 text-[#D4D4D4] group-hover:text-[#8C8C8C] stroke-[1.5]" />
+                  </button>
                 </div>
               ) : (
-                characters.filter(c =>
-                  (c.realName || '').includes(userSearch) || (c.nickname || '').includes(userSearch)
-                ).map((char) => (
-                  <button
-                    key={char.id}
-                    onClick={() => {
-                      if (taggedUsers.find(u => u.id === char.id)) {
-                        setTaggedUsers(taggedUsers.filter(u => u.id !== char.id))
-                      } else {
-                        setTaggedUsers([...taggedUsers, char])
-                      }
-                    }}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
-                  >
-                    <img
-                      src={char.avatar || '/default-avatar.png'}
-                      alt={char.realName || char.nickname || '角色'}
-                      className="w-12 h-12 rounded-full object-cover border border-gray-100"
-                    />
-                    <div className="flex-1 text-left">
-                      <div className="text-[15px] font-semibold text-gray-900">{char.nickname || char.realName}</div>
-                      {char.realName && char.nickname && (
-                        <div className="text-xs text-gray-500">{char.realName}</div>
-                      )}
-                    </div>
-                    {taggedUsers.find(u => u.id === char.id) ? (
-                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm">
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <div className="w-6 h-6 rounded-full border-2 border-gray-200"></div>
-                    )}
-                  </button>
-                ))
+                <button
+                  onClick={handleSelectImage}
+                  className="w-full h-48 flex flex-col items-center justify-center border border-dashed border-white/40 bg-white/20 hover:bg-white/30 transition-colors group rounded-sm backdrop-blur-sm"
+                >
+                  <ImageIcon className="w-8 h-8 mb-3 text-[#D4D4D4] group-hover:text-[#8C8C8C] stroke-[1.5]" />
+                  <span className="text-[10px] text-[#8C8C8C]">选择图片</span>
+                </button>
               )}
             </div>
+
+            {/* 内容输入区 - 玻璃输入框 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[10px] text-[#8C8C8C]">正文</h2>
+                <span className="text-[10px] text-[#D4D4D4] font-sans">{caption.length}/2,200</span>
+              </div>
+              <div className="relative">
+                <textarea
+                  placeholder="写点什么..."
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  className="w-full min-h-[160px] p-4 bg-white/60 backdrop-blur-sm border border-white/40 outline-none resize-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide leading-relaxed focus:border-white/60 focus:bg-white/70 transition-colors rounded-sm shadow-sm"
+                />
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="absolute bottom-3 right-3 p-2 text-[#D4D4D4] hover:text-[#5A5A5A] transition-colors"
+                >
+                  <Smile className="w-5 h-5 stroke-[1.5]" />
+                </button>
+              </div>
+
+              {/* 表情包选择面板 - 玻璃拟态 */}
+              {showEmojiPicker && emojis.length > 0 && (
+                <div className="p-3 bg-white/80 backdrop-blur-xl border border-white/40 animate-in fade-in slide-in-from-top-2 duration-200 rounded-sm shadow-lg">
+                  <div className="grid grid-cols-8 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                    {emojis.map((emoji) => (
+                      <button
+                        key={emoji.id}
+                        onClick={() => {
+                          setCaption(prev => prev + `[表情:${emoji.description}]`)
+                          setShowEmojiPicker(false)
+                        }}
+                        className="aspect-square p-1 hover:bg-white/50 active:scale-95 transition-all rounded-sm"
+                      >
+                        <img
+                          src={emoji.url}
+                          alt={emoji.description}
+                          className="w-full h-full object-contain grayscale-[20%] hover:grayscale-0"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 选项列表 - 玻璃线条 */}
+            <div className="border-t border-white/30">
+              <button
+                onClick={() => setShowLocationSearch(true)}
+                className="w-full py-4 flex items-center justify-between border-b border-white/30 group hover:bg-white/10 transition-colors px-2"
+              >
+                <div className="flex items-center gap-4">
+                  <MapPin className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs text-[#2C2C2C] group-hover:opacity-70 transition-opacity">添加位置</span>
+                    {location && <span className="text-[10px] text-[#8C8C8C] mt-0.5 font-sans">{location}</span>}
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#D4D4D4] stroke-[1.5]" />
+              </button>
+
+              <button
+                onClick={() => {
+                  loadCharacters()
+                  setShowUserTag(true)
+                }}
+                className="w-full py-4 flex items-center justify-between border-b border-white/30 group hover:bg-white/10 transition-colors px-2"
+              >
+                <div className="flex items-center gap-4">
+                  <UserPlus className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs text-[#2C2C2C] group-hover:opacity-70 transition-opacity">标记好友</span>
+                    {taggedUsers.length > 0 && (
+                      <span className="text-[10px] text-[#8C8C8C] mt-0.5 font-sans">已标记 {taggedUsers.length} 人</span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#D4D4D4] stroke-[1.5]" />
+              </button>
+
+              <button
+                onClick={() => setShowMusicSearch(true)}
+                className="w-full py-4 flex items-center justify-between border-b border-white/30 group hover:bg-white/10 transition-colors px-2"
+              >
+                <div className="flex items-center gap-4">
+                  <Music2 className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs text-[#2C2C2C] group-hover:opacity-70 transition-opacity">添加音乐</span>
+                    {music && <span className="text-[10px] text-[#8C8C8C] mt-0.5 font-sans">{music.name} - {music.artist}</span>}
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#D4D4D4] stroke-[1.5]" />
+              </button>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* 音乐搜索模态框 - 优化样式 */}
-      {showMusicSearch && (
-        <div className="fixed inset-0 z-50 bg-white animate-in slide-in-from-bottom-10 duration-200">
-          <div className="h-full flex flex-col">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowMusicSearch(false)} className="p-1 hover:bg-gray-100 rounded-full">
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="搜索音乐..."
-                  value={musicSearch}
-                  onChange={(e) => setMusicSearch(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm"
-                  autoFocus
-                />
+        {/* 位置搜索模态框 - 玻璃拟态 */}
+        {showLocationSearch && (
+          <div className="fixed inset-0 z-50 bg-white/90 backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-200 font-serif">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center gap-4 px-5 py-4 border-b border-white/40">
+                <button onClick={() => setShowLocationSearch(false)} className="text-[#5A5A5A] hover:text-[#2C2C2C]">
+                  <X className="w-5 h-5 stroke-[1.5]" />
+                </button>
+                <div className="flex-1 bg-white/50 border border-white/40 rounded-sm px-4 py-2 flex items-center gap-2 backdrop-blur-sm">
+                  <Search className="w-4 h-4 text-[#D4D4D4]" />
+                  <input
+                    type="text"
+                    placeholder="搜索位置..."
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区'].filter(loc =>
+                  loc.includes(locationSearch)
+                ).map((loc, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setLocation(loc)
+                      setShowLocationSearch(false)
+                    }}
+                    className="w-full px-5 py-4 text-left border-b border-white/30 hover:bg-white/40 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <MapPin className="w-4 h-4 text-[#D4D4D4] group-hover:text-[#8C8C8C] stroke-[1.5]" />
+                      <span className="text-sm text-[#5A5A5A] group-hover:text-[#2C2C2C] tracking-wide">{loc}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {[
-                { name: '晴天', artist: '周杰伦' },
-                { name: '七里香', artist: '周杰伦' },
-                { name: '稻香', artist: '周杰伦' },
-                { name: '告白气球', artist: '周杰伦' },
-                { name: '夜曲', artist: '周杰伦' }
-              ].filter(m =>
-                m.name.includes(musicSearch) || m.artist.includes(musicSearch)
-              ).map((m, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setMusic(m)
-                    setShowMusicSearch(false)
-                  }}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                    <Music2 className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="text-[15px] font-semibold text-gray-900">{m.name}</div>
-                    <div className="text-xs text-gray-500">{m.artist}</div>
-                  </div>
+          </div>
+        )}
+
+        {/* 标记用户模态框 - 玻璃拟态 */}
+        {showUserTag && (
+          <div className="fixed inset-0 z-50 bg-white/90 backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-200 font-serif">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center gap-4 px-5 py-4 border-b border-white/40">
+                <button onClick={() => setShowUserTag(false)} className="text-[#5A5A5A] hover:text-[#2C2C2C]">
+                  <X className="w-5 h-5 stroke-[1.5]" />
                 </button>
-              ))}
+                <div className="flex-1 bg-white/50 border border-white/40 rounded-sm px-4 py-2 flex items-center gap-2 backdrop-blur-sm">
+                  <Search className="w-4 h-4 text-[#D4D4D4]" />
+                  <input
+                    type="text"
+                    placeholder="搜索用户..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {characters.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-[#8C8C8C]">
+                    <UserPlus className="w-8 h-8 mb-3 opacity-30 stroke-[1.5]" />
+                    <p className="text-xs">还没有角色</p>
+                  </div>
+                ) : (
+                  characters.filter(c =>
+                    (c.realName || '').includes(userSearch) || (c.nickname || '').includes(userSearch)
+                  ).map((char) => (
+                    <button
+                      key={char.id}
+                      onClick={() => {
+                        if (taggedUsers.find(u => u.id === char.id)) {
+                          setTaggedUsers(taggedUsers.filter(u => u.id !== char.id))
+                        } else {
+                          setTaggedUsers([...taggedUsers, char])
+                        }
+                      }}
+                      className="w-full px-5 py-4 flex items-center gap-4 hover:bg-white/40 transition-colors border-b border-white/30 group"
+                    >
+                      <img
+                        src={char.avatar || '/default-avatar.png'}
+                        alt={char.realName || char.nickname || '角色'}
+                        className="w-10 h-10 rounded-full object-cover border border-white/40"
+                      />
+                      <div className="flex-1 text-left">
+                        <div className="text-sm font-medium text-[#2C2C2C] tracking-wide">{char.nickname || char.realName}</div>
+                        {char.realName && char.nickname && (
+                          <div className="text-[10px] text-[#8C8C8C] tracking-wider font-sans">{char.realName}</div>
+                        )}
+                      </div>
+                      {taggedUsers.find(u => u.id === char.id) ? (
+                        <div className="w-5 h-5 rounded-full bg-[#2C2C2C] text-[#F9F8F4] flex items-center justify-center">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border border-white/40 bg-white/20"></div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* 音乐搜索模态框 - 玻璃拟态 */}
+        {showMusicSearch && (
+          <div className="fixed inset-0 z-50 bg-white/90 backdrop-blur-xl animate-in slide-in-from-bottom-10 duration-200 font-serif">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center gap-4 px-5 py-4 border-b border-white/40">
+                <button onClick={() => setShowMusicSearch(false)} className="text-[#5A5A5A] hover:text-[#2C2C2C]">
+                  <X className="w-5 h-5 stroke-[1.5]" />
+                </button>
+                <div className="flex-1 bg-white/50 border border-white/40 rounded-sm px-4 py-2 flex items-center gap-2 backdrop-blur-sm">
+                  <Search className="w-4 h-4 text-[#D4D4D4]" />
+                  <input
+                    type="text"
+                    placeholder="搜索音乐..."
+                    value={musicSearch}
+                    onChange={(e) => setMusicSearch(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {[
+                  { name: '晴天', artist: '周杰伦' },
+                  { name: '七里香', artist: '周杰伦' },
+                  { name: '稻香', artist: '周杰伦' },
+                  { name: '告白气球', artist: '周杰伦' },
+                  { name: '夜曲', artist: '周杰伦' }
+                ].filter(m =>
+                  m.name.includes(musicSearch) || m.artist.includes(musicSearch)
+                ).map((m, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setMusic(m)
+                      setShowMusicSearch(false)
+                    }}
+                    className="w-full px-5 py-4 flex items-center gap-4 hover:bg-white/40 transition-colors border-b border-white/30 group"
+                  >
+                    <div className="w-10 h-10 rounded-sm bg-white/40 border border-white/40 flex items-center justify-center text-[#D4D4D4] group-hover:border-[#8C8C8C] transition-colors backdrop-blur-sm">
+                      <Music2 className="w-5 h-5 stroke-[1.5]" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium text-[#2C2C2C] tracking-wide">{m.name}</div>
+                      <div className="text-[10px] text-[#8C8C8C] tracking-wider font-sans">{m.artist}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </InstagramLayout>
   )
 }

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MessageCircle, X, Search, ArrowLeft } from 'lucide-react'
+import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { getDMConversations, type DMConversation, saveDMConversations } from '../utils/instagramDM'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
 
 /**
- * 论坛私聊列表页面 - 现代简约设计
+ * 论坛私聊列表页面 - 文艺复古版
  */
 const InstagramActivity = () => {
   const navigate = useNavigate()
@@ -28,14 +29,15 @@ const InstagramActivity = () => {
 
   // 根据名字生成头像渐变色
   const getAvatarGradient = (name: string) => {
-    const hue = name.charCodeAt(0) * 37 % 360
-    return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${(hue + 40) % 360}, 70%, 50%) 100%)`
+    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#EAE5D9']
+    const index = name.charCodeAt(0) % colors.length
+    return colors[index]
   }
 
   // 开始和角色私聊
   const startChatWithCharacter = (char: Character) => {
     const name = char.nickname || char.realName || ''
-    
+
     // 检查是否已有会话
     const existing = conversations.find(c => c.id === char.id)
     if (!existing) {
@@ -57,7 +59,7 @@ const InstagramActivity = () => {
         console.warn('保存会话失败，直接导航', e)
       }
     }
-    
+
     setShowNewChat(false)
     navigate(`/instagram/dm/${char.id}`)
   }
@@ -75,197 +77,194 @@ const InstagramActivity = () => {
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-white">
-        {/* 顶部导航 */}
-        <div className="bg-white sticky top-0 z-10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <button 
-              onClick={() => navigate('/instagram')}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 -ml-2"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-700" />
-            </button>
-            <h1 className="text-[17px] font-semibold text-gray-900">私信</h1>
-            <div className="w-10" />
-        </div>
-      </div>
-
-      {/* 私聊列表 */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {conversations.length > 0 ? (
-          <div className="space-y-2">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                onClick={() => navigate(`/instagram/dm/${conv.id}`)}
-                className="flex items-center gap-3 p-3 rounded-2xl shadow-sm cursor-pointer transition-colors"
-                style={{ backgroundColor: '#ffffff' }}
-              >
-                {/* 头像 */}
-                <div className="relative">
-                  {conv.avatar ? (
-                    <img
-                      src={conv.avatar}
-                      alt={conv.name}
-                      className="w-14 h-14 rounded-full object-cover ring-2 ring-white shadow-sm"
-                    />
-                  ) : (
-                    <div 
-                      className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-sm"
-                      style={{ background: getAvatarGradient(conv.name) }}
-                    >
-                      {conv.name[0]}
-                    </div>
-                  )}
-                  {/* 未读红点 */}
-                  {conv.unreadCount > 0 && (
-                    <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
-                      <span className="text-xs text-white font-medium">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* 信息 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-[15px] text-gray-900">{conv.name}</span>
-                    <span className="text-xs text-gray-400">{conv.lastTime}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 truncate">
-                    {conv.lastMessage || '开始聊天吧~'}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="py-16 text-center">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gray-100 flex items-center justify-center">
-              <MessageCircle className="w-10 h-10 text-gray-400" />
-            </div>
-            <h3 className="text-base font-medium text-gray-600 mb-2">还没有私信</h3>
-            <p className="text-sm text-gray-400 mb-6">
-              点击右上角 + 开始和角色聊天
-            </p>
+      <div className="h-full flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+        {/* 顶部导航（包含状态栏） */}
+        <div className="bg-[#F9F8F4]/90 sticky top-0 z-10 backdrop-blur-md border-b border-[#EAE5D9]">
+          <StatusBar />
+          <div className="flex items-center justify-between px-5 pb-4">
             <button
-              onClick={() => setShowNewChat(true)}
-              className="px-6 py-2.5 bg-gray-800 text-white text-sm font-medium rounded-full active:bg-gray-900 transition-colors"
+              onClick={() => navigate('/instagram')}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] active:bg-[#D4D4D4] -ml-2 transition-colors"
             >
-              发起私聊
+              <ArrowLeft className="w-5 h-5 text-[#5A5A5A] stroke-[1.5]" />
             </button>
+            <h1 className="text-sm font-medium text-[#2C2C2C]">私信</h1>
+            <div className="w-10" />
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* 新建聊天弹窗 */}
-      {showNewChat && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/40 z-50"
-            onClick={() => setShowNewChat(false)}
-          />
-          <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl max-h-[80vh] flex flex-col animate-slide-up" style={{ backgroundColor: '#ffffff' }}>
-            {/* 头部 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">发起私聊</h2>
+        {/* 私聊列表 */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          {conversations.length > 0 ? (
+            <div className="divide-y divide-[#EAE5D9]">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => navigate(`/instagram/dm/${conv.id}`)}
+                  className="flex items-center gap-4 py-4 cursor-pointer group"
+                >
+                  {/* 头像 */}
+                  <div className="relative">
+                    {conv.avatar ? (
+                      <img
+                        src={conv.avatar}
+                        alt={conv.name}
+                        className="w-12 h-12 rounded-full object-cover border border-[#D4D4D4] group-hover:opacity-80 transition-opacity"
+                      />
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        style={{ background: getAvatarGradient(conv.name) }}
+                      >
+                        {conv.name[0]}
+                      </div>
+                    )}
+                    {/* 未读红点 */}
+                    {conv.unreadCount > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#8B3A3A] flex items-center justify-center border border-[#F9F8F4]">
+                        <span className="text-[9px] text-white font-medium">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 信息 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{conv.name}</span>
+                      <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans">{conv.lastTime}</span>
+                    </div>
+                    <p className="text-xs text-[#5A5A5A] truncate font-light tracking-wide">
+                      {conv.lastMessage || '开始聊天...'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-24 text-center">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-full border border-[#EAE5D9] flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-[#D4D4D4] stroke-[1.5]" />
+              </div>
+              <h3 className="text-sm font-medium text-[#5A5A5A] mb-2">暂无消息</h3>
+              <p className="text-[10px] text-[#8C8C8C] tracking-wider mb-6">
+                和你的角色聊天吧
+              </p>
               <button
-                onClick={() => setShowNewChat(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                onClick={() => setShowNewChat(true)}
+                className="px-6 py-2 bg-[#2C2C2C] text-[#F9F8F4] text-xs tracking-widest uppercase rounded-sm hover:bg-black transition-colors"
               >
-                <X className="w-5 h-5 text-gray-500" />
+                新建消息
               </button>
             </div>
-            
-            {/* 搜索框 */}
-            <div className="px-4 py-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="搜索角色..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-                />
+          )}
+        </div>
+
+        {/* 新建聊天弹窗 */}
+        {showNewChat && (
+          <>
+            <div
+              className="fixed inset-0 bg-[#2C2C2C]/20 backdrop-blur-sm z-50"
+              onClick={() => setShowNewChat(false)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] max-h-[80vh] flex flex-col animate-slide-up bg-[#F9F8F4] font-serif">
+              {/* 头部 */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[#EAE5D9]">
+                <h2 className="text-sm font-medium text-[#2C2C2C]">新建消息</h2>
+                <button
+                  onClick={() => setShowNewChat(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] transition-colors"
+                >
+                  <X className="w-5 h-5 text-[#5A5A5A] stroke-[1.5]" />
+                </button>
+              </div>
+
+              {/* 搜索框 */}
+              <div className="px-6 py-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8C8C]" />
+                  <input
+                    type="text"
+                    placeholder="搜索角色..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#EAE5D9] rounded-sm text-sm outline-none text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide focus:border-[#8C8C8C] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* 角色列表 */}
+              <div className="flex-1 overflow-y-auto px-6 pb-8 bg-[#F9F8F4]">
+                {/* 已有会话的角色 */}
+                {conversations.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-[10px] text-[#8C8C8C] mb-4 px-1">最近</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {conversations.slice(0, 8).map((conv) => (
+                        <div
+                          key={conv.id}
+                          onClick={() => {
+                            setShowNewChat(false)
+                            navigate(`/instagram/dm/${conv.id}`)
+                          }}
+                          className="flex flex-col items-center gap-2 cursor-pointer group"
+                        >
+                          {conv.avatar ? (
+                            <img src={conv.avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-[#D4D4D4] group-hover:border-[#8C8C8C] transition-colors" />
+                          ) : (
+                            <div
+                              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                              style={{ background: getAvatarGradient(conv.name) }}
+                            >
+                              {conv.name[0]}
+                            </div>
+                          )}
+                          <span className="text-[10px] text-[#5A5A5A] text-center truncate w-full tracking-wide">{conv.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 可用角色 */}
+                {availableCharacters.length > 0 && (
+                  <div>
+                    <h3 className="text-[10px] text-[#8C8C8C] mb-4 px-1">所有角色</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {availableCharacters.map((char) => (
+                        <div
+                          key={char.id}
+                          onClick={() => startChatWithCharacter(char)}
+                          className="flex flex-col items-center gap-2 cursor-pointer group"
+                        >
+                          {char.avatar ? (
+                            <img src={char.avatar} alt="" className="w-12 h-12 rounded-full object-cover border border-[#D4D4D4] group-hover:border-[#8C8C8C] transition-colors" />
+                          ) : (
+                            <div
+                              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                              style={{ background: getAvatarGradient(char.nickname || char.realName) }}
+                            >
+                              {(char.nickname || char.realName)[0]}
+                            </div>
+                          )}
+                          <span className="text-[10px] text-[#5A5A5A] text-center truncate w-full tracking-wide">
+                            {char.nickname || char.realName}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 没有角色 */}
+                {characters.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-xs text-[#8C8C8C]">没有找到角色</p>
+                  </div>
+                )}
               </div>
             </div>
-            
-            {/* 角色列表 */}
-            <div className="flex-1 overflow-y-auto px-4 pb-8" style={{ backgroundColor: '#ffffff' }}>
-              {/* 已有会话的角色 */}
-              {conversations.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-xs text-gray-400 font-medium mb-3 px-1">最近聊天</h3>
-                  <div className="grid grid-cols-4 gap-3">
-                    {conversations.slice(0, 8).map((conv) => (
-                      <div
-                        key={conv.id}
-                        onClick={() => {
-                          setShowNewChat(false)
-                          navigate(`/instagram/dm/${conv.id}`)
-                        }}
-                        className="flex flex-col items-center gap-2 p-2 rounded-xl cursor-pointer"
-                        style={{ backgroundColor: '#f9fafb' }}
-                      >
-                        {conv.avatar ? (
-                          <img src={conv.avatar} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm" />
-                        ) : (
-                          <div 
-                            className="w-14 h-14 rounded-full flex items-center justify-center text-white font-medium shadow-sm"
-                            style={{ background: getAvatarGradient(conv.name) }}
-                          >
-                            {conv.name[0]}
-                          </div>
-                        )}
-                        <span className="text-xs text-gray-700 text-center truncate w-full">{conv.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* 可用角色 */}
-              {availableCharacters.length > 0 && (
-                <div>
-                  <h3 className="text-xs text-gray-400 font-medium mb-3 px-1">我的角色</h3>
-                  <div className="grid grid-cols-4 gap-3">
-                    {availableCharacters.map((char) => (
-                      <div
-                        key={char.id}
-                        onClick={() => startChatWithCharacter(char)}
-                        className="flex flex-col items-center gap-2 p-2 rounded-xl cursor-pointer"
-                        style={{ backgroundColor: '#f9fafb' }}
-                      >
-                        {char.avatar ? (
-                          <img src={char.avatar} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm" />
-                        ) : (
-                          <div 
-                            className="w-14 h-14 rounded-full flex items-center justify-center text-white font-medium shadow-sm"
-                            style={{ background: getAvatarGradient(char.nickname || char.realName) }}
-                          >
-                            {(char.nickname || char.realName)[0]}
-                          </div>
-                        )}
-                        <span className="text-xs text-gray-700 text-center truncate w-full">
-                          {char.nickname || char.realName}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* 没有角色 */}
-              {characters.length === 0 && (
-                <div className="py-12 text-center">
-                  <p className="text-sm text-gray-400">还没有创建角色</p>
-                  <p className="text-xs text-gray-300 mt-1">先去创建一个角色吧</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
         <style>{`
           @keyframes slide-up {
@@ -273,7 +272,7 @@ const InstagramActivity = () => {
             to { transform: translateY(0); }
           }
           .animate-slide-up {
-            animation: slide-up 0.3s ease-out;
+            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           }
         `}</style>
       </div>

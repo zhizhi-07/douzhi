@@ -1,13 +1,43 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
+import WechatTabBar from '../components/WechatTabBar'
 import { UserInfo, getUserInfo } from '../utils/userUtils'
 import { getImage } from '../utils/unifiedStorage'
 import { getAllUIIcons } from '../utils/iconStorage'
+import { isMainAccount, getCurrentAccount } from '../utils/accountManager'
+
+/**
+ * 获取当前账号的显示信息
+ * 主账号：使用 user_info
+ * 小号：使用小号的名字和头像
+ */
+const getDisplayUserInfo = (): UserInfo => {
+  const mainInfo = getUserInfo()
+
+  if (isMainAccount()) {
+    return mainInfo
+  }
+
+  // 小号模式：使用小号的信息
+  const subAccount = getCurrentAccount()
+  if (subAccount) {
+    return {
+      ...mainInfo,
+      nickname: subAccount.name,
+      realName: subAccount.name,
+      avatar: subAccount.avatar || mainInfo.avatar,
+      signature: subAccount.signature || '',
+      persona: '', // 小号没有人设
+    }
+  }
+
+  return mainInfo
+}
 
 const Me = () => {
   const navigate = useNavigate()
-  const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
+  const [userInfo, setUserInfo] = useState<UserInfo>(getDisplayUserInfo())
   const [wechatBg, setWechatBg] = useState(() => {
     const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
     if (preloaded) {
@@ -20,25 +50,23 @@ const Me = () => {
   })
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
 
-  // 监听storage变化，实时更新用户信息
+  // 监听storage变化和账号切换，实时更新用户信息
   useEffect(() => {
-    const handleStorageChange = () => {
-      setUserInfo(getUserInfo())
+    const updateUserInfo = () => {
+      setUserInfo(getDisplayUserInfo())
     }
-    window.addEventListener('storage', handleStorageChange)
-    
-    // 页面获得焦点时也更新
-    const handleFocus = () => {
-      setUserInfo(getUserInfo())
-    }
-    window.addEventListener('focus', handleFocus)
-    
+
+    window.addEventListener('storage', updateUserInfo)
+    window.addEventListener('focus', updateUserInfo)
+    window.addEventListener('accountSwitched', updateUserInfo)
+
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('storage', updateUserInfo)
+      window.removeEventListener('focus', updateUserInfo)
+      window.removeEventListener('accountSwitched', updateUserInfo)
     }
   }, [])
-  
+
   // 加载微信背景
   useEffect(() => {
     const loadWechatBg = async () => {
@@ -47,7 +75,7 @@ const Me = () => {
       if (bg) setWechatBg(bg)
     }
     loadWechatBg()
-    
+
     const handleBgUpdate = async () => {
       console.log('📡 Me: 收到背景更新事件')
       const bg = await getImage('wechat_bg')
@@ -56,7 +84,7 @@ const Me = () => {
     window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
     return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
   }, [])
-  
+
   // 加载自定义图标
   useEffect(() => {
     const loadIcons = async () => {
@@ -69,7 +97,7 @@ const Me = () => {
           console.log('⚡ 从缓存加载图标', Object.keys(icons).length, '个')
           return
         }
-        
+
         let icons = await getAllUIIcons()
         setCustomIcons(icons)
       } catch (error) {
@@ -77,7 +105,7 @@ const Me = () => {
       }
     }
     loadIcons()
-    
+
     const handleIconChange = async () => {
       const icons = await getAllUIIcons()
       setCustomIcons(icons)
@@ -89,31 +117,31 @@ const Me = () => {
   const menuGroups = [
     {
       id: 1,
-      items: [{ 
-        id: 11, 
-        name: '零钱', 
-        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>, 
+      items: [{
+        id: 11,
+        name: '钱包',
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" /></svg>,
         path: '/wallet',
         enabled: true
       }],
     },
     {
       id: 2,
-      items: [{ 
-        id: 21, 
-        name: '收藏', 
-        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>, 
+      items: [{
+        id: 21,
+        name: '收藏',
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>,
         path: '',
         enabled: false
       }],
     },
     {
       id: 3,
-      items: [{ 
-        id: 31, 
-        name: '设置', 
-        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>, 
-        path: '/customize',
+      items: [{
+        id: 31,
+        name: '切换账号',
+        icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>,
+        path: '/switch-account',
         enabled: true
       }],
     },
@@ -121,107 +149,104 @@ const Me = () => {
 
   return (
     <div
-      className="h-screen flex flex-col page-fade-in"
+      className="h-screen flex flex-col page-fade-in font-serif bg-transparent"
       data-me-page
-      style={wechatBg ? { 
+      style={wechatBg ? {
         backgroundImage: `url(${wechatBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       } : { background: 'linear-gradient(to bottom, #f9fafb, #ffffff)' }}
     >
-      {/* 顶部 */}
-      <div 
-        className="relative"
+      {/* 顶部 - 玻璃拟态 */}
+      <div
+        className="relative z-10"
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
-        } : { 
-          background: 'rgba(255, 255, 255, 0.7)', 
-          backdropFilter: 'blur(20px) saturate(180%)', 
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)' 
+        } : {
+          background: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.4)'
         }}
       >
         <StatusBar />
         <div className="px-5 py-3">
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => navigate('/')} className="text-gray-700 active:scale-95 transition-transform">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <button onClick={() => navigate('/')} className="text-[#5A5A5A] hover:text-[#2C2C2C] active:scale-95 transition-transform">
+              <svg className="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">我</h1>
+            <h1 className="text-lg font-medium tracking-wide text-[#2C2C2C]">我</h1>
             <div className="w-5"></div>
           </div>
         </div>
       </div>
 
-      {/* 个人信息卡片 */}
-      <div className="px-3 pt-3 mb-3">
-        <div className="glass-card rounded-[48px] overflow-hidden">
-          <div 
+      {/* 个人信息卡片 - 玻璃拟态 */}
+      <div className="px-4 pt-4 mb-4">
+        <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl overflow-hidden shadow-sm">
+          <div
             onClick={() => navigate('/user-profile')}
-            className="flex items-center px-5 py-5 cursor-pointer active:opacity-70 transition-opacity"
+            className="flex items-center px-5 py-6 cursor-pointer hover:bg-white/70 active:bg-white/80 transition-all"
           >
             {/* 头像 */}
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center shadow-xl overflow-hidden">
+            <div className="w-16 h-16 rounded-xl bg-white/40 flex items-center justify-center shadow-sm overflow-hidden border border-white/40">
               {userInfo.avatar ? (
                 <img src={userInfo.avatar} alt="头像" className="w-full h-full object-cover" />
               ) : (
-                <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                <svg className="w-8 h-8 text-[#8C8C8C]" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                 </svg>
               )}
             </div>
-            
+
             {/* 用户信息 */}
-            <div className="ml-4 flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-gray-900 mb-0.5 truncate">
+            <div className="ml-5 flex-1 min-w-0">
+              <h2 className="text-lg font-medium text-[#2C2C2C] mb-1 truncate tracking-wide">
                 {userInfo.nickname || userInfo.realName}
               </h2>
-              <p className="text-sm text-gray-500 truncate">
-                {userInfo.signature || '这个人很懒，什么都没留下'}
+              <p className="text-sm text-[#5A5A5A] truncate font-light">
+                {userInfo.signature || '暂无签名'}
               </p>
             </div>
-            
-            <span className="text-gray-400 text-2xl ml-2">›</span>
+
+            <span className="text-[#8C8C8C] text-xl ml-2 font-light">›</span>
           </div>
         </div>
       </div>
 
-      {/* 菜单列表 */}
-      <div className="flex-1 overflow-y-auto px-3">
+      {/* 菜单列表 - 玻璃拟态 */}
+      <div className="flex-1 overflow-y-auto px-4 pb-20">
         {menuGroups.map((group, groupIndex) => (
           <div
             key={group.id}
-            className="mb-3 card-enter"
+            className="mb-4 card-enter"
             style={{ animationDelay: `${groupIndex * 0.1}s` }}
           >
-            <div className="glass-card rounded-[48px] overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/30 rounded-xl overflow-hidden shadow-sm">
               {group.items.map((item, index) => (
                 <div key={item.id}>
-                  <div 
+                  <div
                     onClick={() => item.enabled && item.path && navigate(item.path)}
-                    className={`flex items-center px-4 py-4 transition-opacity ${
-                      item.enabled 
-                        ? 'cursor-pointer active:opacity-70' 
-                        : 'cursor-not-allowed opacity-40'
-                    }`}
+                    className={`flex items-center px-5 py-4 transition-all ${item.enabled
+                        ? 'cursor-pointer hover:bg-white/50 active:bg-white/60'
+                        : 'cursor-not-allowed opacity-50'
+                      }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl glass-card flex items-center justify-center shadow-lg ${
-                      item.enabled ? 'text-gray-600' : 'text-gray-400'
-                    }`}>
+                    <div className={`w-6 h-6 flex items-center justify-center ${item.enabled ? 'text-[#5A5A5A]' : 'text-[#8C8C8C]'
+                      }`}>
                       {item.icon}
                     </div>
-                    <span className={`ml-4 flex-1 font-medium ${
-                      item.enabled ? 'text-gray-900' : 'text-gray-400'
-                    }`}>
+                    <span className={`ml-4 flex-1 text-sm tracking-wide ${item.enabled ? 'text-[#2C2C2C]' : 'text-[#8C8C8C]'
+                      }`}>
                       {item.name}
                     </span>
-                    <span className="text-gray-400 text-xl">›</span>
+                    <span className="text-[#8C8C8C] text-lg font-light">›</span>
                   </div>
                   {index < group.items.length - 1 && (
-                    <div className="ml-16 border-b border-gray-100" />
+                    <div className="mx-5 border-b border-[#2C2C2C]/10" />
                   )}
                 </div>
               ))}
@@ -230,53 +255,7 @@ const Me = () => {
         ))}
       </div>
 
-      {/* 底部导航栏 */}
-      <div className="px-4" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
-        <div className="glass-card rounded-[48px] shadow-lg">
-          <div className="grid grid-cols-4 h-14 px-2">
-            <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-chat'] ? (
-                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-                </svg>
-              )}
-              <span className="text-xs">微信</span>
-            </button>
-            <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-contacts'] ? (
-                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z"/>
-                </svg>
-              )}
-              <span className="text-xs">通讯录</span>
-            </button>
-            <button onClick={() => navigate('/discover')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-discover'] ? (
-                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-              )}
-              <span className="text-xs">发现</span>
-            </button>
-            <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
-              {customIcons['nav-me'] ? (
-                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-              )}
-              <span className="text-xs font-medium">我</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <WechatTabBar customIcons={customIcons} />
     </div>
   )
 }

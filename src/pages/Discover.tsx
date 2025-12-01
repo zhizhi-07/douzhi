@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
+import WechatTabBar from '../components/WechatTabBar'
 import { getAllUIIcons } from '../utils/iconStorage'
 import { getImage } from '../utils/unifiedStorage'
 
@@ -92,14 +93,14 @@ const Discover = () => {
       items: [
         {
           id: 21,
-          name: '直播',
+          name: '视频号',
           icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" /></svg>,
           path: '/live',
           enabled: false
         },
         {
           id: 22,
-          name: '梗库',
+          name: '表情库',
           icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" /></svg>,
           path: '/meme-library',
           enabled: true
@@ -111,7 +112,7 @@ const Discover = () => {
       items: [
         {
           id: 31,
-          name: '表情包',
+          name: '表情',
           icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" /></svg>,
           path: '/emoji-management',
           enabled: true
@@ -130,7 +131,7 @@ const Discover = () => {
       items: [
         {
           id: 41,
-          name: '记账本',
+          name: '记账',
           icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" /></svg>,
           path: '/accounting',
           enabled: false
@@ -149,7 +150,7 @@ const Discover = () => {
       items: [
         {
           id: 51,
-          name: '小游戏',
+          name: '游戏',
           icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21.58 16.09l-1.09-7.66C20.21 6.46 18.52 5 16.53 5H7.47C5.48 5 3.79 6.46 3.51 8.43l-1.09 7.66C2.2 17.63 3.39 19 4.94 19c.68 0 1.32-.27 1.8-.75L9 16h6l2.25 2.25c.48.48 1.13.75 1.8.75 1.56 0 2.75-1.37 2.53-2.91zM11 11H9v2H8v-2H6v-1h2V8h1v2h2v1zm4-1c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm2 3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" /></svg>,
           path: '/game-list',
           enabled: true
@@ -160,69 +161,69 @@ const Discover = () => {
 
   return (
     <div
-      className="h-screen flex flex-col page-fade-in"
+      className="h-screen flex flex-col page-fade-in font-serif bg-transparent"
       style={wechatBg ? {
         backgroundImage: `url(${wechatBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       } : {}}
     >
-      {/* 顶部：StatusBar + 导航栏一体化 */}
+      {/* 顶部：StatusBar + 导航栏一体化 - 玻璃拟态 */}
       <div
-        className="relative"
+        className="relative z-10"
         style={customIcons['main-topbar-bg'] ? {
           backgroundImage: `url(${customIcons['main-topbar-bg']})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         } : {
           background: 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)'
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.4)'
         }}
       >
         <StatusBar />
         <div className="px-5 py-3">
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => navigate('/')} className="text-gray-700 active:scale-95 transition-transform">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <button onClick={() => navigate('/')} className="text-[#5A5A5A] hover:text-[#2C2C2C] active:scale-95 transition-transform">
+              <svg className="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">发现</h1>
+            <h1 className="text-lg font-medium tracking-wide text-[#2C2C2C]">发现</h1>
             <div className="w-5"></div>
           </div>
         </div>
       </div>
       {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto px-3 pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pt-3 pb-20">
         {menuGroups.map((group, groupIndex) => (
           <div
             key={group.id}
-            className="mb-3 card-enter"
+            className="mb-4 card-enter"
             style={{ animationDelay: `${groupIndex * 0.1}s` }}
           >
-            <div className="glass-card rounded-[48px] overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/30 rounded-xl overflow-hidden shadow-sm">
               {group.items.map((item, index) => (
                 <div key={item.id}>
                   <div
                     onClick={() => item.enabled && item.path && navigate(item.path)}
-                    className={`flex items-center px-4 py-4 transition-opacity ${item.enabled
-                        ? 'cursor-pointer active:opacity-70'
-                        : 'cursor-not-allowed opacity-40'
+                    className={`flex items-center px-4 py-4 transition-all ${item.enabled
+                      ? 'cursor-pointer hover:bg-white/50 active:bg-white/60'
+                      : 'cursor-not-allowed opacity-50'
                       }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl glass-card flex items-center justify-center shadow-lg ${item.enabled ? 'text-gray-600' : 'text-gray-400'
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.enabled ? 'text-[#5A5A5A]' : 'text-[#8C8C8C]'
                       }`}>
                       {item.icon}
                     </div>
-                    <span className={`ml-4 flex-1 font-medium ${item.enabled ? 'text-gray-900' : 'text-gray-400'
+                    <span className={`ml-4 flex-1 text-sm tracking-wide ${item.enabled ? 'text-[#2C2C2C]' : 'text-[#8C8C8C]'
                       }`}>
                       {item.name}
                     </span>
-                    <span className="text-gray-400 text-xl">›</span>
+                    <span className="text-[#8C8C8C] text-lg font-light">›</span>
                   </div>
                   {index < group.items.length - 1 && (
-                    <div className="ml-16 border-b border-gray-100" />
+                    <div className="mx-4 border-b border-[#2C2C2C]/10" />
                   )}
                 </div>
               ))}
@@ -231,53 +232,7 @@ const Discover = () => {
         ))}
       </div>
 
-      {/* 底部导航栏 */}
-      <div className="px-4" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
-        <div className="glass-card rounded-[48px] shadow-lg">
-          <div className="grid grid-cols-4 h-14 px-2">
-            <button onClick={() => navigate('/wechat')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-chat'] ? (
-                <img src={customIcons['nav-chat']} alt="微信" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-                </svg>
-              )}
-              <span className="text-xs">微信</span>
-            </button>
-            <button onClick={() => navigate('/contacts')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-contacts'] ? (
-                <img src={customIcons['nav-contacts']} alt="通讯录" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 0H4v2h16V0zM4 24h16v-2H4v2zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 2.75c1.24 0 2.25 1.01 2.25 2.25s-1.01 2.25-2.25 2.25S9.75 10.24 9.75 9 10.76 6.75 12 6.75zM17 17H7v-1.5c0-1.67 3.33-2.5 5-2.5s5 .83 5 2.5V17z" />
-                </svg>
-              )}
-              <span className="text-xs">通讯录</span>
-            </button>
-            <button className="flex flex-col items-center justify-center text-green-600 active:scale-95 transition-transform">
-              {customIcons['nav-discover'] ? (
-                <img src={customIcons['nav-discover']} alt="发现" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
-              )}
-              <span className="text-xs font-medium">发现</span>
-            </button>
-            <button onClick={() => navigate('/me')} className="flex flex-col items-center justify-center text-gray-500 active:scale-95 transition-transform">
-              {customIcons['nav-me'] ? (
-                <img src={customIcons['nav-me']} alt="我" className="w-6 h-6 mb-0.5 object-cover animate-fade-in" />
-              ) : (
-                <svg className="w-6 h-6 mb-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-              )}
-              <span className="text-xs">我</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <WechatTabBar customIcons={customIcons} />
     </div>
   )
 }

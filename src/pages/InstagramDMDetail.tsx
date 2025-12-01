@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Smile, Send, MoreHorizontal, Image as ImageIcon, Phone, Mic, PlusCircle, Video } from 'lucide-react'
+import { ArrowLeft, Smile, MoreHorizontal, Phone, Mic, PlusCircle } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfo } from '../utils/userUtils'
@@ -15,7 +15,7 @@ import type { Character } from '../types/chat'
 import { getEmojis } from '../utils/emojiStorage'
 
 /**
- * 仿抖音私信界面
+ * 仿抖音私信界面 - 文艺复古版
  */
 const InstagramDMDetail = () => {
   const navigate = useNavigate()
@@ -27,6 +27,7 @@ const InstagramDMDetail = () => {
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [isAiReplying, setIsAiReplying] = useState(false)
   const [character, setCharacter] = useState<Character | null>(null)
+  const [publicLabel, setPublicLabel] = useState<string>('')  // 公众人物标签（如：音乐人、主播）
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const userInfo = getUserInfo()
 
@@ -54,7 +55,20 @@ const InstagramDMDetail = () => {
         setNpcAvatar(conv.avatar)
       }
 
-      // 尝试获取角色详细信息
+      // 读取公众人物标签（从主页刷新后存储的）
+      const savedLabel = localStorage.getItem(`public-label-${npcId}`)
+      if (savedLabel && savedLabel !== '__none__') {
+        setPublicLabel(savedLabel)
+      }
+
+      // 尝试获取论坛NPC信息
+      const forumNpc = getNPCById(npcId)
+      if (forumNpc && !conv) {
+        setNpcName(forumNpc.name)
+        setNpcAvatar(forumNpc.avatar)
+      }
+
+      // 尝试获取AI角色详细信息
       const characters = await getAllCharacters()
       const char = characters.find(c => c.id === npcId)
       if (char) {
@@ -231,7 +245,7 @@ ${emojiPrompt}${forumContextPrompt}`
   }
 
   const getAvatarColor = (name: string) => {
-    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981', '#3b82f6']
+    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#EAE5D9']
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
   }
@@ -252,50 +266,52 @@ ${emojiPrompt}${forumContextPrompt}`
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 font-sans text-gray-900">
-      {/* 顶部导航 - 抖音风格 */}
-      <div className="bg-white sticky top-0 z-20 border-b border-gray-200">
+    <div className="h-screen flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+      {/* 顶部导航 - 极简文艺 */}
+      <div className="bg-[#F9F8F4]/90 sticky top-0 z-20 border-b border-[#EAE5D9] backdrop-blur-md">
         <StatusBar theme="dark" />
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-5 py-4">
           <button
             onClick={() => navigate('/instagram/activity')}
-            className="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-60 transition-opacity"
+            className="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-60 transition-opacity text-[#5A5A5A] hover:text-[#2C2C2C]"
           >
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
+            <ArrowLeft className="w-5 h-5 stroke-[1.5]" />
           </button>
 
           <div className="flex flex-col items-center">
-            <div className="flex items-center gap-1">
-              <span className="text-[17px] font-bold text-gray-900">{npcName || '私聊'}</span>
-              {(character as any)?.isPublicFigure && (
-                <span className="bg-yellow-500 text-black text-[9px] px-1 rounded font-bold">V</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{npcName || '私信'}</span>
+              {publicLabel && (
+                <span className="text-[9px] border border-[#8C8C8C] text-[#5A5A5A] px-1 rounded-sm tracking-widest scale-90 origin-left">
+                  {publicLabel}
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-              <span className="text-[11px] text-gray-400">在线</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-1 h-1 bg-[#2C2C2C] rounded-full opacity-50"></div>
+              <span className="text-[10px] text-[#8C8C8C]">在线</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="active:opacity-60">
-              <Phone className="w-6 h-6 text-gray-700" />
+            <button className="active:opacity-60 text-[#5A5A5A] hover:text-[#2C2C2C]">
+              <Phone className="w-5 h-5 stroke-[1.5]" />
             </button>
-            <button className="active:opacity-60">
-              <MoreHorizontal className="w-6 h-6 text-gray-700" />
+            <button className="active:opacity-60 text-[#5A5A5A] hover:text-[#2C2C2C]">
+              <MoreHorizontal className="w-5 h-5 stroke-[1.5]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#F9F8F4]">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 py-12">
-            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-              <Smile className="w-10 h-10 text-gray-400" />
+          <div className="flex flex-col items-center justify-center h-full text-[#8C8C8C] py-12">
+            <div className="w-16 h-16 border border-[#EAE5D9] rounded-full flex items-center justify-center mb-4">
+              <Smile className="w-6 h-6 text-[#D4D4D4] stroke-[1.5]" />
             </div>
-            <p className="text-sm font-medium text-gray-400">打个招呼吧</p>
+            <p className="text-xs">打个招呼吧</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -304,30 +320,30 @@ ${emojiPrompt}${forumContextPrompt}`
               return (
                 <div key={msg.id} className="flex flex-col">
                   {showTime && (
-                    <div className="flex justify-center my-4">
-                      <span className="text-[11px] text-gray-500">
+                    <div className="flex justify-center my-6">
+                      <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-60">
                         {formatMessageTime(msg.timestamp)}
                       </span>
                     </div>
                   )}
 
-                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group`}>
-                    <div className={`flex max-w-[75%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2.5`}>
+                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-4`}>
+                    <div className={`flex max-w-[75%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
                       {/* 头像 */}
                       <div className="flex-shrink-0 w-9 h-9">
                         {!msg.isFromUser ? (
                           npcAvatar ? (
-                            <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                            <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/50 shadow-sm" />
                           ) : (
                             <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-medium shadow-sm"
                               style={{ background: getAvatarColor(npcName || 'A') }}
                             >
                               {(npcName || 'A')[0]}
                             </div>
                           )
                         ) : (
-                          <img src={userInfo.avatar || '/default-avatar.png'} alt="" className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                          <img src={userInfo.avatar || '/default-avatar.png'} alt="" className="w-9 h-9 rounded-full object-cover border border-white/50 shadow-sm" />
                         )}
                       </div>
 
@@ -336,25 +352,25 @@ ${emojiPrompt}${forumContextPrompt}`
                           <img
                             src={msg.emojiUrl}
                             alt={msg.content}
-                            className="w-32 h-32 object-contain"
+                            className="w-32 h-32 object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
                           <div
-                            className={`px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap ${msg.isFromUser
-                                ? 'bg-gray-900 text-white rounded-2xl rounded-tr-sm'
-                                : 'bg-white text-gray-900 rounded-2xl rounded-tl-sm shadow-sm'
+                            className={`px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.04)] font-serif ${msg.isFromUser
+                              ? 'bg-[#2F3032] text-[#F2F0E9] rounded-2xl rounded-br-sm border border-[#2F3032]'
+                              : 'bg-[#FCFBF9] text-[#454545] border border-[#E8E6E1] rounded-2xl rounded-bl-sm'
                               }`}
                           >
                             <EmojiContentRenderer
                               content={msg.content}
-                              emojiSize={22}
-                              className={msg.isFromUser ? 'text-white' : 'text-gray-900'}
+                              emojiSize={16}
+                              className={msg.isFromUser ? 'text-[#F2F0E9]' : 'text-[#454545]'}
                             />
                           </div>
                         )}
                         {/* 状态/已读 */}
                         {msg.isFromUser && index === messages.length - 1 && (
-                          <span className="text-[10px] text-gray-500 mt-1 mr-1">已读</span>
+                          <span className="text-[10px] text-slate-400 mt-1 mr-1 font-light tracking-wider">已读</span>
                         )}
                       </div>
                     </div>
@@ -367,13 +383,13 @@ ${emojiPrompt}${forumContextPrompt}`
 
         {/* AI正在输入 */}
         {isAiReplying && (
-          <div className="flex items-end gap-2.5 mt-2">
-            <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
-            <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
+          <div className="flex items-end gap-3 mt-4">
+            <div className="w-8 h-8 rounded-full bg-[#EAE5D9] flex-shrink-0" />
+            <div className="bg-white border border-[#EAE5D9] px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
               <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -382,40 +398,40 @@ ${emojiPrompt}${forumContextPrompt}`
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* 底部输入区域 - 抖音风格 */}
-      <div className="bg-white border-t border-gray-200 px-3 py-2 safe-area-inset-bottom">
+      {/* 底部输入区域 - 极简悬浮 */}
+      <div className="bg-[#F9F8F4]/95 backdrop-blur-md border-t border-[#EAE5D9] px-4 py-3 safe-area-inset-bottom">
         <div className="flex items-end gap-3">
-          <button className="mb-2 text-gray-600 active:opacity-60">
-            <Mic className="w-7 h-7" />
+          <button className="mb-2 text-[#5A5A5A] hover:text-[#2C2C2C] active:opacity-60 transition-colors">
+            <Mic className="w-5 h-5 stroke-[1.5]" />
           </button>
 
-          <div className="flex-1 bg-gray-100 rounded-full flex items-center px-4 py-2 min-h-[40px]">
+          <div className="flex-1 bg-white border border-[#EAE5D9] rounded-full flex items-center px-4 py-2 min-h-[40px] shadow-sm">
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="发送消息..."
-              className="flex-1 bg-transparent outline-none text-[15px] text-gray-900 placeholder-gray-400"
+              placeholder="写点什么..."
+              className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide"
             />
             <button
               onClick={() => setShowEmojiPanel(true)}
-              className="ml-2 text-gray-400 hover:text-yellow-500 transition-colors"
+              className="ml-2 text-[#8C8C8C] hover:text-[#5A5A5A] transition-colors"
             >
-              <Smile className="w-6 h-6" />
+              <Smile className="w-5 h-5 stroke-[1.5]" />
             </button>
           </div>
 
           {inputText.trim() ? (
             <button
               onClick={handleSend}
-              className="mb-1.5 bg-gray-900 text-white px-4 py-1.5 rounded-full text-sm font-bold active:scale-95 transition-transform"
+              className="mb-1.5 bg-[#2C2C2C] text-[#F9F8F4] px-4 py-1.5 rounded-full text-xs tracking-widest uppercase hover:bg-black transition-colors"
             >
               发送
             </button>
           ) : (
-            <button className="mb-2 text-gray-600 active:opacity-60">
-              <PlusCircle className="w-7 h-7" />
+            <button className="mb-2 text-[#5A5A5A] hover:text-[#2C2C2C] active:opacity-60 transition-colors">
+              <PlusCircle className="w-5 h-5 stroke-[1.5]" />
             </button>
           )}
         </div>

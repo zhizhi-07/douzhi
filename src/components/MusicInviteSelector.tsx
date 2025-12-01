@@ -5,11 +5,12 @@ import { getImage } from '../utils/unifiedStorage'
 interface MusicInviteSelectorProps {
   onClose: () => void
   onSend: (songTitle: string, songArtist: string, songCover?: string) => void
+  onShare?: (songTitle: string, songArtist: string, songCover?: string) => void
 }
 
-const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
-  const { playlist } = useMusicPlayer()
-  const [selectedTab, setSelectedTab] = useState<'library' | 'input'>('library')
+const MusicInviteSelector = ({ onClose, onSend, onShare }: MusicInviteSelectorProps) => {
+  const { playlist, currentSong } = useMusicPlayer()
+  const [selectedTab, setSelectedTab] = useState<'library' | 'input' | 'share'>('library')
   const [customTitle, setCustomTitle] = useState('')
   const [customArtist, setCustomArtist] = useState('')
   const [sending, setSending] = useState(false)
@@ -73,8 +74,8 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
 
         {/* 标题 */}
         <div className="px-6 py-3 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">邀请一起听歌</h3>
-          <p className="text-xs text-gray-500 mt-1">选择一首歌曲发送邀请</p>
+          <h3 className="text-lg font-semibold text-gray-900">音乐</h3>
+          <p className="text-xs text-gray-500 mt-1">邀请一起听或分享音乐给对方</p>
         </div>
 
         {/* 选项卡 */}
@@ -87,7 +88,17 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
                 : 'text-gray-500'
             }`}
           >
-            我的音乐库 ({playlist.length})
+            一起听
+          </button>
+          <button
+            onClick={() => setSelectedTab('share')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              selectedTab === 'share'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500'
+            }`}
+          >
+            分享音乐
           </button>
           <button
             onClick={() => setSelectedTab('input')}
@@ -148,7 +159,7 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
                 </div>
               )}
             </div>
-          ) : (
+          ) : selectedTab === 'input' ? (
             /* 手动输入表单 */
             <div className="px-6 py-6">
               <div className="space-y-4">
@@ -202,7 +213,94 @@ const MusicInviteSelector = ({ onClose, onSend }: MusicInviteSelectorProps) => {
                 </button>
               </div>
             </div>
-          )}
+          ) : selectedTab === 'share' ? (
+            /* 分享音乐 */
+            <div className="px-6 py-6">
+              {currentSong ? (
+                <div className="space-y-4">
+                  {/* 当前播放的歌曲 */}
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <p className="text-xs text-gray-500 mb-3">当前播放</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+                        {currentSong.cover ? (
+                          <img src={currentSong.cover} alt={currentSong.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 truncate">{currentSong.title}</div>
+                        <div className="text-sm text-gray-500 truncate">{currentSong.artist}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 分享按钮 */}
+                  <button
+                    onClick={() => {
+                      if (onShare) {
+                        onShare(currentSong.title, currentSong.artist, currentSong.cover)
+                      }
+                      onClose()
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium ios-button shadow-lg"
+                  >
+                    分享这首歌
+                  </button>
+                </div>
+              ) : (
+                /* 没有正在播放的歌曲，显示手动输入 */
+                <div className="space-y-4">
+                  <div className="text-center py-4">
+                    <div className="text-4xl mb-2">🎵</div>
+                    <p className="text-gray-500 text-sm">暂无正在播放的音乐</p>
+                    <p className="text-gray-400 text-xs mt-1">可以手动输入歌曲信息进行分享</p>
+                  </div>
+                  
+                  {/* 手动输入 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">歌曲名称</label>
+                    <input
+                      type="text"
+                      value={customTitle}
+                      onChange={(e) => setCustomTitle(e.target.value)}
+                      placeholder="例如：晴天"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">歌手</label>
+                    <input
+                      type="text"
+                      value={customArtist}
+                      onChange={(e) => setCustomArtist(e.target.value)}
+                      placeholder="例如：周杰伦"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (onShare && customTitle.trim() && customArtist.trim()) {
+                        onShare(customTitle.trim(), customArtist.trim())
+                        onClose()
+                      } else if (!customTitle.trim() || !customArtist.trim()) {
+                        alert('请输入歌曲名和歌手')
+                      }
+                    }}
+                    disabled={!customTitle.trim() || !customArtist.trim()}
+                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium ios-button shadow-lg disabled:opacity-50"
+                  >
+                    分享音乐
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
         </div>
 

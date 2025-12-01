@@ -8,6 +8,7 @@ import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
 import { ensureMessagesLoaded, loadMessagesPaginated, getMessageCount } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
+import { getCurrentAccountId } from '../../../utils/accountManager'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
@@ -15,6 +16,9 @@ export const useChatState = (chatId: string) => {
 
   // 消息列表（React状态）
   const [messages, setMessagesState] = useState<Message[]>([])
+
+  // 🔥 当前账号ID（用于监听账号切换）
+  const [accountId, setAccountId] = useState(() => getCurrentAccountId())
 
   // 🔥 分页加载状态
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
@@ -46,28 +50,23 @@ export const useChatState = (chatId: string) => {
   const [error, setError] = useState<string | null>(null)
   
   /**
-   * 刷新角色信息（带重试机制）
+   * 刷新角色信息
    */
-  const refreshCharacter = useCallback(() => {
+  const refreshCharacter = useCallback(async () => {
     if (!chatId) return
     
-    const loadCharacterWithRetry = (retryCount = 0) => {
-      const char = characterService.getById(chatId)
-      
-      if (char) {
-        setCharacter(char)
-        if (import.meta.env.DEV) {
-          console.log('🔄 角色信息已刷新:', char.nickname || char.realName)
-        }
-      } else if (retryCount < 2) {
-        // 最多重试2次
-        setTimeout(() => loadCharacterWithRetry(retryCount + 1), 50)
-      } else {
-        console.warn(`⚠️ 刷新角色失败，ID: ${chatId}`)
-      }
-    }
+    // 等待加载完成
+    await characterService.waitForLoad()
     
-    loadCharacterWithRetry()
+    const char = characterService.getById(chatId)
+    if (char) {
+      setCharacter(char)
+      if (import.meta.env.DEV) {
+        console.log('🔄 角色信息已刷新:', char.nickname || char.realName)
+      }
+    } else {
+      console.warn(`⚠️ 刷新角色失败，ID: ${chatId}`)
+    }
   }, [chatId])
   
   /**
@@ -188,38 +187,55 @@ export const useChatState = (chatId: string) => {
   }, [chatId])
 
   /**
+   * 🔥 监听账号切换事件
+   */
+  useEffect(() => {
+    const handleAccountSwitch = (e: CustomEvent) => {
+      const newAccountId = e.detail.accountId
+      console.log('🔄 [useChatState] 账号切换事件:', newAccountId)
+      setAccountId(newAccountId)
+      // 切换账号后清空当前消息，等待重新加载
+      setMessagesState([])
+    }
+    
+    window.addEventListener('accountSwitched', handleAccountSwitch as EventListener)
+    return () => {
+      window.removeEventListener('accountSwitched', handleAccountSwitch as EventListener)
+    }
+  }, [])
+
+  /**
    * 初始化：加载角色和历史消息
    * 🔥 优化：使用分页加载，避免卡顿
+   * 🔥 添加accountId依赖：账号切换时重新加载
    */
   useEffect(() => {
     if (!chatId) return
 
-    // 🔥 修复：角色加载重试机制，解决刷新后"角色不存在"问题
-    const loadCharacterWithRetry = (retryCount = 0) => {
-      const char = characterService.getById(chatId)
+    console.log(`📂 [useChatState] 加载消息: chatId=${chatId}, accountId=${accountId}`)
 
+    // 🔥 等待IndexedDB加载完成后再获取角色
+    const loadCharacter = async () => {
+      // 先等待characterService加载完成
+      await characterService.waitForLoad()
+      
+      const char = characterService.getById(chatId)
       if (char) {
         setCharacter(char)
         if (import.meta.env.DEV) {
           console.log('✅ 角色加载成功:', char.nickname || char.realName)
         }
-      } else if (retryCount < 3) {
-        // 角色可能还在异步加载中，等待100ms后重试
-        if (import.meta.env.DEV) {
-          console.log(`⏳ 角色未找到，${100}ms后重试 (${retryCount + 1}/3)`)
-        }
-        setTimeout(() => loadCharacterWithRetry(retryCount + 1), 100)
       } else {
-        console.error(`❌ 角色加载失败，ID: ${chatId}`)
+        console.error(`❌ 角色不存在，ID: ${chatId}`)
         setError(`角色不存在: ${chatId}`)
       }
     }
 
-    loadCharacterWithRetry()
+    loadCharacter()
 
     // 🔥 使用分页加载，初次只加载最近50条消息
     loadChatMessagesInitial()
-  }, [chatId, loadChatMessagesInitial])
+  }, [chatId, accountId, loadChatMessagesInitial])
   
   /**
    * 监听页面可见性和焦点，当返回聊天窗口时重新加载消息

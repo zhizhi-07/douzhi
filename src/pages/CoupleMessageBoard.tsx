@@ -11,13 +11,16 @@ import {
   deleteCoupleMessage,
   type CoupleMessage 
 } from '../utils/coupleSpaceContentUtils'
-import { getCoupleSpaceRelation } from '../utils/coupleSpaceUtils'
+import { getCoupleSpaceRelation, type CoupleSpaceRelation } from '../utils/coupleSpaceUtils'
+import { getUserInfo } from '../utils/userUtils'
 
 const CoupleMessageBoard = () => {
   const navigate = useNavigate()
   const [messages, setMessages] = useState<CoupleMessage[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [messageContent, setMessageContent] = useState('')
+  const [relation, setRelation] = useState<CoupleSpaceRelation | null>(null)
+  const userInfo = getUserInfo()
   
   // 格式化文本段落
   const formatText = (text: string) => {
@@ -44,6 +47,7 @@ const CoupleMessageBoard = () => {
 
   useEffect(() => {
     loadMessages()
+    setRelation(getCoupleSpaceRelation())
   }, [])
 
   const loadMessages = () => {
@@ -142,9 +146,24 @@ const CoupleMessageBoard = () => {
                 <div key={message.id} className="bg-white rounded-2xl p-5 shadow-md">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center text-white text-sm font-bold">
-                        {message.characterName[0]}
-                      </div>
+                      {/* 根据留言者显示对应头像 */}
+                      {message.characterName === '我' ? (
+                        userInfo.avatar ? (
+                          <img src={userInfo.avatar} className="w-8 h-8 rounded-full object-cover" alt="我" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-white text-sm font-bold">
+                            我
+                          </div>
+                        )
+                      ) : (
+                        relation?.characterAvatar ? (
+                          <img src={relation.characterAvatar} className="w-8 h-8 rounded-full object-cover" alt={message.characterName} />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center text-white text-sm font-bold">
+                            {message.characterName[0]}
+                          </div>
+                        )
+                      )}
                       <div>
                         <div className="font-semibold text-gray-900 text-sm">
                           {message.characterName}

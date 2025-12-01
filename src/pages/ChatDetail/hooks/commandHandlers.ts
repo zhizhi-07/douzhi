@@ -171,8 +171,8 @@ export const transferHandler: CommandHandler = {
  * 接收转账指令处理器
  */
 export const receiveTransferHandler: CommandHandler = {
-  // 🔥 宽松匹配：支持更多变体（接收、同意、回、收等）
-  pattern: /[\[【](?:接收转账|收下转账|收款|同意转账|回.*?转账|接受转账|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下|转账[:：]?同意|转账[:：]?回)[\]】]/,
+  // 🔥 宽松匹配：支持更多变体，包括[手机操作:收款]格式
+  pattern: /[\[【](?:接收转账|收下转账|收款|同意转账|回.*?转账|接受转账|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下|转账[:：]?同意|转账[:：]?回|手机操作[:：](?:收款|接收转账|收下转账|领取转账))[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     let transferUpdated = false
     
@@ -221,9 +221,16 @@ export const receiveTransferHandler: CommandHandler = {
       return [...updated]
     })
     
+    // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
+    const remainingText = content.replace(match[0], '').trim()
+    
     if (!transferUpdated) {
-      console.log('⚠️ [接收转账] 未找到待处理的转账，跳过')
-      return { handled: false, remainingText: content }
+      console.log('⚠️ [接收转账] 未找到待处理的转账，但仍移除指令文本')
+      return { 
+        handled: true, 
+        remainingText,
+        skipTextMessage: !remainingText  // 如果没有剩余文本，跳过文本消息
+      }
     }
 
     // 添加系统消息
@@ -234,7 +241,6 @@ export const receiveTransferHandler: CommandHandler = {
     })
     await addMessage(systemMsg, setMessages, chatId)
 
-    const remainingText = content.replace(match[0], '').trim()
     return { 
       handled: true, 
       remainingText,
@@ -247,9 +253,11 @@ export const receiveTransferHandler: CommandHandler = {
  * 退还转账指令处理器
  */
 export const rejectTransferHandler: CommandHandler = {
-  // 🔥 宽松匹配：支持 [退还]、[退还转账]、[拒绝]、[不要] 等各种变体
-  pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|不要(?:转账)?|不收(?:转账)?|退回(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账[:：]?不要|转账[:：]?不收)[\]】]|^退还$/,
+  // 🔥 宽松匹配：支持多种变体，包括[手机操作:退还转账]格式
+  pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|不要(?:转账)?|不收(?:转账)?|退回(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账[:：]?不要|转账[:：]?不收|手机操作[:：](?:退还|退回|拒绝)(?:转账)?)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
+    let transferFound = false
+    
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）
       const lastPending = [...prev].reverse().find(
@@ -261,6 +269,7 @@ export const rejectTransferHandler: CommandHandler = {
         return prev
       }
 
+      transferFound = true
       const updated = prev.map(msg =>
         msg.id === lastPending.id
           ? { ...msg, transfer: { ...msg.transfer!, status: 'expired' as const } }
@@ -274,7 +283,19 @@ export const rejectTransferHandler: CommandHandler = {
       return updated
     })
 
-    // 添加系统消息
+    // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
+    const remainingText = content.replace(match[0], '').trim()
+    
+    if (!transferFound) {
+      console.log('⚠️ [退还转账] 未找到待处理的转账，但仍移除指令文本')
+      return { 
+        handled: true, 
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+
+    // 添加系统消息（只在找到转账时添加）
     const systemMsg = createMessageObj('system', {
       content: '对方已退还',
       aiReadableContent: `${character?.nickname || character?.realName || '对方'}退还了你的转账`,
@@ -282,7 +303,6 @@ export const rejectTransferHandler: CommandHandler = {
     })
     await addMessage(systemMsg, setMessages, chatId)
 
-    const remainingText = content.replace(match[0], '').trim()
     return { 
       handled: true, 
       remainingText,
@@ -763,7 +783,7 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
-    const success = acceptCoupleSpaceInvite(character.id)
+    const success = await acceptCoupleSpaceInvite(character.id)
     
     if (success) {
       // 更新邀请卡片状态
@@ -805,7 +825,7 @@ export const coupleSpaceRejectHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
-    const success = rejectCoupleSpaceInvite(character.id)
+    const success = await rejectCoupleSpaceInvite(character.id)
     
     if (success) {
       // 更新邀请卡片状态
@@ -909,7 +929,7 @@ export const coupleSpaceInviteHandler: CommandHandler = {
     }
     
     // 创建邀请关系（status为pending）
-    const newRelation = createCoupleSpaceInvite(
+    const newRelation = await createCoupleSpaceInvite(
       'user',
       character.id,
       character.nickname || character.realName,
@@ -1083,7 +1103,7 @@ export const coupleSpaceEndHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
-    const success = endCoupleSpaceRelation()
+    const success = await endCoupleSpaceRelation()
     
     if (success) {
       // 添加系统消息
@@ -1433,18 +1453,21 @@ export const intimatePayHandler: CommandHandler = {
  * 接受亲密付指令处理器
  */
 export const acceptIntimatePayHandler: CommandHandler = {
-  pattern: /[\[【]接受亲密付[\]】]/,
+  // 🔥 匹配多种格式：[接受亲密付]、[手机操作:领取亲密付]、[手机操作:接受亲密付] 等
+  pattern: /[\[【](?:(?:接受|同意|答应|接受了)亲密付|手机操作[:：](?:领取|接受|同意)亲密付)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId, messages }) => {
-    console.log('🎯 [接受亲密付] 处理器被调用')
+    console.log('🎯 [接受亲密付] 处理器被调用, 匹配:', match[0])
     
-    // 🔥 修复：先从 messages 中查找待处理的亲密付
+    // 🔥 先查找待处理的亲密付
     const lastPending = [...messages].reverse().find(
       msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
     )
     
+    const remainingText = content.replace(match[0], '').trim()
+    
     if (!lastPending || !lastPending.intimatePay) {
-      console.warn('⚠️ [接受亲密付] 没有找到待处理的亲密付消息')
-      return { handled: false }
+      console.warn('⚠️ [接受亲密付] 没有找到待处理的亲密付消息，但仍移除指令文本')
+      return { handled: true, remainingText, skipTextMessage: !remainingText }
     }
     
     const monthlyLimit = lastPending.intimatePay.monthlyLimit
@@ -1453,28 +1476,27 @@ export const acceptIntimatePayHandler: CommandHandler = {
       monthlyLimit
     })
     
-    // 更新消息状态为已接受
-    let updatedMessages: Message[] = []
-    setMessages(prev => {
-      updatedMessages = prev.map(msg =>
-        msg.id === lastPending.id
-          ? {
-              ...msg,
-              intimatePay: {
-                ...msg.intimatePay!,
-                status: 'accepted' as const
-              }
+    // 🔥 修复：先从当前messages构建更新后的数组，确保数据一致性
+    const updatedMessages = messages.map(msg =>
+      msg.id === lastPending.id
+        ? {
+            ...msg,
+            intimatePay: {
+              ...msg.intimatePay!,
+              status: 'accepted' as const
             }
-          : msg
-      )
-      return updatedMessages
-    })
-
-    // 🔥 保存到IndexedDB
-    if (chatId && updatedMessages.length > 0) {
+          }
+        : msg
+    )
+    
+    // 🔥 保存到IndexedDB（先保存，确保数据持久化）
+    if (chatId) {
       await saveMessages(chatId, updatedMessages)
       console.log('💾 [接受亲密付] 消息状态已保存到数据库')
     }
+    
+    // 🔥 更新React状态（返回全新数组触发重新渲染）
+    setMessages(() => [...updatedMessages])
 
     // 创建亲密付关系（用户给AI开通，AI接受，类型是 user_to_character）
     if (character) {
@@ -1497,7 +1519,6 @@ export const acceptIntimatePayHandler: CommandHandler = {
     console.log('📝 [接受亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
-    const remainingText = content.replace(match[0], '').trim()
     return { 
       handled: true, 
       remainingText,
@@ -1510,7 +1531,8 @@ export const acceptIntimatePayHandler: CommandHandler = {
  * 拒绝亲密付指令处理器
  */
 export const rejectIntimatePayHandler: CommandHandler = {
-  pattern: /[\[【]拒绝亲密付[\]】]/,
+  // 🔥 匹配多种格式：[拒绝亲密付]、[手机操作:拒绝亲密付] 等
+  pattern: /[\[【](?:(?:拒绝|不要|不同意|拒绝了)亲密付|手机操作[:：](?:拒绝|不要)亲密付)[\]】]/,
   handler: async (match, content, { setMessages, chatId, character, messages }) => {
     console.log('🎯 [拒绝亲密付] 处理器被调用')
     
@@ -1519,35 +1541,37 @@ export const rejectIntimatePayHandler: CommandHandler = {
       msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
     )
 
+    // 🔥 即使没有找到待处理的亲密付，也要移除指令文本
+    const remainingText = content.replace(match[0], '').trim()
+    
     if (!lastPending) {
-      console.warn('⚠️ [拒绝亲密付] 没有找到待处理的亲密付消息')
-      return { handled: false }
+      console.warn('⚠️ [拒绝亲密付] 没有找到待处理的亲密付消息，但仍移除指令文本')
+      return { handled: true, remainingText, skipTextMessage: !remainingText }
     }
     
     console.log('✅ [拒绝亲密付] 找到待处理消息:', lastPending.id)
 
-    // 更新消息状态为已拒绝
-    let updatedMessages: Message[] = []
-    setMessages(prev => {
-      updatedMessages = prev.map(msg =>
-        msg.id === lastPending.id
-          ? {
-              ...msg,
-              intimatePay: {
-                ...msg.intimatePay!,
-                status: 'rejected' as const
-              }
+    // 🔥 修复：先从当前messages构建更新后的数组，确保数据一致性
+    const updatedMessages = messages.map(msg =>
+      msg.id === lastPending.id
+        ? {
+            ...msg,
+            intimatePay: {
+              ...msg.intimatePay!,
+              status: 'rejected' as const
             }
-          : msg
-      )
-      return updatedMessages
-    })
-
-    // 🔥 保存到IndexedDB
-    if (chatId && updatedMessages.length > 0) {
+          }
+        : msg
+    )
+    
+    // 🔥 保存到IndexedDB（先保存，确保数据持久化）
+    if (chatId) {
       await saveMessages(chatId, updatedMessages)
       console.log('💾 [拒绝亲密付] 消息状态已保存到数据库')
     }
+    
+    // 🔥 更新React状态（返回全新数组触发重新渲染）
+    setMessages(() => [...updatedMessages])
 
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
@@ -1558,7 +1582,6 @@ export const rejectIntimatePayHandler: CommandHandler = {
     console.log('📝 [拒绝亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
-    const remainingText = content.replace(match[0], '').trim()
     return { 
       handled: true, 
       remainingText,
@@ -3172,6 +3195,7 @@ export const phoneOperationHandler: CommandHandler = {
 /**
  * 修改拍一拍后缀指令处理器
  * 格式: [修改拍一拍:的小脑袋] 或 [改拍一拍:的肩膀]
+ * AI修改的是用户的后缀（AI拍用户时显示）
  */
 export const changePokeSuffixHandler: CommandHandler = {
   pattern: /[\[【](?:修改|改)拍一拍[:：](.+?)[\]】]/,
@@ -3182,23 +3206,21 @@ export const changePokeSuffixHandler: CommandHandler = {
 
     const newSuffix = match[1].trim()
     
-    // 更新角色的拍一拍后缀
-    const { characterService } = await import('../../../services/characterService')
-    characterService.update(chatId, { pokeSuffix: newSuffix })
+    // 更新用户的拍一拍后缀（AI拍用户时显示）
+    const { getUserInfo, saveUserInfo } = await import('../../../utils/userUtils')
+    const userInfo = getUserInfo()
+    saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
     
-    console.log('✅ AI修改了拍一拍后缀:', newSuffix)
+    console.log('✅ AI修改了用户的拍一拍后缀:', newSuffix)
     
     // 添加系统提示消息
     const aiName = character.nickname || character.realName
     const notificationMsg = createMessageObj('system', {
       type: 'system',
-      content: `${aiName}修改了拍一拍后缀为"${newSuffix}"`,
-      aiReadableContent: `【系统通知】${aiName}修改了拍一拍后缀为"${newSuffix}"`
+      content: `${aiName}修改了你的拍一拍后缀为"${newSuffix}"`,
+      aiReadableContent: `【系统通知】${aiName}修改了用户的拍一拍后缀为"${newSuffix}"，现在${aiName}拍用户时会显示这个后缀`
     })
     await addMessage(notificationMsg, setMessages, chatId)
-    
-    // 触发角色信息更新事件
-    window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: chatId } }))
 
     const remainingText = content.replace(match[0], '').trim()
     return { 

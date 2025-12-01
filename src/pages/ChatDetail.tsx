@@ -5,6 +5,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { getUserInfo } from '../utils/userUtils'
+import { isMainAccount, getCurrentAccount } from '../utils/accountManager'
 import AddMenu from '../components/AddMenu'
 import AlbumSelector from '../components/AlbumSelector'
 import MessageMenu from '../components/MessageMenu.floating'
@@ -77,6 +78,52 @@ const ChatDetail = () => {
   // AI状态弹窗
   const [showAIStatusModal, setShowAIStatusModal] = useState(false)
   const [currentAIStatus, setCurrentAIStatus] = useState<any>(null)
+
+  // 🔥 小号总结功能
+  const [isSummarizing, setIsSummarizing] = useState(false)
+  const [summaryResult, setSummaryResult] = useState<string | null>(null)
+  
+  const handleSubAccountSummary = async () => {
+    if (!id || !chatState.character || isSummarizing) return
+    
+    const account = getCurrentAccount()
+    if (!account || account.isMain) return
+    
+    setIsSummarizing(true)
+    try {
+      const { generateSummary, saveSummary } = await import('../utils/subAccountSummary')
+      const messages = loadMessages(id)
+      
+      if (messages.length === 0) {
+        setSummaryResult('暂无聊天记录可总结')
+        return
+      }
+      
+      const summary = await generateSummary(
+        id,
+        chatState.character.nickname || chatState.character.realName,
+        account.id,
+        account.name,
+        messages
+      )
+      
+      saveSummary({
+        accountId: account.id,
+        accountName: account.name,
+        characterId: id,
+        summary,
+        timestamp: Date.now(),
+        messageCount: messages.length
+      })
+      
+      setSummaryResult(summary)
+    } catch (error) {
+      console.error('总结失败:', error)
+      setSummaryResult('总结失败：' + (error as Error).message)
+    } finally {
+      setIsSummarizing(false)
+    }
+  }
 
   // 处理状态栏点击
   const handleStatusClick = async () => {
@@ -226,6 +273,41 @@ const ChatDetail = () => {
     // 显示修正结果
     alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}\n\n命令已重新执行，请查看效果`)
   }, [id, chatState.messages, chatState.setMessages, chatState.character])
+
+  // 分享音乐处理
+  const handleShareMusic = useCallback((title: string, artist: string, cover?: string) => {
+    if (!id) return
+
+    // 创建音乐分享消息
+    const musicShareMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'sent',
+      messageType: 'musicShare',
+      content: `分享音乐：${title} - ${artist}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      musicShare: {
+        title,
+        artist,
+        cover
+      },
+      aiReadableContent: `[用户分享了音乐: ${title} - ${artist}]`
+    }
+
+    // 添加到消息列表并保存
+    chatState.setMessages(prev => {
+      const updated = [...prev, musicShareMsg]
+      saveMessages(id, updated)
+      return updated
+    })
+
+    console.log('🎵 分享音乐:', title, '-', artist)
+
+    // 触发AI回复
+    setTimeout(() => {
+      chatAI.handleAIReply()
+    }, 500)
+  }, [id, chatState, chatAI])
 
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
@@ -418,7 +500,13 @@ const ChatDetail = () => {
         characterId={id}
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
-        onMenuClick={() => navigate(`/chat/${id}/settings`)}
+        onMenuClick={() => {
+          if (isMainAccount()) {
+            navigate(`/chat/${id}/settings`)
+          } else {
+            handleSubAccountSummary()
+          }
+        }}
         onStatusClick={handleStatusClick}
         topBarImage={customIcons['chat-topbar-bg'] || chatDecorations.topBar}
         topBarScale={topBarScale}
@@ -1196,11 +1284,12 @@ const ChatDetail = () => {
         onSelect={emoji.sendEmoji}
       />
 
-      {/* 音乐邀请选择器 */}
+      {/* 音乐选择器 */}
       {musicInvite.showMusicInviteSelector && (
         <MusicInviteSelector
           onClose={() => musicInvite.setShowMusicInviteSelector(false)}
           onSend={musicInvite.sendMusicInvite}
+          onShare={handleShareMusic}
         />
       )}
 
@@ -1211,6 +1300,64 @@ const ChatDetail = () => {
         characterId={id || ''}
         characterName={chatState.character?.nickname || chatState.character?.realName || 'AI'}
       />
+
+      {/* 小号总结弹窗 */}
+      {(summaryResult !== null || isSummarizing) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => !isSummarizing && setSummaryResult(null)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              聊天总结
+            </h3>
+            {isSummarizing ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full" />
+                <span className="ml-3 text-gray-500">正在生成...</span>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={summaryResult || ''}
+                  onChange={(e) => setSummaryResult(e.target.value)}
+                  className="w-full h-32 p-3 border border-gray-200 rounded-xl text-sm text-gray-700 resize-none focus:outline-none focus:border-green-500"
+                  placeholder="编辑总结内容..."
+                />
+                <p className="text-xs text-gray-400 mt-2 mb-4">可以手动修改，保存后切回主账号AI可以看到</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSummaryResult(null)}
+                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      // 保存修改后的总结
+                      const account = getCurrentAccount()
+                      if (account && !account.isMain && id && summaryResult) {
+                        import('../utils/subAccountSummary').then(({ saveSummary }) => {
+                          saveSummary({
+                            accountId: account.id,
+                            accountName: account.name,
+                            characterId: id,
+                            summary: summaryResult,
+                            timestamp: Date.now(),
+                            messageCount: chatState.messages.length
+                          })
+                        })
+                      }
+                      setSummaryResult(null)
+                    }}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors"
+                  >
+                    保存
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <MessageMenu
         isOpen={messageMenu.showMessageMenu}

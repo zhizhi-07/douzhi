@@ -55,13 +55,18 @@ export const useScrollControl = (
   // 初始加载时立即跳到底部
   useEffect(() => {
     if (isInitialLoadRef.current && messages.length > 0) {
+      // 🔥 延迟更长时间确保滚动到底部后再允许加载更多
       setTimeout(() => {
         scrollToBottom(false, true)
         if (scrollContainerRef.current) {
           scrollContainerRef.current.classList.add('enable-smooth')
         }
+        // 🔥 滚动到底部后才允许检测滚动加载更多
+        setTimeout(() => {
+          isInitialLoadRef.current = false
+          console.log('📜 [初始化] 已滚动到底部，启用加载更多检测')
+        }, 200)
       }, 100)
-      isInitialLoadRef.current = false
     }
   }, [messages, scrollToBottom])
 
@@ -93,6 +98,9 @@ export const useScrollControl = (
 
     const handleScroll = () => {
       updateNearBottom()
+      
+      // 🔥 初始加载期间不触发加载更多，等滚动到底部后再启用
+      if (isInitialLoadRef.current) return
       
       const { scrollTop, scrollHeight } = container
       if (scrollTop < 100 && hasMoreMessages && !isLoadingMessages && !loadMoreTriggeredRef.current) {

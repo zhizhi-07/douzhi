@@ -3,7 +3,9 @@
 @tailwind utilities;
 
 /* iOS全屏适配 */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   /* 支持dvh的浏览器用dvh，否则用100% */
   height: 100dvh;
@@ -12,7 +14,10 @@ html, body, #root {
 
 /* iOS PWA模式下确保填满整个屏幕 */
 @supports (-webkit-touch-callout: none) {
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     min-height: -webkit-fill-available;
   }
 }
@@ -45,10 +50,13 @@ body {
 /* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh */
 @media all and (display-mode: standalone) {
   @supports (height: 100dvh) and (-webkit-touch-callout: none) {
-    html, body, #root {
+
+    html,
+    body,
+    #root {
       height: 100dvh;
     }
-    
+
     .h-screen {
       height: 100dvh !important;
     }
@@ -56,7 +64,7 @@ body {
 }
 
 /* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram和聊天页面） */
-.h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]), 
+.h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]),
 .h-full:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]) {
   background: transparent !important;
 }
@@ -76,9 +84,9 @@ body {
 
 /* 核心毛玻璃类 - 替换原本的透明/纯白逻辑 */
 /* 排除列表：按钮、弹窗、特定功能区、论坛、Instagram */
-.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
-.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
-.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *), 
+.bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
+.bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
+.bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
 .bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
 .bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *) {
   background-color: var(--glass-bg-primary) !important;
@@ -127,7 +135,7 @@ body {
 .forum-profile-post-item {
   background-color: white !important;
   opacity: 1 !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Instagram页面专用样式 - 确保不透明 */
@@ -151,11 +159,13 @@ body {
   --switch-active-color: #475569;
   --global-button-color: #ffffff;
   --slider-thumb-color: #1e293b;
+  /* 🎨 全局字体变量 */
+  --global-font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
 /* 确保开关按钮内的白色背景不被覆盖 - 使用CSS变量 */
 button div[class*="bg-white"],
-button > div[class*="bg-white"] {
+button>div[class*="bg-white"] {
   background: var(--switch-knob-color) !important;
   backdrop-filter: blur(4px) !important;
 }
@@ -176,6 +186,12 @@ button.bg-gray-600,
 [data-worldbook] div[class*="bg-slate-"][class*="rounded"],
 [data-worldbook] div[class*="bg-gray-"][class*="rounded"][class*="cursor-pointer"] {
   background: var(--global-button-color) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: var(--global-button-text-color) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 /* 滑块圆圈颜色 */
@@ -207,13 +223,15 @@ input[type="range"]::-moz-range-track {
 }
 
 /* 允许输入框选择文字 */
-input, textarea {
+input,
+textarea {
   -webkit-user-select: text;
   user-select: text;
 }
 
 /* 移除输入框的所有默认样式 */
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   outline: none !important;
   border: none !important;
   box-shadow: none !important;
@@ -231,7 +249,8 @@ input {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   width: 100%;
   margin: 0;
@@ -239,12 +258,29 @@ html, body {
 }
 
 body {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--global-font-family) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #f5f7fa;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* 🎨 强制全局字体覆盖 Tailwind 的 font-sans/font-serif 等类 */
+* {
+  font-family: inherit !important;
+}
+
+/* 排除需要特殊字体的元素：图标、代码块、小剧场卡片 */
+[class*="icon"],
+[class*="Icon"],
+svg,
+code,
+pre,
+.font-mono,
+[data-theatre-card],
+[data-theatre-card] * {
+  font-family: revert !important;
 }
 
 /* iOS Safari 全屏适配 */
@@ -269,7 +305,7 @@ body {
   backdrop-filter: blur(20px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.4) !important;
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
 }
@@ -314,7 +350,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
   border-radius: 28px;
   padding: 10px 18px;
-  box-shadow: 
+  box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
@@ -350,8 +386,13 @@ body {
 
 /* 🚀 GPU加速 - 旋转动画 */
 @keyframes spin-slow {
-  from { transform: rotate3d(0, 0, 1, 0deg); }
-  to { transform: rotate3d(0, 0, 1, 360deg); }
+  from {
+    transform: rotate3d(0, 0, 1, 0deg);
+  }
+
+  to {
+    transform: rotate3d(0, 0, 1, 360deg);
+  }
 }
 
 .animate-spin-slow {
@@ -434,9 +475,11 @@ input[type="range"].slider::-moz-range-thumb:active {
   0% {
     transform: rotateY(-5deg);
   }
+
   50% {
     transform: rotateY(-10deg);
   }
+
   100% {
     transform: rotateY(-5deg);
   }
@@ -450,8 +493,8 @@ input[type="range"].slider::-moz-range-thumb:active {
 /* 纸张纹理效果 */
 .paper-texture {
   background-image:
-    linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
@@ -459,14 +502,14 @@ input[type="range"].slider::-moz-range-thumb:active {
 .book-shadow {
   box-shadow:
     /* 书脊阴影 */
-    inset 4px 0 8px rgba(0,0,0,0.1),
+    inset 4px 0 8px rgba(0, 0, 0, 0.1),
     /* 外部阴影 */
-    0 0 0 1px rgba(139,69,19,0.2),
-    8px 0 16px rgba(0,0,0,0.15),
+    0 0 0 1px rgba(139, 69, 19, 0.2),
+    8px 0 16px rgba(0, 0, 0, 0.15),
     /* 书页层次感 */
-    12px 0 0 -2px rgba(245,243,237,0.8),
-    14px 0 0 -2px rgba(245,243,237,0.6),
-    16px 0 0 -2px rgba(245,243,237,0.4);
+    12px 0 0 -2px rgba(245, 243, 237, 0.8),
+    14px 0 0 -2px rgba(245, 243, 237, 0.6),
+    16px 0 0 -2px rgba(245, 243, 237, 0.4);
 }
 
 /* 书页翻动效果 */
@@ -475,10 +518,12 @@ input[type="range"].slider::-moz-range-thumb:active {
     transform: rotateY(0deg);
     opacity: 1;
   }
+
   50% {
     transform: rotateY(-90deg);
     opacity: 0.5;
   }
+
   100% {
     transform: rotateY(-180deg);
     opacity: 0;
@@ -493,18 +538,17 @@ input[type="range"].slider::-moz-range-thumb:active {
 .bookmark {
   background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 50%, #d4af37 100%);
   box-shadow:
-    2px 0 8px rgba(0,0,0,0.2),
-    inset -1px 0 2px rgba(255,255,255,0.5);
+    2px 0 8px rgba(0, 0, 0, 0.2),
+    inset -1px 0 2px rgba(255, 255, 255, 0.5);
 }
 
 /* 复古纸张颜色 */
 .vintage-paper {
   background: linear-gradient(to right,
-    #f9f7f1 0%,
-    #fefdfb 3%,
-    #fefdfb 97%,
-    #f5f3ed 100%
-  );
+      #f9f7f1 0%,
+      #fefdfb 3%,
+      #fefdfb 97%,
+      #f5f3ed 100%);
 }
 
 /* 书本字体 */
@@ -521,10 +565,9 @@ input[type="range"].slider::-moz-range-thumb:active {
 /* 书页装饰线 */
 .decorative-line {
   background: linear-gradient(to right,
-    transparent 0%,
-    rgba(212,175,55,0.3) 50%,
-    transparent 100%
-  );
+      transparent 0%,
+      rgba(212, 175, 55, 0.3) 50%,
+      transparent 100%);
   height: 1px;
 }
 
@@ -534,6 +577,7 @@ input[type="range"].slider::-moz-range-thumb:active {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -550,6 +594,7 @@ input[type="range"].slider::-moz-range-thumb:active {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;

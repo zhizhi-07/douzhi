@@ -20,6 +20,57 @@ import { getEmojis } from './emojiStorage'
 import type { Character, Message } from '../types/chat'
 import type { Moment } from '../types/moments'
 
+// IndexedDB存储工具（用于气泡样式和壁纸）
+const BUBBLE_DB_NAME = 'BubbleStyleDB'
+const BUBBLE_STORE_NAME = 'styles'
+
+const openBubbleDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(BUBBLE_DB_NAME, 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(BUBBLE_STORE_NAME)) {
+        db.createObjectStore(BUBBLE_STORE_NAME, { keyPath: 'key' })
+      }
+    }
+  })
+}
+
+const getFromIDB = async (key: string): Promise<string> => {
+  try {
+    const db = await openBubbleDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(BUBBLE_STORE_NAME, 'readonly')
+      const store = tx.objectStore(BUBBLE_STORE_NAME)
+      const request = store.get(key)
+      request.onsuccess = () => {
+        db.close()
+        resolve(request.result?.value || '')
+      }
+      request.onerror = () => { db.close(); resolve('') }
+    })
+  } catch {
+    return ''
+  }
+}
+
+const saveToIDB = async (key: string, value: string): Promise<boolean> => {
+  try {
+    const db = await openBubbleDB()
+    return new Promise((resolve) => {
+      const tx = db.transaction(BUBBLE_STORE_NAME, 'readwrite')
+      const store = tx.objectStore(BUBBLE_STORE_NAME)
+      store.put({ key, value })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); resolve(false) }
+    })
+  } catch {
+    return false
+  }
+}
+
 /**
  * 导出的数据格式
  */
@@ -40,6 +91,16 @@ export interface ExportedCharacterData {
   listeningTogether?: any  // 一起听数据
   customSongs?: any[]  // 自定义歌曲列表
   musicBackground?: any  // 音乐播放器背景
+  // 🔥 新增：气泡样式和壁纸
+  bubbleStyles?: {
+    userBubbleColor?: string
+    aiBubbleColor?: string
+    userTextColor?: string
+    aiTextColor?: string
+    userBubbleCSS?: string
+    aiBubbleCSS?: string
+  }
+  wallpaper?: string  // 聊天壁纸
 }
 
 /**
@@ -171,9 +232,48 @@ export async function exportCharacterData(characterId: string): Promise<Exported
       console.warn('获取音乐背景失败:', e)
     }
     
-    // 14. 构建导出数据
+    // 14. 获取气泡样式（从IndexedDB）
+    let bubbleStyles: any = null
+    try {
+      const [userBubbleColor, aiBubbleColor, userTextColor, aiTextColor, userBubbleCSS, aiBubbleCSS] = await Promise.all([
+        getFromIDB(`user_bubble_color_${characterId}`),
+        getFromIDB(`ai_bubble_color_${characterId}`),
+        getFromIDB(`user_text_color_${characterId}`),
+        getFromIDB(`ai_text_color_${characterId}`),
+        getFromIDB(`user_bubble_css_${characterId}`),
+        getFromIDB(`ai_bubble_css_${characterId}`)
+      ])
+      
+      if (userBubbleColor || aiBubbleColor || userTextColor || aiTextColor || userBubbleCSS || aiBubbleCSS) {
+        bubbleStyles = {
+          userBubbleColor,
+          aiBubbleColor,
+          userTextColor,
+          aiTextColor,
+          userBubbleCSS,
+          aiBubbleCSS
+        }
+        console.log('✅ 气泡样式')
+      }
+    } catch (e) {
+      console.warn('获取气泡样式失败:', e)
+    }
+    
+    // 15. 获取聊天壁纸
+    let wallpaper: string | undefined = undefined
+    try {
+      const wp = await getFromIDB(`wallpaper_${characterId}`)
+      if (wp) {
+        wallpaper = wp
+        console.log('✅ 聊天壁纸')
+      }
+    } catch (e) {
+      console.warn('获取壁纸失败:', e)
+    }
+    
+    // 16. 构建导出数据
     const exportData: ExportedCharacterData = {
-      version: '1.0.0',
+      version: '1.1.0',  // 版本升级
       exportDate: Date.now(),
       character,
       chatSettings: parsedSettings,
@@ -187,7 +287,9 @@ export async function exportCharacterData(characterId: string): Promise<Exported
       intimatePay,
       listeningTogether,
       customSongs,
-      musicBackground
+      musicBackground,
+      bubbleStyles,
+      wallpaper
     }
     
     console.log('✅ 数据导出完成')
@@ -368,6 +470,34 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
         }
       } catch (e) {
         console.warn('音乐背景导入失败:', e)
+      }
+    }
+    
+    // 11. 导入气泡样式（如果有）
+    if (jsonData.bubbleStyles) {
+      try {
+        const bs = jsonData.bubbleStyles
+        const savePromises = []
+        if (bs.userBubbleColor) savePromises.push(saveToIDB(`user_bubble_color_${newId}`, bs.userBubbleColor))
+        if (bs.aiBubbleColor) savePromises.push(saveToIDB(`ai_bubble_color_${newId}`, bs.aiBubbleColor))
+        if (bs.userTextColor) savePromises.push(saveToIDB(`user_text_color_${newId}`, bs.userTextColor))
+        if (bs.aiTextColor) savePromises.push(saveToIDB(`ai_text_color_${newId}`, bs.aiTextColor))
+        if (bs.userBubbleCSS) savePromises.push(saveToIDB(`user_bubble_css_${newId}`, bs.userBubbleCSS))
+        if (bs.aiBubbleCSS) savePromises.push(saveToIDB(`ai_bubble_css_${newId}`, bs.aiBubbleCSS))
+        await Promise.all(savePromises)
+        console.log('✅ 气泡样式已导入')
+      } catch (e) {
+        console.warn('气泡样式导入失败:', e)
+      }
+    }
+    
+    // 12. 导入聊天壁纸（如果有）
+    if (jsonData.wallpaper) {
+      try {
+        await saveToIDB(`wallpaper_${newId}`, jsonData.wallpaper)
+        console.log('✅ 聊天壁纸已导入')
+      } catch (e) {
+        console.warn('壁纸导入失败:', e)
       }
     }
     

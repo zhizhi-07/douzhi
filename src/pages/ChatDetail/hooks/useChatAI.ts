@@ -1565,27 +1565,11 @@ export const useChatAI = (
             console.log('🚫 消息已标记为被拉黑状态')
           }
           
-          // 🔥 计算语音播放时间，避免下一条消息覆盖
-          let voiceDelay = 300 // 默认延迟
-          
-          // 检查是否有语音设置
-          const settingsStr = localStorage.getItem(`chat_settings_${chatId}`)
-          if (settingsStr) {
-            try {
-              const settings = JSON.parse(settingsStr)
-              if (settings.voiceId && messageContent.trim()) {
-                // 粗略估算语音播放时间：中文按每分钟200字计算
-                const textLength = messageContent.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length
-                const estimatedDuration = Math.max(1000, textLength * 300) // 每字300ms，最少1秒
-                voiceDelay = Math.min(estimatedDuration, 8000) // 最多8秒
-                console.log(`🎵 [语音延迟] 文本长度: ${textLength}字, 预计播放时间: ${voiceDelay}ms`)
-              }
-            } catch (e) {
-              console.warn('解析语音设置失败:', e)
-            }
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, voiceDelay))
+          // 🔥 修复：移除不合理的语音延迟逻辑
+          // 之前的逻辑会让每条消息发送前等待1-8秒，导致"打字速度变慢"
+          // 语音播放应该在消息显示后异步进行，不应该阻塞消息发送
+          const messageDelay = 300 // 统一使用较短的默认延迟
+          await new Promise(resolve => setTimeout(resolve, messageDelay))
           
           // 保存AI消息（addMessage内部会自动备份到localStorage）
           saveMessageToStorage(chatId, aiMessage)

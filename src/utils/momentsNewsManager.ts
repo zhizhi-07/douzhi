@@ -65,9 +65,30 @@ export function addMomentsNews(newsItem: Omit<MomentsNewsItem, 'id' | 'timestamp
  * 格式化速报为文本（用于显示在系统提示词里）
  */
 export function formatMomentsNewsForPrompt(maxCount: number = 10): string {
-  const news = loadMomentsNews()
+  // 🔥 小号模式：不显示主账号相关的朋友圈速报
+  // 动态导入避免循环依赖
+  let isSubAccount = false
+  try {
+    const accountId = localStorage.getItem('current_account_id') || 'main'
+    isSubAccount = accountId !== 'main'
+  } catch {
+    isSubAccount = false
+  }
+  
+  let news = loadMomentsNews()
   if (news.length === 0) {
     return ''
+  }
+
+  // 🔥 小号模式：过滤掉主账号相关的速报
+  if (isSubAccount) {
+    news = news.filter(item => {
+      // 过滤掉主账号发起的动作
+      if (item.actorId === 'user') return false
+      // 过滤掉针对主账号的动作
+      if (item.targetId === 'user') return false
+      return true
+    })
   }
 
   // 只取最近的 maxCount 条

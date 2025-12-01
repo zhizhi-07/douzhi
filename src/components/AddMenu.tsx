@@ -116,7 +116,7 @@ const AddMenu = ({
     },
     { 
       icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>,
-      label: '一起听',
+      label: '音乐',
       onClick: onSelectMusicInvite,
       iconId: 'menu-music'
     },
@@ -193,8 +193,8 @@ const AddMenu = ({
           <h3 className="text-base font-medium text-gray-800">选择功能</h3>
         </div>
 
-        {/* 菜单项网格 - 瀑布流动画 */}
-        <div className="grid grid-cols-4 gap-3 p-4 pb-6">
+        {/* 菜单项网格 - 瀑布流动画 + 可滚动 */}
+        <div className="grid grid-cols-4 gap-3 p-4 pb-6 max-h-[50vh] overflow-y-auto">
           {menuItems.map((item, index) => (
             <button
               key={index}

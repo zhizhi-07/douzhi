@@ -9,7 +9,8 @@ import {
   getCoupleSpaceRelation, 
   acceptCoupleSpaceInvite, 
   rejectCoupleSpaceInvite, 
-  createCoupleSpaceInvite 
+  createCoupleSpaceInvite,
+  endCoupleSpaceRelation 
 } from '../../../utils/coupleSpaceUtils'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
 import { addMessage as saveMessage } from '../../../utils/simpleMessageManager'
@@ -25,13 +26,13 @@ export const useCoupleSpace = (
   const [inputType, setInputType] = useState<'photo' | 'message' | 'anniversary' | null>(null)
 
   // 打开快捷菜单
-  const openMenu = () => {
+  const openMenu = async () => {
     if (!chatId || !character) return
 
     const relation = getCoupleSpaceRelation()
     
-    // 🔥 调试信息
-    console.log('💕 [情侣空间] openMenu被调用', {
+    // 调试信息
+    console.log(' [情侣空间] openMenu被调用', {
       chatId,
       relation,
       sender: relation?.sender
@@ -48,11 +49,11 @@ export const useCoupleSpace = (
       if (relation.characterId === chatId) {
         if (relation.sender === 'character') {
           // AI发起的邀请，询问用户是否要清除并发起新邀请
-          const clearAndSend = confirm('对方之前向你发起过情侣空间邀请。\n\n点击"确定"清除旧邀请并发起新邀请\n点击"取消"保留现状')
+          const clearAndSend = confirm('对方之前向你发起过情侣空间邀请。\n\n点击“确定”清除旧邀请并发起新邀请\n点击“取消”保留现状')
           if (!clearAndSend) return
           // 清除旧邀请
-          localStorage.removeItem('couple_space_relation')
-          console.log('💕 [情侣空间] 清除了AI发起的旧邀请，准备发起新邀请')
+          await endCoupleSpaceRelation()
+          console.log(' [情侣空间] 清除了AI发起的旧邀请，准备发起新邀请')
         } else {
           // 用户之前发起的邀请还在等待
           alert('已经发送过邀请了，等待对方回应')
@@ -60,15 +61,15 @@ export const useCoupleSpace = (
         }
       } else {
         // 与其他角色有pending邀请，询问是否覆盖
-        const override = confirm(`你与${relation.characterName}有未处理的情侣空间邀请。\n\n点击"确定"清除并向当前角色发起新邀请`)
+        const override = confirm(`你与${relation.characterName}有未处理的情侣空间邀请。\n\n点击“确定”清除并向当前角色发起新邀请`)
         if (!override) return
-        localStorage.removeItem('couple_space_relation')
-        console.log('💕 [情侣空间] 清除了与其他角色的邀请，准备发起新邀请')
+        await endCoupleSpaceRelation()
+        console.log(' [情侣空间] 清除了与其他角色的邀请，准备发起新邀请')
       }
     }
 
     // 创建邀请
-    const inviteResult = createCoupleSpaceInvite(
+    const inviteResult = await createCoupleSpaceInvite(
       'user',
       chatId,
       character.nickname || character.realName,
@@ -101,14 +102,14 @@ export const useCoupleSpace = (
   }
 
   // 接受邀请
-  const acceptInvite = (messageId: number) => {
+  const acceptInvite = async (messageId: number) => {
     console.log('💕 [情侣空间] 用户点击接受邀请，messageId:', messageId, 'chatId:', chatId)
     if (!chatId) {
       console.error('❌ [情侣空间] chatId为空')
       return
     }
 
-    const success = acceptCoupleSpaceInvite(chatId)
+    const success = await acceptCoupleSpaceInvite(chatId)
     console.log('💕 [情侣空间] acceptCoupleSpaceInvite结果:', success)
 
     if (success) {
@@ -143,14 +144,14 @@ export const useCoupleSpace = (
   }
 
   // 拒绝邀请
-  const rejectInvite = (messageId: number) => {
+  const rejectInvite = async (messageId: number) => {
     console.log('💔 [情侣空间] 用户点击拒绝邀请，messageId:', messageId, 'chatId:', chatId)
     if (!chatId) {
       console.error('❌ [情侣空间] chatId为空')
       return
     }
 
-    const success = rejectCoupleSpaceInvite(chatId)
+    const success = await rejectCoupleSpaceInvite(chatId)
     console.log('💔 [情侣空间] rejectCoupleSpaceInvite结果:', success)
 
     if (success) {

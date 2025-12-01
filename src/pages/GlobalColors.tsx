@@ -1,25 +1,67 @@
 /**
- * 全局颜色设置页面
+ * Global Colors Settings Page
  */
 
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 
+// Literary Palette - Curated colors that look good
+const literaryPalette = [
+  { name: 'Ink Black', value: '#1a1a1a' },
+  { name: 'Charcoal', value: '#36454F' },
+  { name: 'Slate Blue', value: '#475569' },
+  { name: 'Deep Ocean', value: '#1e3a8a' },
+  { name: 'Forest Green', value: '#14532d' },
+  { name: 'Sage', value: '#577590' },
+  { name: 'Terracotta', value: '#9c6644' },
+  { name: 'Burgundy', value: '#7f1d1d' },
+  { name: 'Coffee', value: '#4a3b32' },
+  { name: 'Warm Grey', value: '#a8a29e' },
+]
+
+// Helper to determine text color (black or white) based on background brightness
+const getContrastColor = (hexColor: string) => {
+  // Convert hex to RGB
+  const r = parseInt(hexColor.substr(1, 2), 16)
+  const g = parseInt(hexColor.substr(3, 2), 16)
+  const b = parseInt(hexColor.substr(5, 2), 16)
+
+  // Calculate brightness (YIQ formula)
+  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
+
+  // Return black or white
+  return (yiq >= 128) ? '#1a1a1a' : '#ffffff'
+}
+
+// Helper to convert hex to rgba
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 const GlobalColors = () => {
   const navigate = useNavigate()
   const [knobColor, setKnobColor] = useState(localStorage.getItem('switch_knob_color') || '#ffffff')
   const [activeColor, setActiveColor] = useState(localStorage.getItem('switch_active_color') || '#475569')
-  const [buttonColor, setButtonColor] = useState(localStorage.getItem('global_button_color') || '#ffffff')
+  const [buttonColor, setButtonColor] = useState(localStorage.getItem('global_button_color') || '#475569')
   const [sliderThumbColor, setSliderThumbColor] = useState(localStorage.getItem('slider_thumb_color') || '#1e293b')
 
-  // 页面加载时应用颜色
+  // Apply colors on load
   useEffect(() => {
     document.documentElement.style.setProperty('--switch-knob-color', knobColor)
     document.documentElement.style.setProperty('--switch-active-color', activeColor)
-    document.documentElement.style.setProperty('--global-button-color', buttonColor)
+
+    // Handle button color with glass effect
+    const buttonRgba = hexToRgba(buttonColor, 0.25)
+    document.documentElement.style.setProperty('--global-button-color', buttonRgba)
+    const textColor = getContrastColor(buttonColor)
+    document.documentElement.style.setProperty('--global-button-text-color', textColor)
+
     document.documentElement.style.setProperty('--slider-thumb-color', sliderThumbColor)
-  }, [])
+  }, [buttonColor, knobColor, activeColor, sliderThumbColor])
 
   const handleKnobColorChange = (color: string) => {
     setKnobColor(color)
@@ -35,8 +77,14 @@ const GlobalColors = () => {
 
   const handleButtonColorChange = (color: string) => {
     setButtonColor(color)
-    document.documentElement.style.setProperty('--global-button-color', color)
+    // Apply glass effect - 25% opacity with backdrop blur
+    const buttonRgba = hexToRgba(color, 0.25)
+    document.documentElement.style.setProperty('--global-button-color', buttonRgba)
     localStorage.setItem('global_button_color', color)
+
+    // Automatically update text color for contrast
+    const textColor = getContrastColor(color)
+    document.documentElement.style.setProperty('--global-button-text-color', textColor)
   }
 
   const handleSliderThumbColorChange = (color: string) => {
@@ -46,179 +94,193 @@ const GlobalColors = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* 状态栏 + 导航栏 */}
-      <div className="glass-effect border-b border-gray-200/50">
-        <StatusBar />
-        <div className="px-4 py-3 flex items-center justify-between">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
+      <StatusBar />
+
+      {/* Top Navigation */}
+      <div className="relative z-10 px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/decoration', { replace: true })}
-            className="text-gray-700 hover:text-gray-900 p-2 -ml-2 active:opacity-50"
+            onClick={() => navigate('/decoration')}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/40 backdrop-blur-md border border-white/50 text-slate-600 hover:bg-white/60 transition-all shadow-sm"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
-          <h1 className="text-base font-semibold text-gray-900">全局颜色</h1>
-          
-          <div className="w-6"></div>
+          <div>
+            <h1 className="text-xl font-medium text-slate-800 tracking-wide">全局颜色</h1>
+            <p className="text-xs text-slate-500 mt-0.5 font-light tracking-wider">GLOBAL COLORS</p>
+          </div>
         </div>
       </div>
 
-      {/* 设置列表 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* 按钮滑块颜色 */}
-        <div className="glass-card rounded-2xl p-4 mb-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <div className="mb-3">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">按钮滑块颜色</h3>
-            <p className="text-xs text-gray-500">开关按钮小圆点的颜色</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-16 h-16 rounded-xl border-2 border-gray-200 cursor-pointer shadow-sm"
-              style={{ backgroundColor: knobColor }}
-              onClick={() => document.getElementById('knob-color-picker')?.click()}
-            />
-            <input
-              id="knob-color-picker"
-              type="color"
-              value={knobColor}
-              onChange={(e) => handleKnobColorChange(e.target.value)}
-              className="hidden"
-            />
-            <div className="flex-1">
-              <input
-                type="text"
-                value={knobColor}
-                onChange={(e) => handleKnobColorChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                placeholder="#ffffff"
-              />
+      {/* Settings List */}
+      <div className="flex-1 overflow-y-auto px-6 pb-24 z-0 scrollbar-hide">
+        <div className="max-w-3xl mx-auto space-y-6">
+
+          {/* Literary Palette */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-6 shadow-sm">
+            <div className="mb-5">
+              <h3 className="text-base font-medium text-slate-800">推荐色板</h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-light">精选配色方案</p>
+            </div>
+            <div className="grid grid-cols-5 gap-4">
+              {literaryPalette.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => handleButtonColorChange(color.value)}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div
+                    className="w-12 h-12 rounded-2xl shadow-sm border border-white/50 transition-all duration-300 group-hover:scale-110 group-active:scale-95 group-hover:shadow-md"
+                    style={{ backgroundColor: color.value }}
+                  />
+                  <span className="text-[10px] text-slate-500 font-medium tracking-wide opacity-80 group-hover:opacity-100 transition-opacity">{color.name}</span>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* 选中颜色 */}
-        <div className="glass-card rounded-2xl p-4 mb-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <div className="mb-3">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">选中颜色</h3>
-            <p className="text-xs text-gray-500">开关按钮选中状态的背景颜色</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-16 h-16 rounded-xl border-2 border-gray-200 cursor-pointer shadow-sm"
-              style={{ backgroundColor: activeColor }}
-              onClick={() => document.getElementById('active-color-picker')?.click()}
-            />
-            <input
-              id="active-color-picker"
-              type="color"
-              value={activeColor}
-              onChange={(e) => handleActiveColorChange(e.target.value)}
-              className="hidden"
-            />
-            <div className="flex-1">
-              <input
-                type="text"
-                value={activeColor}
-                onChange={(e) => handleActiveColorChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                placeholder="#475569"
-              />
+          {/* Global Button Color */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-6 shadow-sm">
+            <div className="mb-5">
+              <h3 className="text-base font-medium text-slate-800">按钮颜色</h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-light">主要操作按钮的颜色</p>
             </div>
-          </div>
-        </div>
 
-        {/* 全局按钮颜色 */}
-        <div className="glass-card rounded-2xl p-4 mb-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <div className="mb-3">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">全局按钮颜色</h3>
-            <p className="text-xs text-gray-500">圆角矩形按钮的背景颜色</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-16 h-16 rounded-xl border-2 border-gray-200 cursor-pointer shadow-sm"
-              style={{ backgroundColor: buttonColor }}
-              onClick={() => document.getElementById('button-color-picker')?.click()}
-            />
-            <input
-              id="button-color-picker"
-              type="color"
-              value={buttonColor}
-              onChange={(e) => handleButtonColorChange(e.target.value)}
-              className="hidden"
-            />
-            <div className="flex-1">
+            <div className="flex items-center gap-5">
+              <div className="relative group cursor-pointer">
+                <div
+                  className="w-14 h-14 rounded-2xl border border-white/50 shadow-sm ring-1 ring-black/5 transition-transform group-hover:scale-105 backdrop-blur-md"
+                  style={{ backgroundColor: hexToRgba(buttonColor, 0.25) }}
+                  onClick={() => document.getElementById('button-color-picker')?.click()}
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-6 h-6 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+              </div>
               <input
-                type="text"
+                id="button-color-picker"
+                type="color"
                 value={buttonColor}
                 onChange={(e) => handleButtonColorChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                placeholder="#475569"
+                className="hidden"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* 滑动圆圈颜色 */}
-        <div className="glass-card rounded-2xl p-4 mb-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <div className="mb-3">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">滑动圆圈颜色</h3>
-            <p className="text-xs text-gray-500">滑块上圆形拖动点的颜色</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-16 h-16 rounded-full border-2 border-gray-200 cursor-pointer shadow-sm"
-              style={{ backgroundColor: sliderThumbColor }}
-              onClick={() => document.getElementById('slider-thumb-color-picker')?.click()}
-            />
-            <input
-              id="slider-thumb-color-picker"
-              type="color"
-              value={sliderThumbColor}
-              onChange={(e) => handleSliderThumbColorChange(e.target.value)}
-              className="hidden"
-            />
-            <div className="flex-1">
-              <input
-                type="text"
-                value={sliderThumbColor}
-                onChange={(e) => handleSliderThumbColorChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                placeholder="#1e293b"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 预览示例 */}
-        <div className="glass-card rounded-2xl p-4 backdrop-blur-md bg-white/80 border border-white/50">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">预览</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">开关示例</span>
-              <button
-                className={`relative w-11 h-6 rounded-full transition-all bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]`}
-              >
-                <div
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 translate-x-5`}
-                  style={{ backgroundColor: knobColor }}
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={buttonColor}
+                  onChange={(e) => handleButtonColorChange(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/60 text-sm font-mono text-slate-600 focus:outline-none focus:border-blue-400 focus:bg-white/80 transition-all uppercase"
+                  placeholder="#475569"
                 />
-              </button>
+              </div>
             </div>
-            <div>
-              <span className="text-sm text-gray-700 block mb-2">按钮示例</span>
-              <button
-                className="px-4 py-2 rounded-full text-white text-sm"
-                style={{ backgroundColor: buttonColor }}
-              >
-                示例按钮
-              </button>
+          </div>
+
+          {/* Switch Colors */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-6 shadow-sm">
+            <div className="mb-5">
+              <h3 className="text-base font-medium text-slate-800">开关颜色</h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-light">开关按钮的颜色设置</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* 开关背景色 */}
+              <div>
+                <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">背景色（激活时）</p>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-10 h-10 rounded-xl border border-white shadow-sm cursor-pointer ring-1 ring-black/5 hover:scale-105 transition-transform"
+                    style={{ backgroundColor: activeColor }}
+                    onClick={() => document.getElementById('active-color-picker')?.click()}
+                  />
+                  <input
+                    id="active-color-picker"
+                    type="color"
+                    value={activeColor}
+                    onChange={(e) => handleActiveColorChange(e.target.value)}
+                    className="hidden"
+                  />
+                  <input
+                    type="text"
+                    value={activeColor}
+                    onChange={(e) => handleActiveColorChange(e.target.value)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/50 border border-white/60 text-sm font-mono text-slate-600 focus:outline-none focus:border-blue-400 focus:bg-white/80 transition-all uppercase"
+                    placeholder="#475569"
+                  />
+                </div>
+              </div>
+
+              {/* 开关圆点色 */}
+              <div>
+                <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">圆点色（小圆球）</p>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-10 h-10 rounded-xl border border-white shadow-sm cursor-pointer ring-1 ring-black/5 hover:scale-105 transition-transform"
+                    style={{ backgroundColor: knobColor }}
+                    onClick={() => document.getElementById('knob-color-picker')?.click()}
+                  />
+                  <input
+                    id="knob-color-picker"
+                    type="color"
+                    value={knobColor}
+                    onChange={(e) => handleKnobColorChange(e.target.value)}
+                    className="hidden"
+                  />
+                  <input
+                    type="text"
+                    value={knobColor}
+                    onChange={(e) => handleKnobColorChange(e.target.value)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/50 border border-white/60 text-sm font-mono text-slate-600 focus:outline-none focus:border-blue-400 focus:bg-white/80 transition-all uppercase"
+                    placeholder="#ffffff"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Section */}
+          <div className="bg-white/60 backdrop-blur-md border border-white/60 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-6">实时预览</h3>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-2">
+                <span className="text-sm text-slate-700 font-medium">开关组件</span>
+                <button
+                  className={`relative w-12 h-7 rounded-full transition-all shadow-inner`}
+                  style={{ backgroundColor: activeColor }}
+                >
+                  <div
+                    className={`absolute top-1 left-1 w-5 h-5 rounded-full shadow-sm transition-all duration-200 translate-x-5`}
+                    style={{ backgroundColor: knobColor }}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between p-2 border-t border-slate-100">
+                <span className="text-sm text-slate-700 font-medium">主要按钮</span>
+                <button
+                  className="px-6 py-2.5 rounded-xl text-sm shadow-sm active:scale-95 transition-all font-medium tracking-wide hover:shadow-md backdrop-blur-md border border-white/30"
+                  style={{
+                    backgroundColor: hexToRgba(buttonColor, 0.25),
+                    color: getContrastColor(buttonColor),
+                  }}
+                >
+                  确认操作
+                </button>
+              </div>
+              <div className="p-2 border-t border-slate-100">
+                <span className="text-sm text-slate-700 font-medium block mb-3">滑块组件</span>
+                <div className="relative h-1.5 bg-slate-200 rounded-full">
+                  <div className="absolute top-0 left-0 h-full w-1/2 bg-slate-300 rounded-full" />
+                  <div
+                    className="absolute top-1/2 left-1/2 w-5 h-5 -mt-2.5 -ml-2.5 rounded-full shadow-md border-2 border-white cursor-pointer hover:scale-110 transition-transform"
+                    style={{ backgroundColor: sliderThumbColor }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

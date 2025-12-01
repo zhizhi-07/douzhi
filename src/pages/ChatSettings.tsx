@@ -154,7 +154,7 @@ const ChatSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPinned, setIsPinned] = useState(false)
   const [character, setCharacter] = useState<any>(null)
-  const [userPokeSuffix, setUserPokeSuffix] = useState('')
+  const [pokeSuffix, setPokeSuffix] = useState('')
   
   // 检查拉黑状态和置顶状态，加载角色信息
   useEffect(() => {
@@ -162,20 +162,13 @@ const ChatSettings = () => {
       const blocked = blacklistManager.isBlockedByMe('user', id)
       setIsBlocked(blocked)
       
-      // 加载用户的拍一拍后缀
-      const loadUserPokeSuffix = async () => {
-        const { getUserInfo } = await import('../utils/userUtils')
-        const userInfo = getUserInfo()
-        setUserPokeSuffix(userInfo.pokeSuffix || '')
-      }
-      loadUserPokeSuffix()
-      
       // 加载角色信息
       const loadCharacter = async () => {
         const characters = await getAllCharacters()
         const char = characters.find(c => c.id === id)
         if (char) {
           setCharacter(char)
+          setPokeSuffix(char.pokeSuffix || '')
         }
       }
       loadCharacter()
@@ -338,12 +331,16 @@ const ChatSettings = () => {
     }
   }
   
-  // 保存用户的拍一拍后缀
-  const saveUserPokeSuffix = async (newSuffix: string) => {
-    const { getUserInfo, saveUserInfo } = await import('../utils/userUtils')
-    const userInfo = getUserInfo()
-    saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
-    console.log('✅ 用户拍一拍后缀已保存:', newSuffix)
+  // 保存AI的拍一拍后缀
+  const savePokeSuffix = async (newSuffix: string) => {
+    if (!character || !id) return
+    const { characterService } = await import('../services/characterService')
+    const updatedCharacter = characterService.update(id, { pokeSuffix: newSuffix })
+    if (updatedCharacter) {
+      setCharacter(updatedCharacter)
+      console.log('✅ AI拍一拍后缀已保存:', newSuffix)
+      window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: id } }))
+    }
   }
 
   // 切换置顶状态
@@ -428,16 +425,14 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={togglePin}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                isPinned 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: isPinned ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   isPinned ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -474,20 +469,20 @@ const ChatSettings = () => {
             <div className="flex gap-2">
               <input
                 type="text"
-                value={userPokeSuffix}
+                value={pokeSuffix}
                 onChange={(e) => {
-                  setUserPokeSuffix(e.target.value)
+                  setPokeSuffix(e.target.value)
                 }}
                 onBlur={(e) => {
                   // 失去焦点时保存
-                  saveUserPokeSuffix(e.target.value)
+                  savePokeSuffix(e.target.value)
                 }}
                 placeholder="如：的小脑袋"
                 className="flex-1 px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              这是你的后缀，{character?.nickname || character?.realName || 'TA'}拍你时显示："{character?.nickname || character?.realName || 'TA'}拍了拍你{userPokeSuffix && userPokeSuffix.trim() ? userPokeSuffix : '（示例：的小脑袋）'}"
+              你拍{character?.nickname || character?.realName || 'TA'}时显示："你拍了拍{character?.nickname || character?.realName || 'TA'}{pokeSuffix && pokeSuffix.trim() ? pokeSuffix : '（示例：的小脑袋）'}"
             </p>
           </div>
         </div>
@@ -539,16 +534,14 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, hideTokenStats: !settings.hideTokenStats })}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.hideTokenStats 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.hideTokenStats ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.hideTokenStats ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -561,16 +554,14 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, enableTheatreCards: !settings.enableTheatreCards })}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.enableTheatreCards 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.enableTheatreCards ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.enableTheatreCards ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -583,16 +574,14 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, hideTheatreHistory: !settings.hideTheatreHistory })}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.hideTheatreHistory 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.hideTheatreHistory ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.hideTheatreHistory ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -630,16 +619,14 @@ const ChatSettings = () => {
                   const newSettings = { ...settings, autoMemorySummary: !settings.autoMemorySummary }
                   saveSettings(newSettings)
                 }}
-                className={`relative w-11 h-6 rounded-full transition-all ${
-                  settings.autoMemorySummary 
-                    ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                    : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-                }`}
+                className="relative w-11 h-6 rounded-full transition-all"
+                style={{ backgroundColor: settings.autoMemorySummary ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
               >
                 <div
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                     settings.autoMemorySummary ? 'translate-x-5' : 'translate-x-0'
                   }`}
+                  style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
                 />
               </button>
             </div>
@@ -702,16 +689,14 @@ const ChatSettings = () => {
                 }
                 saveSettings(newSettings)
               }}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.groupChatSync.enabled 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.groupChatSync.enabled ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.groupChatSync.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -777,16 +762,14 @@ const ChatSettings = () => {
                 })
                 saveSettings(newSettings)
               }}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.aiProactiveMessage.enabled 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.aiProactiveMessage.enabled ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.aiProactiveMessage.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
@@ -992,16 +975,14 @@ const ChatSettings = () => {
             </div>
             <button
               onClick={() => saveSettings({ ...settings, aiCanPostMoments: !settings.aiCanPostMoments })}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                settings.aiCanPostMoments 
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.aiCanPostMoments ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.aiCanPostMoments ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>

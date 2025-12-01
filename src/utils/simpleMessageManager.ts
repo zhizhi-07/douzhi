@@ -5,6 +5,58 @@
 
 import type { Message } from '../types/chat'
 import * as IDB from './indexedDBManager'
+import { getCurrentAccountId } from './accountManager'
+
+/**
+ * 获取账号专属的聊天存储key
+ * 主账号使用原有key，小号使用独立key
+ */
+function getAccountChatKey(chatId: string): string {
+  // 🔥 页面显示用：小号有独立的聊天记录（UI上不显示主账号的）
+  const accountId = getCurrentAccountId()
+  if (accountId === 'main') {
+    return chatId
+  }
+  return `${chatId}_${accountId}`
+}
+
+/**
+ * 获取主账号的聊天记录key（用于AI提示词）
+ * AI需要通过主账号的聊天记录来认识主账号那个人
+ */
+export function getMainAccountChatKey(chatId: string): string {
+  return chatId // 主账号的key就是chatId本身
+}
+
+/**
+ * 🔥 加载主账号的聊天记录（用于AI提示词）
+ * 小号模式下，AI需要看到主账号的聊天记录来认识主账号
+ */
+export function loadMainAccountMessages(chatId: string): Message[] {
+  const mainKey = chatId // 主账号的key
+  
+  // 从缓存读取
+  let messages = messageCache.get(mainKey)
+  if (messages) {
+    return messages
+  }
+  
+  // 尝试从localStorage备份恢复
+  try {
+    const backupKey = `msg_backup_${mainKey}`
+    const backup = localStorage.getItem(backupKey)
+    if (backup) {
+      const parsed = JSON.parse(backup)
+      if (parsed.messages && Array.isArray(parsed.messages)) {
+        return parsed.messages as Message[]
+      }
+    }
+  } catch (e) {
+    console.error('加载主账号消息失败:', e)
+  }
+  
+  return []
+}
 
 // 内存缓存，用于同步读取
 const messageCache = new Map<string, Message[]>()
@@ -214,8 +266,11 @@ function fixDuplicateMessageIds(messages: Message[]): Message[] {
  */
 export function loadMessages(chatId: string): Message[] {
   try {
+    // 🔥 使用账号专属的存储key
+    const storageKey = getAccountChatKey(chatId)
+    
     // 从缓存读取
-    let messages = messageCache.get(chatId)
+    let messages = messageCache.get(storageKey)
 
     if (!messages) {
       // 🔥 关键修复：缓存未命中时，立即尝试从localStorage备份恢复
@@ -225,7 +280,7 @@ export function loadMessages(chatId: string): Message[] {
       }
       
       try {
-        const backupKey = `msg_backup_${chatId}`
+        const backupKey = `msg_backup_${storageKey}`
         const backup = localStorage.getItem(backupKey)
         
         if (backup) {
@@ -235,8 +290,8 @@ export function loadMessages(chatId: string): Message[] {
           // 备份在24小时内有效
           if (backupAge < 24 * 60 * 60 * 1000 && parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
             messages = parsed.messages as Message[]
-            messageCache.set(chatId, messages)
-            console.log(`✅ [立即恢复] 从localStorage恢复消息: chatId=${chatId}, count=${messages.length}, 备份时间=${Math.floor(backupAge / 1000)}秒前`)
+            messageCache.set(storageKey, messages)
+            console.log(`✅ [立即恢复] 从localStorage恢复消息: storageKey=${storageKey}, count=${messages.length}, 备份时间=${Math.floor(backupAge / 1000)}秒前`)
           } else if (backupAge >= 24 * 60 * 60 * 1000) {
             console.warn(`⚠️ [立即恢复] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
             localStorage.removeItem(backupKey)
@@ -254,18 +309,18 @@ export function loadMessages(chatId: string): Message[] {
       // 从缓存读取时也检查并修复
       const fixedMessages = fixDuplicateMessageIds(messages)
       if (fixedMessages !== messages) {
-        messageCache.set(chatId, fixedMessages)
+        messageCache.set(storageKey, fixedMessages)
         // 异步保存修复后的消息
-        IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
+        IDB.setItem(IDB.STORES.MESSAGES, storageKey, fixedMessages)
         messages = fixedMessages
         if (import.meta.env.DEV) {
-          console.log(`✅ 从缓存修复消息ID: chatId=${chatId}`)
+          console.log(`✅ 从缓存修复消息ID: storageKey=${storageKey}`)
         }
       }
     }
 
     if (import.meta.env.DEV) {
-      console.log(`📦 加载消息: chatId=${chatId}, 总数=${messages.length}, 来源=${messageCache.has(chatId) ? '缓存' : 'localStorage备份'}`)
+      console.log(`📦 加载消息: chatId=${chatId}, storageKey=${storageKey}, 总数=${messages.length}, 来源=${messageCache.has(storageKey) ? '缓存' : 'localStorage备份'}`)
     }
     return messages
   } catch (error) {
@@ -287,19 +342,22 @@ export async function loadMessagesPaginated(
   offset: number = 0
 ): Promise<{ messages: Message[], total: number, hasMore: boolean }> {
   try {
+    // 🔥 使用账号专属的存储key
+    const storageKey = getAccountChatKey(chatId)
+    
     // 先等待预加载完成
     if (preloadPromise) {
       await preloadPromise
     }
 
     // 从缓存或IndexedDB获取所有消息
-    let allMessages = messageCache.get(chatId)
+    let allMessages = messageCache.get(storageKey)
 
     if (!allMessages) {
-      const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+      const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
       if (loaded && loaded.length > 0) {
         const fixedMessages = fixDuplicateMessageIds(loaded)
-        messageCache.set(chatId, fixedMessages)
+        messageCache.set(storageKey, fixedMessages)
         allMessages = fixedMessages
       } else {
         allMessages = []
@@ -316,7 +374,7 @@ export async function loadMessagesPaginated(
     const hasMore = startIndex > 0
 
     if (import.meta.env.DEV) {
-      console.log(`📄 [分页加载] chatId=${chatId}, limit=${limit}, offset=${offset}, 返回=${messages.length}, 总数=${total}, 还有更多=${hasMore}`)
+      console.log(`📄 [分页加载] chatId=${chatId}, storageKey=${storageKey}, limit=${limit}, offset=${offset}, 返回=${messages.length}, 总数=${total}, 还有更多=${hasMore}`)
     }
 
     return { messages, total, hasMore }
@@ -331,14 +389,17 @@ export async function loadMessagesPaginated(
  */
 export async function getMessageCount(chatId: string): Promise<number> {
   try {
+    // 🔥 使用账号专属的存储key
+    const storageKey = getAccountChatKey(chatId)
+    
     // 先检查缓存
-    const cached = messageCache.get(chatId)
+    const cached = messageCache.get(storageKey)
     if (cached) {
       return cached.length
     }
 
     // 从IndexedDB读取
-    const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId)
+    const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
     return messages ? messages.length : 0
   } catch (error) {
     console.error('获取消息数量失败:', error)
@@ -351,6 +412,9 @@ export async function getMessageCount(chatId: string): Promise<number> {
  * 🔥 新增：在进入聊天时调用，确保消息已加载
  */
 export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
+  // 🔥 使用账号专属的存储key
+  const storageKey = getAccountChatKey(chatId)
+  
   // 🔥 加超时，防止永久卡住
   if (preloadPromise) {
     try {
@@ -364,14 +428,14 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
   }
   
   // 再次尝试从缓存读取
-  let messages = messageCache.get(chatId)
+  let messages = messageCache.get(storageKey)
   
   if (!messages) {
     // 如果还是没有，直接从IndexedDB读取（加超时）
     let loaded: Message[] | null = null
     try {
       loaded = await Promise.race([
-        IDB.getItem<Message[]>(IDB.STORES.MESSAGES, chatId),
+        IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
       ])
     } catch (e) {
@@ -381,7 +445,7 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
     // 🔥 如果IndexedDB也没有，尝试从localStorage备份恢复
     if (!loaded || loaded.length === 0) {
       try {
-        const backupKey = `msg_backup_${chatId}`
+        const backupKey = `msg_backup_${storageKey}`
         const backup = localStorage.getItem(backupKey)
         if (backup) {
           const parsed = JSON.parse(backup)
@@ -397,11 +461,11 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
             loaded = null
           } else {
             if (import.meta.env.DEV) {
-              console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: chatId=${chatId}, count=${loaded?.length || 0}`)
+              console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: storageKey=${storageKey}, count=${loaded?.length || 0}`)
             }
             // 恢复到IndexedDB
             if (loaded && loaded.length > 0) {
-              await IDB.setItem(IDB.STORES.MESSAGES, chatId, loaded)
+              await IDB.setItem(IDB.STORES.MESSAGES, storageKey, loaded)
               // 🔥 关键修复：不要删除localStorage备份！
               // 保留24小时作为安全网，防止IndexedDB保存失败导致数据丢失
               // localStorage.removeItem(backupKey)  // 已禁用
@@ -418,15 +482,15 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
     
     if (loaded && loaded.length > 0) {
       const fixedMessages = fixDuplicateMessageIds(loaded)
-      messageCache.set(chatId, fixedMessages)
+      messageCache.set(storageKey, fixedMessages)
       
       // 如果修复了ID，保存回数据库
       if (fixedMessages !== loaded) {
-        await IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
+        await IDB.setItem(IDB.STORES.MESSAGES, storageKey, fixedMessages)
       }
       
       if (import.meta.env.DEV) {
-        console.log(`✅ 已加载消息: chatId=${chatId}, count=${fixedMessages.length}`)
+        console.log(`✅ 已加载消息: chatId=${chatId}, storageKey=${storageKey}, count=${fixedMessages.length}`)
       }
       return fixedMessages
     }
@@ -434,7 +498,7 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
   }
   
   if (import.meta.env.DEV) {
-    console.log(`✅ 从缓存返回消息: chatId=${chatId}, count=${messages.length}`)
+    console.log(`✅ 从缓存返回消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
   }
   return messages
 }
@@ -508,10 +572,13 @@ function cleanMessageForStorage(message: Message): Message {
  */
 export function saveMessages(chatId: string, messages: Message[]): void {
   try {
+    // 🔥 使用账号专属的存储key
+    const storageKey = getAccountChatKey(chatId)
+    
     // 🔥 防止保存空数组覆盖已有数据
     if (messages.length === 0) {
       // 1. 检查缓存
-      const cachedMessages = messageCache.get(chatId)
+      const cachedMessages = messageCache.get(storageKey)
       if (cachedMessages && cachedMessages.length > 0) {
         console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
         return
@@ -519,14 +586,14 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       
       // 2. 检查localStorage备份
       try {
-        const backupKey = `msg_backup_${chatId}`
+        const backupKey = `msg_backup_${storageKey}`
         const backup = localStorage.getItem(backupKey)
         if (backup) {
           const parsed = JSON.parse(backup)
           if (parsed.messages && parsed.messages.length > 0) {
             console.warn(`⚠️ [saveMessages] localStorage备份中有 ${parsed.messages.length} 条消息，阻止保存空数组`)
             // 🔥 关键修复：立即从备份恢复到缓存，防止数据丢失
-            messageCache.set(chatId, parsed.messages)
+            messageCache.set(storageKey, parsed.messages)
             return
           }
         }
@@ -536,7 +603,7 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       
       // 3. 🔥 关键修复：如果缓存和备份都没有，直接拒绝保存空数组
       // 不再异步检查 IndexedDB，因为异步检查无法阻止后续代码执行
-      console.warn(`⚠️ [saveMessages] 拒绝保存空数组到 chatId=${chatId}，可能是数据加载未完成`)
+      console.warn(`⚠️ [saveMessages] 拒绝保存空数组到 storageKey=${storageKey}，可能是数据加载未完成`)
       return
     }
     
@@ -556,34 +623,34 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     }
     
     // 立即更新缓存（使用原始消息）
-    messageCache.set(chatId, messages)
+    messageCache.set(storageKey, messages)
     if (import.meta.env.DEV) {
-      console.log(`💾 [缓存] 保存消息: chatId=${chatId}, count=${messages.length}`)
+      console.log(`💾 [缓存] 保存消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
     }
     
     // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
     try {
-      const backupKey = `msg_backup_${chatId}`
+      const backupKey = `msg_backup_${storageKey}`
       localStorage.setItem(backupKey, JSON.stringify({
         messages: cleanedMessages,
         timestamp: Date.now()
       }))
       if (import.meta.env.DEV) {
-        console.log(`💾 [localStorage备份] 已保存: chatId=${chatId}`)
+        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}`)
       }
     } catch (e) {
       console.warn(`⚠️ [localStorage备份] 保存失败（可能空间不足）:`, e)
     }
     
     // 立即保存到IndexedDB（使用清理后的消息）
-    IDB.setItem(IDB.STORES.MESSAGES, chatId, cleanedMessages).then(() => {
+    IDB.setItem(IDB.STORES.MESSAGES, storageKey, cleanedMessages).then(() => {
       if (import.meta.env.DEV) {
-        console.log(`✅ [IndexedDB] 保存成功: chatId=${chatId}, count=${cleanedMessages.length}`)
+        console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${cleanedMessages.length}`)
       }
       // 🔥 手机端优化：延迟删除备份，给IndexedDB更多时间完成写入
       setTimeout(() => {
         try {
-          const backupKey = `msg_backup_${chatId}`
+          const backupKey = `msg_backup_${storageKey}`
           const backup = localStorage.getItem(backupKey)
           if (backup) {
             const parsed = JSON.parse(backup)
@@ -591,7 +658,7 @@ export function saveMessages(chatId: string, messages: Message[]): void {
             if (Date.now() - parsed.timestamp > 5000) {
               localStorage.removeItem(backupKey)
               if (import.meta.env.DEV) {
-                console.log(`🗑️ [localStorage备份] 已删除旧备份: chatId=${chatId}`)
+                console.log(`🗑️ [localStorage备份] 已删除旧备份: storageKey=${storageKey}`)
               }
             }
           }
@@ -600,7 +667,7 @@ export function saveMessages(chatId: string, messages: Message[]): void {
         }
       }, 5000) // 5秒后再删除
     }).catch(err => {
-      console.error(`❌ [IndexedDB] 保存失败: chatId=${chatId}`, err)
+      console.error(`❌ [IndexedDB] 保存失败: storageKey=${storageKey}`, err)
       // IndexedDB保存失败时，保留localStorage备份
     })
     
@@ -623,10 +690,13 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
+  // 🔥 使用账号专属的存储key
+  const storageKey = getAccountChatKey(chatId)
+  
   // 🔥 立即同步备份到localStorage（最高优先级，确保不丢失）
   try {
-    const backupKey = `msg_backup_${chatId}`
-    const cachedMessages = messageCache.get(chatId) || []
+    const backupKey = `msg_backup_${storageKey}`
+    const cachedMessages = messageCache.get(storageKey) || []
     const updatedMessages = [...cachedMessages, message]
     
     const seen = new WeakSet()
@@ -646,7 +716,7 @@ export function addMessage(chatId: string, message: Message): void {
     })
     
     localStorage.setItem(backupKey, jsonString)
-    console.log(`💾 [addMessage] 立即备份: chatId=${chatId}, messageId=${message.id}`)
+    console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, messageId=${message.id}`)
   } catch (e) {
     console.error('❌ [addMessage] 备份失败:', e)
   }
@@ -714,12 +784,15 @@ let messageIdCounter = 0
  */
 export async function clearMessages(chatId: string): Promise<void> {
   try {
+    // 🔥 使用账号专属的存储key
+    const storageKey = getAccountChatKey(chatId)
+    
     // 清空缓存
-    messageCache.delete(chatId)
+    messageCache.delete(storageKey)
     
     // 🔥 关键修复：同时删除localStorage备份，防止误恢复
     try {
-      const backupKey = `msg_backup_${chatId}`
+      const backupKey = `msg_backup_${storageKey}`
       localStorage.removeItem(backupKey)
       if (import.meta.env.DEV) {
         console.log(`🗑️ 已删除localStorage备份: ${backupKey}`)
@@ -729,9 +802,9 @@ export async function clearMessages(chatId: string): Promise<void> {
     }
     
     // 删除IndexedDB中的数据
-    await IDB.removeItem(IDB.STORES.MESSAGES, chatId)
+    await IDB.removeItem(IDB.STORES.MESSAGES, storageKey)
     if (import.meta.env.DEV) {
-      console.log(`🗑️ 已清空聊天记录: chatId=${chatId}`)
+      console.log(`🗑️ 已清空聊天记录: chatId=${chatId}, storageKey=${storageKey}`)
     }
   } catch (error) {
     console.error('清空聊天记录失败:', error)

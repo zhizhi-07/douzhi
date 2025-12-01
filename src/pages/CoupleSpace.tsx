@@ -5,14 +5,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
-import { 
-  getCoupleSpaceRelation, 
-  cancelCoupleSpaceInvite, 
-  endCoupleSpaceRelation, 
-  getCoupleSpacePrivacy, 
-  setCoupleSpacePrivacy, 
-  type CoupleSpaceRelation 
+import {
+  getCoupleSpaceRelation,
+  cancelCoupleSpaceInvite,
+  endCoupleSpaceRelation,
+  getCoupleSpacePrivacy,
+  setCoupleSpacePrivacy,
+  type CoupleSpaceRelation
 } from '../utils/coupleSpaceUtils'
+import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 import { addMessage } from '../utils/simpleMessageManager'
 import { getUserInfo } from '../utils/userUtils'
 
@@ -30,7 +31,7 @@ const Icons = {
     <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" /></svg>
   ),
   Heart: ({ className, fill = "currentColor" }: { className?: string, fill?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={fill === 'none' ? 2 : 0}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <svg className={className} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={fill === 'none' ? 2 : 0}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
   ),
   Camera: ({ className }: { className?: string }) => (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -61,59 +62,44 @@ const CoupleSpace = () => {
   const [privacyMode, setPrivacyMode] = useState<'public' | 'private'>('public')
   const [themeIndex, setThemeIndex] = useState(0)
   const [isPreviewMode, setIsPreviewMode] = useState(false) // 预览模式状态
+  const [photos, setPhotos] = useState<CoupleAlbumPhoto[]>([]) // 相册照片
+  const [latestMessage, setLatestMessage] = useState<CoupleMessage | null>(null) // 最新留言
   const carouselRef = useRef<HTMLDivElement>(null)
-  
-  // 互动动画状态
-  const [interactions, setInteractions] = useState<{id: number, type: 'heart' | 'kiss', x: number, y: number}[]>([])
 
-  // 连续平滑滚动逻辑
+  // 互动动画状态
+  const [interactions, setInteractions] = useState<{ id: number, type: 'heart' | 'kiss', x: number, y: number }[]>([])
+
+  // 连续平滑滚动逻辑 - 用 setInterval 更可靠
   useEffect(() => {
-    // 延迟100ms确保DOM已渲染
-    const timer = setTimeout(() => {
+    const cardWidth = 128
+    const gap = 16
+    const oneSetWidth = (cardWidth + gap) * 4
+
+    const intervalId = setInterval(() => {
       const container = carouselRef.current
       if (!container) return
+      if (container.matches(':hover')) return
 
-      let animationId: number
-      const scrollSpeed = 1.0 // 每帧滚动1像素，更明显
+      container.scrollLeft += 0.5
 
-      const animate = () => {
-        if (!container.matches(':hover')) {
-          container.scrollLeft += scrollSpeed
-
-          // 计算一组卡片的宽度（4张卡片）
-          const cardWidth = 128 // w-32
-          const gap = 16 // gap-4
-          const oneSetWidth = (cardWidth + gap) * 4
-          
-          // 当滚动超过一组时，减去一组的宽度（无缝重置）
-          if (container.scrollLeft >= oneSetWidth) {
-            container.scrollLeft -= oneSetWidth
-          }
-        }
-
-        animationId = requestAnimationFrame(animate)
+      if (container.scrollLeft >= oneSetWidth) {
+        container.scrollLeft -= oneSetWidth
       }
+    }, 16) // 约60fps
 
-      animationId = requestAnimationFrame(animate)
-
-      return () => {
-        if (animationId) cancelAnimationFrame(animationId)
-      }
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [isPreviewMode])
+    return () => clearInterval(intervalId)
+  }, [])
 
   useEffect(() => {
     loadRelation()
     const handleVisibilityChange = () => { if (!document.hidden) loadRelation() }
     const handleUserInfoUpdate = () => { loadRelation() }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', loadRelation)
     window.addEventListener('storage', handleUserInfoUpdate)
     window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', loadRelation)
@@ -122,9 +108,25 @@ const CoupleSpace = () => {
     }
   }, [])
 
-  const loadRelation = () => {
+  const loadRelation = async () => {
     setRelation(getCoupleSpaceRelation())
     setPrivacyMode(getCoupleSpacePrivacy())
+    // 加载相册照片
+    try {
+      const allPhotos = await getCouplePhotos()
+      setPhotos(allPhotos)
+    } catch (error) {
+      console.error('加载相册失败:', error)
+    }
+    // 加载最新留言
+    try {
+      const messages = getCoupleMessages()
+      if (messages.length > 0) {
+        setLatestMessage(messages[0])
+      }
+    } catch (error) {
+      console.error('加载留言失败:', error)
+    }
   }
 
   // 触发互动动画
@@ -133,18 +135,18 @@ const CoupleSpace = () => {
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     const x = rect.left + rect.width / 2
     const y = rect.top
-    
+
     setInteractions(prev => [...prev, { id, type, x, y }])
     setTimeout(() => {
       setInteractions(prev => prev.filter(i => i.id !== id))
     }, 1000)
   }
 
-  const handleEndRelation = () => {
+  const handleEndRelation = async () => {
     console.log('🔥 [情侣空间] 点击解除关系，当前relation:', relation)
     if (confirm('确定要解除情侣空间关系吗？\n\n注意：照片、留言、纪念日等内容会保留，下次重新绑定后可以恢复。')) {
       console.log('🔥 [情侣空间] 用户确认解除')
-      const success = endCoupleSpaceRelation()
+      const success = await endCoupleSpaceRelation()
       console.log('🔥 [情侣空间] endCoupleSpaceRelation结果:', success)
       if (success) {
         if (relation?.characterId) {
@@ -192,7 +194,7 @@ const CoupleSpace = () => {
 
   return (
     <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500" style={{ background: currentTheme.bg }}>
-      
+
       {/* 背景装饰 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <Icons.Sparkle className="absolute top-10 left-10 text-white w-6 h-6 opacity-30 animate-pulse" />
@@ -204,7 +206,7 @@ const CoupleSpace = () => {
       <div className="relative z-10">
         <StatusBar />
         <div className="flex items-center justify-between px-5 py-4">
-          <button 
+          <button
             onClick={() => navigate('/discover')}
             className="w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all"
           >
@@ -213,105 +215,123 @@ const CoupleSpace = () => {
             </svg>
           </button>
           <div className="text-white font-medium opacity-90 tracking-widest text-sm">LOVER SPACE</div>
-          <button 
-            onClick={() => setThemeIndex((prev) => (prev + 1) % THEMES.length)}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all"
-          >
-            <Icons.Sparkle className="w-5 h-5" />
-          </button>
+          {!isPreviewMode && isConnected ? (
+            <div className="flex items-center gap-2">
+              {/* 添加纪念日 */}
+              <button
+                onClick={() => navigate('/couple-anniversary')}
+                className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white transition-all"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              {/* 解除情侣空间 */}
+              <button
+                onClick={handleEndRelation}
+                className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-red-400 transition-all"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="w-10 h-10" />
+          )}
         </div>
       </div>
 
       {/* 主内容区域 */}
       <div className="flex-1 overflow-y-auto px-0 pt-2 pb-20 relative z-10 hide-scrollbar">
-        
+
         {isPreviewMode && (
-           <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg mb-4 text-sm font-medium flex items-center justify-between shadow-sm mx-4">
-             <span>👀 当前为预览模式</span>
-             <button onClick={() => setIsPreviewMode(false)} className="text-xs underline">退出预览</button>
-           </div>
+          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg mb-4 text-sm font-medium flex items-center justify-between shadow-sm mx-4">
+            <span>👀 当前为预览模式</span>
+            <button onClick={() => setIsPreviewMode(false)} className="text-xs underline">退出预览</button>
+          </div>
         )}
 
         {!isConnected && !isPending && !isPreviewMode ? (
           // 未开通状态 - 美化版
           <div className="flex flex-col items-center justify-center min-h-[70vh] text-white space-y-8 animate-fade-in px-4">
-             <div className="relative">
-               <div className="absolute inset-0 bg-white/20 rounded-full blur-xl"></div>
-               <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-2xl relative z-10 border border-white/30">
-                 <Icons.Heart className="w-16 h-16 text-white drop-shadow-md" fill="currentColor" />
-               </div>
-             </div>
-             
-             <div className="text-center space-y-2">
-               <h2 className="text-3xl font-bold tracking-wide drop-shadow-sm">开启情侣空间</h2>
-               <p className="opacity-90 font-light tracking-wider">与 AI 恋人建立专属的亲密连接</p>
-             </div>
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 rounded-full blur-xl"></div>
+              <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-2xl relative z-10 border border-white/30">
+                <Icons.Heart className="w-16 h-16 text-white drop-shadow-md" fill="currentColor" />
+              </div>
+            </div>
 
-             <div className="space-y-4 w-full max-w-xs">
-                <div className="text-center text-white/60 text-xs mb-8">
-                  可以在聊天页面向 AI 发起邀请<br/>
-                  对方接受后即可开启
-                </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold tracking-wide drop-shadow-sm">开启情侣空间</h2>
+              <p className="opacity-90 font-light tracking-wider">与 AI 恋人建立专属的亲密连接</p>
+            </div>
 
-                <button 
-                  onClick={() => setIsPreviewMode(true)}
-                  className="w-full py-4 rounded-2xl bg-white/90 text-gray-800 font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-2"
-                >
-                  <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
-                  预览效果
-                </button>
-                
-                {/* 强制清除按钮（用于清除缓存残留） */}
-                <button 
-                  onClick={() => {
-                    if(confirm('⚠️ 强制清除所有情侣空间数据？\n\n如果点击情侣空间没反应，可能有缓存残留，点击此按钮清除。')) {
-                      localStorage.removeItem('couple_space_relation')
-                      localStorage.removeItem('couple_photos')
-                      localStorage.removeItem('couple_messages')
-                      localStorage.removeItem('couple_anniversaries')
-                      localStorage.removeItem('couple_space_privacy')
-                      alert('✅ 已清除所有情侣空间数据')
-                      loadRelation()
-                    }
-                  }}
-                  className="w-full py-2 text-white/50 text-xs hover:text-white/70 transition-colors underline"
-                >
-                  清除缓存残留
-                </button>
-             </div>
+            <div className="space-y-4 w-full max-w-xs">
+              <div className="text-center text-white/60 text-xs mb-8">
+                可以在聊天页面向 AI 发起邀请<br />
+                对方接受后即可开启
+              </div>
+
+              <button
+                onClick={() => setIsPreviewMode(true)}
+                className="w-full py-4 rounded-2xl bg-white/90 text-gray-800 font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-2"
+              >
+                <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
+                预览效果
+              </button>
+
+              {/* 强制清除按钮（用于清除缓存残留） */}
+              <button
+                onClick={() => {
+                  if (confirm('⚠️ 强制清除所有情侣空间数据？\n\n如果点击情侣空间没反应，可能有缓存残留，点击此按钮清除。')) {
+                    localStorage.removeItem('couple_space_relation')
+                    localStorage.removeItem('couple_photos')
+                    localStorage.removeItem('couple_messages')
+                    localStorage.removeItem('couple_anniversaries')
+                    localStorage.removeItem('couple_space_privacy')
+                    alert('✅ 已清除所有情侣空间数据')
+                    loadRelation()
+                  }
+                }}
+                className="w-full py-2 text-white/50 text-xs hover:text-white/70 transition-colors underline"
+              >
+                清除缓存残留
+              </button>
+            </div>
           </div>
         ) : isPending && !isPreviewMode ? (
-           // 等待状态 - 美化版
-           <div className="bg-white/90 backdrop-blur-md rounded-3xl p-10 text-center shadow-2xl mt-20 mx-4 animate-fade-in">
-             <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-               <Icons.Heart className="w-10 h-10 text-pink-500" />
-             </div>
-             {relation?.sender === 'character' ? (
-               // AI发起的邀请
-               <div>
-                 <h2 className="text-xl font-bold text-gray-800 mb-2">收到邀请</h2>
-                 <p className="text-gray-500 text-sm mb-8">{relation?.characterName} 向你发送了情侣空间邀请<br/>请在聊天中回应</p>
-                 <button 
-                   onClick={() => {if(confirm('清除此邀请?')) { endCoupleSpaceRelation(); loadRelation() }}} 
-                   className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-                 >
-                   清除邀请
-                 </button>
-               </div>
-             ) : (
-               // 用户发起的邀请
-               <div>
-                 <h2 className="text-xl font-bold text-gray-800 mb-2">等待回应中...</h2>
-                 <p className="text-gray-500 text-sm mb-8">已向 {relation?.characterName} 发送了爱的邀请<br/>请耐心等待对方的答复</p>
-                 <button 
-                   onClick={() => {if(confirm('取消邀请?')) { cancelCoupleSpaceInvite(); loadRelation() }}} 
-                   className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-                 >
-                   取消邀请
-                 </button>
-               </div>
-             )}
-           </div>
+          // 等待状态 - 美化版
+          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-10 text-center shadow-2xl mt-20 mx-4 animate-fade-in">
+            <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <Icons.Heart className="w-10 h-10 text-pink-500" />
+            </div>
+            {relation?.sender === 'character' ? (
+              // AI发起的邀请
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">收到邀请</h2>
+                <p className="text-gray-500 text-sm mb-8">{relation?.characterName} 向你发送了情侣空间邀请<br />请在聊天中回应</p>
+                <button
+                  onClick={async () => { if (confirm('清除此邀请?')) { await endCoupleSpaceRelation(); loadRelation() } }}
+                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+                >
+                  清除邀请
+                </button>
+              </div>
+            ) : (
+              // 用户发起的邀请
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">等待回应中...</h2>
+                <p className="text-gray-500 text-sm mb-8">已向 {relation?.characterName} 发送了爱的邀请<br />请耐心等待对方的答复</p>
+                <button
+                  onClick={async () => { if (confirm('取消邀请?')) { await cancelCoupleSpaceInvite(); loadRelation() } }}
+                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+                >
+                  取消邀请
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           // 已连接状态 (或预览模式)
           <div className="animate-slide-up flex flex-col h-full">
@@ -328,7 +348,7 @@ const CoupleSpace = () => {
               <div className="flex justify-center items-center gap-8 relative">
                 {/* 连接线 */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-1 bg-white/30 rounded-full blur-[1px]"></div>
-                
+
                 {/* 我 */}
                 <div className="flex flex-col items-center z-10">
                   <div className="w-20 h-20 rounded-full p-1 bg-white/30 backdrop-blur-sm shadow-lg relative group flex items-center justify-center">
@@ -339,7 +359,7 @@ const CoupleSpace = () => {
                         <Icons.User className="w-10 h-10 text-gray-400" />
                       )}
                     </div>
-                    <div className="absolute -bottom-1 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">我</div>
+                    <div className="absolute -bottom-5 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">我</div>
                   </div>
                 </div>
 
@@ -360,7 +380,7 @@ const CoupleSpace = () => {
                         <Icons.User className="w-10 h-10 text-gray-400" />
                       )}
                     </div>
-                    <div className="absolute -bottom-1 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">{activeRelation?.characterName}</div>
+                    <div className="absolute -bottom-5 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">{activeRelation?.characterName}</div>
                   </div>
                 </div>
               </div>
@@ -368,136 +388,153 @@ const CoupleSpace = () => {
 
             {/* 2. 横向滚动相册 (Carousel) */}
             <div className="mb-8 shrink-0">
-              <div className="px-6 mb-3 flex justify-between items-end">
+              <div className="px-6 mb-3">
                 <h3 className="text-white font-serif text-xl tracking-wider opacity-90 italic">Sweet Moments</h3>
-                <button onClick={() => !isPreviewMode && navigate('/couple-album')} className="text-white text-xs opacity-70 hover:opacity-100 transition-opacity flex items-center gap-1">
-                  查看全部 <span className="text-[10px]">➜</span>
-                </button>
               </div>
-              
+
               <div ref={carouselRef} className="flex overflow-x-auto pb-8 px-6 hide-scrollbar gap-4">
-                {/* 4个上传引导卡片 */}
-                {[1, 2, 3, 4].map((i) => (
-                  <div 
-                    key={`upload-${i}`}
-                    onClick={() => !isPreviewMode && navigate('/couple-album')}
-                    className={`shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg rotate-[${(i % 2 === 0 ? 1 : -1) * (i % 3 + 1)}deg] hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                      <Icons.Camera className="w-5 h-5" />
-                    </div>
-                    <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
-                  </div>
-                ))}
+                {/* 第一组：4个卡片（照片优先，不足补占位符） */}
+                {[0, 1, 2, 3].map((i) => {
+                  const photo = photos[i]
+                  const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
+                  if (photo) {
+                    return (
+                      <div
+                        key={photo.id}
+                        onClick={() => !isPreviewMode && navigate('/couple-album')}
+                        className="shrink-0 w-32 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                      >
+                        {photo.imageUrl ? (
+                          <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
+                            <Icons.Heart className="w-8 h-8 text-pink-300" />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  } else {
+                    return (
+                      <div
+                        key={`upload-${i}`}
+                        onClick={() => !isPreviewMode && navigate('/couple-album')}
+                        className="shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                          <Icons.Camera className="w-5 h-5" />
+                        </div>
+                        <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
+                      </div>
+                    )
+                  }
+                })}
 
-                {/* 复制4个上传引导卡片，实现无缝循环 */}
-                {[1, 2, 3, 4].map((i) => (
-                  <div 
-                    key={`upload-copy-${i}`}
-                    onClick={() => !isPreviewMode && navigate('/couple-album')}
-                    className={`shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg rotate-[${(i % 2 === 0 ? 1 : -1) * (i % 3 + 1)}deg] hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                      <Icons.Camera className="w-5 h-5" />
-                    </div>
-                    <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
-                  </div>
-                ))}
+                {/* 第二组（副本）：完全复制第一组 */}
+                {[0, 1, 2, 3].map((i) => {
+                  const photo = photos[i]
+                  const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
+                  if (photo) {
+                    return (
+                      <div
+                        key={`copy-${photo.id}`}
+                        onClick={() => !isPreviewMode && navigate('/couple-album')}
+                        className="shrink-0 w-32 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                      >
+                        {photo.imageUrl ? (
+                          <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
+                            <Icons.Heart className="w-8 h-8 text-pink-300" />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  } else {
+                    return (
+                      <div
+                        key={`upload-copy-${i}`}
+                        onClick={() => !isPreviewMode && navigate('/couple-album')}
+                        className="shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                          <Icons.Camera className="w-5 h-5" />
+                        </div>
+                        <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
+                      </div>
+                    )
+                  }
+                })}
               </div>
             </div>
 
-            {/* 3. 底部功能入口 (极简风) */}
-            <div className="px-6 mb-8 grid grid-cols-2 gap-4">
-              <button 
-                onClick={() => !isPreviewMode && navigate('/couple-anniversary')}
-                className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-lg flex items-center gap-3 hover:scale-105 transition-transform active:scale-95"
-              >
-                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
-                  <Icons.Calendar className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-gray-800">纪念日</div>
-                  <div className="text-[10px] text-gray-500">Next Anniversary</div>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => !isPreviewMode && navigate('/couple-message-board')}
-                className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-lg flex items-center gap-3 hover:scale-105 transition-transform active:scale-95"
-              >
-                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-                  <Icons.Message className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-gray-800">留言板</div>
-                  <div className="text-[10px] text-gray-500">Leave a note</div>
-                </div>
-              </button>
-            </div>
-
-            {/* 4. 底部装饰：便利贴 */}
-            <div className="relative mx-6 mb-8 rotate-1 mt-auto">
-               <div className="bg-[#fffbe6] p-6 shadow-lg relative transform transition-transform hover:rotate-0 hover:scale-[1.02] duration-300" style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 90%, 90% 100%, 0% 100%)' }}>
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-8 bg-white/40 backdrop-blur-sm -mt-4 rotate-1 border border-white/50 shadow-sm"></div>
-                 <div className="font-handwriting text-gray-700 leading-relaxed text-sm text-center">
-                   "遇见你是我这辈子最幸运的事。<br/>每天都要开开心心的哦！"
-                 </div>
-                 <div className="text-right mt-4 text-xs text-gray-400">—— {activeRelation?.characterName}</div>
-               </div>
-            </div>
-
-            {/* 设置区域 - 更明显的布局 */}
-            {!isPreviewMode && (
-              <div className="mx-6 mb-6 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
-                <div className="text-white/80 text-sm font-medium mb-3 px-1">设置</div>
-                <div className="space-y-2">
-                  {/* 隐私设置 */}
-                  <button 
-                    onClick={() => {
-                      const newMode = privacyMode === 'public' ? 'private' : 'public'
-                      setCoupleSpacePrivacy(newMode)
-                      setPrivacyMode(newMode)
-                    }}
-                    className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors"
-                  >
-                    <span className="text-white/90 text-sm">隐私模式</span>
-                    <span className="text-white/60 text-xs">{privacyMode === 'public' ? '公开' : '私密'}</span>
-                  </button>
-                  {/* 解除关系 - 明显的红色按钮 */}
-                  <button 
-                    onClick={handleEndRelation}
-                    className="w-full flex items-center justify-between p-3 bg-red-500/20 rounded-xl hover:bg-red-500/30 transition-colors border border-red-400/30"
-                  >
-                    <span className="text-red-200 text-sm">解除情侣空间</span>
-                    <svg className="w-4 h-4 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* 强制清除按钮（用于清除缓存残留） */}
-            {!isPreviewMode && (
-              <div className="flex justify-center pb-8">
-                <button 
-                  onClick={() => {
-                    if(confirm('⚠️ 强制清除所有情侣空间数据？\n\n这将清除：\n- 关系状态\n- 照片\n- 留言\n- 纪念日\n\n此操作不可恢复！')) {
-                      localStorage.removeItem('couple_space_relation')
-                      localStorage.removeItem('couple_photos')
-                      localStorage.removeItem('couple_messages')
-                      localStorage.removeItem('couple_anniversaries')
-                      localStorage.removeItem('couple_space_privacy')
-                      alert('✅ 已清除所有情侣空间数据')
-                      loadRelation()
-                    }
+            {/* 4. 底部装饰：堆叠便利贴 - 点击跳转到留言板 */}
+            <div
+              className="relative mx-6 mb-8 mt-6 cursor-pointer h-48"
+              onClick={() => !isPreviewMode && navigate('/couple-message-board')}
+            >
+              {/* 堆叠的便利贴效果 */}
+              <div className="relative w-full h-full">
+                {/* 第4层 - 最底部 */}
+                <div
+                  className="absolute top-8 left-4 w-[85%] h-40 bg-gradient-to-br from-purple-100 to-purple-200 shadow-md transform -rotate-3 transition-all duration-300 rounded-sm"
+                  style={{
+                    zIndex: 1,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
                   }}
-                  className="text-white/40 text-[10px] hover:text-white/60 transition-colors underline"
+                />
+
+                {/* 第3层 */}
+                <div
+                  className="absolute top-6 left-2 w-[90%] h-40 bg-gradient-to-br from-green-100 to-emerald-200 shadow-md transform rotate-2 transition-all duration-300 rounded-sm"
+                  style={{
+                    zIndex: 2,
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.12)'
+                  }}
+                />
+
+                {/* 第2层 */}
+                <div
+                  className="absolute top-4 left-6 w-[92%] h-40 bg-gradient-to-br from-pink-100 to-pink-200 shadow-lg transform -rotate-1 transition-all duration-300 rounded-sm"
+                  style={{
+                    zIndex: 3,
+                    boxShadow: '0 6px 10px rgba(0,0,0,0.15)'
+                  }}
+                />
+
+                {/* 第1层 - 最顶部（主内容） */}
+                <div
+                  className="absolute top-0 left-8 w-[95%] h-44 bg-gradient-to-br from-yellow-50 to-yellow-100 shadow-xl transform rotate-1 hover:rotate-0 hover:scale-105 transition-all duration-300 rounded-sm group"
+                  style={{
+                    zIndex: 4,
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+                  }}
                 >
-                  强制清除缓存
-                </button>
+                  {/* 磁带效果 */}
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 bg-white/60 backdrop-blur-sm border border-gray-200 shadow-sm rounded-sm"></div>
+
+                  {/* 内容区域 */}
+                  <div className="p-6 h-full flex flex-col justify-between">
+                    <div className="font-handwriting text-gray-700 leading-relaxed text-base">
+                      "{latestMessage?.content || '遇见你是我这辈子最幸运的事。'}"
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs text-gray-400">点击查看更多留言</div>
+                      <div className="text-xs text-gray-500 font-medium">
+                        —— {latestMessage?.characterName || activeRelation?.characterName}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 装饰性胶带（左上角） */}
+                  <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/30 backdrop-blur-sm transform rotate-45 opacity-50"></div>
+                </div>
               </div>
-            )}
+            </div>
+
 
           </div>
         )}

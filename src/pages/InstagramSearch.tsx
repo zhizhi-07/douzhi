@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Hash, Plus, X } from 'lucide-react'
+import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { apiService } from '../services/apiService'
 import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs, cleanupNPCStorage } from '../utils/forumNPC'
@@ -63,10 +64,10 @@ const InstagramSearch = () => {
   // 创建话题并生成帖子
   const handleCreateTopic = async () => {
     if (!topicName.trim()) return
-    
+
     // 先清理localStorage，避免爆掉
     cleanupNPCStorage()
-    
+
     setIsGenerating(true)
     try {
       const apiConfigs = apiService.getAll()
@@ -82,11 +83,11 @@ const InstagramSearch = () => {
       // 获取所有角色，检查话题是否涉及公众人物
       const allChars = await getAllCharacters()
       const topicText = `${topicName} ${topicDesc || ''}`
-      const mentionedPublicFigures = allChars.filter(c => 
-        c.isPublicFigure && 
+      const mentionedPublicFigures = allChars.filter(c =>
+        c.isPublicFigure &&
         (topicText.includes(c.nickname || '') || topicText.includes(c.realName))
       )
-      
+
       // 构建公众人物说明（包含完整人设）
       const publicFigurePrompt = mentionedPublicFigures.length > 0 ? `
 **话题涉及的公众人物（网友都认识他们）：**
@@ -103,7 +104,7 @@ ${mentionedPublicFigures.map(pf => {
 - **重要：公众人物的帖子必须完全符合他们的性格人设**
 - 帖子可以是支持、反对、调侃、爆料、质疑等
 ` : ''
-      
+
       // 🔷🔷🔷 创建话题日志 🔷🔷🔷
       console.log('\n' + '🔶'.repeat(30))
       console.log('🏷️ 创建话题 - 开始')
@@ -164,8 +165,8 @@ ${publicFigurePrompt}
       console.log(prompt)
       console.log('============================================================')
 
-      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions') 
-        ? apiConfig.baseUrl 
+      const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions')
+        ? apiConfig.baseUrl
         : apiConfig.baseUrl.replace(/\/?$/, '/chat/completions')
 
       const response = await fetch(apiUrl, {
@@ -183,53 +184,53 @@ ${publicFigurePrompt}
 
       const data = await response.json()
       const content = data.choices?.[0]?.message?.content || ''
-      
+
       // 打印AI返回内容
       console.log('============================================================')
       console.log('🤖 创建话题 - AI返回内容:')
       console.log('============================================================')
       console.log(content)
       console.log('============================================================')
-      
+
       // 解析帖子和评论（新格式：===帖子N=== 分割）
       const postBlocks = content.split(/===帖子\d+===/).filter((b: string) => b.trim())
       const currentPosts = await getAllPostsAsync()
       const existingNPCs = getAllNPCs()
       const baseTimestamp = Date.now()
       const createdPostIds: string[] = []
-      
+
       // 导入评论数据库
       const { addComment, addReply } = await import('../utils/forumCommentsDB')
-      
+
       for (let index = 0; index < postBlocks.length; index++) {
         const block = postBlocks[index].trim()
         const lines = block.split('\n').filter((l: string) => l.trim())
         if (lines.length === 0) continue
-        
+
         // 第一行是帖子：发帖人|帖子内容|点赞数（点赞数可选）
         const postLine = lines[0]
         const postMatch = postLine.match(/^(.+?)\|(.+?)(?:\|(\d+))?$/)
         if (!postMatch) continue
-        
+
         const posterName = postMatch[1].trim()
         const postContent = postMatch[2].trim()
         const aiGeneratedLikes = postMatch[3] ? parseInt(postMatch[3]) : null
-        
+
         // 检查是否是公众人物
-        const publicFigure = allChars.find(c => 
+        const publicFigure = allChars.find(c =>
           c.nickname === posterName || c.realName === posterName
         )
-        
+
         // 创建NPC
         let npcId = `topic-npc-${baseTimestamp}-${index}`
         let npcAvatar = '/default-avatar.png'
-        
+
         if (publicFigure) {
           npcId = publicFigure.id
           npcAvatar = publicFigure.avatar || '/default-avatar.png'
           console.log(`🌟 公众人物 ${posterName} 发帖`)
         }
-        
+
         if (!existingNPCs.find(n => n.name === posterName)) {
           existingNPCs.push({
             id: npcId,
@@ -239,30 +240,30 @@ ${publicFigurePrompt}
             followers: Math.floor(Math.random() * 500) + 100
           })
         }
-        
+
         // 创建帖子
         const postId = `topic-post-${baseTimestamp}-${index}`
         createdPostIds.push(postId)
-        
+
         // 解析评论（从第二行开始）
         const commentLines = lines.slice(1)
         const nameToCommentId = new Map<string, string>()
         let commentCount = 0
-        
+
         for (const line of commentLines) {
           // 匹配主评论：[评论] 网名：内容
           const commentMatch = line.match(/^\[评论\]\s*(.+?)[:：](.+)$/)
           if (commentMatch) {
             const commenterName = commentMatch[1].trim()
             const commentContent = commentMatch[2].trim()
-            
+
             // 检查评论者是否是公众人物
-            const commenterPF = allChars.find(c => 
+            const commenterPF = allChars.find(c =>
               c.nickname === commenterName || c.realName === commenterName
             )
             const commenterId = commenterPF?.id || `topic-npc-${baseTimestamp}-${index}-c${commentCount}`
             const commenterAvatar = commenterPF?.avatar || '/default-avatar.png'
-            
+
             const comment = await addComment(
               postId, commenterId, commenterName, commenterAvatar, commentContent,
               Math.floor(Math.random() * 50) + 5,
@@ -272,22 +273,22 @@ ${publicFigurePrompt}
             commentCount++
             continue
           }
-          
+
           // 匹配回复：[回复] 网名 -> 被回复人：内容
           const replyMatch = line.match(/^\[回复\]\s*(.+?)\s*->\s*(.+?)[:：](.+)$/)
           if (replyMatch) {
             const replierName = replyMatch[1].trim()
             const replyToName = replyMatch[2].trim()
             const replyContent = replyMatch[3].trim()
-            
+
             const targetCommentId = nameToCommentId.get(replyToName)
             if (targetCommentId) {
-              const replierPF = allChars.find(c => 
+              const replierPF = allChars.find(c =>
                 c.nickname === replierName || c.realName === replierName
               )
               const replierId = replierPF?.id || `topic-npc-${baseTimestamp}-${index}-r${commentCount}`
               const replierAvatar = replierPF?.avatar || '/default-avatar.png'
-              
+
               await addReply(
                 targetCommentId, replierId, replierName, replierAvatar,
                 replyContent, replyToName,
@@ -298,12 +299,12 @@ ${publicFigurePrompt}
             }
           }
         }
-        
+
         // 创建帖子 - 优先使用AI生成的点赞数
-        const fallbackLikes = publicFigure?.isPublicFigure 
+        const fallbackLikes = publicFigure?.isPublicFigure
           ? Math.floor(Math.random() * 50000) + 10000  // 公众人物默认：1万-6万
           : Math.floor(Math.random() * 100) + 10       // 普通人默认：10-110
-        
+
         const newPost = {
           id: postId,
           npcId,
@@ -319,12 +320,12 @@ ${publicFigurePrompt}
         currentPosts.unshift(newPost)
         console.log(`📝 帖子 ${index + 1}: ${posterName} | 评论数: ${commentCount}`)
       }
-      
+
       saveNPCs(existingNPCs)
       await savePosts(currentPosts)
-      
+
       console.log('📝 创建的帖子ID:', createdPostIds)
-      
+
       // 创建新话题
       const newTopic: Topic = {
         id: `topic-${Date.now()}`,
@@ -333,16 +334,16 @@ ${publicFigurePrompt}
         trending: false,
         category: '自定义'
       }
-      
+
       const updatedTopics = [newTopic, ...topics]
       saveTopics(updatedTopics)
       setTopics(updatedTopics)
-      
+
       setShowCreateModal(false)
       setTopicName('')
       setTopicDesc('')
       console.log(`✨ 创建话题 #${topicName} 成功，生成${createdPostIds.length}条帖子（含评论）`)
-      
+
       // 评论生成完成后再跳转到话题详情
       navigate(`/instagram/topic/${encodeURIComponent(newTopic.name)}`)
     } catch (error) {
@@ -355,113 +356,118 @@ ${publicFigurePrompt}
 
   return (
     <InstagramLayout showHeader={false}>
-      {/* 话题标题 + 创建按钮 */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900">话题</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center shadow-sm active:scale-95 transition-transform"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* 话题列表 */}
-      <div className="pb-20">
-        <div className="divide-y divide-gray-100">
-          {topics.map((topic) => (
-            <div
-              key={topic.id}
-              onClick={() => navigate(`/instagram/topic/${encodeURIComponent(topic.name)}`)}
-              className="px-4 py-4 active:bg-gray-50 cursor-pointer"
+      <div className="h-full flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+        {/* 话题标题 + 创建按钮（包含状态栏） */}
+        <div className="sticky top-0 z-10 bg-[#F9F8F4]/90 backdrop-blur-md border-b border-[#EAE5D9]">
+          <StatusBar />
+          <div className="flex items-center justify-between px-5 pb-4">
+            <h1 className="text-sm font-medium text-[#2C2C2C]">话题</h1>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-8 h-8 rounded-full bg-[#2C2C2C] text-[#F9F8F4] flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-black"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center flex-shrink-0">
-                  <Hash className="w-6 h-6 text-purple-600" />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {topic.name}
-                    </h3>
-                    {topic.trending && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-red-50 rounded-full">
-                        <TrendingUp className="w-3 h-3 text-red-500" />
-                        <span className="text-xs font-medium text-red-500">热门</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {topic.posts.toLocaleString()} 条帖子
-                  </p>
-                </div>
-                
-                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {topics.length === 0 && (
-          <div className="py-20 text-center text-gray-400 text-sm">
-            暂无话题
+              <Plus className="w-4 h-4 stroke-[1.5]" />
+            </button>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* 创建话题模态框 */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <button onClick={() => setShowCreateModal(false)}>
-                <X className="w-6 h-6" />
-              </button>
-              <h2 className="text-base font-semibold">创建话题</h2>
-              <button
-                onClick={handleCreateTopic}
-                disabled={!topicName.trim() || isGenerating}
-                className="text-blue-500 font-semibold text-sm disabled:opacity-40"
+        {/* 话题列表 */}
+        <div className="pb-20 px-5">
+          <div className="divide-y divide-[#EAE5D9]">
+            {topics.map((topic) => (
+              <div
+                key={topic.id}
+                onClick={() => navigate(`/instagram/topic/${encodeURIComponent(topic.name)}`)}
+                className="py-5 cursor-pointer group"
               >
-                {isGenerating ? '生成中...' : '创建'}
-              </button>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full border border-[#EAE5D9] flex items-center justify-center flex-shrink-0 group-hover:border-[#8C8C8C] transition-colors">
+                    <Hash className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-medium text-[#2C2C2C] tracking-wide group-hover:opacity-70 transition-opacity">
+                        {topic.name}
+                      </h3>
+                      {topic.trending && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 border border-[#8B3A3A] rounded-sm">
+                          <TrendingUp className="w-3 h-3 text-[#8B3A3A] stroke-[1.5]" />
+                          <span className="text-[9px] font-medium text-[#8B3A3A]">热门</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#8C8C8C] tracking-wider uppercase">
+                      {topic.posts.toLocaleString()} 帖子
+                    </p>
+                  </div>
+
+                  <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] transition-colors">
+                    <svg className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {topics.length === 0 && (
+            <div className="py-24 text-center text-[#8C8C8C] text-xs tracking-wide">
+              还没有话题
             </div>
-            <div className="p-4">
-              <div className="mb-4">
-                <label className="block text-sm text-gray-500 mb-2">话题名称</label>
-                <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
-                  <Hash className="w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={topicName}
-                    onChange={(e) => setTopicName(e.target.value)}
-                    placeholder="输入话题名称"
-                    className="flex-1 bg-transparent outline-none text-base"
-                    maxLength={20}
-                    autoFocus
+          )}
+        </div>
+
+        {/* 创建话题模态框 */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 bg-[#2C2C2C]/20 backdrop-blur-sm flex items-center justify-center p-6">
+            <div className="bg-[#F9F8F4] rounded-sm w-full max-w-sm overflow-hidden shadow-lg border border-[#EAE5D9]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#EAE5D9]">
+                <button onClick={() => setShowCreateModal(false)} className="text-[#5A5A5A] hover:text-[#2C2C2C]">
+                  <X className="w-5 h-5 stroke-[1.5]" />
+                </button>
+                <h2 className="text-sm font-medium text-[#2C2C2C]">新建话题</h2>
+                <button
+                  onClick={handleCreateTopic}
+                  disabled={!topicName.trim() || isGenerating}
+                  className="text-[#2C2C2C] font-medium text-xs tracking-widest uppercase disabled:opacity-40 hover:opacity-70 transition-opacity"
+                >
+                  {isGenerating ? '...' : '创建'}
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="mb-6">
+                  <label className="block text-[10px] text-[#8C8C8C] mb-2">话题名称</label>
+                  <div className="flex items-center gap-2 bg-white border border-[#EAE5D9] rounded-sm px-3 py-2">
+                    <Hash className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
+                    <input
+                      type="text"
+                      value={topicName}
+                      onChange={(e) => setTopicName(e.target.value)}
+                      placeholder="输入话题名称"
+                      className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] font-serif placeholder-[#C0C0C0]"
+                      maxLength={20}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8C8C8C] mb-2">描述（可选）</label>
+                  <textarea
+                    value={topicDesc}
+                    onChange={(e) => setTopicDesc(e.target.value)}
+                    placeholder="描述这个话题..."
+                    className="w-full bg-white border border-[#EAE5D9] rounded-sm px-3 py-2 outline-none text-sm text-[#2C2C2C] font-serif placeholder-[#C0C0C0] resize-none"
+                    rows={3}
+                    maxLength={100}
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">话题描述（可选）</label>
-                <textarea
-                  value={topicDesc}
-                  onChange={(e) => setTopicDesc(e.target.value)}
-                  placeholder="描述一下这个话题，AI会根据描述生成帖子..."
-                  className="w-full bg-gray-100 rounded-lg px-3 py-2 outline-none text-base resize-none"
-                  rows={3}
-                  maxLength={100}
-                />
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </InstagramLayout>
   )
 }

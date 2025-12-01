@@ -8,6 +8,7 @@ import { cleanupOldMessages } from './utils/cleanupLocalStorage'
 import './utils/storageDiagnostic' // 存储诊断工具（在控制台使用 window.storageDiag）
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
+import { initCoupleSpaceStorage } from './utils/coupleSpaceUtils'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -90,6 +91,7 @@ import AISchedule from './pages/AISchedule'
 import AIScheduleSelect from './pages/AIScheduleSelect'
 import ScreenSettings from './pages/ScreenSettings'
 import MemeLibrary from './pages/MemeLibrary'
+import SwitchAccount from './pages/SwitchAccount'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
@@ -176,6 +178,11 @@ function App() {
     // 自动迁移 localStorage 到 IndexedDB
     migrateFromLocalStorage().catch(err => {
       console.error('❌ 迁移失败:', err)
+    })
+
+    // 初始化情侣空间存储（从IndexedDB加载数据到缓存）
+    initCoupleSpaceStorage().catch(err => {
+      console.error('❌ 情侣空间存储初始化失败:', err)
     })
 
     if (needsMigration()) {
@@ -300,53 +307,76 @@ function App() {
 
   // 🎨 加载字体（自定义或系统默认）
   useEffect(() => {
-    const customFont = localStorage.getItem('custom_font')
-    if (customFont) {
-      try {
-        const fontConfig = JSON.parse(customFont)
-        if (fontConfig.url) {
-          // 判断是CSS链接还是字体文件
-          if (fontConfig.url.includes('.css') || fontConfig.url.includes('fonts.googleapis.com')) {
-            const link = document.createElement('link')
-            link.rel = 'stylesheet'
-            link.href = fontConfig.url
-            document.head.appendChild(link)
-          } else {
-            const style = document.createElement('style')
-            style.textContent = `
-              @font-face {
-                font-family: '${fontConfig.name}';
-                src: url('${fontConfig.url}');
+    const loadFont = async () => {
+      const customFont = localStorage.getItem('custom_font')
+      if (customFont) {
+        try {
+          const fontConfig = JSON.parse(customFont)
+          let fontUrl = fontConfig.url
+          
+          // 如果 localStorage 没有 url，尝试从 IndexedDB 加载
+          if (!fontUrl && fontConfig.name && fontConfig.name !== '经典衬线') {
+            try {
+              const request = indexedDB.open('FontStorage', 1)
+              const db = await new Promise<IDBDatabase>((resolve, reject) => {
+                request.onerror = () => reject(request.error)
+                request.onsuccess = () => resolve(request.result)
+                request.onupgradeneeded = (event) => {
+                  const db = (event.target as IDBOpenDBRequest).result
+                  if (!db.objectStoreNames.contains('fonts')) {
+                    db.createObjectStore('fonts', { keyPath: 'name' })
+                  }
+                }
+              })
+              const tx = db.transaction('fonts', 'readonly')
+              const fontData = await new Promise<{ name: string; family: string; url: string } | null>((resolve, reject) => {
+                const req = tx.objectStore('fonts').get(fontConfig.name)
+                req.onsuccess = () => resolve(req.result || null)
+                req.onerror = () => reject(req.error)
+              })
+              if (fontData?.url) {
+                fontUrl = fontData.url
               }
-            `
-            document.head.appendChild(style)
+            } catch (err) {
+              console.error('从 IndexedDB 加载字体失败:', err)
+            }
           }
-          // 延迟应用字体，等待加载
-          setTimeout(() => {
-            document.body.style.fontFamily = fontConfig.family
-          }, 100)
+
+          if (fontUrl) {
+            // 判断是CSS链接还是字体文件
+            if (fontUrl.includes('.css') || fontUrl.includes('fonts.googleapis.com')) {
+              const link = document.createElement('link')
+              link.rel = 'stylesheet'
+              link.href = fontUrl
+              document.head.appendChild(link)
+            } else {
+              const style = document.createElement('style')
+              style.textContent = `
+                @font-face {
+                  font-family: '${fontConfig.name}';
+                  src: url('${fontUrl}');
+                }
+              `
+              document.head.appendChild(style)
+            }
+            // 设置 CSS 变量，让全局字体生效
+            setTimeout(() => {
+              document.documentElement.style.setProperty('--global-font-family', fontConfig.family)
+            }, 100)
+          } else if (fontConfig.family) {
+            // 有 family 但没有 url，直接设置 CSS 变量
+            document.documentElement.style.setProperty('--global-font-family', fontConfig.family)
+          }
+        } catch (err) {
+          console.error('❌ 加载字体失败:', err)
         }
-      } catch (err) {
-        console.error('❌ 加载字体失败:', err)
+      } else {
+        // 🔥 没有自定义字体时，使用系统默认衬线字体
+        document.documentElement.style.setProperty('--global-font-family', 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif')
+        console.log('✅ 已加载系统默认字体：经典衬线')
       }
-    } else {
-      // 🔥 没有自定义字体时，加载系统默认字体"喵小九的喵"
-      const style = document.createElement('style')
-      style.textContent = `
-        @font-face {
-          font-family: '喵小九的喵';
-          src: url('/fonts/喵小九的喵.ttf');
-        }
-      `
-      document.head.appendChild(style)
-
-      // 应用默认字体
-      setTimeout(() => {
-        document.body.style.fontFamily = '"喵小九的喵", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }, 100)
-
-      console.log('✅ 已加载系统默认字体：喵小九的喵')
     }
+    loadFont()
   }, [])
 
   // 路由切换时滚动到顶部
@@ -424,6 +454,7 @@ function App() {
           <Route path="/publish-moment" element={<PublishMoment />} />
           <Route path="/me" element={<Me />} />
           <Route path="/user-profile" element={<UserProfile />} />
+          <Route path="/switch-account" element={<SwitchAccount />} />
           <Route path="/create-character" element={<CreateCharacter />} />
           <Route path="/character/:id" element={<CharacterDetail />} />
           <Route path="/api-list" element={<ApiList />} />

@@ -18,56 +18,61 @@ export interface Character {
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
 }
 
-const STORAGE_KEY = 'characters' // 仅用于迁移旧数据
-
-// 默认角色已移除，用户需要自行创建角色
+// 🔥 完全移除localStorage依赖，只用IndexedDB
+// 原因：localStorage配额小（5MB），经常满导致角色丢失
 
 // 内存缓存
-let charactersCache: Character[] = [] // 初始为空数组
+let charactersCache: Character[] = []
+let isLoaded = false
+let loadPromise: Promise<void> | null = null
 
-// 🔥 优化初始化：先同步加载localStorage作为快速缓存
-try {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    charactersCache = JSON.parse(saved)
-    console.log(`⚡ 已从 localStorage 同步加载 ${charactersCache.length} 个角色（临时缓存）`)
-  }
-} catch (e) {
-  console.error('从 localStorage 加载失败:', e)
+// 🔥 初始化：从IndexedDB加载角色
+function initCharacters(): Promise<void> {
+  if (loadPromise) return loadPromise
+  
+  loadPromise = (async () => {
+    try {
+      const characters = await Promise.race([
+        CharacterManager.getAllCharacters(),
+        new Promise<Character[]>((_, reject) => 
+          setTimeout(() => reject(new Error('IndexedDB加载超时')), 5000)
+        )
+      ])
+      
+      charactersCache = characters || []
+      isLoaded = true
+      console.log(`✅ 已从 IndexedDB 加载 ${charactersCache.length} 个角色`)
+      
+      // 🔥 触发事件通知其他组件角色已加载
+      window.dispatchEvent(new CustomEvent('characters-loaded', { 
+        detail: { count: charactersCache.length } 
+      }))
+    } catch (e) {
+      console.error('❌ IndexedDB 加载角色失败:', e)
+      isLoaded = true // 标记为已加载，避免无限等待
+    }
+  })()
+  
+  return loadPromise
 }
 
-// 🔥 后台异步从 IndexedDB 加载（加超时保护）
-Promise.race([
-  CharacterManager.getAllCharacters(),
-  new Promise<Character[]>((_, reject) => setTimeout(() => reject(new Error('超时')), 3000))
-]).then(characters => {
-  if (characters.length === 0) {
-    // IndexedDB 是空的，用 localStorage 数据
-    if (charactersCache.length > 0) {
-      console.log(`📦 迁移 ${charactersCache.length} 个角色到 IndexedDB`)
-      CharacterManager.saveAllCharacters(charactersCache)
-      // 🔥 不删除 localStorage 备份！保留作为安全网
-    }
-  } else {
-    // IndexedDB 有数据
-    charactersCache = characters
-    console.log(`✅ 已从 IndexedDB 加载 ${characters.length} 个角色`)
-    // 🔥 同步更新 localStorage 备份
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
-    } catch {}
-  }
-}).catch(e => {
-  console.warn('⚠️ IndexedDB 加载失败或超时，使用 localStorage 缓存:', e)
-  // 🔥 关键：失败时保持 localStorage 数据，不清空
-})
+// 立即开始加载
+initCharacters()
 
 export const characterService = {
   // 获取所有角色（同步，使用缓存）
   getAll: (): Character[] => {
-    // 🔥 直接返回缓存，无需复杂检查
-    // 因为 charactersCache 现在始终有值（最少包含默认角色）
     return charactersCache
+  },
+  
+  // 🔥 新增：等待角色加载完成
+  waitForLoad: (): Promise<void> => {
+    return loadPromise || Promise.resolve()
+  },
+  
+  // 🔥 新增：检查是否已加载
+  isLoaded: (): boolean => {
+    return isLoaded
   },
 
   // 保存角色
@@ -81,15 +86,7 @@ export const characterService = {
     if (!charactersCache) charactersCache = []
     charactersCache.push(newCharacter)
     
-    // 🔥 立即同步备份到 localStorage（防止刷新丢失）
-    try {
-      localStorage.setItem('characters', JSON.stringify(charactersCache))
-      console.log('💾 角色已同步备份到 localStorage')
-    } catch (e) {
-      console.warn('localStorage 备份失败:', e)
-    }
-    
-    // 后台异步保存到 IndexedDB
+    // 🔥 只保存到IndexedDB，不用localStorage
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 
       console.error('保存角色失败:', e)
     )
@@ -102,12 +99,7 @@ export const characterService = {
     if (!charactersCache) return
     charactersCache = charactersCache.filter(c => c.id !== id)
     
-    // 🔥 立即同步备份
-    try {
-      localStorage.setItem('characters', JSON.stringify(charactersCache))
-    } catch {}
-    
-    // 后台异步保存
+    // 🔥 只保存到IndexedDB
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 
       console.error('删除角色失败:', e)
     )
@@ -122,12 +114,7 @@ export const characterService = {
     
     charactersCache[index] = { ...charactersCache[index], ...updates }
     
-    // 🔥 立即同步备份
-    try {
-      localStorage.setItem('characters', JSON.stringify(charactersCache))
-    } catch {}
-    
-    // 后台异步保存
+    // 🔥 只保存到IndexedDB
     CharacterManager.saveAllCharacters(charactersCache).catch(e => 
       console.error('更新角色失败:', e)
     )

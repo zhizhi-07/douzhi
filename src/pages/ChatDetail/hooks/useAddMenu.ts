@@ -19,6 +19,7 @@ export const useAddMenu = (
   onOpenPaymentRequest?: () => void,
   onOpenShopping?: () => void,
   onOpenPost?: () => void,
+  onSelectPost?: () => void,
   onFormatCorrector?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
@@ -185,7 +186,7 @@ export const useAddMenu = (
       console.warn('⚠️ onFormatCorrector 未定义')
     }
   }, [onFormatCorrector])
-  
+
   return {
     showAddMenu,
     setShowAddMenu,

@@ -50,8 +50,8 @@ const PostGenerator = ({
 
   const toggleRole = (role: string) => {
     playSystemSound()
-    setSelectedRoles(prev => 
-      prev.includes(role) 
+    setSelectedRoles(prev =>
+      prev.includes(role)
         ? prev.filter(r => r !== role)
         : [...prev, role]
     )
@@ -59,7 +59,7 @@ const PostGenerator = ({
 
   const handleGenerate = async () => {
     playSystemSound()
-    
+
     if (!customPrompt.trim()) {
       alert('请输入帖子描述')
       return
@@ -73,7 +73,7 @@ const PostGenerator = ({
   const handleSend = () => {
     playSystemSound()
     onSend()
-    
+
     // 重置状态
     setCustomPrompt('')
     setSelectedRoles([])
@@ -99,7 +99,7 @@ const PostGenerator = ({
       />
 
       {/* 主面板 */}
-      <div 
+      <div
         data-modal-container
         className="fixed bottom-0 left-0 right-0 z-50 modal-slide-up pb-safe max-h-[80vh] overflow-y-auto"
         style={{
@@ -122,78 +122,76 @@ const PostGenerator = ({
             <p className="text-xs text-gray-500 mt-1">描述你想生成的帖子，可选择相关角色</p>
           </div>
 
-        {/* 角色选择 */}
-        {!generatedPost && (
-          <div className="p-4">
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">选择相关角色（可选）</label>
-            <div className="flex gap-3">
-              <button
-                onClick={() => toggleRole('user')}
-                className={`flex-1 p-3 rounded-xl transition-all active:scale-95 ${
-                  selectedRoles.includes('user')
-                    ? 'bg-gray-100'
-                    : 'bg-gray-50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  {userAvatar ? (
-                    <img src={userAvatar} alt="用户" className="w-12 h-12 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
-                      我
-                    </div>
-                  )}
-                  <div className="text-xs font-medium text-gray-700">用户</div>
-                </div>
-              </button>
-              <button
-                onClick={() => toggleRole('ai')}
-                className={`flex-1 p-3 rounded-xl transition-all active:scale-95 ${
-                  selectedRoles.includes('ai')
-                    ? 'bg-gray-100'
-                    : 'bg-gray-50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  {characterAvatar ? (
-                    <img src={characterAvatar} alt={characterName} className="w-12 h-12 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center text-white font-semibold">
-                      {characterName?.charAt(0) || 'AI'}
-                    </div>
-                  )}
-                  <div className="text-xs font-medium text-gray-700">{characterName}</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 帖子描述输入 */}
-        {!generatedPost && (
-          <div className="px-4 pb-4">
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">帖子描述</label>
-            <textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="例如：生成一个校园墙帖子，讨论最近的期末考试&#10;例如：生成几个人在吵架的帖子&#10;例如：生成关于某人的黑料讨论"
-              className="w-full p-3 bg-gray-50 rounded-xl resize-none focus:bg-white focus:outline-none transition-colors"
-              rows={5}
-            />
-          </div>
-        )}
-
-        {/* 帖子预览 */}
-        {generatedPost && (
-          <div className="px-4 pb-4">
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">生成的帖子</label>
-            <div className="bg-gray-50 rounded-xl p-4 max-h-80 overflow-y-auto">
-              <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                {generatedPost}
+          {/* 角色选择 */}
+          {!generatedPost && (
+            <div className="p-4">
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">选择相关角色（可选）</label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => toggleRole('user')}
+                  className={`flex-1 p-3 rounded-xl transition-all active:scale-95 ${selectedRoles.includes('user')
+                      ? 'bg-gray-100'
+                      : 'bg-gray-50'
+                    }`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="用户" className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
+                        我
+                      </div>
+                    )}
+                    <div className="text-xs font-medium text-gray-700">用户</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => toggleRole('ai')}
+                  className={`flex-1 p-3 rounded-xl transition-all active:scale-95 ${selectedRoles.includes('ai')
+                      ? 'bg-gray-100'
+                      : 'bg-gray-50'
+                    }`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    {characterAvatar ? (
+                      <img src={characterAvatar} alt={characterName} className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center text-white font-semibold">
+                        {characterName?.charAt(0) || 'AI'}
+                      </div>
+                    )}
+                    <div className="text-xs font-medium text-gray-700">{characterName}</div>
+                  </div>
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* 帖子描述输入 */}
+          {!generatedPost && (
+            <div className="px-4 pb-4">
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">帖子描述</label>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="例如：生成一个校园墙帖子，讨论最近的期末考试&#10;例如：生成几个人在吵架的帖子&#10;例如：生成关于某人的黑料讨论"
+                className="w-full p-3 bg-gray-50 rounded-xl resize-none focus:bg-white focus:outline-none transition-colors"
+                rows={5}
+              />
+            </div>
+          )}
+
+          {/* 帖子预览 */}
+          {generatedPost && (
+            <div className="px-4 pb-4">
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">生成的帖子</label>
+              <div className="bg-gray-50 rounded-xl p-4 max-h-80 overflow-y-auto">
+                <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                  {generatedPost}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 底部按钮 */}
           <div className="p-5 border-t border-gray-100 bg-white/50 backdrop-blur-sm sticky bottom-0">
@@ -201,11 +199,10 @@ const PostGenerator = ({
               <button
                 onClick={handleGenerate}
                 disabled={!customPrompt.trim() || isGenerating}
-                className={`w-full py-3 rounded-full font-semibold transition-all active:scale-95 ${
-                  customPrompt.trim() && !isGenerating
+                className={`w-full py-3 rounded-full font-semibold transition-all active:scale-95 ${customPrompt.trim() && !isGenerating
                     ? 'bg-gray-800 text-white'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 {isGenerating ? '生成中...' : '生成帖子'}
               </button>

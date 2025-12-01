@@ -19,7 +19,7 @@ const parsePostContent = (content: string) => {
 
   const hasImages = imagePattern.test(content)
   if (!hasImages) {
-    return <p className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed">{content}</p>
+    return <p className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify">{content}</p>
   }
 
   imagePattern.lastIndex = 0
@@ -35,12 +35,10 @@ const parsePostContent = (content: string) => {
       if (text.trim()) {
         if (images.length > 0) {
           elements.push(
-            <div key={`imgs-${lastIndex}`} className="grid grid-cols-3 gap-1 my-2">
+            <div key={`imgs-${lastIndex}`} className="grid grid-cols-3 gap-1 my-3">
               {images.map((img, i) => (
-                <div key={i} className="aspect-square bg-gray-100 rounded overflow-hidden p-1.5">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-xs text-gray-500 text-center leading-tight line-clamp-3">{img.desc}</span>
-                  </div>
+                <div key={i} className="aspect-square bg-white/40 backdrop-blur-sm flex items-center justify-center p-1 rounded-sm">
+                  <span className="text-[10px] text-[#8C8C8C] text-center leading-tight line-clamp-3 font-sans tracking-wider">{img.desc}</span>
                 </div>
               ))}
             </div>
@@ -48,7 +46,7 @@ const parsePostContent = (content: string) => {
           images.length = 0
         }
         elements.push(
-          <p key={`text-${lastIndex}`} className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed mb-2">
+          <p key={`text-${lastIndex}`} className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify mb-3">
             {text}
           </p>
         )
@@ -61,12 +59,10 @@ const parsePostContent = (content: string) => {
 
   if (images.length > 0) {
     elements.push(
-      <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-2">
+      <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-3">
         {images.map((img, i) => (
-          <div key={i} className="aspect-square bg-gray-100 rounded overflow-hidden p-1.5">
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-xs text-gray-500 text-center leading-tight line-clamp-3">{img.desc}</span>
-            </div>
+          <div key={i} className="aspect-square bg-white/40 backdrop-blur-sm flex items-center justify-center p-1 rounded-sm">
+            <span className="text-[10px] text-[#8C8C8C] text-center leading-tight line-clamp-3 font-sans tracking-wider">{img.desc}</span>
           </div>
         ))}
       </div>
@@ -77,7 +73,7 @@ const parsePostContent = (content: string) => {
     const text = content.slice(lastIndex)
     if (text.trim()) {
       elements.push(
-        <p key={`text-${lastIndex}`} className="text-[15px] text-[#333] whitespace-pre-wrap break-words leading-relaxed">
+        <p key={`text-${lastIndex}`} className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify">
           {text}
         </p>
       )
@@ -132,7 +128,7 @@ const InstagramPostDetail = () => {
     if (minutes < 60) return `${minutes}分钟前`
     if (hours < 24) return `${hours}小时前`
     if (days < 7) return `${days}天前`
-    return `${Math.floor(days / 7)}周前`
+    return new Date(timestamp).toLocaleDateString()
   }
 
   useEffect(() => {
@@ -608,8 +604,8 @@ ${aiCharacterPrompt}
 
   if (!post) {
     return (
-      <div className="h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-400">帖子不存在</p>
+      <div className="h-screen bg-transparent flex items-center justify-center font-serif">
+        <p className="text-[#8C8C8C] tracking-widest text-sm bg-white/40 px-4 py-2 rounded-full backdrop-blur-sm">此篇已佚</p>
       </div>
     )
   }
@@ -620,187 +616,182 @@ ${aiCharacterPrompt}
   const authorAvatar = isUserPost ? userInfo.avatar : getRealAvatar(post.npcId, npc?.avatar)
 
   return (
-    <div className="h-screen bg-white flex flex-col" data-instagram>
+    <div className="h-screen bg-transparent flex flex-col font-serif text-[#2C2C2C]" data-instagram>
       {/* 顶部导航 - 玻璃拟态 */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <div className="sticky top-0 z-20 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
         <StatusBar />
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-5 py-4">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 -m-2 active:opacity-60 hover:bg-gray-100 rounded-full transition-colors"
+            className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
           >
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
+            <ArrowLeft className="w-5 h-5 stroke-[1.5]" />
           </button>
-          <h1 className="text-base font-semibold text-gray-900">正文</h1>
-          <div className="flex items-center gap-2">
+          <h1 className="text-sm font-medium tracking-[0.2em] text-[#2C2C2C]">正文</h1>
+          <div className="flex items-center gap-4">
             {post.npcId === 'user' && (
               <button
                 onClick={async () => {
-                  if (confirm('确定要删除这条帖子吗？')) {
+                  if (confirm('确认移除此篇？')) {
                     const posts = await getAllPostsAsync()
                     const newPosts = posts.filter((p: ForumPost) => p.id !== postId)
                     await savePosts(newPosts)
                     navigate(-1)
                   }
                 }}
-                className="p-2 -m-2 text-gray-500 hover:text-red-500 active:opacity-60 transition-colors"
+                className="text-[#8C8C8C] hover:text-[#8B3A3A] transition-colors"
               >
-                <Trash2 className="w-5 h-5" />
+                <Trash2 className="w-4 h-4 stroke-[1.5]" />
               </button>
             )}
-            <button className="p-2 -m-2 text-gray-500 hover:text-gray-900 active:opacity-60 transition-colors">
-              <MoreHorizontal className="w-6 h-6" />
+            <button className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors">
+              <MoreHorizontal className="w-5 h-5 stroke-[1.5]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* 帖子和评论 */}
-      <div className="flex-1 overflow-y-auto bg-white">
-        {/* 用户帖子内容 */}
-        <div className="bg-white pb-4">
-          <div className="flex items-start gap-3 px-4 py-4">
-            {authorAvatar ? (
-              <img
-                src={authorAvatar}
-                alt={authorName}
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-100"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {authorName[0]}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[15px] text-[#333]">{authorName}</span>
-                  {characters.find(c => c.id === post.npcId)?.isPublicFigure && (
-                    <span className="bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle">官方</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-400">{formatTimeAgo(post.timestamp)}</span>
-              </div>
-
-              {/* 帖子正文 */}
-              <div className="mb-3">
-                {parsePostContent(post.content)}
-              </div>
-
-              {/* 显示标记的人 */}
-              {post.taggedUsers && post.taggedUsers.length > 0 && (
-                <div className="flex items-center gap-1.5 mb-3 text-sm text-blue-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span>提到了 {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(' ')}</span>
+      <div className="flex-1 overflow-y-auto bg-transparent">
+        {/* 用户帖子内容 - 玻璃卡片 */}
+        <div className="pb-6 border-b border-white/40 bg-white/60 backdrop-blur-xl shadow-sm mb-4">
+          <div className="px-5 pt-6 pb-2">
+            <div className="flex items-center gap-3 mb-4">
+              {authorAvatar ? (
+                <img
+                  src={authorAvatar}
+                  alt={authorName}
+                  className="w-10 h-10 rounded-full object-cover border border-white/60 shadow-sm"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-white/40 flex items-center justify-center text-[#8C8C8C] text-xs border border-white/40">
+                  {authorName[0]}
                 </div>
               )}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{authorName}</span>
+                  {(() => {
+                    const char = characters.find(c => c.id === post.npcId)
+                    if (!char?.isPublicFigure) return null
+                    const savedLabel = localStorage.getItem(`public-label-${post.npcId}`)
+                    const label = (savedLabel && savedLabel !== '__none__') ? savedLabel : 'OFFICIAL'
+                    return (
+                      <span className="text-[9px] border border-[#8C8C8C]/50 bg-white/30 text-[#5A5A5A] px-1 rounded-sm tracking-widest scale-90 origin-left backdrop-blur-sm">
+                        {label}
+                      </span>
+                    )
+                  })()}
+                </div>
+                <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-80">
+                  {formatTimeAgo(post.timestamp)}
+                </span>
+              </div>
             </div>
+
+            {/* 帖子正文 */}
+            <div className="mb-4">
+              {parsePostContent(post.content)}
+            </div>
+
+            {/* 显示标记的人 */}
+            {post.taggedUsers && post.taggedUsers.length > 0 && (
+              <div className="flex items-center gap-1.5 mb-4 text-xs text-[#5A5A5A] italic opacity-80">
+                <span>with {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(', ')}</span>
+              </div>
+            )}
           </div>
 
-          {/* 帖子操作按钮 - 简约风格 */}
-          <div className="px-4 flex items-center justify-between border-b border-gray-50 pb-3">
-            <div className="flex items-center gap-6">
-              <button
-                onClick={handleLike}
-                className="flex items-center gap-1.5 group active:scale-95 transition-transform"
-              >
-                <Heart className={`w-5 h-5 ${post.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-600 group-hover:text-gray-900'}`} />
-                <span className={`text-sm ${post.isLiked ? 'text-red-500' : 'text-gray-600'}`}>
-                  {post.likes > 0 ? post.likes : '赞'}
-                </span>
-              </button>
-              <button className="flex items-center gap-1.5 group active:scale-95 transition-transform">
-                <MessageCircle className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
-                <span className="text-sm text-gray-600">
-                  {comments.length > 0 ? comments.length : '评论'}
-                </span>
-              </button>
-              <button className="flex items-center gap-1.5 group active:scale-95 transition-transform">
-                <Share2 className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
-                <span className="text-sm text-gray-600">分享</span>
-              </button>
-            </div>
+          {/* 帖子操作按钮 */}
+          <div className="px-5 flex items-center gap-6">
+            <button
+              onClick={handleLike}
+              className="flex items-center gap-1.5 group"
+            >
+              <Heart className={`w-5 h-5 stroke-[1.5] transition-colors ${post.isLiked ? 'text-[#8B3A3A] fill-[#8B3A3A]' : 'text-[#5A5A5A] group-hover:text-[#2C2C2C]'}`} />
+              <span className={`text-xs tracking-wide ${post.isLiked ? 'text-[#8B3A3A]' : 'text-[#8C8C8C]'}`}>
+                {post.likes > 0 ? post.likes : 'Like'}
+              </span>
+            </button>
+            <button className="flex items-center gap-1.5 group">
+              <MessageCircle className="w-5 h-5 text-[#5A5A5A] group-hover:text-[#2C2C2C] stroke-[1.5]" />
+              <span className="text-xs text-[#8C8C8C] group-hover:text-[#5A5A5A] tracking-wide">
+                {comments.length > 0 ? comments.length : 'Reply'}
+              </span>
+            </button>
+            <button className="flex items-center gap-1.5 group">
+              <Share2 className="w-5 h-5 text-[#5A5A5A] group-hover:text-[#2C2C2C] stroke-[1.5]" />
+              <span className="text-xs text-[#8C8C8C] group-hover:text-[#5A5A5A] tracking-wide">Share</span>
+            </button>
           </div>
         </div>
 
         {/* 评论区标题 */}
-        <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 sticky top-0 z-0">
-          <span className="font-bold text-sm text-gray-600">全部评论 {comments.length}</span>
+        <div className="px-5 py-4 flex items-center gap-2">
+          <div className="w-1 h-3 bg-[#2C2C2C] opacity-20"></div>
+          <span className="text-xs font-medium text-[#5A5A5A] tracking-[0.1em] uppercase">Comments ({comments.length})</span>
         </div>
 
-        {/* 评论列表 - 微博/贴吧风格 */}
-        <div className="pb-20">
+        {/* 评论列表 - 对话流 */}
+        <div className="pb-24 px-5">
           {comments.length > 0 ? (
-            <div className="divide-y divide-gray-50">
-              {[...comments].sort((a, b) => b.timestamp - a.timestamp).map((comment) => {
-                const isNew = Date.now() - comment.timestamp < 5 * 60 * 1000
+            <div className="space-y-6">
+              {[...comments].sort((a, b) => a.timestamp - b.timestamp).map((comment) => {
                 return (
-                  <div key={comment.id} className={`px-4 py-3 ${isNew ? 'bg-blue-50/30' : 'bg-white'}`}>
+                  <div key={comment.id} className="group">
                     {/* 主楼评论 */}
                     <div className="flex items-start gap-3">
-                      {/* 头像 */}
                       {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
-                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-gray-100" />
+                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/60 shadow-sm opacity-90" />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-sm flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-white/40 flex items-center justify-center text-[#8C8C8C] text-xs flex-shrink-0 border border-white/40">
                           {comment.authorName[0]}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-[14px] text-[#333]">{comment.authorName}</span>
-                            {characters.find(c => c.id === comment.authorId)?.isPublicFigure && (
-                              <span className="bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle">官方</span>
-                            )}
+                        <div className="flex items-baseline justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{comment.authorName}</span>
+                            <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-80">{formatTimeAgo(comment.timestamp)}</span>
                           </div>
-                          <button className="text-gray-400 hover:text-gray-600">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
                         </div>
 
-                        <div className="text-[15px] text-[#333] break-words leading-relaxed mb-2">
-                          <EmojiContentRenderer content={comment.content} emojiSize={20} />
+                        <div className="text-sm text-[#4A4A4A] leading-relaxed mb-1.5 font-light bg-white/30 backdrop-blur-sm p-2 rounded-lg rounded-tl-none border border-white/20">
+                          <EmojiContentRenderer content={comment.content} emojiSize={16} />
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs text-gray-400 mb-2">
-                          <span>{formatTimeAgo(comment.timestamp)}</span>
-                          {comment.likes > 0 && <span>{comment.likes} 赞</span>}
+                        <div className="flex items-center gap-4 pl-1">
                           <button
-                            className="font-medium text-gray-500 hover:text-blue-600"
+                            className="text-[10px] text-[#8C8C8C] hover:text-[#5A5A5A] tracking-wider uppercase"
                             onClick={() => handleReplyClick(comment.id, comment.authorName)}
                           >
-                            回复
+                            Reply
                           </button>
+                          {comment.likes > 0 && <span className="text-[10px] text-[#8C8C8C] tracking-wider">{comment.likes} Likes</span>}
                         </div>
 
-                        {/* 楼中楼回复 - 灰色背景块 */}
+                        {/* 楼中楼回复 - 缩进线条 */}
                         {comment.replies && comment.replies.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                          <div className="mt-3 pl-4 border-l-2 border-[#2C2C2C]/10 space-y-4">
                             {comment.replies.map((reply) => (
-                              <div key={reply.id} className="text-[14px] leading-relaxed">
-                                <span className="font-bold text-[#333]">{reply.authorName}</span>
-                                {reply.replyTo && (
-                                  <span className="text-gray-500 mx-1">回复</span>
-                                )}
-                                {reply.replyTo && (
-                                  <span className="font-bold text-[#333]">{reply.replyTo}</span>
-                                )}
-                                <span className="text-[#333]">：</span>
-                                <span className="text-[#333]">
-                                  <EmojiContentRenderer content={reply.content} emojiSize={18} />
-                                </span>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-xs text-gray-400">{formatTimeAgo(reply.timestamp)}</span>
-                                  <button
-                                    className="text-xs text-gray-500 hover:text-blue-600"
-                                    onClick={() => handleReplyClick(comment.id, reply.authorName)}
-                                  >
-                                    回复
-                                  </button>
+                              <div key={reply.id} className="text-sm relative">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                  <span className="font-medium text-[#2C2C2C] text-xs tracking-wide">{reply.authorName}</span>
+                                  <span className="text-[10px] text-[#8C8C8C] tracking-wider">
+                                    <span className="mr-1 opacity-70">replying to</span>
+                                    <span className="font-medium text-[#5A5A5A]">{reply.replyTo || comment.authorName}</span>
+                                  </span>
+                                  <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans ml-auto opacity-80">{formatTimeAgo(reply.timestamp)}</span>
                                 </div>
+                                <div className="text-[#4A4A4A] leading-relaxed font-light text-xs bg-white/40 backdrop-blur-md p-2.5 rounded-lg rounded-tl-none border border-white/30 shadow-sm">
+                                  <EmojiContentRenderer content={reply.content} emojiSize={14} />
+                                </div>
+                                <button
+                                  className="text-[10px] text-[#8C8C8C] hover:text-[#5A5A5A] tracking-wider uppercase mt-1.5 pl-1"
+                                  onClick={() => handleReplyClick(comment.id, reply.authorName)}
+                                >
+                                  Reply
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -813,57 +804,61 @@ ${aiCharacterPrompt}
             </div>
           ) : (
             <div className="py-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-gray-300" />
-              </div>
-              <p className="text-sm text-gray-400">还没有评论，快来抢沙发~</p>
+              <p className="text-[#8C8C8C] text-xs tracking-widest font-light bg-white/30 py-2 px-4 rounded-full inline-block backdrop-blur-sm">No comments yet</p>
             </div>
           )}
           <div ref={commentsEndRef} />
         </div>
       </div>
 
-      {/* 底部评论输入框 - 悬浮设计 */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 safe-area-inset-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        {/* 待发送列表提示 */}
+      {/* 底部评论输入框 - 玻璃拟态 */}
+      <div className="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 py-3 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+        {/* 待发送列表预览 */}
         {pendingReplies.length > 0 && (
-          <div className="absolute bottom-full left-0 right-0 bg-blue-50 px-4 py-2 text-xs text-blue-600 flex items-center justify-between border-t border-blue-100">
-            <span>
-              {pendingReplies.length} 条评论待发送...
-              {isSending && <span className="ml-2 animate-pulse">正在通知大家...</span>}
-            </span>
-            {!isSending && (
-              <button
-                onClick={() => setPendingReplies([])}
-                className="text-blue-400 hover:text-blue-600"
-              >
-                清空
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 回复提示 */}
-        {replyingTo && (
-          <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5 rounded-t-lg text-xs text-gray-500 mb-2">
-            <span>回复 @{replyingTo.name}</span>
-            <button onClick={() => {
-              setReplyingTo(null)
-              setNewComment('')
-            }}>
-              <X className="w-3 h-3" />
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {pendingReplies.map((reply) => (
+              <div key={reply.id} className="flex-shrink-0 bg-white/60 backdrop-blur-md border border-white/50 rounded-lg px-3 py-2 w-48 shadow-sm relative group">
+                <button
+                  onClick={() => setPendingReplies(prev => prev.filter(p => p.id !== reply.id))}
+                  className="absolute top-1 right-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={12} />
+                </button>
+                <div className="text-[10px] text-[#8C8C8C] mb-1 truncate">
+                  {reply.isReply ? `Reply to @${reply.targetName}` : 'Comment'}
+                </div>
+                <div className="text-xs text-[#2C2C2C] truncate font-light">
+                  {reply.content}
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={handleSendAll}
+              disabled={isSending}
+              className="flex-shrink-0 w-10 flex items-center justify-center bg-[#2C2C2C] text-white rounded-lg shadow-md hover:bg-black transition-colors disabled:opacity-50"
+            >
+              {isSending ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Send size={16} />
+              )}
             </button>
           </div>
         )}
 
         <div className="flex items-end gap-3">
-          <div className="flex-1 bg-gray-100 rounded-[20px] px-4 py-2 flex items-center">
+          <div className="flex-1 bg-white/50 backdrop-blur-sm border border-white/30 rounded-2xl px-4 py-2 flex items-center gap-2 focus-within:bg-white/80 focus-within:border-white/60 transition-all shadow-inner">
+            {replyingTo && (
+              <span className="text-xs text-[#8B3A3A] whitespace-nowrap font-medium bg-[#8B3A3A]/10 px-1.5 py-0.5 rounded">
+                @{replyingTo.name}
+              </span>
+            )}
             <input
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder={replyingTo ? `回复 ${replyingTo.name}...` : "说点什么..."}
-              className="flex-1 bg-transparent border-none outline-none text-sm max-h-24 resize-none"
+              placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+              className="flex-1 bg-transparent border-none outline-none text-sm text-[#2C2C2C] placeholder:text-[#8C8C8C] font-light"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -872,28 +867,12 @@ ${aiCharacterPrompt}
               }}
             />
           </div>
-
-          {/* 发送按钮 - 纸飞机图标 */}
           <button
-            onClick={pendingReplies.length > 0 ? handleSendAll : addPendingReply}
-            disabled={(!newComment.trim() && pendingReplies.length === 0) || isSending}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${(newComment.trim() || pendingReplies.length > 0) && !isSending
-              ? 'bg-blue-500 text-white shadow-md active:scale-95'
-              : 'bg-gray-100 text-gray-400'
-              }`}
+            onClick={addPendingReply}
+            disabled={!newComment.trim()}
+            className="p-2.5 rounded-full bg-[#2C2C2C] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black transition-all shadow-md active:scale-95"
           >
-            {isSending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : pendingReplies.length > 0 ? (
-              <div className="relative">
-                <Send className="w-5 h-5 -ml-0.5 mt-0.5 -rotate-45" />
-                <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center border border-white">
-                  {pendingReplies.length}
-                </span>
-              </div>
-            ) : (
-              <Send className="w-5 h-5 -ml-0.5 mt-0.5 -rotate-45" />
-            )}
+            <ArrowLeft className="w-5 h-5 rotate-90 stroke-[1.5]" />
           </button>
         </div>
       </div>

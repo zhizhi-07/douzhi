@@ -1,5 +1,5 @@
 /**
- * 发布朋友圈页面
+ * 发布朋友圈页面 - 文艺/高级/玻璃态风格
  */
 
 import { useState, useRef } from 'react'
@@ -23,46 +23,31 @@ export default function PublishMoment() {
   const [showMentionSelect, setShowMentionSelect] = useState(false)
   const [mentions, setMentions] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // 获取所有角色（用于@提到）
+
   const allCharacters = characterService.getAll()
-  
-  // 调试：打印角色信息
-  console.log('📋 所有角色列表:', allCharacters.map(char => ({
-    id: char.id,
-    realName: char.realName,
-    nickname: char.nickname,
-    avatar: char.avatar
-  })))
-  
-  // 获取当前用户信息
   const userInfo = getUserInfo()
   const currentUser = {
     id: 'user',
     name: userInfo.nickname || userInfo.realName,
     avatar: userInfo.avatar || '👤'
   }
-  
-  // 处理图片选择
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    
-    // 限制最多9张图片
+
     if (images.length + files.length > 9) {
       alert('最多只能选择9张图片')
       return
     }
-    
+
     Array.from(files).forEach(async (file) => {
-      // 检查文件大小（限制5MB）
       if (file.size > 5 * 1024 * 1024) {
         alert('图片大小不能超过5MB')
         return
       }
-      
+
       try {
-        // 压缩图片并转换为base64（最大1200x1200，质量0.7）
         const base64 = await compressAndConvertToBase64(file)
         const url = `data:image/jpeg;base64,${base64}`
         setImages(prev => [
@@ -78,21 +63,18 @@ export default function PublishMoment() {
       }
     })
   }
-  
-  // 删除图片
+
   const handleDeleteImage = (imageId: string) => {
     setImages(prev => prev.filter(img => img.id !== imageId))
   }
-  
-  // 发布
+
   const handlePublish = async () => {
     if (!content.trim() && images.length === 0) {
       alert('请输入内容或选择图片')
       return
     }
-    
+
     try {
-      console.log('🚀 开始发布朋友圈...')
       const newMoment = await publishMoment(
         currentUser,
         content.trim(),
@@ -100,15 +82,12 @@ export default function PublishMoment() {
         location.trim() || undefined,
         mentions.length > 0 ? mentions : undefined
       )
-      
-      console.log('✅ 朋友圈发布成功，触发AI互动')
-      
-      // 往所有聊天记录中插入一条aiOnly消息，让AI知道用户发了朋友圈
+
       const momentText = content.trim() || '[纯图片]'
       const imagesText = images.length > 0 ? ` [${images.length}张图]` : ''
       const locationText = location.trim() ? ` 📍${location.trim()}` : ''
       const mentionsText = mentions.length > 0 ? ` @${mentions.join(' @')}` : ''
-      
+
       allCharacters.forEach(char => {
         const chatId = char.id
         const messages = loadMessages(chatId)
@@ -122,171 +101,181 @@ export default function PublishMoment() {
         }
         messages.push(momentMsg)
         saveMessages(chatId, messages)
-        console.log(`📝 已记录朋友圈到聊天: ${char.nickname || char.realName}`)
       })
-      
-      // 触发AI角色查看和互动
+
       triggerAIMomentsInteraction(newMoment)
-      
       navigate('/moments')
     } catch (error) {
-      console.error('❌ 发布朋友圈失败:', error)
-      // 错误提示已由 saveMoments 显示，这里不重复提示
+      console.error('发布朋友圈失败:', error)
     }
   }
-  
+
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
+      {/* 背景装饰 */}
+      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-[80px] pointer-events-none" />
+
       {/* 头部 */}
-      <div className="glass-effect border-b border-gray-200/30">
-        <StatusBar />
-        <div className="px-5 py-4 flex items-center justify-between">
-          <button 
-            onClick={() => navigate('/moments')}
-            className="text-gray-700"
-          >
-            取消
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">
-            发朋友圈
-          </h1>
-          <button 
-            onClick={handlePublish}
-            className="text-blue-600 font-medium"
-          >
-            发表
-          </button>
-        </div>
+      <div className="relative z-10 px-6 py-5 flex items-center justify-between">
+        <button
+          onClick={() => navigate('/moments')}
+          className="text-slate-500 hover:text-slate-700 transition-colors text-sm font-light tracking-wide"
+        >
+          取消
+        </button>
+        <h1 className="text-lg font-medium text-slate-800 tracking-wide">
+          发布动态
+        </h1>
+        <button
+          onClick={handlePublish}
+          className="px-4 py-1.5 rounded-full bg-slate-800 text-white text-sm font-medium active:scale-95 transition-all hover:bg-slate-700 shadow-sm"
+        >
+          发表
+        </button>
       </div>
-      
-      {/* 内容输入 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="这一刻的想法..."
-          className="w-full min-h-[200px] p-4 glass-card rounded-2xl focus:outline-none resize-none text-gray-800"
-          autoFocus
-        />
-        
-        {/* 图片预览 */}
-        {images.length > 0 && (
-          <div className="mt-4 grid grid-cols-3 gap-2">
+
+      {/* 内容输入区域 */}
+      <div className="flex-1 overflow-y-auto px-6 pb-24 z-0 scrollbar-hide">
+        <div className="bg-white/40 backdrop-blur-md rounded-[32px] p-6 border border-white/50 shadow-sm min-h-[400px]">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="分享这一刻的想法..."
+            className="w-full min-h-[150px] bg-transparent border-none focus:outline-none resize-none text-slate-700 placeholder-slate-400 text-base font-light leading-relaxed tracking-wide"
+            autoFocus
+          />
+
+          {/* 图片预览 */}
+          <div className="grid grid-cols-3 gap-3 mt-4">
             {images.map((image) => (
-              <div key={image.id} className="relative aspect-square">
+              <div key={image.id} className="relative aspect-square group">
                 <img
                   src={image.url}
                   alt="预览"
-                  className="w-full h-full object-cover rounded-xl"
+                  className="w-full h-full object-cover rounded-[20px] shadow-sm"
                 />
                 <button
                   onClick={() => handleDeleteImage(image.id)}
-                  className="absolute top-1 right-1 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white"
+                  className="absolute top-2 right-2 w-6 h-6 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  ✕
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
             ))}
             {images.length < 9 && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-square glass-card rounded-xl flex items-center justify-center text-gray-400 hover:bg-white/60 transition-colors"
+                className="aspect-square rounded-[20px] border-2 border-dashed border-slate-300 hover:border-slate-400 bg-white/30 hover:bg-white/50 transition-all flex items-center justify-center text-slate-400"
               >
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                 </svg>
               </button>
             )}
           </div>
-        )}
-        
-        {/* 位置输入 */}
-        {showLocationInput && (
-          <div className="mt-4">
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="输入位置"
-              className="w-full px-4 py-3 glass-card rounded-2xl focus:outline-none"
-            />
-          </div>
-        )}
-        
-        {/* @提到人 */}
-        {showMentionSelect && (
-          <div className="mt-4">
-            <div className="text-sm text-gray-600 mb-2">@提到谁</div>
-            <div className="flex flex-wrap gap-2">
-              {allCharacters.map(char => (
-                <button
-                  key={char.id}
-                  onClick={() => {
-                    const name = char.realName
-                    if (mentions.includes(name)) {
-                      setMentions(prev => prev.filter(m => m !== name))
-                    } else {
-                      setMentions(prev => [...prev, name])
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-                    mentions.includes(char.realName)
-                      ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
-                      : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
-                  }`}
-                >
-                  {char.avatar} {char.realName}
-                </button>
-              ))}
-            </div>
-            {mentions.length > 0 && (
-              <div className="mt-2 text-sm text-blue-600">
-                已选择: @{mentions.join(' @')}
+
+          {/* 附加选项 */}
+          <div className="mt-8 space-y-4">
+            {/* 位置输入 */}
+            {showLocationInput && (
+              <div className="animate-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-2 bg-white/50 rounded-2xl px-4 py-3 border border-white/40">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="所在位置"
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 placeholder-slate-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* @提到人 */}
+            {showMentionSelect && (
+              <div className="animate-in slide-in-from-top-2 duration-200">
+                <div className="text-xs text-slate-400 mb-3 font-medium tracking-widest uppercase">提到谁</div>
+                <div className="flex flex-wrap gap-2">
+                  {allCharacters.map(char => (
+                    <button
+                      key={char.id}
+                      onClick={() => {
+                        const name = char.realName
+                        if (mentions.includes(name)) {
+                          setMentions(prev => prev.filter(m => m !== name))
+                        } else {
+                          setMentions(prev => [...prev, name])
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${mentions.includes(char.realName)
+                          ? 'bg-slate-800 text-white shadow-md'
+                          : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
+                        }`}
+                    >
+                      {char.avatar} {char.realName}
+                    </button>
+                  ))}
+                </div>
+                {mentions.length > 0 && (
+                  <div className="mt-3 text-xs text-indigo-500 font-medium">
+                    已选择: @{mentions.join(' @')}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
-      
+
       {/* 底部工具栏 */}
-      <div className="glass-effect border-t border-gray-200/30 p-4">
-        <div className="flex items-center gap-4">
+      <div className="bg-white/60 backdrop-blur-xl border-t border-white/50 p-4 pb-8">
+        <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 glass-card rounded-full text-gray-700 hover:bg-white/60 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white/50 hover:bg-white/80 rounded-full text-slate-600 transition-all border border-white/40 shadow-sm active:scale-95 flex-shrink-0"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-sm">图片</span>
+            <span className="text-sm font-medium">图片</span>
           </button>
-          
+
           <button
             onClick={() => setShowLocationInput(!showLocationInput)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
-              showLocationInput ? 'bg-blue-50 text-blue-600' : 'glass-card text-gray-700 hover:bg-white/60'
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showLocationInput
+                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
+              }`}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span>位置</span>
           </button>
-          
+
           <button
             onClick={() => setShowMentionSelect(!showMentionSelect)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
-              showMentionSelect || mentions.length > 0 ? 'bg-blue-50 text-blue-600' : 'glass-card text-gray-700 hover:bg-white/60'
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showMentionSelect || mentions.length > 0
+                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
+              }`}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
-            <span>@提到{mentions.length > 0 && ` (${mentions.length})`}</span>
+            <span>提醒</span>
           </button>
         </div>
       </div>
-      
+
       {/* 隐藏的文件输入 */}
       <input
         ref={fileInputRef}

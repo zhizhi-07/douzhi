@@ -226,10 +226,14 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
                     loading="lazy"
                   />
                   {activeTab === 'frequent' && emoji.useCount > 0 && (
-                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                    <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
                       {emoji.useCount}
                     </div>
                   )}
+                  {/* 描述文字 - 叠加在图片底部 */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5 text-center">
+                    <span className="text-[10px] text-white line-clamp-1">{emoji.description || emoji.name}</span>
+                  </div>
                 </div>
               ))}
             </div>

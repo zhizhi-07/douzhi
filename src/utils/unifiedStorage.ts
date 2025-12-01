@@ -5,13 +5,14 @@
  */
 
 const DB_NAME = 'AppStorage'
-const DB_VERSION = 1
+const DB_VERSION = 2  // 升级版本以添加 SETTINGS store
 const STORES = {
   IMAGES: 'images',      // 壁纸、图标
   AUDIO: 'audio',        // 音效
   MESSAGES: 'messages',  // 聊天记录
   MOMENTS: 'moments',    // 朋友圈
-  CHARACTERS: 'characters' // 角色数据
+  CHARACTERS: 'characters', // 角色数据
+  SETTINGS: 'settings'   // 各种设置和小数据
 }
 
 /**

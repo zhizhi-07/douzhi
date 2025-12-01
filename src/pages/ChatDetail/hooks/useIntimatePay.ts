@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
 import { createIntimatePayRelation } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
+import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
 
 export const useIntimatePay = (
   setMessages: (fn: (prev: Message[]) => Message[]) => void,
@@ -37,9 +38,13 @@ export const useIntimatePay = (
       }
     }
 
+    // 🔥 保存到IndexedDB，确保退出后不丢失
+    saveMessageToStorage(chatId, msg)
+    console.log('💾 [亲密付] 消息已保存到IndexedDB')
+    
     setMessages(prev => [...prev, msg])
     setShowIntimatePaySender(false)
-  }, [setMessages])
+  }, [setMessages, chatId])
 
   return {
     showIntimatePaySender,

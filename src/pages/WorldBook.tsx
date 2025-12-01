@@ -87,7 +87,7 @@ const WorldBook = () => {
         const result = lorebookManager.importLorebook(content)
         if (result && result.lorebook) {
           loadLorebooks()
-          
+
           // 如果有被禁用的条目，显示详细提示
           if (result.disabledEntries.length > 0) {
             const disabledList = result.disabledEntries.map(e => `• ${e.name}`).join('\n')
@@ -110,91 +110,95 @@ const WorldBook = () => {
   )
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50" data-worldbook>
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-serif" data-worldbook>
+      {/* 背景装饰 */}
+      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-slate-200/50 to-transparent pointer-events-none" />
+
       {/* 顶部导航 */}
-      <div className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200/50">
-        <StatusBar />
-        <div className="px-4 py-3 flex items-center justify-between">
+      <div className="relative z-10 px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/40 backdrop-blur-md border border-white/50 text-slate-600 hover:bg-white/60 transition-all shadow-sm"
           >
-            <BackIcon size={24} className="text-gray-700" />
+            <BackIcon size={20} />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">
-            世界书
-          </h1>
-          <button
-            onClick={handleCreate}
-            className="p-2 hover:bg-blue-50 rounded-full transition-colors"
-          >
-            <AddIcon size={24} className="text-blue-500" />
-          </button>
+          <div>
+            <h1 className="text-xl font-medium text-slate-800 tracking-wide font-serif">世界书</h1>
+            <p className="text-xs text-slate-500 mt-0.5 font-light tracking-wider font-sans">WORLD BOOK</p>
+          </div>
         </div>
+        <button
+          onClick={handleCreate}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/40 backdrop-blur-md border border-white/50 text-slate-600 hover:bg-white/60 transition-all shadow-sm"
+        >
+          <AddIcon size={20} />
+        </button>
       </div>
 
       {/* 搜索栏 */}
-      <div className="px-4 pt-3 pb-2 bg-slate-50/50">
-        <div className="bg-white rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(148,163,184,0.08)]">
+      <div className="px-6 pb-4 relative z-10">
+        <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm transition-all focus-within:bg-white/60 focus-within:shadow-md">
           <SearchIcon size={18} className="text-slate-400" />
           <input
             type="text"
-            placeholder="搜索世界书"
+            placeholder="搜索记忆..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-400"
+            className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 placeholder-slate-400 font-sans"
           />
         </div>
       </div>
 
       {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-6 pb-4 z-0 scrollbar-hide">
         {filteredLorebooks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <BookIcon size={64} className="mb-4 text-gray-300" />
-            <div className="text-base mb-2">暂无世界书</div>
-            <div className="text-xs text-gray-400 mb-6 text-center">
-              创建世界书或导入现有的世界书<br />
-              支持 SillyTavern 格式
+          <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
+            <div className="w-20 h-20 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center mb-6 border border-white/40 shadow-sm">
+              <BookIcon size={32} className="text-slate-300 opacity-80" />
             </div>
-            <div className="flex gap-3">
+            <div className="text-lg font-serif text-slate-600 mb-2 tracking-wide">暂无记录</div>
+            <div className="text-xs text-slate-400 mb-8 text-center font-sans leading-relaxed max-w-[200px]">
+              这里是一片荒芜之地<br />
+              等待着您来书写新的篇章
+            </div>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
               <button
                 onClick={handleCreate}
-                className="bg-slate-700 text-white rounded-xl px-6 py-2.5 text-sm font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
+                className="w-full bg-slate-800 text-white rounded-xl px-6 py-3 text-sm font-medium shadow-lg shadow-slate-200 active:scale-95 transition-all font-sans tracking-wide"
               >
-                创建世界书
+                创建新篇章
               </button>
               <button
                 onClick={handleImport}
-                className="bg-slate-50 text-slate-700 rounded-xl px-6 py-2.5 text-sm font-medium shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
+                className="w-full bg-white/50 backdrop-blur-sm text-slate-600 rounded-xl px-6 py-3 text-sm font-medium border border-white/60 hover:bg-white/70 active:scale-95 transition-all font-sans tracking-wide"
               >
                 导入世界书
               </button>
             </div>
           </div>
         ) : (
-          <div className="space-y-3 mt-3">
+          <div className="space-y-4">
             {filteredLorebooks.map((lorebook) => (
               <div
                 key={lorebook.id}
-                className="bg-white rounded-xl p-4 relative shadow-[0_2px_12px_rgba(148,163,184,0.1)] hover:shadow-[0_4px_16px_rgba(148,163,184,0.15)] transition-all"
+                className="group bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-5 relative shadow-sm hover:shadow-md hover:bg-white/50 transition-all duration-300"
                 onClick={() => handleEdit(lorebook.id)}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <BookIcon size={20} className="text-blue-500" />
-                      <h3 className="text-base font-semibold text-gray-900">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 pr-4">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="text-lg font-medium text-slate-800 font-serif tracking-wide group-hover:text-slate-900 transition-colors">
                         {lorebook.name}
                       </h3>
                       {lorebook.is_global && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/50 text-slate-600 font-medium border border-white/50 backdrop-blur-sm">
                           全局
                         </span>
                       )}
                     </div>
                     {lorebook.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2 ml-6">
+                      <p className="text-xs text-slate-500 line-clamp-2 font-sans leading-relaxed opacity-80">
                         {lorebook.description}
                       </p>
                     )}
@@ -209,26 +213,31 @@ const WorldBook = () => {
                       })
                       setShowMenu(showMenu === lorebook.id ? null : lorebook.id)
                     }}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors ml-2"
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/50 text-slate-400 hover:text-slate-600 transition-all"
                   >
-                    <MoreIcon size={20} className="text-gray-400" />
+                    <MoreIcon size={18} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-4 text-xs text-gray-400 ml-6">
-                  <span>{lorebook.entries.length} 条目</span>
+                <div className="flex items-center gap-4 text-[10px] text-slate-400 font-sans uppercase tracking-wider border-t border-slate-100/50 pt-3 mt-1">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                    {lorebook.entries.length} 条目
+                  </span>
                   {!lorebook.is_global && lorebook.character_ids && lorebook.character_ids.length > 0 && (
-                    <span className="text-blue-500">{lorebook.character_ids.length} 个角色</span>
+                    <span className="flex items-center gap-1 text-slate-500">
+                      <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                      {lorebook.character_ids.length} 关联
+                    </span>
                   )}
-                  <span>扫描深度 {lorebook.scan_depth}</span>
-                  <span>预算 {lorebook.token_budget}</span>
+                  <span className="ml-auto opacity-60">预算 {lorebook.token_budget}</span>
                 </div>
 
                 {/* 菜单 */}
                 {showMenu === lorebook.id && (
-                  <div 
+                  <div
                     ref={menuRef}
-                    className="fixed bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200/50 overflow-hidden z-[9999]"
+                    className="fixed bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-white/60 overflow-hidden z-[9999] min-w-[120px] animate-in fade-in zoom-in-95 duration-200"
                     style={{
                       top: `${menuPosition.top}px`,
                       right: `${menuPosition.right}px`
@@ -241,7 +250,7 @@ const WorldBook = () => {
                         handleEdit(lorebook.id)
                         setShowMenu(null)
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
                     >
                       编辑
                     </button>
@@ -251,17 +260,18 @@ const WorldBook = () => {
                         handleExport(lorebook.id)
                         setShowMenu(null)
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
                     >
                       导出
                     </button>
+                    <div className="h-px bg-slate-100 mx-2 my-1" />
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         handleDelete(lorebook.id)
                         setShowMenu(null)
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50/50 transition-colors font-sans"
                     >
                       删除
                     </button>
@@ -273,12 +283,12 @@ const WorldBook = () => {
         )}
       </div>
 
-      {/* 底部操作栏 */}
+      {/* 底部操作栏 - 仅在有列表时显示 */}
       {lorebooks.length > 0 && (
-        <div className="p-4 bg-white/80 backdrop-blur-md border-t border-gray-200/50">
+        <div className="px-6 py-4 bg-white/30 backdrop-blur-md border-t border-white/50">
           <button
             onClick={handleImport}
-            className="w-full bg-white text-gray-700 rounded-xl py-3 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+            className="w-full bg-white/60 backdrop-blur-md text-slate-600 rounded-xl py-3 text-sm font-medium shadow-sm border border-white/60 hover:bg-white/80 active:scale-95 transition-all font-sans tracking-wide"
           >
             导入世界书
           </button>

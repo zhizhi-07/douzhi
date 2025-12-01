@@ -1,6 +1,9 @@
 /**
  * 情侣空间工具函数
+ * 使用 IndexedDB 存储，避免 localStorage 配额问题
  */
+
+import { saveToIndexedDB, getFromIndexedDB, deleteFromIndexedDB } from './unifiedStorage'
 
 export interface CoupleSpaceRelation {
   id: string
@@ -19,78 +22,88 @@ export interface CoupleSpaceRelation {
 const STORAGE_KEY = 'couple_space_relation'
 const PRIVACY_KEY = 'couple_space_privacy'
 
+// 内存缓存，避免频繁读取 IndexedDB
+let cachedRelation: CoupleSpaceRelation | null | undefined = undefined
+
 /**
- * 获取当前情侣空间关系
+ * 初始化：从 IndexedDB 加载数据到缓存，并迁移旧 localStorage 数据
  */
-export const getCoupleSpaceRelation = (): CoupleSpaceRelation | null => {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (!saved) return null
+export const initCoupleSpaceStorage = async (): Promise<void> => {
+  // 先尝试从 IndexedDB 读取
+  const idbData = await getFromIndexedDB('SETTINGS', STORAGE_KEY)
   
-  try {
-    return JSON.parse(saved)
-  } catch {
-    return null
+  if (idbData) {
+    cachedRelation = idbData
+    console.log('💕 情侣空间数据已从 IndexedDB 加载')
+  } else {
+    // 尝试从 localStorage 迁移旧数据
+    const localData = localStorage.getItem(STORAGE_KEY)
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData)
+        await saveToIndexedDB('SETTINGS', STORAGE_KEY, parsed)
+        localStorage.removeItem(STORAGE_KEY)
+        cachedRelation = parsed
+        console.log('💕 情侣空间数据已从 localStorage 迁移到 IndexedDB')
+      } catch {
+        cachedRelation = null
+      }
+    } else {
+      cachedRelation = null
+    }
   }
 }
 
 /**
- * 保存情侣空间关系
+ * 获取当前情侣空间关系（同步，从缓存读取）
  */
-const saveCoupleSpaceRelation = (relation: CoupleSpaceRelation | null): void => {
-  if (relation) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(relation))
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-        console.warn('⚠️ localStorage 配额已满，尝试清理旧数据...')
-        
-        // 紧急清理：删除所有消息相关的旧数据
-        const keysToRemove: string[] = []
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key && (key.startsWith('chat_messages_') || key.startsWith('group_messages_') || key.startsWith('chat_settings_'))) {
-            keysToRemove.push(key)
-          }
-        }
-        
-        keysToRemove.forEach(key => {
-          try {
-            localStorage.removeItem(key)
-            console.log(`  🗑️ 紧急清理: ${key}`)
-          } catch (err) {
-            console.error(`清理失败: ${key}`, err)
-          }
-        })
-        
-        console.log(`🧹 紧急清理完成，删除了 ${keysToRemove.length} 个旧消息键`)
-        
-        // 重试保存
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(relation))
-          console.log('✅ 重试保存成功')
-        } catch (retryError) {
-          console.error('❌ 重试保存仍然失败:', retryError)
-          throw new Error('localStorage 空间不足，请手动清理浏览器缓存')
-        }
-      } else {
-        throw e
+export const getCoupleSpaceRelation = (): CoupleSpaceRelation | null => {
+  if (cachedRelation === undefined) {
+    // 缓存未初始化时，尝试同步读取 localStorage 作为后备
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        cachedRelation = JSON.parse(saved)
+      } catch {
+        cachedRelation = null
       }
+    } else {
+      cachedRelation = null
     }
+  }
+  return cachedRelation ?? null
+}
+
+/**
+ * 保存情侣空间关系（异步保存到 IndexedDB）
+ */
+const saveCoupleSpaceRelation = async (relation: CoupleSpaceRelation | null): Promise<void> => {
+  cachedRelation = relation  // 立即更新缓存
+  
+  if (relation) {
+    await saveToIndexedDB('SETTINGS', STORAGE_KEY, relation)
   } else {
+    await deleteFromIndexedDB('SETTINGS', STORAGE_KEY)
+  }
+  
+  // 清理旧的 localStorage 数据
+  try {
     localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // 忽略错误
   }
 }
 
 /**
  * 创建情侣空间邀请
  */
-export const createCoupleSpaceInvite = (
+export const createCoupleSpaceInvite = async (
   userId: string,
   characterId: string,
   characterName: string,
   characterAvatar?: string,
   sender: 'user' | 'character' = 'user'
-): CoupleSpaceRelation | null => {
+): Promise<CoupleSpaceRelation | null> => {
   const existing = getCoupleSpaceRelation()
   
   // 只有 active 状态才阻止创建新邀请
@@ -120,7 +133,7 @@ export const createCoupleSpaceInvite = (
     createdAt: Date.now()
   }
 
-  saveCoupleSpaceRelation(relation)
+  await saveCoupleSpaceRelation(relation)
   console.log(`✅ 创建新邀请：${sender === 'user' ? '用户' : '角色'}向${characterName}发起情侣空间邀请`)
   return relation
 }
@@ -128,7 +141,7 @@ export const createCoupleSpaceInvite = (
 /**
  * 接受情侣空间邀请
  */
-export const acceptCoupleSpaceInvite = (characterId: string): boolean => {
+export const acceptCoupleSpaceInvite = async (characterId: string): Promise<boolean> => {
   const relation = getCoupleSpaceRelation()
   
   if (!relation) {
@@ -148,7 +161,7 @@ export const acceptCoupleSpaceInvite = (characterId: string): boolean => {
 
   relation.status = 'active'
   relation.acceptedAt = Date.now()
-  saveCoupleSpaceRelation(relation)
+  await saveCoupleSpaceRelation(relation)
   
   console.log('情侣空间已激活')
   return true
@@ -157,7 +170,7 @@ export const acceptCoupleSpaceInvite = (characterId: string): boolean => {
 /**
  * 拒绝情侣空间邀请
  */
-export const rejectCoupleSpaceInvite = (characterId: string): boolean => {
+export const rejectCoupleSpaceInvite = async (characterId: string): Promise<boolean> => {
   const relation = getCoupleSpaceRelation()
   
   if (!relation) {
@@ -176,7 +189,7 @@ export const rejectCoupleSpaceInvite = (characterId: string): boolean => {
   }
 
   relation.status = 'rejected'
-  saveCoupleSpaceRelation(relation)
+  await saveCoupleSpaceRelation(relation)
   
   console.log('已拒绝情侣空间邀请')
   return true
@@ -185,7 +198,7 @@ export const rejectCoupleSpaceInvite = (characterId: string): boolean => {
 /**
  * 取消情侣空间邀请（发送者主动取消）
  */
-export const cancelCoupleSpaceInvite = (): boolean => {
+export const cancelCoupleSpaceInvite = async (): Promise<boolean> => {
   const relation = getCoupleSpaceRelation()
   
   if (!relation) {
@@ -199,7 +212,7 @@ export const cancelCoupleSpaceInvite = (): boolean => {
   }
 
   // 清除邀请
-  localStorage.removeItem(STORAGE_KEY)
+  await saveCoupleSpaceRelation(null)
   
   console.log('✅ 已取消情侣空间邀请')
   return true
@@ -209,7 +222,7 @@ export const cancelCoupleSpaceInvite = (): boolean => {
  * 结束情侣空间关系（只清除关系，保留内容数据供下次绑定使用）
  * 支持清除任何状态的关系（active、pending、rejected）
  */
-export const endCoupleSpaceRelation = (): boolean => {
+export const endCoupleSpaceRelation = async (): Promise<boolean> => {
   const relation = getCoupleSpaceRelation()
 
   if (!relation) {
@@ -218,7 +231,7 @@ export const endCoupleSpaceRelation = (): boolean => {
   }
 
   // 只清除关系状态，保留照片、留言、纪念日等内容
-  localStorage.removeItem('couple_space_relation')
+  await saveCoupleSpaceRelation(null)
 
   console.log(`✅ 情侣空间关系已解除（原状态: ${relation.status}），内容数据已保留`)
   return true
@@ -227,13 +240,20 @@ export const endCoupleSpaceRelation = (): boolean => {
 /**
  * 彻底清空情侣空间（包括所有内容数据）
  */
-export const clearAllCoupleSpaceData = (): boolean => {
-  // 清理所有情侣空间相关数据
-  localStorage.removeItem('couple_space_relation')
-  localStorage.removeItem('couple_photos')
-  localStorage.removeItem('couple_messages')
-  localStorage.removeItem('couple_anniversaries')
-  localStorage.removeItem('couple_space_privacy')
+export const clearAllCoupleSpaceData = async (): Promise<boolean> => {
+  // 清理 IndexedDB 中的数据
+  await saveCoupleSpaceRelation(null)
+  
+  // 清理 localStorage 中的旧数据（兼容）
+  try {
+    localStorage.removeItem('couple_space_relation')
+    localStorage.removeItem('couple_photos')
+    localStorage.removeItem('couple_messages')
+    localStorage.removeItem('couple_anniversaries')
+    localStorage.removeItem('couple_space_privacy')
+  } catch {
+    // 忽略错误
+  }
 
   console.log('✅ 情侣空间所有数据已清空')
   return true

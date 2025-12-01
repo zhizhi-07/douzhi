@@ -30,13 +30,11 @@ const InstagramLayout = ({
 
   return (
     <div className="h-screen flex flex-col bg-white" data-instagram>
-      {/* 状态栏 */}
-      <StatusBar />
-
-      {/* 顶部标题栏 */}
+      {/* 顶部标题栏（包含状态栏） */}
       {showHeader && (
         <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
-          <div className="px-4 py-4 flex items-center justify-between">
+          <StatusBar />
+          <div className="px-4 pb-4 flex items-center justify-between">
             <button 
               onClick={() => {
                 // 如果在主页，返回桌面；否则返回上一页

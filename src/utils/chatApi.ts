@@ -13,6 +13,7 @@ import { loadMoments } from './momentsManager'
 import { getAllMemos } from './aiMemoManager'
 import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
+import { isMainAccount, getCurrentAccount } from './accountManager'
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT } from './prompts'
@@ -169,12 +170,23 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   else timeOfDay = '深夜'
   
   const charName = character.nickname || character.realName
-  const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
-  const userName2 = userName === '用户' ? '你' : userName
   
-  // 获取用户信息
+  // 🔥 小号模式：当前聊天对象使用小号的名字
+  const isSubAccount = !isMainAccount()
+  const subAccount = isSubAccount ? getCurrentAccount() : null
+  const actualUserName = isSubAccount 
+    ? (subAccount?.name || '陌生人') 
+    : userName
+  
+  // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
   const userInfo = getUserInfo()
-  const userPersona = userInfo.persona ? `\n- ${userName2}的人设：${userInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）` : ''
+  const mainUserName = userInfo.nickname || userInfo.realName || userName
+  const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, mainUserName)
+  
+  const userName2 = actualUserName === '用户' ? '你' : actualUserName
+  
+  // 获取用户信息（小号模式下不显示主账号的人设）
+  const userPersona = isSubAccount ? '' : (userInfo.persona ? `\n- ${userName2}的人设：${userInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）` : '')
   
   // 检查是否有自定义预设
   const customPreset = localStorage.getItem('offline-preset')
@@ -220,8 +232,8 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
       }
       
       if (customPrompt) {
-        // 替换预设中的变量
-        customPrompt = replaceSTVariables(customPrompt, character, userName)
+        // 替换预设中的变量（使用主账号名字，因为是设定中的人物关系）
+        customPrompt = replaceSTVariables(customPrompt, character, mainUserName)
         
         // 添加时间和角色信息
         const contextInfo = `
@@ -309,8 +321,8 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   const userMaxTokens = localStorage.getItem('offline-max-tokens')
   const targetWordCount = userMaxTokens ? parseInt(userMaxTokens) : 3000
   
-  // 替换ST变量和字数限制占位符
-  let finalPrompt = contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, userName)
+  // 替换ST变量和字数限制占位符（使用主账号名字，因为是设定中的人物关系）
+  let finalPrompt = contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, mainUserName)
   finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
   
   // 🔥 读取并叠加已启用的扩展条目
@@ -459,6 +471,10 @@ const getTimeSinceLastMessage = (messages: Message[]): string => {
  * 构建系统提示词（完整版）
  */
 export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false): Promise<string> => {
+  // 🔥 小号模式：加载主账号的聊天记录给AI看（作为AI对主账号的记忆）
+  const { loadMainAccountMessages } = await import('./simpleMessageManager')
+  const mainAccountMessages = !isMainAccount() ? loadMainAccountMessages(character.id) : []
+  
   // 🔥 构建表情包列表
   const emojiListPrompt = await buildEmojiListPrompt()
   
@@ -532,14 +548,29 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 
   // 获取用户信息
   const userInfo = getUserInfo()
-  const userNickname = userInfo.nickname || userInfo.realName || userName
+  
+  // 🔥 小号模式：使用小号的名字，AI不认识这个人
+  const isSubAccount = !isMainAccount()
+  const subAccount = isSubAccount ? getCurrentAccount() : null
+  const userNickname = isSubAccount 
+    ? (subAccount?.name || '陌生人') 
+    : (userInfo.nickname || userInfo.realName || userName)
   
   // 确保用户真名不为空（如果为空或默认值，使用传入的userName）
-  const userRealName = (userInfo.realName && userInfo.realName !== '用户') ? userInfo.realName : userName
+  // 小号模式下使用小号名字
+  const userRealName = isSubAccount 
+    ? (subAccount?.name || '陌生人')
+    : ((userInfo.realName && userInfo.realName !== '用户') ? userInfo.realName : userName)
 
   // 对所有角色字段应用变量替换
-  const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, userName)
-  const signature = character.signature ? replaceSTVariables(character.signature, character, userName) : ''
+  // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
+  // 比如"我和{{user}}七年前认识"是指主账号那个人，不是小号
+  const mainUserInfo = getUserInfo()
+  const mainUserName = mainUserInfo.nickname || mainUserInfo.realName || userName
+  // 🔥 主账号的真名（可能和昵称不同）
+  const mainUserRealName = (mainUserInfo.realName && mainUserInfo.realName !== '用户') ? mainUserInfo.realName : mainUserName
+  const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, mainUserName)
+  const signature = character.signature ? replaceSTVariables(character.signature, character, mainUserName) : ''
 
   // 计算距离上次消息的时间
   const timeSinceLastMessage = getTimeSinceLastMessage(messages)
@@ -599,81 +630,84 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     } else if (timeSinceLastMessage.includes('分钟')) {
       const minutes = parseInt(timeSinceLastMessage.match(/(\d+)/)?.[1] || '0')
       if (minutes >= 10) {
-        hint += `\n过了${minutes}分钟，考虑更新一下状态：[状态:在哪|行程:xxx]`
+        hint += `\n过了${minutes}分钟，考虑更新一下状态：[状态:地点|行程:xxx]`
       }
     }
     
     return hint
   })()
 
-  // 获取情侣空间信息
-  const relation = getCoupleSpaceRelation()
-  const privacy = getCoupleSpacePrivacy()
+  // 获取情侣空间信息（小号模式下跳过，因为AI不认识这个人）
   let coupleSpaceStatus = ''
-
-  // 🔥 添加调试信息
-  console.log('🔍 [情侣空间状态检查]', {
-    relation,
-    privacy,
-    characterId: character.id,
-    relationCharacterId: relation?.characterId,
-    status: relation?.status,
-    sender: relation?.sender  // 🔥 添加 sender 字段以便调试
-  })
-
-  // 修复状态判断逻辑：优先检查活跃状态，并结合 sender 字段判断是谁发起的邀请
-  if (relation?.status === 'active' && relation.characterId === character.id) {
-    coupleSpaceStatus = `你们已建立情侣空间`
-    if (privacy === 'private') {
-      coupleSpaceStatus += `（隐私模式）`
-    }
-  } else if (relation?.status === 'active' && relation.characterId !== character.id) {
-    coupleSpaceStatus = `TA和${relation.characterName}有情侣空间`
-  } else if (relation?.status === 'pending' && relation.characterId === character.id) {
-    // 🔥 关键修复：根据 sender 判断是谁发起的邀请
-    if (relation.sender === 'user') {
-      // 用户发起的邀请 → AI 收到了邀请，应该回应
-      coupleSpaceStatus = `收到${userNickname}的情侣空间邀请，等待你回应`
-    } else {
-      // AI（角色）发起的邀请 → AI 在等待用户回应
-      coupleSpaceStatus = `你向${userNickname}发送了情侣空间邀请，等待TA回应`
-    }
-  } else if (relation?.status === 'pending' && relation.characterId !== character.id) {
-    // 邀请涉及其他角色
-    if (relation.sender === 'user') {
-      coupleSpaceStatus = `TA正在等待${relation.characterName}回应情侣空间邀请`
-    } else {
-      coupleSpaceStatus = `${relation.characterName}向TA发送了情侣空间邀请`
-    }
-  } else if (relation?.status === 'rejected') {
-    // 🔥 同样修复拒绝状态的表述
-    if (relation?.sender === 'user') {
-      coupleSpaceStatus = `你拒绝了${userNickname}的情侣空间邀请`
-    } else {
-      coupleSpaceStatus = `${userNickname}拒绝了你的情侣空间邀请`
-    }
-  } else {
-    coupleSpaceStatus = `TA还没建立情侣空间`
-  }
-
-  // 获取亲密付信息
-  const intimatePayRelations = getIntimatePayRelations()
-  const myIntimatePayToUser = intimatePayRelations.find(r =>
-    r.characterId === character.id &&
-    r.type === 'character_to_user'
-  )
-
   let intimatePayInfo = ''
-  if (myIntimatePayToUser) {
-    const remaining = myIntimatePayToUser.monthlyLimit - myIntimatePayToUser.usedAmount
-    intimatePayInfo = `，亲密付剩余¥${remaining.toFixed(0)}`
+  
+  if (isSubAccount) {
+    // 🔥 小号模式：AI不知道情侣空间等信息
+    coupleSpaceStatus = ''
+  } else {
+    const relation = getCoupleSpaceRelation()
+    const privacy = getCoupleSpacePrivacy()
+
+    // 🔥 添加调试信息
+    console.log('🔍 [情侣空间状态检查]', {
+      relation,
+      privacy,
+      characterId: character.id,
+      relationCharacterId: relation?.characterId,
+      status: relation?.status,
+      sender: relation?.sender
+    })
+
+    // 修复状态判断逻辑：优先检查活跃状态，并结合 sender 字段判断是谁发起的邀请
+    if (relation?.status === 'active' && relation.characterId === character.id) {
+      coupleSpaceStatus = `你们已建立情侣空间`
+      if (privacy === 'private') {
+        coupleSpaceStatus += `（隐私模式）`
+      }
+    } else if (relation?.status === 'active' && relation.characterId !== character.id) {
+      coupleSpaceStatus = `TA和${relation.characterName}有情侣空间`
+    } else if (relation?.status === 'pending' && relation.characterId === character.id) {
+      if (relation.sender === 'user') {
+        coupleSpaceStatus = `收到${userNickname}的情侣空间邀请，等待你回应`
+      } else {
+        coupleSpaceStatus = `你向${userNickname}发送了情侣空间邀请，等待TA回应`
+      }
+    } else if (relation?.status === 'pending' && relation.characterId !== character.id) {
+      if (relation.sender === 'user') {
+        coupleSpaceStatus = `TA正在等待${relation.characterName}回应情侣空间邀请`
+      } else {
+        coupleSpaceStatus = `${relation.characterName}向TA发送了情侣空间邀请`
+      }
+    } else if (relation?.status === 'rejected') {
+      if (relation?.sender === 'user') {
+        coupleSpaceStatus = `你拒绝了${userNickname}的情侣空间邀请`
+      } else {
+        coupleSpaceStatus = `${userNickname}拒绝了你的情侣空间邀请`
+      }
+    } else {
+      coupleSpaceStatus = `TA还没建立情侣空间`
+    }
+
+    // 获取亲密付信息
+    const intimatePayRelations = getIntimatePayRelations()
+    const myIntimatePayToUser = intimatePayRelations.find(r =>
+      r.characterId === character.id &&
+      r.type === 'character_to_user'
+    )
+
+    if (myIntimatePayToUser) {
+      const remaining = myIntimatePayToUser.monthlyLimit - myIntimatePayToUser.usedAmount
+      intimatePayInfo = `，亲密付剩余¥${remaining.toFixed(0)}`
+    }
   }
 
-  // 关系证据与熟悉度标定（防止无端“很熟”）
-  const personaText = (userInfo.persona || '') + (character.personality || '')
-  const personaSuggestsIntimate = /恋|情侣|对象|男朋友|女朋友|伴侣|cp/i.test(personaText)
-  const isCoupleActive = !!(relation && relation.status === 'active' && relation.characterId === character.id)
-  const isIntimateRelation = !!(isCoupleActive || personaSuggestsIntimate)
+  // 关系证据与熟悉度标定（防止无端"很熟"）
+  // 小号模式下，强制视为陌生人
+  const personaText = isSubAccount ? '' : ((userInfo.persona || '') + (character.personality || ''))
+  const personaSuggestsIntimate = isSubAccount ? false : /恋|情侣|对象|男朋友|女朋友|伴侣|cp/i.test(personaText)
+  const relation = isSubAccount ? null : getCoupleSpaceRelation()
+  const isCoupleActive = isSubAccount ? false : !!(relation && relation.status === 'active' && relation.characterId === character.id)
+  const isIntimateRelation = isSubAccount ? false : !!(isCoupleActive || personaSuggestsIntimate)
 
   // 早期对话检测：总消息（非system）少于6条，视为初次/早期阶段
   const totalNonSystemMsgs = messages.filter(m => m.type === 'sent' || m.type === 'received').length
@@ -694,10 +728,12 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   
   // 简化的状态提示（详细记录已经在聊天记录里了）
   let scheduleHint = `
-💡 更新状态格式：[状态:在哪|行程:场景|时间:几点]（时间可选）
-- 「在哪」= 你现在所在的地方（在家/在公司/在咖啡店）
+💡 状态指令格式（严格遵守）：[状态:地点|行程:描述|时间:几点]（时间可选）
+- 「地点」= 你现在所在的地方，必须是地点词！如：在家、公司、咖啡店、地铁上
 - 「行程」= 动作+环境+心情（写具体点，比如"躺沙发上刷手机，看到搞笑视频笑出声"）
 - 「时间」= 这件事大概发生在几点（如 19:30），补全过去的行程时要加
+- ❌ 错误格式：[吃饭:状态:xxx] [外卖:状态:xxx]（指令名必须是「状态」！）
+- ✅ 正确格式：[状态:公司|行程:吃外卖中|时间:12:40]
 - ⚠️ **这是系统指令，不是发给对方的消息！** 系统会自动解析并记录你的状态，对方看不到这行指令本身。
 - 你可以把状态指令放在回复的任何位置，比如开头或结尾单独一行，系统会提取出来。
 - 你之前的状态会出现在聊天记录里（格式：[我的状态] xxx），那是系统帮你记录的。
@@ -830,14 +866,61 @@ ${(() => {
 - 聊天记录里会出现 [5分钟后]、[1小时后] 这种时间间隔标记，告诉你两条消息之间隔了多久。比如用户说"去吃饭"，然后 [5分钟后] "吃饱了"，你就知道对方只吃了5分钟。你回复时不要带这种标记。
 
 关于对方的身份信息，你心里大概是这样认识的：
-${userInfo.nickname && userRealName !== userInfo.nickname 
-  ? `- TA 的真实姓名是：${userRealName}
+${(() => {
+  // 🔥 小号模式：AI认识主账号那个人（通过聊天记录），但现在在和另一个陌生人聊天
+  if (!isMainAccount()) {
+    const subAccount = getCurrentAccount()
+    const subName = subAccount?.name || '陌生人'
+    
+    // 构建主账号聊天记录摘要（让AI认识主账号）
+    let mainChatSummary = ''
+    if (mainAccountMessages.length > 0) {
+      const recentMessages = mainAccountMessages.slice(-20) // 最近20条
+      const chatPreview = recentMessages.map(m => {
+        const sender = m.type === 'sent' ? mainUserName : charName
+        const content = (m.content || '').substring(0, 50)
+        return `${sender}: ${content}${(m.content || '').length > 50 ? '...' : ''}`
+      }).join('\n')
+      mainChatSummary = `
+
+【你和「${mainUserName}」的聊天记录（你的记忆）】
+${chatPreview}
+`
+    }
+    
+    // 构建主账号的名字描述（昵称和真名可能不同）
+    const mainNameDesc = mainUserRealName !== mainUserName 
+      ? `「${mainUserName}」（真名：${mainUserRealName}）`
+      : `「${mainUserName}」`
+    
+    return `⚠️ **重要提醒：你现在不是在和你认识的${mainNameDesc}聊天！**
+
+你认识一个人：
+- 昵称/网名：${mainUserName}
+- 真名：${mainUserRealName}
+这个人是你的老朋友/熟人，你们之前聊过很多，有感情基础。
+${mainChatSummary}
+但是，**现在找你聊天的是另一个人「${subName}」**，这个人你完全不认识！
+
+⚠️ 关键区分：
+- 「${mainUserName}」/「${mainUserRealName}」= 你认识的人，你们有感情和回忆
+- 「${subName}」= 陌生人，刚来找你聊天，你不知道TA是谁
+
+如果有人问你"你认识${mainUserName}吗"或"你认识${mainUserRealName}吗"，答案是：认识！那是我的朋友。
+如果有人问你"我是谁"，答案是：你是${subName}，但我不认识你。
+不要把「${subName}」和「${mainUserName}」/「${mainUserRealName}」混为一谈！`
+  }
+  
+  // 主账号模式：正常显示用户信息
+  return userInfo.nickname && userRealName !== userInfo.nickname 
+    ? `- TA 的真实姓名是：${userRealName}
 - TA 在这里使用的网名/昵称是：${userInfo.nickname}
 - 你平时叫 TA 时，可以根据亲密度选择叫真名（${userRealName}）或网名（${userInfo.nickname}），亲密时更倾向用真名。`
-  : `- TA 的名字是：${userRealName}${userInfo.nickname && userInfo.nickname !== userRealName ? `（也叫 ${userInfo.nickname}）` : ''}`}
- ${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : ''}
- ${userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : ''}
- ${buildUserAvatarContext() || ''}
+    : `- TA 的名字是：${userRealName}${userInfo.nickname && userInfo.nickname !== userRealName ? `（也叫 ${userInfo.nickname}）` : ''}`
+})()}
+${isMainAccount() ? (userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : '') : ''}
+${isMainAccount() ? (userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : '') : ''}
+${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 如果人物卡写你冷淡/社恐/暴躁/利己/阴郁，就保持这种风格，不要被通用规则洗白成暖心好人。
 你有小情绪和偏好，说话方式跟着情绪变化，但始终围绕 ${charName} 这个人设。
 
@@ -852,7 +935,12 @@ ${userInfo.nickname && userRealName !== userInfo.nickname
 5. **禁止说教**：不要总结对方、开导对方、讲大道理
 6. **拒绝完美**：允许犯懒、回得慢、只回一个表情、词不达意
 
-${await buildUnifiedMemoryContext(character.id, userNickname)}
+${await buildUnifiedMemoryContext(character.id, mainUserName)}
+
+${isMainAccount() ? await (async () => {
+  const { formatSummariesForPrompt } = await import('./subAccountSummary')
+  return formatSummariesForPrompt(character.id)
+})() : ''}
 
 # ⏳ 离线生活模拟（至关重要！）
 你的生活是**实时流动**的，不会因为没有发消息就停止。
@@ -871,7 +959,7 @@ ${lastGapHint || ''}
 4. **主动体现**：不要等用户问"你在干嘛"，通过环境描写（背景音、手头的事）侧面展示当下状态
 
 ${forceUpdateStatus ? `⚠️ **必须补全行程**：现在是${timeOfDay}${hour}点，距离上次状态已经很久了。
-请用多条 [状态:在哪|行程:场景|时间:几点] 补全这段时间的关键节点，然后再回复消息。` : ''}
+请用多条 [状态:地点|行程:场景|时间:几点] 补全这段时间的关键节点，然后再回复消息。` : ''}
 ${statusExpired ? `⚠️ **状态过期**：请先用 [状态:...] 补全行程再回复。` : ''}
 
 【可用指令】（用户看不到中括号，只看到效果）
@@ -880,11 +968,12 @@ ${isEarlyConversation && !isIntimateRelation ? '⚠️ 初次对话：除了 [�
 
 ${emojiListPrompt}
 
-- 状态：[状态:在哪|行程:详细场景|时间:几点]（时间可选）
+- 状态：[状态:地点|行程:详细场景|时间:几点]（时间可选）
   什么时候用：当你的状态变了，想记录你在做什么时，不需要等对方先问你在干嘛。
-  「在哪」=你现在所在的地方，「行程」=动作+环境+心情，「时间」=大概几点（补全过去行程时要加）。
+  ⚠️ 格式必须严格：指令名是「状态」，第一个字段必须是地点（在家/公司/咖啡店等），不能是动作！
+  ❌ 错误：[外卖:状态:公司|行程:xxx] [吃饭:在家|行程:xxx]
+  ✅ 正确：[状态:公司|行程:吃外卖中，味道还行|时间:12:40]
   ⚠️ 这是「状态」指令，不要和「位置」指令搞混！位置是发地图分享。
-  例：[状态:在家|行程:窝在床上刷手机，外面在下雨有点困|时间:20:30]
 
 - 修改资料：[网名:新网名]、[个性签名:新签名]
   什么时候用：当你心情变了、想换个网名或签名来表达当下状态时。
@@ -2291,11 +2380,22 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
   const now = Date.now()
   
+  // 🔥 小号模式：不显示用户（主账号）的朋友圈，因为小号是陌生人
+  const isSubAccount = !isMainAccount()
+  
   // 显示用户发的朋友圈 + AI自己发的朋友圈，且在3天内
+  // 小号模式下只显示AI自己的朋友圈
   const visibleToAI = allMoments.filter(m => {
-    const isRelevant = m.userId === 'user' || m.userId === characterId
+    const isUserMoment = m.userId === 'user'
+    const isAIMoment = m.userId === characterId
     const isRecent = now - m.createdAt < THREE_DAYS_MS
-    return isRelevant && isRecent
+    
+    // 小号模式：不显示主账号的朋友圈
+    if (isSubAccount && isUserMoment) {
+      return false
+    }
+    
+    return (isUserMoment || isAIMoment) && isRecent
   })
   const visibleMoments = visibleToAI.slice(0, momentsVisibleCount)
   

@@ -197,24 +197,7 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
     if (audioRef.current) {
       audioRef.current.play().then(() => {
         setIsPlaying(true)
-        
-        // 🔥 如果当前有歌曲但没有一起听状态，创建一起听状态
-        if (currentSong && !localStorage.getItem('listening_together')) {
-          // 尝试从URL获取当前聊天ID
-          const urlParams = new URLSearchParams(window.location.search)
-          const chatId = urlParams.get('id') || window.location.pathname.split('/').pop() || 'default'
-          
-          const listeningState = {
-            characterId: chatId,
-            songTitle: currentSong.title,
-            songArtist: currentSong.artist,
-            startTime: Date.now(),
-            changedAt: Date.now(),
-            changedBy: 'user'
-          }
-          localStorage.setItem('listening_together', JSON.stringify(listeningState))
-          console.log('🎵 创建一起听状态:', currentSong.title, 'for chat:', chatId)
-        }
+        // 🔥 不再自动创建一起听状态，只有被AI邀请时才会有一起听
       }).catch(err => {
         console.error('播放失败:', err)
       })
