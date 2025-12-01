@@ -4,7 +4,7 @@
  * 支持自定义头像框
  */
 
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar } from '../utils/userUtils'
 import { useState, useEffect } from 'react'
 
 interface AvatarProps {
@@ -62,16 +62,26 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
   // 根据形状选择className
   const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
+  // 🔥 异步加载用户头像
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined)
+  
+  useEffect(() => {
+    if (type === 'sent') {
+      getUserInfoWithAvatar().then(info => {
+        setUserAvatar(info.avatar)
+      })
+    }
+  }, [type])
+
   if (type === 'sent') {
-    // 用户头像 - 读取用户上传的头像
-    const userInfo = getUserInfo()
+    // 用户头像 - 从 IndexedDB 异步加载
     return (
       <>
         {frameCSS && <style>{`.avatar-frame-user-${chatId} { ${frameCSS} }`}</style>}
         <div className="relative overflow-visible">
           <div className={`avatar-frame-user-${chatId} w-8 h-8 ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}>
-            {userInfo.avatar ? (
-              <img src={userInfo.avatar} alt="用户头像" className="w-full h-full object-cover" />
+            {userAvatar ? (
+              <img src={userAvatar} alt="用户头像" className="w-full h-full object-cover" />
             ) : (
               <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>

@@ -3,7 +3,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
@@ -12,11 +12,22 @@ import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
 import { recognizeUserAvatar, setUserAvatarDescription } from '../utils/userAvatarManager'
+import { saveUserAvatar, getUserAvatar } from '../utils/avatarStorage'
 
 const UserProfile = () => {
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
+  const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 🔥 从 IndexedDB 加载头像
+  useEffect(() => {
+    getUserAvatar().then(avatar => {
+      if (avatar) {
+        setUserInfo(prev => ({ ...prev, avatar }))
+      }
+    })
+  }, [])
 
   // 处理图片上传
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,11 +59,16 @@ const UserProfile = () => {
 
   // 保存到localStorage
   const handleSave = async () => {
+    // 防止重复点击
+    if (isSaving) return
+    
     // 验证必填项
     if (!userInfo.realName || !userInfo.realName.trim()) {
       alert('请输入真实姓名')
       return
     }
+    
+    setIsSaving(true)
     
     // 获取旧的用户信息用于对比
     const oldUserInfo = getUserInfo()
@@ -68,8 +84,38 @@ const UserProfile = () => {
     const signatureChanged = oldUserInfo.signature !== finalUserInfo.signature
     const avatarChanged = oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar
     
-    // 保存用户信息
-    saveUserInfo(finalUserInfo)
+    // 🔥 如果有头像，先保存到 IndexedDB
+    if (finalUserInfo.avatar) {
+      try {
+        const saved = await saveUserAvatar(finalUserInfo.avatar)
+        if (!saved) {
+          alert('头像保存失败，请重试')
+          setIsSaving(false)
+          return
+        }
+        console.log('✅ 头像已保存到 IndexedDB')
+      } catch (error) {
+        console.error('❌ 保存头像到 IndexedDB 失败:', error)
+        alert('头像保存失败，请重试')
+        setIsSaving(false)
+        return
+      }
+    }
+    
+    // 🔥 保存用户信息到 localStorage（不含头像数据，只存标记）
+    const infoToSave = {
+      ...finalUserInfo,
+      avatar: finalUserInfo.avatar ? 'indexeddb://user_avatar' : undefined  // 使用标记替代实际数据
+    }
+    
+    try {
+      saveUserInfo(infoToSave)
+    } catch (error) {
+      console.error('❌ 保存用户信息失败:', error)
+      alert('保存失败，请重试')
+      setIsSaving(false)
+      return
+    }
     
     // 🔥 追踪用户信息变更（用于提示词生成）
     if (nicknameChanged) {
@@ -91,14 +137,14 @@ const UserProfile = () => {
           console.log('✅ 头像识别完成:', description)
         } else {
           // 🔥 即使识别失败，也更新URL（防止重复尝试）
-          // 但设置一个占位描述
-          setUserAvatarDescription('（头像待识别）', avatarUrl)
+          // 设置一个更友好的占位描述，让AI知道用户换了新头像
+          setUserAvatarDescription('用户刚换了新头像（当前API不支持图片识别，无法看到具体内容）', avatarUrl)
           console.log('⚠️ 头像识别失败，已设置占位描述')
         }
       }).catch(error => {
         console.error('❌ 头像识别失败:', error)
         // 识别出错也更新URL
-        setUserAvatarDescription('（头像待识别）', avatarUrl)
+        setUserAvatarDescription('用户刚换了新头像（识别失败，无法看到具体内容）', avatarUrl)
       })
     }
     
@@ -144,6 +190,7 @@ const UserProfile = () => {
       }
     }
     
+    setIsSaving(false)
     navigate(-1)
   }
   
@@ -163,9 +210,10 @@ const UserProfile = () => {
           <h1 className="text-base font-semibold">个人信息</h1>
           <button
             onClick={handleSave}
-            className="text-green-600 text-sm font-medium"
+            disabled={isSaving}
+            className={`text-sm font-medium ${isSaving ? 'text-gray-400' : 'text-green-600'}`}
           >
-            保存
+            {isSaving ? '保存中...' : '保存'}
           </button>
         </div>
       </div>

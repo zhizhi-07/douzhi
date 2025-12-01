@@ -138,6 +138,9 @@ export function hasAvatarChanged(currentAvatarUrl: string): boolean {
   const isPlaceholder = !info.current.description || 
     info.current.description.includes('待识别') ||
     info.current.description.includes('未识别') ||
+    info.current.description.includes('无法看到') ||
+    info.current.description.includes('识别失败') ||
+    info.current.description.includes('不支持图片识别') ||
     info.current.description === ''
   
   if (isPlaceholder) {

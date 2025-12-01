@@ -62,7 +62,7 @@ export const useChatAI = (
     outputTokens: 0
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const sendTimeoutRef = useRef<number>()
+  const sendTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const conversationCountRef = useRef<number>(0)  // 对话轮数计数器
   const isGeneratingSummaryRef = useRef<boolean>(false)  // 防止重复生成总结
 
@@ -211,10 +211,11 @@ export const useChatAI = (
       }
 
       // 🔍 检查是否需要识别用户头像（首次聊天或头像变化）
-      const { getUserInfo } = await import('../../../utils/userUtils')
+      const { getUserInfoWithAvatar } = await import('../../../utils/userUtils')
       const { hasAvatarChanged } = await import('../../../utils/userAvatarManager')
 
-      const userInfo = getUserInfo()
+      // 🔥 使用异步方法获取完整用户信息（包括 IndexedDB 里的头像）
+      const userInfo = await getUserInfoWithAvatar()
       
       // 🔥 强制日志：检查用户头像状态
       console.log('📷 [头像检查] 用户头像状态:', {

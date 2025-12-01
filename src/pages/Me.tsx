@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
 import WechatTabBar from '../components/WechatTabBar'
-import { UserInfo, getUserInfo } from '../utils/userUtils'
+import { UserInfo, getUserInfo, getUserInfoWithAvatar } from '../utils/userUtils'
 import { getImage } from '../utils/unifiedStorage'
 import { getAllUIIcons } from '../utils/iconStorage'
 import { isMainAccount, getCurrentAccount } from '../utils/accountManager'
@@ -50,10 +50,21 @@ const Me = () => {
   })
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
 
+  // 🔥 从 IndexedDB 加载头像
+  useEffect(() => {
+    const loadAvatar = async () => {
+      const info = await getUserInfoWithAvatar()
+      setUserInfo(prev => ({ ...prev, avatar: info.avatar }))
+    }
+    loadAvatar()
+  }, [])
+
   // 监听storage变化和账号切换，实时更新用户信息
   useEffect(() => {
-    const updateUserInfo = () => {
-      setUserInfo(getDisplayUserInfo())
+    const updateUserInfo = async () => {
+      const baseInfo = getDisplayUserInfo()
+      const fullInfo = await getUserInfoWithAvatar()
+      setUserInfo({ ...baseInfo, avatar: fullInfo.avatar || baseInfo.avatar })
     }
 
     window.addEventListener('storage', updateUserInfo)

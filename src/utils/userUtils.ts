@@ -3,6 +3,7 @@
  */
 
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from './userInfoChangeTracker'
+import { getUserAvatar } from './avatarStorage'
 
 const USER_INFO_KEY = 'user_info'
 
@@ -18,13 +19,18 @@ export interface UserInfo {
 }
 
 /**
- * 获取用户信息
+ * 获取用户信息（同步，不含头像数据）
  */
 export const getUserInfo = (): UserInfo => {
   try {
     const saved = localStorage.getItem(USER_INFO_KEY)
     if (saved) {
-      return JSON.parse(saved)
+      const info = JSON.parse(saved)
+      // 如果是 IndexedDB 标记，清除它（实际数据需要异步获取）
+      if (info.avatar === 'indexeddb://user_avatar') {
+        info.avatar = undefined
+      }
+      return info
     }
   } catch (error) {
     console.error('读取用户信息失败:', error)
@@ -36,6 +42,41 @@ export const getUserInfo = (): UserInfo => {
     realName: '用户',
     signature: undefined
   }
+}
+
+/**
+ * 获取用户信息（异步，包含头像数据）
+ */
+export const getUserInfoWithAvatar = async (): Promise<UserInfo> => {
+  const info = getUserInfo()
+  
+  // 从 IndexedDB 加载头像
+  try {
+    const avatar = await getUserAvatar()
+    if (avatar) {
+      info.avatar = avatar
+    }
+  } catch (error) {
+    console.error('从 IndexedDB 加载头像失败:', error)
+  }
+  
+  return info
+}
+
+/**
+ * 检查用户是否有头像
+ */
+export const hasUserAvatar = (): boolean => {
+  try {
+    const saved = localStorage.getItem(USER_INFO_KEY)
+    if (saved) {
+      const info = JSON.parse(saved)
+      return info.avatar === 'indexeddb://user_avatar' || (info.avatar && info.avatar.startsWith('data:'))
+    }
+  } catch (error) {
+    console.error('检查用户头像失败:', error)
+  }
+  return false
 }
 
 /**

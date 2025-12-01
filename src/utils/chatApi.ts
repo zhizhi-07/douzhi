@@ -7,7 +7,7 @@ import type { ApiSettings, ChatMessage, Character, Message } from '../types/chat
 import { getCoupleSpaceRelation, getCoupleSpacePrivacy } from './coupleSpaceUtils'
 import { getCoupleSpaceContentSummary } from './coupleSpaceContentUtils'
 import { getUserInfo } from './userUtils'
-import { getIntimatePayRelations } from './walletUtils'
+// import { getIntimatePayRelations } from './walletUtils'  // 亲密付暂未使用
 import { getEmojis } from './emojiStorage'
 import { loadMoments } from './momentsManager'
 import { getAllMemos } from './aiMemoManager'
@@ -400,7 +400,14 @@ const buildUserAvatarContext = (): string => {
     })
   }
 
-  let text = `- 对方头像：${avatarInfo.current.description}（${formatTime(avatarInfo.current.identifiedAt)} 识别）`
+  const desc = avatarInfo.current.description
+  
+  // 🔥 处理占位描述的情况
+  if (desc.includes('待识别') || desc.includes('无法看到') || desc.includes('识别失败')) {
+    return `- 对方头像：用户设置了头像，但你当前无法看到图片内容（如果对方问你头像怎么样，可以坦诚说看不到图片，让对方描述一下）`
+  }
+
+  let text = `- 对方头像：${desc}（${formatTime(avatarInfo.current.identifiedAt)} 识别）`
 
   // 如果有最近的变更历史，显示最新一次
   if (avatarInfo.history.length > 0) {
@@ -503,7 +510,8 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   })
 
   const hour = now.getHours()
-  const minute = now.getMinutes()
+  // minute 暂未使用，注释掉避免 lint 警告
+  // const minute = now.getMinutes()
   
   // 🔥 检测场景切换（线下 → 线上）
   const currentSceneMode = localStorage.getItem('current-scene-mode') || 'online'
@@ -639,7 +647,6 @@ export const buildSystemPrompt = async (character: Character, userName: string =
 
   // 获取情侣空间信息（小号模式下跳过，因为AI不认识这个人）
   let coupleSpaceStatus = ''
-  let intimatePayInfo = ''
   
   if (isSubAccount) {
     // 🔥 小号模式：AI不知道情侣空间等信息
@@ -688,17 +695,16 @@ export const buildSystemPrompt = async (character: Character, userName: string =
       coupleSpaceStatus = `TA还没建立情侣空间`
     }
 
-    // 获取亲密付信息
-    const intimatePayRelations = getIntimatePayRelations()
-    const myIntimatePayToUser = intimatePayRelations.find(r =>
-      r.characterId === character.id &&
-      r.type === 'character_to_user'
-    )
-
-    if (myIntimatePayToUser) {
-      const remaining = myIntimatePayToUser.monthlyLimit - myIntimatePayToUser.usedAmount
-      intimatePayInfo = `，亲密付剩余¥${remaining.toFixed(0)}`
-    }
+    // 亲密付信息暂未使用，注释掉避免 lint 警告
+    // const intimatePayRelations = getIntimatePayRelations()
+    // const myIntimatePayToUser = intimatePayRelations.find(r =>
+    //   r.characterId === character.id &&
+    //   r.type === 'character_to_user'
+    // )
+    // if (myIntimatePayToUser) {
+    //   const remaining = myIntimatePayToUser.monthlyLimit - myIntimatePayToUser.usedAmount
+    //   // intimatePayInfo = `，亲密付剩余¥${remaining.toFixed(0)}`
+    // }
   }
 
   // 关系证据与熟悉度标定（防止无端"很熟"）
