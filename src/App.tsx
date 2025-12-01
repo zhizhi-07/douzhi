@@ -147,7 +147,20 @@ function App() {
     return () => window.removeEventListener('uiIconsChanged', handleIconsChange)
   }, [])
 
-  // 🔥 后台静默迁移（不阻塞UI）
+  // � 请求系统通知权限（后台AI消息需要）
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // 延迟请求，避免打断用户首次体验
+      const timer = setTimeout(() => {
+        Notification.requestPermission().then(permission => {
+          console.log('🔔 通知权限:', permission)
+        })
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  // �🔥 后台静默迁移（不阻塞UI）
   useEffect(() => {
     // 🗑️ 注销旧的 Service Worker（残留缓存会导致问题）
     if ('serviceWorker' in navigator) {

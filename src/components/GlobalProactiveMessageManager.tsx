@@ -13,6 +13,45 @@ import { Logger } from '../utils/logger'
 import { commandHandlers } from '../pages/ChatDetail/hooks/commandHandlers'
 import type { Message } from '../types/chat'
 
+/**
+ * 发送系统通知（浏览器原生通知）
+ */
+const sendSystemNotification = (title: string, body: string, icon?: string) => {
+  // 检查浏览器是否支持通知
+  if (!('Notification' in window)) {
+    Logger.warn('[系统通知] 浏览器不支持通知')
+    return
+  }
+
+  // 如果已授权，直接发送
+  if (Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      body,
+      icon: icon || '/favicon.ico',
+      tag: `ai-message-${Date.now()}`, // 每条消息独立通知
+      requireInteraction: false, // 不需要用户手动关闭
+    })
+    
+    // 点击通知时聚焦窗口
+    notification.onclick = () => {
+      window.focus()
+      notification.close()
+    }
+    
+    // 5秒后自动关闭
+    setTimeout(() => notification.close(), 5000)
+    
+    Logger.info(`[系统通知] 已发送: ${title} - ${body.substring(0, 20)}...`)
+  } else if (Notification.permission !== 'denied') {
+    // 请求权限
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        sendSystemNotification(title, body, icon)
+      }
+    })
+  }
+}
+
 interface ProactiveMessageSettings {
   enabled: boolean
   mode: 'fixed' | 'thinking'
@@ -207,6 +246,27 @@ const GlobalProactiveMessageManager = () => {
       }
 
       Logger.success(`[全局主动发消息] ${character.nickname} - 成功发送${aiMessagesList.length}条消息`)
+      
+      // 🔔 每条消息都发送系统通知
+      for (const msg of aiMessagesList) {
+        const displayMessage = msg.length > 50 ? msg.substring(0, 50) + '...' : msg
+        sendSystemNotification(
+          character.nickname || character.realName || 'AI',
+          displayMessage,
+          character.avatar
+        )
+      }
+      
+      // 同时触发应用内通知事件
+      const firstMsg = aiMessagesList[0] || ''
+      window.dispatchEvent(new CustomEvent('background-chat-message', {
+        detail: {
+          title: character.nickname || character.realName,
+          message: firstMsg.length > 50 ? firstMsg.substring(0, 50) + '...' : firstMsg,
+          chatId,
+          avatar: character.avatar
+        }
+      }))
     } catch (error) {
       Logger.error('[全局主动发消息] 发送失败:', error)
     }

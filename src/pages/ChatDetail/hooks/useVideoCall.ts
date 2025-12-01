@@ -543,13 +543,17 @@ export const useVideoCall = (
       const originalStreaming = localStorage.getItem('offline-streaming')
       localStorage.setItem('offline-streaming', 'false')
       
-      const result = await callAIApi(apiMessages, settings)
-      
-      // 恢复原设置
-      if (originalStreaming) {
-        localStorage.setItem('offline-streaming', originalStreaming)
-      } else {
-        localStorage.removeItem('offline-streaming')
+      let result
+      try {
+        result = await callAIApi(apiMessages, settings)
+      } finally {
+        // 🔥 无论成功还是失败，都要恢复原设置
+        if (originalStreaming) {
+          localStorage.setItem('offline-streaming', originalStreaming)
+        } else {
+          localStorage.removeItem('offline-streaming')
+        }
+        console.log('🔄 [视频通话] 已恢复流式设置:', originalStreaming || '(removed)')
       }
       
       console.log('📦 [视频通话] API返回的完整结果:', result)
