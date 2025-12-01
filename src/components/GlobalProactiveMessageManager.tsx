@@ -240,33 +240,30 @@ const GlobalProactiveMessageManager = () => {
           const msg = createMessage(messageContent, 'received')
           saveMessageToStorage(chatId, msg)
           Logger.info(`[全局主动发消息] ✅ ${character.nickname} - 保存普通消息`)
+          
+          // 🔔 保存消息时立即发送系统通知
+          const displayMessage = messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent
+          sendSystemNotification(
+            character.nickname || character.realName || 'AI',
+            displayMessage,
+            character.avatar
+          )
+          
+          // 同时触发应用内通知事件
+          window.dispatchEvent(new CustomEvent('background-chat-message', {
+            detail: {
+              title: character.nickname || character.realName,
+              message: displayMessage,
+              chatId,
+              avatar: character.avatar
+            }
+          }))
         } else if (isCommand) {
           Logger.info(`[全局主动发消息] ✅ ${character.nickname} - 已处理指令`)
         }
       }
 
       Logger.success(`[全局主动发消息] ${character.nickname} - 成功发送${aiMessagesList.length}条消息`)
-      
-      // 🔔 每条消息都发送系统通知
-      for (const msg of aiMessagesList) {
-        const displayMessage = msg.length > 50 ? msg.substring(0, 50) + '...' : msg
-        sendSystemNotification(
-          character.nickname || character.realName || 'AI',
-          displayMessage,
-          character.avatar
-        )
-      }
-      
-      // 同时触发应用内通知事件
-      const firstMsg = aiMessagesList[0] || ''
-      window.dispatchEvent(new CustomEvent('background-chat-message', {
-        detail: {
-          title: character.nickname || character.realName,
-          message: firstMsg.length > 50 ? firstMsg.substring(0, 50) + '...' : firstMsg,
-          chatId,
-          avatar: character.avatar
-        }
-      }))
     } catch (error) {
       Logger.error('[全局主动发消息] 发送失败:', error)
     }
