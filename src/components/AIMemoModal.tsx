@@ -135,6 +135,13 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
+        
+        /* 修复移动端触摸滚动 */
+        .touch-scroll {
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          touch-action: pan-y;
+        }
 
         /* 柔光背景效果 */
         .soft-glow {
@@ -162,7 +169,7 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
           <div className="soft-glow bottom-[-20px] right-[-20px]"></div>
 
           {/* 内容区域 */}
-          <div className="flex-1 flex flex-col px-8 py-10 relative z-10">
+          <div className="flex-1 flex flex-col px-8 py-10 relative z-10" style={{ minHeight: 0 }}>
 
             {/* 顶部标题 */}
             <div className="text-center mb-6">
@@ -172,7 +179,7 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
             </div>
 
             {/* 滚动内容区 */}
-            <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="flex-1 overflow-y-auto no-scrollbar touch-scroll" style={{ minHeight: 0 }}>
               <div className={`space-y-8 ${animState === 'entering' ? 'content-fade-enter' :
                   animState === 'leaving' ? 'content-fade-leave' : 'content-fade-active'
                 }`}>
@@ -215,29 +222,32 @@ const AIMemoModal = ({ isOpen, onClose, characterId, characterName }: AIMemoModa
                 ☆ Moments ☆ Written in the heart
               </div>
 
-              {/* 导航按钮 */}
-              <div className="flex items-center justify-between w-full px-4 opacity-40 hover:opacity-80 transition-opacity duration-300">
+              {/* 导航按钮 - 增大触摸区域 */}
+              <div className="flex items-center justify-between w-full">
                 <button
                   onClick={() => changeDate('prev')}
+                  onTouchEnd={(e) => { e.preventDefault(); if (canGoPrev) changeDate('prev') }}
                   disabled={!canGoPrev}
-                  className={`p-2 transition-transform active:scale-90 ${!canGoPrev && 'invisible'}`}
+                  className={`p-4 -ml-2 transition-all active:scale-90 active:bg-gray-100 rounded-full ${!canGoPrev ? 'opacity-20' : 'opacity-60'}`}
                 >
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 19l-7-7 7-7" />
+                  <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
 
-                <span className="text-[10px] text-gray-300 font-serif tracking-[0.2em]">
+                <span className="text-[10px] text-gray-400 font-serif tracking-[0.2em]">
                   {currentDate ? currentDate.replace(/-/g, '.') : ''}
+                  {allDates.length > 1 && ` (${currentIndex + 1}/${allDates.length})`}
                 </span>
 
                 <button
                   onClick={() => changeDate('next')}
+                  onTouchEnd={(e) => { e.preventDefault(); if (canGoNext) changeDate('next') }}
                   disabled={!canGoNext}
-                  className={`p-2 transition-transform active:scale-90 ${!canGoNext && 'invisible'}`}
+                  className={`p-4 -mr-2 transition-all active:scale-90 active:bg-gray-100 rounded-full ${!canGoNext ? 'opacity-20' : 'opacity-60'}`}
                 >
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5l7 7-7 7" />
+                  <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>

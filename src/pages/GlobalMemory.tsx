@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
-import { globalMemoryManager, GlobalMemory } from '../utils/globalMemoryManager'
+import { unifiedMemoryService, UnifiedMemory } from '../services/unifiedMemoryService'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
 
@@ -13,8 +13,9 @@ const GlobalMemoryPage = () => {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
-  const [memories, setMemories] = useState<GlobalMemory[]>([])
-  const [selectedMemory, setSelectedMemory] = useState<GlobalMemory | null>(null)
+  const [memories, setMemories] = useState<UnifiedMemory[]>([])
+  const [selectedMemory, setSelectedMemory] = useState<UnifiedMemory | null>(null)
+  const [characterMemoryCounts, setCharacterMemoryCounts] = useState<Record<string, number>>({})
   const [searchText, setSearchText] = useState('')
 
   // 加载角色列表
@@ -25,19 +26,35 @@ const GlobalMemoryPage = () => {
   const loadCharacters = async () => {
     const chars = await getAllCharacters()
     setCharacters(chars)
+    
+    // 预加载每个角色的记忆数量
+    const counts: Record<string, number> = {}
+    for (const char of chars) {
+      const mems = await unifiedMemoryService.getMemoriesByCharacter(char.id)
+      counts[char.id] = mems.length
+    }
+    setCharacterMemoryCounts(counts)
   }
 
   // 加载记忆
-  const loadMemories = () => {
+  const loadMemories = async () => {
     if (!selectedCharacter) {
       setMemories([])
       return
     }
     
-    const result = globalMemoryManager.queryMemories({
-      characterId: selectedCharacter.id,
-      searchText: searchText || undefined
-    })
+    let result = await unifiedMemoryService.getMemoriesByCharacter(selectedCharacter.id)
+    
+    // 搜索过滤
+    if (searchText) {
+      const lowerSearch = searchText.toLowerCase()
+      result = result.filter(m =>
+        m.title.toLowerCase().includes(lowerSearch) ||
+        m.summary.toLowerCase().includes(lowerSearch) ||
+        m.tags.some(tag => tag.toLowerCase().includes(lowerSearch))
+      )
+    }
+    
     setMemories(result)
   }
 
@@ -45,13 +62,19 @@ const GlobalMemoryPage = () => {
     loadMemories()
   }, [selectedCharacter, searchText])
 
-  // 删除记忆
-  const deleteMemory = (id: string) => {
-    if (confirm('确定删除这条记忆？')) {
-      globalMemoryManager.deleteMemory(id)
-      loadMemories()
+  // 删除记忆（真实删除）
+  const deleteMemory = async (id: string) => {
+    if (confirm('确定删除这条记忆？此操作不可恢复！')) {
+      await unifiedMemoryService.deleteMemory(id)
+      console.log('✅ [记忆删除] 已从IndexedDB中永久删除记忆:', id)
+      await loadMemories()
       if (selectedMemory?.id === id) {
         setSelectedMemory(null)
+      }
+      // 更新角色记忆数量
+      if (selectedCharacter) {
+        const mems = await unifiedMemoryService.getMemoriesByCharacter(selectedCharacter.id)
+        setCharacterMemoryCounts(prev => ({ ...prev, [selectedCharacter.id]: mems.length }))
       }
     }
   }
@@ -97,7 +120,7 @@ const GlobalMemoryPage = () => {
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">{char.realName}</div>
                     <div className="text-sm text-gray-500">
-                      {globalMemoryManager.queryMemories({ characterId: char.id }).length} 条记忆
+                      {characterMemoryCounts[char.id] || 0} 条记忆
                     </div>
                   </div>
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,14 +201,30 @@ const GlobalMemoryPage = () => {
                           {memory.importance === 'high' && (
                             <span className="text-red-500 text-sm">⭐</span>
                           )}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${memory.domain === 'chat' ? 'bg-blue-100 text-blue-600' : memory.domain === 'action' ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600'}`}>
+                            {memory.domain === 'chat' ? '总结' : memory.domain === 'action' ? '记忆' : '朋友圈'}
+                          </span>
                         </div>
                         <p className="text-sm text-gray-600 line-clamp-2">{memory.summary}</p>
                       </div>
+                      {/* 删除按钮 - 直接显示在右上角 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteMemory(memory.id)
+                        }}
+                        className="ml-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="删除这条记忆"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                     
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-400">
-                        {new Date(memory.createdAt).toLocaleDateString('zh-CN')}
+                        {new Date(memory.timestamp).toLocaleDateString('zh-CN')}
                       </span>
                       {memory.tags.slice(0, 3).map(tag => (
                         <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
@@ -215,22 +254,13 @@ const GlobalMemoryPage = () => {
                           </div>
                         )}
 
-                        {memory.messages && memory.messages.length > 0 && (
+                        {/* 显示时间范围 */}
+                        {memory.timeRange && (
                           <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2">对话片段</h4>
-                            <div className="bg-gray-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-                              {memory.messages.slice(0, 10).map((msg, index) => (
-                                <div key={index} className="text-sm">
-                                  <span className={`font-medium ${msg.type === 'sent' ? 'text-blue-600' : 'text-green-600'}`}>
-                                    {msg.type === 'sent' ? '我' : selectedCharacter.realName}：
-                                  </span>
-                                  <span className="text-gray-600">
-                                    {msg.content?.substring(0, 100)}
-                                    {msg.content && msg.content.length > 100 ? '...' : ''}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                            <h4 className="text-sm font-medium mb-2">对话时间</h4>
+                            <p className="text-sm text-gray-500">
+                              {new Date(memory.timeRange.start).toLocaleString('zh-CN')} 至 {new Date(memory.timeRange.end).toLocaleString('zh-CN')}
+                            </p>
                           </div>
                         )}
 

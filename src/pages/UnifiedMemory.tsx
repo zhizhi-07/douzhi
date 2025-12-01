@@ -351,6 +351,16 @@ const UnifiedMemory = () => {
     memory: '记忆'
   }
 
+  // 处理删除记忆
+  const handleDeleteMemory = async (id: string) => {
+    if (confirm('确定删除这条记忆？此操作不可恢复！')) {
+      await unifiedMemoryService.deleteMemory(id)
+      console.log('✅ [记忆删除] 已从IndexedDB中永久删除记忆:', id)
+      setSelectedMemory(null)
+      await loadMemories()
+    }
+  }
+
   // 处理添加记忆
   const handleAddMemory = async () => {
     if (!newMemory.characterId || !newMemory.title || !newMemory.summary) {
@@ -665,6 +675,18 @@ const UnifiedMemory = () => {
                     </span>
                   ))}
                 </div>
+              </div>
+
+              {/* 删除按钮 */}
+              <div className="mt-16 flex justify-center">
+                <button
+                  onClick={() => handleDeleteMemory(selectedMemory.id)}
+                  className="group text-xs text-gray-300 hover:text-gray-500 tracking-widest uppercase transition-colors flex items-center gap-2"
+                >
+                  <span className="w-4 h-[1px] bg-gray-200 group-hover:bg-gray-400 transition-colors" />
+                  DELETE
+                  <span className="w-4 h-[1px] bg-gray-200 group-hover:bg-gray-400 transition-colors" />
+                </button>
               </div>
             </div>
           </div>

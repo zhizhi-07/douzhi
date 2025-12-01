@@ -49,7 +49,7 @@ const ApiList = () => {
       <div className="glass-effect">
         <StatusBar />
         <div className="px-5 py-4 flex items-center justify-between">
-          <button onClick={() => navigate('/me')} className="text-gray-700">
+          <button onClick={() => navigate('/')} className="text-gray-700">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>

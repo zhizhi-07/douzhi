@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/local-notifications": "^7.0.3",
     "@types/leaflet": "^1.9.21",
     "idb": "^8.0.0",
     "leaflet": "^1.9.4",

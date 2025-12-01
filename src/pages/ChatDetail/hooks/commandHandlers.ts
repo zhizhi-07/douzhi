@@ -2776,7 +2776,8 @@ export const postHandler: CommandHandler = {
  * 发布后会自动调用API生成评论，点赞数和粉丝增长由API根据帖子内容决定
  */
 export const forumPostHandler: CommandHandler = {
-  pattern: /[\[【](?:发布论坛帖子|发帖|论坛发帖)[:：]([^\]】]+)[\]】]/,
+  // 支持嵌套括号，如 [发帖:内容 [图片:描述]]
+  pattern: /[\[【](?:发布论坛帖子|发帖|论坛发帖)[:：]((?:[^\[\]】【]|\[[^\]】]*\])+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('📋 [AI发布论坛帖子] 处理器被调用')
     
@@ -3139,6 +3140,36 @@ export const pokeHandler: CommandHandler = {
 }
 
 /**
+ * 手机操作指令处理器（通用格式）
+ * 格式: [手机操作:操作描述]
+ * AI可以用这个格式描述任何手机操作，系统会显示为系统消息
+ */
+export const phoneOperationHandler: CommandHandler = {
+  pattern: /[\[【]手机操作[:：](.+?)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const operationDesc = match[1].trim()
+    const aiName = character?.nickname || character?.realName || '对方'
+    
+    // 创建系统消息显示操作
+    const operationMsg = createMessageObj('system', {
+      type: 'system',
+      content: `${aiName}${operationDesc}`,
+      aiReadableContent: `【系统通知】${aiName}执行了手机操作：${operationDesc}`
+    })
+    
+    await addMessage(operationMsg, setMessages, chatId)
+    console.log('📱 [手机操作]', aiName, operationDesc)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 修改拍一拍后缀指令处理器
  * 格式: [修改拍一拍:的小脑袋] 或 [改拍一拍:的肩膀]
  */
@@ -3228,5 +3259,6 @@ export const commandHandlers: CommandHandler[] = [
   changeAvatarHandler,  // AI换头像
   theatreHandler,  // 小剧场
   pokeHandler,  // 拍一拍
-  changePokeSuffixHandler  // 修改拍一拍后缀
+  changePokeSuffixHandler,  // 修改拍一拍后缀
+  phoneOperationHandler  // 手机操作（通用格式）
 ]
