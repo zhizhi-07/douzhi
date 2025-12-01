@@ -67,7 +67,25 @@ export function saveStatusToSchedule(characterId: string, action: string, custom
       }
       // 只有时间（如 "19:00"）
       else if (/^\d{1,2}[:：]\d{2}$/.test(trimmed)) {
-        time = trimmed.replace('：', ':')
+        const inputTime = trimmed.replace('：', ':')
+        const [inputHour, inputMinute] = inputTime.split(':').map(Number)
+        const now = new Date()
+        const currentHour = now.getHours()
+        const currentMinute = now.getMinutes()
+
+        // 🔥 只拦明显不合理的「未来时间」：
+        // 如果输入时间比当前时间晚超过 1 小时（例如现在 20:29，却写 22:00），
+        // 认为这是 AI 预测未来/写错时间，此时忽略自定义时间，使用当前时间。
+        const inputTotalMinutes = inputHour * 60 + inputMinute
+        const currentTotalMinutes = currentHour * 60 + currentMinute
+        const timeDiff = inputTotalMinutes - currentTotalMinutes // 正数=未来，负数=过去
+
+        if (timeDiff > 60) {
+          console.warn(`⚠️ [行程记录] 时间异常（未来）：现在是${currentHour}:${currentMinute.toString().padStart(2, '0')}，AI填了${inputTime}，忽略`)
+          // 不修改 time，保持使用当前时间
+        } else {
+          time = inputTime
+        }
       }
     }
     
