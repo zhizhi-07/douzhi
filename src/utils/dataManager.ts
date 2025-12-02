@@ -11,6 +11,7 @@ const INDEXED_DB_NAMES = [
   'EmojiDB',         // 表情包
   'LocationDB',      // 位置历史
   'CouplePhotosDB',  // 情侣照片
+  'UnifiedMemoryDB', // 记忆系统
 ]
 
 /**
@@ -305,6 +306,15 @@ async function exportIndexedDB(dbName: string): Promise<Record<string, any> | nu
 async function importIndexedDB(dbName: string, data: Record<string, any>): Promise<void> {
   console.log(`  🔓 正在打开数据库: ${dbName}`)
   
+  // 🔥 先删除旧数据库，确保能创建正确的store结构
+  await new Promise<void>((resolve) => {
+    const delReq = indexedDB.deleteDatabase(dbName)
+    delReq.onsuccess = () => resolve()
+    delReq.onerror = () => resolve()
+    delReq.onblocked = () => resolve()
+    setTimeout(resolve, 2000)
+  })
+  
   return new Promise((resolve, reject) => {
     // 添加超时
     const timeout = setTimeout(() => {
@@ -312,8 +322,8 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
       reject(new Error(`打开数据库超时: ${dbName}`))
     }, 10000)
     
-    // 打开数据库（不指定版本，用现有版本）
-    const request = indexedDB.open(dbName)
+    // 打开数据库（指定版本1，确保触发onupgradeneeded）
+    const request = indexedDB.open(dbName, 1)
     
     request.onupgradeneeded = () => {
       const db = request.result

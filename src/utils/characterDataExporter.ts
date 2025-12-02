@@ -131,10 +131,15 @@ export async function exportCharacterData(characterId: string): Promise<Exported
     const memos = getAllMemos(characterId)
     console.log('✅ AI随笔:', memos.length, '条')
     
-    // 5. 获取记忆系统数据
-    const memoryKey = `memories_${characterId}`
-    const memoriesData = localStorage.getItem(memoryKey)
-    const memories = memoriesData ? JSON.parse(memoriesData) : []
+    // 5. 获取记忆系统数据（从UnifiedMemoryDB）
+    let memories: any[] = []
+    try {
+      const { unifiedMemoryService } = await import('../services/unifiedMemoryService')
+      const allMemories = await unifiedMemoryService.getAllMemories()
+      memories = allMemories.filter(m => m.characterId === characterId)
+    } catch (e) {
+      console.warn('获取记忆数据失败:', e)
+    }
     console.log('✅ 记忆数据:', memories.length, '条')
     
     // 6. 获取朋友圈（该角色发的）
@@ -384,11 +389,31 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
       console.log('✅ AI随笔已导入:', jsonData.memos.length, '条')
     }
     
-    // 5. 导入记忆
+    // 5. 导入记忆（到UnifiedMemoryDB，兼容旧格式）
     if (jsonData.memories && jsonData.memories.length > 0) {
-      const memoryKey = `memories_${newId}`
-      localStorage.setItem(memoryKey, JSON.stringify(jsonData.memories))
-      console.log('✅ 记忆已导入:', jsonData.memories.length, '条')
+      try {
+        const { unifiedMemoryService } = await import('../services/unifiedMemoryService')
+        for (const mem of jsonData.memories) {
+          // 兼容旧格式：补全缺失字段
+          await unifiedMemoryService.addMemory({
+            domain: mem.domain || 'chat',
+            title: mem.title || mem.summary?.substring(0, 20) || '记忆',
+            summary: mem.summary || mem.content || '',
+            importance: mem.importance || 'normal',
+            timestamp: mem.timestamp || Date.now(),
+            tags: mem.tags || [],
+            emotionalTone: mem.emotionalTone || 'neutral',
+            extractedBy: mem.extractedBy || 'manual',
+            // 更新为新角色信息
+            characterId: newId,
+            characterName: newRealName,
+            characterAvatar: newAvatar
+          })
+        }
+        console.log('✅ 记忆已导入到UnifiedMemoryDB:', jsonData.memories.length, '条')
+      } catch (e) {
+        console.warn('记忆导入失败:', e)
+      }
     }
     
     // 6. 导入朋友圈（更新userId）
