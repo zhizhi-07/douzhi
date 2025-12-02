@@ -203,10 +203,14 @@ const UnifiedMemory = () => {
     // 从数据库加载真实记忆
     const realMemories = await unifiedMemoryService.getAllMemories()
     
-    // 如果没有记忆，添加一些示例数据
-    if (realMemories.length === 0) {
-      console.log('📝 [记忆系统] 首次使用，添加示例记忆...')
-      await addSampleMemories()
+    // 清除旧版预设示例数据（一次性清理）
+    const presetTitles = ['关于未来的约定', '雨天的问候', '无声的陪伴', '争执之后']
+    const presetMemories = realMemories.filter(m => presetTitles.includes(m.title))
+    if (presetMemories.length > 0) {
+      console.log('�️ [记忆系统] 清除旧版预设数据...')
+      for (const m of presetMemories) {
+        await unifiedMemoryService.deleteMemory(m.id)
+      }
       const updated = await unifiedMemoryService.getAllMemories()
       setMemories(updated)
     } else {
@@ -214,68 +218,6 @@ const UnifiedMemory = () => {
     }
   }
 
-  // 添加示例记忆（仅首次使用）
-  const addSampleMemories = async () => {
-    const sampleMemories: Omit<Memory, 'id'>[] = [
-      {
-        domain: 'chat',
-        characterId: '1',
-        characterName: '汁汁',
-        characterAvatar: undefined,
-        title: '关于未来的约定',
-        summary: '深夜里，我们聊起了关于未来的规划。他说想要换一份工作，去一个能看到海的城市。那个瞬间，我觉得我们的距离前所未有的近。',
-        importance: 'high',
-        timestamp: Date.now() - 1000 * 60 * 60 * 2,
-        tags: ['约定', '深度对话', '未来'],
-        emotionalTone: 'positive',
-        extractedBy: 'manual'
-      },
-      {
-        domain: 'moments',
-        characterId: '2',
-        characterName: '分发',
-        characterAvatar: undefined,
-        title: '雨天的问候',
-        summary: '在你那条"心情不好"的朋友圈下，他写下了一段很长的评论。不像平时那么吊儿郎当，字里行间都是小心翼翼的安慰。',
-        importance: 'normal',
-        timestamp: Date.now() - 1000 * 60 * 60 * 25,
-        tags: ['朋友圈', '安慰'],
-        emotionalTone: 'positive',
-        extractedBy: 'manual'
-      },
-      {
-        domain: 'action',
-        characterId: '1',
-        characterName: '汁汁',
-        characterAvatar: undefined,
-        title: '无声的陪伴',
-        summary: '没有任何征兆，只是发来了一张天空的照片。不需要多说什么，这份默契已经足够。',
-        importance: 'normal',
-        timestamp: Date.now() - 1000 * 60 * 60 * 48,
-        tags: ['主动', '分享'],
-        emotionalTone: 'positive',
-        extractedBy: 'manual'
-      },
-      {
-        domain: 'chat',
-        characterId: '3',
-        characterName: '唐秋水',
-        characterAvatar: undefined,
-        title: '争执之后',
-        summary: '虽然还在生气，但还是别扭地问了一句"吃饭了吗"。这大概就是他表达歉意的方式吧。',
-        importance: 'low',
-        timestamp: Date.now() - 1000 * 60 * 60 * 72,
-        tags: ['日常', '和解'],
-        emotionalTone: 'neutral',
-        extractedBy: 'manual'
-      }
-    ]
-    
-    // 保存到数据库
-    for (const mem of sampleMemories) {
-      await unifiedMemoryService.addMemory(mem)
-    }
-  }
 
   // 统计数据（按类型统计：总结=chat, 记忆=其他）
   const stats = useMemo(() => {
