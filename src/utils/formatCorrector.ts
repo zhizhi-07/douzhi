@@ -93,6 +93,13 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
     return `【状态：${content.trim()}】`
   })
 
+  // 🔥 直接移除错误格式：[外卖:图片:...] 和 [外卖:状态:...]
+  // 这些是AI搞混的格式，修正后也不会被正确处理，直接删掉
+  fixed = fixed.replace(/\[外卖[:\：](?:图片|照片)[:\：][^\]]*\]/g, () => {
+    corrections.push(`移除错误格式：外卖图片`)
+    return ''  // 直接删除，照片本身会由AI的正常[照片:...]指令生成
+  })
+
   // ========== 3. 语音格式修正 ==========
   
   // 🔥 只要包含"语音"就修正
