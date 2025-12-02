@@ -28,9 +28,21 @@ const saveFontToDB = async (font: { name: string; family: string; url: string })
   const db = await openDB()
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).put(font)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    const request = tx.objectStore(STORE_NAME).put(font)
+    request.onsuccess = () => {
+      console.log('✅ 字体已保存到 IndexedDB:', font.name)
+    }
+    request.onerror = () => {
+      console.error('❌ 保存字体到 IndexedDB 失败:', request.error)
+    }
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error)
+    }
   })
 }
 
@@ -39,8 +51,14 @@ const getAllFontsFromDB = async (): Promise<Array<{ name: string; family: string
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const request = tx.objectStore(STORE_NAME).getAll()
-    request.onsuccess = () => resolve(request.result || [])
-    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      db.close()
+      resolve(request.result || [])
+    }
+    request.onerror = () => {
+      db.close()
+      reject(request.error)
+    }
   })
 }
 
@@ -49,8 +67,14 @@ const deleteFontFromDB = async (name: string) => {
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite')
     tx.objectStore(STORE_NAME).delete(name)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error)
+    }
   })
 }
 
@@ -59,8 +83,14 @@ const getFontFromDB = async (name: string): Promise<{ name: string; family: stri
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const request = tx.objectStore(STORE_NAME).get(name)
-    request.onsuccess = () => resolve(request.result || null)
-    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      db.close()
+      resolve(request.result || null)
+    }
+    request.onerror = () => {
+      db.close()
+      reject(request.error)
+    }
   })
 }
 

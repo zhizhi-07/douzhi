@@ -314,35 +314,66 @@ function App() {
           const fontConfig = JSON.parse(customFont)
           let fontUrl = fontConfig.url
           
+          console.log('🔤 加载字体配置:', fontConfig.name, '| URL存在:', !!fontUrl)
+          
           // 如果 localStorage 没有 url，尝试从 IndexedDB 加载
           if (!fontUrl && fontConfig.name && fontConfig.name !== '经典衬线') {
+            console.log('🔤 尝试从 IndexedDB 加载字体:', fontConfig.name)
             try {
-              const request = indexedDB.open('FontStorage', 1)
+              // 使用更可靠的 IndexedDB 打开方式
               const db = await new Promise<IDBDatabase>((resolve, reject) => {
-                request.onerror = () => reject(request.error)
-                request.onsuccess = () => resolve(request.result)
+                const request = indexedDB.open('FontStorage', 1)
+                
+                request.onerror = () => {
+                  console.error('❌ 打开字体数据库失败:', request.error)
+                  reject(request.error)
+                }
+                
                 request.onupgradeneeded = (event) => {
+                  console.log('🔤 字体数据库升级中...')
                   const db = (event.target as IDBOpenDBRequest).result
                   if (!db.objectStoreNames.contains('fonts')) {
                     db.createObjectStore('fonts', { keyPath: 'name' })
                   }
                 }
+                
+                request.onsuccess = () => {
+                  console.log('✅ 字体数据库打开成功')
+                  resolve(request.result)
+                }
               })
-              const tx = db.transaction('fonts', 'readonly')
-              const fontData = await new Promise<{ name: string; family: string; url: string } | null>((resolve, reject) => {
-                const req = tx.objectStore('fonts').get(fontConfig.name)
-                req.onsuccess = () => resolve(req.result || null)
-                req.onerror = () => reject(req.error)
-              })
-              if (fontData?.url) {
-                fontUrl = fontData.url
+              
+              // 检查对象存储是否存在
+              if (!db.objectStoreNames.contains('fonts')) {
+                console.warn('⚠️ fonts 对象存储不存在')
+                db.close()
+              } else {
+                const fontData = await new Promise<{ name: string; family: string; url: string } | null>((resolve, reject) => {
+                  const tx = db.transaction('fonts', 'readonly')
+                  const req = tx.objectStore('fonts').get(fontConfig.name)
+                  req.onsuccess = () => {
+                    console.log('🔤 IndexedDB 查询结果:', req.result ? '找到字体' : '未找到字体')
+                    resolve(req.result || null)
+                  }
+                  req.onerror = () => {
+                    console.error('❌ 查询字体失败:', req.error)
+                    reject(req.error)
+                  }
+                })
+                db.close()
+                
+                if (fontData?.url) {
+                  fontUrl = fontData.url
+                  console.log('✅ 从 IndexedDB 获取字体 URL 成功')
+                }
               }
             } catch (err) {
-              console.error('从 IndexedDB 加载字体失败:', err)
+              console.error('❌ 从 IndexedDB 加载字体失败:', err)
             }
           }
 
           if (fontUrl) {
+            console.log('🔤 应用字体:', fontConfig.name)
             // 判断是CSS链接还是字体文件
             if (fontUrl.includes('.css') || fontUrl.includes('fonts.googleapis.com')) {
               const link = document.createElement('link')
@@ -351,21 +382,28 @@ function App() {
               document.head.appendChild(link)
             } else {
               const style = document.createElement('style')
+              style.id = 'custom-font-style'
               style.textContent = `
                 @font-face {
                   font-family: '${fontConfig.name}';
                   src: url('${fontUrl}');
+                  font-display: swap;
                 }
               `
+              // 先移除旧的样式
+              const oldStyle = document.getElementById('custom-font-style')
+              if (oldStyle) oldStyle.remove()
               document.head.appendChild(style)
             }
             // 设置 CSS 变量，让全局字体生效
             setTimeout(() => {
               document.documentElement.style.setProperty('--global-font-family', fontConfig.family)
+              console.log('✅ 字体已应用:', fontConfig.family)
             }, 100)
           } else if (fontConfig.family) {
-            // 有 family 但没有 url，直接设置 CSS 变量
+            // 有 family 但没有 url，直接设置 CSS 变量（可能是系统字体）
             document.documentElement.style.setProperty('--global-font-family', fontConfig.family)
+            console.log('✅ 设置字体 family:', fontConfig.family)
           }
         } catch (err) {
           console.error('❌ 加载字体失败:', err)

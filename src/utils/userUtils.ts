@@ -58,8 +58,12 @@ export const getUserInfoWithAvatar = async (): Promise<UserInfo> => {
       // 如果 localStorage 里直接存的是 base64 头像，直接用
       if (parsed.avatar && parsed.avatar.startsWith('data:')) {
         info.avatar = parsed.avatar
-        console.log('✅ [用户头像] 从 localStorage 直接读取')
+        console.log('✅ [用户头像] 从 localStorage 直接读取 base64')
         return info
+      }
+      // 记录是否有标记
+      if (parsed.avatar === 'indexeddb://user_avatar') {
+        console.log('📌 [用户头像] localStorage 有 IndexedDB 标记，尝试从 IndexedDB 加载')
       }
     }
   } catch (e) {
@@ -71,7 +75,7 @@ export const getUserInfoWithAvatar = async (): Promise<UserInfo> => {
     const avatar = await getUserAvatar()
     if (avatar) {
       info.avatar = avatar
-      console.log('✅ [用户头像] 从 IndexedDB 读取成功')
+      console.log('✅ [用户头像] 从 IndexedDB 读取成功，长度:', avatar.length)
     } else {
       console.log('⚠️ [用户头像] IndexedDB 中无头像')
     }

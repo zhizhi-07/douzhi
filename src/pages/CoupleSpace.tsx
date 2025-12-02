@@ -95,10 +95,19 @@ const CoupleSpace = () => {
   // 异步加载用户头像
   const loadUserAvatar = async () => {
     console.log('🔄 [情侣空间] 开始加载用户头像...')
-    const userInfo = await getUserInfoWithAvatar()
-    console.log('🔄 [情侣空间] 获取到用户信息:', userInfo.avatar ? '有头像' : '无头像')
-    if (userInfo.avatar) {
-      setUserAvatar(userInfo.avatar)
+    
+    // 🔥 从 getUserInfoWithAvatar 获取（会自动处理 localStorage 和 IndexedDB）
+    try {
+      const userInfo = await getUserInfoWithAvatar()
+      console.log('🔄 [情侣空间] 获取到用户信息:', userInfo.avatar ? '有头像' : '无头像', userInfo.avatar?.substring(0, 50))
+      if (userInfo.avatar) {
+        setUserAvatar(userInfo.avatar)
+        console.log('✅ [情侣空间] 头像已设置到状态')
+      } else {
+        console.log('⚠️ [情侣空间] 未获取到头像')
+      }
+    } catch (error) {
+      console.error('❌ [情侣空间] 加载头像失败:', error)
     }
   }
 
