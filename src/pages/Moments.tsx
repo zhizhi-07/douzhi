@@ -160,7 +160,6 @@ export default function Moments() {
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
       {/* 背景装饰 */}
       <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-[80px] pointer-events-none" />
 
       {/* 顶部导航栏 - 悬浮 */}
       <div className="absolute top-0 left-0 right-0 z-50">
@@ -254,12 +253,22 @@ export default function Moments() {
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <div className="flex items-start gap-4">
-                  {/* 用户头像 */}
+                  {/* 用户头像 - 用户自己的朋友圈显示最新头像 */}
                   <div className="w-12 h-12 rounded-[18px] bg-slate-100 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden border border-white/50">
-                    {moment.userAvatar && moment.userAvatar.startsWith('data:') ? (
-                      <img src={moment.userAvatar} alt={moment.userName} className="w-full h-full object-cover" />
+                    {(moment.userId === currentUser.id || moment.userId === 'user') ? (
+                      // 用户自己的朋友圈：显示最新头像
+                      userAvatar ? (
+                        <img src={userAvatar} alt={moment.userName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-lg">👤</div>
+                      )
                     ) : (
-                      <div className="text-lg">{moment.userAvatar || '👤'}</div>
+                      // 其他人的朋友圈：显示发布时的头像
+                      moment.userAvatar && moment.userAvatar.startsWith('data:') ? (
+                        <img src={moment.userAvatar} alt={moment.userName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-lg">{moment.userAvatar || '👤'}</div>
+                      )
                     )}
                   </div>
 
@@ -300,7 +309,8 @@ export default function Moments() {
                             <span>{moment.location}</span>
                           </>
                         )}
-                        {moment.userId === currentUser.id && (
+                        {/* 用户发的朋友圈可以删除 */}
+                        {(moment.userId === currentUser.id || moment.userId === 'user') && (
                           <button
                             onClick={() => handleDelete(moment.id)}
                             className="text-slate-300 hover:text-red-400 transition-colors ml-2"

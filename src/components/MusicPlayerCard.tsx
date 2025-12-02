@@ -16,8 +16,7 @@ interface MusicPlayerCardProps {
 const MusicPlayerCard: React.FC<MusicPlayerCardProps> = ({
   currentSong,
   isPlaying,
-  onTogglePlay,
-  onNext,
+  // onTogglePlay, onNext - 保留接口但当前未使用
   onClick
 }) => {
   // 无音乐时也显示唱片

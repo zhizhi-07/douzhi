@@ -30,6 +30,7 @@ interface AddMenuProps {
   onSelectShopping: () => void
   onSelectPost: () => void
   onSelectFormatCorrector: () => void
+  hasCoupleSpaceActive?: boolean
   customIcons?: Record<string, string>
 }
 

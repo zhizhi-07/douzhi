@@ -92,6 +92,16 @@ const CoupleSpace = () => {
     return () => clearInterval(intervalId)
   }, [])
 
+  // 异步加载用户头像
+  const loadUserAvatar = async () => {
+    console.log('🔄 [情侣空间] 开始加载用户头像...')
+    const userInfo = await getUserInfoWithAvatar()
+    console.log('🔄 [情侣空间] 获取到用户信息:', userInfo.avatar ? '有头像' : '无头像')
+    if (userInfo.avatar) {
+      setUserAvatar(userInfo.avatar)
+    }
+  }
+
   useEffect(() => {
     loadRelation()
     loadUserAvatar()
@@ -110,14 +120,6 @@ const CoupleSpace = () => {
       window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
     }
   }, [])
-
-  // 异步加载用户头像
-  const loadUserAvatar = async () => {
-    const userInfo = await getUserInfoWithAvatar()
-    if (userInfo.avatar) {
-      setUserAvatar(userInfo.avatar)
-    }
-  }
 
   const loadRelation = async () => {
     setRelation(getCoupleSpaceRelation())
