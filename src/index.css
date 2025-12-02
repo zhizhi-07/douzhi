@@ -42,9 +42,9 @@ body,
   min-height: 100% !important;
 }
 
-/* 全局背景透明 - 让App.tsx的全局背景显示 */
+/* 全局背景 - 确保覆盖iOS安全区域 */
 body {
-  background: transparent !important;
+  background: #f5f7fa !important;
 }
 
 /* 只在iOS standalone模式（PWA添加到主屏幕）下使用dvh */
@@ -255,6 +255,8 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
+  /* iOS安全区域背景延伸 */
+  background: #f5f7fa;
 }
 
 body {
@@ -264,6 +266,8 @@ body {
   background: #f5f7fa;
   overflow: hidden;
   overscroll-behavior: none;
+  /* iOS底部安全区域背景填充 */
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* 🎨 强制全局字体覆盖 Tailwind 的 font-sans/font-serif 等类 */

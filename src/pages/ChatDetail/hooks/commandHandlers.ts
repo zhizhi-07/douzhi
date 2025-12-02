@@ -1261,7 +1261,22 @@ export const quoteHandler: CommandHandler = {
   handler: async (match, content, { messages, character }) => {
     // 提取引用关键词和回复内容
     const quoteRef = match[1].trim()
-    const replyContent = match[2].trim()
+    let replyContent = match[2].trim()
+    let extraContent = '' // 被截掉的多余内容，需要保留到后续处理
+    
+    // 🔥 修复：如果AI错误地在回复内容中又使用了"回复:"（如[引用:xx 回复:yy 回复:zz]）
+    // 需要在第一个"回复:"处截断，后面的内容应该作为独立消息处理
+    const extraReplyMatch = replyContent.match(/^(.+?)(\s+回复[:：].*)$/)
+    if (extraReplyMatch) {
+      console.warn('⚠️ [quoteHandler] 检测到AI错误地在回复内容中使用了多个"回复:"')
+      console.log('   原始replyContent:', replyContent)
+      replyContent = extraReplyMatch[1].trim()
+      // 🔥 保留被截掉的部分（回复:zz），作为新的引用指令或普通文本处理
+      extraContent = '\n[引用:' + quoteRef + extraReplyMatch[2] + ']'
+      console.log('   截取后replyContent:', replyContent)
+      console.log('   保留的extraContent:', extraContent)
+    }
+    
     console.log('🔍 [quoteHandler] 开始处理引用指令:', { quoteRef, replyContent, fullMatch: match[0] })
     let quotedMsg: Message['quotedMessage'] | undefined
 
@@ -1410,7 +1425,8 @@ export const quoteHandler: CommandHandler = {
 
     // 🔥 新格式：回复内容已经在指令里了，直接使用
     // 移除引用指令，保留回复内容
-    const remainingText = content.replace(match[0], replyContent)
+    // 🔥 如果有extraContent（AI错误使用了多个回复:），也要保留
+    const remainingText = content.replace(match[0], replyContent) + extraContent
     return { 
       handled: true, 
       quotedMsg, 

@@ -629,17 +629,20 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     }
     
     // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
+    // 限制：只保存最近50条消息的备份，避免localStorage空间不足
     try {
       const backupKey = `msg_backup_${storageKey}`
+      const recentMessages = cleanedMessages.slice(-50) // 只备份最近50条
       localStorage.setItem(backupKey, JSON.stringify({
-        messages: cleanedMessages,
-        timestamp: Date.now()
+        messages: recentMessages,
+        timestamp: Date.now(),
+        totalCount: cleanedMessages.length // 记录总数，用于恢复时判断
       }))
       if (import.meta.env.DEV) {
-        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}`)
+        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}, backup=${recentMessages.length}/${cleanedMessages.length}`)
       }
-    } catch (e) {
-      console.warn(`⚠️ [localStorage备份] 保存失败（可能空间不足）:`, e)
+    } catch {
+      // 空间不足，直接放弃备份，IndexedDB会保存完整数据
     }
     
     // 立即保存到IndexedDB（使用清理后的消息）
@@ -694,15 +697,18 @@ export function addMessage(chatId: string, message: Message): void {
   const storageKey = getAccountChatKey(chatId)
   
   // 🔥 立即同步备份到localStorage（最高优先级，确保不丢失）
+  // 限制：只保存最近50条消息的备份
   try {
     const backupKey = `msg_backup_${storageKey}`
     const cachedMessages = messageCache.get(storageKey) || []
     const updatedMessages = [...cachedMessages, message]
+    const recentMessages = updatedMessages.slice(-50) // 只备份最近50条
     
     const seen = new WeakSet()
     const jsonString = JSON.stringify({
-      messages: updatedMessages,
-      timestamp: Date.now()
+      messages: recentMessages,
+      timestamp: Date.now(),
+      totalCount: updatedMessages.length
     }, (_key, value) => {
       if (typeof value === 'object' && value !== null) {
         if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
@@ -716,9 +722,11 @@ export function addMessage(chatId: string, message: Message): void {
     })
     
     localStorage.setItem(backupKey, jsonString)
-    console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, messageId=${message.id}`)
-  } catch (e) {
-    console.error('❌ [addMessage] 备份失败:', e)
+    if (import.meta.env.DEV) {
+      console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, backup=${recentMessages.length}条`)
+    }
+  } catch {
+    // 空间不足，静默失败，IndexedDB会保存完整数据
   }
   
   // 异步保存到IndexedDB（可以慢慢来）

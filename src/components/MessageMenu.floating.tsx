@@ -114,19 +114,17 @@ const MessageMenu = ({
             引用
           </button>
 
-          {/* 编辑（仅自己的消息） */}
-          {isSentMessage && (
-            <button
-              onClick={() => {
-                onEdit()
-                onClose()
-              }}
-              className="w-full px-4 py-2.5 hover:bg-black/5 text-left text-sm text-gray-900 transition-all"
-              style={{ border: 'none', background: 'transparent' }}
-            >
-              编辑
-            </button>
-          )}
+          {/* 编辑（用户和AI消息都可以编辑） */}
+          <button
+            onClick={() => {
+              onEdit()
+              onClose()
+            }}
+            className="w-full px-4 py-2.5 hover:bg-black/5 text-left text-sm text-gray-900 transition-all"
+            style={{ border: 'none', background: 'transparent' }}
+          >
+            编辑
+          </button>
 
           {/* 撤回（仅自己的消息，且2分钟内） */}
           {canRecall && (

@@ -210,29 +210,20 @@ export const useChatAI = (
         throw new ChatApiError('请先配置API', 'NO_API_CONFIG')
       }
 
-      // 🔍 检查是否需要识别用户头像（首次聊天或头像变化）
+      // 🔥 获取用户信息
       const { getUserInfoWithAvatar } = await import('../../../utils/userUtils')
-      const { hasAvatarChanged } = await import('../../../utils/userAvatarManager')
-
-      // 🔥 使用异步方法获取完整用户信息（包括 IndexedDB 里的头像）
+      const { getUserAvatarInfo } = await import('../../../utils/userAvatarManager')
       const userInfo = await getUserInfoWithAvatar()
       
-      // 🔥 强制日志：检查用户头像状态
-      console.log('📷 [头像检查] 用户头像状态:', {
-        hasAvatar: !!userInfo.avatar,
-        avatarLength: userInfo.avatar?.length || 0,
-        avatarPreview: userInfo.avatar?.substring(0, 50) || '无'
-      })
+      // 🔥 头像识别逻辑：只在没有描述时识别，有描述就不再识别（除非用户手动清除）
+      const avatarInfo = getUserAvatarInfo()
+      const hasValidDescription = avatarInfo.current?.description && 
+        !avatarInfo.current.description.includes('待识别') && 
+        !avatarInfo.current.description.includes('无法看到')
       
-      const needsAvatarRecognition = userInfo.avatar && hasAvatarChanged(userInfo.avatar)
+      const needsAvatarRecognition = userInfo.avatar && !hasValidDescription
       
-      console.log('📷 [头像检查] needsAvatarRecognition:', needsAvatarRecognition)
-
-      if (needsAvatarRecognition) {
-        console.log('🖼️ [头像识别] 检测到用户头像变化或首次识别，将在聊天时一起识别')
-      } else {
-        console.log('📷 [头像检查] 不需要识别头像，原因:', !userInfo.avatar ? '用户没有设置头像' : '头像未变化')
-      }
+      console.log('📷 [头像检查]', hasValidDescription ? `已有描述: ${avatarInfo.current?.description}` : '需要识别头像')
 
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', chatId)
@@ -270,7 +261,9 @@ export const useChatAI = (
             console.error('[useChatAI] 解析聊天设置失败:', e)
           }
         }
-        systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCardsForPrompt)
+        // 🔥 修复：传入用户真名，而不是硬编码的"用户"
+        const userName = userInfo.realName || userInfo.nickname || '用户'
+        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt)
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）
@@ -532,10 +525,10 @@ export const useChatAI = (
         } else {
           console.log('🖼️ [头像识别] 在聊天请求中附加头像图片')
 
-        // 在系统提示词末尾添加识别请求（简化版，减少token消耗）
+        // 在系统提示词末尾添加识别请求
         systemPrompt += `
 
-🖼️ 用户换了头像，回复时用[头像描述:简短描述]记录，15字内，只说主体和特征。例：[头像描述:橘猫，圆眼睛，很萌]`
+🖼️ 用户换了头像，回复时用[头像描述:xxx]记录你看到的内容。描述30字左右，说说主体是什么、有什么特征、整体感觉。例：[头像描述:一只橘猫趴在窗台上晒太阳，毛茸茸的，眯着眼睛很惬意]`
 
         // 找到最后一条用户消息，附加头像图片
         console.log('🔍 [头像识别] apiMessages数量:', apiMessages.length)
@@ -1426,8 +1419,23 @@ export const useChatAI = (
             break
           } else {
             // 还有更多引用，只取到下一个引用之前
-            const content = remaining.substring(0, nextQuoteIndex).trim()
-            segments.push(quote + (content ? ' ' + content : ''))
+            // 🔥 修复：不要把换行后的内容也合并，只取同一行的内容
+            const content = remaining.substring(0, nextQuoteIndex)
+            const firstLineEnd = content.indexOf('\n')
+            
+            if (firstLineEnd === -1 || firstLineEnd === content.length - 1) {
+              // 没有换行，或者换行在末尾，所有内容都是同一行
+              segments.push(quote + (content.trim() ? ' ' + content.trim() : ''))
+            } else {
+              // 有换行，只取第一行作为引用的回复内容
+              const firstLine = content.substring(0, firstLineEnd).trim()
+              segments.push(quote + (firstLine ? ' ' + firstLine : ''))
+              // 后面的内容作为独立segment
+              const restContent = content.substring(firstLineEnd + 1).trim()
+              if (restContent) {
+                segments.push(restContent)
+              }
+            }
             remaining = remaining.substring(nextQuoteIndex)
           }
         }

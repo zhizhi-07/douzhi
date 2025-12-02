@@ -5,6 +5,28 @@
  * 避免AI读取整个梗库浪费token
  */
 
+// 梗库设置
+export interface MemeSettings {
+  enabled: boolean        // 是否启用梗推荐
+  maxRecommend: number    // 最多推荐几条梗
+}
+
+export function getMemeSettings(): MemeSettings {
+  const saved = localStorage.getItem('meme_settings')
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch (e) {
+      // ignore
+    }
+  }
+  return { enabled: true, maxRecommend: 3 }
+}
+
+export function saveMemeSettings(settings: MemeSettings) {
+  localStorage.setItem('meme_settings', JSON.stringify(settings))
+}
+
 export interface Meme {
   id: string
   name: string
@@ -118,35 +140,155 @@ export function generateMemesPrompt(matchedMemes: Meme[], suggestedMemes: Meme[]
 
 /**
  * 一键检索并生成提示词
+ * @param userMessage 用户最后一条消息（用于精确匹配用户用的梗）
+ * @param context 对话上下文（用于关键词匹配推荐梗）
  */
-export function getMemesSuggestion(userMessage: string, maxMatch: number = 3): string {
+export function getMemesSuggestion(userMessage: string, context: string = ''): string {
+  const settings = getMemeSettings()
+  
+  // 如果用户关闭了梗推荐
+  if (!settings.enabled) {
+    return ''
+  }
+  
+  const maxRecommend = settings.maxRecommend || 3
+  
   const allMemes = getAllMemes()
-  console.log('🔥 [梗库] 总共', allMemes.length, '个梗')
-  console.log('🔥 [梗库] 用户消息:', userMessage)
+  if (allMemes.length === 0) return ''
   
-  // 1. 匹配用户消息中的梗
-  const matchedMemes = retrieveMemes(userMessage, maxMatch)
-  console.log('🔥 [梗库] 匹配到', matchedMemes.length, '个梗:', matchedMemes.map(m => m.name))
+  console.log('🔥 [梗库] 总共', allMemes.length, '个梗, 最多推荐', maxRecommend, '条')
   
-  // 2. 推荐梗给AI用（排除已匹配的，按优先级排序）
-  const matchedIds = new Set(matchedMemes.map(m => m.id))
-  const candidates = allMemes.filter(m => !matchedIds.has(m.id))
+  // 1. 精确匹配用户用的梗（按梗名称原话匹配）
+  const userUsedMemes = allMemes.filter(meme => 
+    userMessage.includes(meme.name)
+  )
+  console.log('🔥 [梗库] 用户用的梗:', userUsedMemes.map(m => m.name))
   
-  // 按优先级分组，高优先级的更容易被选中
-  const highPriority = candidates.filter(m => (m.priority || 1) >= 3)
-  const midPriority = candidates.filter(m => (m.priority || 1) === 2)
-  const lowPriority = candidates.filter(m => (m.priority || 1) <= 1)
+  // 2. 关键词匹配推荐梗（排除用户已用的）
+  const usedIds = new Set(userUsedMemes.map(m => m.id))
+  const recommendMemes = getRecommendMemes(context || userMessage, maxRecommend, usedIds, allMemes)
+  console.log('🔥 [梗库] 推荐的梗:', recommendMemes.map(m => m.name))
   
-  // 优先从高优先级选，不够再从低的补
-  const pool = [
-    ...highPriority.sort(() => Math.random() - 0.5),
-    ...midPriority.sort(() => Math.random() - 0.5),
-    ...lowPriority.sort(() => Math.random() - 0.5)
-  ]
-  const suggestedMemes = pool.slice(0, 2)
-  console.log('🔥 [梗库] 推荐', suggestedMemes.length, '个梗:', suggestedMemes.map(m => m.name))
+  if (userUsedMemes.length === 0 && recommendMemes.length === 0) {
+    return ''
+  }
   
-  const result = generateMemesPrompt(matchedMemes, suggestedMemes)
-  console.log('🔥 [梗库] 生成提示词:', result || '(空)')
-  return result
+  // 生成提示词
+  let prompt = ''
+  
+  // 用户用的梗 - AI要懂
+  if (userUsedMemes.length > 0) {
+    prompt += '\n【用户用了这些梗，你要懂】\n'
+    userUsedMemes.forEach(meme => {
+      prompt += `「${meme.name}」= ${meme.description}\n`
+    })
+  }
+  
+  // 推荐的梗 - AI可以用
+  if (recommendMemes.length > 0) {
+    prompt += '\n【当前网络热梗，可自然使用】\n'
+    recommendMemes.forEach(meme => {
+      prompt += `「${meme.name}」- ${meme.description}\n`
+    })
+  }
+  
+  console.log('🔥 [梗库] 生成提示词:', prompt)
+  return prompt
+}
+
+/**
+ * 获取推荐梗（关键词匹配 + 常用补充）
+ */
+function getRecommendMemes(context: string, maxCount: number, excludeIds: Set<string>, allMemes: Meme[]): Meme[] {
+  const contextLower = context.toLowerCase()
+  
+  // 关键词匹配
+  const memesWithScore: Array<{ meme: Meme; score: number }> = []
+  
+  for (const meme of allMemes) {
+    if (excludeIds.has(meme.id)) continue
+    
+    let score = 0
+    
+    // 解析关键词，过滤太短的
+    const keywords = (meme.keywords || '').split(/[,，\s]+/).filter(k => k.length >= 2)
+    
+    keywords.forEach(keyword => {
+      if (contextLower.includes(keyword.toLowerCase())) {
+        score += 2
+      }
+    })
+    
+    if (score > 0) {
+      // 优先级加成
+      const priorityBonus = (meme.priority || 1) * 0.5
+      memesWithScore.push({ meme, score: score + priorityBonus })
+    }
+  }
+  
+  // 按匹配度排序
+  const matched = memesWithScore
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxCount)
+    .map(item => item.meme)
+  
+  // 不够就用常用梗补充
+  if (matched.length < maxCount) {
+    const matchedIds = new Set(matched.map(m => m.id))
+    const remaining = allMemes
+      .filter(m => !excludeIds.has(m.id) && !matchedIds.has(m.id))
+      .sort((a, b) => (b.priority || 1) - (a.priority || 1))
+    
+    const needed = maxCount - matched.length
+    return [...matched, ...remaining.slice(0, needed)]
+  }
+  
+  return matched
+}
+
+/**
+ * 带优先级的关键词匹配
+ */
+function retrieveMemesWithPriority(userMessage: string, maxResults: number): Meme[] {
+  if (!userMessage || !userMessage.trim()) return []
+  
+  const allMemes = getAllMemes()
+  if (allMemes.length === 0) return []
+  
+  const messageLower = userMessage.toLowerCase()
+  
+  // 计算每个梗的匹配度
+  const memesWithScore: Array<{ meme: Meme; score: number }> = []
+  
+  for (const meme of allMemes) {
+    let score = 0
+    
+    // 解析关键词，过滤掉太短的（至少2个字符）
+    const keywords = (meme.keywords || '').split(/[,，\s]+/).filter(k => k.length >= 2)
+    
+    // 关键词匹配 - 只匹配较长的关键词
+    keywords.forEach(keyword => {
+      if (messageLower.includes(keyword.toLowerCase())) {
+        score += 2
+      }
+    })
+    
+    // 梗名称匹配
+    if (messageLower.includes(meme.name.toLowerCase())) {
+      score += 3
+    }
+    
+    // 只有匹配到关键词才加入结果
+    if (score > 0) {
+      // 优先级加成
+      const priorityBonus = (meme.priority || 1) * 0.5
+      memesWithScore.push({ meme, score: score + priorityBonus })
+    }
+  }
+  
+  // 按匹配度排序
+  return memesWithScore
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults)
+    .map(item => item.meme)
 }

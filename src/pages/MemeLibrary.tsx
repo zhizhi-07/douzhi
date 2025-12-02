@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
+import { getMemeSettings, saveMemeSettings, MemeSettings } from '../utils/memeRetrieval'
 
 interface Meme {
     id: string
@@ -18,6 +19,14 @@ const MemeLibrary = () => {
     const [newMeme, setNewMeme] = useState({ name: '', keywords: '', description: '', priority: 2 })
     const [searchQuery, setSearchQuery] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
+    const [importStatus, setImportStatus] = useState<string | null>(null)
+    const [showSettings, setShowSettings] = useState(false)
+    const [settings, setSettings] = useState<MemeSettings>({ enabled: true, maxRecommend: 3 })
+
+    useEffect(() => {
+        // 加载设置
+        setSettings(getMemeSettings())
+    }, [])
 
     useEffect(() => {
         const saved = localStorage.getItem('meme_library_data')
@@ -82,6 +91,49 @@ const MemeLibrary = () => {
         localStorage.setItem('meme_library_data', JSON.stringify(updatedMemes))
     }
 
+    // 批量导入JSON
+    const handleImportJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        reader.onload = (e) => {
+            try {
+                const content = e.target?.result as string
+                const data = JSON.parse(content)
+                
+                // 支持数组或对象格式
+                const importedMemes: Meme[] = (Array.isArray(data) ? data : [data]).map((item: any, index: number) => ({
+                    id: `import_${Date.now()}_${index}`,
+                    name: item.name || item.title || `未命名${index + 1}`,
+                    keywords: item.keywords || item.tags || '',
+                    description: item.description || item.content || item.text || '',
+                    createdAt: Date.now(),
+                    priority: item.priority || 2
+                })).filter((m: Meme) => m.name && m.description)
+
+                if (importedMemes.length === 0) {
+                    setImportStatus('❌ 没有找到有效的梗数据')
+                    return
+                }
+
+                const updatedMemes = [...importedMemes, ...memes]
+                setMemes(updatedMemes)
+                localStorage.setItem('meme_library_data', JSON.stringify(updatedMemes))
+                setImportStatus(`✅ 成功导入 ${importedMemes.length} 条梗`)
+                
+                setTimeout(() => setImportStatus(null), 3000)
+            } catch (err) {
+                console.error('Import failed:', err)
+                setImportStatus('❌ JSON格式错误')
+                setTimeout(() => setImportStatus(null), 3000)
+            }
+        }
+        reader.readAsText(file)
+        // 清空input以便重复选择同一文件
+        event.target.value = ''
+    }
+
     // 搜索过滤
     const filteredMemes = useMemo(() => {
         if (!searchQuery.trim()) return memes
@@ -109,15 +161,47 @@ const MemeLibrary = () => {
                             </svg>
                         </button>
                         <h1 className="text-lg font-bold text-gray-900">梗库</h1>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="p-2 -mr-2 text-gray-800 hover:bg-gray-200 rounded-full transition-colors"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {/* 设置按钮 */}
+                            <button
+                                onClick={() => setShowSettings(true)}
+                                className="p-2 text-gray-800 hover:bg-gray-200 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
+                            {/* 批量导入按钮 */}
+                            <label className="p-2 text-gray-800 hover:bg-gray-200 rounded-full transition-colors cursor-pointer">
+                                <input
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleImportJSON}
+                                    className="hidden"
+                                />
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                            </label>
+                            {/* 添加按钮 */}
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="p-2 -mr-2 text-gray-800 hover:bg-gray-200 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
+
+                    {/* 导入状态提示 */}
+                    {importStatus && (
+                        <div className="mb-3 px-3 py-2 rounded-lg bg-gray-100 text-sm text-gray-700 text-center">
+                            {importStatus}
+                        </div>
+                    )}
 
                     {/* 搜索框 */}
                     <div className="relative">
@@ -209,6 +293,80 @@ const MemeLibrary = () => {
             </div>
 
             {/* 模态框 - 使用标准样式 */}
+            {/* 设置模态框 */}
+            {showSettings && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-lg font-bold text-gray-900">梗推荐设置</h2>
+                            <button
+                                onClick={() => setShowSettings(false)}
+                                className="p-2 -mr-2 text-gray-500 hover:text-gray-800"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-5">
+                            {/* 启用开关 */}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="font-medium text-gray-900">启用梗推荐</div>
+                                    <div className="text-sm text-gray-500">聊天时根据关键词推荐梗给AI</div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const newSettings = { ...settings, enabled: !settings.enabled }
+                                        setSettings(newSettings)
+                                        saveMemeSettings(newSettings)
+                                    }}
+                                    className={`relative w-12 h-7 rounded-full transition-colors ${
+                                        settings.enabled ? 'bg-blue-500' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                        settings.enabled ? 'left-6' : 'left-1'
+                                    }`} />
+                                </button>
+                            </div>
+
+                            {/* 推荐数量 */}
+                            <div>
+                                <div className="font-medium text-gray-900 mb-2">最多推荐几条梗</div>
+                                <div className="text-sm text-gray-500 mb-3">每次聊天最多匹配推荐的梗数量</div>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 5, 10].map(n => (
+                                        <button
+                                            key={n}
+                                            onClick={() => {
+                                                const newSettings = { ...settings, maxRecommend: n }
+                                                setSettings(newSettings)
+                                                saveMemeSettings(newSettings)
+                                            }}
+                                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                                                settings.maxRecommend === n
+                                                    ? 'bg-blue-500 text-white'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {n}条
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 说明 */}
+                            <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                                <p>💡 梗推荐是根据对话中的<span className="text-blue-600 font-medium">关键词</span>匹配的，不会随机推荐。</p>
+                                <p className="mt-1">匹配到的梗会按优先级排序，常用梗优先推荐。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-slide-up">
