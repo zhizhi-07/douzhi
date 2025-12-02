@@ -15,7 +15,7 @@ import {
 } from '../utils/coupleSpaceUtils'
 import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 import { addMessage } from '../utils/simpleMessageManager'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar } from '../utils/userUtils'
 
 // 预设背景主题
 const THEMES = [
@@ -68,6 +68,8 @@ const CoupleSpace = () => {
 
   // 互动动画状态
   const [interactions, setInteractions] = useState<{ id: number, type: 'heart' | 'kiss', x: number, y: number }[]>([])
+  // 用户头像（异步加载）
+  const [userAvatar, setUserAvatar] = useState<string>('')
 
   // 连续平滑滚动逻辑 - 用 setInterval 更可靠
   useEffect(() => {
@@ -92,8 +94,9 @@ const CoupleSpace = () => {
 
   useEffect(() => {
     loadRelation()
+    loadUserAvatar()
     const handleVisibilityChange = () => { if (!document.hidden) loadRelation() }
-    const handleUserInfoUpdate = () => { loadRelation() }
+    const handleUserInfoUpdate = () => { loadRelation(); loadUserAvatar() }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', loadRelation)
@@ -107,6 +110,14 @@ const CoupleSpace = () => {
       window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
     }
   }, [])
+
+  // 异步加载用户头像
+  const loadUserAvatar = async () => {
+    const userInfo = await getUserInfoWithAvatar()
+    if (userInfo.avatar) {
+      setUserAvatar(userInfo.avatar)
+    }
+  }
 
   const loadRelation = async () => {
     setRelation(getCoupleSpaceRelation())
@@ -189,8 +200,8 @@ const CoupleSpace = () => {
   const currentTheme = THEMES[themeIndex]
   const daysCount = activeRelation ? Math.floor((Date.now() - (activeRelation.acceptedAt || activeRelation.createdAt)) / (1000 * 60 * 60 * 24)) : 0
 
-  // 获取用户头像，如果没有则为空字符串
-  const userAvatar = activeRelation?.userAvatar || getUserInfo().avatar
+  // 获取用户头像：优先使用关系中保存的，否则使用异步加载的
+  const displayUserAvatar = activeRelation?.userAvatar || userAvatar
 
   return (
     <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500" style={{ background: currentTheme.bg }}>
@@ -353,11 +364,11 @@ const CoupleSpace = () => {
                 <div className="flex flex-col items-center z-10">
                   <div className="w-20 h-20 rounded-full p-1 bg-white/30 backdrop-blur-sm shadow-lg relative group flex items-center justify-center">
                     <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-gray-200 flex items-center justify-center">
-                      {userAvatar ? (
-                        <img src={userAvatar} className="w-full h-full object-cover" alt="Me" />
+                      {displayUserAvatar ? (
+                        <img src={displayUserAvatar} className="w-full h-full object-cover" alt="Me" />
                       ) : (
-                        <Icons.User className="w-10 h-10 text-gray-400" />
-                      )}
+                        <Icons.User className="w-10 h-10 text-gray-400" />)
+                      }
                     </div>
                     <div className="absolute -bottom-5 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">我</div>
                   </div>

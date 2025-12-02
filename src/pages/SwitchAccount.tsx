@@ -8,6 +8,7 @@ import {
   createSubAccount,
   deleteSubAccount,
   updateAccount,
+  syncMainAccountInfoWithAvatar,
   Account
 } from '../utils/accountManager'
 
@@ -25,6 +26,22 @@ const SwitchAccount = () => {
 
   useEffect(() => {
     loadAccounts()
+    // 同步主账号头像（异步加载后更新）
+    const loadMainAccountAvatar = async () => {
+      await syncMainAccountInfoWithAvatar()
+      loadAccounts()
+    }
+    loadMainAccountAvatar()
+
+    // 监听用户信息更新
+    const handleUserInfoUpdate = () => { loadMainAccountAvatar() }
+    window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
+    window.addEventListener('storage', handleUserInfoUpdate)
+
+    return () => {
+      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
+      window.removeEventListener('storage', handleUserInfoUpdate)
+    }
   }, [])
 
   const loadAccounts = () => {

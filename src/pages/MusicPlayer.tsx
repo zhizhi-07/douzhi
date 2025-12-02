@@ -6,7 +6,7 @@ import { getImage } from '../utils/unifiedStorage'
 import '../css/music-player.css'
 import DynamicIsland from '../components/DynamicIsland'
 import { characterService } from '../services/characterService'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar } from '../utils/userUtils'
 import { getAllUIIcons } from '../utils/iconStorage'
 
 interface Song {
@@ -33,6 +33,28 @@ const MusicPlayer = () => {
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0)
   const [customBackground, setCustomBackground] = useState<string>('')
   const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
+  const [userAvatar, setUserAvatar] = useState<string>('')
+
+  // 加载用户头像（异步从IndexedDB）
+  useEffect(() => {
+    const loadUserAvatar = async () => {
+      const userInfo = await getUserInfoWithAvatar()
+      if (userInfo.avatar) {
+        setUserAvatar(userInfo.avatar)
+      }
+    }
+    loadUserAvatar()
+    
+    // 监听用户信息更新
+    const handleUserInfoUpdate = () => { loadUserAvatar() }
+    window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
+    window.addEventListener('storage', handleUserInfoUpdate)
+    
+    return () => {
+      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
+      window.removeEventListener('storage', handleUserInfoUpdate)
+    }
+  }, [])
 
   // 加载音乐背景
   useEffect(() => {
@@ -457,8 +479,8 @@ const MusicPlayer = () => {
                 {/* 左侧头像 (我) */}
                 <div className="relative z-10 flex flex-col items-center gap-1">
                   <div className="w-12 h-12 rounded-full border-2 border-white shadow-lg overflow-hidden">
-                    {getUserInfo().avatar ? (
-                      <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="我" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">我</div>
                     )}
@@ -491,8 +513,8 @@ const MusicPlayer = () => {
             ) : (
               // 普通模式：只显示我的头像
               <div className="w-14 h-14 rounded-full border-2 border-white shadow-lg overflow-hidden">
-                {getUserInfo().avatar ? (
-                  <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+                {userAvatar ? (
+                  <img src={userAvatar} alt="我" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">我</div>
                 )}

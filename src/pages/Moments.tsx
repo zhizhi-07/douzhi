@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfo, getUserInfoWithAvatar } from '../utils/userUtils'
 import { playLikeSound } from '../utils/soundManager'
 import type { Moment } from '../types/moments'
 
@@ -23,27 +23,41 @@ export default function Moments() {
 
   // 获取当前用户信息
   const userInfo = getUserInfo()
+  const [userAvatar, setUserAvatar] = useState<string>('')
   const currentUser = {
     id: 'user',
     name: userInfo.nickname || userInfo.realName,
-    avatar: userInfo.avatar || '👤'
+    avatar: userAvatar || '👤'
   }
 
   useEffect(() => {
     const loadedMoments = loadMoments()
     setMoments(loadedMoments)
 
+    // 异步加载用户头像
+    const loadUserAvatar = async () => {
+      const fullUserInfo = await getUserInfoWithAvatar()
+      if (fullUserInfo.avatar) {
+        setUserAvatar(fullUserInfo.avatar)
+      }
+    }
+    loadUserAvatar()
+
     const handleMomentsUpdate = () => {
       const updatedMoments = loadMoments()
       setMoments(updatedMoments)
     }
 
+    const handleUserInfoUpdate = () => { loadUserAvatar() }
+
     window.addEventListener('moments-updated', handleMomentsUpdate)
     window.addEventListener('storage', handleMomentsUpdate)
+    window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
 
     return () => {
       window.removeEventListener('moments-updated', handleMomentsUpdate)
       window.removeEventListener('storage', handleMomentsUpdate)
+      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
     }
   }, [])
 

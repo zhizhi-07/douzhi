@@ -7,7 +7,7 @@
  * - 小号：AI不认识这个人，聊天记录独立存储
  */
 
-import { getUserInfo } from './userUtils'
+import { getUserInfo, getUserInfoWithAvatar } from './userUtils'
 
 const ACCOUNTS_KEY = 'user_accounts'
 const CURRENT_ACCOUNT_KEY = 'current_account_id'
@@ -184,6 +184,7 @@ export const deleteSubAccount = (accountId: string): void => {
 
 /**
  * 同步主账号信息（当用户在UserProfile修改信息时调用）
+ * 同步版本，不包含头像
  */
 export const syncMainAccountInfo = (): void => {
   const accounts = getAccounts()
@@ -191,6 +192,21 @@ export const syncMainAccountInfo = (): void => {
   if (!mainAccount) return
   
   const userInfo = getUserInfo()
+  mainAccount.name = userInfo.nickname || userInfo.realName || '主账号'
+  mainAccount.signature = userInfo.signature
+  
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
+}
+
+/**
+ * 同步主账号信息（异步版本，包含头像）
+ */
+export const syncMainAccountInfoWithAvatar = async (): Promise<void> => {
+  const accounts = getAccounts()
+  const mainAccount = accounts.find(a => a.isMain)
+  if (!mainAccount) return
+  
+  const userInfo = await getUserInfoWithAvatar()
   mainAccount.name = userInfo.nickname || userInfo.realName || '主账号'
   mainAccount.avatar = userInfo.avatar
   mainAccount.signature = userInfo.signature
