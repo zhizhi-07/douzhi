@@ -82,23 +82,15 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 2. 状态格式修正 ==========
   
-  // 🔥 只要包含"状态"就修正
-  fixed = fixed.replace(/\[([^\[\]]*?状态[^\[\]]*?)\]/g, (match, content) => {
-    let cleaned = content.replace(/^状态[:\：]?\s*/g, '').trim()
-    if (cleaned) {
-      corrections.push(`状态格式：统一为标准格式`)
-      return `[状态:${cleaned}]`
-    }
-    return match
+  // 🔥 修正错误格式：[外卖:状态:家里|行程:xxx] → [状态:家里|行程:xxx]
+  // AI把其他词放在状态前面，提取出状态部分
+  fixed = fixed.replace(/\[[^\[\]:]+[:\：]状态[:\：]([^\]]*)\]/g, (_match, content) => {
+    corrections.push(`状态格式：修正错误前缀`)
+    return `[状态:${content.trim()}]`
   })
-
-  fixed = fixed.replace(/【([^【】]*?状态[^【】]*?)】/g, (match, content) => {
-    let cleaned = content.replace(/^状态[:\：]?\s*/g, '').trim()
-    if (cleaned) {
-      corrections.push(`状态格式：统一为标准格式（全角）`)
-      return `【状态：${cleaned}】`
-    }
-    return match
+  fixed = fixed.replace(/【[^【】:]+[:\：]状态[:\：]([^】]*)】/g, (_match, content) => {
+    corrections.push(`状态格式：修正错误前缀（全角）`)
+    return `【状态：${content.trim()}】`
   })
 
   // ========== 3. 语音格式修正 ==========
