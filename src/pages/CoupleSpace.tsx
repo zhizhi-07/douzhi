@@ -16,6 +16,7 @@ import {
 import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 import { addMessage } from '../utils/simpleMessageManager'
 import { getUserInfoWithAvatar } from '../utils/userUtils'
+import { getUserAvatar } from '../utils/avatarStorage'
 
 // 预设背景主题
 const THEMES = [
@@ -92,23 +93,52 @@ const CoupleSpace = () => {
     return () => clearInterval(intervalId)
   }, [])
 
-  // 异步加载用户头像
+  // 异步加载用户头像 - 尝试所有可能的来源
   const loadUserAvatar = async () => {
     console.log('🔄 [情侣空间] 开始加载用户头像...')
     
-    // 🔥 从 getUserInfoWithAvatar 获取（会自动处理 localStorage 和 IndexedDB）
+    // 方法1: 直接从 localStorage user_info 读取 base64
+    try {
+      const saved = localStorage.getItem('user_info')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        console.log('📦 [情侣空间] localStorage user_info.avatar:', parsed.avatar?.substring(0, 50))
+        if (parsed.avatar && parsed.avatar.startsWith('data:')) {
+          setUserAvatar(parsed.avatar)
+          console.log('✅ [情侣空间] 从 localStorage base64 加载成功')
+          return
+        }
+      }
+    } catch (e) {
+      console.error('localStorage 读取失败:', e)
+    }
+    
+    // 方法2: 从 IndexedDB 读取
+    try {
+      const avatar = await getUserAvatar()
+      console.log('📦 [情侣空间] IndexedDB avatar:', avatar ? `有(${avatar.length}字符)` : '无')
+      if (avatar) {
+        setUserAvatar(avatar)
+        console.log('✅ [情侣空间] 从 IndexedDB 加载成功')
+        return
+      }
+    } catch (e) {
+      console.error('IndexedDB 读取失败:', e)
+    }
+    
+    // 方法3: 从 getUserInfoWithAvatar 获取
     try {
       const userInfo = await getUserInfoWithAvatar()
-      console.log('🔄 [情侣空间] 获取到用户信息:', userInfo.avatar ? '有头像' : '无头像', userInfo.avatar?.substring(0, 50))
       if (userInfo.avatar) {
         setUserAvatar(userInfo.avatar)
-        console.log('✅ [情侣空间] 头像已设置到状态')
-      } else {
-        console.log('⚠️ [情侣空间] 未获取到头像')
+        console.log('✅ [情侣空间] 从 getUserInfoWithAvatar 加载成功')
+        return
       }
-    } catch (error) {
-      console.error('❌ [情侣空间] 加载头像失败:', error)
+    } catch (e) {
+      console.error('getUserInfoWithAvatar 失败:', e)
     }
+    
+    console.log('⚠️ [情侣空间] 所有方法都未能获取到用户头像')
   }
 
   useEffect(() => {
