@@ -242,20 +242,57 @@ const FontCustomizer = () => {
   }
 
   // 从URL加载字体
-  const handleLoadFromUrl = () => {
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const handleLoadFromUrl = async () => {
     if (!fontUrl.trim()) {
       alert('请输入字体URL')
       return
     }
 
+    setIsLoading(true)
     const fontName = 'CustomFont' + Date.now()
     const fontFamily = `"${fontName}", sans-serif`
 
-    // 应用字体
-    applyFont(fontFamily, fontUrl, fontName)
-    // 保存到列表
-    saveFontToList(fontName, fontFamily, fontUrl)
-    setFontUrl('')
+    try {
+      // 🔥 先验证字体URL是否可访问
+      const response = await fetch(fontUrl, { method: 'HEAD', mode: 'cors' }).catch(() => null)
+      
+      if (!response || !response.ok) {
+        // 如果HEAD请求失败，可能是CORS问题，尝试直接加载
+        console.warn('⚠️ 无法验证字体URL，尝试直接加载...')
+      }
+
+      // 使用 FontFace API 验证字体是否能加载
+      const fontFace = new FontFace(fontName, `url(${fontUrl})`)
+      await fontFace.load()
+      document.fonts.add(fontFace)
+      
+      // 字体加载成功，保存配置
+      const fontConfig = {
+        family: fontFamily,
+        url: fontUrl,
+        name: fontName
+      }
+      
+      document.documentElement.style.setProperty('--global-font-family', fontFamily)
+      setCustomFont(fontConfig)
+      localStorage.setItem('custom_font', JSON.stringify(fontConfig))
+      
+      // 保存到列表
+      await saveFontToList(fontName, fontFamily, fontUrl)
+      
+      setFontUrl('')
+      window.dispatchEvent(new Event('fontChanged'))
+      
+      alert('✅ 字体加载成功！')
+      console.log('✅ 字体已应用:', fontConfig)
+    } catch (err) {
+      console.error('❌ 字体加载失败:', err)
+      alert(`❌ 字体加载失败！\n\n可能原因：\n1. 链接无效或已失效\n2. 服务器不允许跨域访问(CORS)\n3. 网络问题\n\n请尝试其他字体链接`)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // 页面加载时从 IndexedDB 加载字体列表
@@ -452,9 +489,14 @@ const FontCustomizer = () => {
               />
               <button
                 onClick={handleLoadFromUrl}
-                className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium whitespace-nowrap shadow-md"
+                disabled={isLoading}
+                className={`px-6 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap shadow-md ${
+                  isLoading 
+                    ? 'bg-slate-400 text-white cursor-not-allowed' 
+                    : 'bg-slate-800 text-white hover:bg-slate-700'
+                }`}
               >
-                加载
+                {isLoading ? '加载中...' : '加载'}
               </button>
             </div>
           </div>

@@ -488,10 +488,6 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 🔥 构建朋友圈列表
   const momentsListPrompt = await buildMomentsListPrompt(character.id)
   
-  // 🔥 构建朋友圈速报
-  const { formatMomentsNewsForPrompt } = await import('./momentsNewsManager')
-  const momentsNewsPrompt = formatMomentsNewsForPrompt(10)
-  
   // 🔥 检测用户消息中是否包含小剧场关键词
   const { findTemplateByKeyword } = await import('../data/theatreTemplates')
   const lastUserMessage = messages.filter(m => m.type === 'sent').slice(-1)[0]
@@ -1129,8 +1125,6 @@ ${buildMemoReminderContext(messages)}
 ${await buildListeningTogetherContext(character)}
 
 ${momentsListPrompt}
-
-${momentsNewsPrompt}
 
 ${getMemesSuggestion(messages.filter(m => m.type === 'sent').slice(-1)[0]?.content || '', 3)}
 ---
@@ -1917,6 +1911,22 @@ const callAIApiInternal = async (
           console.warn(`💡 [朋友圈图片识别] 请切换到支持视觉识别的API（如Gemini）`)
         }
       }
+    }
+    
+    // 🔥 添加朋友圈速报到消息数组（作为系统消息插入，而非放在系统提示词中）
+    try {
+      const { formatMomentsNewsForPrompt } = await import('./momentsNewsManager')
+      const momentsNews = formatMomentsNewsForPrompt(10)
+      if (momentsNews) {
+        // 插入到消息数组的靠前位置（在系统提示之后）
+        processedMessages.splice(1, 0, {
+          role: 'system',
+          content: momentsNews
+        })
+        console.log('📰 [朋友圈速报] 已作为系统消息插入')
+      }
+    } catch (err) {
+      console.error('❌ 加载朋友圈速报失败:', err)
     }
     
     // 规范化消息角色：仅保留首条 system（人设指令），其余 system 统一降级为 user，避免覆盖/稀释人设
