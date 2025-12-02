@@ -84,7 +84,7 @@ const UserProfile = () => {
     const signatureChanged = oldUserInfo.signature !== finalUserInfo.signature
     const avatarChanged = oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar
     
-    // 🔥 如果有头像，先保存到 IndexedDB
+    // 🔥 如果有头像，保存到 IndexedDB
     if (finalUserInfo.avatar) {
       try {
         const saved = await saveUserAvatar(finalUserInfo.avatar)
@@ -102,10 +102,10 @@ const UserProfile = () => {
       }
     }
     
-    // 🔥 保存用户信息到 localStorage（不含头像数据，只存标记）
+    // 🔥 保存用户信息到 localStorage（只存标记，不存 base64）
     const infoToSave = {
       ...finalUserInfo,
-      avatar: finalUserInfo.avatar ? 'indexeddb://user_avatar' : undefined  // 使用标记替代实际数据
+      avatar: finalUserInfo.avatar ? 'indexeddb://user_avatar' : undefined
     }
     
     try {

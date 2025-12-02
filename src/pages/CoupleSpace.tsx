@@ -15,7 +15,6 @@ import {
 } from '../utils/coupleSpaceUtils'
 import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 import { addMessage } from '../utils/simpleMessageManager'
-import { getUserInfoWithAvatar } from '../utils/userUtils'
 import { getUserAvatar } from '../utils/avatarStorage'
 
 // 预设背景主题
@@ -93,52 +92,30 @@ const CoupleSpace = () => {
     return () => clearInterval(intervalId)
   }, [])
 
-  // 异步加载用户头像 - 尝试所有可能的来源
+  // 加载用户头像
   const loadUserAvatar = async () => {
-    console.log('🔄 [情侣空间] 开始加载用户头像...')
-    
-    // 方法1: 直接从 localStorage user_info 读取 base64
     try {
       const saved = localStorage.getItem('user_info')
       if (saved) {
         const parsed = JSON.parse(saved)
-        console.log('📦 [情侣空间] localStorage user_info.avatar:', parsed.avatar?.substring(0, 50))
+        // 如果是 base64，直接用
         if (parsed.avatar && parsed.avatar.startsWith('data:')) {
           setUserAvatar(parsed.avatar)
-          console.log('✅ [情侣空间] 从 localStorage base64 加载成功')
+          console.log('✅ [情侣空间] 从 localStorage 加载头像')
           return
+        }
+        // 如果是旧的标记，从 IndexedDB 加载
+        if (parsed.avatar === 'indexeddb://user_avatar') {
+          const avatar = await getUserAvatar()
+          if (avatar) {
+            setUserAvatar(avatar)
+            console.log('✅ [情侣空间] 从 IndexedDB 加载头像')
+          }
         }
       }
     } catch (e) {
-      console.error('localStorage 读取失败:', e)
+      console.error('头像加载失败:', e)
     }
-    
-    // 方法2: 从 IndexedDB 读取
-    try {
-      const avatar = await getUserAvatar()
-      console.log('📦 [情侣空间] IndexedDB avatar:', avatar ? `有(${avatar.length}字符)` : '无')
-      if (avatar) {
-        setUserAvatar(avatar)
-        console.log('✅ [情侣空间] 从 IndexedDB 加载成功')
-        return
-      }
-    } catch (e) {
-      console.error('IndexedDB 读取失败:', e)
-    }
-    
-    // 方法3: 从 getUserInfoWithAvatar 获取
-    try {
-      const userInfo = await getUserInfoWithAvatar()
-      if (userInfo.avatar) {
-        setUserAvatar(userInfo.avatar)
-        console.log('✅ [情侣空间] 从 getUserInfoWithAvatar 加载成功')
-        return
-      }
-    } catch (e) {
-      console.error('getUserInfoWithAvatar 失败:', e)
-    }
-    
-    console.log('⚠️ [情侣空间] 所有方法都未能获取到用户头像')
   }
 
   useEffect(() => {
@@ -241,8 +218,9 @@ const CoupleSpace = () => {
   const currentTheme = THEMES[themeIndex]
   const daysCount = activeRelation ? Math.floor((Date.now() - (activeRelation.acceptedAt || activeRelation.createdAt)) / (1000 * 60 * 60 * 24)) : 0
 
-  // 获取用户头像：优先使用关系中保存的，否则使用异步加载的
-  const displayUserAvatar = activeRelation?.userAvatar || userAvatar
+  // 获取用户头像：只用从 IndexedDB 加载的（过滤掉旧的标记）
+  const relationAvatar = activeRelation?.userAvatar
+  const displayUserAvatar = (relationAvatar && relationAvatar.startsWith('data:')) ? relationAvatar : userAvatar
 
   return (
     <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500" style={{ background: currentTheme.bg }}>
