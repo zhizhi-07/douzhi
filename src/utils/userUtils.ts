@@ -3,7 +3,8 @@
  */
 
 import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from './userInfoChangeTracker'
-import { getUserAvatar } from './avatarStorage'
+import { getUserAvatar, getAccountAvatar } from './avatarStorage'
+import { isMainAccount, getCurrentAccount } from './accountManager'
 
 const USER_INFO_KEY = 'user_info'
 
@@ -100,6 +101,42 @@ export const hasUserAvatar = (): boolean => {
     console.error('检查用户头像失败:', error)
   }
   return false
+}
+
+/**
+ * 获取当前账号的用户信息（考虑小号）
+ * 如果是主账号，返回主账号信息
+ * 如果是小号，返回小号的名称和头像
+ */
+export const getCurrentUserInfoWithAvatar = async (): Promise<UserInfo> => {
+  // 检查是否是主账号
+  if (isMainAccount()) {
+    return getUserInfoWithAvatar()
+  }
+  
+  // 小号：获取小号的信息
+  const account = getCurrentAccount()
+  if (!account) {
+    return getUserInfoWithAvatar()
+  }
+  
+  // 加载小号头像
+  let avatar: string | undefined
+  if (account.avatar?.startsWith('indexeddb:account_')) {
+    avatar = await getAccountAvatar(account.id) || undefined
+  } else if (account.avatar?.startsWith('data:')) {
+    avatar = account.avatar
+  }
+  
+  // 返回小号信息，但保留主账号的其他设置（如人设等）
+  const mainInfo = getUserInfo()
+  return {
+    ...mainInfo,
+    nickname: account.name,
+    realName: account.name,
+    signature: account.signature,
+    avatar: avatar
+  }
 }
 
 /**

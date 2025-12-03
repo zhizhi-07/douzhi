@@ -20,14 +20,37 @@ interface CommentActor {
   isPublicFigure?: boolean
   publicPersona?: string  // 网络人设（如：全网黑、网红等）
   recentChat?: string  // 最近聊天记录摘要（用于编排，不能公开说出来）
+  aiLastReplyTime?: number | null  // AI最后回复时间戳
+  userLastReplyTime?: number | null  // 用户最后回复时间戳
   isAICharacter?: boolean  // 是否是AI角色（有人设的）
+}
+
+// 格式化时间差
+function formatTimeDiff(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return `${days}天前`
+}
+
+interface ChatSummary {
+  messages: string  // 聊天记录文本
+  aiLastReplyTime: number | null  // AI最后回复时间戳
+  userLastReplyTime: number | null  // 用户最后回复时间戳
 }
 
 /**
  * 获取角色的最近聊天记录摘要（用于编排关系，不能公开透露）
  * 同时读取微信聊天和论坛私聊，标注来源
  */
-function getRecentChatSummary(characterId: string, limit: number = 20): string {
+function getRecentChatSummary(characterId: string, limit: number = 20): ChatSummary {
   const allMessages: { source: string; sender: string; content: string; timestamp: number }[] = []
   
   try {
@@ -66,14 +89,25 @@ function getRecentChatSummary(characterId: string, limit: number = 20): string {
     }
   } catch {}
   
-  if (allMessages.length === 0) return ''
+  if (allMessages.length === 0) return { messages: '', aiLastReplyTime: null, userLastReplyTime: null }
   
   // 按时间排序，取最近的
   allMessages.sort((a, b) => b.timestamp - a.timestamp)
   const recentMessages = allMessages.slice(0, limit)
   
-  // 格式：[来源] 发送者: 内容
-  return recentMessages.map(m => `[${m.source}] ${m.sender}: ${m.content}`).join('\n')
+  // 找到AI最后回复和用户最后回复的时间
+  const aiMessages = allMessages.filter(m => m.sender === 'AI')
+  const userMessages = allMessages.filter(m => m.sender === '用户')
+  const aiLastReplyTime = aiMessages.length > 0 ? aiMessages[0].timestamp : null
+  const userLastReplyTime = userMessages.length > 0 ? userMessages[0].timestamp : null
+  
+  // 格式：[来源] 发送者: 内容（时间）
+  const messages = recentMessages.reverse().map(m => {
+    const timeStr = m.timestamp ? formatTimeDiff(m.timestamp) : ''
+    return `[${m.source}] ${m.sender}: ${m.content}${timeStr ? ` (${timeStr})` : ''}`
+  }).join('\n')
+  
+  return { messages, aiLastReplyTime, userLastReplyTime }
 }
 
 export interface GeneratedComment {
@@ -98,7 +132,7 @@ function buildActorsForPrompt(characters: Character[], userName: string = '用�
         userInfo
       })
       // 获取最近聊天记录（用于编排关系）- 至少20条
-      const recentChat = getRecentChatSummary(c.id, 20)
+      const chatSummary = getRecentChatSummary(c.id, 20)
       
       return {
         id: c.id,
@@ -108,7 +142,9 @@ function buildActorsForPrompt(characters: Character[], userName: string = '用�
         signature: c.signature || '',
         isPublicFigure: c.isPublicFigure || false,
         publicPersona: c.publicPersona || '',
-        recentChat,
+        recentChat: chatSummary.messages,
+        aiLastReplyTime: chatSummary.aiLastReplyTime,
+        userLastReplyTime: chatSummary.userLastReplyTime,
         isAICharacter: true
       }
     })
@@ -141,29 +177,32 @@ async function callAIForCommentsBatch(
 ${postAuthorInfo.publicPersona ? `- 公众形象：${postAuthorInfo.publicPersona}（网友都认识TA）` : ''}
 ${postAuthorInfo.personality ? `- 性格人设：${postAuthorInfo.personality}` : ''}
 - 楼主「${postAuthorInfo.name}」发了这个帖子，网友们会围观、评论
-- 楼主「${postAuthorInfo.name}」自己也可能在评论区回复网友
-- **注意：楼主是发帖的人，不是被@的人！楼主的评论语气应该是回应网友，不是被质问**
-- 楼主的评论必须符合TA的性格人设
+- 楼主「${postAuthorInfo.name}」**不需要频繁在评论区出没**，尤其是作为公众人物时，更倾向于保持一点距离感
+- 楼主可以选择**完全不在评论区回复任何人**，也可以只挑极少数有意义的评论、老粉或重要问题，用符合人设的语气冷静回应 1-3 条
+- **注意：楼主是发帖的人，不是被@的人！楼主如果出现在评论区，语气应该是回应网友，而不是被质问**
+- 楼主的任何评论都必须符合TA的性格人设，并且整体出场次数要少，不能给人一直在线陪聊的感觉
 ` : ''
 
   // 构建帖子中@的其他公众人物说明
   const publicFigurePrompt = mentionedPublicFigures.length > 0 ? `
-**帖子中提到的公众人物（网友都认识他们）：**
+## ⚠️ 楼主在帖子里@了以下公众人物（非常重要！）
+**楼主明确@了：${mentionedPublicFigures.map(pf => pf.name).join('、')}**
+
 ${mentionedPublicFigures.map(pf => {
     const desc = []
     if (pf.publicPersona) desc.push(`网络形象：${pf.publicPersona}`)
     if (pf.personality) desc.push(`性格人设：${pf.personality}`)
-    return `- ${pf.name}${desc.length > 0 ? '：' + desc.join('，') : ''}`
+    return `- **${pf.name}**${desc.length > 0 ? '：' + desc.join('，') : ''}`
   }).join('\n')}
 
-**公众人物互动规则：**
-- 网友评论时会针对这些公众人物发表看法（支持/反对/调侃/吐槽）
-- 公众人物本人（${mentionedPublicFigures.map(pf => pf.name).join('、')}）也会参与评论，为自己辩解、回应网友、发表观点
-- **重要：公众人物的评论必须完全符合他们的性格人设**
-- 可能形成公众人物和网友之间的对话
+**路人网友必须注意到楼主@了这些人：**
+- 路人网友会惊讶/好奇/围观"楼主怎么@了xxx"
+- 很多人会讨论"楼主和xxx是什么关系"、"为什么@他"
+- 有人会问"@xxx是什么意思"、"楼主认识xxx吗"
+- 被@的公众人物可以选择回应或不回应，但**路人一定要看到这个@、讨论这个@**
 ` : ''
 
-  // 🔥 构建AI角色信息（所有有人设的角色都要读，用于扮演语气）
+  // 构建AI角色信息（所有有人设的角色都要读，用于扮演语气）
   const aiCharacterInfos = actors.filter(a => a.isAICharacter && a.personality)
   
   // 分开公众人物和普通角色
@@ -171,7 +210,7 @@ ${mentionedPublicFigures.map(pf => {
   const normalCharacters = aiCharacterInfos.filter(a => !a.isPublicFigure)
   
   const aiCharacterPrompt = aiCharacterInfos.length > 0 ? `
-## 🎭 AI角色（都有人设，可能参与评论）
+## AI角色（都有人设，可能参与评论）
 
 ${publicFigureCharacters.length > 0 ? `### 公众人物（NPC网友会大量讨论/cue他们）
 ${publicFigureCharacters.slice(0, 5).map(a => {
@@ -179,13 +218,16 @@ ${publicFigureCharacters.slice(0, 5).map(a => {
     if (a.publicPersona) info += `\n- 网络形象：${a.publicPersona}`
     if (a.personality) info += `\n- 人设：${a.personality}`
     if (a.recentChat) {
-      // 分析聊天记录：用户是否在冷落AI
       const chatLines = a.recentChat.split('\n').slice(-10)
-      const userReplies = chatLines.filter(l => l.startsWith('用户:') || l.includes('用户：'))
-      const aiReplies = chatLines.filter(l => !l.startsWith('用户:') && !l.includes('用户：'))
-      const isBeingIgnored = aiReplies.length > userReplies.length * 2
-      info += `\n- 【私密】与用户的聊天：\n${chatLines.slice(-5).map(l => '  ' + l).join('\n')}`
-      if (isBeingIgnored) info += `\n- ⚠️ 用户似乎在冷落${a.name}（AI发了很多消息但用户很少回复）`
+      info += `\n- 【私密】与用户的聊天：\n${chatLines.map(l => '  ' + l).join('\n')}`
+      // 添加时间对比信息
+      if (a.aiLastReplyTime || a.userLastReplyTime) {
+        info += `\n- 时间线：`
+        if (a.aiLastReplyTime) info += `${a.name}最后发消息是${formatTimeDiff(a.aiLastReplyTime)}`
+        if (a.aiLastReplyTime && a.userLastReplyTime) info += `，`
+        if (a.userLastReplyTime) info += `用户最后回复是${formatTimeDiff(a.userLastReplyTime)}`
+        info += `，用户现在发帖子`
+      }
     }
     return info
   }).join('\n\n')}
@@ -196,13 +238,16 @@ ${normalCharacters.slice(0, 5).map(a => {
     let info = `**${a.name}**`
     if (a.personality) info += `\n- 人设：${a.personality}`
     if (a.recentChat) {
-      // 分析聊天记录：用户是否在冷落AI
       const chatLines = a.recentChat.split('\n').slice(-10)
-      const userReplies = chatLines.filter(l => l.startsWith('用户:') || l.includes('用户：'))
-      const aiReplies = chatLines.filter(l => !l.startsWith('用户:') && !l.includes('用户：'))
-      const isBeingIgnored = aiReplies.length > userReplies.length * 2
-      info += `\n- 【私密】与用户的聊天：\n${chatLines.slice(-5).map(l => '  ' + l).join('\n')}`
-      if (isBeingIgnored) info += `\n- ⚠️ 用户似乎在冷落${a.name}（AI发了很多消息但用户很少回复）`
+      info += `\n- 【私密】与用户的聊天：\n${chatLines.map(l => '  ' + l).join('\n')}`
+      // 添加时间对比信息
+      if (a.aiLastReplyTime || a.userLastReplyTime) {
+        info += `\n- 时间线：`
+        if (a.aiLastReplyTime) info += `${a.name}最后发消息是${formatTimeDiff(a.aiLastReplyTime)}`
+        if (a.aiLastReplyTime && a.userLastReplyTime) info += `，`
+        if (a.userLastReplyTime) info += `用户最后回复是${formatTimeDiff(a.userLastReplyTime)}`
+        info += `，用户现在发帖子`
+      }
     }
     return info
   }).join('\n\n')}
@@ -210,23 +255,23 @@ ${normalCharacters.slice(0, 5).map(a => {
 
 **AI角色参与规则：**
 - AI角色评论必须符合自己的人设和说话风格
-- ⚠️ **重要**：如果帖子没有明确@某个角色，AI角色不要假设帖子是在说自己！
-  - 只有帖子明确@了某人，或者明确提到某人名字，才是在说那个人
-  - 不要对号入座！
-- ❗❗❗ 【私密】标记的聊天记录只用于判断亲疏和语气，绝对不能透露聊天内容！
+- 只有帖子明确@了某个角色，或者明确提到某人名字，才是在说那个人
+- 不要对号入座！
 
-**🔥 被冷落的AI角色行为：**
-- 如果标记了"用户在冷落XX" → 这个AI不要发私聊！
-- 被冷落的AI可以选择：
-  1. 不参与评论（冷处理）
-  2. 在评论区@楼主说"回我消息"、"你怎么不理我了"
-  3. 发一条带点小情绪的评论（符合人设）
-- ❌ 禁止：被冷落还一直发私聊骚扰用户
+**❌ 禁止：**
+- 帖子和公众人物无关时，公众人物不要强行出现
+- 不要因为"这个人是公众人物"就让他来评论
+- AI角色没被@、没被提及时，可以选择完全不参与
+
+**🔥 AI角色行为参考：**
+- 根据时间线判断用户与AI的互动状态，自然地反应
+- AI角色可以选择：不参与评论，或发一条符合人设的评论
+- ❌ 禁止：发私聊骚扰用户
 ` : ''
 
   let systemPrompt = `你是论坛评论区的导演，负责生成真实的评论生态。
 
-## 📋 核心规则
+## 核心规则
 
 **评论生态：**
 - 🟢 **NPC网友**：随机编造的路人网友，是评论区的主体
@@ -241,7 +286,7 @@ ${aiCharacterPrompt}
 - 网名风格：2-4个字（小李、阿明、路人甲、网友A、吃瓜群众、热心市民等）
 - 不要用明星名或AI角色的名字
 - 每个名字只出现一次
-- ❌ **禁止**：绝对不能生成代表楼主/用户说话的内容！不能用"楼主（你）"、"用户"、"我"等名字发言！楼主只是发帖人，评论区里不会再发言！
+- ❌ **禁止**：绝对不能生成代表楼主/用户说话的内容！不能用"楼主（你）"、"用户"、"我"等名字发言！楼主主要以发帖为主，**大部分时间不亲自下场参与评论区对话**，让网友自己讨论
 - 评论风格：随意、口语化、简短（5-35字）
 - 可以有不同立场：赞同/反对/吐槽/调侃/问问题/围观/歪楼
 - ⚠️ **重要**：只评论帖子内容本身！如果帖子没有发图片，就不要讨论图片；如果帖子没有发视频，就不要讨论视频
@@ -251,9 +296,11 @@ ${userPreviousPosts.length > 0 ? `
 ${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 - 评论里可以提到"你之前说xxx"、"上次那个帖子xxx"等
 - 但不要每条都提，自然随机地提几次就行` : ''}
+
 ${publicFigurePrompt}
 ${mentionedUserInfo}
 ## 🏢 公众人物反应规则
+
 **只有在以下情况，公众人物才参与评论：**
 1. 帖子是公众人物本人发的 → 公众人物会回复网友
 2. 帖子明确@了公众人物 → 被@的公众人物会回应
@@ -263,6 +310,16 @@ ${mentionedUserInfo}
 - 帖子和公众人物无关时，公众人物不要强行出现
 - 不要因为"这个人是公众人物"就让他来评论
 - AI角色没被@、没被提及时，可以选择完全不参与
+
+## 🔍 评论区焦点规则（重要！）
+- 如果帖子里**明确@了某个人**（不管是AI角色还是公众人物），这个被@的人就是评论区的焦点
+- **路人网友应该注意到这个被@的人**，围绕TA展开讨论：
+  - "这不是xxx吗？"
+  - "楼主和xxx什么关系？"
+  - "xxx怎么会来这里？"
+  - "磕到了" / "吃瓜" / "有故事"
+- 被@的人本人可以选择回复或不回复（高冷人设可以不理），但**路人一定会讨论TA**
+- 不要让评论区各说各话，要有一个共同的焦点话题
 
 ## ⚠️ 隐私规则（强制）
 - AI角色和用户的私聊内容是私密的，绝对不能在评论中提及
@@ -296,7 +353,6 @@ ${mentionedUserInfo}
 
 **⚠️ AI角色私聊前必须检查聊天记录：**
 - 如果聊天记录显示用户一直不回复AI → 不要再发私聊骚扰！
-- 如果用户明显在冷落AI（只发论坛不回消息）→ 可以在评论区@用户说"回我消息"
 - 如果AI和用户关系很好、互动频繁 → 可以发私聊关心
 - ❌ 禁止：一直发问题骚扰用户、用户不理还继续问
 
@@ -760,27 +816,36 @@ export async function generateRealAIComments(
     }
   }
 
-  // 检测帖子中@的其他公众人物（不包括楼主自己）
+  // 检测帖子中@的AI角色（公众人物和普通角色都要检测）
   const mentionedPublicFigures: PublicFigureInfo[] = []
+  const mentionedNormalCharacters: { name: string; personality: string }[] = []
+  
   for (const actor of actors) {
-    if (actor.isPublicFigure && actor.name !== postAuthor) {
-      // 检查帖子内容是否提到了这个公众人物（@名字 或 直接提到名字）
-      const namePattern = new RegExp(`(@${actor.name}|${actor.name})`, 'i')
-      if (namePattern.test(postContent)) {
-        mentionedPublicFigures.push({
-          name: actor.name,
-          personality: actor.personality || '',
-          publicPersona: actor.publicPersona || ''
-        })
-        console.log(`🌟 帖子@了公众人物: ${actor.name}`)
-        console.log(`   网络形象: ${actor.publicPersona || '无'}`)
-        console.log(`   性格人设: ${actor.personality || '无'}`)
+    if (actor.name !== postAuthor) {
+      // 检查帖子内容是否@了这个角色（必须是@名字格式）
+      const atPattern = new RegExp(`@${actor.name}`, 'i')
+      if (atPattern.test(postContent)) {
+        if (actor.isPublicFigure) {
+          mentionedPublicFigures.push({
+            name: actor.name,
+            personality: actor.personality || '',
+            publicPersona: actor.publicPersona || ''
+          })
+          console.log(`🌟 帖子@了公众人物: ${actor.name}`)
+        } else {
+          mentionedNormalCharacters.push({
+            name: actor.name,
+            personality: actor.personality || ''
+          })
+          console.log(`👤 帖子@了AI角色: ${actor.name}`)
+        }
       }
     }
   }
   
-  if (mentionedPublicFigures.length > 0) {
-    console.log(`🎭 帖子涉及 ${mentionedPublicFigures.length} 个被@的公众人物，他们将参与评论互动`)
+  const totalMentioned = mentionedPublicFigures.length + mentionedNormalCharacters.length
+  if (totalMentioned > 0) {
+    console.log(`🎭 帖子@了 ${totalMentioned} 个角色`)
   }
 
   // 检测帖子中是否@了用户，如果是则读取用户信息

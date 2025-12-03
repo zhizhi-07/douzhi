@@ -83,6 +83,26 @@ const ChatDetail = () => {
   const [isSummarizing, setIsSummarizing] = useState(false)
   const [summaryResult, setSummaryResult] = useState<string | null>(null)
   
+  // 🔥 当前账号头像（考虑小号）
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('')
+  useEffect(() => {
+    const loadCurrentUserAvatar = async () => {
+      const { getCurrentUserInfoWithAvatar } = await import('../utils/userUtils')
+      const userInfo = await getCurrentUserInfoWithAvatar()
+      setCurrentUserAvatar(userInfo.avatar || '')
+    }
+    loadCurrentUserAvatar()
+    
+    // 监听账号切换事件
+    const handleAccountSwitch = () => { loadCurrentUserAvatar() }
+    window.addEventListener('accountSwitched', handleAccountSwitch)
+    window.addEventListener('accountUpdated', handleAccountSwitch)
+    return () => {
+      window.removeEventListener('accountSwitched', handleAccountSwitch)
+      window.removeEventListener('accountUpdated', handleAccountSwitch)
+    }
+  }, [])
+  
   const handleSubAccountSummary = async () => {
     if (!id || !chatState.character || isSummarizing) return
     
@@ -1502,7 +1522,7 @@ const ChatDetail = () => {
         characterName={chatState.character?.nickname || chatState.character?.realName}
         characterAvatar={chatState.character?.avatar}
         characterId={chatState.character?.id}
-        userAvatar={getUserInfo().avatar}
+        userAvatar={currentUserAvatar}
         generatedPost={postGenerator.generatedPost}
         onClearPost={() => postGenerator.setGeneratedPost(null)}
       />

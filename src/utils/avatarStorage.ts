@@ -8,7 +8,7 @@ const DB_VERSION = 1
 const STORE_NAME = 'avatars'
 
 // 头像类型
-type AvatarType = 'user' | 'character'
+type AvatarType = 'user' | 'character' | 'account'
 
 interface AvatarRecord {
   id: string  // 'user' 或 'character_xxx'
@@ -56,7 +56,7 @@ function openDB(): Promise<IDBDatabase> {
 export async function saveAvatar(type: AvatarType, id: string, data: string): Promise<boolean> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
@@ -92,7 +92,7 @@ export async function saveAvatar(type: AvatarType, id: string, data: string): Pr
 export async function getAvatar(type: AvatarType, id: string = ''): Promise<string | null> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readonly')
@@ -126,7 +126,7 @@ export async function getAvatar(type: AvatarType, id: string = ''): Promise<stri
 export async function deleteAvatar(type: AvatarType, id: string = ''): Promise<boolean> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
@@ -168,4 +168,25 @@ export async function getUserAvatar(): Promise<string | null> {
  */
 export function isIndexedDBAvailable(): boolean {
   return typeof indexedDB !== 'undefined'
+}
+
+/**
+ * 保存账号头像（便捷方法）
+ */
+export async function saveAccountAvatar(accountId: string, data: string): Promise<boolean> {
+  return saveAvatar('account', accountId, data)
+}
+
+/**
+ * 获取账号头像（便捷方法）
+ */
+export async function getAccountAvatar(accountId: string): Promise<string | null> {
+  return getAvatar('account', accountId)
+}
+
+/**
+ * 删除账号头像（便捷方法）
+ */
+export async function deleteAccountAvatar(accountId: string): Promise<boolean> {
+  return deleteAvatar('account', accountId)
 }

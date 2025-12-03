@@ -14,7 +14,7 @@ interface OfflineMessageBubbleProps {
 
 const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId }: OfflineMessageBubbleProps) => {
   const isUser = message.type === 'sent'
-  
+
   return (
     <>
       {/* 线下模式大头像样式（只渲染一次） */}
@@ -35,70 +35,70 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId 
           }
         `}</style>
       )}
-      
+
       <div className="py-6">
         {/* 用户消息 */}
         {isUser && (
           <div className="message-container sent flex flex-col items-center px-4">
             {/* 头像 */}
             <div className="mb-3 offline-avatar-large">
-              <Avatar 
+              <Avatar
                 type="sent"
                 avatar={undefined}
                 name="我"
                 chatId={chatId}
               />
             </div>
-          
-          {/* 消息气泡 */}
-          <div className="message-bubble max-w-[85%] px-4 py-3">
-            <p className="text-sm leading-relaxed break-words">
-              {message.content}
-            </p>
+
+            {/* 消息气泡 */}
+            <div className="message-bubble max-w-[85%] px-4 py-3">
+              <p className="text-sm leading-relaxed break-words">
+                {message.content}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
-      
-      {/* AI消息 */}
-      {!isUser && (
-        <div className="message-container received flex flex-col items-center px-4">
-          {/* 头像 */}
-          <div className="mb-3 offline-avatar-large">
-            <Avatar 
-              type="received"
-              avatar={characterAvatar}
-              name={characterName}
-              chatId={chatId}
-            />
-          </div>
-          
-          {/* 消息气泡 */}
-          <div className="message-bubble max-w-[85%] px-4 py-3">
-            {message.content?.split('\n\n').filter(p => p.trim()).map((paragraph, index) => {
-              const trimmed = paragraph.trim()
-              
-              // 检测是否是内心独白（【】标记）
-              const isThought = /^【.*】$/.test(trimmed)
-              
-              if (isThought) {
+        )}
+
+        {/* AI消息 */}
+        {!isUser && (
+          <div className="message-container received flex flex-col items-center px-4">
+            {/* 头像 */}
+            <div className="mb-3 offline-avatar-large">
+              <Avatar
+                type="received"
+                avatar={characterAvatar}
+                name={characterName}
+                chatId={chatId}
+              />
+            </div>
+
+            {/* 消息气泡 */}
+            <div className="message-bubble max-w-[85%] px-4 py-3">
+              {message.content?.split('\n\n').filter(p => p.trim()).map((paragraph, index) => {
+                const trimmed = paragraph.trim()
+
+                // 检测是否是内心独白（【】标记）
+                const isThought = /^【.*】$/.test(trimmed)
+
+                if (isThought) {
+                  return (
+                    <div key={index} className="my-2 pl-3 border-l-2 border-gray-300">
+                      <p className="text-sm leading-relaxed opacity-80 italic">
+                        {trimmed.replace(/[【】]/g, '')}
+                      </p>
+                    </div>
+                  )
+                }
+
                 return (
-                  <div key={index} className="my-2 pl-3 border-l-2 border-gray-300">
-                    <p className="text-sm leading-relaxed opacity-80 italic">
-                      {trimmed.replace(/[【】]/g, '')}
-                    </p>
-                  </div>
+                  <p key={index} className="text-sm leading-relaxed mb-3 last:mb-0">
+                    {trimmed}
+                  </p>
                 )
-              }
-              
-              return (
-                <p key={index} className="text-sm leading-relaxed mb-3 last:mb-0">
-                  {trimmed}
-                </p>
-              )
-            })}
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </>
   )

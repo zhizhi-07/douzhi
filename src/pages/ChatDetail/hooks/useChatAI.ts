@@ -210,10 +210,10 @@ export const useChatAI = (
         throw new ChatApiError('请先配置API', 'NO_API_CONFIG')
       }
 
-      // 🔥 获取用户信息
-      const { getUserInfoWithAvatar } = await import('../../../utils/userUtils')
+      // 🔥 获取用户信息（考虑小号）
+      const { getCurrentUserInfoWithAvatar } = await import('../../../utils/userUtils')
       const { getUserAvatarInfo } = await import('../../../utils/userAvatarManager')
-      const userInfo = await getUserInfoWithAvatar()
+      const userInfo = await getCurrentUserInfoWithAvatar()
       
       // 🔥 头像识别逻辑：只在没有描述时识别，有描述就不再识别（除非用户手动清除）
       const avatarInfo = getUserAvatarInfo()

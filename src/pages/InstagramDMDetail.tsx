@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Smile, MoreHorizontal, Phone, Mic, PlusCircle } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import EmojiPanel from '../components/EmojiPanel'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import type { Emoji } from '../utils/emojiStorage'
@@ -29,7 +29,7 @@ const InstagramDMDetail = () => {
   const [character, setCharacter] = useState<Character | null>(null)
   const [publicLabel, setPublicLabel] = useState<string>('')  // 公众人物标签（如：音乐人、主播）
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const userInfo = getUserInfo()
+  const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
 
   useEffect(() => {
     if (!npcId) return
@@ -47,6 +47,10 @@ const InstagramDMDetail = () => {
     }
 
     const loadData = async () => {
+      // Load user info with avatar
+      const info = await getUserInfoWithAvatar()
+      setUserInfo(info)
+      
       // 获取会话信息
       const conversations = getDMConversations()
       const conv = conversations.find(c => c.id === npcId)

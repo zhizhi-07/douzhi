@@ -6,7 +6,7 @@ import InstagramLayout from '../components/InstagramLayout'
 import InstagramEditProfile from '../components/InstagramEditProfile'
 import { getNPCById, getAllPostsAsync } from '../utils/forumNPC'
 import { getUserData, initUserData, followNPC, unfollowNPC, isFollowingNPC } from '../utils/forumUser'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import { getAllCharacters } from '../utils/characterManager'
 import type { ForumNPC, ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
@@ -33,7 +33,7 @@ const InstagramProfile = () => {
     following: 0
   })
   const [showEditProfile, setShowEditProfile] = useState(false)
-  const [userInfo, setUserInfo] = useState(getUserInfo())
+  const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
   const [userPosts, setUserPosts] = useState<ForumPost[]>([])
   const [npcPosts, setNpcPosts] = useState<ForumPost[]>([])
   const [taggedPosts, setTaggedPosts] = useState<ForumPost[]>([])  // 被标记的帖子
@@ -49,6 +49,10 @@ const InstagramProfile = () => {
   const loadData = async () => {
     setIsLoading(true)
     initUserData()
+    
+    // Load user info with avatar
+    const info = await getUserInfoWithAvatar()
+    setUserInfo(info)
 
     // 尝试读取壁纸
     const savedWallpaper = localStorage.getItem(`profile-wallpaper-${userId || 'user'}`)
@@ -148,8 +152,9 @@ const InstagramProfile = () => {
     }
   }
 
-  const handleSaveProfile = () => {
-    setUserInfo(getUserInfo())
+  const handleSaveProfile = async () => {
+    const info = await getUserInfoWithAvatar()
+    setUserInfo(info)
   }
 
   const handleRefresh = async () => {
@@ -351,7 +356,32 @@ ${charInfo.join('\n')}
               ) : null}
             </div>
             <p className="text-sm text-[#5A5A5A] leading-relaxed whitespace-pre-wrap font-light opacity-90">
-              {npc?.bio || (character?.signature && character.signature !== character.personality?.slice(0, 100) ? character.signature : '') || userInfo.signature || '暂无简介'}
+              {(() => {
+                // 优先使用角色的 signature（如果存在且不是人设数据）
+                if (character?.signature) {
+                  const sig = character.signature
+                  // 过滤掉看起来像人设YAML的内容
+                  if (!sig.includes('<info>') && !sig.includes('<character>') && !sig.includes('```') && sig.length < 200) {
+                    return sig
+                  }
+                }
+                // 其次使用 publicPersona
+                if (character?.publicPersona) {
+                  return character.publicPersona
+                }
+                // 然后是 NPC 的 bio（也要过滤）
+                if (npc?.bio) {
+                  const bio = npc.bio
+                  if (!bio.includes('<info>') && !bio.includes('<character>') && !bio.includes('```') && bio.length < 200) {
+                    return bio
+                  }
+                }
+                // 用户自己的签名
+                if (userInfo.signature) {
+                  return userInfo.signature
+                }
+                return '暂无简介'
+              })()}
             </p>
           </div>
 

@@ -61,7 +61,7 @@ const VoiceSender = ({ show, onClose, onSend }: VoiceSenderProps) => {
     >
       <div
         data-modal-container
-        className="w-full max-w-md shadow-2xl overflow-hidden"
+        className="w-full max-w-md mx-auto shadow-2xl overflow-hidden"
         style={{
           animation: 'slideUp 0.3s ease-out',
           backgroundColor: functionBg ? 'transparent' : 'white',

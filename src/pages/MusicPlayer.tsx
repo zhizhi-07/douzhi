@@ -355,7 +355,7 @@ const MusicPlayer = () => {
         />
       )}
 
-      <div className="min-h-screen flex flex-col relative overflow-hidden bg-gray-50 text-gray-900">
+      <div className="h-screen flex flex-col relative overflow-hidden bg-gray-50 text-gray-900" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <StatusBar theme="light" />
 
         {/* 背景层 - 轻盈毛玻璃风格 */}
@@ -379,7 +379,7 @@ const MusicPlayer = () => {
         </div>
 
         {/* 顶部导航栏 */}
-        <div className="relative z-10 px-4 pt-12 pb-3 flex items-center justify-between">
+        <div className="relative z-10 px-4 pt-2 pb-2 flex items-center justify-between flex-shrink-0">
           <button onClick={() => navigate('/', { replace: true })} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors">
             <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" transform="rotate(90 12 12)" />
@@ -470,10 +470,10 @@ const MusicPlayer = () => {
         )}
 
         {/* 主内容区 */}
-        <div className="relative z-10 flex flex-col items-center w-full px-6 pt-4 pb-4">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full px-6 overflow-hidden">
 
           {/* 头像显示 - 两个头像连线 */}
-          <div className="w-full flex items-center justify-center mb-4 relative h-16">
+          <div className="w-full flex items-center justify-center mb-2 relative h-14 flex-shrink-0">
             {listeningTogether ? (
               <div className="relative w-full max-w-[200px] flex items-center justify-between">
                 {/* 左侧头像 (我) */}
@@ -523,7 +523,7 @@ const MusicPlayer = () => {
           </div>
 
           {/* 唱片封面和歌词容器 */}
-          <div className="w-full flex items-center justify-center h-[340px] relative">
+          <div className="w-full flex items-center justify-center flex-1 min-h-0 max-h-[340px] relative">
 
             {/* 唱片盘 */}
             <div
@@ -599,10 +599,10 @@ const MusicPlayer = () => {
           </div>
 
           {/* 底部信息和控制区 */}
-          <div className="w-full mt-8 space-y-8 px-6 pb-8">
+          <div className="w-full mt-4 space-y-4 px-2 pb-4 flex-shrink-0">
             {/* 歌曲信息 - 文艺排版 */}
-            <div className="flex flex-col items-center justify-center text-center space-y-2">
-              <h2 className="text-3xl font-serif text-gray-900 tracking-wide leading-relaxed drop-shadow-sm">{currentSong.title}</h2>
+            <div className="flex flex-col items-center justify-center text-center space-y-1">
+              <h2 className="text-2xl font-serif text-gray-900 tracking-wide leading-relaxed drop-shadow-sm">{currentSong.title}</h2>
               <div className="flex items-center gap-2">
                 <span className="h-[1px] w-8 bg-gray-400/50"></span>
                 <p className="text-gray-600 text-xs uppercase tracking-[0.3em] font-light">{currentSong.artist}</p>
@@ -611,7 +611,7 @@ const MusicPlayer = () => {
             </div>
 
             {/* 进度条 - 极简线条 */}
-            <div className="w-full px-2">
+            <div className="w-full">
               <div className="group relative w-full h-6 flex items-center cursor-pointer">
                 <input
                   type="range"
@@ -632,14 +632,14 @@ const MusicPlayer = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-between text-[10px] text-gray-400/80 font-serif tracking-widest -mt-2 px-1">
+              <div className="flex justify-between text-[10px] text-gray-400/80 font-serif tracking-widest -mt-1 px-1">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration || currentSong.duration)}</span>
               </div>
             </div>
 
             {/* 控制按钮 - 玻璃拟态 */}
-            <div className="flex items-center justify-between px-2">
+            <div className="flex items-center justify-between">
               {/* 喜欢按钮 */}
               <button onClick={() => setIsLiked(!isLiked)} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
                 <svg className={`w-6 h-6 ${isLiked ? 'text-red-500 fill-current' : ''}`} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">

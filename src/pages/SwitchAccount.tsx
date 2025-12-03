@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import {
-  getAccounts,
   getCurrentAccountId,
   switchAccount,
-  createSubAccount,
+  createSubAccountAsync,
   deleteSubAccount,
-  updateAccount,
+  updateAccountAsync,
+  getAccountsWithAvatars,
   Account
 } from '../utils/accountManager'
 import { getUserAvatar } from '../utils/avatarStorage'
@@ -48,8 +48,10 @@ const SwitchAccount = () => {
     }
   }, [])
 
-  const loadAccounts = () => {
-    setAccounts(getAccounts())
+  const loadAccounts = async () => {
+    // 使用异步版本加载带头像的账号列表
+    const accountsWithAvatars = await getAccountsWithAvatars()
+    setAccounts(accountsWithAvatars)
     setCurrentAccountId(getCurrentAccountId())
   }
 
@@ -61,10 +63,10 @@ const SwitchAccount = () => {
     navigate('/wechat')
   }
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     if (!newAccountName.trim()) return
 
-    createSubAccount(
+    await createSubAccountAsync(
       newAccountName.trim(),
       newAccountAvatar || undefined,
       newAccountSignature.trim() || undefined
@@ -83,15 +85,15 @@ const SwitchAccount = () => {
     loadAccounts()
   }
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64 = event.target?.result as string
       if (editingAccount) {
-        updateAccount(editingAccount.id, { avatar: base64 })
+        await updateAccountAsync(editingAccount.id, { avatar: base64 })
         setEditingAccount({ ...editingAccount, avatar: base64 })
         loadAccounts()
       } else {
@@ -109,9 +111,9 @@ const SwitchAccount = () => {
     setEditingAccount(account)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingAccount) return
-    updateAccount(editingAccount.id, {
+    await updateAccountAsync(editingAccount.id, {
       name: editingAccount.name,
       signature: editingAccount.signature
     })
@@ -168,9 +170,9 @@ const SwitchAccount = () => {
               <div className="relative">
                 <div className="w-16 h-16 rounded-[20px] overflow-hidden bg-gray-100 shadow-inner">
                   {(() => {
-                    // 主账号用单独加载的头像，其他账号用account.avatar
+                    // 主账号用单独加载的头像，小号用已加载的account.avatar
                     const avatarToShow = account.isMain ? mainAccountAvatar : account.avatar
-                    return avatarToShow && avatarToShow.startsWith('data:') ? (
+                    return avatarToShow && (avatarToShow.startsWith('data:') || avatarToShow.startsWith('blob:')) ? (
                       <img src={avatarToShow} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">

@@ -48,7 +48,7 @@ const IntimatePaySender = ({ show, onClose, onSend, characterName }: IntimatePay
     >
       <div 
         data-modal-container
-        className="w-full max-w-md animate-slide-up overflow-hidden"
+        className="w-full max-w-md mx-auto animate-slide-up overflow-hidden"
         style={{
           backgroundColor: functionBg ? 'transparent' : 'white',
           backgroundImage: functionBg ? `url(${functionBg})` : 'none',

@@ -102,7 +102,7 @@ const TransferSender = ({ show, onClose, onSend, characterId, characterName }: T
       }}
     >
       <div 
-        className="w-full max-w-md shadow-2xl"
+        className="w-full max-w-md mx-auto shadow-2xl"
         style={{ 
           animation: 'slideUp 0.3s ease-out',
           backgroundColor: functionBg ? 'transparent' : 'white',

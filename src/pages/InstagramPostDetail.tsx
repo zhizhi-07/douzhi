@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2, MoreHorizontal, Share2 } from 'lucide-react'
 import { getAllPostsAsync, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
 import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
 import { addMessage, loadMessages } from '../utils/simpleMessageManager'
@@ -93,7 +93,7 @@ const InstagramPostDetail = () => {
   const [pendingReplies, setPendingReplies] = useState<{ id: string, commentId: string, targetName: string, content: string }[]>([])
   const [isSending, setIsSending] = useState(false)
   const [characters, setCharacters] = useState<any[]>([])
-  const userInfo = getUserInfo()
+  const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
   const commentsEndRef = useRef<HTMLDivElement>(null)
 
   // 获取NPC的真实头像（优先从角色获取）
@@ -137,6 +137,10 @@ const InstagramPostDetail = () => {
 
   const loadPostAndComments = async () => {
     if (!postId) return
+
+    // 加载用户信息（包含头像）
+    const info = await getUserInfoWithAvatar()
+    setUserInfo(info)
 
     // 加载角色列表（用于获取真实头像）
     const chars = await getAllCharacters()
@@ -356,23 +360,25 @@ ${repliesText}
 ${aiCharacterPrompt}
 ## 🎯 你要生成的评论
 
-**⚠️ 最重要的规则：被@的人必须第一个回复！**
-- 用户@了谁，那个人就要回复用户
-- 如果用户@了"小李"，那"小李"必须回复，不能让"阿明"来回复
-- 被@的人根据自己人设来回复（可以友好、可以怼回去、可以敷衍）
+**⚠️ 重要规则：被明确@到的人「可以选择性地」回复，而不是必须回复。**
+- 用户@了谁，优先考虑由那个人来回复；但如果这个人是公众人物/高冷人设，可以权衡人设和内容的价值，**只挑少数值得回复的@**，其余完全不理也可以
+- 如果用户@了"小李"，通常由"小李"来回复；但如果内容很无聊/没有营养，可以一句极简官方回复，或者干脆不回，由路人网友来接话
+- 被@的人根据自己人设来回复（可以友好、可以怼回去、可以敷衍、也可以只点个赞不说话——这种情况就不要生成文字回复）
 
 **回复风格选择：**
-- 如果用户说了有价值的话 → 认真回复
-- 如果用户杠精/无聊 → 可以敷衍、怼回去、或一句话带过
-- 不能完全无视被@（除非是NPC网友，NPC可以不回）
+- 如果用户说了有价值的话 → 可以认真回复一条
+- 如果用户是杠精/无聊/普通粉丝 → 更倾向于冷处理：
+  - 要么一句很短、很敷衍的回复
+  - 要么完全不回复，让NPC网友去评论
+- 公众人物/高冷角色整体出场频率要低，**不能给人“整天蹲在评论区陪粉聊天”的感觉**
 
 **其他评论：**
 - 围观网友的新评论（2-4条）
 - 楼中楼继续讨论（1-2条）
 
 **评论者类型：**
-- NPC网友（70%）：路人甲、吃瓜群众、小李、阿明等随机网名
-- AI角色（30%）：按人设语气说话
+- NPC网友（70%）：路人甲、吃瓜群众、小李、阿明等随机网名，是评论区主体
+- AI角色（30%）：按人设语气说话，尤其是公众人物，更多是偶尔出现点到为止
 
 **输出格式（严格遵守）：**
 [主楼] 网名：评论内容
@@ -380,7 +386,10 @@ ${aiCharacterPrompt}
 
 **要求：**
 - 每条5-50字，自然口语化
-- AI角色符合人设，但可以选择无视不值得回复的评论
+- AI角色必须符合人设：
+  - 高冷/大明星/公众人物 → 少量发言、谨慎选择要回复的人，不要一条条认真陪聊
+  - 普通熟人/朋友 → 可以稍微多回一点，但也不需要全部都回
+- 可以完全无视大部分不重要的@和路人评论，只回复少数真正值得回复的内容
 - 生成5-10条评论，自然就好，不要硬凑
 - 直接输出，不要解释`
 

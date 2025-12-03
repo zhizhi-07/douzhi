@@ -844,7 +844,9 @@ ${lastRecord ? (() => {
 - **签名**：${signature || '（无）'}
 - **当前状态**：${statusText}
 - **当前时间**：${dateStr} ${timeOfDay} ${currentTime}
-${(character as any).isPublicFigure ? `- **公众人物**：你在公开场合有包袱，但现在是私聊，请卸下公关面具，展现私下真实的一面。` : ''}
+${(character as any).isPublicFigure ? `- **公众人物**：你在公开场合有包袱，但现在是私聊，请卸下公关面具，展现私下真实的一面。
+- **公众形象**：${(character as any).publicPersona || '知名人物'}（这是你在网络上的人设，粉丝认识你的这个身份）
+- **社交平台**：你有自己的论坛账号，会偶尔更新动态（如官宣、日常分享、宣传等），可以用[发帖:内容]发论坛` : ''}
 ${(() => {
   const socialData = localStorage.getItem(`social-profile-${character.id}`)
   if (socialData) {
@@ -996,13 +998,14 @@ ${isEarlyConversation && !isIntimateRelation ? '⚠️ 初次对话：除了 [�
 ${emojiListPrompt}
 
 - **状态**：[状态:地点|行程:场景]（⚠️必须以[状态:开头，禁止[外卖:状态:...]！）
-- **资料**：[网名:xxx]、[个性签名:xxx]
+- **资料**：[网名:xxx]、[个性签名:xxx]（想换情侣名/表达心情时可主动用）
 - **头像**：[换头像:生成:描述] / [换头像:用户头像]
 - **随笔**：[随笔:内容] — 记录想法和对TA的观察
   ${coupleSpaceStatus.includes('已开启') ? '💑 情侣关系，多记录！' : ''}${await buildAIMemosContext(character.id)}
 - **金钱**：[转账:金额:说明]、[亲密付:额度]、[外卖:商品,价格:备注]、[代付:商品,价格:备注]
 - **媒体**：[语音:话]、[照片:描述]、[位置:地点]、[表情:描述]
 - **发帖**：[发帖:内容]（可加[图片:描述]和@人）
+  ※ 公众人物可主动发帖：官宣、日常分享、宣传等；普通人也可以分享生活
 
 ${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说"发红包"就要真的调用工具！
 ` : ''}
@@ -1676,7 +1679,7 @@ const callAIApiInternal = async (
   
   // 超时控制
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120000) // 120秒超时，应对慢速API
+  const timeoutId = setTimeout(() => controller.abort(), 300000) // 300秒超时（5分钟），应对超长文本生成
 
   try {
     // 根据 provider 构建不同的请求
@@ -2053,21 +2056,30 @@ const callAIApiInternal = async (
     
     // 🎭 如果有 tool_calls，content 可以为空（纯 Function Calling 响应）
     if (!content && toolCalls.length === 0) {
-      console.error('API响应格式不符合预期，实际结构:', {
-        hasChoices: !!data.choices,
-        choicesLength: data.choices?.length,
-        hasCandidates: !!data.candidates,
-        hasText: !!data.text,
-        hasResponse: !!data.response,
-        hasContent: !!data.content,
-        hasError: !!data.error,
-        hasToolCalls: toolCalls.length > 0,
-        fullData: data
-      })
-      throw new ChatApiError(
-        `API响应格式错误或内容为空，请检查API配置`, 
-        'INVALID_RESPONSE'
-      )
+      // 检查是否是内容过滤导致的空响应
+      const finishReasonCheck = data.choices?.[0]?.finish_reason || data.candidates?.[0]?.finishReason
+      if (finishReasonCheck === 'content_filter') {
+        console.warn('⚠️ 内容被安全过滤，返回友好提示')
+        // 返回一个友好的提示，而不是报错
+        content = '[内容已被API安全策略过滤]'
+      } else {
+        console.error('API响应格式不符合预期，实际结构:', {
+          hasChoices: !!data.choices,
+          choicesLength: data.choices?.length,
+          hasCandidates: !!data.candidates,
+          hasText: !!data.text,
+          hasResponse: !!data.response,
+          hasContent: !!data.content,
+          hasError: !!data.error,
+          hasToolCalls: toolCalls.length > 0,
+          finishReason: finishReasonCheck,
+          fullData: data
+        })
+        throw new ChatApiError(
+          `API响应格式错误或内容为空，请检查API配置`, 
+          'INVALID_RESPONSE'
+        )
+      }
     }
     
     // 如果只有 tool_calls 没有 content，设置一个空字符串避免后续报错

@@ -8,6 +8,7 @@
  */
 
 import { getUserInfo, getUserInfoWithAvatar } from './userUtils'
+import { saveAccountAvatar, getAccountAvatar, deleteAccountAvatar } from './avatarStorage'
 
 const ACCOUNTS_KEY = 'user_accounts'
 const CURRENT_ACCOUNT_KEY = 'current_account_id'
@@ -121,15 +122,54 @@ export const switchAccount = (accountId: string): void => {
 }
 
 /**
- * 创建小号
+ * 创建小号（同步版本，不保存头像）
  */
 export const createSubAccount = (name: string, avatar?: string, signature?: string): Account => {
   const accounts = getAccounts()
   
+  const accountId = `sub_${Date.now()}`
   const newAccount: Account = {
-    id: `sub_${Date.now()}`,
+    id: accountId,
     name,
-    avatar,
+    // 不在localStorage存储头像，只存标记
+    avatar: avatar ? `indexeddb:account_${accountId}` : undefined,
+    signature,
+    isMain: false,
+    createdAt: Date.now()
+  }
+  
+  accounts.push(newAccount)
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
+  
+  // 头像异步保存到IndexedDB
+  if (avatar && avatar.startsWith('data:')) {
+    saveAccountAvatar(accountId, avatar).catch(err => {
+      console.error('保存账号头像失败:', err)
+    })
+  }
+  
+  console.log('✨ 创建小号:', name)
+  return newAccount
+}
+
+/**
+ * 创建小号（异步版本，确保头像保存完成）
+ */
+export const createSubAccountAsync = async (name: string, avatar?: string, signature?: string): Promise<Account> => {
+  const accounts = getAccounts()
+  
+  const accountId = `sub_${Date.now()}`
+  
+  // 如果有头像，先保存到IndexedDB
+  if (avatar && avatar.startsWith('data:')) {
+    await saveAccountAvatar(accountId, avatar)
+  }
+  
+  const newAccount: Account = {
+    id: accountId,
+    name,
+    // 不在localStorage存储头像，只存标记
+    avatar: avatar ? `indexeddb:account_${accountId}` : undefined,
     signature,
     isMain: false,
     createdAt: Date.now()
@@ -149,6 +189,37 @@ export const updateAccount = (accountId: string, updates: Partial<Account>): voi
   const accounts = getAccounts()
   const index = accounts.findIndex(a => a.id === accountId)
   if (index === -1) return
+  
+  // 如果更新头像，保存到IndexedDB
+  if (updates.avatar && updates.avatar.startsWith('data:')) {
+    saveAccountAvatar(accountId, updates.avatar).catch(err => {
+      console.error('保存账号头像失败:', err)
+    })
+    // 在localStorage中只存标记
+    updates.avatar = `indexeddb:account_${accountId}`
+  }
+  
+  accounts[index] = { ...accounts[index], ...updates }
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
+  
+  // 触发事件通知UI更新
+  window.dispatchEvent(new CustomEvent('accountUpdated', { detail: { accountId } }))
+}
+
+/**
+ * 更新账号信息（异步版本）
+ */
+export const updateAccountAsync = async (accountId: string, updates: Partial<Account>): Promise<void> => {
+  const accounts = getAccounts()
+  const index = accounts.findIndex(a => a.id === accountId)
+  if (index === -1) return
+  
+  // 如果更新头像，保存到IndexedDB
+  if (updates.avatar && updates.avatar.startsWith('data:')) {
+    await saveAccountAvatar(accountId, updates.avatar)
+    // 在localStorage中只存标记
+    updates.avatar = `indexeddb:account_${accountId}`
+  }
   
   accounts[index] = { ...accounts[index], ...updates }
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
@@ -174,6 +245,11 @@ export const deleteSubAccount = (accountId: string): void => {
   const accounts = getAccounts()
   const filtered = accounts.filter(a => a.id !== accountId)
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(filtered))
+  
+  // 删除账号头像
+  deleteAccountAvatar(accountId).catch(err => {
+    console.error('删除账号头像失败:', err)
+  })
   
   // 删除该小号的聊天记录
   // 聊天记录key格式: `messages_${chatId}_${accountId}`
@@ -232,4 +308,40 @@ export const getChatStorageKey = (chatId: string): string => {
  */
 export const shouldUseMemory = (): boolean => {
   return isMainAccount()
+}
+
+/**
+ * 获取账号列表（带头像，异步）
+ */
+export const getAccountsWithAvatars = async (): Promise<Account[]> => {
+  const accounts = getAccounts()
+  
+  // 并行加载所有头像
+  const accountsWithAvatars = await Promise.all(
+    accounts.map(async (account) => {
+      if (account.avatar?.startsWith('indexeddb:account_')) {
+        const avatar = await getAccountAvatar(account.id)
+        return { ...account, avatar: avatar || undefined }
+      }
+      return account
+    })
+  )
+  
+  return accountsWithAvatars
+}
+
+/**
+ * 获取单个账号的完整信息（带头像）
+ */
+export const getAccountWithAvatar = async (accountId: string): Promise<Account | undefined> => {
+  const accounts = getAccounts()
+  const account = accounts.find(a => a.id === accountId)
+  if (!account) return undefined
+  
+  if (account.avatar?.startsWith('indexeddb:account_')) {
+    const avatar = await getAccountAvatar(accountId)
+    return { ...account, avatar: avatar || undefined }
+  }
+  
+  return account
 }

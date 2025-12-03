@@ -5,7 +5,7 @@ import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllPostsAsync, toggleLike, getNPCById, initForumData } from '../utils/forumNPC'
 import { getAllCharacters } from '../utils/characterManager'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
@@ -14,7 +14,7 @@ const InstagramHome = () => {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
   const [posts, setPosts] = useState<ForumPost[]>([])
-  const userInfo = getUserInfo()
+  const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
 
   const formatTimeAgo = (timestamp: number | undefined): string => {
     if (!timestamp) return '刚刚'
@@ -37,6 +37,9 @@ const InstagramHome = () => {
 
   const loadData = async () => {
     await initForumData()
+    // Load user info with avatar
+    const info = await getUserInfoWithAvatar()
+    setUserInfo(info)
     const chars = await getAllCharacters()
     setCharacters(chars)
     const loadedPosts = await getAllPostsAsync()

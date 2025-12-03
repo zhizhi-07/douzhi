@@ -393,7 +393,7 @@ const ChatSettings = () => {
   }
   
   return (
-    <div className="h-screen flex flex-col bg-gray-50 page-enter">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] page-enter">
       {/* 头部 */}
       <div className="glass-effect border-b border-gray-200/30">
         <StatusBar />
@@ -417,7 +417,7 @@ const ChatSettings = () => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* 聊天置顶 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-700">聊天置顶</h2>
@@ -439,7 +439,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 拉黑设置 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-600">拉黑此角色</span>
             <button
@@ -460,7 +460,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 互动设置 */}
-        <div className="glass-card rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 space-y-3 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm font-semibold text-slate-700">互动设置</div>
           
           {/* 拍一拍后缀 */}
@@ -488,7 +488,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 语音设置 */}
-        <div className="glass-card rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 space-y-3 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm font-semibold text-slate-700">语音设置</div>
           
           <div>
@@ -588,7 +588,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI 记忆 */}
-        <div className="glass-card rounded-2xl p-4 space-y-2 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 space-y-2 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm font-semibold text-slate-700 mb-3">AI 记忆</div>
           
           <button
@@ -670,7 +670,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 群聊消息同步 */}
-        <div className="glass-card rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 space-y-3 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm font-semibold text-slate-700">群聊消息同步</div>
           
           <div className="flex items-center justify-between">
@@ -738,7 +738,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发消息 */}
-        <div className="glass-card rounded-2xl p-4 space-y-3 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 space-y-3 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm font-semibold text-slate-700">AI主动发消息</div>
           
           <div className="flex items-center justify-between">
@@ -894,7 +894,7 @@ const ChatSettings = () => {
         )}
         
         {/* 壁纸设置 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
@@ -914,7 +914,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 消息条数设置 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -963,7 +963,7 @@ const ChatSettings = () => {
         </div>
         
         {/* AI主动发朋友圈 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <h2 className="text-base font-semibold text-gray-900">
@@ -999,7 +999,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 朋友圈可见条数 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-base font-semibold text-gray-900">
@@ -1059,7 +1059,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 导出角色数据 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-gray-900">
               导出角色完整数据
@@ -1090,7 +1090,7 @@ const ChatSettings = () => {
         </div>
         
         {/* 清空聊天记录 */}
-        <div className="glass-card rounded-2xl p-4 shadow-[0_2px_12px_rgba(148,163,184,0.1)]">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-gray-900">
               清空聊天记录

@@ -15,14 +15,14 @@ import { saveMessages } from '../utils/simpleMessageManager'
 const OfflineChat = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  
+
   if (!id) {
     return <div className="flex items-center justify-center h-screen">角色ID不存在</div>
   }
-  
+
   const chatState = useChatState(id || '')
   const [, setError] = useState<string | null>(null)
-  
+
   const chatAI = useChatAI(
     id || '',
     chatState.character,
@@ -30,12 +30,12 @@ const OfflineChat = () => {
     chatState.setMessages,
     setError
   )
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [useStreaming, setUseStreaming] = useState(false)
   const [showBeautifySettings, setShowBeautifySettings] = useState(false)
-  const [extensionList, setExtensionList] = useState<Array<{name: string, content: string, enabled: boolean}>>([])
+  const [extensionList, setExtensionList] = useState<Array<{ name: string, content: string, enabled: boolean }>>([])
   const [maxTokens, setMaxTokens] = useState<number>(3000)
   const [temperature, setTemperature] = useState<number>(0.7)
   const [showSettings, setShowSettings] = useState(false)
@@ -56,42 +56,42 @@ const OfflineChat = () => {
   const [showAddPreset, setShowAddPreset] = useState(false)
   const [newPresetName, setNewPresetName] = useState('')
   const [newPresetContent, setNewPresetContent] = useState('')
-  
+
   // 自动滚动
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatState.messages])
-  
+
   // 只显示线下模式的消息（使用 useMemo 避免渲染时触发状态更新）
-  const offlineMessages = useMemo(() => 
+  const offlineMessages = useMemo(() =>
     chatState.messages.filter(m => m.sceneMode === 'offline'),
     [chatState.messages]
   )
-  
+
   const handleSend = async () => {
     if (!inputValue.trim() || chatAI.isAiTyping) return
-    
+
     // 保存设置
     localStorage.setItem('offline-streaming', useStreaming.toString())
     localStorage.setItem('offline-max-tokens', maxTokens.toString())
     localStorage.setItem('offline-temperature', temperature.toString())
-    
+
     // 如果有作者注释，添加到消息中
     let messageToSend = inputValue
     if (authorNote && !inputValue.includes('[作者注:')) {
       messageToSend = `${inputValue}\n[作者注: ${authorNote}]`
     }
-    
+
     // 发送用户消息
     chatAI.handleSend(messageToSend, setInputValue, null, undefined, 'offline')
     setInputValue('')
-    
+
     // 触发AI回复（传递 offline 场景模式）
     setTimeout(() => {
       chatAI.handleAIReply('offline')
     }, 100)
   }
-  
+
   // 删除消息
   const handleDeleteMessage = (messageId: number | string) => {
     chatState.setMessages(prev => {
@@ -101,11 +101,11 @@ const OfflineChat = () => {
       return newMessages
     })
   }
-  
+
   // 编辑消息
   const handleEditMessage = (messageId: number | string, newContent: string) => {
     chatState.setMessages(prev => {
-      const newMessages = prev.map(m => 
+      const newMessages = prev.map(m =>
         m.id === messageId ? { ...m, content: newContent } : m
       )
       // 🔥 持久化保存到localStorage
@@ -115,7 +115,7 @@ const OfflineChat = () => {
     setEditingMessageId(null)
     setEditingContent('')
   }
-  
+
   // 加载扩展条目列表
   const loadExtensions = useCallback(() => {
     const saved = localStorage.getItem('offline-extensions')
@@ -128,12 +128,12 @@ const OfflineChat = () => {
       }
     }
   }, [])
-  
+
   // 加载流式状态和扩展条目
   useEffect(() => {
     const savedStreaming = localStorage.getItem('offline-streaming')
     if (savedStreaming === 'true') setUseStreaming(true)
-    
+
     const savedMaxTokens = localStorage.getItem('offline-max-tokens')
     if (savedMaxTokens) {
       const tokens = parseInt(savedMaxTokens)
@@ -141,15 +141,15 @@ const OfflineChat = () => {
     } else {
       localStorage.setItem('offline-max-tokens', '3000')
     }
-    
+
     const savedTemperature = localStorage.getItem('offline-temperature')
     if (savedTemperature) {
       setTemperature(parseFloat(savedTemperature))
     }
-    
+
     loadExtensions()
   }, [loadExtensions])
-  
+
   // 保存新扩展条目
   const handleSaveNewExtension = () => {
     if (!newPresetName.trim()) {
@@ -160,13 +160,13 @@ const OfflineChat = () => {
       alert('请输入条目内容')
       return
     }
-    
+
     const content = newPresetContent.trim()
-    
+
     // 检查是否已存在同名条目
     const existingIndex = extensionList.findIndex(p => p.name === newPresetName)
     let updatedList: typeof extensionList
-    
+
     if (existingIndex !== -1) {
       // 更新已存在的条目
       updatedList = [...extensionList]
@@ -178,16 +178,16 @@ const OfflineChat = () => {
       updatedList = [...extensionList, newExtension]
       alert(`条目「${newPresetName}」已创建！`)
     }
-    
+
     setExtensionList(updatedList)
     localStorage.setItem('offline-extensions', JSON.stringify(updatedList))
-    
+
     // 关闭表单并重置
     setShowAddPreset(false)
     setNewPresetName('')
     setNewPresetContent('')
   }
-  
+
   // 切换条目开关
   const toggleExtension = (index: number) => {
     const updatedList = [...extensionList]
@@ -195,44 +195,44 @@ const OfflineChat = () => {
     setExtensionList(updatedList)
     localStorage.setItem('offline-extensions', JSON.stringify(updatedList))
   }
-  
+
   // 删除条目
   const deleteExtension = (index: number) => {
     const updatedList = extensionList.filter((_, i) => i !== index)
     setExtensionList(updatedList)
     localStorage.setItem('offline-extensions', JSON.stringify(updatedList))
   }
-  
+
   // 气泡样式（与线上模式共享）
   useChatBubbles(id)
-  
+
   // 背景设置（线下模式独立）
   const [customBg, setCustomBg] = useState<string>('')
-  
+
   useEffect(() => {
     const saved = localStorage.getItem(`offline-bg-${id}`)
     if (saved) setCustomBg(saved)
-    
+
     // 监听背景变化
     const handleStorageChange = () => {
       const newBg = localStorage.getItem(`offline-bg-${id}`)
       setCustomBg(newBg || '')
     }
-    
+
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [id])
-  
-  const bgStyle = customBg 
+
+  const bgStyle = customBg
     ? { backgroundImage: `url(${customBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : {}
-  
+
   if (!chatState.character) {
     return <div className="flex items-center justify-center h-screen">加载中...</div>
   }
-  
+
   return (
-    <div 
+    <div
       className="flex flex-col h-screen bg-gray-50"
       style={bgStyle}
     >
@@ -247,7 +247,7 @@ const OfflineChat = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
+
           <div className="flex-1 text-center">
             <h1 className="text-base font-medium text-black">
               {chatState.character.nickname || chatState.character.realName}
@@ -282,7 +282,7 @@ const OfflineChat = () => {
               </button>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* 美化设置按钮 */}
             <div>
@@ -296,7 +296,7 @@ const OfflineChat = () => {
                 </svg>
               </button>
             </div>
-            
+
             {/* 高级设置按钮（移到最右边） */}
             <div className="relative">
               <button
@@ -309,7 +309,7 @@ const OfflineChat = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
-              
+
               {/* 设置面板 */}
               {showSettings && (
                 <div className="absolute right-0 top-8 bg-white/95 backdrop-blur-sm rounded-2xl shadow-[0_8px_32px_rgba(148,163,184,0.15)] p-5 min-w-[320px] z-50 border border-slate-100">
@@ -324,15 +324,15 @@ const OfflineChat = () => {
                       </svg>
                     </button>
                   </div>
-                  
+
                   <div className="space-y-4">
                     {/* 预设管理 */}
                     <div>
                       <div className="text-xs font-medium text-slate-600 mb-3">预设管理</div>
-                      
+
                       {/* 新增按钮 */}
                       {!showAddPreset ? (
-                        <button 
+                        <button
                           onClick={() => setShowAddPreset(true)}
                           className="flex items-center gap-2 w-full px-4 py-2.5 rounded-xl bg-slate-50 text-slate-700 text-sm transition-all shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] mb-3"
                         >
@@ -377,11 +377,11 @@ const OfflineChat = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* 扩展条目列表 */}
                       <div className="max-h-[200px] overflow-y-auto space-y-1">
                         {extensionList.map((extension, index) => (
-                          <div 
+                          <div
                             key={index}
                             className="flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all group"
                           >
@@ -408,7 +408,7 @@ const OfflineChat = () => {
                             </button>
                           </div>
                         ))}
-                        
+
                         {extensionList.length === 0 && (
                           <div className="text-center py-6 text-slate-400 text-xs">
                             暂无条目，点击上方按钮创建
@@ -416,10 +416,10 @@ const OfflineChat = () => {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* 分隔线 */}
                     <div className="h-px bg-slate-100 my-4"></div>
-                    
+
                     {/* 字数限制 */}
                     <div>
                       <div className="flex justify-between text-xs text-slate-600 mb-1">
@@ -488,18 +488,17 @@ const OfflineChat = () => {
                               setMaxTokens(preset)
                               localStorage.setItem('offline-max-tokens', preset.toString())
                             }}
-                            className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-                              maxTokens === preset
+                            className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${maxTokens === preset
                                 ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
                                 : 'glass-card text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
-                            }`}
+                              }`}
                           >
                             {preset}
                           </button>
                         ))}
                       </div>
                     </div>
-                    
+
                     {/* 创造性温度 */}
                     <div>
                       <div className="flex justify-between text-xs text-slate-600 mb-2">
@@ -571,18 +570,17 @@ const OfflineChat = () => {
                               setTemperature(preset.value)
                               localStorage.setItem('offline-temperature', preset.value.toString())
                             }}
-                            className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-                              Math.abs(temperature - preset.value) < 0.05
+                            className={`px-3 py-2 text-xs font-medium rounded-xl transition-all ${Math.abs(temperature - preset.value) < 0.05
                                 ? 'bg-slate-700 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]'
                                 : 'bg-slate-50 text-slate-700 shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)]'
-                            }`}
+                              }`}
                           >
                             {preset.label}
                           </button>
                         ))}
                       </div>
                     </div>
-                    
+
                     {/* 流式开关 */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-slate-600">流式输出</span>
@@ -591,15 +589,13 @@ const OfflineChat = () => {
                           setUseStreaming(!useStreaming)
                           localStorage.setItem('offline-streaming', (!useStreaming).toString())
                         }}
-                        className={`relative w-11 h-6 rounded-full transition-all ${
-                          useStreaming 
-                            ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
+                        className={`relative w-11 h-6 rounded-full transition-all ${useStreaming
+                            ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'
                             : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-                        }`}
+                          }`}
                       >
-                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all duration-200 shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] ${
-                          useStreaming ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
+                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all duration-200 shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] ${useStreaming ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
                       </button>
                     </div>
                   </div>
@@ -609,7 +605,7 @@ const OfflineChat = () => {
           </div>
         </div>
       </div>
-      
+
       {/* 作者注释面板 */}
       {showAuthorNote && (
         <div className="bg-white px-6 py-3 shadow-sm">
@@ -638,7 +634,7 @@ const OfflineChat = () => {
           </div>
         </div>
       )}
-      
+
       {/* 角色状态面板 */}
       {showStatusPanel && (
         <div className="bg-gray-50 px-6 py-3">
@@ -648,7 +644,7 @@ const OfflineChat = () => {
                 <div className="text-xs text-gray-500 mb-1">HP</div>
                 <div className="flex items-center justify-center gap-1">
                   <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div 
+                    <div
                       className="bg-red-500 h-1.5 rounded-full transition-all"
                       style={{ width: `${characterStatus.hp}%` }}
                     />
@@ -668,7 +664,7 @@ const OfflineChat = () => {
                 <div className="text-xs text-gray-500 mb-1">好感度</div>
                 <div className="flex items-center justify-center gap-1">
                   <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div 
+                    <div
                       className="bg-pink-500 h-1.5 rounded-full transition-all"
                       style={{ width: `${characterStatus.relationship}%` }}
                     />
@@ -680,7 +676,7 @@ const OfflineChat = () => {
                 <div className="text-xs text-gray-500 mb-1">精力</div>
                 <div className="flex items-center justify-center gap-1">
                   <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div 
+                    <div
                       className="bg-green-500 h-1.5 rounded-full transition-all"
                       style={{ width: `${characterStatus.energy}%` }}
                     />
@@ -692,7 +688,7 @@ const OfflineChat = () => {
           </div>
         </div>
       )}
-      
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto pb-4 pt-2">
         {offlineMessages.length === 0 ? (
@@ -705,8 +701,8 @@ const OfflineChat = () => {
               </div>
               <h2 className="text-lg font-medium text-gray-800 mb-3">故事尚未开始</h2>
               <p className="text-sm text-gray-600 font-serif leading-loose">
-                此刻，故事尚未开始<br/>
-                等待着你的第一句话<br/>
+                此刻，故事尚未开始<br />
+                等待着你的第一句话<br />
                 开启这段独特的叙事之旅
               </p>
               <div className="text-sm text-gray-500 mt-3">* * *</div>
@@ -721,7 +717,7 @@ const OfflineChat = () => {
                 characterAvatar={chatState.character!.avatar}
                 chatId={id}
               />
-              
+
               {/* 消息操作按钮 */}
               <div className="absolute top-4 right-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                 {editingMessageId === message.id ? (
@@ -754,58 +750,58 @@ const OfflineChat = () => {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMessage(message.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                    title="删除"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                  {message.type === 'received' && (
-                    <button
-                      onClick={() => {
-                        // 重新生成AI回复
-                        handleDeleteMessage(message.id)
-                        setTimeout(() => {
-                          chatAI.handleAIReply('offline')
-                        }, 100)
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="重新生成"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     </button>
-                  )}
-                </>
+                    <button
+                      onClick={() => handleDeleteMessage(message.id)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="删除"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                    {message.type === 'received' && (
+                      <button
+                        onClick={() => {
+                          // 重新生成AI回复
+                          handleDeleteMessage(message.id)
+                          setTimeout(() => {
+                            chatAI.handleAIReply('offline')
+                          }, 100)
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="重新生成"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* 编辑框 */}
+              {editingMessageId === message.id && (
+                <div className="px-6 sm:px-12 -mt-8 mb-8">
+                  <div className="max-w-2xl mx-auto">
+                    <textarea
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full px-4 py-3 bg-white rounded-xl shadow-sm focus:outline-none focus:shadow-md resize-none"
+                      rows={4}
+                    />
+                  </div>
+                </div>
               )}
             </div>
-            
-            {/* 编辑框 */}
-            {editingMessageId === message.id && (
-              <div className="px-6 sm:px-12 -mt-8 mb-8">
-                <div className="max-w-2xl mx-auto">
-                  <textarea
-                    value={editingContent}
-                    onChange={(e) => setEditingContent(e.target.value)}
-                    className="w-full px-4 py-3 bg-white rounded-xl shadow-sm focus:outline-none focus:shadow-md resize-none"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ))
-      )}
-      <div ref={messagesEndRef} />
+          ))
+        )}
+        <div ref={messagesEndRef} />
       </div>
-      
-      
+
+
       {/* Input */}
       <div className="bg-gray-50 px-6 py-4">
         <div className="max-w-2xl mx-auto">
@@ -835,7 +831,7 @@ const OfflineChat = () => {
               className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[20px] max-h-[120px]"
               rows={1}
             />
-            
+
             <div className="flex items-center gap-2">
               {/* 发送按钮 */}
               <button
@@ -855,7 +851,7 @@ const OfflineChat = () => {
           </div>
         </div>
       </div>
-      
+
       {/* 记忆储存弹窗 */}
       <MemoryStorage
         isOpen={showMemoryStorage}
@@ -873,7 +869,7 @@ const OfflineChat = () => {
           chatState.setMessages(messages)
         }}
       />
-      
+
       {/* 美化设置弹窗 */}
       {showBeautifySettings && (
         <OfflineBeautifySettings

@@ -4,7 +4,7 @@
  * 支持自定义头像框
  */
 
-import { getUserInfoWithAvatar } from '../utils/userUtils'
+import { getCurrentUserInfoWithAvatar } from '../utils/userUtils'
 import { useState, useEffect } from 'react'
 
 interface AvatarProps {
@@ -67,9 +67,22 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
   
   useEffect(() => {
     if (type === 'sent') {
-      getUserInfoWithAvatar().then(info => {
+      getCurrentUserInfoWithAvatar().then(info => {
         setUserAvatar(info.avatar)
       })
+      
+      // 监听账号切换事件，重新加载头像
+      const handleAccountSwitch = () => {
+        getCurrentUserInfoWithAvatar().then(info => {
+          setUserAvatar(info.avatar)
+        })
+      }
+      window.addEventListener('accountSwitched', handleAccountSwitch)
+      window.addEventListener('accountUpdated', handleAccountSwitch)
+      return () => {
+        window.removeEventListener('accountSwitched', handleAccountSwitch)
+        window.removeEventListener('accountUpdated', handleAccountSwitch)
+      }
     }
   }, [type])
 

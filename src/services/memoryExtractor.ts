@@ -6,6 +6,7 @@
 import { callZhizhiApi } from './zhizhiapi'
 import { unifiedMemoryService, type MemoryDomain } from './unifiedMemoryService'
 import type { Message } from '../types/chat'
+import { isMainAccount } from '../utils/accountManager'
 
 // 对话轮次接口
 interface DialogueTurn {
@@ -230,6 +231,12 @@ export async function extractMemoryFromChat(
   messages: Message[],
   domain: MemoryDomain = 'chat'
 ): Promise<number> {
+  // 🔥 小号不记录全局记忆
+  if (!isMainAccount()) {
+    console.log('⏭️ [记忆提取] 当前是小号，跳过记忆提取')
+    return 0
+  }
+  
   console.log('🧠 [记忆提取] 开始提取记忆...')
   
   // 0. 获取上次提取的时间戳，只分析新消息
@@ -369,6 +376,12 @@ export async function extractMemoryFromMoments(
   characterName: string,
   moments: any[] // 朋友圈数据
 ): Promise<number> {
+  // 🔥 小号不记录全局记忆
+  if (!isMainAccount()) {
+    console.log('⏭️ [朋友圈记忆提取] 当前是小号，跳过记忆提取')
+    return 0
+  }
+  
   console.log('🧠 [朋友圈记忆提取] 开始提取...')
   
   if (!moments || moments.length === 0) {
