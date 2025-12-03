@@ -47,8 +47,59 @@ const CloudShape = ({ className, style }: { className?: string, style?: React.CS
   </svg>
 )
 
+// 🔥 预生成随机数据，避免每次渲染重新计算导致内存问题
+const generateRainDrops = (count: number) => 
+  Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: Math.random() * 120 - 10,
+    top: Math.random() * 20,
+    duration: 0.4 + Math.random() * 0.3,
+    delay: Math.random() * 2,
+    opacity: Math.random() * 0.5 + 0.3
+  }))
+
+const generateSnowFlakes = (count: number, layer: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `snow-${layer}-${i}`,
+    size: layer === 1 ? Math.random() * 2 + 1 : layer === 2 ? Math.random() * 3 + 2 : Math.random() * 4 + 4,
+    left: Math.random() * 100,
+    top: Math.random() * 20,
+    opacity: layer === 1 ? Math.random() * 0.5 + 0.1 : layer === 2 ? Math.random() * 0.8 + 0.2 : Math.random() * 0.9 + 0.4,
+    duration: layer === 1 ? 8 + Math.random() * 5 : layer === 2 ? 5 + Math.random() * 3 : 3 + Math.random() * 2,
+    delay: Math.random() * 5
+  }))
+
+const generateWindLines = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: i,
+    width: 150 + Math.random() * 300,
+    top: Math.random() * 100,
+    duration: 0.8 + Math.random() * 1.2,
+    delay: Math.random() * 2,
+    opacity: Math.random() * 0.5 + 0.2
+  }))
+
+const generateWindDebris = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `leaf-${i}`,
+    top: Math.random() * 100,
+    duration: 1.5 + Math.random() * 2,
+    delay: Math.random() * 3
+  }))
+
+// 🔥 静态数据，只生成一次
+const RAIN_DROPS_LIGHT = generateRainDrops(30)
+const RAIN_DROPS_HEAVY = generateRainDrops(60)
+const SNOW_LAYER_1 = generateSnowFlakes(30, 1)
+const SNOW_LAYER_2 = generateSnowFlakes(20, 2)
+const SNOW_LAYER_3 = generateSnowFlakes(10, 3)
+const WIND_LINES = generateWindLines(12)
+const WIND_DEBRIS = generateWindDebris(8)
+
 // 🌧️ Weather Effects Layer
 const WeatherEffects = ({ type }: { type: string }) => {
+  const rainDrops = (type === 'heavy_rain' || type === 'thunder') ? RAIN_DROPS_HEAVY : RAIN_DROPS_LIGHT
+  
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {/* Sunny Effect */}
@@ -58,24 +109,23 @@ const WeatherEffects = ({ type }: { type: string }) => {
           <div className="absolute top-[10%] right-[10%] text-yellow-100/80 animate-spin-slow">
             <Sun size={120} strokeWidth={1} />
           </div>
-          {/* Sun Rays */}
           <div className="absolute top-[10%] right-[10%] w-[120px] h-[120px] bg-yellow-100/10 rounded-full blur-xl animate-pulse" />
         </>
       )}
 
-      {/* Rain Effect (CSS Animation) */}
+      {/* Rain Effect */}
       {(type === 'rain' || type === 'heavy_rain' || type === 'thunder') && (
         <div className="rain-container absolute inset-0 transform -skew-x-12">
-          {[...Array(type === 'heavy_rain' || type === 'thunder' ? 60 : 30)].map((_, i) => (
+          {rainDrops.map(drop => (
             <div
-              key={i}
+              key={drop.id}
               className="absolute bg-white/60 w-[1px] h-[40px] animate-rain"
               style={{
-                left: `${Math.random() * 120 - 10}%`,
-                top: `-${Math.random() * 20}%`,
-                animationDuration: `${0.4 + Math.random() * 0.3}s`,
-                animationDelay: `${Math.random() * 2}s`,
-                opacity: Math.random() * 0.5 + 0.3
+                left: `${drop.left}%`,
+                top: `-${drop.top}%`,
+                animationDuration: `${drop.duration}s`,
+                animationDelay: `${drop.delay}s`,
+                opacity: drop.opacity
               }}
             />
           ))}
@@ -87,54 +137,51 @@ const WeatherEffects = ({ type }: { type: string }) => {
         <div className="absolute inset-0 bg-white/30 animate-lightning z-0" />
       )}
 
-      {/* Snow Effect - Refined */}
+      {/* Snow Effect */}
       {type === 'snow' && (
         <div className="snow-container absolute inset-0">
-          {/* Layer 1: Small, slow, background */}
-          {[...Array(30)].map((_, i) => (
+          {SNOW_LAYER_1.map(flake => (
             <div
-              key={`snow-1-${i}`}
+              key={flake.id}
               className="absolute bg-white rounded-full animate-snow blur-[1px]"
               style={{
-                width: `${Math.random() * 2 + 1}px`,
-                height: `${Math.random() * 2 + 1}px`,
-                left: `${Math.random() * 100}%`,
-                top: `-${Math.random() * 20}%`,
-                opacity: Math.random() * 0.5 + 0.1,
-                animationDuration: `${8 + Math.random() * 5}s`,
-                animationDelay: `${Math.random() * 5}s`
+                width: `${flake.size}px`,
+                height: `${flake.size}px`,
+                left: `${flake.left}%`,
+                top: `-${flake.top}%`,
+                opacity: flake.opacity,
+                animationDuration: `${flake.duration}s`,
+                animationDelay: `${flake.delay}s`
               }}
             />
           ))}
-          {/* Layer 2: Medium, normal speed */}
-          {[...Array(20)].map((_, i) => (
+          {SNOW_LAYER_2.map(flake => (
             <div
-              key={`snow-2-${i}`}
+              key={flake.id}
               className="absolute bg-white rounded-full animate-snow-sway"
               style={{
-                width: `${Math.random() * 3 + 2}px`,
-                height: `${Math.random() * 3 + 2}px`,
-                left: `${Math.random() * 100}%`,
-                top: `-${Math.random() * 20}%`,
-                opacity: Math.random() * 0.8 + 0.2,
-                animationDuration: `${5 + Math.random() * 3}s`,
-                animationDelay: `${Math.random() * 5}s`
+                width: `${flake.size}px`,
+                height: `${flake.size}px`,
+                left: `${flake.left}%`,
+                top: `-${flake.top}%`,
+                opacity: flake.opacity,
+                animationDuration: `${flake.duration}s`,
+                animationDelay: `${flake.delay}s`
               }}
             />
           ))}
-          {/* Layer 3: Large, fast, foreground */}
-          {[...Array(10)].map((_, i) => (
+          {SNOW_LAYER_3.map(flake => (
             <div
-              key={`snow-3-${i}`}
+              key={flake.id}
               className="absolute bg-white/90 rounded-full animate-snow-fast blur-[0.5px]"
               style={{
-                width: `${Math.random() * 4 + 4}px`,
-                height: `${Math.random() * 4 + 4}px`,
-                left: `${Math.random() * 100}%`,
-                top: `-${Math.random() * 20}%`,
-                opacity: Math.random() * 0.9 + 0.4,
-                animationDuration: `${3 + Math.random() * 2}s`,
-                animationDelay: `${Math.random() * 5}s`
+                width: `${flake.size}px`,
+                height: `${flake.size}px`,
+                left: `${flake.left}%`,
+                top: `-${flake.top}%`,
+                opacity: flake.opacity,
+                animationDuration: `${flake.duration}s`,
+                animationDelay: `${flake.delay}s`
               }}
             />
           ))}
@@ -155,33 +202,32 @@ const WeatherEffects = ({ type }: { type: string }) => {
         </div>
       )}
 
-      {/* Wind Effect - Refined */}
+      {/* Wind Effect */}
       {type === 'wind' && (
         <div className="absolute inset-0">
-          {[...Array(12)].map((_, i) => (
+          {WIND_LINES.map(line => (
             <div
-              key={i}
+              key={line.id}
               className="absolute h-[1px] bg-white/40 rounded-full animate-wind"
               style={{
-                width: `${150 + Math.random() * 300}px`,
-                top: `${Math.random() * 100}%`,
+                width: `${line.width}px`,
+                top: `${line.top}%`,
                 left: '-400px',
-                animationDuration: `${0.8 + Math.random() * 1.2}s`,
-                animationDelay: `${Math.random() * 2}s`,
-                opacity: Math.random() * 0.5 + 0.2
+                animationDuration: `${line.duration}s`,
+                animationDelay: `${line.delay}s`,
+                opacity: line.opacity
               }}
             />
           ))}
-          {/* Swirling Debris */}
-          {[...Array(8)].map((_, i) => (
+          {WIND_DEBRIS.map(debris => (
             <div
-              key={`leaf-${i}`}
+              key={debris.id}
               className="absolute w-1.5 h-1.5 bg-white/60 rounded-sm animate-wind-debris"
               style={{
-                top: `${Math.random() * 100}%`,
+                top: `${debris.top}%`,
                 left: '-50px',
-                animationDuration: `${1.5 + Math.random() * 2}s`,
-                animationDelay: `${Math.random() * 3}s`
+                animationDuration: `${debris.duration}s`,
+                animationDelay: `${debris.delay}s`
               }}
             />
           ))}
@@ -524,8 +570,22 @@ ${worldbookContext || '无'}
   const currentWeather = currentData.week[0]
   const weatherConfig = WEATHER_TYPES.find(w => w.id === currentWeather.weather) || WEATHER_TYPES[0]
 
+  // 🔥 设置正确的移动端视口高度
+  useEffect(() => {
+    const setVH = () => {
+      const vh = window.innerHeight * 0.01
+      document.documentElement.style.setProperty('--vh', `${vh}px`)
+    }
+    setVH()
+    window.addEventListener('resize', setVH)
+    return () => window.removeEventListener('resize', setVH)
+  }, [])
+
   return (
-    <div className={`relative min-h-screen w-full overflow-hidden transition-colors duration-1000 bg-gradient-to-br ${weatherConfig.bg}`}>
+    <div 
+      className={`relative w-full overflow-hidden transition-colors duration-1000 bg-gradient-to-br ${weatherConfig.bg}`}
+      style={{ minHeight: 'calc(var(--vh, 1vh) * 100)', height: 'calc(var(--vh, 1vh) * 100)' }}
+    >
 
       {/* Dynamic Weather Effects */}
       <WeatherEffects type={currentWeather.weather} />

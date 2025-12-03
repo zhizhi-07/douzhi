@@ -2445,15 +2445,19 @@ export const changeAvatarHandler: CommandHandler = {
       // 🔥 优先使用 images 数组，否则使用 photoBase64
       if (hasImages) {
         newAvatar = (targetMessage as any).images[0].url
+        console.log('🖼️ [AI换头像] 使用 images 数组')
       } else if (hasPhotoBase64) {
         // 如果是 base64 格式，需要转换为完整的 data URL
-        const base64Data = hasPhotoBase64.startsWith('data:') 
-          ? hasPhotoBase64 
-          : `data:image/jpeg;base64,${hasPhotoBase64}`
+        const base64Str = String(hasPhotoBase64)
+        const base64Data = base64Str.startsWith('data:') 
+          ? base64Str 
+          : `data:image/jpeg;base64,${base64Str}`
         newAvatar = base64Data
+        console.log('🖼️ [AI换头像] 使用 photoBase64，长度:', base64Str.length)
       }
       
       usedPrompt = '使用聊天图片'
+      console.log('🖼️ [AI换头像] newAvatar 已设置:', !!newAvatar)
     }
     else {
       console.warn('⚠️ [AI换头像] 未知参数格式:', param)

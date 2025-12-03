@@ -16,6 +16,7 @@ import {
 import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 import { addMessage } from '../utils/simpleMessageManager'
 import { getUserAvatar } from '../utils/avatarStorage'
+import { characterService } from '../services/characterService'
 
 // 预设背景主题
 const THEMES = [
@@ -138,7 +139,21 @@ const CoupleSpace = () => {
   }, [])
 
   const loadRelation = async () => {
-    setRelation(getCoupleSpaceRelation())
+    const rel = getCoupleSpaceRelation()
+    
+    // 🔥 等待角色数据加载完成，然后获取最新头像
+    if (rel && rel.characterId) {
+      await characterService.waitForLoad() // 确保数据已加载
+      const character = characterService.getById(rel.characterId)
+      if (character?.avatar) {
+        rel.characterAvatar = character.avatar
+        // 🔥 同时更新 localStorage，避免下次刷新又变回旧的
+        localStorage.setItem('couple_space_relation', JSON.stringify(rel))
+        console.log('✅ [情侣空间] 已同步最新角色头像')
+      }
+    }
+    
+    setRelation(rel)
     setPrivacyMode(getCoupleSpacePrivacy())
     // 加载相册照片
     try {
