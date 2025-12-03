@@ -2357,11 +2357,27 @@ export const changeAvatarHandler: CommandHandler = {
     // 方式2: 使用用户头像
     else if (param === '用户头像' || param === '对方头像') {
       console.log('👤 [AI换头像] 使用用户头像')
-      const userInfo = getUserInfo()
+      
+      // 🔥 修复：使用异步方法获取用户头像
+      const { getUserInfoWithAvatar } = await import('../../../utils/userUtils')
+      const userInfo = await getUserInfoWithAvatar()
 
       if (!userInfo.avatar) {
         console.warn('⚠️ [AI换头像] 用户未设置头像')
-        return { handled: false }
+        // 🔥 添加提示消息并隐藏指令
+        const failMsg = createMessageObj('system', {
+          content: `${character.nickname || character.realName} 想用你的头像，但你还没设置头像`,
+          aiReadableContent: `[系统通知：换头像失败，用户未设置头像]`,
+          type: 'system'
+        })
+        await addMessage(failMsg, setMessages, chatId)
+        
+        const remainingText = content.replace(match[0], '').trim()
+        return {
+          handled: true,
+          remainingText,
+          skipTextMessage: !remainingText
+        }
       }
 
       newAvatar = userInfo.avatar

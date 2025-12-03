@@ -119,6 +119,23 @@ export const characterService = {
       console.error('更新角色失败:', e)
     )
     
+    // 🔥 如果更新了头像，同步更新情侣空间
+    if (updates.avatar) {
+      try {
+        const relationData = localStorage.getItem('couple_space_relation')
+        if (relationData) {
+          const relation = JSON.parse(relationData)
+          if (relation && relation.characterId === id && relation.status === 'active') {
+            relation.characterAvatar = updates.avatar
+            localStorage.setItem('couple_space_relation', JSON.stringify(relation))
+            console.log('✅ [角色更新] 已同步更新情侣空间头像')
+          }
+        }
+      } catch (e) {
+        console.error('同步情侣空间头像失败:', e)
+      }
+    }
+    
     return charactersCache[index]
   },
 
