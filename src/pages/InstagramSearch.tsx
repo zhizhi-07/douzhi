@@ -356,15 +356,23 @@ ${publicFigurePrompt}
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+      <div className="h-full flex flex-col bg-[white] font-serif text-[#2C2C2C]">
         {/* 话题标题 + 创建按钮（包含状态栏） */}
-        <div className="sticky top-0 z-10 bg-[#F9F8F4]/90 backdrop-blur-md border-b border-[#EAE5D9]">
+        <div className="sticky top-0 z-10 bg-[white]/90 backdrop-blur-md border-b border-[#e5e5e5]">
           <StatusBar />
-          <div className="flex items-center justify-between px-5 pb-4">
-            <h1 className="text-sm font-medium text-[#2C2C2C]">话题</h1>
+          <div className="flex items-center justify-between px-5 pb-4 relative">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-[#e5e5e5] rounded-full transition-colors"
+            >
+              <svg className="w-5 h-5 text-[#5A5A5A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-medium tracking-[0.2em] text-[#2C2C2C] absolute left-1/2 -translate-x-1/2">话题</h1>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="w-8 h-8 rounded-full bg-[#2C2C2C] text-[#F9F8F4] flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-black"
+              className="w-8 h-8 rounded-full bg-[#2C2C2C] text-[white] flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-black"
             >
               <Plus className="w-4 h-4 stroke-[1.5]" />
             </button>
@@ -373,7 +381,7 @@ ${publicFigurePrompt}
 
         {/* 话题列表 */}
         <div className="pb-20 px-5">
-          <div className="divide-y divide-[#EAE5D9]">
+          <div className="divide-y divide-[#e5e5e5]">
             {topics.map((topic) => (
               <div
                 key={topic.id}
@@ -381,7 +389,7 @@ ${publicFigurePrompt}
                 className="py-5 cursor-pointer group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full border border-[#EAE5D9] flex items-center justify-center flex-shrink-0 group-hover:border-[#8C8C8C] transition-colors">
+                  <div className="w-10 h-10 rounded-full border border-[#e5e5e5] flex items-center justify-center flex-shrink-0 group-hover:border-[#8C8C8C] transition-colors">
                     <Hash className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
                   </div>
 
@@ -402,7 +410,7 @@ ${publicFigurePrompt}
                     </p>
                   </div>
 
-                  <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] transition-colors">
+                  <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#e5e5e5] transition-colors">
                     <svg className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
                     </svg>
@@ -422,8 +430,8 @@ ${publicFigurePrompt}
         {/* 创建话题模态框 */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 bg-[#2C2C2C]/20 backdrop-blur-sm flex items-center justify-center p-6">
-            <div className="bg-[#F9F8F4] rounded-sm w-full max-w-sm overflow-hidden shadow-lg border border-[#EAE5D9]">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#EAE5D9]">
+            <div className="bg-[white] rounded-sm w-full max-w-sm overflow-hidden shadow-lg border border-[#e5e5e5]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#e5e5e5]">
                 <button onClick={() => setShowCreateModal(false)} className="text-[#5A5A5A] hover:text-[#2C2C2C]">
                   <X className="w-5 h-5 stroke-[1.5]" />
                 </button>
@@ -439,7 +447,7 @@ ${publicFigurePrompt}
               <div className="p-6">
                 <div className="mb-6">
                   <label className="block text-[10px] text-[#8C8C8C] mb-2">话题名称</label>
-                  <div className="flex items-center gap-2 bg-white border border-[#EAE5D9] rounded-sm px-3 py-2">
+                  <div className="flex items-center gap-2 bg-white border border-[#e5e5e5] rounded-sm px-3 py-2">
                     <Hash className="w-4 h-4 text-[#8C8C8C] stroke-[1.5]" />
                     <input
                       type="text"
@@ -458,7 +466,7 @@ ${publicFigurePrompt}
                     value={topicDesc}
                     onChange={(e) => setTopicDesc(e.target.value)}
                     placeholder="描述这个话题..."
-                    className="w-full bg-white border border-[#EAE5D9] rounded-sm px-3 py-2 outline-none text-sm text-[#2C2C2C] font-serif placeholder-[#C0C0C0] resize-none"
+                    className="w-full bg-white border border-[#e5e5e5] rounded-sm px-3 py-2 outline-none text-sm text-[#2C2C2C] font-serif placeholder-[#C0C0C0] resize-none"
                     rows={3}
                     maxLength={100}
                   />

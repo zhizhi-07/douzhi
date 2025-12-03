@@ -34,6 +34,8 @@ interface SpecialMessageRendererProps {
   onAcceptPayment?: (messageId: number) => void
   onRejectPayment?: (messageId: number) => void
   onOpenRedPacket?: (messageId: number) => void
+  onAcceptFriendRequest?: (messageId: number) => void
+  onRejectFriendRequest?: (messageId: number) => void
 }
 
 /**
@@ -58,7 +60,9 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onRejectMusicInvite,
   onAcceptPayment,
   onRejectPayment,
-  onOpenRedPacket
+  onOpenRedPacket,
+  onAcceptFriendRequest,
+  onRejectFriendRequest
 }) => {
   // 红包
   if ((message.messageType as any) === 'redPacket' && (message as any).redPacket) {
@@ -81,6 +85,45 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         onAccept={() => onAcceptInvite(message.id)}
         onReject={() => onRejectInvite(message.id)}
       />
+    )
+  }
+
+  // 好友申请卡片
+  if (message.messageType === 'friendRequest' && message.friendRequest) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 max-w-[260px]">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-800">请求添加你为好友</div>
+            <div className="text-xs text-gray-500 mt-0.5">验证消息：{message.friendRequest.message}</div>
+          </div>
+        </div>
+        {message.friendRequest.status === 'pending' ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onRejectFriendRequest?.(message.id)}
+              className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg transition-colors"
+            >
+              拒绝
+            </button>
+            <button
+              onClick={() => onAcceptFriendRequest?.(message.id)}
+              className="flex-1 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              通过
+            </button>
+          </div>
+        ) : message.friendRequest.status === 'accepted' ? (
+          <div className="text-center text-sm text-green-600 py-1">✓ 已通过</div>
+        ) : (
+          <div className="text-center text-sm text-gray-400 py-1">已拒绝</div>
+        )}
+      </div>
     )
   }
 

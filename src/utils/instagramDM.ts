@@ -11,8 +11,10 @@ export interface DMMessage {
   timestamp: number
   time: string
   isFromUser: boolean  // 是否是用户发的
-  type?: 'text' | 'emoji'  // 消息类型
+  type?: 'text' | 'emoji' | 'voice'  // 消息类型
   emojiUrl?: string  // 表情包URL
+  voiceUrl?: string  // 语音URL
+  voiceDuration?: number  // 语音时长(秒)
 }
 
 export interface DMConversation {
@@ -203,13 +205,14 @@ export function sendDMToUser(
   return message
 }
 
-// 用户发送表情包给NPC
+// 用户发送表情包给NPC (isFromAI=true时表示AI发送)
 export function sendEmojiFromUser(
   npcId: string,
   npcName: string,
   npcAvatar: string | undefined,
   emojiUrl: string,
-  description: string
+  description: string,
+  isFromAI: boolean = false
 ) {
   const now = Date.now()
   const time = new Date().toLocaleTimeString('zh-CN', {
@@ -219,12 +222,13 @@ export function sendEmojiFromUser(
   
   const message: DMMessage = {
     id: `${now}-${Math.random().toString(36).substr(2, 9)}`,
-    senderId: 'user',
-    senderName: '我',
+    senderId: isFromAI ? npcId : 'user',
+    senderName: isFromAI ? npcName : '我',
+    senderAvatar: isFromAI ? npcAvatar : undefined,
     content: `[表情包] ${description}`,
     timestamp: now,
     time,
-    isFromUser: true,
+    isFromUser: !isFromAI,
     type: 'emoji',
     emojiUrl
   }
@@ -329,4 +333,62 @@ export function markDMAsRead(npcId: string) {
 export function getTotalUnreadDM(): number {
   const conversations = getDMConversations()
   return conversations.reduce((sum, c) => sum + c.unreadCount, 0)
+}
+
+// 发送语音消息（textContent是语音的文字内容，供AI理解）
+export function sendVoiceFromUser(
+  npcId: string,
+  npcName: string,
+  npcAvatar: string | undefined,
+  duration: number,
+  textContent: string = ''
+) {
+  const now = Date.now()
+  const time = new Date().toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  
+  const message: DMMessage = {
+    id: `${now}-${Math.random().toString(36).substr(2, 9)}`,
+    senderId: 'user',
+    senderName: '我',
+    content: textContent || `[语音 ${duration}秒]`,  // 实际内容供AI理解
+    timestamp: now,
+    time,
+    isFromUser: true,
+    type: 'voice',
+    voiceUrl: '',
+    voiceDuration: duration
+  }
+  
+  // 保存消息到缓存和IndexedDB
+  const currentMessages = getDMMessages(npcId)
+  currentMessages.push(message)
+  messagesCache[npcId] = currentMessages
+  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
+  
+  // 更新会话列表
+  const conversations = getDMConversations()
+  const existingIndex = conversations.findIndex(c => c.id === npcId)
+  
+  if (existingIndex >= 0) {
+    conversations[existingIndex].lastMessage = `[语音 ${duration}秒]`
+    conversations[existingIndex].lastTime = time
+    conversations[existingIndex].updatedAt = now
+  } else {
+    conversations.push({
+      id: npcId,
+      name: npcName,
+      avatar: npcAvatar,
+      lastMessage: `[语音 ${duration}秒]`,
+      lastTime: time,
+      unreadCount: 0,
+      updatedAt: now
+    })
+  }
+  
+  saveDMConversations(conversations)
+  
+  return message
 }

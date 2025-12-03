@@ -92,11 +92,14 @@ import AIScheduleSelect from './pages/AIScheduleSelect'
 import ScreenSettings from './pages/ScreenSettings'
 import MemeLibrary from './pages/MemeLibrary'
 import SwitchAccount from './pages/SwitchAccount'
+import Weather from './pages/Weather'
+import Envelope from './pages/Envelope'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
 import { ContactsProvider } from './context/ContactsContext'
+import MainLayout from './components/MainLayout'
 
 function App() {
   const location = useLocation()
@@ -313,9 +316,9 @@ function App() {
         try {
           const fontConfig = JSON.parse(customFont)
           let fontUrl = fontConfig.url
-          
+
           console.log('🔤 加载字体配置:', fontConfig.name, '| URL存在:', !!fontUrl)
-          
+
           // 如果 localStorage 没有 url，尝试从 IndexedDB 加载
           if (!fontUrl && fontConfig.name && fontConfig.name !== '经典衬线') {
             console.log('🔤 尝试从 IndexedDB 加载字体:', fontConfig.name)
@@ -323,12 +326,12 @@ function App() {
               // 使用更可靠的 IndexedDB 打开方式
               const db = await new Promise<IDBDatabase>((resolve, reject) => {
                 const request = indexedDB.open('FontStorage', 1)
-                
+
                 request.onerror = () => {
                   console.error('❌ 打开字体数据库失败:', request.error)
                   reject(request.error)
                 }
-                
+
                 request.onupgradeneeded = (event) => {
                   console.log('🔤 字体数据库升级中...')
                   const db = (event.target as IDBOpenDBRequest).result
@@ -336,13 +339,13 @@ function App() {
                     db.createObjectStore('fonts', { keyPath: 'name' })
                   }
                 }
-                
+
                 request.onsuccess = () => {
                   console.log('✅ 字体数据库打开成功')
                   resolve(request.result)
                 }
               })
-              
+
               // 检查对象存储是否存在
               if (!db.objectStoreNames.contains('fonts')) {
                 console.warn('⚠️ fonts 对象存储不存在')
@@ -361,7 +364,7 @@ function App() {
                   }
                 })
                 db.close()
-                
+
                 if (fontData?.url) {
                   fontUrl = fontData.url
                   console.log('✅ 从 IndexedDB 获取字体 URL 成功')
@@ -483,14 +486,19 @@ function App() {
         <GlobalProactiveMessageManager />
         <Routes>
           <Route path="/" element={<Desktop />} />
-          <Route path="/wechat" element={<ChatList />} />
+
+          {/* 主界面布局 */}
+          <Route element={<MainLayout />}>
+            <Route path="/wechat" element={<ChatList />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/me" element={<Me />} />
+          </Route>
+
           <Route path="/group/:id" element={<GroupChatDetail />} />
           <Route path="/group/:id/settings" element={<GroupChatSettings />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/discover" element={<Discover />} />
           <Route path="/moments" element={<Moments />} />
           <Route path="/publish-moment" element={<PublishMoment />} />
-          <Route path="/me" element={<Me />} />
           <Route path="/user-profile" element={<UserProfile />} />
           <Route path="/switch-account" element={<SwitchAccount />} />
           <Route path="/create-character" element={<CreateCharacter />} />
@@ -566,6 +574,8 @@ function App() {
           <Route path="/ai-schedule" element={<AIScheduleSelect />} />
           <Route path="/ai-schedule/:characterId" element={<AISchedule />} />
           <Route path="/meme-library" element={<MemeLibrary />} />
+          <Route path="/chat/:id/weather" element={<Weather />} />
+          <Route path="/envelope" element={<Envelope />} />
           {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
         </Routes>
       </ContactsProvider>

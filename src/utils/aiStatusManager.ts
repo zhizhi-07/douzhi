@@ -165,8 +165,7 @@ export function clearForceUpdateFlag(characterId: string): void {
 
 /**
  * 从AI回复中提取状态更新
- * 支持格式：[状态:正在吃火锅] 或 [状态:在图书馆|行程:详细描述]
- * 🔥 只返回简略状态部分，行程部分由 statusHandler 处理
+ * 支持格式：[状态:地点|服装:xxx|心理:xxx|动作:xxx]
  */
 export function extractStatusFromReply(reply: string, characterId: string): AIStatus | null {
   const statusPattern = /\[状态(?:更新)?[:：]([^\]]+)\]/
@@ -175,44 +174,66 @@ export function extractStatusFromReply(reply: string, characterId: string): AISt
   if (!match) return null
   
   const fullContent = match[1].trim()
+  const currentStatus = getAIStatus(characterId)
   
-  // 🔥 解析格式：[状态:在哪|行程:详细场景]
-  let location = ''   // 简略位置（绿色点后面）
-  let action = ''     // 完整行程（"正在做什么"）
+  // 解析新格式：[状态:地点|服装:xxx|心理:xxx|动作:xxx]
+  let location = ''
+  let outfit = currentStatus?.outfit || ''
+  let mood = currentStatus?.mood || ''
+  let action = ''
   
-  // 检查是否有行程部分
-  const pipeMatch = fullContent.match(/^(.+?)\|行程[:：](.+)$/)
-  if (pipeMatch) {
-    location = pipeMatch[1].trim()  // 在哪（如"在家"）
-    action = pipeMatch[2].trim()    // 详细行程
-  } else {
-    // 🔥 AI 没按格式写，尝试智能提取位置
-    // 常见位置关键词
-    const locationKeywords = ['在家', '家里', '公司', '学校', '图书馆', '咖啡厅', '咖啡店', 
-      '地铁', '公交', '车上', '床上', '沙发', '书桌', '餐厅', '超市', '商场', '医院',
-      '公园', '健身房', '办公室', '宿舍', '厨房', '卫生间', '阳台', '客厅', '卧室']
-    
-    // 尝试从内容开头提取位置
-    let foundLocation = ''
-    for (const kw of locationKeywords) {
-      if (fullContent.includes(kw)) {
-        foundLocation = kw
-        break
-      }
-    }
-    
-    location = foundLocation || '未知'  // 找不到就显示"未知"
-    action = fullContent                 // 整个内容作为行程
+  // 按 | 分割
+  const parts = fullContent.split('|')
+  
+  // 第一部分是地点
+  if (parts.length > 0) {
+    location = parts[0].trim()
   }
   
-  const currentStatus = getAIStatus(characterId)
+  // 解析其他部分
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i].trim()
+    
+    // 服装
+    const outfitMatch = part.match(/^服装[:：](.+)$/)
+    if (outfitMatch) {
+      outfit = outfitMatch[1].trim()
+      continue
+    }
+    
+    // 心理
+    const moodMatch = part.match(/^心理[:：](.+)$/)
+    if (moodMatch) {
+      mood = moodMatch[1].trim()
+      continue
+    }
+    
+    // 动作
+    const actionMatch = part.match(/^动作[:：](.+)$/)
+    if (actionMatch) {
+      action = actionMatch[1].trim()
+      continue
+    }
+    
+    // 兼容旧格式：行程
+    const scheduleMatch = part.match(/^行程[:：](.+)$/)
+    if (scheduleMatch) {
+      action = scheduleMatch[1].trim()
+      continue
+    }
+  }
+  
+  // 如果没有动作，用整个内容作为动作（兼容旧格式）
+  if (!action && parts.length === 1) {
+    action = fullContent
+  }
   
   return {
     characterId,
-    action,      // 完整行程描述
-    location,    // 简略位置
-    outfit: currentStatus?.outfit,
-    mood: currentStatus?.mood,
+    location,
+    outfit,
+    mood,
+    action,
     updatedAt: Date.now()
   }
 }

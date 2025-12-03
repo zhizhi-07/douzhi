@@ -30,6 +30,8 @@ interface AddMenuProps {
   onSelectShopping: () => void
   onSelectPost: () => void
   onSelectFormatCorrector: () => void
+  onSelectWeather: () => void
+  onSelectEnvelope: () => void
   hasCoupleSpaceActive?: boolean
   customIcons?: Record<string, string>
 }
@@ -53,6 +55,8 @@ const AddMenu = ({
   onSelectShopping,
   onSelectPost,
   onSelectFormatCorrector,
+  onSelectWeather,
+  onSelectEnvelope,
   customIcons = {}
 }: AddMenuProps) => {
   if (!isOpen) return null
@@ -151,15 +155,28 @@ const AddMenu = ({
       onClick: onSelectFormatCorrector,
       iconId: 'menu-fix'
     },
+    // 情侣空间放第一页最后一个（第16个）
+    { 
+      icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>,
+      label: '情侣空间',
+      onClick: onSelectCoupleSpaceInvite,
+      iconId: 'menu-couple'
+    },
+    // 天气放第二页（第17个）
+    { 
+      icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>,
+      label: '天气',
+      onClick: onSelectWeather,
+      iconId: 'menu-weather'
+    },
+    // 信封放第二页（第18个）
+    { 
+      icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+      label: '信封',
+      onClick: onSelectEnvelope,
+      iconId: 'menu-envelope'
+    },
   ]
-
-  // 情侣空间选项 - 始终显示
-  menuItems.push({ 
-    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>,
-    label: '情侣空间',
-    onClick: onSelectCoupleSpaceInvite,
-    iconId: 'menu-couple'
-  })
 
   return (
     <>
@@ -194,13 +211,13 @@ const AddMenu = ({
           <h3 className="text-base font-medium text-gray-800">选择功能</h3>
         </div>
 
-        {/* 菜单项网格 - 瀑布流动画 + 可滚动 */}
-        <div className="grid grid-cols-4 gap-3 p-4 pb-6 max-h-[50vh] overflow-y-auto">
+        {/* 菜单项网格 - 上下滚动，固定显示4行 */}
+        <div className="grid grid-cols-4 gap-3 p-4 pb-8 max-h-[380px] overflow-y-auto">
           {menuItems.map((item, index) => (
             <button
               key={index}
               onClick={() => {
-                playSystemSound() // 🎵 统一使用通用点击音效
+                playSystemSound()
                 item.onClick()
                 onClose()
               }}

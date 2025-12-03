@@ -96,13 +96,21 @@ const ForumTopics = () => {
     <ForumLayout>
       {/* 顶部标题栏和创建按钮 */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold">话题</h1>
+        <div className="flex items-center justify-between px-4 py-3 relative">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-lg font-semibold absolute left-1/2 -translate-x-1/2">话题</h1>
           <button
             onClick={() => setShowCreateDialog(true)}
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
@@ -110,7 +118,7 @@ const ForumTopics = () => {
       </div>
 
       {/* 话题列表 */}
-      <div className="pb-20">
+      <div className="pb-20 max-w-screen-sm mx-auto">
         {topics.map((topic) => (
           <div
             key={topic.id}

@@ -63,9 +63,9 @@ body {
   }
 }
 
-/* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram和聊天页面） */
-.h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]),
-.h-full:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]) {
+/* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram、聊天页面和主布局） */
+.h-screen:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]):not([data-main-layout]),
+.h-full:not([data-forum]):not([data-instagram]):not([data-chat-wallpaper]):not([data-main-layout]) {
   background: transparent !important;
 }
 

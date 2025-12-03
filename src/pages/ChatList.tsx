@@ -1,16 +1,13 @@
-import { useNavigate } from 'react-router-dom'
-import { getAllUIIcons } from '../utils/iconStorage'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
 import { loadMessages } from '../utils/simpleMessageManager'
 import { getUnreadCount } from '../utils/simpleNotificationManager'
 import { groupChatManager } from '../utils/groupChatManager'
-import { getUserInfo } from '../utils/userUtils'
 import { loadChatList, saveChatList } from '../utils/chatListManager'
 import { playSystemSound } from '../utils/soundManager'
-import { getImage } from '../utils/unifiedStorage'
-import WechatTabBar from '../components/WechatTabBar'
+import { saveMessages } from '../utils/simpleMessageManager'
 
 interface Chat {
   id: string
@@ -27,6 +24,8 @@ interface Chat {
 
 const ChatList = () => {
   const navigate = useNavigate()
+  const { customIcons } = useOutletContext<{ customIcons: Record<string, string> }>()
+
   const [chats, setChats] = useState<Chat[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [showGroupModal, setShowGroupModal] = useState(false)
@@ -34,17 +33,19 @@ const ChatList = () => {
   const [groupAvatar, setGroupAvatar] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([])
-  const [wechatBg, setWechatBg] = useState('')
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+
+  // 左滑菜单状态
+  const [swipedChatId, setSwipedChatId] = useState<string | null>(null)
+  const [touchStartX, setTouchStartX] = useState(0)
+  const [touchCurrentX, setTouchCurrentX] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Chat | null>(null)
 
 
   // 加载调整参数
   const [topbarScale, setTopbarScale] = useState(100)
   const [topbarX, setTopbarX] = useState(0)
   const [topbarY, setTopbarY] = useState(0)
-  const [bottombarScale, setBottombarScale] = useState(100)
-  const [bottombarX, setBottombarX] = useState(0)
-  const [bottombarY, setBottombarY] = useState(0)
 
   // 更新聊天列表的最新消息和头像
   const updateChatsWithLatestMessages = useCallback((chatList: Chat[]) => {
@@ -115,113 +116,27 @@ const ChatList = () => {
     })
   }, [])
 
-  // 加载自定义图标
+  // 加载调整参数
   useEffect(() => {
-    const loadCustomIcons = async () => {
-      try {
-        let icons = await getAllUIIcons()
-
-        console.log('🔍 检查图标:', Object.keys(icons))
-        console.log('🔍 global-background存在?', !!icons['global-background'])
-
-        // 🌍 全局设置：应用到所有界面
-        if (icons['global-background']) {
-          // 全局背景应用到主界面
-          setWechatBg(icons['global-background'])
-          console.log('🌍 应用全局背景到主界面', icons['global-background'].substring(0, 50))
-        } else {
-          console.log('❌ 没有找到global-background')
-        }
-        if (icons['global-topbar']) {
-          // 全局顶栏应用到主界面（如果没有单独设置）
-          if (!icons['main-topbar-bg']) {
-            icons['main-topbar-bg'] = icons['global-topbar']
-            console.log('🌍 应用全局顶栏到主界面')
-          }
-        }
-
-        // 🔥 同步更新到sessionStorage缓存
-        sessionStorage.setItem('__preloaded_icons__', JSON.stringify(icons))
-
-        setCustomIcons(icons)
-        console.log('✅ ChatList加载自定义图标:', Object.keys(icons).length, '个')
-
-        // 调试输出
-        if (icons['main-topbar-bg']) {
-          console.log('  - 主界面顶栏背景: 已加载')
-        }
-        if (icons['main-bottombar-bg']) {
-          console.log('  - 主界面底栏背景: 已加载')
-        }
-      } catch (error) {
-        console.error('❌ 加载自定义图标失败:', error)
-        // 出错时从localStorage恢复
-        try {
-          const saved = localStorage.getItem('ui_custom_icons')
-          if (saved) {
-            const icons = JSON.parse(saved)
-            setCustomIcons(icons)
-            console.log('✅ 从localStorage备份恢复')
-          }
-        } catch (err) {
-          console.error('备份恢复失败:', err)
-        }
-      }
-    }
-
-    // 立即加载
-    loadCustomIcons()
-
-    // 延迟再次加载，确保数据完整性
-    const timer = setTimeout(() => {
-      console.log('⏱️ 延迟加载图标...')
-      loadCustomIcons()
-    }, 100)
-
-    // 加载调整参数
     const loadAdjustParams = () => {
       const topScale = localStorage.getItem('main-topbar-bg-scale')
       const topX = localStorage.getItem('main-topbar-bg-x')
       const topY = localStorage.getItem('main-topbar-bg-y')
-      const bottomScale = localStorage.getItem('main-bottombar-bg-scale')
-      const bottomX = localStorage.getItem('main-bottombar-bg-x')
-      const bottomY = localStorage.getItem('main-bottombar-bg-y')
 
       if (topScale) setTopbarScale(parseInt(topScale))
       if (topX) setTopbarX(parseInt(topX))
       if (topY) setTopbarY(parseInt(topY))
-      if (bottomScale) setBottombarScale(parseInt(bottomScale))
-      if (bottomX) setBottombarX(parseInt(bottomX))
-      if (bottomY) setBottombarY(parseInt(bottomY))
-      console.log('📐 ChatList加载调整参数:', { topScale, topX, topY, bottomScale, bottomX, bottomY })
     }
     loadAdjustParams()
 
-    // 监听图标更新事件
-    const handleIconsChange = () => {
-      console.log('📡 收到图标更新事件')
-      loadCustomIcons()
-    }
     const handleAdjust = () => {
       console.log('🔄 收到调整事件')
       loadAdjustParams()
     }
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'ui_custom_icons') {
-        console.log('检测到localStorage变化')
-        loadCustomIcons()
-      }
-    }
 
-    window.addEventListener('uiIconsChanged', handleIconsChange)
     window.addEventListener('iconAdjust', handleAdjust)
-    window.addEventListener('storage', handleStorageChange)
-
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('uiIconsChanged', handleIconsChange)
       window.removeEventListener('iconAdjust', handleAdjust)
-      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 
@@ -327,10 +242,6 @@ const ChatList = () => {
     }
   }, [refreshChatList])
 
-  // 注意：不要自动保存 chats 到 localStorage
-  // 因为 unread 字段由 unreadMessages.ts 管理
-  // 只在添加/删除聊天时手动保存
-
   // 加载未添加的角色（用于单聊）
   const loadCharacters = () => {
     const allCharacters = characterService.getAll()
@@ -345,6 +256,90 @@ const ChatList = () => {
   const loadAllCharacters = () => {
     const allCharacters = characterService.getAll()
     setAvailableCharacters(allCharacters)
+  }
+
+  // 左滑相关的触摸处理
+  const handleTouchStart = (e: React.TouchEvent, chatId: string) => {
+    // 如果已经有滑动打开的项，先关闭它
+    if (swipedChatId && swipedChatId !== chatId) {
+      setSwipedChatId(null)
+    }
+    setTouchStartX(e.touches[0].clientX)
+    setTouchCurrentX(e.touches[0].clientX)
+    setIsSwiping(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent, chatId: string) => {
+    if (!isSwiping) return
+    const currentX = e.touches[0].clientX
+    setTouchCurrentX(currentX)
+
+    const diff = touchStartX - currentX
+    // 左滑超过30px时触发
+    if (diff > 30 && swipedChatId !== chatId) {
+      setSwipedChatId(chatId)
+    } else if (diff < -30 && swipedChatId === chatId) {
+      setSwipedChatId(null)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false)
+    setTouchStartX(0)
+    setTouchCurrentX(0)
+  }
+
+  // 删除聊天
+  const handleDeleteChat = async (chat: Chat) => {
+    try {
+      // 1. 从聊天列表中移除
+      const updatedChats = chats.filter(c => c.id !== chat.id)
+      await saveChatList(updatedChats.filter(c => !c.isGroup))
+
+      // 2. 清空该角色的聊天记录
+      if (!chat.isGroup) {
+        saveMessages(chat.characterId, [])
+      } else {
+        // 群聊删除
+        groupChatManager.deleteGroup(chat.id)
+      }
+
+      // 3. 刷新列表
+      await refreshChatList()
+      setShowDeleteConfirm(null)
+      setSwipedChatId(null)
+
+      console.log('✅ 已删除聊天:', chat.name)
+    } catch (error) {
+      console.error('❌ 删除聊天失败:', error)
+      alert('删除失败，请重试')
+    }
+  }
+
+  // 置顶/取消置顶
+  const handleTogglePin = async (chat: Chat) => {
+    try {
+      const updatedChats = chats.map(c => {
+        if (c.id === chat.id) {
+          return { ...c, isPinned: !c.isPinned }
+        }
+        return c
+      })
+
+      // 只保存非群聊到聊天列表
+      await saveChatList(updatedChats.filter(c => !c.isGroup))
+
+      // 刷新列表
+      await refreshChatList()
+      setSwipedChatId(null)
+
+      // 触发更新事件
+      window.dispatchEvent(new Event('chat-list-update'))
+
+      console.log('✅ 已' + (chat.isPinned ? '取消置顶' : '置顶') + ':', chat.name)
+    } catch (error) {
+      console.error('❌ 置顶操作失败:', error)
+    }
   }
 
   const handleAddCharacter = async (characterId: string) => {
@@ -380,43 +375,8 @@ const ChatList = () => {
     loadCharacters() // 重新加载可用角色
   }
 
-  // 加载微信背景（全局背景在loadCustomIcons中已经设置）
-  useEffect(() => {
-    const loadWechatBg = async () => {
-      // 只有在没有全局背景时才加载单独的微信背景
-      const icons = await getAllUIIcons()
-      if (!icons['global-background']) {
-        const bg = await getImage('wechat_bg')
-        if (bg) setWechatBg(bg)
-      }
-    }
-    loadWechatBg()
-
-    const handleBgUpdate = async () => {
-      console.log('📡 ChatList: 收到背景更新事件')
-      const icons = await getAllUIIcons()
-      if (!icons['global-background']) {
-        const bg = await getImage('wechat_bg')
-        if (bg) {
-          console.log('✅ ChatList: 背景更新成功')
-        }
-        setWechatBg(bg || '')
-      }
-    }
-    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
-    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
-  }, [])
-
-
   return (
-    <div
-      className="h-screen flex flex-col page-enter font-serif bg-transparent"
-      style={wechatBg ? {
-        backgroundImage: `url(${wechatBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      } : {}}
-    >
+    <div className="h-full flex flex-col font-serif">
       {/* 顶部 - 玻璃拟态 */}
       <div
         className="relative z-10"
@@ -492,39 +452,76 @@ const ChatList = () => {
             {chats.filter(chat => chat.isPinned).map((chat, chatIndex) => (
               <div
                 key={chat.id}
-                onClick={() => {
-                  playSystemSound()
-                  navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
-                }}
-                className="flex items-center px-4 py-3 cursor-pointer bg-white/60 backdrop-blur-md border border-white/40 shadow-sm rounded-xl hover:bg-white/70 transition-all card-enter"
+                className="relative overflow-hidden rounded-xl card-enter"
                 style={{ animationDelay: `${chatIndex * 0.05}s` }}
               >
-                {/* 头像 */}
-                <div className="w-12 h-12 rounded-full bg-white/40 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/40">
-                  {chat.avatar ? (
-                    <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-xl text-[#8C8C8C]">{chat.isGroup ? '👥' : '👤'}</div>
-                  )}
+                {/* 右侧操作按钮 - 固定在右侧 */}
+                <div className="absolute right-0 top-0 bottom-0 flex">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleTogglePin(chat)
+                    }}
+                    className="w-16 h-full bg-[#C7C7CC] text-white text-sm font-medium flex items-center justify-center"
+                  >
+                    取消置顶
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowDeleteConfirm(chat)
+                    }}
+                    className="w-16 h-full bg-[#FF3B30] text-white text-sm font-medium flex items-center justify-center"
+                  >
+                    删除
+                  </button>
                 </div>
 
-                {/* 消息内容 */}
-                <div className="flex-1 ml-4 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-[15px] text-[#2C2C2C] truncate tracking-wide">{chat.name}</span>
-                    <span className="text-[10px] text-[#8C8C8C] ml-2 flex-shrink-0 font-sans">{chat.time}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] text-[#5A5A5A] truncate flex-1 pr-2 font-light">{chat.lastMessage}</p>
-                    {(chat.unread ?? 0) > 0 && (
-                      <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] text-white flex items-center justify-center bg-[#8B3A3A] flex-shrink-0 badge-pop shadow-sm">
-                        {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
-                      </span>
+                {/* 主内容区域 - 可滑动 */}
+                <div
+                  onTouchStart={(e) => handleTouchStart(e, chat.id)}
+                  onTouchMove={(e) => handleTouchMove(e, chat.id)}
+                  onTouchEnd={handleTouchEnd}
+                  onClick={() => {
+                    if (swipedChatId === chat.id) {
+                      setSwipedChatId(null)
+                    } else {
+                      playSystemSound()
+                      navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
+                    }
+                  }}
+                  className="relative flex items-center px-4 py-3 cursor-pointer bg-white/60 backdrop-blur-md border border-white/40 shadow-sm rounded-xl hover:bg-white/70 transition-transform duration-200"
+                  style={{
+                    transform: swipedChatId === chat.id ? 'translateX(-128px)' : 'translateX(0)'
+                  }}
+                >
+                  {/* 头像 */}
+                  <div className="w-12 h-12 rounded-full bg-white/40 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/40">
+                    {chat.avatar ? (
+                      <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-xl text-[#8C8C8C]">{chat.isGroup ? '👥' : '👤'}</div>
                     )}
                   </div>
+
+                  {/* 消息内容 */}
+                  <div className="flex-1 ml-4 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-[15px] text-[#2C2C2C] truncate tracking-wide">{chat.name}</span>
+                      <span className="text-[10px] text-[#8C8C8C] ml-2 flex-shrink-0 font-sans">{chat.time}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] text-[#5A5A5A] truncate flex-1 pr-2 font-light">{chat.lastMessage}</p>
+                      {(chat.unread ?? 0) > 0 && (
+                        <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] text-white flex items-center justify-center bg-[#8B3A3A] flex-shrink-0 badge-pop shadow-sm">
+                          {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* 置顶标识 */}
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#2C2C2C]/20 rounded-full"></div>
                 </div>
-                {/* 置顶标识 */}
-                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#2C2C2C]/20 rounded-full"></div>
               </div>
             ))}
 
@@ -532,35 +529,72 @@ const ChatList = () => {
             {chats.filter(chat => !chat.isPinned).map((chat, chatIndex) => (
               <div
                 key={chat.id}
-                onClick={() => {
-                  playSystemSound()
-                  navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
-                }}
-                className="flex items-center px-4 py-3 cursor-pointer bg-white/40 backdrop-blur-md border border-white/30 shadow-sm rounded-xl hover:bg-white/50 transition-all card-enter"
+                className="relative overflow-hidden rounded-xl card-enter"
                 style={{ animationDelay: `${(chatIndex + chats.filter(c => c.isPinned).length) * 0.05}s` }}
               >
-                {/* 头像 */}
-                <div className="w-12 h-12 rounded-full bg-white/30 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/30">
-                  {chat.avatar ? (
-                    <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-xl text-[#8C8C8C]">{chat.isGroup ? '👥' : '👤'}</div>
-                  )}
+                {/* 右侧操作按钮 - 固定在右侧 */}
+                <div className="absolute right-0 top-0 bottom-0 flex">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleTogglePin(chat)
+                    }}
+                    className="w-16 h-full bg-[#C7C7CC] text-white text-sm font-medium flex items-center justify-center"
+                  >
+                    置顶
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowDeleteConfirm(chat)
+                    }}
+                    className="w-16 h-full bg-[#FF3B30] text-white text-sm font-medium flex items-center justify-center"
+                  >
+                    删除
+                  </button>
                 </div>
 
-                {/* 消息内容 */}
-                <div className="flex-1 ml-4 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-[15px] text-[#2C2C2C] truncate tracking-wide">{chat.name}</span>
-                    <span className="text-[10px] text-[#8C8C8C] ml-2 flex-shrink-0 font-sans">{chat.time}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] text-[#5A5A5A] truncate flex-1 pr-2 font-light">{chat.lastMessage}</p>
-                    {(chat.unread ?? 0) > 0 && (
-                      <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] text-white flex items-center justify-center bg-[#8B3A3A] flex-shrink-0 badge-pop shadow-sm">
-                        {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
-                      </span>
+                {/* 主内容区域 - 可滑动 */}
+                <div
+                  onTouchStart={(e) => handleTouchStart(e, chat.id)}
+                  onTouchMove={(e) => handleTouchMove(e, chat.id)}
+                  onTouchEnd={handleTouchEnd}
+                  onClick={() => {
+                    if (swipedChatId === chat.id) {
+                      setSwipedChatId(null)
+                    } else {
+                      playSystemSound()
+                      navigate(chat.isGroup ? `/group/${chat.id}` : `/chat/${chat.id}`)
+                    }
+                  }}
+                  className="relative flex items-center px-4 py-3 cursor-pointer bg-white/40 backdrop-blur-md border border-white/30 shadow-sm rounded-xl hover:bg-white/50 transition-transform duration-200"
+                  style={{
+                    transform: swipedChatId === chat.id ? 'translateX(-128px)' : 'translateX(0)'
+                  }}
+                >
+                  {/* 头像 */}
+                  <div className="w-12 h-12 rounded-full bg-white/30 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/30">
+                    {chat.avatar ? (
+                      <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-xl text-[#8C8C8C]">{chat.isGroup ? '👥' : '👤'}</div>
                     )}
+                  </div>
+
+                  {/* 消息内容 */}
+                  <div className="flex-1 ml-4 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-[15px] text-[#2C2C2C] truncate tracking-wide">{chat.name}</span>
+                      <span className="text-[10px] text-[#8C8C8C] ml-2 flex-shrink-0 font-sans">{chat.time}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] text-[#5A5A5A] truncate flex-1 pr-2 font-light">{chat.lastMessage}</p>
+                      {(chat.unread ?? 0) > 0 && (
+                        <span className="px-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] text-white flex items-center justify-center bg-[#8B3A3A] flex-shrink-0 badge-pop shadow-sm">
+                          {(chat.unread ?? 0) > 99 ? '99+' : chat.unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -568,8 +602,6 @@ const ChatList = () => {
           </div>
         )}
       </div>
-
-      <WechatTabBar customIcons={customIcons} />
 
       {/* 添加角色弹窗 - 玻璃拟态 */}
       {showAddModal && (
@@ -758,12 +790,54 @@ const ChatList = () => {
                 }}
                 disabled={!groupName || selectedMembers.size === 0}
                 className={`w-full py-3 rounded-xl text-sm font-medium tracking-widest uppercase transition-all ${groupName && selectedMembers.size > 0
-                    ? 'bg-[#2C2C2C] text-[#F9F8F4] shadow-lg hover:opacity-90'
-                    : 'bg-[#E5E5E5] text-[#A0A0A0] cursor-not-allowed'
+                  ? 'bg-[#2C2C2C] text-[#F9F8F4] shadow-lg hover:opacity-90'
+                  : 'bg-[#E5E5E5] text-[#A0A0A0] cursor-not-allowed'
                   }`}
               >
                 创建
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 删除确认弹窗 */}
+      {showDeleteConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            onClick={() => setShowDeleteConfirm(null)}
+          />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in">
+            <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-red-50 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">删除聊天</h3>
+                <p className="text-sm text-gray-500 mb-1">
+                  确定删除与 <span className="font-medium text-gray-700">{showDeleteConfirm.name}</span> 的聊天？
+                </p>
+                <p className="text-xs text-red-400">
+                  聊天记录将被永久删除，无法恢复
+                </p>
+              </div>
+              <div className="flex border-t border-gray-100">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-100"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => handleDeleteChat(showDeleteConfirm)}
+                  className="flex-1 py-4 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  删除
+                </button>
+              </div>
             </div>
           </div>
         </>

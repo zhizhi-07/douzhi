@@ -1,43 +1,12 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
-import WechatTabBar from '../components/WechatTabBar'
 import { characterService, Character } from '../services/characterService'
-import { getAllUIIcons } from '../utils/iconStorage'
-import { getImage } from '../utils/unifiedStorage'
 
 const Contacts = () => {
   const navigate = useNavigate()
-  const [wechatBg, setWechatBg] = useState(() => {
-    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
-    if (preloaded) {
-      try {
-        const backgrounds = JSON.parse(preloaded)
-        return backgrounds.wechat_bg || ''
-      } catch { return '' }
-    }
-    return ''
-  })
+  const { customIcons } = useOutletContext<{ customIcons: Record<string, string> }>()
   const [characters, setCharacters] = useState<Character[]>([])
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
-
-  // 加载微信背景
-  useEffect(() => {
-    const loadWechatBg = async () => {
-      if (wechatBg) return
-      const bg = await getImage('wechat_bg')
-      if (bg) setWechatBg(bg)
-    }
-    loadWechatBg()
-
-    const handleBgUpdate = async () => {
-      console.log('📡 Contacts: 收到背景更新事件')
-      const bg = await getImage('wechat_bg')
-      setWechatBg(bg || '')
-    }
-    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
-    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
-  }, [])
 
   // 从 localStorage加载角色列表
   useEffect(() => {
@@ -47,44 +16,6 @@ const Contacts = () => {
     }
 
     loadCharacters()
-  }, [])
-
-  // 加载自定义图标配置
-  useEffect(() => {
-    const loadCustomIcons = async () => {
-      try {
-        // 🔥 优先从 sessionStorage 读取预加载的图标（同步，无延迟）
-        const preloaded = sessionStorage.getItem('__preloaded_icons__')
-        if (preloaded) {
-          const icons = JSON.parse(preloaded)
-          setCustomIcons(icons)
-          console.log('⚡ 从缓存加载图标', Object.keys(icons).length, '个')
-          return
-        }
-
-        let icons = await getAllUIIcons()
-        if (Object.keys(icons).length === 0) {
-          const saved = localStorage.getItem('ui_custom_icons')
-          if (saved) {
-            icons = JSON.parse(saved)
-          }
-        }
-        setCustomIcons(icons)
-      } catch (error) {
-        console.error('加载自定义图标失败:', error)
-      }
-    }
-
-    loadCustomIcons()
-
-    const handleIconsChange = () => {
-      loadCustomIcons()
-    }
-    window.addEventListener('uiIconsChanged', handleIconsChange)
-
-    return () => {
-      window.removeEventListener('uiIconsChanged', handleIconsChange)
-    }
   }, [])
 
   const specialContacts = [
@@ -111,13 +42,7 @@ const Contacts = () => {
   ]
 
   return (
-    <div
-      className="h-screen flex flex-col page-fade-in font-serif bg-transparent"
-      style={wechatBg ? {
-        backgroundImage: `url(${wechatBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      } : {}}>
+    <div className="h-full flex flex-col font-serif">
       {/* 顶部 - 玻璃拟态 */}
       <div
         className="relative z-10"
@@ -213,8 +138,6 @@ const Contacts = () => {
           </div>
         )}
       </div>
-
-      <WechatTabBar customIcons={customIcons} />
     </div>
   )
 }

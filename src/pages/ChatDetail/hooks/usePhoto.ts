@@ -5,7 +5,7 @@
 
 import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
-import { addMessage } from '../../../utils/simpleMessageManager'
+import { addMessage, addMessages } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { generatePlaceholderImageBase64 } from '../../../utils/imageUtils'
 import { playMessageSendSound } from '../../../utils/soundManager'
@@ -95,10 +95,8 @@ export const usePhoto = (
       return msg
     })
 
-    // 保存所有照片到IndexedDB
-    photoMessages.forEach(msg => {
-      addMessage(chatId, msg)
-    })
+    // 🔥 使用批量添加，避免竞态条件导致只保存一张
+    addMessages(chatId, photoMessages)
 
     // 🔥 使用函数式更新，避免触发滚动逻辑
     setMessages(prev => {

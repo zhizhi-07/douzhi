@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -128,6 +128,10 @@ export interface Message {
     fromName: string          // 发起人名字
     toName: string            // 被拍人名字
     suffix?: string           // 拍一拍后缀
+  }
+  friendRequest?: {           // 好友申请
+    status: 'pending' | 'accepted' | 'rejected'
+    message: string           // 验证消息
   }
   source?: 'dm'               // 消息来源：dm=论坛私聊（同步到主聊天时标记）
 }

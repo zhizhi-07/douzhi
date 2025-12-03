@@ -751,6 +751,69 @@ export function addMessage(chatId: string, message: Message): void {
 }
 
 /**
+ * 批量添加多条消息（避免竞态条件）
+ * 用于一次性发送多张图片等场景
+ */
+export function addMessages(chatId: string, newMessages: Message[]): void {
+  if (newMessages.length === 0) return
+  
+  // 🔥 使用账号专属的存储key
+  const storageKey = getAccountChatKey(chatId)
+  
+  // 🔥 立即同步备份到localStorage
+  try {
+    const backupKey = `msg_backup_${storageKey}`
+    const cachedMessages = messageCache.get(storageKey) || []
+    const updatedMessages = [...cachedMessages, ...newMessages]
+    const recentMessages = updatedMessages.slice(-50)
+    
+    const seen = new WeakSet()
+    const jsonString = JSON.stringify({
+      messages: recentMessages,
+      timestamp: Date.now(),
+      totalCount: updatedMessages.length
+    }, (_key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
+          return undefined
+        }
+        if (seen.has(value)) return undefined
+        seen.add(value)
+      }
+      if (typeof value === 'function') return undefined
+      return value
+    })
+    
+    localStorage.setItem(backupKey, jsonString)
+    console.log(`💾 [addMessages] 批量备份: ${newMessages.length}条消息`)
+  } catch {
+    // 空间不足，静默失败
+  }
+  
+  // 异步保存到IndexedDB（一次性添加所有消息）
+  ensureMessagesLoaded(chatId).then(messages => {
+    let updatedMessages = [...messages]
+    
+    for (const message of newMessages) {
+      const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
+      if (existingIndex !== -1) {
+        updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
+      } else {
+        updatedMessages.push(message)
+        window.dispatchEvent(new CustomEvent('new-message', {
+          detail: { chatId, message }
+        }))
+      }
+    }
+    
+    saveMessages(chatId, updatedMessages)
+    console.log(`✅ [addMessages] 批量保存成功: ${newMessages.length}条消息`)
+  }).catch(error => {
+    console.error('❌ [addMessages] IndexedDB保存失败:', error)
+  })
+}
+
+/**
  * 删除一条消息（永久删除）
  */
 export function deleteMessage(chatId: string, messageId: number): void {

@@ -1,10 +1,7 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StatusBar from '../components/StatusBar'
-import WechatTabBar from '../components/WechatTabBar'
 import { UserInfo, getUserInfo, getUserInfoWithAvatar } from '../utils/userUtils'
-import { getImage } from '../utils/unifiedStorage'
-import { getAllUIIcons } from '../utils/iconStorage'
 import { isMainAccount, getCurrentAccount } from '../utils/accountManager'
 
 /**
@@ -37,18 +34,8 @@ const getDisplayUserInfo = (): UserInfo => {
 
 const Me = () => {
   const navigate = useNavigate()
+  const { customIcons } = useOutletContext<{ customIcons: Record<string, string> }>()
   const [userInfo, setUserInfo] = useState<UserInfo>(getDisplayUserInfo())
-  const [wechatBg, setWechatBg] = useState(() => {
-    const preloaded = sessionStorage.getItem('__preloaded_backgrounds__')
-    if (preloaded) {
-      try {
-        const backgrounds = JSON.parse(preloaded)
-        return backgrounds.wechat_bg || ''
-      } catch { return '' }
-    }
-    return ''
-  })
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
 
   // 🔥 从 IndexedDB 加载头像
   useEffect(() => {
@@ -76,53 +63,6 @@ const Me = () => {
       window.removeEventListener('focus', updateUserInfo)
       window.removeEventListener('accountSwitched', updateUserInfo)
     }
-  }, [])
-
-  // 加载微信背景
-  useEffect(() => {
-    const loadWechatBg = async () => {
-      if (wechatBg) return
-      const bg = await getImage('wechat_bg')
-      if (bg) setWechatBg(bg)
-    }
-    loadWechatBg()
-
-    const handleBgUpdate = async () => {
-      console.log('📡 Me: 收到背景更新事件')
-      const bg = await getImage('wechat_bg')
-      setWechatBg(bg || '')
-    }
-    window.addEventListener('wechatBackgroundUpdate', handleBgUpdate)
-    return () => window.removeEventListener('wechatBackgroundUpdate', handleBgUpdate)
-  }, [])
-
-  // 加载自定义图标
-  useEffect(() => {
-    const loadIcons = async () => {
-      try {
-        // 🔥 优先从 sessionStorage 读取预加载的图标（同步，无延迟）
-        const preloaded = sessionStorage.getItem('__preloaded_icons__')
-        if (preloaded) {
-          const icons = JSON.parse(preloaded)
-          setCustomIcons(icons)
-          console.log('⚡ 从缓存加载图标', Object.keys(icons).length, '个')
-          return
-        }
-
-        let icons = await getAllUIIcons()
-        setCustomIcons(icons)
-      } catch (error) {
-        console.error('🚨 加载图标失败：', error)
-      }
-    }
-    loadIcons()
-
-    const handleIconChange = async () => {
-      const icons = await getAllUIIcons()
-      setCustomIcons(icons)
-    }
-    window.addEventListener('iconChanged', handleIconChange)
-    return () => window.removeEventListener('iconChanged', handleIconChange)
   }, [])
 
   const menuGroups = [
@@ -160,13 +100,8 @@ const Me = () => {
 
   return (
     <div
-      className="h-screen flex flex-col page-fade-in font-serif bg-transparent"
+      className="h-full flex flex-col font-serif"
       data-me-page
-      style={wechatBg ? {
-        backgroundImage: `url(${wechatBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      } : { background: 'linear-gradient(to bottom, #f9fafb, #ffffff)' }}
     >
       {/* 顶部 - 玻璃拟态 */}
       <div
@@ -242,8 +177,8 @@ const Me = () => {
                   <div
                     onClick={() => item.enabled && item.path && navigate(item.path)}
                     className={`flex items-center px-5 py-4 transition-all ${item.enabled
-                        ? 'cursor-pointer hover:bg-white/50 active:bg-white/60'
-                        : 'cursor-not-allowed opacity-50'
+                      ? 'cursor-pointer hover:bg-white/50 active:bg-white/60'
+                      : 'cursor-not-allowed opacity-50'
                       }`}
                   >
                     <div className={`w-6 h-6 flex items-center justify-center ${item.enabled ? 'text-[#5A5A5A]' : 'text-[#8C8C8C]'
@@ -265,8 +200,6 @@ const Me = () => {
           </div>
         ))}
       </div>
-
-      <WechatTabBar customIcons={customIcons} />
     </div>
   )
 }

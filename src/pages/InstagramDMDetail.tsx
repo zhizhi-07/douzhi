@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Smile, MoreHorizontal, Phone, Mic, PlusCircle } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Phone, Mic, Smile } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
-import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
+import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, sendVoiceFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import EmojiPanel from '../components/EmojiPanel'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
@@ -30,6 +30,9 @@ const InstagramDMDetail = () => {
   const [publicLabel, setPublicLabel] = useState<string>('')  // 公众人物标签（如：音乐人、主播）
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
+  
+  // 语音消息模式（打字发送但显示为语音样式）
+  const [isVoiceMode, setIsVoiceMode] = useState(false)
 
   useEffect(() => {
     if (!npcId) return
@@ -50,7 +53,7 @@ const InstagramDMDetail = () => {
       // Load user info with avatar
       const info = await getUserInfoWithAvatar()
       setUserInfo(info)
-      
+
       // 获取会话信息
       const conversations = getDMConversations()
       const conv = conversations.find(c => c.id === npcId)
@@ -199,15 +202,52 @@ ${emojiPrompt}${forumContextPrompt}`
       const aiReply = result.content?.trim() || ''
 
       if (aiReply) {
-        const segments = aiReply.split('\n').filter(s => s.trim())
+        // 检测并分离表情包和文本（支持 [emoji:xxx] 和 [表情:xxx] 两种格式）
+        const emojiRegex = /\[(emoji|表情):([^\]]+)\]/g
+        const parts: { type: 'text' | 'emoji', content: string }[] = []
+        let lastIndex = 0
+        let match
+        
+        while ((match = emojiRegex.exec(aiReply)) !== null) {
+          if (match.index > lastIndex) {
+            const textBefore = aiReply.slice(lastIndex, match.index).trim()
+            if (textBefore) parts.push({ type: 'text', content: textBefore })
+          }
+          parts.push({ type: 'emoji', content: match[2] })  // match[2] 是表情描述
+          lastIndex = match.index + match[0].length
+        }
+        if (lastIndex < aiReply.length) {
+          const remaining = aiReply.slice(lastIndex).trim()
+          if (remaining) parts.push({ type: 'text', content: remaining })
+        }
+        
+        // 如果没有检测到表情包，按原来的方式处理
+        if (parts.length === 0) {
+          parts.push({ type: 'text', content: aiReply })
+        }
+        
         const sendSegments = async () => {
-          for (let i = 0; i < segments.length; i++) {
-            const segment = segments[i].trim()
-            if (segment) {
-              await new Promise(resolve => setTimeout(resolve, i === 0 ? 500 : 300 + Math.random() * 500))
-              sendDMToUser(npcId, npcName, npcAvatar, segment)
-              setMessages(getDMMessages(npcId))
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i]
+            await new Promise(resolve => setTimeout(resolve, i === 0 ? 500 : 300 + Math.random() * 500))
+            
+            if (part.type === 'emoji') {
+              // 发送表情包
+              const emojis = await getEmojis()
+              const emoji = emojis.find(e => e.description?.includes(part.content) || e.url.includes(part.content))
+              if (emoji) {
+                sendEmojiFromUser(npcId, npcName, npcAvatar, emoji.url, emoji.description || '', true)
+              }
+            } else {
+              // 发送文本（按行分开）
+              const lines = part.content.split('\n').filter(s => s.trim())
+              for (let j = 0; j < lines.length; j++) {
+                if (j > 0) await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300))
+                sendDMToUser(npcId, npcName, npcAvatar, lines[j].trim())
+                setMessages(getDMMessages(npcId))
+              }
             }
+            setMessages(getDMMessages(npcId))
           }
           setIsAiReplying(false)
         }
@@ -229,8 +269,18 @@ ${emojiPrompt}${forumContextPrompt}`
     }
 
     const userMessage = inputText.trim()
-    sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
-    setMessages(getDMMessages(npcId))
+    
+    if (isVoiceMode) {
+      // 语音模式：发送语音消息（内容是文字，显示为语音样式）
+      const duration = Math.max(1, Math.ceil(userMessage.length / 5))  // 根据文字长度估算时长
+      sendVoiceFromUser(npcId, npcName, npcAvatar, duration, userMessage)
+      setMessages(getDMMessages(npcId))
+      setIsVoiceMode(false)  // 发送后退出语音模式
+    } else {
+      // 普通文字消息
+      sendDMFromUser(npcId, npcName, npcAvatar, userMessage)
+      setMessages(getDMMessages(npcId))
+    }
     setInputText('')
   }
 
@@ -249,7 +299,7 @@ ${emojiPrompt}${forumContextPrompt}`
   }
 
   const getAvatarColor = (name: string) => {
-    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#EAE5D9']
+    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#e5e5e5']
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
   }
@@ -270,89 +320,138 @@ ${emojiPrompt}${forumContextPrompt}`
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
-      {/* 顶部导航 - 极简文艺 */}
-      <div className="bg-[#F9F8F4]/90 sticky top-0 z-20 border-b border-[#EAE5D9] backdrop-blur-md">
+    <div className="h-screen flex flex-col bg-transparent font-sans text-slate-900">
+      {/* 顶部导航 - 现代社交风格 */}
+      <div className="bg-white/70 sticky top-0 z-20 backdrop-blur-xl border-b border-gray-100">
         <StatusBar theme="dark" />
-        <div className="flex items-center justify-between px-5 py-4">
-          <button
-            onClick={() => navigate('/instagram/activity')}
-            className="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-60 transition-opacity text-[#5A5A5A] hover:text-[#2C2C2C]"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[1.5]" />
-          </button>
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/instagram/activity')}
+              className="w-10 h-10 flex items-center justify-center -ml-2 active:opacity-60 transition-opacity text-slate-900"
+            >
+              <ArrowLeft className="w-6 h-6 stroke-[2]" />
+            </button>
 
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{npcName || '私信'}</span>
-              {publicLabel && (
-                <span className="text-[9px] border border-[#8C8C8C] text-[#5A5A5A] px-1 rounded-sm tracking-widest scale-90 origin-left">
-                  {publicLabel}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-1 h-1 bg-[#2C2C2C] rounded-full opacity-50"></div>
-              <span className="text-[10px] text-[#8C8C8C]">在线</span>
+            <div className="flex items-center gap-3">
+              {/* 顶部头像 */}
+              <div className="relative">
+                {npcAvatar ? (
+                  <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-100" />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: getAvatarColor(npcName || 'A') }}
+                  >
+                    {(npcName || 'A')[0]}
+                  </div>
+                )}
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+              </div>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="text-[16px] font-semibold text-slate-900 leading-tight">{npcName || '私信'}</span>
+                  {publicLabel && (
+                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+                      {publicLabel}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 leading-tight">在线</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button className="active:opacity-60 text-[#5A5A5A] hover:text-[#2C2C2C]">
-              <Phone className="w-5 h-5 stroke-[1.5]" />
+          <div className="flex items-center gap-5 pr-1">
+            <button className="active:opacity-60 text-slate-900">
+              <Phone className="w-[26px] h-[26px] stroke-[1.5]" />
             </button>
-            <button className="active:opacity-60 text-[#5A5A5A] hover:text-[#2C2C2C]">
-              <MoreHorizontal className="w-5 h-5 stroke-[1.5]" />
+            <button className="active:opacity-60 text-slate-900">
+              <MoreHorizontal className="w-[26px] h-[26px] stroke-[1.5]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#F9F8F4]">
+      <div className="flex-1 overflow-y-auto px-4 py-4 bg-white">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-[#8C8C8C] py-12">
-            <div className="w-16 h-16 border border-[#EAE5D9] rounded-full flex items-center justify-center mb-4">
-              <Smile className="w-6 h-6 text-[#D4D4D4] stroke-[1.5]" />
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <img
+                src={npcAvatar || userInfo.avatar}
+                className="w-20 h-20 rounded-full opacity-50 object-cover"
+                alt=""
+              />
             </div>
-            <p className="text-xs">打个招呼吧</p>
+            <p className="text-sm font-medium text-gray-900 mt-2">{npcName}</p>
+            <p className="text-xs text-gray-500 mt-1">Instagram • {publicLabel || '热门博主'}</p>
+            <button className="mt-6 px-4 py-2 bg-gray-100 text-sm font-semibold rounded-lg text-gray-900">
+              查看个人主页
+            </button>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {messages.map((msg, index) => {
               const showTime = index === 0 || shouldShowTime(msg.timestamp, messages[index - 1].timestamp)
               return (
                 <div key={msg.id} className="flex flex-col">
                   {showTime && (
-                    <div className="flex justify-center my-6">
-                      <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-60">
+                    <div className="flex justify-center my-5">
+                      <span className="text-[11px] text-gray-400 font-medium">
                         {formatMessageTime(msg.timestamp)}
                       </span>
                     </div>
                   )}
 
-                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-4`}>
-                    <div className={`flex max-w-[75%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
+                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-1`}>
+                    <div className={`flex max-w-[70%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
                       {/* 头像 */}
-                      <div className="flex-shrink-0 w-9 h-9">
-                        {!msg.isFromUser ? (
-                          npcAvatar ? (
-                            <img src={npcAvatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/50 shadow-sm" />
+                      <div className="flex-shrink-0 w-7 h-7 mb-1">
+                        {msg.isFromUser ? (
+                          // 用户头像
+                          userInfo.avatar ? (
+                            <img src={userInfo.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
                           ) : (
                             <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-medium shadow-sm"
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-[#3797F0]"
+                            >
+                              {(userInfo.nickname || userInfo.realName || '我')[0]}
+                            </div>
+                          )
+                        ) : (
+                          // AI头像
+                          npcAvatar ? (
+                            <img src={npcAvatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
                               style={{ background: getAvatarColor(npcName || 'A') }}
                             >
                               {(npcName || 'A')[0]}
                             </div>
                           )
-                        ) : (
-                          <img src={userInfo.avatar || '/default-avatar.png'} alt="" className="w-9 h-9 rounded-full object-cover border border-white/50 shadow-sm" />
                         )}
                       </div>
 
                       <div className={`flex flex-col ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
-                        {msg.type === 'emoji' && msg.emojiUrl ? (
+                        {msg.type === 'voice' ? (
+                          // 语音消息
+                          <div
+                            className={`flex items-center gap-3 px-4 py-2.5 ${msg.isFromUser
+                              ? 'bg-[#3797F0] text-white rounded-[22px] rounded-br-md flex-row-reverse'
+                              : 'bg-[#EFEFEF] text-black rounded-[22px] rounded-bl-md'
+                            }`}
+                            style={{ minWidth: Math.min(80 + (msg.voiceDuration || 1) * 12, 180) }}
+                          >
+                            <span className="text-[15px]">{msg.voiceDuration || 1}″</span>
+                            {/* 声波图标 */}
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 3v18M8 8v8M4 10v4M16 8v8M20 10v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                            </svg>
+                          </div>
+                        ) : msg.type === 'emoji' && msg.emojiUrl ? (
                           <img
                             src={msg.emojiUrl}
                             alt={msg.content}
@@ -360,22 +459,27 @@ ${emojiPrompt}${forumContextPrompt}`
                           />
                         ) : (
                           <div
-                            className={`px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.04)] font-serif ${msg.isFromUser
-                              ? 'bg-[#2F3032] text-[#F2F0E9] rounded-2xl rounded-br-sm border border-[#2F3032]'
-                              : 'bg-[#FCFBF9] text-[#454545] border border-[#E8E6E1] rounded-2xl rounded-bl-sm'
+                            className={`px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap ${msg.isFromUser
+                              ? 'bg-[#3797F0] text-white rounded-[22px] rounded-br-md'
+                              : 'bg-[#EFEFEF] text-black rounded-[22px] rounded-bl-md'
                               }`}
                           >
                             <EmojiContentRenderer
                               content={msg.content}
-                              emojiSize={16}
-                              className={msg.isFromUser ? 'text-[#F2F0E9]' : 'text-[#454545]'}
+                              emojiSize={18}
+                              className={msg.isFromUser ? 'text-white' : 'text-black'}
                             />
                           </div>
                         )}
-                        {/* 状态/已读 */}
-                        {msg.isFromUser && index === messages.length - 1 && (
-                          <span className="text-[10px] text-slate-400 mt-1 mr-1 font-light tracking-wider">已读</span>
-                        )}
+                        {/* 状态/已读 - 在用户最后一条消息上显示，AI回复了显示已读，否则已送达 */}
+                        {msg.isFromUser && (() => {
+                          // 检查是否是用户发送的最后一条消息
+                          const lastUserMsgIndex = messages.map((m, i) => m.isFromUser ? i : -1).filter(i => i >= 0).pop()
+                          if (index !== lastUserMsgIndex) return null
+                          // 检查后面是否有AI回复
+                          const hasAIReply = messages.slice(index + 1).some(m => !m.isFromUser)
+                          return <span className="text-[10px] text-gray-400 mt-1 mr-1">{hasAIReply ? '已读' : '已送达'}</span>
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -387,13 +491,12 @@ ${emojiPrompt}${forumContextPrompt}`
 
         {/* AI正在输入 */}
         {isAiReplying && (
-          <div className="flex items-end gap-3 mt-4">
-            <div className="w-8 h-8 rounded-full bg-[#EAE5D9] flex-shrink-0" />
-            <div className="bg-white border border-[#EAE5D9] px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
-              <div className="flex items-center gap-1.5">
-                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1 h-1 bg-[#8C8C8C] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="flex items-end gap-2 mt-4 ml-9">
+            <div className="bg-[#EFEFEF] px-4 py-3 rounded-[22px] rounded-bl-md">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -402,42 +505,47 @@ ${emojiPrompt}${forumContextPrompt}`
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* 底部输入区域 - 极简悬浮 */}
-      <div className="bg-[#F9F8F4]/95 backdrop-blur-md border-t border-[#EAE5D9] px-4 py-3 safe-area-inset-bottom">
-        <div className="flex items-end gap-3">
-          <button className="mb-2 text-[#5A5A5A] hover:text-[#2C2C2C] active:opacity-60 transition-colors">
-            <Mic className="w-5 h-5 stroke-[1.5]" />
-          </button>
-
-          <div className="flex-1 bg-white border border-[#EAE5D9] rounded-full flex items-center px-4 py-2 min-h-[40px] shadow-sm">
+      {/* 底部输入区域 */}
+      <div className="bg-white/70 backdrop-blur-xl px-4 py-3 safe-area-inset-bottom">
+        <div className="flex items-center gap-3">
+          <div className={`flex-1 rounded-full flex items-center px-4 py-2.5 min-h-[44px] ${
+            isVoiceMode ? 'bg-green-50 border border-green-200' : 'bg-[#EFEFEF]'
+          }`}>
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="写点什么..."
-              className="flex-1 bg-transparent outline-none text-sm text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide"
+              placeholder={isVoiceMode ? "输入语音内容..." : "发消息..."}
+              className="flex-1 bg-transparent outline-none text-[15px] text-slate-900 placeholder-gray-500"
             />
-            <button
-              onClick={() => setShowEmojiPanel(true)}
-              className="ml-2 text-[#8C8C8C] hover:text-[#5A5A5A] transition-colors"
-            >
-              <Smile className="w-5 h-5 stroke-[1.5]" />
-            </button>
+            {inputText.trim() ? (
+              <button
+                onClick={handleSend}
+                className={`ml-2 font-semibold text-sm transition-colors ${
+                  isVoiceMode ? 'text-green-600 hover:text-green-700' : 'text-[#3797F0] hover:text-blue-600'
+                }`}
+              >
+                {isVoiceMode ? '发送语音' : '发送'}
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 ml-2">
+                {/* 语音模式切换按钮 - 在右边 */}
+                <button 
+                  onClick={() => setIsVoiceMode(!isVoiceMode)}
+                  className={`transition-colors ${isVoiceMode ? 'text-[#3797F0]' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  <Mic className="w-6 h-6 stroke-[1.5]" />
+                </button>
+                <button
+                  onClick={() => setShowEmojiPanel(true)}
+                  className="text-gray-500 hover:text-gray-900"
+                >
+                  <Smile className="w-6 h-6 stroke-[1.5]" />
+                </button>
+              </div>
+            )}
           </div>
-
-          {inputText.trim() ? (
-            <button
-              onClick={handleSend}
-              className="mb-1.5 bg-[#2C2C2C] text-[#F9F8F4] px-4 py-1.5 rounded-full text-xs tracking-widest uppercase hover:bg-black transition-colors"
-            >
-              发送
-            </button>
-          ) : (
-            <button className="mb-2 text-[#5A5A5A] hover:text-[#2C2C2C] active:opacity-60 transition-colors">
-              <PlusCircle className="w-5 h-5 stroke-[1.5]" />
-            </button>
-          )}
         </div>
       </div>
 

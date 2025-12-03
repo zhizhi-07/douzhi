@@ -274,14 +274,14 @@ const InstagramCreate = () => {
         {/* 顶部导航 - 玻璃拟态（包含状态栏） */}
         <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
           <StatusBar />
-          <div className="flex items-center justify-between px-5 pb-4">
+          <div className="flex items-center justify-between px-5 pb-4 relative">
             <button
               onClick={() => navigate(-1)}
-              className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
+              className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors p-2"
             >
               <X className="w-5 h-5 stroke-[1.5]" />
             </button>
-            <h1 className="text-sm font-medium text-[#2C2C2C]">发帖</h1>
+            <h1 className="text-lg font-medium tracking-[0.2em] text-[#2C2C2C] absolute left-1/2 -translate-x-1/2">发帖</h1>
             <button
               onClick={handlePost}
               className="text-[#2C2C2C] text-xs font-medium tracking-widest uppercase hover:opacity-70 transition-opacity"
@@ -328,7 +328,7 @@ const InstagramCreate = () => {
                         onClick={() => removeImage(index)}
                         className="absolute top-1 right-1 w-5 h-5 bg-[#2C2C2C]/80 hover:bg-black rounded-full flex items-center justify-center backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
                       >
-                        <X className="w-3 h-3 text-[#F9F8F4]" />
+                        <X className="w-3 h-3 text-[white]" />
                       </button>
                     </div>
                   ))}
@@ -544,7 +544,7 @@ const InstagramCreate = () => {
                         )}
                       </div>
                       {taggedUsers.find(u => u.id === char.id) ? (
-                        <div className="w-5 h-5 rounded-full bg-[#2C2C2C] text-[#F9F8F4] flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full bg-[#2C2C2C] text-[white] flex items-center justify-center">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>

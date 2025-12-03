@@ -25,6 +25,7 @@ import MusicInviteSelector from '../components/MusicInviteSelector'
 import AIMemoModal from '../components/AIMemoModal'
 import AIStatusModal from '../components/AIStatusModal'
 import PostGenerator from '../components/PostGenerator'
+import FriendRequestModal from '../components/FriendRequestModal'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
@@ -40,6 +41,7 @@ import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
 import { playLoadMoreSound, playSystemSound } from '../utils/soundManager'
+import { blacklistManager } from '../utils/blacklistManager'
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -82,7 +84,73 @@ const ChatDetail = () => {
   // 🔥 小号总结功能
   const [isSummarizing, setIsSummarizing] = useState(false)
   const [summaryResult, setSummaryResult] = useState<string | null>(null)
-  
+
+  // 🔥 被拉黑状态（AI拉黑了用户）
+  const [isBlockedByAI, setIsBlockedByAI] = useState(false)
+  // 🔥 好友申请状态：pending=等待对方同意, null=正常
+  const [friendRequestStatus, setFriendRequestStatus] = useState<'pending' | null>(null)
+  // 🔥 添加好友弹窗
+  const [showFriendRequestModal, setShowFriendRequestModal] = useState(false)
+
+  // 检测拉黑状态 & 好友申请状态
+  useEffect(() => {
+    if (!id) return
+    const checkBlockStatus = () => {
+      const status = blacklistManager.getBlockStatus(`character_${id}`, 'user')
+      setIsBlockedByAI(status.blockedByMe) // AI拉黑了用户
+
+      // 检查用户发给AI的好友申请状态
+      const pendingRequest = localStorage.getItem(`friend_request_${id}`)
+      if (pendingRequest === 'pending') {
+        setFriendRequestStatus('pending')
+      } else {
+        setFriendRequestStatus(null)
+      }
+    }
+    checkBlockStatus()
+
+    // 监听拉黑状态变化
+    const handleBlockChange = () => checkBlockStatus()
+    window.addEventListener('blacklist-changed', handleBlockChange)
+    window.addEventListener('friend-request-changed', handleBlockChange)
+    return () => {
+      window.removeEventListener('blacklist-changed', handleBlockChange)
+      window.removeEventListener('friend-request-changed', handleBlockChange)
+    }
+  }, [id])
+
+  // 发送好友申请
+  const handleSendFriendRequest = useCallback((message: string) => {
+    if (!id || !chatState.character) return
+
+    const characterName = chatState.character.nickname || chatState.character.realName
+    const now = Date.now()
+    const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+
+    // 保存好友申请状态
+    localStorage.setItem(`friend_request_${id}`, 'pending')
+    setFriendRequestStatus('pending')
+
+    // 添加系统消息：你已添加对方为好友，等待对方同意
+    const systemMsg: Message = {
+      id: now,
+      type: 'system',
+      messageType: 'system',
+      content: `你已添加${characterName}为好友，等待对方同意\n验证消息：${message}`,
+      time: timeStr,
+      timestamp: now,
+      aiReadableContent: `[用户发送了好友申请，验证消息: "${message}"，请决定是否接受，使用[接受好友]或[拒绝好友]回应]`
+    }
+
+    chatState.setMessages(prev => {
+      const updated = [...prev, systemMsg]
+      saveMessages(id, updated)
+      return updated
+    })
+
+    console.log('📤 已发送好友申请:', message)
+  }, [id, chatState])
+
   // 🔥 当前账号头像（考虑小号）
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>('')
   useEffect(() => {
@@ -92,7 +160,7 @@ const ChatDetail = () => {
       setCurrentUserAvatar(userInfo.avatar || '')
     }
     loadCurrentUserAvatar()
-    
+
     // 监听账号切换事件
     const handleAccountSwitch = () => { loadCurrentUserAvatar() }
     window.addEventListener('accountSwitched', handleAccountSwitch)
@@ -102,23 +170,23 @@ const ChatDetail = () => {
       window.removeEventListener('accountUpdated', handleAccountSwitch)
     }
   }, [])
-  
+
   const handleSubAccountSummary = async () => {
     if (!id || !chatState.character || isSummarizing) return
-    
+
     const account = getCurrentAccount()
     if (!account || account.isMain) return
-    
+
     setIsSummarizing(true)
     try {
       const { generateSummary, saveSummary } = await import('../utils/subAccountSummary')
       const messages = loadMessages(id)
-      
+
       if (messages.length === 0) {
         setSummaryResult('暂无聊天记录可总结')
         return
       }
-      
+
       const summary = await generateSummary(
         id,
         chatState.character.nickname || chatState.character.realName,
@@ -126,6 +194,10 @@ const ChatDetail = () => {
         account.name,
         messages
       )
+
+      // 获取对话时间范围
+      const startTime = messages.length > 0 ? messages[0].timestamp : Date.now()
+      const endTime = messages.length > 0 ? messages[messages.length - 1].timestamp : Date.now()
       
       saveSummary({
         accountId: account.id,
@@ -133,9 +205,11 @@ const ChatDetail = () => {
         characterId: id,
         summary,
         timestamp: Date.now(),
-        messageCount: messages.length
+        messageCount: messages.length,
+        startTime,
+        endTime
       })
-      
+
       setSummaryResult(summary)
     } catch (error) {
       console.error('总结失败:', error)
@@ -343,7 +417,9 @@ const ChatDetail = () => {
     () => navigate(`/chat/${id}/payment-request`),  // 外卖（已合并给TA点外卖功能）
     () => navigate(`/chat/${id}/shopping`),  // 网购商店
     () => postGenerator.setShowPostGenerator(true),  // 帖子生成
-    handleFormatCorrection  // 格式修正
+    handleFormatCorrection,  // 格式修正
+    () => navigate(`/chat/${id}/weather`),  // 天气
+    () => navigate(`/envelope?characterId=${id}`)  // 信封
   )
 
   // 多选模式
@@ -906,10 +982,10 @@ const ChatDetail = () => {
                           onClick={() => isSelectable && multiSelect.toggleMessageSelection(message.id)}
                         >
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
-                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
-                              : isSelected
-                                ? 'border-blue-500 bg-blue-500'
-                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                            ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-blue-500 bg-blue-500'
+                              : 'border-gray-400 bg-white cursor-pointer active:scale-90'
                             }`}>
                             {isSelected && (
                               <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -972,6 +1048,7 @@ const ChatDetail = () => {
                             message.messageType === 'theatre' ||
                             message.messageType === 'poke' ||
                             message.messageType === 'musicShare' ||
+                            message.messageType === 'friendRequest' ||
                             (message.messageType as any) === 'musicInvite' ? (
                             <SpecialMessageRenderer
                               message={message}
@@ -1034,6 +1111,90 @@ const ChatDetail = () => {
                               showVoiceTextMap={voice.showVoiceTextMap}
                               onAcceptPayment={paymentRequest.acceptPayment}
                               onRejectPayment={paymentRequest.rejectPayment}
+                              onAcceptFriendRequest={(messageId) => {
+                                // 解除拉黑
+                                if (id) {
+                                  blacklistManager.unblockUser('user', `character_${id}`)
+                                  localStorage.removeItem(`ai_friend_request_${id}`)
+                                }
+                                // 更新消息状态：更新好友申请卡片 + 清除所有AI消息的blocked标记
+                                chatState.setMessages(prev => {
+                                  const updated = prev.map(msg => {
+                                    // 更新好友申请卡片状态
+                                    if (msg.id === messageId && msg.friendRequest) {
+                                      return {
+                                        ...msg,
+                                        blocked: false,
+                                        friendRequest: { ...msg.friendRequest, status: 'accepted' as const },
+                                        aiReadableContent: '[用户接受了你的好友申请，现在可以正常聊天了]'
+                                      }
+                                    }
+                                    // 清除所有AI消息的blocked标记
+                                    if (msg.type === 'received' && msg.blocked) {
+                                      return { ...msg, blocked: false }
+                                    }
+                                    return msg
+                                  })
+                                  saveMessages(id!, updated)
+                                  return updated
+                                })
+                                // 添加系统消息
+                                const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
+                                const systemMsg: Message = {
+                                  id: Date.now(),
+                                  type: 'system',
+                                  messageType: 'system',
+                                  content: `你已通过${characterName}的好友申请`,
+                                  time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                                  timestamp: Date.now(),
+                                  aiReadableContent: '[用户接受了你的好友申请]'
+                                }
+                                chatState.setMessages(prev => {
+                                  const updated = [...prev, systemMsg]
+                                  saveMessages(id!, updated)
+                                  return updated
+                                })
+                                window.dispatchEvent(new CustomEvent('blacklist-changed'))
+                                window.dispatchEvent(new CustomEvent('friend-request-changed'))
+                              }}
+                              onRejectFriendRequest={(messageId) => {
+                                // 清除申请状态但保持拉黑
+                                if (id) {
+                                  localStorage.removeItem(`ai_friend_request_${id}`)
+                                }
+                                // 更新消息状态
+                                chatState.setMessages(prev => {
+                                  const updated = prev.map(msg => {
+                                    if (msg.id === messageId && msg.friendRequest) {
+                                      return {
+                                        ...msg,
+                                        friendRequest: { ...msg.friendRequest, status: 'rejected' as const },
+                                        aiReadableContent: '[用户拒绝了你的好友申请]'
+                                      }
+                                    }
+                                    return msg
+                                  })
+                                  saveMessages(id!, updated)
+                                  return updated
+                                })
+                                // 添加系统消息
+                                const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
+                                const systemMsg: Message = {
+                                  id: Date.now(),
+                                  type: 'system',
+                                  messageType: 'system',
+                                  content: `你已拒绝${characterName}的好友申请`,
+                                  time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                                  timestamp: Date.now(),
+                                  aiReadableContent: '[用户拒绝了你的好友申请]'
+                                }
+                                chatState.setMessages(prev => {
+                                  const updated = [...prev, systemMsg]
+                                  saveMessages(id!, updated)
+                                  return updated
+                                })
+                                window.dispatchEvent(new CustomEvent('friend-request-changed'))
+                              }}
                             />
                           ) : (
                             <MessageBubble
@@ -1125,8 +1286,8 @@ const ChatDetail = () => {
                 onClick={multiSelect.openForwardModal}
                 disabled={multiSelect.selectedMessageIds.size === 0}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${multiSelect.selectedMessageIds.size > 0
-                    ? 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  ? 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
               >
                 转发
@@ -1136,8 +1297,8 @@ const ChatDetail = () => {
                 onClick={multiSelect.deleteSelectedMessages}
                 disabled={multiSelect.selectedMessageIds.size === 0}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${multiSelect.selectedMessageIds.size > 0
-                    ? 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  ? 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
               >
                 删除
@@ -1161,6 +1322,47 @@ const ChatDetail = () => {
               }}
             />
           )}
+
+          {/* 🔥 AI拉黑用户/用户发送好友申请提示条 */}
+          {(isBlockedByAI || friendRequestStatus === 'pending') && (
+            <div className="relative z-10 mx-4 mb-3 p-4 rounded-2xl bg-white/40 backdrop-blur-md border border-white/40 shadow-[0_8px_32px_rgba(31,38,135,0.07)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm ${friendRequestStatus === 'pending' ? 'bg-amber-100/50 text-amber-600' : 'bg-rose-100/50 text-rose-500'}`}>
+                    {friendRequestStatus === 'pending' ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    {friendRequestStatus === 'pending' ? (
+                      <>
+                        <div className="text-sm font-medium text-gray-800/90">好友申请已发送</div>
+                        <div className="text-xs text-gray-500/80 mt-0.5">等待对方通过验证</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-sm font-medium text-gray-800/90">对方不是你的好友</div>
+                        <div className="text-xs text-gray-500/80 mt-0.5">发送好友申请后才能聊天</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button
+                    onClick={() => setShowFriendRequestModal(true)}
+                    className="px-5 py-2 bg-white/50 hover:bg-white/80 text-gray-700 text-sm font-medium rounded-xl backdrop-blur-sm border border-white/60 transition-all shadow-sm hover:shadow-md active:scale-95"
+                  >
+                    {friendRequestStatus === 'pending' ? '重新申请' : '添加好友'}
+                  </button>
+              </div>
+            </div>
+          )}
+
           {modals.quotedMessage && (
             <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">
               <div className="flex-1 min-w-0">
@@ -1293,6 +1495,8 @@ const ChatDetail = () => {
         onSelectShopping={addMenu.handlers.handleSelectShopping}
         onSelectPost={addMenu.handlers.handleSelectPost}
         onSelectFormatCorrector={addMenu.handlers.handleSelectFormatCorrector}
+        onSelectWeather={addMenu.handlers.handleSelectWeather}
+        onSelectEnvelope={addMenu.handlers.handleSelectEnvelope}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
       />
@@ -1355,6 +1559,9 @@ const ChatDetail = () => {
                       // 保存修改后的总结
                       const account = getCurrentAccount()
                       if (account && !account.isMain && id && summaryResult) {
+                        const msgs = chatState.messages
+                        const startTime = msgs.length > 0 ? msgs[0].timestamp : Date.now()
+                        const endTime = msgs.length > 0 ? msgs[msgs.length - 1].timestamp : Date.now()
                         import('../utils/subAccountSummary').then(({ saveSummary }) => {
                           saveSummary({
                             accountId: account.id,
@@ -1362,7 +1569,9 @@ const ChatDetail = () => {
                             characterId: id,
                             summary: summaryResult,
                             timestamp: Date.now(),
-                            messageCount: chatState.messages.length
+                            messageCount: msgs.length,
+                            startTime,
+                            endTime
                           })
                         })
                       }
@@ -1581,6 +1790,14 @@ const ChatDetail = () => {
         }}
         onSave={handleSaveOfflineRecord}
         editingMessage={editingOfflineRecord}
+      />
+
+      {/* 🔥 添加好友弹窗 */}
+      <FriendRequestModal
+        isOpen={showFriendRequestModal}
+        onClose={() => setShowFriendRequestModal(false)}
+        onSend={handleSendFriendRequest}
+        characterName={character.nickname || character.realName}
       />
     </div>
   )

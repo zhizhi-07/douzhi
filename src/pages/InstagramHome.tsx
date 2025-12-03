@@ -73,22 +73,22 @@ const InstagramHome = () => {
         {/* 顶部导航 - 玻璃拟态（包含状态栏） */}
         <div className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
           <StatusBar />
-          <div className="px-6 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="px-6 pb-4 flex items-center justify-between relative">
             <button
               onClick={() => navigate('/')}
-              className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
+              className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors p-2"
             >
-              <span className="text-sm tracking-widest">返回</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
             <h1
-              className="text-lg font-medium tracking-[0.2em] cursor-pointer text-[#2C2C2C]"
+              className="text-lg font-medium tracking-[0.2em] cursor-pointer text-[#2C2C2C] absolute left-1/2 -translate-x-1/2"
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             >
               社区
             </h1>
-          </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/instagram/create')}
               className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
@@ -111,8 +111,8 @@ const InstagramHome = () => {
 
         {/* Stories - 玻璃质感圆环区域 */}
         <div className="pt-6 pb-4 border-b border-white/30 bg-white/20 backdrop-blur-sm">
-          <div className="px-6 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-6">
+          <div className="max-w-screen-sm mx-auto px-6 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-6 justify-center">
               {/* 我的 */}
               <div className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
                 <div className="relative w-14 h-14">

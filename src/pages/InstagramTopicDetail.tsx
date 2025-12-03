@@ -110,9 +110,9 @@ const InstagramTopicDetail = () => {
 
   return (
     <InstagramLayout showHeader={false} showTabBar={false}>
-      <div className="min-h-screen bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+      <div className="min-h-screen bg-[white] font-serif text-[#2C2C2C]">
         {/* 顶部导航（包含状态栏） */}
-        <div className="sticky top-0 z-10 bg-[#F9F8F4]/90 backdrop-blur-md border-b border-[#EAE5D9]">
+        <div className="sticky top-0 z-10 bg-[white]/90 backdrop-blur-md border-b border-[#e5e5e5]">
           <StatusBar />
           <div className="flex items-center justify-between px-5 pb-4">
             <button
@@ -136,19 +136,19 @@ const InstagramTopicDetail = () => {
         <div className="pb-8">
           {posts.length === 0 ? (
             <div className="py-24 text-center">
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center border border-[#EAE5D9] rounded-full">
+              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center border border-[#e5e5e5] rounded-full">
                 <Hash className="w-5 h-5 text-[#D4D4D4] stroke-[1.5]" />
               </div>
               <p className="text-[10px] text-[#8C8C8C]">还没有帖子</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#EAE5D9]">
+            <div className="divide-y divide-[#e5e5e5]">
               {posts.map((post) => {
                 const npc = getNPCById(post.npcId)
                 if (!npc) return null
 
                 return (
-                  <div key={post.id} className="bg-[#F9F8F4] py-6">
+                  <div key={post.id} className="bg-[white] py-6">
                     {/* Post Header */}
                     <div className="flex items-center justify-between px-5 mb-3">
                       <div

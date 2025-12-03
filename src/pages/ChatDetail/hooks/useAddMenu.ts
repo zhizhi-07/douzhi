@@ -19,8 +19,9 @@ export const useAddMenu = (
   onOpenPaymentRequest?: () => void,
   onOpenShopping?: () => void,
   onOpenPost?: () => void,
-  onSelectPost?: () => void,
-  onFormatCorrector?: () => void
+  onFormatCorrector?: () => void,
+  onOpenWeather?: () => void,
+  onOpenEnvelope?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -187,6 +188,28 @@ export const useAddMenu = (
     }
   }, [onFormatCorrector])
 
+  /**
+   * 天气
+   */
+  const handleSelectWeather = useCallback(() => {
+    console.log('🌤️ 点击天气按钮')
+    setShowAddMenu(false)
+    if (onOpenWeather) {
+      onOpenWeather()
+    }
+  }, [onOpenWeather])
+
+  /**
+   * 信封
+   */
+  const handleSelectEnvelope = useCallback(() => {
+    console.log('✉️ 点击信封按钮')
+    setShowAddMenu(false)
+    if (onOpenEnvelope) {
+      onOpenEnvelope()
+    }
+  }, [onOpenEnvelope])
+
   return {
     showAddMenu,
     setShowAddMenu,
@@ -206,7 +229,9 @@ export const useAddMenu = (
       handleSelectPaymentRequest,
       handleSelectShopping,
       handleSelectPost,
-      handleSelectFormatCorrector
+      handleSelectFormatCorrector,
+      handleSelectWeather,
+      handleSelectEnvelope
     }
   }
 }

@@ -64,20 +64,60 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
           </div>
         </div>
 
-        {/* 当前状态 */}
-        <div className="space-y-4">
-          {/* 动作 */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/60 to-white/20 p-5 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
-            {/* Decorative background element */}
-            <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-100/50 transition-colors duration-500"></div>
-
-            <div className="flex flex-col gap-3 relative z-10">
+        {/* 当前状态 - 4个维度 */}
+        <div className="space-y-3">
+          {/* 服装 */}
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-pink-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-pink-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-pink-100/50 transition-colors duration-500"></div>
+            <div className="flex flex-col gap-2 relative z-10">
               <div className="flex items-center gap-2">
-                <span className="text-lg opacity-90 filter drop-shadow-sm">🎬</span>
-                <span className="text-xs font-serif text-slate-500 tracking-widest">正在做什么</span>
+                <span className="w-5 h-5 rounded bg-pink-200/60 flex items-center justify-center text-[10px] text-pink-600 font-medium">衣</span>
+                <span className="text-[10px] font-serif text-slate-500 tracking-widest uppercase">outfit</span>
               </div>
-              <p className="text-base text-slate-800 font-serif leading-relaxed break-words pl-3 border-l-2 border-indigo-300/30 italic">
-                {status.action}
+              <p className="text-sm text-slate-700 font-serif leading-relaxed break-words pl-2.5 border-l-2 border-pink-300/40">
+                {status.outfit || <span className="text-slate-400 italic">未知</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* 心理 */}
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-purple-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-100/50 transition-colors duration-500"></div>
+            <div className="flex flex-col gap-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded bg-purple-200/60 flex items-center justify-center text-[10px] text-purple-600 font-medium">心</span>
+                <span className="text-[10px] font-serif text-slate-500 tracking-widest uppercase">mood</span>
+              </div>
+              <p className="text-sm text-slate-700 font-serif leading-relaxed break-words pl-2.5 border-l-2 border-purple-300/40">
+                {status.mood || <span className="text-slate-400 italic">未知</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* 行程/地点 */}
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-100/50 transition-colors duration-500"></div>
+            <div className="flex flex-col gap-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded bg-emerald-200/60 flex items-center justify-center text-[10px] text-emerald-600 font-medium">行</span>
+                <span className="text-[10px] font-serif text-slate-500 tracking-widest uppercase">location</span>
+              </div>
+              <p className="text-sm text-slate-700 font-serif leading-relaxed break-words pl-2.5 border-l-2 border-emerald-300/40">
+                {status.location || <span className="text-slate-400 italic">未知</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* 动作 */}
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-100/50 transition-colors duration-500"></div>
+            <div className="flex flex-col gap-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded bg-indigo-200/60 flex items-center justify-center text-[10px] text-indigo-600 font-medium">动</span>
+                <span className="text-[10px] font-serif text-slate-500 tracking-widest uppercase">action</span>
+              </div>
+              <p className="text-sm text-slate-700 font-serif leading-relaxed break-words pl-2.5 border-l-2 border-indigo-300/40">
+                {status.action || <span className="text-slate-400 italic">未知</span>}
               </p>
             </div>
           </div>

@@ -315,9 +315,11 @@ export const rejectTransferHandler: CommandHandler = {
  * 视频通话指令处理器
  */
 export const videoCallHandler: CommandHandler = {
-  pattern: /[\[【]视频通话[\]】]/,
+  pattern: /[\[【]视频通话[:：](.+?)[:：](.+?)[\]】]/,  // 匹配 [视频通话:旁白:说的话]
   handler: async (match, content, { onVideoCallRequest, character }) => {
-    console.log('📞 视频通话指令处理:', { content, match: match[0] })
+    const narrator = match[1]?.trim() || null  // 旁白
+    const openingLine = match[2]?.trim() || null  // 说的话
+    console.log('📞 视频通话指令处理:', { content, match: match[0], narrator, openingLine })
     
     // 触发全局视频通话事件（用于不在聊天页面时的弹窗）
     if (character) {
@@ -333,17 +335,19 @@ export const videoCallHandler: CommandHandler = {
     
     const remainingText = content.replace(match[0], '').trim()
     
-    console.log('📞 视频通话处理结果:', { remainingText })
+    console.log('📞 视频通话处理结果:', { remainingText, narrator, openingLine })
     
     if (onVideoCallRequest) {
-      onVideoCallRequest(remainingText || null)
+      // 传入旁白和说的话，格式: "旁白|说的话"
+      const fullOpening = narrator && openingLine ? `${narrator}|${openingLine}` : (openingLine || narrator)
+      onVideoCallRequest(fullOpening)
     }
     
-    // [视频通话]指令总是跳过文本消息，开场白在视频通话界面显示
+    // [视频通话:xxx]指令总是跳过文本消息，开场白在视频通话界面显示
     return { 
       handled: true, 
-      remainingText: '',  // 清空剩余文本，不在聊天中显示
-      skipTextMessage: true  // 总是跳过
+      remainingText,  // 保留剩余文本（如果有的话，作为普通消息）
+      skipTextMessage: !remainingText  // 只有没有剩余文本时才跳过
     }
   }
 }
@@ -1610,7 +1614,7 @@ export const rejectIntimatePayHandler: CommandHandler = {
  * 拉黑用户指令处理器
  */
 export const blockUserHandler: CommandHandler = {
-  pattern: /[\[【]拉黑用户[\]】]/,
+  pattern: /[\[【]拉黑(?:用户)?[\]】]/,  // 匹配 [拉黑] 或 [拉黑用户]
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
@@ -1630,6 +1634,9 @@ export const blockUserHandler: CommandHandler = {
     // AI拉黑用户（character拉黑user）
     blacklistManager.blockUser(`character_${character.id}`, 'user')
     console.log(`🚫 ${character.nickname || character.realName} 拉黑了用户`)
+    
+    // 🔥 触发事件通知UI更新
+    window.dispatchEvent(new CustomEvent('blacklist-changed', { detail: { characterId: character.id } }))
     
     // 注意：不需要修改现有消息
     // 用户发送新消息时会自动检测拉黑状态并标记（见 useChatAI.ts）
@@ -1655,7 +1662,7 @@ export const blockUserHandler: CommandHandler = {
  * 解除拉黑指令处理器
  */
 export const unblockUserHandler: CommandHandler = {
-  pattern: /[\[【]解除拉黑[\]】]/,
+  pattern: /[\[【](?:解除拉黑|取消拉黑)[\]】]/,  // 匹配 [解除拉黑] 或 [取消拉黑]
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
     
@@ -1674,6 +1681,120 @@ export const unblockUserHandler: CommandHandler = {
       type: 'system'
     })
     await addMessage(systemMsg, setMessages, chatId)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI发送好友申请处理器（用户拉黑AI后，AI添加用户为好友）
+ */
+export const sendFriendRequestHandler: CommandHandler = {
+  pattern: /[\[【](?:添加好友|申请好友|加好友)[:：](.+?)[\]】]|[\[【]你发送了好友申请，验证消息[:：]\s*["""]?(.+?)["""]?，等待用户接受[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    if (!character) return { handled: false }
+    
+    // match[1]是第一个格式，match[2]是第二个格式
+    const verifyMessage = (match[1] || match[2])?.trim() || '你好'
+    
+    // 保存AI好友申请状态
+    localStorage.setItem(`ai_friend_request_${character.id}`, JSON.stringify({
+      status: 'pending',
+      message: verifyMessage,
+      timestamp: Date.now()
+    }))
+    
+    // 添加好友申请卡片消息
+    const friendRequestMsg = createMessageObj('friendRequest', {
+      type: 'received',
+      content: verifyMessage,
+      friendRequest: {
+        message: verifyMessage,
+        status: 'pending'
+      },
+      aiReadableContent: `[你发送了好友申请，验证消息: "${verifyMessage}"，等待用户接受]`
+    })
+    await addMessage(friendRequestMsg, setMessages, chatId)
+    
+    // 触发事件更新UI
+    window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
+    
+    console.log(`📤 ${character.nickname || character.realName} 发送了好友申请:`, verifyMessage)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI接受好友申请处理器
+ */
+export const acceptFriendHandler: CommandHandler = {
+  pattern: /[\[【](?:接受好友|同意好友|通过好友)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    if (!character) return { handled: false }
+    
+    // 解除拉黑
+    blacklistManager.unblockUser(`character_${character.id}`, 'user')
+    
+    // 清除好友申请状态
+    localStorage.removeItem(`friend_request_${character.id}`)
+    
+    // 添加系统消息
+    const systemMsg = createMessageObj('system', {
+      content: `${character.nickname || character.realName}通过了你的好友验证，现在可以开始聊天了`,
+      aiReadableContent: `[你接受了用户的好友申请，现在可以正常聊天了]`,
+      type: 'system'
+    })
+    await addMessage(systemMsg, setMessages, chatId)
+    
+    // 触发事件更新UI
+    window.dispatchEvent(new CustomEvent('blacklist-changed', { detail: { characterId: character.id } }))
+    window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
+    
+    console.log(`✅ ${character.nickname || character.realName} 接受了好友申请`)
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
+ * AI拒绝好友申请处理器
+ */
+export const rejectFriendHandler: CommandHandler = {
+  pattern: /[\[【](?:拒绝好友|不通过好友)[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    if (!character) return { handled: false }
+    
+    // 清除好友申请状态（但保持拉黑）
+    localStorage.removeItem(`friend_request_${character.id}`)
+    
+    // 添加系统消息
+    const systemMsg = createMessageObj('system', {
+      content: `${character.nickname || character.realName}拒绝了你的好友申请`,
+      aiReadableContent: `[你拒绝了用户的好友申请]`,
+      type: 'system'
+    })
+    await addMessage(systemMsg, setMessages, chatId)
+    
+    // 触发事件更新UI
+    window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
+    
+    console.log(`❌ ${character.nickname || character.realName} 拒绝了好友申请`)
     
     const remainingText = content.replace(match[0], '').trim()
     return { 
@@ -1772,9 +1893,8 @@ export const changeSignatureHandler: CommandHandler = {
 
 /**
  * 状态管理处理器
- * 支持格式：
- * - [状态:正在吃火锅] - 只更新状态
- * - [状态:在图书馆|行程:下午去了图书馆复习考试] - 同时更新状态和详细行程
+ * 新格式：[状态:地点|服装:xxx|心理:xxx|动作:xxx]
+ * 兼容旧格式：[状态:地点|行程:xxx]
  */
 export const statusHandler: CommandHandler = {
   pattern: /[\[【]状态(?:更新)?[:\：](.+?)[\]】]/,
@@ -1786,67 +1906,39 @@ export const statusHandler: CommandHandler = {
 
     const fullContent = match[1].trim()
     
-    // 解析状态、行程、时间（支持 状态:xxx|行程:xxx|时间:xx:xx 格式）
-    let statusText = fullContent
-    let scheduleText = ''
-    let customTime = ''  // AI指定的时间（用于补全过去的行程）
-    
-    // 先提取时间（如果有），支持多种格式：
-    // - 19:00（只有时间）
-    // - 昨天19:00 / 昨天 19:00
-    // - 前天19:00
-    // - 11-27 19:00 / 2025-11-27 19:00
+    // 提取自定义时间（如果有）
+    let customTime = ''
     const timeMatch = fullContent.match(/\|时间[:：]((?:昨天|前天)?[\s]?(?:\d{1,4}-\d{1,2}-?\d{0,2}\s*)?(?:\d{1,2}[:：]\d{2}))/)
     if (timeMatch) {
-      customTime = timeMatch[1].replace('：', ':')  // 统一成英文冒号
-    }
-    
-    // 移除时间部分后再解析状态和行程
-    const contentWithoutTime = fullContent.replace(/\|时间[:：](?:昨天|前天)?[\s]?(?:\d{1,4}-\d{1,2}-?\d{0,2}\s*)?(?:\d{1,2}[:：]\d{2})/, '').trim()
-    
-    const pipeIndex = contentWithoutTime.indexOf('|行程:')
-    if (pipeIndex > 0) {
-      statusText = contentWithoutTime.substring(0, pipeIndex).trim()
-      scheduleText = contentWithoutTime.substring(pipeIndex + 4).trim()
-    } else {
-      // 兼容旧格式：也检查 |行程： 中文冒号
-      const pipeIndex2 = contentWithoutTime.indexOf('|行程：')
-      if (pipeIndex2 > 0) {
-        statusText = contentWithoutTime.substring(0, pipeIndex2).trim()
-        scheduleText = contentWithoutTime.substring(pipeIndex2 + 4).trim()
-      } else {
-        statusText = contentWithoutTime
-      }
+      customTime = timeMatch[1].replace('：', ':')
     }
 
-    console.log(`💫 [AI状态] 更新状态: ${statusText}`)
-    if (scheduleText) {
-      console.log(`📅 [AI行程] 详细行程: ${scheduleText}`)
-    }
-    if (customTime) {
-      console.log(`⏰ [AI行程] 自定义时间: ${customTime}`)
-    }
-
-    // 使用新的状态管理器（保存完整状态）
-    const fakeMatch = scheduleText 
-      ? `[状态:${statusText}|行程:${scheduleText}]`  // 完整格式
-      : `[状态:${statusText}]`                        // 只有位置
-    const statusUpdate = extractStatusFromReply(fakeMatch, character.id)
+    // 直接用原始匹配调用解析器（已支持新格式）
+    const statusUpdate = extractStatusFromReply(match[0], character.id)
+    
     if (statusUpdate) {
       setAIStatus(statusUpdate)
-      console.log(`💫 [AI状态] 已保存状态:`, statusUpdate)
+      console.log(`💫 [AI状态] 已保存:`, {
+        地点: statusUpdate.location,
+        服装: statusUpdate.outfit,
+        心理: statusUpdate.mood,
+        动作: statusUpdate.action
+      })
       
-      // 🔥 记录到行程历史（保存完整的「位置 + 行程」，支持自定义时间）
-      const recordContent = scheduleText 
-        ? `${statusText} - ${scheduleText}`  // 有行程时：在家 - 窝在沙发上刷手机
-        : statusText                          // 没有行程时：就用状态
-      saveStatusToSchedule(character.id, recordContent, customTime || undefined)
-      console.log(`📅 [AI行程] 已记录到行程历史: ${recordContent}${customTime ? ` (时间: ${customTime})` : ''}`)
+      // 记录到行程历史（简化：只记录地点+动作）
+      const recordContent = statusUpdate.action 
+        ? `${statusUpdate.location} - ${statusUpdate.action}`
+        : statusUpdate.location || ''
+      if (customTime) {
+        saveStatusToSchedule(character.id, recordContent, customTime)
+      } else {
+        saveStatusToSchedule(character.id, recordContent)
+      }
       
-      // 如果有强制更新标记，清除它
+      // 清除强制更新标记
       if (getForceUpdateFlag(character.id)) {
         clearForceUpdateFlag(character.id)
-        console.log('✅ [状态修正] AI已响应状态修正要求，清除标记')
+        console.log('✅ [状态修正] AI已响应，清除标记')
       }
     }
 
@@ -3276,6 +3368,9 @@ export const commandHandlers: CommandHandler[] = [
   recallHandler,
   blockUserHandler,
   unblockUserHandler,
+  sendFriendRequestHandler,  // AI发送好友申请
+  acceptFriendHandler,  // AI接受好友申请
+  rejectFriendHandler,  // AI拒绝好友申请
   changeNicknameHandler,
   changeSignatureHandler,
   statusHandler,  // AI更新状态

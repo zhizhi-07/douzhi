@@ -29,7 +29,7 @@ const InstagramActivity = () => {
 
   // 根据名字生成头像渐变色
   const getAvatarGradient = (name: string) => {
-    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#EAE5D9']
+    const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#e5e5e5']
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
   }
@@ -77,18 +77,18 @@ const InstagramActivity = () => {
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-[#F9F8F4] font-serif text-[#2C2C2C]">
+      <div className="h-full flex flex-col bg-[white] font-serif text-[#2C2C2C]">
         {/* 顶部导航（包含状态栏） */}
-        <div className="bg-[#F9F8F4]/90 sticky top-0 z-10 backdrop-blur-md border-b border-[#EAE5D9]">
+        <div className="bg-[white]/90 sticky top-0 z-10 backdrop-blur-md border-b border-[#e5e5e5]">
           <StatusBar />
-          <div className="flex items-center justify-between px-5 pb-4">
+          <div className="flex items-center justify-between px-5 pb-4 relative">
             <button
               onClick={() => navigate('/instagram')}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] active:bg-[#D4D4D4] -ml-2 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#e5e5e5] active:bg-[#D4D4D4] -ml-2 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-[#5A5A5A] stroke-[1.5]" />
             </button>
-            <h1 className="text-sm font-medium text-[#2C2C2C]">私信</h1>
+            <h1 className="text-lg font-medium tracking-[0.2em] text-[#2C2C2C] absolute left-1/2 -translate-x-1/2">私信</h1>
             <div className="w-10" />
           </div>
         </div>
@@ -96,7 +96,7 @@ const InstagramActivity = () => {
         {/* 私聊列表 */}
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {conversations.length > 0 ? (
-            <div className="divide-y divide-[#EAE5D9]">
+            <div className="divide-y divide-gray-100">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
@@ -121,7 +121,7 @@ const InstagramActivity = () => {
                     )}
                     {/* 未读红点 */}
                     {conv.unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#8B3A3A] flex items-center justify-center border border-[#F9F8F4]">
+                      <div className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#8B3A3A] flex items-center justify-center border border-[white]">
                         <span className="text-[9px] text-white font-medium">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
                       </div>
                     )}
@@ -142,7 +142,7 @@ const InstagramActivity = () => {
             </div>
           ) : (
             <div className="py-24 text-center">
-              <div className="w-16 h-16 mx-auto mb-5 rounded-full border border-[#EAE5D9] flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-full border border-[#e5e5e5] flex items-center justify-center">
                 <MessageCircle className="w-6 h-6 text-[#D4D4D4] stroke-[1.5]" />
               </div>
               <h3 className="text-sm font-medium text-[#5A5A5A] mb-2">暂无消息</h3>
@@ -151,7 +151,7 @@ const InstagramActivity = () => {
               </p>
               <button
                 onClick={() => setShowNewChat(true)}
-                className="px-6 py-2 bg-[#2C2C2C] text-[#F9F8F4] text-xs tracking-widest uppercase rounded-sm hover:bg-black transition-colors"
+                className="px-6 py-2 bg-[#2C2C2C] text-[white] text-xs tracking-widest uppercase rounded-sm hover:bg-black transition-colors"
               >
                 新建消息
               </button>
@@ -166,13 +166,13 @@ const InstagramActivity = () => {
               className="fixed inset-0 bg-[#2C2C2C]/20 backdrop-blur-sm z-50"
               onClick={() => setShowNewChat(false)}
             />
-            <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] max-h-[80vh] flex flex-col animate-slide-up bg-[#F9F8F4] font-serif">
+            <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] max-h-[80vh] flex flex-col animate-slide-up bg-[white] font-serif">
               {/* 头部 */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-[#EAE5D9]">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[#e5e5e5]">
                 <h2 className="text-sm font-medium text-[#2C2C2C]">新建消息</h2>
                 <button
                   onClick={() => setShowNewChat(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#EAE5D9] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#e5e5e5] transition-colors"
                 >
                   <X className="w-5 h-5 text-[#5A5A5A] stroke-[1.5]" />
                 </button>
@@ -187,13 +187,13 @@ const InstagramActivity = () => {
                     placeholder="搜索角色..."
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#EAE5D9] rounded-sm text-sm outline-none text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide focus:border-[#8C8C8C] transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#e5e5e5] rounded-sm text-sm outline-none text-[#2C2C2C] placeholder-[#C0C0C0] font-serif tracking-wide focus:border-[#8C8C8C] transition-colors"
                   />
                 </div>
               </div>
 
               {/* 角色列表 */}
-              <div className="flex-1 overflow-y-auto px-6 pb-8 bg-[#F9F8F4]">
+              <div className="flex-1 overflow-y-auto px-6 pb-8 bg-[white]">
                 {/* 已有会话的角色 */}
                 {conversations.length > 0 && (
                   <div className="mb-8">

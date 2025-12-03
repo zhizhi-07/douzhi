@@ -27,6 +27,8 @@ import { commandHandlers } from './commandHandlers'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { buildBlacklistPrompt, buildAIBlockedUserPrompt } from '../../../utils/prompts'
 import { parseMomentsInteractions, executeMomentsInteractions } from '../../../utils/momentsInteractionParser'
+import { getSummariesByCharacter } from '../../../utils/subAccountSummary'
+import { isMainAccount } from '../../../utils/accountManager'
 import { parseAIMomentsPost, executeAIMomentsPost, parseAIMomentsDelete, executeAIMomentsDelete } from '../../../utils/aiMomentsPostParser'
 import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
 import { loadMoments } from '../../../utils/momentsManager'
@@ -226,7 +228,7 @@ export const useChatAI = (
       console.log('📷 [头像检查]', hasValidDescription ? `已有描述: ${avatarInfo.current?.description}` : '需要识别头像')
 
       // 检查用户是否拉黑了AI
-      const isBlocked = blacklistManager.isBlockedByMe('user', chatId)
+      const isBlocked = blacklistManager.isBlockedByMe('user', `character_${chatId}`)
       console.log(`🔍 [拉黑检查] 用户拉黑了AI: ${isBlocked}, chatId=${chatId}`)
 
       // 检查AI是否拉黑了用户
@@ -483,6 +485,43 @@ export const useChatAI = (
       const statusRecords: StatusRecord[] = character ? getScheduleHistory(character.id) : []
       
       let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory, true, statusRecords)
+      
+      // 🔥 小插曲：把小号聊天总结作为系统消息插入到消息流开头
+      if (character && isMainAccount()) {
+        const summaries = getSummariesByCharacter(character.id)
+        if (summaries.length > 0) {
+          // 取最近3条小插曲，格式化为简短的系统消息
+          const recentSummaries = summaries.slice(-3)
+          const summaryText = recentSummaries.map(s => {
+            // 格式化时间：优先用对话时间范围，否则用总结时间
+            const formatTime = (ts: number) => {
+              const d = new Date(ts)
+              return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+            }
+            const formatDate = (ts: number) => {
+              const d = new Date(ts)
+              return `${d.getMonth() + 1}/${d.getDate()}`
+            }
+            
+            let timeStr = ''
+            if (s.startTime && s.endTime) {
+              // 有时间范围：显示 "12/3 10:15-10:30"
+              timeStr = `${formatDate(s.startTime)} ${formatTime(s.startTime)}-${formatTime(s.endTime)}`
+            } else {
+              // 没有时间范围：显示总结时间
+              timeStr = `${formatDate(s.timestamp)} ${formatTime(s.timestamp)}`
+            }
+            return `[${timeStr}] 陌生人「${s.accountName}」：${s.summary}`
+          }).join('\n')
+          
+          // 在消息流开头插入小插曲
+          apiMessages.unshift({
+            role: 'system',
+            content: `【小插曲】最近有陌生人来找你聊过天：\n${summaryText}`
+          })
+          console.log('📝 [小插曲] 已插入到消息流:', recentSummaries.length, '条')
+        }
+      }
       
       // 🔥 详细日志：显示AI实际读取的所有消息
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')

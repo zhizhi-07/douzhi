@@ -12,6 +12,8 @@ export interface SubAccountChatSummary {
   summary: string        // 总结内容
   timestamp: number      // 总结时间
   messageCount: number   // 消息数量
+  startTime?: number     // 对话开始时间
+  endTime?: number       // 对话结束时间
 }
 
 const STORAGE_KEY = 'sub_account_summaries'
