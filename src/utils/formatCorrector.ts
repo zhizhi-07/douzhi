@@ -149,7 +149,12 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
   // ========== 6. 表情格式修正 ==========
   
   // 🔥 只要包含"表情"就修正
+  // ⚠️ 但要排除 [忙碌:...] 指令（场景描述可能包含"表情"二字，如"毫无表情"）
   fixed = fixed.replace(/\[([^\[\]]*?表情(?:包)?[^\[\]]*?)\]/g, (match, content) => {
+    // 🔥 排除忙碌指令（场景描述中可能包含"表情"这个词）
+    if (/^忙碌[:\：]/.test(content)) {
+      return match  // 不要修正，保持原样
+    }
     let cleaned = content
       .replace(/(?:你|我)发了?表情(?:包)?[:\：]?\s*/g, '')
       .replace(/^表情(?:包)?[:\：]?\s*/g, '')
@@ -295,7 +300,34 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
     return match
   })
 
-  // ========== 11. 网名格式修正 ==========
+  // ========== 11. 购买格式修正 ==========
+  
+  // 🔥 修正各种购买格式
+  // 匹配：[购买了xxx]、[我购买xxx]、[购买:xxx] 等
+  fixed = fixed.replace(/\[(?:我)?购买(?:了)?[:\：]?\s*([^,，\]]+?)(?:[,，]|\s+)?(\d+\.?\d*)?(?:[:\：](.+?))?\]/g, (_match, name, price, note) => {
+    const productName = name?.trim() || ''
+    const productPrice = price || '99.99'
+    const productNote = note?.trim() || ''
+    if (productName) {
+      corrections.push(`购买格式：统一为标准格式`)
+      return `[购买:${productName},${productPrice}${productNote ? `:${productNote}` : ''}]`
+    }
+    return _match
+  })
+
+  // 全角括号
+  fixed = fixed.replace(/【(?:我)?购买(?:了)?[:\：]?\s*([^,，】]+?)(?:[,，]|\s+)?(\d+\.?\d*)?(?:[:\：](.+?))?】/g, (_match, name, price, note) => {
+    const productName = name?.trim() || ''
+    const productPrice = price || '99.99'
+    const productNote = note?.trim() || ''
+    if (productName) {
+      corrections.push(`购买格式：统一为标准格式（全角）`)
+      return `【购买：${productName}，${productPrice}${productNote ? `：${productNote}` : ''}】`
+    }
+    return _match
+  })
+
+  // ========== 12. 网名格式修正 ==========
   
   fixed = fixed.replace(/\[网名([^\]:\：]+)\]/g, (_match, name) => {
     if (name.trim()) {

@@ -8,7 +8,7 @@ interface DockProps {
 
 const Dock: React.FC<DockProps> = ({ apps, onAppClick }) => {
   return (
-    <div className="pb-6 px-4">
+    <div className="px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
       <div 
         className="rounded-3xl p-3"
         style={{

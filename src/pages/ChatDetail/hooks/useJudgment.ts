@@ -15,11 +15,11 @@ export const useJudgment = (
   id: string | undefined,
   character: Character | null,
   messages: Message[],
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-  triggerAIReply: () => void
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
 ) => {
   const [showJudgmentModal, setShowJudgmentModal] = useState(false)
   const [isJudging, setIsJudging] = useState(false)
+  const [respondingToAppealId, setRespondingToAppealId] = useState<number | null>(null)  // 正在回应的上诉消息ID
 
   // 获取用户和角色名称
   const userName = getUserInfo()?.nickname || '用户'
@@ -71,11 +71,8 @@ export const useJudgment = (
       return updated
     })
 
-    // 触发AI回复
-    setTimeout(() => {
-      triggerAIReply()
-    }, 500)
-  }, [id, userName, characterName, setMessages, triggerAIReply])
+    // 不自动触发AI回复，让用户手动控制
+  }, [id, userName, characterName, setMessages])
 
   /**
    * 请求判定（点击AI回应卡片上的判定按钮）
@@ -144,11 +141,84 @@ ${result.solution}
     }
   }, [id, messages, userName, characterName, setMessages])
 
+  /**
+   * 开始回应AI上诉（点击上诉卡片的"我要回应"按钮）
+   */
+  const startRespondToAppeal = useCallback((messageId: number) => {
+    setRespondingToAppealId(messageId)
+    setShowJudgmentModal(true)
+  }, [])
+
+  /**
+   * 发送用户对上诉的回应
+   */
+  const sendAppealResponse = useCallback(async (userReason: string, bias: BiasType) => {
+    if (!id || !respondingToAppealId) return
+
+    // 找到AI上诉消息
+    const appealMsg = messages.find(m => m.id === respondingToAppealId)
+    if (!appealMsg?.judgmentData) return
+
+    setIsJudging(true)
+    try {
+      // 调用判定API
+      const result = await callJudgmentApi(
+        id,
+        characterName,
+        userName,
+        userReason,  // 用户的回应
+        appealMsg.judgmentData.aiReason || '',  // AI的上诉理由
+        bias
+      )
+
+      // 发送判定结果消息
+      const resultMsg: Message = {
+        id: Date.now(),
+        type: 'received',
+        content: `[判定结果] ${result.winner === 'user' ? userName : result.winner === 'ai' ? characterName : '平局'}占理`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'judgment',
+        judgmentData: {
+          type: 'result',
+          result,
+          userName,
+          characterName
+        },
+        aiReadableContent: `[情感仲裁庭判决结果]
+判决结果：${result.winner === 'user' ? `${userName}胜诉` : result.winner === 'ai' ? `${characterName}胜诉` : '双方和解'}
+评分：${userName} ${result.userScore}分 vs ${characterName} ${result.aiScore}分
+
+判决理由：
+${result.reason}
+
+判决如下：
+${result.solution}
+
+请根据这个判决结果，在后续对话中调整你的态度和回应。`
+      }
+
+      setMessages(prev => {
+        const updated = [...prev, resultMsg]
+        saveMessages(id, updated)
+        return updated
+      })
+    } catch (error) {
+      console.error('判定失败:', error)
+    } finally {
+      setIsJudging(false)
+      setRespondingToAppealId(null)
+    }
+  }, [id, respondingToAppealId, messages, userName, characterName, setMessages])
+
   return {
     showJudgmentModal,
     setShowJudgmentModal,
     isJudging,
     sendJudgmentRequest,
-    requestJudgment
+    requestJudgment,
+    startRespondToAppeal,
+    sendAppealResponse,
+    respondingToAppealId
   }
 }

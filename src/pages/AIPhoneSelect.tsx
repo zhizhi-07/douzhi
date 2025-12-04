@@ -247,10 +247,10 @@ const AIPhoneSelect = () => {
         </div>
       )}
 
-      {/* 后台生成提示 - Glass Toast */}
+      {/* 后台生成提示 - Glass Toast - 改到右上角避免挡住手机界面 */}
       {backgroundTasks.length > 0 && (
-        <div className="fixed bottom-4 right-4 z-50 space-y-2">
-          {backgroundTasks.map((task) => (
+        <div className="fixed top-20 right-4 z-40 space-y-2 max-w-xs">
+          {backgroundTasks.slice(0, 3).map((task) => (
             <div
               key={task.characterId}
               className={`px-4 py-3 rounded-xl shadow-lg border backdrop-blur-md transition-all ${task.status === 'generating'
@@ -283,6 +283,11 @@ const AIPhoneSelect = () => {
               </div>
             </div>
           ))}
+          {backgroundTasks.length > 3 && (
+            <div className="text-center text-xs text-gray-500 bg-white/60 backdrop-blur-sm rounded-lg px-3 py-2">
+              还有 {backgroundTasks.length - 3} 个任务...
+            </div>
+          )}
         </div>
       )}
 

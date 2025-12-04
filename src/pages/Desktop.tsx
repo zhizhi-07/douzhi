@@ -862,7 +862,7 @@ const Desktop = () => {
         </div>
 
         {/* Dock 栏 */}
-        <div className="px-4" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))' }}>
+        <div className="px-4 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
           <div
             className="rounded-3xl p-3"
             style={{

@@ -143,17 +143,19 @@ export const useProactiveMessage = ({
       // 🎭 读取小剧场功能开关
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
       let enableTheatreCards = false // 默认关闭
+      let characterIndependence = false // 默认关闭
       if (chatSettingsRaw) {
         try {
           const parsed = JSON.parse(chatSettingsRaw)
           enableTheatreCards = parsed.enableTheatreCards ?? false
+          characterIndependence = parsed.characterIndependence ?? false
         } catch (e) {
           console.error('[主动发消息] 解析聊天设置失败:', e)
         }
       }
       
       // 使用主API生成消息
-      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards)
+      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards, characterIndependence)
       // 使用用户设置的消息条数，而不是硬编码50条
       const recentMessages = getRecentMessages(messages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)

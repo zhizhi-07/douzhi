@@ -27,10 +27,13 @@ import AIStatusModal from '../components/AIStatusModal'
 import PostGenerator from '../components/PostGenerator'
 import FriendRequestModal from '../components/FriendRequestModal'
 import JudgmentInputModal from '../components/JudgmentModal'
+import ShopManager from '../components/ShopManager'
+import ShopViewer from '../components/ShopViewer'
+import { TacitGameSelect, TacitTopicCard, TacitDrawPanel, TacitActPanel } from '../components/TacitGamePanel'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -94,6 +97,11 @@ const ChatDetail = () => {
   const [friendRequestStatus, setFriendRequestStatus] = useState<'pending' | null>(null)
   // 🔥 添加好友弹窗
   const [showFriendRequestModal, setShowFriendRequestModal] = useState(false)
+
+  // 🛍️ 商城相关状态
+  const [showShopManager, setShowShopManager] = useState(false)
+  const [showShopViewer, setShowShopViewer] = useState(false)
+  const [viewingShopId, setViewingShopId] = useState<string | null>(null)
 
   // 检测拉黑状态 & 好友申请状态
   useEffect(() => {
@@ -201,7 +209,7 @@ const ChatDetail = () => {
       // 获取对话时间范围
       const startTime = messages.length > 0 ? messages[0].timestamp : Date.now()
       const endTime = messages.length > 0 ? messages[messages.length - 1].timestamp : Date.now()
-      
+
       saveSummary({
         accountId: account.id,
         accountName: account.name,
@@ -268,7 +276,17 @@ const ChatDetail = () => {
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
 
   // 判定对错功能
-  const judgment = useJudgment(id, chatState.character, chatState.messages, chatState.setMessages, chatAI.handleAIReply)
+  const judgment = useJudgment(id, chatState.character, chatState.messages, chatState.setMessages)
+
+  // 💕 默契游戏 Hook
+  const tacitGame = useTacitGame({
+    characterId: id,
+    saveMessages,
+    setMessages: chatState.setMessages,
+    messages: chatState.messages,
+    scrollToBottom: () => chatAI.messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }),
+    playSound: playSystemSound
+  })
 
   // 拍一拍功能
   const { handlePoke } = usePoke(id, chatState.character, chatState.messages, chatState.setMessages)
@@ -480,11 +498,12 @@ const ChatDetail = () => {
       e.preventDefault()
       if (chatState.inputValue.trim()) {
         chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))
-      } else {
+      } else if (!tacitGame.gameType) {
+        // 只有不在游戏模式时才允许空输入触发AI
         chatAI.handleAIReply()
       }
     }
-  }, [chatAI, chatState, modals])
+  }, [chatAI, chatState, modals, tacitGame.gameType])
 
   // 检测未接来电（用户返回聊天页面时）
   useEffect(() => {
@@ -571,6 +590,77 @@ const ChatDetail = () => {
     // 更新React状态
     chatState.setMessages(() => updatedMessages)
   }
+
+  // 🛍️ 商城功能处理函数
+  const handleSelectShop = () => {
+    playSystemSound()
+    setShowShopManager(true)
+  }
+
+  const handleShareShop = (shareData: any) => {
+    // 使用完整商品列表让AI看到所有商品
+    const productsInfo = (shareData.allProducts || shareData.previewProducts || [])
+      .map((p: any) => `${p.name}(¥${p.price}${p.description ? `, ${p.description}` : ''})`)
+      .join('、')
+    
+    const message: Message = {
+      id: Date.now(),
+      type: 'sent',
+      messageType: 'shop',
+      content: `[店铺] ${shareData.shopName}`,
+      aiReadableContent: `[用户分享了自己的店铺"${shareData.shopName}"，里面有${shareData.productCount}件商品，完整商品列表：${productsInfo}。你可以用[购买:商品名,价格:备注]格式购买这些商品，购买后用户的零钱会增加]`,
+      shopShare: shareData,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
+    }
+
+    chatState.setMessages(prev => {
+      const updated = [...prev, message]
+      if (id) saveMessages(id, updated)
+      return updated
+    })
+
+    chatAI.messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const handleViewShop = (shopId: string) => {
+    setViewingShopId(shopId)
+    setShowShopViewer(true)
+  }
+
+  const handlePurchaseProduct = (product: any) => {
+    const message: Message = {
+      id: Date.now(),
+      type: 'sent',
+      content: `我要购买：${product.name}`,
+      aiReadableContent: `[用户想要购买"${product.name}"(¥${product.price})，这是一个${product.category}商品：${product.description}。请回复购买确认或者拒绝]`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
+    }
+
+    chatState.setMessages(prev => {
+      const updated = [...prev, message]
+      if (id) saveMessages(id, updated)
+      return updated
+    })
+
+    setShowShopViewer(false)
+    setViewingShopId(null)
+
+    // 触发AI回复
+    setTimeout(() => {
+      chatAI.handleAIReply()
+    }, 500)
+  }
+
+  // 🛍️ 监听店铺查看事件
+  useEffect(() => {
+    const handleViewShopEvent = (e: any) => {
+      handleViewShop(e.detail.shopId)
+    }
+    window.addEventListener('view-shop', handleViewShopEvent)
+    return () => window.removeEventListener('view-shop', handleViewShopEvent)
+  }, [])
 
   // 🔥 显示加载状态而不是"角色不存在"
   if (!chatState.character) {
@@ -695,13 +785,29 @@ const ChatDetail = () => {
         </div>
       )}
 
+      {/* 💕 默契游戏悬浮题目卡片 */}
+      {tacitGame.gameType && tacitGame.topic && (
+        <TacitTopicCard
+          topic={tacitGame.topic}
+          gameType={tacitGame.gameType}
+          onChangeTopic={tacitGame.changeTopic}
+          onClose={tacitGame.endGame}
+          onOpenPanel={tacitGame.openPanel}
+          onConfirmCorrect={tacitGame.confirmCorrect}
+          isPanelOpen={tacitGame.showPanel}
+          hasSent={tacitGame.hasAiGuessed}
+          isAiTyping={chatAI.isAiTyping}
+        />
+      )}
+
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
         style={{
           WebkitOverflowScrolling: 'touch',
           willChange: 'scroll-position',
-          transform: 'translateZ(0)' // 🚀 GPU加速
+          transform: 'translateZ(0)', // 🚀 GPU加速
+          paddingTop: tacitGame.gameType ? '100px' : undefined // 给题目卡片留空间
         }}
       >
         {/* 🔥 加载状态骨架屏 */}
@@ -929,6 +1035,48 @@ const ChatDetail = () => {
                     )
                   }
 
+                  // 🔥 忙碌/不回消息卡片（用 SpecialMessageRenderer 渲染）
+                  if (message.messageType === 'busy') {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <SpecialMessageRenderer
+                          message={message}
+                          characterId={chatState.character?.id || ''}
+                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                          characterAvatar={chatState.character?.avatar}
+                        />
+                      </div>
+                    )
+                  }
+
+                  // 🛍️ 购买消息卡片（用 SpecialMessageRenderer 渲染）
+                  if (message.messageType === 'purchase' && message.purchaseData) {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <SpecialMessageRenderer
+                          message={message}
+                          characterId={chatState.character?.id || ''}
+                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                          characterAvatar={chatState.character?.avatar}
+                        />
+                      </div>
+                    )
+                  }
+
                   // 带有头像提示词的系统消息（AI 换头像），点击可查看详细提示词
                   const avatarPrompt = (message as any).avatarPrompt as string | undefined
 
@@ -1054,9 +1202,12 @@ const ChatDetail = () => {
                             message.messageType === 'post' ||
                             message.messageType === 'theatre' ||
                             message.messageType === 'poke' ||
+                            message.messageType === 'purchase' ||
                             message.messageType === 'musicShare' ||
                             message.messageType === 'friendRequest' ||
                             message.messageType === 'judgment' ||
+                            message.messageType === 'shop' ||
+                            message.messageType === 'busy' ||
                             (message.messageType as any) === 'musicInvite' ? (
                             <SpecialMessageRenderer
                               message={message}
@@ -1204,6 +1355,7 @@ const ChatDetail = () => {
                                 window.dispatchEvent(new CustomEvent('friend-request-changed'))
                               }}
                               onRequestJudgment={judgment.requestJudgment}
+                              onRespondToAppeal={judgment.startRespondToAppeal}
                               isJudging={judgment.isJudging}
                             />
                           ) : (
@@ -1364,11 +1516,11 @@ const ChatDetail = () => {
                   </div>
                 </div>
                 <button
-                    onClick={() => setShowFriendRequestModal(true)}
-                    className="px-5 py-2 bg-white/50 hover:bg-white/80 text-gray-700 text-sm font-medium rounded-xl backdrop-blur-sm border border-white/60 transition-all shadow-sm hover:shadow-md active:scale-95"
-                  >
-                    {friendRequestStatus === 'pending' ? '重新申请' : '添加好友'}
-                  </button>
+                  onClick={() => setShowFriendRequestModal(true)}
+                  className="px-5 py-2 bg-white/50 hover:bg-white/80 text-gray-700 text-sm font-medium rounded-xl backdrop-blur-sm border border-white/60 transition-all shadow-sm hover:shadow-md active:scale-95"
+                >
+                  {friendRequestStatus === 'pending' ? '重新申请' : '添加好友'}
+                </button>
               </div>
             </div>
           )}
@@ -1458,7 +1610,7 @@ const ChatDetail = () => {
             ) : (
               <button
                 onClick={() => chatAI.handleAIReply()}
-                disabled={chatAI.isAiTyping}
+                disabled={chatAI.isAiTyping || (!!tacitGame.gameType && !tacitGame.hasSent)}
                 className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
                 style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
               >
@@ -1508,6 +1660,8 @@ const ChatDetail = () => {
         onSelectWeather={addMenu.handlers.handleSelectWeather}
         onSelectEnvelope={addMenu.handlers.handleSelectEnvelope}
         onSelectJudgment={addMenu.handlers.handleSelectJudgment}
+        onSelectShop={handleSelectShop}
+        onSelectTacitGame={tacitGame.openGameSelect}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
       />
@@ -1816,8 +1970,55 @@ const ChatDetail = () => {
         isOpen={judgment.showJudgmentModal}
         onClose={() => judgment.setShowJudgmentModal(false)}
         characterName={character.nickname || character.realName}
-        onSubmit={judgment.sendJudgmentRequest}
+        onSubmit={judgment.respondingToAppealId ? judgment.sendAppealResponse : judgment.sendJudgmentRequest}
+        isRespondingToAppeal={!!judgment.respondingToAppealId}
       />
+
+      {/* 🛍️ 商城管理 */}
+      <ShopManager
+        isOpen={showShopManager}
+        onClose={() => setShowShopManager(false)}
+        onShare={handleShareShop}
+      />
+
+      {/* 🛍️ 店铺查看器 */}
+      {viewingShopId && (
+        <ShopViewer
+          isOpen={showShopViewer}
+          onClose={() => {
+            setShowShopViewer(false)
+            setViewingShopId(null)
+          }}
+          shopId={viewingShopId}
+          onPurchase={handlePurchaseProduct}
+        />
+      )}
+
+      {/* 💕 默契游戏选择菜单 */}
+      <TacitGameSelect
+        isOpen={tacitGame.showGameSelect}
+        onClose={tacitGame.closeGameSelect}
+        onSelectGame={tacitGame.startGame}
+        characterName={chatState.character?.realName || 'TA'}
+      />
+
+      {/* 💕 你画我猜悬浮画板 */}
+      {tacitGame.gameType === 'draw' && tacitGame.showPanel && (
+        <TacitDrawPanel
+          onSendImage={tacitGame.sendDrawing}
+          onClose={tacitGame.closePanel}
+          canvasDataRef={tacitGame.canvasDataRef}
+        />
+      )}
+
+      {/* 💕 你演我猜悬浮面板 */}
+      {tacitGame.gameType === 'act' && tacitGame.showPanel && (
+        <TacitActPanel
+          onSendDescription={tacitGame.sendDescription}
+          onClose={tacitGame.closePanel}
+          descriptionRef={tacitGame.descriptionRef}
+        />
+      )}
     </div>
   )
 }

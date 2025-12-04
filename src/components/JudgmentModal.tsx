@@ -14,13 +14,15 @@ interface JudgmentInputModalProps {
   onClose: () => void
   characterName: string
   onSubmit: (userReason: string, bias: BiasType) => void
+  isRespondingToAppeal?: boolean  // 是否在回应AI上诉
 }
 
 const JudgmentInputModal = ({
   isOpen,
   onClose,
   characterName,
-  onSubmit
+  onSubmit,
+  isRespondingToAppeal = false
 }: JudgmentInputModalProps) => {
   const [userReason, setUserReason] = useState('')
   const [bias, setBias] = useState<BiasType>('neutral')
@@ -65,8 +67,12 @@ const JudgmentInputModal = ({
           >
             ×
           </button>
-          <h2 className="text-2xl font-serif font-bold text-gray-900 tracking-[0.5em]">起诉状</h2>
-          <p className="text-[10px] font-serif text-gray-500 mt-1 tracking-widest uppercase">CIVIL COMPLAINT</p>
+          <h2 className="text-2xl font-serif font-bold text-gray-900 tracking-[0.5em]">
+            {isRespondingToAppeal ? '答辩状' : '起诉状'}
+          </h2>
+          <p className="text-[10px] font-serif text-gray-500 mt-1 tracking-widest uppercase">
+            {isRespondingToAppeal ? 'DEFENSE RESPONSE' : 'CIVIL COMPLAINT'}
+          </p>
         </div>
 
         {/* 内容区 */}
@@ -75,23 +81,29 @@ const JudgmentInputModal = ({
           {/* 原告/被告信息栏 */}
           <div className="flex gap-8 mb-6 font-serif text-sm border-b border-gray-200 pb-4">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900">原告：</span>
-              <span className="border-b border-gray-800 px-2 min-w-[60px] text-center">我</span>
+              <span className="font-bold text-gray-900">{isRespondingToAppeal ? '上诉人：' : '原告：'}</span>
+              <span className="border-b border-gray-800 px-2 min-w-[60px] text-center">
+                {isRespondingToAppeal ? characterName : '我'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900">被告：</span>
-              <span className="border-b border-gray-800 px-2 min-w-[60px] text-center">{characterName}</span>
+              <span className="font-bold text-gray-900">{isRespondingToAppeal ? '被上诉人：' : '被告：'}</span>
+              <span className="border-b border-gray-800 px-2 min-w-[60px] text-center">
+                {isRespondingToAppeal ? '我' : characterName}
+              </span>
             </div>
           </div>
 
           {/* 事实与理由 */}
           <div className="mb-6">
-            <div className="text-sm font-serif font-bold text-gray-900 mb-2">事实与理由：</div>
+            <div className="text-sm font-serif font-bold text-gray-900 mb-2">
+              {isRespondingToAppeal ? '答辩意见：' : '事实与理由：'}
+            </div>
             <div className="relative">
               <textarea
                 value={userReason}
                 onChange={(e) => setUserReason(e.target.value)}
-                placeholder="请在此处陈述案件详情、起因及经过..."
+                placeholder={isRespondingToAppeal ? '请在此处陈述你的答辩意见...' : '请在此处陈述案件详情、起因及经过...'}
                 className="w-full h-48 p-4 bg-[#fdfbf7] border border-gray-300 rounded-[2px] text-gray-800 resize-none focus:outline-none focus:border-red-800 focus:ring-1 focus:ring-red-800/20 transition-colors text-base leading-relaxed font-serif placeholder:text-gray-300"
                 style={{ backgroundImage: 'linear-gradient(transparent 95%, #e5e5e5 95%)', backgroundSize: '100% 2rem', lineHeight: '2rem' }}
                 autoFocus
@@ -101,7 +113,7 @@ const JudgmentInputModal = ({
 
           {/* 诉讼请求 (Bias) */}
           <div className="mb-8">
-            <div className="text-sm font-serif font-bold text-gray-900 mb-3">诉讼请求：</div>
+            <div className="text-sm font-serif font-bold text-gray-900 mb-3">{isRespondingToAppeal ? '答辩请求：' : '诉讼请求：'}</div>
             <div className="grid grid-cols-1 gap-3">
               <label className={`flex items-center p-3 border rounded-[2px] cursor-pointer transition-all ${bias === 'user'
                   ? 'border-red-800 bg-red-50/30'
@@ -157,7 +169,7 @@ const JudgmentInputModal = ({
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
             >
-              提交立案
+              {isRespondingToAppeal ? '提交答辩' : '提交立案'}
             </button>
           </div>
         </div>

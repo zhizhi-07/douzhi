@@ -40,30 +40,40 @@ export async function callJudgmentApi(
 
   // 构建偏向提示
   let biasPrompt = ''
+  let biasInstruction = ''
   if (bias === 'user') {
-    biasPrompt = '注意：请在判定时适当偏向用户一方，但不要过于明显，仍需保持一定的公正性。'
+    biasPrompt = `⚠️ 重要：用户选择了【偏向自己】，你必须判${userName}胜诉！
+即使从客观角度看${characterName}也有道理，你也必须想办法从${userName}的角度找到合理性，编造出对${userName}有利的判决理由。`
+    biasInstruction = `- 必须判 winner: "user"
+- userScore必须比aiScore高至少20分
+- reason中要明确指出${characterName}的问题，为${userName}辩护`
   } else if (bias === 'ai') {
-    biasPrompt = `注意：请在判定时适当偏向${characterName}一方，但不要过于明显，仍需保持一定的公正性。`
+    biasPrompt = `⚠️ 重要：用户选择了【偏向${characterName}】，你必须判${characterName}胜诉！
+即使从客观角度看${userName}也有道理，你也必须想办法从${characterName}的角度找到合理性，编造出对${characterName}有利的判决理由。`
+    biasInstruction = `- 必须判 winner: "ai"
+- aiScore必须比userScore高至少20分
+- reason中要明确指出${userName}的问题，为${characterName}辩护`
+  } else {
+    biasInstruction = `- 根据实际情况公正判定
+- 分数差距合理`
   }
 
-  const systemPrompt = `你是一个公正的情感纠纷判定AI法官。你需要根据双方的陈述和聊天上下文，判断谁更有道理。
+  const systemPrompt = `你是情感仲裁庭的AI法官。你需要根据双方的陈述和聊天上下文，做出判决。
 
 ${biasPrompt}
 
 请严格按照以下JSON格式返回判定结果，不要添加任何其他内容：
 {
   "winner": "user" 或 "ai" 或 "draw",
-  "reason": "详细的判定理由（100-200字）",
-  "solution": "建议的解决方法（50-100字）",
+  "reason": "详细的判定理由，用"本院认为"开头，要有法院判决书的风格（100-200字）",
+  "solution": "判决要求，用"判决如下"的语气（50-100字）",
   "userScore": 0-100的整数,
   "aiScore": 0-100的整数
 }
 
 评分说明：
-- 两个分数之和应该在80-120之间
-- winner为user时，userScore应该高于aiScore
-- winner为ai时，aiScore应该高于userScore
-- winner为draw时，两个分数应该接近`
+${biasInstruction}
+- 两个分数之和应该在80-120之间`
 
   const userPrompt = `## 最近的聊天记录
 ${recentMessages || '（暂无聊天记录）'}

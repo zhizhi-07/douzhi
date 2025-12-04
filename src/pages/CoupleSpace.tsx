@@ -380,6 +380,38 @@ const CoupleSpace = () => {
         ) : (
           // 已连接状态 (或预览模式)
           <div className="animate-slide-up flex flex-col h-full">
+            {/* 隐私模式切换按钮 */}
+            {!isPreviewMode && (
+              <div className="flex justify-center gap-2 mb-4 px-4">
+                <button
+                  onClick={() => {
+                    setPrivacyMode('public')
+                    setCoupleSpacePrivacy('public')
+                  }}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                    privacyMode === 'public'
+                      ? 'bg-white text-gray-800 shadow-lg'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  🌍 公开
+                </button>
+                <button
+                  onClick={() => {
+                    setPrivacyMode('private')
+                    setCoupleSpacePrivacy('private')
+                  }}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                    privacyMode === 'private'
+                      ? 'bg-white text-gray-800 shadow-lg'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  🔒 私密
+                </button>
+              </div>
+            )}
+            
             {/* 1. 头部大卡片：恋爱天数 & 头像 */}
             <div className="relative mt-4 mb-10 px-4 shrink-0">
               <div className="text-center text-white mb-8 drop-shadow-md">

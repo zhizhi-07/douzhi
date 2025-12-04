@@ -9,9 +9,9 @@ import type { BiasType, JudgmentResult } from '../services/judgmentService'
 
 // 判定消息数据类型
 export interface JudgmentData {
-  type: 'request' | 'response' | 'result'
+  type: 'request' | 'response' | 'result' | 'appeal'  // appeal: AI发起的上诉
   userReason?: string          // 用户的立场
-  aiReason?: string            // AI的立场
+  aiReason?: string            // AI的立场/上诉理由
   bias?: BiasType              // 判定偏向
   result?: JudgmentResult      // 判定结果
   userName?: string            // 用户名
@@ -22,10 +22,11 @@ interface JudgmentCardProps {
   data: JudgmentData
   isFromUser: boolean
   onRequestJudgment?: () => void  // 点击请求判定
+  onRespondToAppeal?: () => void  // 回应AI上诉
   isJudging?: boolean              // 是否正在判定中
 }
 
-const JudgmentCard = ({ data, isFromUser, onRequestJudgment, isJudging }: JudgmentCardProps) => {
+const JudgmentCard = ({ data, isFromUser, onRequestJudgment, onRespondToAppeal, isJudging }: JudgmentCardProps) => {
   const [expanded, setExpanded] = useState(false)
 
   // 模拟案号
@@ -273,6 +274,72 @@ const JudgmentCard = ({ data, isFromUser, onRequestJudgment, isJudging }: Judgme
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // AI发起的上诉卡片 - 上诉状
+  if (data.type === 'appeal') {
+    return (
+      <div
+        className={`${paperStyle} max-w-[300px] rounded-[2px]`}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {/* 顶部蓝线 */}
+        <div className="h-1 w-full border-b border-blue-800/20 mb-3" />
+
+        {/* 头部 */}
+        <div className="px-5 pt-2 pb-1 text-center">
+          <div className="font-serif font-bold text-xl text-blue-900 tracking-widest mb-1">
+            上 诉 状
+          </div>
+          <div className="text-[10px] font-serif text-gray-500 border-t border-b border-gray-200 py-1 mt-2">
+            上诉人：{data.characterName || '对方'}
+          </div>
+        </div>
+
+        {/* 印章 - 待审 */}
+        <div className={`${stampStyle} top-4 right-3 border-blue-800 text-blue-800 text-[10px] rotate-0`}>
+          待审理
+        </div>
+
+        {/* 内容 */}
+        <div className="px-5 py-3">
+          <div className="font-serif text-gray-800">
+            <div className="text-xs font-bold text-blue-900 mb-2">上诉请求：</div>
+            <div className={`text-sm leading-relaxed text-gray-800 text-justify ${expanded ? '' : 'line-clamp-5'}`} style={{ textIndent: '2em' }}>
+              本人不服原有决定，特此提出上诉。{data.aiReason}
+            </div>
+            {!expanded && data.aiReason && data.aiReason.length > 100 && (
+              <div className="text-[10px] text-gray-400 mt-2 text-center cursor-pointer">
+                - 点击展开 -
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 回应按钮区域 */}
+        {onRespondToAppeal && (
+          <div className="px-4 pb-4 pt-2 bg-blue-50/50 border-t border-blue-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-serif text-blue-800">请提交您的答辩意见：</span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                playSystemSound()
+                onRespondToAppeal()
+              }}
+              disabled={isJudging}
+              className={`w-full py-2 rounded-[2px] font-serif font-bold text-sm tracking-widest transition-all border ${isJudging
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-blue-900 text-[#fdfbf7] border-blue-950 hover:bg-blue-800 shadow-sm active:translate-y-[1px]'
+                }`}
+            >
+              {isJudging ? '正在处理...' : '我 要 回 应'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }

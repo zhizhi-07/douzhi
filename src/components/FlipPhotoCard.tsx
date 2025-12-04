@@ -11,8 +11,9 @@ const FlipPhotoCard = ({ description, photoBase64 }: FlipPhotoCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false)
 
   // 如果有真实图片base64，使用真实图片；否则使用占位图
+  // photoBase64 可能是完整的 data URL 或纯 base64
   const imageSrc = photoBase64
-    ? `data:image/jpeg;base64,${photoBase64}`
+    ? (photoBase64.startsWith('data:') ? photoBase64 : `data:image/jpeg;base64,${photoBase64}`)
     : photoPlaceholder
 
   return (

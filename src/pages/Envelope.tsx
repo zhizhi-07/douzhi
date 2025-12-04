@@ -3,12 +3,13 @@
  * 沉浸式写信体验，拟物化设计
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getCharacterById } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
 import { playSystemSound } from '../utils/soundManager'
-import { ChevronLeft, PenTool, Send, Mail, X } from 'lucide-react'
+import { ChevronLeft, PenTool, X } from 'lucide-react'
+import { generateLetterReply } from '../services/letterAI'
 
 // 信件数据结构
 interface Letter {
@@ -90,6 +91,45 @@ export default function Envelope() {
 
     setContent('')
     setViewState('list')
+
+    // 🔥 异步生成AI回信
+    generateAIReply(newLetter)
+  }
+
+  // 生成AI回信
+  const generateAIReply = async (letter: Letter) => {
+    try {
+      console.log('✉️ [信封] 开始生成AI回信...')
+
+      // 调用AI生成回信
+      const reply = await generateLetterReply(
+        letter.characterId,
+        letter.content,
+        letter.anonymous
+      )
+
+      // 更新信件，添加回信
+      const updatedLetters = letters.map(l => {
+        if (l.id === letter.id) {
+          return {
+            ...l,
+            reply,
+            replyTimestamp: Date.now()
+          }
+        }
+        return l
+      })
+
+      setLetters(updatedLetters)
+      saveLetters(characterId, updatedLetters)
+
+      console.log('✅ [信封] AI回信生成成功')
+      playSystemSound()
+
+    } catch (error) {
+      console.error('❌ [信封] AI回信生成失败:', error)
+      alert('AI回信生成失败，请稍后重试')
+    }
   }
 
   // 打开信件
@@ -180,31 +220,38 @@ export default function Envelope() {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {letters.map((letter, index) => (
-                    <div
-                      key={letter.id}
-                      onClick={() => handleOpenLetter(letter)}
-                      className="relative bg-[#fcfaf5] p-4 rounded shadow-lg cursor-pointer transform hover:scale-[1.02] transition-all"
-                      style={{ transform: `rotate(${index % 2 === 0 ? '1deg' : '-1deg'})` }}
-                    >
-                      <div className="flex justify-between items-start border-b border-[#e6dcc3] pb-2 mb-2">
-                        <span className="font-bold text-[#5c4d3c] text-lg">
-                          {letter.anonymous ? '匿名信' : '署名信'}
-                        </span>
-                        <span className="text-xs text-[#8c7b66] font-mono mt-1">
-                          {formatTime(letter.timestamp)}
-                        </span>
-                      </div>
-                      <p className="text-[#5c4d3c]/80 line-clamp-2 text-sm leading-relaxed">
-                        {letter.content}
-                      </p>
-                      {letter.reply && (
-                        <div className="absolute -right-2 -top-2 bg-[#b22222] text-white text-[10px] px-2 py-1 rounded shadow-md transform rotate-12">
-                          已回信
+                  {letters.map((letter, index) => {
+                    const isWaitingReply = !letter.reply && (Date.now() - letter.timestamp < 60000)
+                    return (
+                      <div
+                        key={letter.id}
+                        onClick={() => handleOpenLetter(letter)}
+                        className="relative bg-[#fcfaf5] p-4 rounded shadow-lg cursor-pointer transform hover:scale-[1.02] transition-all"
+                        style={{ transform: `rotate(${index % 2 === 0 ? '1deg' : '-1deg'})` }}
+                      >
+                        <div className="flex justify-between items-start border-b border-[#e6dcc3] pb-2 mb-2">
+                          <span className="font-bold text-[#5c4d3c] text-lg">
+                            {letter.anonymous ? '匿名信' : '署名信'}
+                          </span>
+                          <span className="text-xs text-[#8c7b66] font-mono mt-1">
+                            {formatTime(letter.timestamp)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <p className="text-[#5c4d3c]/80 line-clamp-2 text-sm leading-relaxed">
+                          {letter.content}
+                        </p>
+                        {letter.reply ? (
+                          <div className="absolute -right-2 -top-2 bg-[#b22222] text-white text-[10px] px-2 py-1 rounded shadow-md transform rotate-12">
+                            已回信
+                          </div>
+                        ) : isWaitingReply ? (
+                          <div className="absolute -right-2 -top-2 bg-[#ff9800] text-white text-[10px] px-2 py-1 rounded shadow-md transform rotate-12 animate-pulse">
+                            回信中...
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -255,17 +255,19 @@ export const useChatAI = (
         // 🎭 读取小剧场功能开关（提前读取，用于系统提示词）
         const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
         let enableTheatreCardsForPrompt = false // 默认关闭
+        let characterIndependenceEnabled = false // 默认关闭
         if (chatSettingsRaw) {
           try {
             const parsed = JSON.parse(chatSettingsRaw)
             enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
+            characterIndependenceEnabled = parsed.characterIndependence ?? false
           } catch (e) {
             console.error('[useChatAI] 解析聊天设置失败:', e)
           }
         }
         // 🔥 修复：传入用户真名，而不是硬编码的"用户"
         const userName = userInfo.realName || userInfo.nickname || '用户'
-        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt)
+        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled)
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）
@@ -1499,19 +1501,6 @@ export const useChatAI = (
         aiMessagesList = quoteSegments.flatMap(segment => parseAIMessages(segment))
       }
       console.log('📝 AI消息拆分结果:', aiMessagesList)
-      
-      // 🔥 在处理前先自动格式修正，确保非标准格式也能被识别
-      const { correctAIMessageFormat } = await import('../../../utils/formatCorrector')
-      aiMessagesList = aiMessagesList.map(msg => {
-        const result = correctAIMessageFormat(msg)
-        if (result.corrected) {
-          console.log(`🔧 [自动格式修正] ${result.corrections.join(', ')}`)
-          console.log(`   原文: ${result.original}`)
-          console.log(`   修正: ${result.fixed}`)
-          return result.fixed
-        }
-        return msg
-      })
       
       // 使用指令处理器处理每条消息
       let pendingQuotedMsg: Message['quotedMessage'] | undefined // 保存跨消息的引用

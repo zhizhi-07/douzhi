@@ -7,7 +7,7 @@ import type { Message } from '../../../types/chat'
 import { createMessage } from '../../../utils/messageUtils'
 import { characterService } from '../../../services/characterService'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
-import { createIntimatePayRelation } from '../../../utils/walletUtils'
+import { createIntimatePayRelation, getBalance, setBalance, addTransaction } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import {
   acceptCoupleSpaceInvite,
@@ -3291,6 +3291,88 @@ export const pokeHandler: CommandHandler = {
 }
 
 /**
+ * 购买指令处理器
+ * 格式: [购买:商品名,价格:备注] 或 [购买:商品名] (价格可选，默认从店铺查找或使用99.99)
+ * AI购买用户店铺中的商品，用户获得零钱
+ */
+export const purchaseHandler: CommandHandler = {
+  // 🔥 宽松匹配：价格可选
+  pattern: /[\[【](?:我)?购买(?:了)?[:：]([^,，\]】]+)(?:[,，]([\d.]+))?(?:[:：](.+?))?[\]】]/,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const productName = match[1].trim()
+    let price = match[2] ? parseFloat(match[2]) : 0
+    const note = match[3]?.trim() || ''
+
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName || '用户'
+    const aiName = character?.nickname || character?.realName || 'AI'
+
+    // 🔥 如果没有价格，尝试从用户店铺中查找商品价格
+    if (!price) {
+      try {
+        const { getShop } = await import('../../../utils/shopManager')
+        const userShop = getShop('user')
+        if (userShop) {
+          const product = userShop.products.find(p => 
+            p.name.includes(productName) || productName.includes(p.name)
+          )
+          if (product) {
+            price = product.price
+            console.log('🛍️ [购买] 从店铺找到商品价格:', productName, price)
+          }
+        }
+      } catch (e) {
+        console.error('读取店铺失败:', e)
+      }
+      // 如果还是没找到，使用默认价格
+      if (!price) {
+        price = 99.99
+        console.log('🛍️ [购买] 使用默认价格:', price)
+      }
+    }
+
+    console.log('🛍️ [购买] 检测到购买指令:', { productName, price, note })
+
+    // 增加用户零钱
+    const currentBalance = getBalance()
+    const newBalance = currentBalance + price
+    setBalance(newBalance)
+
+    // 添加交易记录
+    addTransaction({
+      type: 'income',
+      amount: price.toFixed(2),
+      description: `${aiName}购买了${productName}`,
+      characterName: aiName
+    })
+
+    // 创建购买系统消息
+    const purchaseMsg = createMessageObj('purchase', {
+      type: 'system',
+      content: `${aiName}购买了你的${productName}`,
+      aiReadableContent: `【系统通知】${aiName}购买了${userName}的${productName}(¥${price})${note ? `，备注：${note}` : ''}`,
+      purchaseData: {
+        buyerName: aiName,
+        sellerName: userName,
+        productName,
+        price,
+        note
+      }
+    })
+
+    await addMessage(purchaseMsg, setMessages, chatId)
+    console.log('✅ [购买] 已创建购买消息，用户零钱增加:', price)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 判定回应指令处理器
  * 格式: [判定回应:AI的立场陈述] 或 [判定回应] AI的立场陈述 (可以没有结束的])
  * AI收到判定请求后用这个指令回复自己的立场
@@ -3337,6 +3419,46 @@ export const judgmentResponseHandler: CommandHandler = {
       handled: true,
       remainingText,
       skipTextMessage: true  // 已经有判定回应卡片，不需要再发文本
+    }
+  }
+}
+
+/**
+ * AI上诉指令处理器
+ * 格式: [上诉:上诉理由]
+ * AI对某件事有异议时可以发起上诉，请求用户进行判定
+ */
+export const aiAppealHandler: CommandHandler = {
+  pattern: /[\[【]上诉[:：]\s*(.+?)[\]】]/s,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const appealReason = match[1].trim()
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName || '用户'
+    const aiName = character?.nickname || character?.realName || '对方'
+
+    console.log('⚖️ [AI上诉] 检测到指令，上诉理由:', appealReason.substring(0, 100))
+
+    // 创建AI上诉消息
+    const appealMsg = createMessageObj('judgment', {
+      type: 'received',
+      content: `[上诉] ${appealReason}`,
+      judgmentData: {
+        type: 'appeal',  // 新类型：AI上诉
+        aiReason: appealReason,
+        userName,
+        characterName: aiName
+      },
+      aiReadableContent: `【情感仲裁庭上诉状】${aiName}对某件事提出了上诉，理由：${appealReason}`
+    })
+
+    await addMessage(appealMsg, setMessages, chatId)
+    console.log('✅ [AI上诉] 已创建上诉卡片')
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: true  // 已经有上诉卡片，不需要再发文本
     }
   }
 }
@@ -3411,6 +3533,35 @@ export const changePokeSuffixHandler: CommandHandler = {
 }
 
 /**
+ * 忙碌指令处理器：[忙碌:场景描述]
+ * AI选择不立即回复，描述当前在忙的场景
+ */
+const busyHandler: CommandHandler = {
+  // 支持多行内容
+  pattern: /\[忙碌:([\s\S]+?)\]|【忙碌:([\s\S]+?)】/,
+  handler: async (match, _content, { setMessages, chatId, character }) => {
+    // 兼容两种括号格式
+    const sceneDescription = (match[1] || match[2]).trim()
+    console.log('💼 [忙碌指令]', { sceneDescription })
+
+    // 创建忙碌场景消息（类似系统通知）
+    const busyMsg = createMessageObj('system', {
+      type: 'system',
+      content: sceneDescription,
+      messageType: 'busy',  // 标记为忙碌消息
+      aiReadableContent: `[系统通知：${character.nickname || character.realName}正在忙，没有立即回复。${sceneDescription}]`
+    })
+    await addMessage(busyMsg, setMessages, chatId)
+
+    return {
+      handled: true,
+      skipTextMessage: true,  // 跳过文本消息，只显示忙碌场景
+      remainingText: ''  // 🔥 清空剩余内容，防止重复处理
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -3463,7 +3614,10 @@ export const commandHandlers: CommandHandler[] = [
   changeAvatarHandler,  // AI换头像
   theatreHandler,  // 小剧场
   pokeHandler,  // 拍一拍
+  purchaseHandler,  // 购买商品
   changePokeSuffixHandler,  // 修改拍一拍后缀
+  busyHandler,  // 忙碌场景
   phoneOperationHandler,  // 手机操作（通用格式）
-  judgmentResponseHandler  // 判定回应
+  judgmentResponseHandler,  // 判定回应
+  aiAppealHandler  // AI上诉
 ]

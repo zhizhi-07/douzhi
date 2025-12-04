@@ -82,7 +82,8 @@ const WalletTransactions = () => {
             {transactions.map((transaction) => {
               const isIncome = transaction.type === 'recharge' || 
                               transaction.type === 'red_envelope_receive' || 
-                              transaction.type === 'transfer_receive'
+                              transaction.type === 'transfer_receive' ||
+                              transaction.type === 'income'  // 商品收入
               const isIntimatePay = transaction.type === 'intimate_pay'
               
               return (

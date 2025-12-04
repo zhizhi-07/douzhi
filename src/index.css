@@ -266,8 +266,6 @@ body {
   background: #f5f7fa;
   overflow: hidden;
   overscroll-behavior: none;
-  /* iOS底部安全区域背景填充 */
-  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* 🎨 强制全局字体覆盖 Tailwind 的 font-sans/font-serif 等类 */

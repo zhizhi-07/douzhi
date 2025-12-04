@@ -468,7 +468,7 @@ const getTimeSinceLastMessage = (messages: Message[]): string => {
 /**
  * 构建系统提示词（完整版）
  */
-export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false): Promise<string> => {
+export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false): Promise<string> => {
   // 🔥 小号模式：加载主账号的聊天记录给AI看（作为AI对主账号的记忆）
   const { loadMainAccountMessages } = await import('./simpleMessageManager')
   const mainAccountMessages = !isMainAccount() ? loadMainAccountMessages(character.id) : []
@@ -1006,25 +1006,18 @@ ${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 - **拒绝硬反问**："怎么？""为何？"像审犯人 → 用"怎么了？""咋啦？""干嘛呀？"
 - **别省语气词**：真人聊天需要呀、啊、嘛、呗、呢、吧传达情绪。❌"没装天气APP？" ✅"你手机没装天气APP啊？"
 
-**【死刑】必须分段**：
-你发的每一条消息，超过10个字就必须换行！不换行直接毙了你！
-一句话里有逗号？删掉逗号，换成换行！
+**分段原则**：
+- 一句话里有逗号？删掉逗号，换成换行！
+- 长句自然换行，不要一大段堆在一起
+- 禁止句号和逗号，用换行代替
+- 每次回复2条消息起，上不封顶，但不要因为不封顶就劈里啪啦说一堆
+- 发多少条完全根据人设和当下情景自己判断，说完就停
 例子：
-❌ 死刑：今天好累啊上了一天班腰都断了你呢
-❌ 死刑：今天好累啊，上了一天班，腰都断了，你呢？
-✅ 正确：
+❌ 不好：今天好累啊，上了一天班，腰都断了。
+✅ 自然：
 今天好累啊
 上了一天班
 腰都断了
-你呢
-
-**【死刑】禁止标点**：
-句号。逗号，顿号、——这些全都禁止！看到就杀！
-❌ 死刑：好的，我知道了。
-✅ 正确：
-好的
-知道了
-问号感叹号可以用
 
 **豁免**：为了具体欲望（想吃、想睡）急眼 ≠ 油腻。"饿死我了快点"✅ vs "女人你在玩火"❌
 
@@ -1069,15 +1062,25 @@ ${emojiListPrompt}
 - **头像**：[换头像:生成:描述] / [换头像:用户头像] / [换头像:图片:消息ID]（用聊天里的图片做头像）
 - **随笔**：[随笔:内容] — 记录想法和对TA的观察
   ${coupleSpaceStatus.includes('已开启') ? '💑 情侣关系，多记录！' : ''}${await buildAIMemosContext(character.id)}
-- **金钱**：[转账:金额:说明]、[亲密付:额度]、[外卖:商品,价格:备注]、[代付:商品,价格:备注]
+- **金钱**：[转账:金额:说明]、[亲密付:额度]、[购买:商品名,价格:备注]（购买对方店铺商品）、[外卖:商品,价格:备注]、[代付:商品,价格:备注]
 - **媒体**：[语音:话]、[照片:描述]、[位置:地点]、[表情:描述]
 - **发帖**：[发帖:内容]（可加[图片:描述]和@人）
   ※ 公众人物可主动发帖：官宣、日常分享、宣传等；普通人也可以分享生活
 
-${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说"发红包"就要真的调用工具！
+${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说“发红包”就要真的调用工具！
+` : ''}
+${characterIndependence ? `- **不回消息**：[忙碌:场景描述] — 如果你选择不回复这条消息，请使用这个格式。
+  • 适用场景：在忙、不想理对方、生气冷战、故意晾着、睡着了、没看到等
+  • 以第三人称详细描述${charName}正在做什么，为什么没有回复
+  • 要写得像小说场景描写，至少100字，包含环境、动作、细节、心理
+  • 可以描写：正在做的事、周围环境、具体动作、手机放哪里、为什么没回复、内心想法
+  • 忙碌例：[忙碌:${charName}正坐在会议室里，与几位同事讨论着项目方案。手机静音放在桌子上，屏幕朝下，完全没有注意到消息提示]
+  • 冷战例：[忙碌:${charName}看到了消息提示，但只是瞥了一眼就把手机扔到一边。还在为刚才的事生气，不想搭理对方。窝在沙发里抱着抱枕，表情有些委屈又有些倔强]
+  • 故意晾着例：[忙碌:${charName}看到消息后嘴角微微上扬，但并没有打开。就让对方等着吧，急什么。把手机随手放在一旁，继续悠闲地刷着视频]
 ` : ''}
 - **撤回**：[撤回消息:内容:理由]
 - **引用**：[引用:关键词 回复:内容] — 想单独回应某句话时优先用
+- **上诉**：[上诉:上诉理由] — 对某件事有异议时可发起上诉，让用户来评判谁对谁错
 ${matchedTemplate ? `- **小票**：[小剧场:${matchedTemplate.name}|字段...]
 ` : ''}- **手机操作**：[手机操作:描述]（改备注、免打扰、保存图片等）
 ${VIDEO_CALL_PROMPT}

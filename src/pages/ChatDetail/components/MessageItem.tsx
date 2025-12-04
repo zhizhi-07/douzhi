@@ -12,6 +12,7 @@ import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
 import PostCard from '../../../components/PostCard'
+import ShopCard from '../../../components/ShopCard'
 import OfflineSummaryCard from './OfflineSummaryCard'
 
 interface MessageItemProps {
@@ -76,17 +77,17 @@ const MessageItemContent = ({
   }
 
   // 如果是普通文本消息（没有messageType），检查过滤后是否为空
-  if (message.type !== 'system' && 
-      !message.coupleSpaceInvite && 
-      !message.messageType &&
-      message.content) {
+  if (message.type !== 'system' &&
+    !message.coupleSpaceInvite &&
+    !message.messageType &&
+    message.content) {
     const filteredContent = filterSpecialTags(message.content)
     // 如果过滤后内容为空，不显示这条消息
     if (!filteredContent) {
       return null
     }
   }
-  
+
   // 如果有messageType但content为空，允许渲染（特殊消息类型如帖子）
   if (message.messageType && !message.content) {
     console.log('🎯 [MessageItem] 特殊消息类型:', message.messageType, message)
@@ -98,12 +99,12 @@ const MessageItemContent = ({
     if (message.aiOnly) {
       return null
     }
-    
+
     // 撤回消息
     if (message.isRecalled && message.recalledContent) {
       return (
         <div className="flex justify-center my-2">
-          <div 
+          <div
             className="text-xs text-gray-400 px-4 py-1 cursor-pointer hover:text-gray-600 transition-colors"
             onClick={() => onViewRecalledMessage(message)}
           >
@@ -112,19 +113,19 @@ const MessageItemContent = ({
         </div>
       )
     }
-    
+
     // 视频通话记录
     if (message.messageType === 'video-call-record' && message.videoCallRecord) {
       return (
         <div className="flex justify-center my-2">
-          <div 
+          <div
             className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
             onClick={() => onViewCallRecord(message)}
           >
             <div className="flex items-center gap-2 text-sm text-gray-700">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
+                <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </svg>
               <span>{message.content}</span>
             </div>
@@ -132,12 +133,12 @@ const MessageItemContent = ({
         </div>
       )
     }
-    
+
     // 线下记录
     if (message.messageType === 'offline-summary' && message.offlineSummary) {
       return <OfflineSummaryCard message={message} onEdit={onEditOfflineRecord} />
     }
-    
+
     // AI随笔消息
     if (message.messageType === 'ai-memo' && (message as any).memoContent) {
       return (
@@ -158,7 +159,7 @@ const MessageItemContent = ({
         </div>
       )
     }
-    
+
     // 普通系统消息
     return (
       <div className="flex justify-center my-2">
@@ -176,7 +177,7 @@ const MessageItemContent = ({
     >
       {/* 头像和时间 */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0 p-1">
-        <Avatar 
+        <Avatar
           type={message.type}
           avatar={character.avatar}
           name={character.realName}
@@ -186,14 +187,14 @@ const MessageItemContent = ({
           {message.time}
         </div>
       </div>
-      
+
       {/* 消息内容 */}
       <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
         {/* 引用消息 */}
         {message.quotedMessage && (
           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
-            message.type === 'sent' 
-              ? 'bg-gray-200' 
+            message.type === 'sent'
+              ? 'bg-gray-200'
               : 'bg-gray-200'
           )}>
             <div className={'text-xs font-semibold mb-0.5 ' + (message.type === 'sent' ? 'text-gray-900' : 'text-blue-500')}>
@@ -204,7 +205,7 @@ const MessageItemContent = ({
             </div>
           </div>
         )}
-        
+
         {/* 不同类型的消息 */}
         {message.coupleSpaceInvite ? (
           <CoupleSpaceInviteCard
@@ -242,7 +243,7 @@ const MessageItemContent = ({
         ) : message.messageType === 'location' ? (
           <LocationCard message={message} />
         ) : message.messageType === 'photo' ? (
-          <FlipPhotoCard 
+          <FlipPhotoCard
             description={message.photoDescription || '照片'}
             messageId={message.id}
             photoBase64={message.photoBase64}
@@ -260,6 +261,18 @@ const MessageItemContent = ({
           />
         ) : message.messageType === 'post' && message.post ? (
           <PostCard message={message} />
+        ) : message.messageType === 'shop' && message.shopShare ? (
+          <ShopCard
+            shopName={message.shopShare.shopName}
+            productCount={message.shopShare.productCount}
+            previewProducts={message.shopShare.previewProducts}
+            onClick={() => {
+              // 触发查看店铺事件
+              window.dispatchEvent(new CustomEvent('view-shop', {
+                detail: { shopId: message.shopShare!.shopId }
+              }))
+            }}
+          />
         ) : (
           <div
             className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
@@ -268,7 +281,7 @@ const MessageItemContent = ({
                 : 'bg-white text-gray-900 shadow-sm'
             )}
             style={{
-              borderRadius: message.type === 'sent' 
+              borderRadius: message.type === 'sent'
                 ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
                 : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
             }}

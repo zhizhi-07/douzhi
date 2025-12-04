@@ -29,6 +29,7 @@ interface ChatSettingsData {
   hideTokenStats: boolean  // 是否隐藏Token统计
   enableTheatreCards: boolean  // 是否启用小剧场卡片功能
   hideTheatreHistory: boolean  // 是否隐藏小剧场历史记录（AI看不见）
+  characterIndependence: boolean  // 角色独立：AI可以选择不立即回复
   groupChatSync: {
     enabled: boolean  // 是否启用群聊消息同步
     messageCount: number  // 同步消息条数
@@ -59,6 +60,7 @@ const ChatSettings = () => {
         hideTokenStats: data.hideTokenStats ?? false,
         enableTheatreCards: data.enableTheatreCards ?? false,
         hideTheatreHistory: data.hideTheatreHistory ?? false,
+        characterIndependence: data.characterIndependence ?? false,
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
           messageCount: 20
@@ -80,6 +82,7 @@ const ChatSettings = () => {
       hideTokenStats: false,
       enableTheatreCards: false,
       hideTheatreHistory: false,
+      characterIndependence: false,
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -109,6 +112,7 @@ const ChatSettings = () => {
             hideTokenStats: data.hideTokenStats ?? false,
             enableTheatreCards: data.enableTheatreCards ?? false,
             hideTheatreHistory: data.hideTheatreHistory ?? false,
+            characterIndependence: data.characterIndependence ?? false,
             groupChatSync: data.groupChatSync ?? {
               enabled: false,
               messageCount: 20
@@ -135,6 +139,7 @@ const ChatSettings = () => {
       hideTokenStats: false,
       enableTheatreCards: false,
       hideTheatreHistory: false,
+      characterIndependence: false,
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -580,6 +585,26 @@ const ChatSettings = () => {
               <div
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   settings.hideTheatreHistory ? 'translate-x-5' : 'translate-x-0'
+                }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
+              />
+            </button>
+          </div>
+          
+          {/* 允许角色不回消息 */}
+          <div className="flex items-center justify-between py-2 border-t border-gray-100 pt-3 mt-3">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">允许角色不回消息</div>
+              <div className="text-xs text-gray-400">AI可以选择不回复（在忙、冷战、不想理你等）</div>
+            </div>
+            <button
+              onClick={() => saveSettings({ ...settings, characterIndependence: !settings.characterIndependence })}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.characterIndependence ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.characterIndependence ? 'translate-x-5' : 'translate-x-0'
                 }`}
                 style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />

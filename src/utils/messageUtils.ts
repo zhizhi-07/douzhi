@@ -80,6 +80,7 @@ export function formatTimeGap(currentTimestamp: number, previousTimestamp: numbe
 
 /**
  * 创建新消息
+ * 会自动检测忙碌指令 [忙碌:...] 并转换为正确的消息类型
  */
 export const createMessage = (
   content: string,
@@ -88,6 +89,27 @@ export const createMessage = (
   const now = Date.now()
   // 组合时间戳和计数器，确保ID唯一
   const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  
+  // 🔥 检测忙碌指令：[忙碌:场景描述] 或 【忙碌:场景描述】
+  // 使用 [\s\S] 来匹配包括换行符在内的所有字符
+  const busyMatch = content.match(/^\[忙碌:([\s\S]+)\]$/) || content.match(/^【忙碌:([\s\S]+)】$/)
+  if (busyMatch) {
+    const sceneDescription = busyMatch[1].trim()
+    console.log('💼 [createMessage] 检测到忙碌指令，转换为忙碌消息:', sceneDescription.substring(0, 50) + '...')
+    return {
+      id: uniqueId,
+      type: 'system',  // 忙碌消息是系统消息
+      content: sceneDescription,  // 只保存场景描述，不包含指令标记
+      time: new Date().toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      timestamp: now,
+      messageType: 'busy',  // 标记为忙碌消息
+      aiReadableContent: `[系统通知：角色正在忙，没有立即回复。${sceneDescription}]`
+    }
+  }
+  
   return {
     id: uniqueId,
     type,
@@ -401,7 +423,10 @@ export const convertToApiMessages = (
 
       if (msg.photoBase64 && msg.type === 'sent') {
         console.log('📸 照片消息转换: photoBase64长度=', msg.photoBase64.length)
-        chatMessage.imageUrl = `data:image/jpeg;base64,${msg.photoBase64}`
+        // 如果已经是完整的 data URL 就直接用，否则加前缀
+        chatMessage.imageUrl = msg.photoBase64.startsWith('data:') 
+          ? msg.photoBase64 
+          : `data:image/jpeg;base64,${msg.photoBase64}`
         console.log('✅ 已添加imageUrl到ChatMessage')
       } else {
         console.log('⚠️ 照片消息没有photoBase64数据')
@@ -484,8 +509,18 @@ export const convertToApiMessages = (
     if (msg.messageType === 'judgment' && msg.judgmentData) {
       // 优先使用 aiReadableContent（包含完整判决信息）
       const judgmentContent = msg.aiReadableContent || msg.content || '[判定消息]'
+      // 判决结果(result)和上诉(appeal)作为system消息，让AI能看到
+      // request是用户发起的，response是AI回应的
+      const judgmentType = msg.judgmentData.type
+      let role: 'user' | 'assistant' | 'system' = 'system'
+      if (judgmentType === 'request') {
+        role = 'user'
+      } else if (judgmentType === 'response') {
+        role = 'assistant'
+      }
+      // result 和 appeal 都用 system，确保AI能看到判决/上诉内容
       return {
-        role: msg.type === 'sent' ? 'user' as const : msg.type === 'received' ? 'assistant' as const : 'system' as const,
+        role,
         content: judgmentContent + timeGap
       }
     }
@@ -692,10 +727,19 @@ export const addNotificationToChat = (characterId: string, content: string): voi
 /**
  * 解析AI回复，支持多条消息（按换行分隔）
  * 特殊处理：[视频通话]指令会把它和后面的开场白合并成一条（遇到空行分隔）
+ * 特殊处理：[忙碌:...]指令会作为单独的一条消息
  */
 export const parseAIMessages = (aiReply: string): string[] => {
+  // 检测忙碌指令：[忙碌:...] 或 【忙碌:...】（支持多行内容）
+  const busyMatch = aiReply.match(/\[忙碌:[\s\S]+?\]/) || aiReply.match(/【忙碌:[\s\S]+?】/)
+  if (busyMatch) {
+    // 如果检测到忙碌指令，直接返回该指令作为唯一消息（不再分割）
+    console.log('💼 [parseAIMessages] 检测到忙碌指令，返回完整指令（不分割）')
+    return [busyMatch[0]]
+  }
+  
   // 检测视频通话指令
-  const videoCallMatch = aiReply.match(/[\[【]视频通话[\]】]/)
+  const videoCallMatch = aiReply.match(/[[【]视频通话[]】]/)
 
   if (videoCallMatch) {
     // 找到[视频通话]的位置

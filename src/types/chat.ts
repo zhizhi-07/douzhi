@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest' | 'judgment'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -134,9 +134,9 @@ export interface Message {
     message: string           // 验证消息
   }
   judgmentData?: {            // 判定对错数据
-    type: 'request' | 'response' | 'result'
+    type: 'request' | 'response' | 'result' | 'appeal'  // appeal: AI发起的上诉
     userReason?: string       // 用户的立场
-    aiReason?: string         // AI的立场
+    aiReason?: string         // AI的立场/上诉理由
     bias?: 'neutral' | 'user' | 'ai'  // 判定偏向
     result?: {                // 判定结果
       winner: 'user' | 'ai' | 'draw'
@@ -147,6 +147,24 @@ export interface Message {
     }
     userName?: string
     characterName?: string
+  }
+  shopShare?: {               // 商城分享
+    shopId: string            // 店铺ID
+    shopName: string          // 店铺名称
+    productCount: number      // 商品总数
+    previewProducts: Array<{  // 预览商品（最多3个）
+      id: string
+      name: string
+      price: number
+      image: string
+    }>
+  }
+  purchaseData?: {            // 购买数据
+    buyerName: string         // 买家名称
+    sellerName: string        // 卖家名称
+    productName: string       // 商品名称
+    price: number             // 价格
+    note?: string             // 备注
   }
   source?: 'dm'               // 消息来源：dm=论坛私聊（同步到主聊天时标记）
 }

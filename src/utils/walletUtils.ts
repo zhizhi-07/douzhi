@@ -10,6 +10,7 @@ export type TransactionType =
   | 'red_envelope_send'     // 红包支出
   | 'red_envelope_receive'  // 红包收入
   | 'intimate_pay'          // 亲密付消费
+  | 'income'                // 商品收入
 
 // 交易记录
 export interface Transaction {
