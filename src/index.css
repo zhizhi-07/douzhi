@@ -87,8 +87,8 @@ body {
 .bg-white:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
 .bg-gray-50:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
 .bg-gray-100:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
-.bg-\[#f5f7fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
-.bg-\[#f7f8fa\]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *) {
+.bg-[#f5f7fa]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *),
+.bg-[#f7f8fa]:not(button):not(button *):not(button div):not([data-modal-container]):not([data-modal-container] *):not([class*="rounded-2xl"] *):not([data-preview-phone]):not([data-preview-phone] *):not([data-forum]):not([data-forum] *):not([data-instagram]):not([data-instagram] *) {
   background-color: var(--glass-bg-primary) !important;
   backdrop-filter: var(--glass-blur) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important;
@@ -631,4 +631,40 @@ input[type="range"].slider::-moz-range-thumb:active {
 /* StatusBar - 固定高度 */
 .status-bar {
   height: 44px;
+}
+
+/* 浮动爱心动画 */
+@keyframes float-up {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.2);
+  }
+  100% {
+    transform: translateY(-150px) scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-float-up {
+  animation: float-up 2s ease-out forwards;
+}
+
+/* 消息淡入动画 */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out forwards;
 }

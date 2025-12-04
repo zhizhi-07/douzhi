@@ -47,8 +47,22 @@ export const useJudgment = (
       timestamp: Date.now(),
       messageType: 'judgment',
       judgmentData,
-      // AI可读的内容
-      aiReadableContent: `[用户发起了"谁对谁错"判定请求]\n用户的立场和感受：${userReason}\n\n请你也陈述一下你的立场和感受，用[判定回应]指令回复。`
+      // AI可读的内容 - 清晰说明需要用指令回复
+      aiReadableContent: `【情感仲裁庭传票】
+
+用户向你提起了诉讼，陈述了他的立场：
+"${userReason}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ 重要：你现在必须用 [判定回应] 指令来陈述你的立场和感受。
+
+格式：[判定回应:你的立场和感受]
+
+例如：
+[判定回应:我觉得这件事不能全怪我，因为你当时也没说清楚。我知道你生气，但我也觉得委屈...]
+
+请在下一条消息中使用这个指令格式回应，说出你的想法和感受。`
     }
 
     setMessages(prev => {
@@ -93,7 +107,7 @@ export const useJudgment = (
       // 发送判定结果消息
       const resultMsg: Message = {
         id: Date.now(),
-        type: 'system',
+        type: 'received',  // 改为received类型，这样会渲染成卡片
         content: `[判定结果] ${result.winner === 'user' ? userName : result.winner === 'ai' ? characterName : '平局'}占理`,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now(),
@@ -103,7 +117,19 @@ export const useJudgment = (
           result,
           userName,
           characterName
-        }
+        },
+        // AI可读的完整判决内容
+        aiReadableContent: `[情感仲裁庭判决结果]
+判决结果：${result.winner === 'user' ? `${userName}胜诉` : result.winner === 'ai' ? `${characterName}胜诉` : '双方和解'}
+评分：${userName} ${result.userScore}分 vs ${characterName} ${result.aiScore}分
+
+判决理由：
+${result.reason}
+
+判决如下：
+${result.solution}
+
+请根据这个判决结果，在后续对话中调整你的态度和回应。`
       }
 
       setMessages(prev => {

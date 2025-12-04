@@ -83,7 +83,7 @@ const addMessage = async (
   chatId?: string
 ) => {
   await delay(300)
-  
+
   if (chatId) {
     // 🔥 直接保存到IndexedDB（不依赖React状态，确保即使组件卸载也能保存）
     // addMessage会触发new-message事件
@@ -94,7 +94,7 @@ const addMessage = async (
       messageType: message.messageType
     })
   }
-  
+
   // 同时更新React状态（如果组件还挂载，更新UI）
   setMessages(prev => [...prev, message])
   console.log('📱 [addMessage] React状态已更新')
@@ -159,8 +159,8 @@ export const transferHandler: CommandHandler = {
     await addMessage(transferMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -175,7 +175,7 @@ export const receiveTransferHandler: CommandHandler = {
   pattern: /[\[【](?:接收转账|收下转账|收款|同意转账|回.*?转账|接受转账|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下|转账[:：]?同意|转账[:：]?回|手机操作[:：](?:收款|接收转账|收下转账|领取转账))[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     let transferUpdated = false
-    
+
     setMessages(prev => {
       const lastPending = [...prev].reverse().find(
         msg => msg.messageType === 'transfer' && msg.type === 'sent' && msg.transfer?.status === 'pending'
@@ -187,7 +187,7 @@ export const receiveTransferHandler: CommandHandler = {
       }
 
       console.log(`💰 [接收转账] 找到转账消息ID=${lastPending.id}, 金额=¥${lastPending.transfer?.amount}, 当前状态=${lastPending.transfer?.status}`)
-      
+
       // 🔥 强制创建全新的数组和对象，确保React检测到深层变化
       const updated = prev.map(msg => {
         if (msg.id === lastPending.id) {
@@ -211,23 +211,23 @@ export const receiveTransferHandler: CommandHandler = {
         }
         return msg
       })
-      
+
       // 🔥 立即保存到IndexedDB
       saveMessages(chatId, updated)
       console.log('💾 [接收转账] 状态已更新并保存, status=received')
       transferUpdated = true
-      
+
       // 🔥 强制返回新数组
       return [...updated]
     })
-    
+
     // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
     const remainingText = content.replace(match[0], '').trim()
-    
+
     if (!transferUpdated) {
       console.log('⚠️ [接收转账] 未找到待处理的转账，但仍移除指令文本')
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText  // 如果没有剩余文本，跳过文本消息
       }
@@ -241,8 +241,8 @@ export const receiveTransferHandler: CommandHandler = {
     })
     await addMessage(systemMsg, setMessages, chatId)
 
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: true  // 跳过文本消息
     }
@@ -257,7 +257,7 @@ export const rejectTransferHandler: CommandHandler = {
   pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|不要(?:转账)?|不收(?:转账)?|退回(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账[:：]?不要|转账[:：]?不收|手机操作[:：](?:退还|退回|拒绝)(?:转账)?)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     let transferFound = false
-    
+
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）
       const lastPending = [...prev].reverse().find(
@@ -275,21 +275,21 @@ export const rejectTransferHandler: CommandHandler = {
           ? { ...msg, transfer: { ...msg.transfer!, status: 'expired' as const } }
           : msg
       )
-      
+
       // 🔥 手动保存到IndexedDB
       saveMessages(chatId, updated)
       console.log('💾 [转账退还] 状态已保存到IndexedDB')
-      
+
       return updated
     })
 
     // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
     const remainingText = content.replace(match[0], '').trim()
-    
+
     if (!transferFound) {
       console.log('⚠️ [退还转账] 未找到待处理的转账，但仍移除指令文本')
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
@@ -303,8 +303,8 @@ export const rejectTransferHandler: CommandHandler = {
     })
     await addMessage(systemMsg, setMessages, chatId)
 
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -320,7 +320,7 @@ export const videoCallHandler: CommandHandler = {
     const narrator = match[1]?.trim() || null  // 旁白
     const openingLine = match[2]?.trim() || null  // 说的话
     console.log('📞 视频通话指令处理:', { content, match: match[0], narrator, openingLine })
-    
+
     // 触发全局视频通话事件（用于不在聊天页面时的弹窗）
     if (character) {
       window.dispatchEvent(new CustomEvent('incoming-video-call', {
@@ -332,20 +332,20 @@ export const videoCallHandler: CommandHandler = {
       }))
       console.log('📡 已触发全局视频通话事件')
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    
+
     console.log('📞 视频通话处理结果:', { remainingText, narrator, openingLine })
-    
+
     if (onVideoCallRequest) {
       // 传入旁白和说的话，格式: "旁白|说的话"
       const fullOpening = narrator && openingLine ? `${narrator}|${openingLine}` : (openingLine || narrator)
       onVideoCallRequest(fullOpening)
     }
-    
+
     // [视频通话:xxx]指令总是跳过文本消息，开场白在视频通话界面显示
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,  // 保留剩余文本（如果有的话，作为普通消息）
       skipTextMessage: !remainingText  // 只有没有剩余文本时才跳过
     }
@@ -514,22 +514,22 @@ export const voiceHandler: CommandHandler = {
       const settingsStr = localStorage.getItem(settingsKey)
       console.log('🔍 [语音处理] localStorage key:', settingsKey)
       console.log('🔍 [语音处理] localStorage value:', settingsStr)
-      
+
       const settings = settingsStr ? JSON.parse(settingsStr) : null
       const voiceId = settings?.voiceId || ''
-      
+
       console.log('🔍 [语音处理] 解析后的settings:', settings)
       console.log('🔍 [语音处理] 音色ID:', voiceId)
 
       if (voiceId) {
         console.log('🎤 使用音色ID生成语音:', voiceId)
         const ttsResult = await callMinimaxTTS(voiceText, undefined, undefined, voiceId)
-        
+
         console.log('🎤 TTS结果:', {
           audioUrl: ttsResult.audioUrl?.substring(0, 50),
           duration: ttsResult.duration
         })
-        
+
         // 更新消息，添加音频URL
         if (chatId) {
           saveMessageToStorage(chatId, {
@@ -538,14 +538,14 @@ export const voiceHandler: CommandHandler = {
             duration: ttsResult.duration
           })
         }
-        
+
         // 更新React状态
-        setMessages(prev => prev.map(m => 
-          m.id === voiceMsg.id 
+        setMessages(prev => prev.map(m =>
+          m.id === voiceMsg.id
             ? { ...m, voiceUrl: ttsResult.audioUrl, duration: ttsResult.duration }
             : m
         ))
-        
+
         console.log('✅ 语音生成成功，已更新消息')
       } else {
         console.warn('⚠️ 未配置音色ID，跳过TTS生成')
@@ -558,12 +558,12 @@ export const voiceHandler: CommandHandler = {
     }
 
     const remainingText = content.replace(match[0], '').trim()
-    
+
     console.log('🎤 语音指令处理完成:', { voiceText, remainingText, hasRemaining: !!remainingText })
-    
+
     // 返回结果，标记跳过纯语音指令的文本消息
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText // 如果没有剩余文本，跳过文本消息
     }
@@ -640,8 +640,8 @@ export const photoHandler: CommandHandler = {
     await addMessage(photoMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -658,20 +658,20 @@ export const emojiHandler: CommandHandler = {
   pattern: /[\[【](?:(?:你|我)发了)?表情(?:包)?[:\：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
     const emojiDesc = match[1].trim()
-    
-    console.log('🎯 [表情包指令] 匹配到:', { 
-      原始文本: match[0], 
-      提取的描述: emojiDesc 
+
+    console.log('🎯 [表情包指令] 匹配到:', {
+      原始文本: match[0],
+      提取的描述: emojiDesc
     })
-    
+
     // 从存储中查找匹配的表情包
     const emojis = await getEmojis()
-    
+
     // 查找描述匹配的表情包（模糊匹配）
-    const matchedEmoji = emojis.find(emoji => 
+    const matchedEmoji = emojis.find(emoji =>
       emoji.description.includes(emojiDesc) || emojiDesc.includes(emoji.description)
     )
-    
+
     if (matchedEmoji) {
       // 找到匹配的表情包，发送表情包消息
       const emojiMsg = createMessageObj('emoji', {
@@ -683,17 +683,17 @@ export const emojiHandler: CommandHandler = {
           description: matchedEmoji.description
         }
       }, isBlocked)  // 🔥 传入拉黑状态，显示感叹号
-      
+
       console.log('📤 AI准备发送表情包消息:', {
         chatId,
         messageType: emojiMsg.messageType,
         emoji: emojiMsg.emoji,
         fullMessage: emojiMsg
       })
-      
+
       await addMessage(emojiMsg, setMessages, chatId)  // 🔥 传入chatId
       console.log(`✅ AI发送表情包完成: ${matchedEmoji.description}`)
-      
+
       // 验证保存
       console.log('🔍 验证表情包消息是否保存:', JSON.stringify(emojiMsg, null, 2))
     } else {
@@ -703,8 +703,8 @@ export const emojiHandler: CommandHandler = {
 
     // 移除表情包指令，继续处理剩余文本
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -725,16 +725,16 @@ export const recallHandler: CommandHandler = {
     setMessages(prev => {
       const now = Date.now()
       const twoMinutesAgo = now - 2 * 60 * 1000 // 2分钟前
-      
+
       // 查找2分钟内包含指定内容的AI消息（从后往前找，找最近的）
       const targetMessage = [...prev].reverse().find(msg => {
         if (msg.type !== 'received') return false
-        
+
         // 检查时间（如果有timestamp）
         if (msg.timestamp && msg.timestamp < twoMinutesAgo) {
           return false // 超过2分钟，不能撤回
         }
-        
+
         const msgContent = msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || msg.emoji?.description || ''
         return msgContent.includes(messageToRecall)
       })
@@ -743,35 +743,35 @@ export const recallHandler: CommandHandler = {
         console.log(`⚠️ 未找到2分钟内包含"${messageToRecall}"的消息`)
         return prev
       }
-      
+
       console.log(`✅ 找到要撤回的消息: "${targetMessage.content}"，理由: ${reason}`)
 
       const updated = prev.map(msg =>
         msg.id === targetMessage.id
           ? {
-              ...msg,
-              isRecalled: true,
-              recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || msg.emoji?.description || '特殊消息',
-              recallReason: reason,
-              originalType: 'received' as const,
-              content: (character?.realName || '对方') + '撤回了一条消息',
-              type: 'system' as const,
-              messageType: 'system' as const
-            }
+            ...msg,
+            isRecalled: true,
+            recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || msg.emoji?.description || '特殊消息',
+            recallReason: reason,
+            originalType: 'received' as const,
+            content: (character?.realName || '对方') + '撤回了一条消息',
+            type: 'system' as const,
+            messageType: 'system' as const
+          }
           : msg
       )
-      
+
       // 🔥 手动保存到IndexedDB
       saveMessages(chatId, updated)
       console.log('💾 [撤回消息] 已保存到IndexedDB')
-      
+
       return updated
     })
 
     // 处理剩余文本
     const remainingText = content.replace(match[0], '').trim()
-    
-    return { 
+
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -786,13 +786,13 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
   pattern: /[\[【](?:接受|同意)情侣空间[\]】]|[\[【]情侣空间[:\：]\s*(?:接受|同意)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     const success = await acceptCoupleSpaceInvite(character.id)
-    
+
     if (success) {
       // 更新邀请卡片状态
       setMessages(prev => {
-        const updated = prev.map(msg => 
+        const updated = prev.map(msg =>
           msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
             ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'accepted' as const } }
             : msg
@@ -802,7 +802,7 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
         console.log('💾 [情侣空间接受] 状态已保存到IndexedDB')
         return updated
       })
-      
+
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
         content: `${character.nickname || character.realName} 接受了你的情侣空间邀请`,
@@ -811,10 +811,10 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
       })
       await addMessage(systemMsg, setMessages, chatId)
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText  // 如果没有其他文本，跳过发送
     }
@@ -828,13 +828,13 @@ export const coupleSpaceRejectHandler: CommandHandler = {
   pattern: /[\[【](?:拒绝|驳回)情侣空间[\]】]|[\[【]情侣空间[:\：]\s*(?:拒绝|驳回)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     const success = await rejectCoupleSpaceInvite(character.id)
-    
+
     if (success) {
       // 更新邀请卡片状态
       setMessages(prev => {
-        const updated = prev.map(msg => 
+        const updated = prev.map(msg =>
           msg.coupleSpaceInvite && msg.coupleSpaceInvite.status === 'pending'
             ? { ...msg, coupleSpaceInvite: { ...msg.coupleSpaceInvite, status: 'rejected' as const } }
             : msg
@@ -844,7 +844,7 @@ export const coupleSpaceRejectHandler: CommandHandler = {
         console.log('💾 [情侣空间拒绝] 状态已保存到IndexedDB')
         return updated
       })
-      
+
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
         content: `${character.nickname || character.realName} 拒绝了你的情侣空间邀请`,
@@ -853,10 +853,10 @@ export const coupleSpaceRejectHandler: CommandHandler = {
       })
       await addMessage(systemMsg, setMessages, chatId)
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -870,17 +870,17 @@ export const coupleSpaceInviteHandler: CommandHandler = {
   pattern: /[\[【]情侣空间邀请[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 🔒 检查用户是否设置了私密
     const privacy = getCoupleSpacePrivacy()
     const relation = getCoupleSpaceRelation()
     const charName = character.nickname || character.realName
-    
+
     // 如果用户设置了私密且已经有active的情侣空间，驳回邀请
     if (privacy === 'private' && relation && relation.status === 'active') {
       const userMessage = `系统提示：对方已经建立了情侣空间，邀请被驳回`
       const aiMessage = `【系统提示】你发送的情侣空间邀请被驳回了，原因：对方已经和别人建立了情侣空间。看来对方隐瞒了这件事...`
-      
+
       // 添加系统消息（用户和AI都能看到，但显示不同内容）
       const systemMsg = createMessageObj('system', {
         content: userMessage,
@@ -888,20 +888,20 @@ export const coupleSpaceInviteHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
-      
+
       const remainingText = content.replace(match[0], '').trim()
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     // 检查是否可以发送邀请
     if (relation) {
       // 已有情侣空间关系
       let message = ''
-      
+
       if (relation.status === 'pending' && relation.characterId === character.id) {
         // 当前AI已经发送过邀请
         message = `${charName} 尝试邀请你建立情侣空间，但邀请已发送过，等待你的回复`
@@ -915,7 +915,7 @@ export const coupleSpaceInviteHandler: CommandHandler = {
         // 和其他AI已有情侣空间
         message = `${charName} 尝试邀请你建立情侣空间，但你已经和 ${relation.characterName} 建立了情侣空间`
       }
-      
+
       // 添加系统消息
       const systemMsg = createMessageObj('system', {
         content: message,
@@ -923,15 +923,15 @@ export const coupleSpaceInviteHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
-      
+
       const remainingText = content.replace(match[0], '').trim()
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     // 创建邀请关系（status为pending）
     const newRelation = await createCoupleSpaceInvite(
       'user',
@@ -940,7 +940,7 @@ export const coupleSpaceInviteHandler: CommandHandler = {
       character.avatar,
       'character'  // AI发起的邀请
     )
-    
+
     if (!newRelation) {
       // 添加失败消息
       const systemMsg = createMessageObj('system', {
@@ -949,15 +949,15 @@ export const coupleSpaceInviteHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
-      
+
       const remainingText = content.replace(match[0], '').trim()
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     // 创建情侣空间邀请消息（charName 已在上面声明）
     const inviteMsg = createMessageObj('text', {
       content: '',
@@ -968,14 +968,14 @@ export const coupleSpaceInviteHandler: CommandHandler = {
         senderAvatar: character.avatar
       }
     })
-    
+
     console.log('🎊 创建情侣空间邀请消息:', inviteMsg)
-    
+
     await addMessage(inviteMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -989,12 +989,12 @@ export const coupleSpacePhotoHandler: CommandHandler = {
   pattern: /[\[【]相册[:\：]\s*(.+?)[\]】]/,
   handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 检查是否有活跃的情侣空间
     const relation = getCoupleSpaceRelation()
     if (relation && relation.status === 'active' && relation.characterId === character.id) {
       const description = match[1].trim()
-      
+
       // 添加到相册（使用 IndexedDB 存储）
       try {
         await addCouplePhoto(
@@ -1002,7 +1002,7 @@ export const coupleSpacePhotoHandler: CommandHandler = {
           character.nickname || character.realName,
           description
         )
-        
+
         // 添加系统提示
         const charName = character.nickname || character.realName
         const systemMsg = createMessageObj('system', {
@@ -1011,13 +1011,13 @@ export const coupleSpacePhotoHandler: CommandHandler = {
           type: 'system'
         })
         await addMessage(systemMsg, setMessages, chatId)
-        
+
         console.log(`📸 已添加照片到情侣空间相册: ${description}`)
       } catch (error) {
         console.error('❌ 保存照片到相册失败:', error)
       }
     }
-    
+
     // 继续发送文本消息（不移除指令）
     return { handled: false }
   }
@@ -1030,19 +1030,19 @@ export const coupleSpaceMessageHandler: CommandHandler = {
   pattern: /[\[【]留言[:\：]\s*(.+?)[\]】]/,
   handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 检查是否有活跃的情侣空间
     const relation = getCoupleSpaceRelation()
     if (relation && relation.status === 'active' && relation.characterId === character.id) {
       const messageContent = match[1].trim()
-      
+
       // 添加留言
       addCoupleMessage(
         character.id,
         character.nickname || character.realName,
         messageContent
       )
-      
+
       // 添加系统提示
       const charName = character.nickname || character.realName
       const systemMsg = createMessageObj('system', {
@@ -1051,10 +1051,10 @@ export const coupleSpaceMessageHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
-      
+
       console.log(`💌 已添加留言到情侣空间: ${messageContent}`)
     }
-    
+
     // 继续发送文本消息（不移除指令）
     return { handled: false }
   }
@@ -1067,13 +1067,13 @@ export const coupleSpaceAnniversaryHandler: CommandHandler = {
   pattern: /[\[【]纪念日[:\：]\s*(.+?)[:\：]\s*(.+?)[\]】]/,
   handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 检查是否有活跃的情侣空间
     const relation = getCoupleSpaceRelation()
     if (relation && relation.status === 'active' && relation.characterId === character.id) {
       const date = match[1].trim()
       const title = match[2].trim()
-      
+
       // 添加纪念日
       addCoupleAnniversary(
         character.id,
@@ -1081,7 +1081,7 @@ export const coupleSpaceAnniversaryHandler: CommandHandler = {
         title,
         '' // 描述为空
       )
-      
+
       // 添加系统提示
       const charName = character.nickname || character.realName
       const systemMsg = createMessageObj('system', {
@@ -1090,10 +1090,10 @@ export const coupleSpaceAnniversaryHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
-      
+
       console.log(`🎂 已添加纪念日: ${title} - ${date}`)
     }
-    
+
     // 继续发送文本消息（不移除指令）
     return { handled: false }
   }
@@ -1106,9 +1106,9 @@ export const coupleSpaceEndHandler: CommandHandler = {
   pattern: /[\[【]解除情侣空间[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     const success = await endCoupleSpaceRelation()
-    
+
     if (success) {
       // 添加系统消息
       const charName = character.nickname || character.realName
@@ -1117,21 +1117,21 @@ export const coupleSpaceEndHandler: CommandHandler = {
         aiReadableContent: `${charName}解除了和你的情侣空间关系，但之前的照片、留言、纪念日等内容都保留着，等待下次重新绑定`,
         type: 'system'
       })
-      
+
       console.log('💔 [情侣空间解除] 创建系统消息:', {
         content: systemMsg.content,
         type: systemMsg.type,
         messageType: systemMsg.messageType,
         aiReadableContent: systemMsg.aiReadableContent
       })
-      
+
       await addMessage(systemMsg, setMessages, chatId)
       console.log(`✅ [情侣空间解除] 系统消息已保存`)
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1226,7 +1226,7 @@ export const quoteOnlyHandler: CommandHandler = {
         .replace(/\[引用了?[^\]]*?\]/g, '')
         .replace(/【引用了?[^】]*?】/g, '')
         .trim()
-      
+
       // 🔥 如果清理后为空，说明是纯表情包消息，显示[表情包]
       if (!quotedContent && quoted.messageType === 'emoji') {
         quotedContent = '[表情包]'
@@ -1267,7 +1267,7 @@ export const quoteHandler: CommandHandler = {
     const quoteRef = match[1].trim()
     let replyContent = match[2].trim()
     let extraContent = '' // 被截掉的多余内容，需要保留到后续处理
-    
+
     // 🔥 修复：如果AI错误地在回复内容中又使用了"回复:"（如[引用:xx 回复:yy 回复:zz]）
     // 需要在第一个"回复:"处截断，后面的内容应该作为独立消息处理
     const extraReplyMatch = replyContent.match(/^(.+?)(\s+回复[:：].*)$/)
@@ -1280,7 +1280,7 @@ export const quoteHandler: CommandHandler = {
       console.log('   截取后replyContent:', replyContent)
       console.log('   保留的extraContent:', extraContent)
     }
-    
+
     console.log('🔍 [quoteHandler] 开始处理引用指令:', { quoteRef, replyContent, fullMatch: match[0] })
     let quotedMsg: Message['quotedMessage'] | undefined
 
@@ -1325,7 +1325,7 @@ export const quoteHandler: CommandHandler = {
       if (quoteMatch) {
         lowerRef = quoteMatch[1].toLowerCase()
       }
-      
+
       // 🔥 如果引用内容太长（超过20字），只取前面部分进行搜索
       // 这样可以提高匹配成功率，避免因内容不完整而无法匹配
       if (lowerRef.length > 20) {
@@ -1389,7 +1389,7 @@ export const quoteHandler: CommandHandler = {
     if (quoted) {
       // 🔥 如果是表情包消息，优先使用emoji.description
       let quotedContent = quoted.emoji?.description || quoted.content || quoted.voiceText || quoted.photoDescription || quoted.location?.name || '特殊消息'
-      
+
       // 🔥 清理系统提示标签和嵌套引用
       quotedContent = quotedContent
         .replace(/\[用户发了表情包\]\s*/g, '')
@@ -1400,18 +1400,18 @@ export const quoteHandler: CommandHandler = {
         .replace(/\[引用了?[^\]]*?\]/g, '')
         .replace(/【引用了?[^】]*?】/g, '')
         .trim()
-      
+
       // 🔥 如果清理后为空，说明是纯表情包消息，显示[表情包]
       if (!quotedContent && quoted.messageType === 'emoji') {
         quotedContent = '[表情包]'
       }
-      
+
       // 🔥 限制引用内容长度，避免显示混乱（最多100字）
       const MAX_QUOTE_LENGTH = 100
       if (quotedContent.length > MAX_QUOTE_LENGTH) {
         quotedContent = quotedContent.substring(0, MAX_QUOTE_LENGTH) + '...'
       }
-      
+
       quotedMsg = {
         id: quoted.id,
         content: quotedContent,
@@ -1431,9 +1431,9 @@ export const quoteHandler: CommandHandler = {
     // 移除引用指令，保留回复内容
     // 🔥 如果有extraContent（AI错误使用了多个回复:），也要保留
     const remainingText = content.replace(match[0], replyContent) + extraContent
-    return { 
-      handled: true, 
-      quotedMsg, 
+    return {
+      handled: true,
+      quotedMsg,
       messageContent: remainingText
     }
   }
@@ -1477,44 +1477,44 @@ export const acceptIntimatePayHandler: CommandHandler = {
   pattern: /[\[【](?:(?:接受|同意|答应|接受了)亲密付|手机操作[:：](?:领取|接受|同意)亲密付)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId, messages }) => {
     console.log('🎯 [接受亲密付] 处理器被调用, 匹配:', match[0])
-    
+
     // 🔥 先查找待处理的亲密付
     const lastPending = [...messages].reverse().find(
       msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
     )
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    
+
     if (!lastPending || !lastPending.intimatePay) {
       console.warn('⚠️ [接受亲密付] 没有找到待处理的亲密付消息，但仍移除指令文本')
       return { handled: true, remainingText, skipTextMessage: !remainingText }
     }
-    
+
     const monthlyLimit = lastPending.intimatePay.monthlyLimit
     console.log('✅ [接受亲密付] 找到待处理消息:', {
       messageId: lastPending.id,
       monthlyLimit
     })
-    
+
     // 🔥 修复：先从当前messages构建更新后的数组，确保数据一致性
     const updatedMessages = messages.map(msg =>
       msg.id === lastPending.id
         ? {
-            ...msg,
-            intimatePay: {
-              ...msg.intimatePay!,
-              status: 'accepted' as const
-            }
+          ...msg,
+          intimatePay: {
+            ...msg.intimatePay!,
+            status: 'accepted' as const
           }
+        }
         : msg
     )
-    
+
     // 🔥 保存到IndexedDB（先保存，确保数据持久化）
     if (chatId) {
       await saveMessages(chatId, updatedMessages)
       console.log('💾 [接受亲密付] 消息状态已保存到数据库')
     }
-    
+
     // 🔥 更新React状态（返回全新数组触发重新渲染）
     setMessages(() => [...updatedMessages])
 
@@ -1539,8 +1539,8 @@ export const acceptIntimatePayHandler: CommandHandler = {
     console.log('📝 [接受亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1555,7 +1555,7 @@ export const rejectIntimatePayHandler: CommandHandler = {
   pattern: /[\[【](?:(?:拒绝|不要|不同意|拒绝了)亲密付|手机操作[:：](?:拒绝|不要)亲密付)[\]】]/,
   handler: async (match, content, { setMessages, chatId, character, messages }) => {
     console.log('🎯 [拒绝亲密付] 处理器被调用')
-    
+
     // 🔥 修复：先从 messages 中查找待处理的亲密付
     const lastPending = [...messages].reverse().find(
       msg => msg.messageType === 'intimatePay' && msg.type === 'sent' && msg.intimatePay?.status === 'pending'
@@ -1563,33 +1563,33 @@ export const rejectIntimatePayHandler: CommandHandler = {
 
     // 🔥 即使没有找到待处理的亲密付，也要移除指令文本
     const remainingText = content.replace(match[0], '').trim()
-    
+
     if (!lastPending) {
       console.warn('⚠️ [拒绝亲密付] 没有找到待处理的亲密付消息，但仍移除指令文本')
       return { handled: true, remainingText, skipTextMessage: !remainingText }
     }
-    
+
     console.log('✅ [拒绝亲密付] 找到待处理消息:', lastPending.id)
 
     // 🔥 修复：先从当前messages构建更新后的数组，确保数据一致性
     const updatedMessages = messages.map(msg =>
       msg.id === lastPending.id
         ? {
-            ...msg,
-            intimatePay: {
-              ...msg.intimatePay!,
-              status: 'rejected' as const
-            }
+          ...msg,
+          intimatePay: {
+            ...msg.intimatePay!,
+            status: 'rejected' as const
           }
+        }
         : msg
     )
-    
+
     // 🔥 保存到IndexedDB（先保存，确保数据持久化）
     if (chatId) {
       await saveMessages(chatId, updatedMessages)
       console.log('💾 [拒绝亲密付] 消息状态已保存到数据库')
     }
-    
+
     // 🔥 更新React状态（返回全新数组触发重新渲染）
     setMessages(() => [...updatedMessages])
 
@@ -1602,8 +1602,8 @@ export const rejectIntimatePayHandler: CommandHandler = {
     console.log('📝 [拒绝亲密付] 添加系统消息:', systemMsg.content)
     await addMessage(systemMsg, setMessages, chatId)
 
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1617,30 +1617,30 @@ export const blockUserHandler: CommandHandler = {
   pattern: /[\[【]拉黑(?:用户)?[\]】]/,  // 匹配 [拉黑] 或 [拉黑用户]
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 🔥 检查是否已经拉黑，避免重复拉黑
     const alreadyBlocked = blacklistManager.isBlockedByMe(`character_${character.id}`, 'user')
     if (alreadyBlocked) {
       console.warn(`⚠️ ${character.nickname || character.realName} 已经拉黑了用户，忽略重复的拉黑指令`)
       // 移除指令但不执行任何操作
       const remainingText = content.replace(match[0], '').trim()
-      return { 
-        handled: true, 
+      return {
+        handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     // AI拉黑用户（character拉黑user）
     blacklistManager.blockUser(`character_${character.id}`, 'user')
     console.log(`🚫 ${character.nickname || character.realName} 拉黑了用户`)
-    
+
     // 🔥 触发事件通知UI更新
     window.dispatchEvent(new CustomEvent('blacklist-changed', { detail: { characterId: character.id } }))
-    
+
     // 注意：不需要修改现有消息
     // 用户发送新消息时会自动检测拉黑状态并标记（见 useChatAI.ts）
-    
+
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName}拉黑了你`,
@@ -1648,10 +1648,10 @@ export const blockUserHandler: CommandHandler = {
       type: 'system'
     })
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1665,15 +1665,15 @@ export const unblockUserHandler: CommandHandler = {
   pattern: /[\[【](?:解除拉黑|取消拉黑)[\]】]/,  // 匹配 [解除拉黑] 或 [取消拉黑]
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // AI解除拉黑
     blacklistManager.unblockUser(`character_${character.id}`, 'user')
     console.log(`✅ ${character.nickname || character.realName} 解除了对用户的拉黑`)
-    
+
     // 注意：不需要修改现有消息
     // 历史消息保持原样（显示真实的拉黑状态）
     // 解除拉黑后的新消息会自动不显示感叹号
-    
+
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName}解除了拉黑`,
@@ -1681,10 +1681,10 @@ export const unblockUserHandler: CommandHandler = {
       type: 'system'
     })
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1698,17 +1698,17 @@ export const sendFriendRequestHandler: CommandHandler = {
   pattern: /[\[【](?:添加好友|申请好友|加好友)[:：](.+?)[\]】]|[\[【]你发送了好友申请，验证消息[:：]\s*["""]?(.+?)["""]?，等待用户接受[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // match[1]是第一个格式，match[2]是第二个格式
     const verifyMessage = (match[1] || match[2])?.trim() || '你好'
-    
+
     // 保存AI好友申请状态
     localStorage.setItem(`ai_friend_request_${character.id}`, JSON.stringify({
       status: 'pending',
       message: verifyMessage,
       timestamp: Date.now()
     }))
-    
+
     // 添加好友申请卡片消息
     const friendRequestMsg = createMessageObj('friendRequest', {
       type: 'received',
@@ -1720,15 +1720,15 @@ export const sendFriendRequestHandler: CommandHandler = {
       aiReadableContent: `[你发送了好友申请，验证消息: "${verifyMessage}"，等待用户接受]`
     })
     await addMessage(friendRequestMsg, setMessages, chatId)
-    
+
     // 触发事件更新UI
     window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
-    
+
     console.log(`📤 ${character.nickname || character.realName} 发送了好友申请:`, verifyMessage)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1742,13 +1742,13 @@ export const acceptFriendHandler: CommandHandler = {
   pattern: /[\[【](?:接受好友|同意好友|通过好友)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 解除拉黑
     blacklistManager.unblockUser(`character_${character.id}`, 'user')
-    
+
     // 清除好友申请状态
     localStorage.removeItem(`friend_request_${character.id}`)
-    
+
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName}通过了你的好友验证，现在可以开始聊天了`,
@@ -1756,16 +1756,16 @@ export const acceptFriendHandler: CommandHandler = {
       type: 'system'
     })
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     // 触发事件更新UI
     window.dispatchEvent(new CustomEvent('blacklist-changed', { detail: { characterId: character.id } }))
     window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
-    
+
     console.log(`✅ ${character.nickname || character.realName} 接受了好友申请`)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1779,10 +1779,10 @@ export const rejectFriendHandler: CommandHandler = {
   pattern: /[\[【](?:拒绝好友|不通过好友)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     if (!character) return { handled: false }
-    
+
     // 清除好友申请状态（但保持拉黑）
     localStorage.removeItem(`friend_request_${character.id}`)
-    
+
     // 添加系统消息
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName}拒绝了你的好友申请`,
@@ -1790,15 +1790,15 @@ export const rejectFriendHandler: CommandHandler = {
       type: 'system'
     })
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     // 触发事件更新UI
     window.dispatchEvent(new CustomEvent('friend-request-changed', { detail: { characterId: character.id } }))
-    
+
     console.log(`❌ ${character.nickname || character.realName} 拒绝了好友申请`)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -1815,20 +1815,20 @@ export const changeNicknameHandler: CommandHandler = {
       console.warn('⚠️ AI修改网名失败: 没有character信息')
       return { handled: false }
     }
-    
+
     const newNickname = match[1].trim()
     const oldNickname = character.nickname || character.realName
-    
+
     console.log(`✏️ AI修改网名: ${oldNickname} → ${newNickname}`)
-    
+
     // 更新角色信息
     characterService.update(character.id, { nickname: newNickname })
-    
+
     // 🔥 立即刷新界面上的character，让名字立刻显示
     if (refreshCharacter) {
       refreshCharacter()
     }
-    
+
     // 创建系统消息
     const systemMsg: Message = {
       ...createMessage(`${oldNickname}更改了网名为"${newNickname}"`, 'system'),
@@ -1836,7 +1836,7 @@ export const changeNicknameHandler: CommandHandler = {
       messageType: 'system'
     }
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
@@ -1861,19 +1861,19 @@ export const changeSignatureHandler: CommandHandler = {
       console.warn('⚠️ AI修改个性签名失败: 没有character信息')
       return { handled: false }
     }
-    
+
     const newSignature = match[1].trim()
-    
+
     console.log(`✏️ AI修改个性签名: ${newSignature}`)
-    
+
     // 更新角色信息
     characterService.update(character.id, { signature: newSignature })
-    
+
     // 🔥 立即刷新界面上的character
     if (refreshCharacter) {
       refreshCharacter()
     }
-    
+
     // 创建系统消息
     const systemMsg: Message = {
       ...createMessage(`${character.nickname || character.realName}更改了个性签名为"${newSignature}"`, 'system'),
@@ -1881,7 +1881,7 @@ export const changeSignatureHandler: CommandHandler = {
       messageType: 'system'
     }
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
@@ -1905,7 +1905,7 @@ export const statusHandler: CommandHandler = {
     }
 
     const fullContent = match[1].trim()
-    
+
     // 提取自定义时间（如果有）
     let customTime = ''
     const timeMatch = fullContent.match(/\|时间[:：]((?:昨天|前天)?[\s]?(?:\d{1,4}-\d{1,2}-?\d{0,2}\s*)?(?:\d{1,2}[:：]\d{2}))/)
@@ -1915,7 +1915,7 @@ export const statusHandler: CommandHandler = {
 
     // 直接用原始匹配调用解析器（已支持新格式）
     const statusUpdate = extractStatusFromReply(match[0], character.id)
-    
+
     if (statusUpdate) {
       setAIStatus(statusUpdate)
       console.log(`💫 [AI状态] 已保存:`, {
@@ -1924,9 +1924,9 @@ export const statusHandler: CommandHandler = {
         心理: statusUpdate.mood,
         动作: statusUpdate.action
       })
-      
+
       // 记录到行程历史（简化：只记录地点+动作）
-      const recordContent = statusUpdate.action 
+      const recordContent = statusUpdate.action
         ? `${statusUpdate.location} - ${statusUpdate.action}`
         : statusUpdate.location || ''
       if (customTime) {
@@ -1934,7 +1934,7 @@ export const statusHandler: CommandHandler = {
       } else {
         saveStatusToSchedule(character.id, recordContent)
       }
-      
+
       // 清除强制更新标记
       if (getForceUpdateFlag(character.id)) {
         clearForceUpdateFlag(character.id)
@@ -2109,19 +2109,19 @@ export const musicAcceptHandler: CommandHandler = {
   pattern: /[\[【]接受一起听[\]】]|(好啊|走起|来吧|可以呀|行呀|好的|好嘛|好呀|走吧|听听|一起听吧|冲|安排|好滋|没问题|同意|接受)/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
-    const pendingMusicInvite = messages.slice().reverse().find(msg => 
-      msg.type === 'sent' && 
-      (msg as any).musicInvite && 
+    const pendingMusicInvite = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
+      (msg as any).musicInvite &&
       (msg as any).musicInvite.status === 'pending'
     )
-    
+
     if (!pendingMusicInvite) {
       return { handled: false }
     }
-    
+
     // 更新邀请状态为已接受
     setMessages(prev => {
-      const updated = prev.map(msg => 
+      const updated = prev.map(msg =>
         msg.id === pendingMusicInvite.id
           ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'accepted' } }
           : msg
@@ -2131,7 +2131,7 @@ export const musicAcceptHandler: CommandHandler = {
       console.log('💾 [音乐邀请接受] 已保存到IndexedDB')
       return updated
     })
-    
+
     // 保存一起听状态到localStorage
     const inviteData = (pendingMusicInvite as any).musicInvite
     if (inviteData && chatId) {
@@ -2142,7 +2142,7 @@ export const musicAcceptHandler: CommandHandler = {
         startTime: Date.now()
       }))
     }
-    
+
     // 添加系统提示
     const systemMsg: Message = {
       id: Date.now() + Math.random(),
@@ -2151,17 +2151,17 @@ export const musicAcceptHandler: CommandHandler = {
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
     }
-    
+
     setMessages(prev => [...prev, systemMsg])
-    
+
     // 触发播放器切歌
     window.dispatchEvent(new CustomEvent('change-song', {
-      detail: { 
-        songTitle: inviteData.songTitle, 
-        songArtist: inviteData.songArtist 
+      detail: {
+        songTitle: inviteData.songTitle,
+        songArtist: inviteData.songArtist
       }
     }))
-    
+
     const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
@@ -2178,19 +2178,19 @@ export const musicRejectHandler: CommandHandler = {
   pattern: /[\[【]拒绝一起听[\]】]|^(不想听|下次吧|不听|算了|不要|不行|不了|pass|拒绝)[！!。，,、\s]*$/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     // 检查是否有待处理的音乐邀请
-    const pendingMusicInvite = messages.slice().reverse().find(msg => 
-      msg.type === 'sent' && 
-      (msg as any).musicInvite && 
+    const pendingMusicInvite = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
+      (msg as any).musicInvite &&
       (msg as any).musicInvite.status === 'pending'
     )
-    
+
     if (!pendingMusicInvite) {
       return { handled: false }
     }
-    
+
     // 更新邀请状态为已拒绝
     setMessages(prev => {
-      const updated = prev.map(msg => 
+      const updated = prev.map(msg =>
         msg.id === pendingMusicInvite.id
           ? { ...msg, musicInvite: { ...(msg as any).musicInvite, status: 'rejected' } }
           : msg
@@ -2200,7 +2200,7 @@ export const musicRejectHandler: CommandHandler = {
       console.log('💾 [音乐邀请拒绝] 已保存到IndexedDB')
       return updated
     })
-    
+
     return {
       handled: true,
       remainingText: '',
@@ -2285,16 +2285,16 @@ export const aiMemoHandler: CommandHandler = {
   pattern: /[\[【]随笔[:\：]([^\]】]+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('🎯 [随笔处理器] 被调用!', { match: match[0], content })
-    
+
     if (!character) return { handled: false }
-    
+
     const noteContent = match[1].trim()
-    
+
     // 添加到随笔（系统自动生成时间戳）
     addAIMemo(character.id, character.nickname || character.realName, noteContent)
-    
+
     console.log(`📝 ${character.nickname || character.realName} 写随笔:`, noteContent)
-    
+
     // 创建系统提示消息（用户和AI都能看到）
     const systemMsg = createMessageObj('system', {
       content: `${character.nickname || character.realName} 在小本子上记了点东西`,
@@ -2304,7 +2304,7 @@ export const aiMemoHandler: CommandHandler = {
       memoContent: noteContent  // 保存随笔内容用于显示
     })
     await addMessage(systemMsg, setMessages, chatId)
-    
+
     // 移除随笔指令，保留其他文本
     const remainingText = content.replace(match[0], '').trim()
     return {
@@ -2357,7 +2357,7 @@ export const changeAvatarHandler: CommandHandler = {
     // 方式2: 使用用户头像
     else if (param === '用户头像' || param === '对方头像') {
       console.log('👤 [AI换头像] 使用用户头像')
-      
+
       // 🔥 修复：使用异步方法获取用户头像
       const { getUserInfoWithAvatar } = await import('../../../utils/userUtils')
       const userInfo = await getUserInfoWithAvatar()
@@ -2371,7 +2371,7 @@ export const changeAvatarHandler: CommandHandler = {
           type: 'system'
         })
         await addMessage(failMsg, setMessages, chatId)
-        
+
         const remainingText = content.replace(match[0], '').trim()
         return {
           handled: true,
@@ -2386,23 +2386,23 @@ export const changeAvatarHandler: CommandHandler = {
     // 方式3: 使用消息中的图片
     else if (param.startsWith('图片:') || param.startsWith('图片：')) {
       const messageIdStr = param.replace(/^图片[:\：]/, '').trim()
-      
+
       console.log('🖼️ [AI换头像] 使用消息图片，ID字符串:', messageIdStr)
 
       // 🔥 支持数字ID和字符串ID（如 msg-xxx）
       let targetMessage = null
-      
+
       // 先尝试按数字ID查找
       const numericId = parseInt(messageIdStr)
       if (!isNaN(numericId)) {
         targetMessage = messages.find(m => m.id === numericId)
       }
-      
+
       // 如果没找到，尝试按字符串ID查找（兼容 msg-xxx 格式）
       if (!targetMessage) {
         targetMessage = messages.find(m => String(m.id) === messageIdStr || (m as any).clientMessageId === messageIdStr)
       }
-      
+
       // 🔥 检查消息是否存在
       if (!targetMessage) {
         console.warn('⚠️ [AI换头像] 未找到消息，ID:', messageIdStr)
@@ -2412,7 +2412,7 @@ export const changeAvatarHandler: CommandHandler = {
           type: 'system'
         })
         await addMessage(failMsg, setMessages, chatId)
-        
+
         const remainingText = content.replace(match[0], '').trim()
         return {
           handled: true,  // 🔥 标记为已处理，避免指令文本显示
@@ -2420,11 +2420,11 @@ export const changeAvatarHandler: CommandHandler = {
           skipTextMessage: !remainingText
         }
       }
-      
+
       // 🔥 检查消息是否有图片（支持 images 数组或 photoBase64）
       const hasImages = (targetMessage as any).images && (targetMessage as any).images.length > 0
       const hasPhotoBase64 = targetMessage.photoBase64
-      
+
       if (!hasImages && !hasPhotoBase64) {
         console.warn('⚠️ [AI换头像] 消息没有图片，ID:', messageIdStr)
         const failMsg = createMessageObj('system', {
@@ -2433,7 +2433,7 @@ export const changeAvatarHandler: CommandHandler = {
           type: 'system'
         })
         await addMessage(failMsg, setMessages, chatId)
-        
+
         const remainingText = content.replace(match[0], '').trim()
         return {
           handled: true,
@@ -2449,13 +2449,13 @@ export const changeAvatarHandler: CommandHandler = {
       } else if (hasPhotoBase64) {
         // 如果是 base64 格式，需要转换为完整的 data URL
         const base64Str = String(hasPhotoBase64)
-        const base64Data = base64Str.startsWith('data:') 
-          ? base64Str 
+        const base64Data = base64Str.startsWith('data:')
+          ? base64Str
           : `data:image/jpeg;base64,${base64Str}`
         newAvatar = base64Data
         console.log('🖼️ [AI换头像] 使用 photoBase64，长度:', base64Str.length)
       }
-      
+
       usedPrompt = '使用聊天图片'
       console.log('🖼️ [AI换头像] newAvatar 已设置:', !!newAvatar)
     }
@@ -2468,7 +2468,7 @@ export const changeAvatarHandler: CommandHandler = {
         type: 'system'
       })
       await addMessage(failMsg, setMessages, chatId)
-      
+
       const remainingText = content.replace(match[0], '').trim()
       return {
         handled: true,  // 🔥 标记为已处理
@@ -2531,28 +2531,28 @@ export const acceptPaymentHandler: CommandHandler = {
   pattern: /[\[【]同意代付[\]】]/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     console.log('💰 [同意代付] 处理器被调用')
-    
+
     // 查找最近的待确认代付请求
-    const pendingPayment = messages.slice().reverse().find(msg => 
-      msg.type === 'sent' && 
+    const pendingPayment = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
       msg.messageType === 'paymentRequest' &&
       msg.paymentRequest?.status === 'pending' &&
       msg.paymentRequest?.paymentMethod === 'ai'
     )
-    
+
     if (!pendingPayment || !pendingPayment.paymentRequest) {
       console.warn('⚠️ [同意代付] 未找到待确认的代付请求')
       // 🔥 移除指令但不报错，避免AI重复发送
       const remainingText = content.replace(match[0], '').trim()
-      return { 
+      return {
         handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     // 🔥 防止重复：检查最近3秒内是否已经有相同的代付成功系统消息
-    const recentSystemMsgs = messages.filter(msg => 
+    const recentSystemMsgs = messages.filter(msg =>
       msg.type === 'system' &&
       msg.messageType === 'system' &&
       msg.timestamp && Date.now() - msg.timestamp < 3000
@@ -2564,35 +2564,35 @@ export const acceptPaymentHandler: CommandHandler = {
     if (hasSamePayment) {
       console.warn('⚠️ [同意代付] 检测到重复处理，忽略')
       const remainingText = content.replace(match[0], '').trim()
-      return { 
+      return {
         handled: true,
         remainingText,
         skipTextMessage: !remainingText
       }
     }
-    
+
     console.log('✅ [同意代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
-    
+
     // 更新代付状态为已支付
     setMessages(prev => {
-      const updated = prev.map(msg => 
+      const updated = prev.map(msg =>
         msg.id === pendingPayment.id && msg.paymentRequest
           ? { ...msg, paymentRequest: { ...msg.paymentRequest, status: 'paid' as const } }
           : msg
       )
-      
+
       // 🔥 防止重复：检查是否已经存在相同的系统消息
       const systemMsgContent = `${character?.nickname || character?.realName || 'AI'} 已代付 ${pendingPayment.paymentRequest!.itemName} ¥${pendingPayment.paymentRequest!.amount.toFixed(2)}`
-      const hasSystemMsg = updated.some(msg => 
-        msg.type === 'system' && 
+      const hasSystemMsg = updated.some(msg =>
+        msg.type === 'system' &&
         msg.content === systemMsgContent
       )
-      
+
       if (hasSystemMsg) {
         console.warn('⚠️ [同意代付] 系统消息已存在，跳过创建')
         return updated
       }
-      
+
       // 添加系统消息
       const systemMsg: Message = {
         id: Date.now(),
@@ -2602,13 +2602,13 @@ export const acceptPaymentHandler: CommandHandler = {
         timestamp: Date.now(),
         messageType: 'system'
       }
-      
+
       const finalUpdated = [...updated, systemMsg]
       saveMessages(chatId, finalUpdated)
       console.log('💾 [同意代付] 已保存到IndexedDB')
       return finalUpdated
     })
-    
+
     return {
       handled: true,
       hideCommand: true,
@@ -2624,30 +2624,30 @@ export const rejectPaymentHandler: CommandHandler = {
   pattern: /[\[【]拒绝代付[\]】]/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     console.log('💰 [拒绝代付] 处理器被调用')
-    
+
     // 查找最近的待确认代付请求
-    const pendingPayment = messages.slice().reverse().find(msg => 
-      msg.type === 'sent' && 
+    const pendingPayment = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
       msg.messageType === 'paymentRequest' &&
       msg.paymentRequest?.status === 'pending' &&
       msg.paymentRequest?.paymentMethod === 'ai'
     )
-    
+
     if (!pendingPayment || !pendingPayment.paymentRequest) {
       console.warn('⚠️ [拒绝代付] 未找到待确认的代付请求')
       return { handled: false }
     }
-    
+
     console.log('❌ [拒绝代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
-    
+
     // 更新代付状态为已拒绝
     setMessages(prev => {
-      const updated = prev.map(msg => 
+      const updated = prev.map(msg =>
         msg.id === pendingPayment.id && msg.paymentRequest
           ? { ...msg, paymentRequest: { ...msg.paymentRequest, status: 'rejected' as const } }
           : msg
       )
-      
+
       // 添加系统消息
       const systemMsg: Message = {
         id: Date.now(),
@@ -2657,14 +2657,14 @@ export const rejectPaymentHandler: CommandHandler = {
         timestamp: Date.now(),
         messageType: 'system'
       }
-      
+
       const finalUpdated = [...updated, systemMsg]
       saveMessages(chatId, finalUpdated)
       console.log('💾 [拒绝代付] 已保存到IndexedDB')
       return finalUpdated
     })
-    
-    return { 
+
+    return {
       handled: true,
       hideCommand: true,
       shouldRespond: false
@@ -2681,45 +2681,45 @@ export const aiOrderFoodHandler: CommandHandler = {
   pattern: /[\[【]外卖[:：]([^:：\]】]+)(?:[:：]([^\]】]+))?[\]】]/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     console.log('🍔 [AI点外卖] 处理器被调用')
-    
+
     const itemsStr = match[1]
     const note = match[2] || ''
-    
+
     // 解析商品列表：商品1,价格1,商品2,价格2
     const parts = itemsStr.split(',').map(s => s.trim())
     if (parts.length < 2 || parts.length % 2 !== 0) {
       console.warn('⚠️ [AI点外卖] 格式错误，应为：商品1,价格1,商品2,价格2')
       return { handled: false }
     }
-    
+
     // 解析商品和价格
     const items: { name: string; price: number }[] = []
     let totalAmount = 0
-    
+
     for (let i = 0; i < parts.length; i += 2) {
       const name = parts[i]
       const priceStr = parts[i + 1]
       const price = parseFloat(priceStr)
-      
+
       if (isNaN(price)) {
         console.warn(`⚠️ [AI点外卖] 价格解析失败: ${priceStr}`)
         return { handled: false }
       }
-      
+
       items.push({ name, price })
       totalAmount += price
     }
-    
+
     // 生成商品列表描述
     const itemNames = items.map(item => `${item.name} ¥${item.price.toFixed(2)}`).join('、')
-    
+
     console.log('✅ [AI点外卖] 解析成功:', { items, totalAmount, note })
-    
+
     // 生成唯一ID（使用时间戳 + 随机数）
     const baseTimestamp = Date.now()
     const paymentMessageId = baseTimestamp + Math.floor(Math.random() * 1000)
     const systemMessageId = baseTimestamp + 1000 + Math.floor(Math.random() * 1000)
-    
+
     // 创建代付消息（AI给用户点外卖，状态直接为已支付）
     const paymentMessage: Message = {
       id: paymentMessageId,
@@ -2741,7 +2741,7 @@ export const aiOrderFoodHandler: CommandHandler = {
         payerName: character?.nickname || character?.realName || 'AI'
       }
     }
-    
+
     // 添加系统消息
     const systemMsg: Message = {
       id: systemMessageId,
@@ -2751,16 +2751,16 @@ export const aiOrderFoodHandler: CommandHandler = {
       timestamp: baseTimestamp + 1,
       messageType: 'system'
     }
-    
+
     setMessages(prev => {
       const updated = [...prev, paymentMessage, systemMsg]
       saveMessages(chatId, updated)
       console.log('💾 [AI点外卖] 已保存到IndexedDB')
       return updated
     })
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -2776,13 +2776,13 @@ export const aiRequestPaymentHandler: CommandHandler = {
   pattern: /[\[【]代付[:：]([^:：\]】]+)(?:[:：]([^\]】]+))?[\]】]/,
   handler: async (match, content, { setMessages, character, messages, chatId }) => {
     console.log('💳 [AI请求代付] 处理器被调用')
-    
+
     const itemsStr = match[1]
     const note = match[2] || ''
-    
+
     // 🔥 防止重复：检查最近5秒内是否有相同的代付请求
-    const recentPayments = messages.filter(msg => 
-      msg.messageType === 'paymentRequest' && 
+    const recentPayments = messages.filter(msg =>
+      msg.messageType === 'paymentRequest' &&
       msg.type === 'received' &&
       msg.timestamp && Date.now() - msg.timestamp < 5000
     )
@@ -2794,48 +2794,48 @@ export const aiRequestPaymentHandler: CommandHandler = {
       if (hasSameRequest) {
         console.warn('⚠️ [AI请求代付] 检测到重复请求，忽略')
         const remainingText = content.replace(match[0], '').trim()
-        return { 
+        return {
           handled: true,
           remainingText,
           skipTextMessage: !remainingText
         }
       }
     }
-    
+
     // 解析商品列表：商品1,价格1,商品2,价格2
     const parts = itemsStr.split(',').map(s => s.trim())
     if (parts.length < 2 || parts.length % 2 !== 0) {
       console.warn('⚠️ [AI请求代付] 格式错误，应为：商品1,价格1,商品2,价格2')
       return { handled: false }
     }
-    
+
     // 解析商品和价格
     const items: { name: string; price: number }[] = []
     let totalAmount = 0
-    
+
     for (let i = 0; i < parts.length; i += 2) {
       const name = parts[i]
       const priceStr = parts[i + 1]
       const price = parseFloat(priceStr)
-      
+
       if (isNaN(price)) {
         console.warn(`⚠️ [AI请求代付] 价格解析失败: ${priceStr}`)
         return { handled: false }
       }
-      
+
       items.push({ name, price })
       totalAmount += price
     }
-    
+
     // 生成商品列表描述
     const itemNames = items.map(item => `${item.name} ¥${item.price.toFixed(2)}`).join('、')
-    
+
     console.log('✅ [AI请求代付] 解析成功:', { items, totalAmount, note })
-    
+
     // 生成唯一ID（使用时间戳 + 随机数）
     const baseTimestamp = Date.now()
     const paymentMessageId = baseTimestamp + Math.floor(Math.random() * 1000)
-    
+
     // 创建代付请求消息（AI向用户请求代付，状态为待确认）
     const paymentMessage: Message = {
       id: paymentMessageId,
@@ -2857,16 +2857,16 @@ export const aiRequestPaymentHandler: CommandHandler = {
         payerName: '我'
       }
     }
-    
+
     setMessages(prev => {
       const updated = [...prev, paymentMessage]
       saveMessages(chatId, updated)
       console.log('💾 [AI请求代付] 已保存到IndexedDB')
       return updated
     })
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -2882,19 +2882,19 @@ export const postHandler: CommandHandler = {
   pattern: /[\[【]帖子[:：]([^\]】]+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('📋 [AI发送帖子] 处理器被调用')
-    
+
     const postContent = match[1].trim()
-    
+
     if (!postContent) {
       console.warn('⚠️ [AI发送帖子] 帖子内容为空')
       return { handled: false }
     }
-    
+
     console.log('✅ [AI发送帖子] 帖子内容:', postContent)
-    
+
     // 生成唯一ID
     const postMessageId = generateMessageId()
-    
+
     // 创建帖子卡片消息
     const postMsg: Message = {
       id: postMessageId,
@@ -2908,11 +2908,11 @@ export const postHandler: CommandHandler = {
         prompt: `${character?.nickname || character?.realName || 'AI'} 分享的帖子`
       }
     }
-    
+
     await addMessage(postMsg, setMessages, chatId)
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -2931,17 +2931,17 @@ export const forumPostHandler: CommandHandler = {
   pattern: /[\[【](?:发布论坛帖子|发帖|论坛发帖)[:：]((?:[^\[\]】【]|\[[^\]】]*\])+)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     console.log('📋 [AI发布论坛帖子] 处理器被调用')
-    
+
     const postContent = match[1].trim()
-    
+
     // 调用API根据帖子内容决定点赞数和粉丝增长
     const isPublicFigure = (character as any)?.isPublicFigure || false
     const charName = character?.nickname || character?.realName || 'AI'
     const personality = character?.personality || ''
-    
+
     let likes = 100  // 默认值
     let newFollowers = 5  // 默认值
-    
+
     try {
       const { callZhizhiApi } = await import('../../../services/zhizhiapi')
       const prompt = `你是社交媒体数据分析师。根据以下帖子内容和发帖人信息，判断这条帖子能获得多少点赞和涨多少粉丝。
@@ -2972,26 +2972,26 @@ ${personality ? `人设：${personality}` : ''}
     } catch (e) {
       console.error('获取帖子数据失败，使用默认值:', e)
     }
-    
+
     if (!postContent) {
       console.warn('⚠️ [AI发布论坛帖子] 帖子内容为空')
       return { handled: false }
     }
-    
+
     const aiName = character?.nickname || character?.realName || 'AI'
     console.log(`✅ [AI发布论坛帖子] ${aiName} 发帖:`, postContent)
     console.log(`   点赞: ${likes}, 新增粉丝: ${newFollowers}`)
-    
+
     try {
       // 获取现有帖子和NPC
       const currentPosts = await getAllPostsAsync()
       const existingNPCs = getAllNPCs()
       const baseTimestamp = Date.now()
-      
+
       // 创建NPC（如果不存在）
       const npcId = character?.id || `ai-npc-${baseTimestamp}`
       const npcAvatar = character?.avatar || '/default-avatar.png'
-      
+
       const existingNPC = existingNPCs.find(n => n.id === npcId)
       if (!existingNPC) {
         existingNPCs.push({
@@ -3007,7 +3007,7 @@ ${personality ? `人设：${personality}` : ''}
         console.log(`📈 [AI发布论坛帖子] ${aiName} 粉丝增加 ${newFollowers}，当前: ${existingNPC.followers}`)
       }
       saveNPCs(existingNPCs)
-      
+
       // 创建帖子
       const postId = `ai-post-${baseTimestamp}-${Math.random().toString(36).substr(2, 9)}`
       const newPost = {
@@ -3021,18 +3021,18 @@ ${personality ? `人设：${personality}` : ''}
         timestamp: baseTimestamp,
         isLiked: false
       }
-      
+
       currentPosts.unshift(newPost)
       await savePosts(currentPosts)
-      
+
       console.log(`✅ [AI发布论坛帖子] 帖子已创建: ${postId}, 点赞: ${likes}`)
-      
+
       // 发送帖子卡片给用户看
       const postMessageId = generateMessageId()
-      const statsText = likes > 0 || newFollowers > 0 
+      const statsText = likes > 0 || newFollowers > 0
         ? `\n📊 ${likes > 0 ? `获得${likes}个赞` : ''}${likes > 0 && newFollowers > 0 ? '，' : ''}${newFollowers > 0 ? `涨了${newFollowers}个粉` : ''}`
         : ''
-      
+
       // 格式化帖子内容，让PostCard能正确识别楼主
       const formattedContent = `楼主（${aiName}）：${postContent}`
       const postMsg: Message = {
@@ -3049,22 +3049,22 @@ ${personality ? `人设：${personality}` : ''}
         // AI读取的简洁版本
         aiReadableContent: `【论坛发帖】${postContent}${statsText}`
       }
-      
+
       await addMessage(postMsg, setMessages, chatId)
-      
+
       // 异步生成评论（不阻塞）
       setTimeout(async () => {
         try {
           console.log(`🚀 [AI发布论坛帖子] 开始生成评论: ${postId}`)
           const allCharacters = await getAllCharacters()
-          
+
           // 获取楼主（AI角色）的历史帖子
           const authorPosts = (await getAllPostsAsync())
             .filter(p => p.npcId === npcId)
             .slice(0, 10)
             .map(p => p.content.substring(0, 80))
           console.log(`📝 楼主历史帖子: ${authorPosts.length}条`)
-          
+
           // 获取最近的聊天记录（让AI角色参与评论时有上下文）
           let chatContext = ''
           if (chatId) {
@@ -3078,14 +3078,14 @@ ${personality ? `人设：${personality}` : ''}
               console.log(`💬 聊天上下文: ${recentMessages.length}条消息`)
             }
           }
-          
+
           // 传入帖子作者名称（无论是否公众人物都要告诉评论生成器谁是楼主）
           await generateRealAIComments(postId, postContent, allCharacters, authorPosts, aiName)
-          
+
           // 更新帖子评论数
           const { getPostComments } = await import('../../../utils/forumCommentsDB')
           const postComments = await getPostComments(postId)
-          
+
           const updatedPosts = await getAllPostsAsync()
           const targetPost = updatedPosts.find(p => p.id === postId)
           if (targetPost) {
@@ -3095,13 +3095,13 @@ ${personality ? `人设：${personality}` : ''}
             await savePosts(updatedPosts)
             console.log(`✅ [AI发布论坛帖子] 评论数: ${totalComments}`)
           }
-          
+
           // 把评论汇总作为AI可读消息插入（用户界面不显示）
           if (postComments.length > 0) {
             // 取前几条热门评论
             const topComments = postComments.slice(0, 3).map(c => `${c.authorName}：${c.content}`).join('\n')
             const commentSummary = `【帖子评论】收到${postComments.length}条评论：\n${topComments}${postComments.length > 3 ? '\n...' : ''}`
-            
+
             const commentMsgId = generateMessageId()
             const commentMsg: Message = {
               id: commentMsgId,
@@ -3117,14 +3117,14 @@ ${personality ? `人设：${personality}` : ''}
           console.error('❌ [AI发布论坛帖子] 生成评论失败:', error)
         }
       }, 1000)
-      
+
     } catch (error) {
       console.error('❌ [AI发布论坛帖子] 发帖失败:', error)
       return { handled: false }
     }
-    
+
     const remainingText = content.replace(match[0], '').trim()
-    return { 
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -3144,35 +3144,35 @@ export const theatreHandler: CommandHandler = {
     console.log('🎭🎭🎭 [小剧场] 处理器被调用！！！')
     console.log('🎭 [小剧场] match:', match)
     console.log('🎭 [小剧场] content:', content)
-    
+
     const fullMatch = match[1].trim()
     console.log('🎭 [小剧场] 完整匹配:', fullMatch)
-    
+
     // 从指令中提取模板名（第一个|之前的部分）
     const templateNameInCommand = fullMatch.split('|')[0].trim()
     console.log('🎭 [小剧场] 指令中的模板名:', templateNameInCommand)
-    
+
     // 获取所有模板（内置+自定义）
     const customTemplatesStr = localStorage.getItem('theatre_custom_templates')
     const customTemplates = customTemplatesStr ? JSON.parse(customTemplatesStr) : []
     const allTemplates = [...(await import('../../../data/theatreTemplates')).theatreTemplates, ...customTemplates]
-    
+
     // 根据模板名查找（不再依赖用户消息关键词）
     const template = allTemplates.find(t => t.name === templateNameInCommand)
     if (!template) {
       console.warn('⚠️ [小剧场] 未找到匹配的模板:', templateNameInCommand)
       return { handled: false }
     }
-    
+
     console.log('✅ [小剧场] 找到模板:', template.name)
-    
+
     let rawData = ''
-    
+
     // 检查是否有 | 分隔的数据（单行格式）
     if (fullMatch.includes('|')) {
       const parts = fullMatch.split('|')
       const fieldsData = parts.slice(1).join('|') // 跳过模板名
-      
+
       const fields = fieldsData.split('|').filter(f => f.trim())
       rawData = fields.map(field => {
         const colonIndex = field.indexOf(':')
@@ -3186,37 +3186,37 @@ export const theatreHandler: CommandHandler = {
     } else {
       // 多行格式：从指令后面提取数据
       const afterMatch = content.substring(content.indexOf(match[0]) + match[0].length)
-      
+
       // 找到下一个指令的位置
       const nextCommandIndex = afterMatch.search(/[\[【]/)
-      const dataText = nextCommandIndex >= 0 
+      const dataText = nextCommandIndex >= 0
         ? afterMatch.substring(0, nextCommandIndex).trim()
         : afterMatch.trim()
-      
+
       // 提取前几行作为数据（最多10行）
       const lines = dataText.split('\n').slice(0, 10).filter(line => {
         const trimmed = line.trim()
         return trimmed && trimmed.includes(':') || trimmed.includes('：')
       })
-      
+
       rawData = lines.join('\n')
     }
-    
+
     console.log('🎭 [小剧场] 解析数据:', rawData)
-    
+
     if (!rawData) {
       console.warn('⚠️ [小剧场] 数据为空')
       return { handled: false }
     }
-    
+
     // 使用fillTemplate生成HTML
     const htmlContent = fillTemplate(template, rawData)
     console.log('🎭 [小剧场] 生成的HTML长度:', htmlContent.length)
     console.log('🎭 [小剧场] HTML前100字符:', htmlContent.substring(0, 100))
-    
+
     // 生成唯一ID
     const theatreMessageId = generateMessageId()
-    
+
     // 创建小剧场消息
     const theatreMsg: Message = {
       id: theatreMessageId,
@@ -3232,9 +3232,9 @@ export const theatreHandler: CommandHandler = {
         rawData
       }
     }
-    
+
     await addMessage(theatreMsg, setMessages, chatId)
-    
+
     // 移除已处理的部分（指令 + 数据行）
     let processedText = match[0]
     if (!fullMatch.includes('|')) {
@@ -3244,10 +3244,10 @@ export const theatreHandler: CommandHandler = {
       const linesToRemove = afterMatch.split('\n').slice(0, dataLines + 2).join('\n')
       processedText = match[0] + linesToRemove
     }
-    
+
     const remainingText = content.replace(processedText, '').trim()
-    
-    return { 
+
+    return {
       handled: true,
       remainingText,
       skipTextMessage: !remainingText
@@ -3264,10 +3264,10 @@ export const pokeHandler: CommandHandler = {
     const userInfo = getUserInfo()
     const userName = userInfo.nickname || userInfo.realName || '用户'
     const aiName = character?.nickname || character?.realName || 'AI'
-    
+
     // 获取用户的拍一拍后缀（如果设置了）
     const userPokeSuffix = userInfo.pokeSuffix || ''
-    
+
     const pokeMsg = createMessageObj('poke', {
       type: 'system',
       content: `${aiName}拍了拍${userName}${userPokeSuffix}`,
@@ -3282,8 +3282,8 @@ export const pokeHandler: CommandHandler = {
     await addMessage(pokeMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -3292,17 +3292,31 @@ export const pokeHandler: CommandHandler = {
 
 /**
  * 判定回应指令处理器
- * 格式: [判定回应:AI的立场陈述]
+ * 格式: [判定回应:AI的立场陈述] 或 [判定回应] AI的立场陈述 (可以没有结束的])
  * AI收到判定请求后用这个指令回复自己的立场
  */
 export const judgmentResponseHandler: CommandHandler = {
-  pattern: /[\[【]判定回应[:：](.+?)[\]】]/s,
+  // 支持多种格式：
+  // 1. [判定回应: 内容]
+  // 2. [判定回应] 内容 (AI当前使用的格式)
+  // 3. [判定回应] \n 内容
+  pattern: /[\[【]判定回应(?:[:：]\s*|\s+|[\]】]\s*)(.+?)(?=$|[\[【])/s,
   handler: async (match, content, { setMessages, character, chatId }) => {
-    const aiReason = match[1].trim()
+    let aiReason = match[1].trim()
+
+    // 如果匹配到了整个剩余内容，需要检查是否有其他指令
+    // 如果有，只取到下一个指令之前的内容
+    const nextCommandIndex = aiReason.search(/[\[【]/)
+    if (nextCommandIndex > 0) {
+      aiReason = aiReason.substring(0, nextCommandIndex).trim()
+    }
+
     const userInfo = getUserInfo()
     const userName = userInfo.nickname || userInfo.realName || '用户'
     const aiName = character?.nickname || character?.realName || '对方'
-    
+
+    console.log('⚖️ [判定回应] 检测到指令，AI立场:', aiReason.substring(0, 100))
+
     // 创建判定回应消息
     const responseMsg = createMessageObj('judgment', {
       type: 'received',
@@ -3314,13 +3328,13 @@ export const judgmentResponseHandler: CommandHandler = {
         characterName: aiName
       }
     })
-    
+
     await addMessage(responseMsg, setMessages, chatId)
-    console.log('⚖️ [判定回应]', aiName, aiReason.substring(0, 50) + '...')
+    console.log('✅ [判定回应] 已创建回应卡片:', aiName)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: true  // 已经有判定回应卡片，不需要再发文本
     }
@@ -3337,20 +3351,20 @@ export const phoneOperationHandler: CommandHandler = {
   handler: async (match, content, { setMessages, character, chatId }) => {
     const operationDesc = match[1].trim()
     const aiName = character?.nickname || character?.realName || '对方'
-    
+
     // 创建系统消息显示操作
     const operationMsg = createMessageObj('system', {
       type: 'system',
       content: `${aiName}${operationDesc}`,
       aiReadableContent: `【系统通知】${aiName}执行了手机操作：${operationDesc}`
     })
-    
+
     await addMessage(operationMsg, setMessages, chatId)
     console.log('📱 [手机操作]', aiName, operationDesc)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: !remainingText
     }
@@ -3358,10 +3372,10 @@ export const phoneOperationHandler: CommandHandler = {
 }
 
 /**
- * 修改拍一拍后缀指令处理器
- * 格式: [修改拍一拍:的小脑袋] 或 [改拍一拍:的肩膀]
- * AI修改的是用户的后缀（AI拍用户时显示）
- */
+     * 修改拍一拍后缀指令处理器
+     * 格式: [修改拍一拍:的小脑袋] 或 [改拍一拍:的肩膀]
+     * AI修改的是用户的后缀（AI拍用户时显示）
+     */
 export const changePokeSuffixHandler: CommandHandler = {
   pattern: /[\[【](?:修改|改)拍一拍[:：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
@@ -3370,14 +3384,14 @@ export const changePokeSuffixHandler: CommandHandler = {
     }
 
     const newSuffix = match[1].trim()
-    
+
     // 更新用户的拍一拍后缀（AI拍用户时显示）
     const { getUserInfo, saveUserInfo } = await import('../../../utils/userUtils')
     const userInfo = getUserInfo()
     saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
-    
+
     console.log('✅ AI修改了用户的拍一拍后缀:', newSuffix)
-    
+
     // 添加系统提示消息
     const aiName = character.nickname || character.realName
     const notificationMsg = createMessageObj('system', {
@@ -3388,8 +3402,8 @@ export const changePokeSuffixHandler: CommandHandler = {
     await addMessage(notificationMsg, setMessages, chatId)
 
     const remainingText = content.replace(match[0], '').trim()
-    return { 
-      handled: true, 
+    return {
+      handled: true,
       remainingText,
       skipTextMessage: false  // 不跳过文本消息，AI还可以说话
     }

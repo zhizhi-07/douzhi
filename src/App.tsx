@@ -100,6 +100,8 @@ import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
 import { ContactsProvider } from './context/ContactsContext'
 import MainLayout from './components/MainLayout'
+import LiveBroadcast from './pages/LiveBroadcast'
+import LiveRoom from './pages/LiveRoom'
 
 function App() {
   const location = useLocation()
@@ -494,6 +496,9 @@ function App() {
             <Route path="/discover" element={<Discover />} />
             <Route path="/me" element={<Me />} />
           </Route>
+
+          <Route path="/live" element={<LiveBroadcast />} />
+          <Route path="/live/:id" element={<LiveRoom />} />
 
           <Route path="/group/:id" element={<GroupChatDetail />} />
           <Route path="/group/:id/settings" element={<GroupChatSettings />} />
