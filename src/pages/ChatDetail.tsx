@@ -26,10 +26,11 @@ import AIMemoModal from '../components/AIMemoModal'
 import AIStatusModal from '../components/AIStatusModal'
 import PostGenerator from '../components/PostGenerator'
 import FriendRequestModal from '../components/FriendRequestModal'
+import JudgmentInputModal from '../components/JudgmentModal'
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment } from './ChatDetail/hooks'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -76,6 +77,8 @@ const ChatDetail = () => {
 
   // 备忘录弹窗状态
   const [showAIMemoModal, setShowAIMemoModal] = useState(false)
+
+  // 判定对错功能状态由useJudgment hook管理（在下方chatAI初始化后使用）
 
   // AI状态弹窗
   const [showAIStatusModal, setShowAIStatusModal] = useState(false)
@@ -264,6 +267,9 @@ const ChatDetail = () => {
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
 
+  // 判定对错功能
+  const judgment = useJudgment(id, chatState.character, chatState.messages, chatState.setMessages, chatAI.handleAIReply)
+
   // 拍一拍功能
   const { handlePoke } = usePoke(id, chatState.character, chatState.messages, chatState.setMessages)
 
@@ -419,7 +425,8 @@ const ChatDetail = () => {
     () => postGenerator.setShowPostGenerator(true),  // 帖子生成
     handleFormatCorrection,  // 格式修正
     () => navigate(`/chat/${id}/weather`),  // 天气
-    () => navigate(`/envelope?characterId=${id}`)  // 信封
+    () => navigate(`/envelope?characterId=${id}`),  // 信封
+    () => judgment.setShowJudgmentModal(true)  // 判定对错
   )
 
   // 多选模式
@@ -1049,6 +1056,7 @@ const ChatDetail = () => {
                             message.messageType === 'poke' ||
                             message.messageType === 'musicShare' ||
                             message.messageType === 'friendRequest' ||
+                            message.messageType === 'judgment' ||
                             (message.messageType as any) === 'musicInvite' ? (
                             <SpecialMessageRenderer
                               message={message}
@@ -1195,6 +1203,8 @@ const ChatDetail = () => {
                                 })
                                 window.dispatchEvent(new CustomEvent('friend-request-changed'))
                               }}
+                              onRequestJudgment={judgment.requestJudgment}
+                              isJudging={judgment.isJudging}
                             />
                           ) : (
                             <MessageBubble
@@ -1497,6 +1507,7 @@ const ChatDetail = () => {
         onSelectFormatCorrector={addMenu.handlers.handleSelectFormatCorrector}
         onSelectWeather={addMenu.handlers.handleSelectWeather}
         onSelectEnvelope={addMenu.handlers.handleSelectEnvelope}
+        onSelectJudgment={addMenu.handlers.handleSelectJudgment}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
       />
@@ -1798,6 +1809,14 @@ const ChatDetail = () => {
         onClose={() => setShowFriendRequestModal(false)}
         onSend={handleSendFriendRequest}
         characterName={character.nickname || character.realName}
+      />
+
+      {/* ⚖️ 判定对错输入弹窗 */}
+      <JudgmentInputModal
+        isOpen={judgment.showJudgmentModal}
+        onClose={() => judgment.setShowJudgmentModal(false)}
+        characterName={character.nickname || character.realName}
+        onSubmit={judgment.sendJudgmentRequest}
       />
     </div>
   )

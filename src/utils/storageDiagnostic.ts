@@ -378,10 +378,51 @@ export async function clearImages(): Promise<void> {
 }
 
 /**
+ * 🔥 清理消息备份文件（msg_backup_*）
+ * 这些备份文件是为了防止数据丢失，但会占用大量LocalStorage空间
+ */
+export function clearMessageBackups(): { count: number; freedSize: number; freedSizeStr: string } {
+  console.log('🧹 开始清理消息备份文件...')
+  
+  let count = 0
+  let freedSize = 0
+  const keysToDelete: string[] = []
+  
+  // 找出所有msg_backup_开头的key
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith('msg_backup_')) {
+      const value = localStorage.getItem(key) || ''
+      const size = (key.length + value.length) * 2
+      keysToDelete.push(key)
+      freedSize += size
+      console.log(`  🗑️ 待删除: ${key} (${formatSize(size)})`)
+    }
+  }
+  
+  // 执行删除
+  keysToDelete.forEach(key => {
+    localStorage.removeItem(key)
+    count++
+  })
+  
+  console.log(`✅ 已清理 ${count} 个备份文件，释放 ${formatSize(freedSize)} 空间`)
+  
+  return {
+    count,
+    freedSize,
+    freedSizeStr: formatSize(freedSize)
+  }
+}
+
+/**
  * 紧急清理 - 释放最大空间
  */
 export async function emergencyCleanup(): Promise<void> {
   console.warn('🚨 执行紧急清理...')
+  
+  // 0. 🔥 首先清理消息备份（这是最大的空间占用者）
+  clearMessageBackups()
   
   // 1. 清理 localStorage 中的大数据
   const ls = analyzeLocalStorage()
@@ -410,6 +451,7 @@ if (typeof window !== 'undefined') {
     cleanupMessages: cleanupOldMessages,
     clearEmojis: clearEmojis,
     clearImages: clearImages,
+    clearBackups: clearMessageBackups,
     emergency: emergencyCleanup
   }
   
@@ -418,5 +460,6 @@ if (typeof window !== 'undefined') {
   console.log('  - window.storageDiag.cleanupMessages(50)  // 清理旧消息，保留最近50条')
   console.log('  - window.storageDiag.clearEmojis()   // 清理所有表情包')
   console.log('  - window.storageDiag.clearImages()   // 清理所有壁纸图片')
+  console.log('  - window.storageDiag.clearBackups()  // 🔥 清理消息备份文件')
   console.log('  - window.storageDiag.emergency()     // 紧急清理（释放最大空间）')
 }

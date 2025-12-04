@@ -629,17 +629,26 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     }
     
     // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
-    // 限制：只保存最近50条消息的备份，避免localStorage空间不足
+    // 🔥 优化：只备份15条，且移除图片内容，避免占用太多localStorage空间
     try {
       const backupKey = `msg_backup_${storageKey}`
-      const recentMessages = cleanedMessages.slice(-50) // 只备份最近50条
+      const recentMessages = cleanedMessages.slice(-15) // 只备份最近15条（减少空间占用）
+      
+      // 🔥 移除图片内容，用占位符替代（图片太大会撑爆localStorage）
+      const lightMessages = recentMessages.map(msg => {
+        if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
+          return { ...msg, photoBase64: '[图片已省略]' }
+        }
+        return msg
+      })
+      
       localStorage.setItem(backupKey, JSON.stringify({
-        messages: recentMessages,
+        messages: lightMessages,
         timestamp: Date.now(),
-        totalCount: cleanedMessages.length // 记录总数，用于恢复时判断
+        totalCount: cleanedMessages.length
       }))
       if (import.meta.env.DEV) {
-        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}, backup=${recentMessages.length}/${cleanedMessages.length}`)
+        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}, backup=${lightMessages.length}/${cleanedMessages.length}`)
       }
     } catch {
       // 空间不足，直接放弃备份，IndexedDB会保存完整数据
@@ -697,16 +706,24 @@ export function addMessage(chatId: string, message: Message): void {
   const storageKey = getAccountChatKey(chatId)
   
   // 🔥 立即同步备份到localStorage（最高优先级，确保不丢失）
-  // 限制：只保存最近50条消息的备份
+  // 🔥 优化：只备份15条，且移除图片内容
   try {
     const backupKey = `msg_backup_${storageKey}`
     const cachedMessages = messageCache.get(storageKey) || []
     const updatedMessages = [...cachedMessages, message]
-    const recentMessages = updatedMessages.slice(-50) // 只备份最近50条
+    const recentMessages = updatedMessages.slice(-15) // 只备份最近15条
+    
+    // 🔥 移除图片内容
+    const lightMessages = recentMessages.map(msg => {
+      if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
+        return { ...msg, photoBase64: '[图片已省略]' }
+      }
+      return msg
+    })
     
     const seen = new WeakSet()
     const jsonString = JSON.stringify({
-      messages: recentMessages,
+      messages: lightMessages,
       timestamp: Date.now(),
       totalCount: updatedMessages.length
     }, (_key, value) => {
@@ -723,7 +740,7 @@ export function addMessage(chatId: string, message: Message): void {
     
     localStorage.setItem(backupKey, jsonString)
     if (import.meta.env.DEV) {
-      console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, backup=${recentMessages.length}条`)
+      console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, backup=${lightMessages.length}条`)
     }
   } catch {
     // 空间不足，静默失败，IndexedDB会保存完整数据
@@ -761,15 +778,24 @@ export function addMessages(chatId: string, newMessages: Message[]): void {
   const storageKey = getAccountChatKey(chatId)
   
   // 🔥 立即同步备份到localStorage
+  // 🔥 优化：只备份15条，且移除图片内容
   try {
     const backupKey = `msg_backup_${storageKey}`
     const cachedMessages = messageCache.get(storageKey) || []
     const updatedMessages = [...cachedMessages, ...newMessages]
-    const recentMessages = updatedMessages.slice(-50)
+    const recentMessages = updatedMessages.slice(-15) // 只备份15条
+    
+    // 🔥 移除图片内容
+    const lightMessages = recentMessages.map(msg => {
+      if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
+        return { ...msg, photoBase64: '[图片已省略]' }
+      }
+      return msg
+    })
     
     const seen = new WeakSet()
     const jsonString = JSON.stringify({
-      messages: recentMessages,
+      messages: lightMessages,
       timestamp: Date.now(),
       totalCount: updatedMessages.length
     }, (_key, value) => {
@@ -785,7 +811,7 @@ export function addMessages(chatId: string, newMessages: Message[]): void {
     })
     
     localStorage.setItem(backupKey, jsonString)
-    console.log(`💾 [addMessages] 批量备份: ${newMessages.length}条消息`)
+    console.log(`💾 [addMessages] 批量备份: ${lightMessages.length}条消息`)
   } catch {
     // 空间不足，静默失败
   }

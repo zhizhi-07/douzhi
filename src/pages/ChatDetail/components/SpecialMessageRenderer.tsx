@@ -14,6 +14,7 @@ import ProductCard from '../../../components/ProductCard'
 import PostCard from '../../../components/PostCard'
 import TheatreMessage from '../../../components/TheatreMessage'
 import RedPacketCard from '../../../components/RedPacketCard'
+import JudgmentCard from '../../../components/JudgmentCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -36,6 +37,8 @@ interface SpecialMessageRendererProps {
   onOpenRedPacket?: (messageId: number) => void
   onAcceptFriendRequest?: (messageId: number) => void
   onRejectFriendRequest?: (messageId: number) => void
+  onRequestJudgment?: (messageId: number) => void  // 请求判定
+  isJudging?: boolean  // 是否正在判定中
 }
 
 /**
@@ -62,7 +65,9 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onRejectPayment,
   onOpenRedPacket,
   onAcceptFriendRequest,
-  onRejectFriendRequest
+  onRejectFriendRequest,
+  onRequestJudgment,
+  isJudging
 }) => {
   // 红包
   if ((message.messageType as any) === 'redPacket' && (message as any).redPacket) {
@@ -280,6 +285,18 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
       <div className="text-sm text-gray-500 text-center py-1">
         {message.poke.fromName}拍了拍{message.poke.toName}{suffix}
       </div>
+    )
+  }
+
+  // 判定对错卡片
+  if (message.messageType === 'judgment' && message.judgmentData) {
+    return (
+      <JudgmentCard
+        data={message.judgmentData}
+        isFromUser={message.type === 'sent'}
+        onRequestJudgment={message.judgmentData.type === 'response' ? () => onRequestJudgment?.(message.id) : undefined}
+        isJudging={isJudging}
+      />
     )
   }
 

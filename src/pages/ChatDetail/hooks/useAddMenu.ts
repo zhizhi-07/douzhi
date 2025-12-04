@@ -21,7 +21,8 @@ export const useAddMenu = (
   onOpenPost?: () => void,
   onFormatCorrector?: () => void,
   onOpenWeather?: () => void,
-  onOpenEnvelope?: () => void
+  onOpenEnvelope?: () => void,
+  onOpenJudgment?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -210,6 +211,17 @@ export const useAddMenu = (
     }
   }, [onOpenEnvelope])
 
+  /**
+   * 判定对错
+   */
+  const handleSelectJudgment = useCallback(() => {
+    console.log('⚖️ 点击判定对错按钮')
+    setShowAddMenu(false)
+    if (onOpenJudgment) {
+      onOpenJudgment()
+    }
+  }, [onOpenJudgment])
+
   return {
     showAddMenu,
     setShowAddMenu,
@@ -231,7 +243,8 @@ export const useAddMenu = (
       handleSelectPost,
       handleSelectFormatCorrector,
       handleSelectWeather,
-      handleSelectEnvelope
+      handleSelectEnvelope,
+      handleSelectJudgment
     }
   }
 }

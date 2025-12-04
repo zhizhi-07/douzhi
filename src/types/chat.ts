@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest' | 'judgment'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -132,6 +132,21 @@ export interface Message {
   friendRequest?: {           // 好友申请
     status: 'pending' | 'accepted' | 'rejected'
     message: string           // 验证消息
+  }
+  judgmentData?: {            // 判定对错数据
+    type: 'request' | 'response' | 'result'
+    userReason?: string       // 用户的立场
+    aiReason?: string         // AI的立场
+    bias?: 'neutral' | 'user' | 'ai'  // 判定偏向
+    result?: {                // 判定结果
+      winner: 'user' | 'ai' | 'draw'
+      reason: string
+      solution: string
+      userScore: number
+      aiScore: number
+    }
+    userName?: string
+    characterName?: string
   }
   source?: 'dm'               // 消息来源：dm=论坛私聊（同步到主聊天时标记）
 }

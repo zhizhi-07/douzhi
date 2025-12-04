@@ -390,29 +390,20 @@ const buildUserAvatarContext = (): string => {
     return ''
   }
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   const desc = avatarInfo.current.description
   
   // 🔥 处理占位描述的情况
-  if (desc.includes('待识别') || desc.includes('无法看到') || desc.includes('识别失败')) {
+  if (desc.includes('待识别') || desc.includes('无法看到') || desc.includes('识别失败') || desc.includes('不支持图片识别')) {
     return `- 对方头像：用户设置了头像，但你当前无法看到图片内容（如果对方问你头像怎么样，可以坦诚说看不到图片，让对方描述一下）`
   }
 
-  let text = `- 对方头像：${desc}（${formatTime(avatarInfo.current.identifiedAt)} 识别）`
+  // 🔥 明确标注【当前】头像，避免AI混淆
+  let text = `- 对方【当前】头像：${desc}`
 
-  // 如果有最近的变更历史，显示最新一次
+  // 如果有变更历史，显示最近一次（明确说是【以前】的）
   if (avatarInfo.history.length > 0) {
     const latest = avatarInfo.history[avatarInfo.history.length - 1]
-    text += `\n  💡 最近变更：${formatTime(latest.changedAt)} 从"${latest.previousDescription}"换成了"${latest.description}"`
+    text += `\n  （注意：TA以前用的头像是"${latest.previousDescription}"，已经换掉了，不要再提以前的头像）`
   }
 
   return text
@@ -1582,6 +1573,30 @@ const buildDynamicInstructions = (messages: Message[]): string => {
 - 用户邀请你一起听歌，你可以：
   - 接受：[接受一起听] 或直接说"好啊"、"走起"、"来吧"等
   - 拒绝：[拒绝一起听] 或直接说"不想听"、"下次吧"、"算了"等`)
+  }
+  
+  // 检查是否有判定请求（用户发起"谁对谁错"判定）
+  const hasJudgmentRequest = recentMessages.some(
+    msg => msg.messageType === 'judgment' && msg.judgmentData?.type === 'request' && msg.type === 'sent'
+  )
+  // 检查是否已经有回应
+  const hasJudgmentResponse = recentMessages.some(
+    msg => msg.messageType === 'judgment' && msg.judgmentData?.type === 'response'
+  )
+  if (hasJudgmentRequest && !hasJudgmentResponse) {
+    // 找到请求内容
+    const requestMsg = recentMessages.find(
+      msg => msg.messageType === 'judgment' && msg.judgmentData?.type === 'request'
+    )
+    const userReason = requestMsg?.judgmentData?.userReason || ''
+    
+    instructions.push(`
+⚖️ 判定请求（"谁对谁错"功能）：
+- 用户发起了判定请求，陈述了TA的立场：「${userReason.substring(0, 100)}${userReason.length > 100 ? '...' : ''}」
+- 你必须用 [判定回应:你的立场和感受] 来回应
+- 请根据你的性格和角色立场，陈述你在这件事上的观点和感受
+- 可以不同意用户的观点，要有自己的立场
+- 例如：[判定回应:我觉得这件事不能全怪我，因为...]`)
   }
   
   if (instructions.length === 0) {

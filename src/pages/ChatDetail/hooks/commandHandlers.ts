@@ -3291,6 +3291,43 @@ export const pokeHandler: CommandHandler = {
 }
 
 /**
+ * 判定回应指令处理器
+ * 格式: [判定回应:AI的立场陈述]
+ * AI收到判定请求后用这个指令回复自己的立场
+ */
+export const judgmentResponseHandler: CommandHandler = {
+  pattern: /[\[【]判定回应[:：](.+?)[\]】]/s,
+  handler: async (match, content, { setMessages, character, chatId }) => {
+    const aiReason = match[1].trim()
+    const userInfo = getUserInfo()
+    const userName = userInfo.nickname || userInfo.realName || '用户'
+    const aiName = character?.nickname || character?.realName || '对方'
+    
+    // 创建判定回应消息
+    const responseMsg = createMessageObj('judgment', {
+      type: 'received',
+      content: `[判定回应] ${aiReason}`,
+      judgmentData: {
+        type: 'response',
+        aiReason,
+        userName,
+        characterName: aiName
+      }
+    })
+    
+    await addMessage(responseMsg, setMessages, chatId)
+    console.log('⚖️ [判定回应]', aiName, aiReason.substring(0, 50) + '...')
+
+    const remainingText = content.replace(match[0], '').trim()
+    return { 
+      handled: true, 
+      remainingText,
+      skipTextMessage: true  // 已经有判定回应卡片，不需要再发文本
+    }
+  }
+}
+
+/**
  * 手机操作指令处理器（通用格式）
  * 格式: [手机操作:操作描述]
  * AI可以用这个格式描述任何手机操作，系统会显示为系统消息
@@ -3413,5 +3450,6 @@ export const commandHandlers: CommandHandler[] = [
   theatreHandler,  // 小剧场
   pokeHandler,  // 拍一拍
   changePokeSuffixHandler,  // 修改拍一拍后缀
-  phoneOperationHandler  // 手机操作（通用格式）
+  phoneOperationHandler,  // 手机操作（通用格式）
+  judgmentResponseHandler  // 判定回应
 ]
