@@ -2,7 +2,7 @@
  * 默契游戏 Hook - 你画我猜 / 你演我猜
  */
 import { useState, useRef, useCallback } from 'react'
-import { getRandomTopic } from '../../../components/TacitGamePanel'
+import { getRandomTopic, refreshTopics, needsRefresh, getRemainingCount } from '../../../components/TacitGamePanel'
 import type { Message } from '../../../types/chat'
 
 interface UseTacitGameProps {
@@ -28,10 +28,12 @@ export const useTacitGame = ({
   const [topic, setTopic] = useState('')
   const [showPanel, setShowPanel] = useState(false)
   const [hasSent, setHasSent] = useState(false)  // 是否已发送画作/描述
+  const [isRefreshing, setIsRefreshing] = useState(false)  // 是否正在刷新题库
   
-  // 检查AI是否已经猜了（发送后AI有新回复）
-  const hasAiGuessed = (() => {
-    if (!hasSent) return false
+  // 检查AI是否已经猜了，以及猜的内容
+  const aiGuessResult = (() => {
+    if (!hasSent || !topic) return { hasGuessed: false, guess: '', isCorrect: false }
+    
     // 找到最后一条游戏消息（用户发的画/描述）
     let lastGameMsgIndex = -1
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -43,12 +45,48 @@ export const useTacitGame = ({
         break
       }
     }
-    if (lastGameMsgIndex === -1) return false
-    // 检查之后是否有AI回复
-    return messages.slice(lastGameMsgIndex + 1).some(msg => 
+    if (lastGameMsgIndex === -1) return { hasGuessed: false, guess: '', isCorrect: false }
+    
+    // 获取AI的回复
+    const aiReplies = messages.slice(lastGameMsgIndex + 1).filter(msg => 
       msg.type === 'received' && msg.content
     )
+    if (aiReplies.length === 0) return { hasGuessed: false, guess: '', isCorrect: false }
+    
+    // 从最新的AI回复中提取猜测
+    const lastReply = aiReplies[aiReplies.length - 1].content || ''
+    
+    // 提取猜测内容（支持多种格式）
+    const patterns = [
+      /你画我猜[：:]\s*(.+?)(?:\s|$|[，。！？])/,
+      /你演我猜[：:]\s*(.+?)(?:\s|$|[，。！？])/,
+      /我猜[是]?[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
+      /应该是[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
+      /是不是[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
+    ]
+    
+    let guess = ''
+    for (const pattern of patterns) {
+      const match = lastReply.match(pattern)
+      if (match) {
+        guess = match[1].trim()
+        break
+      }
+    }
+    
+    // 判定是否猜对（模糊匹配）
+    const normalizedTopic = topic.toLowerCase().trim()
+    const normalizedGuess = guess.toLowerCase().trim()
+    const isCorrect = normalizedGuess.length > 0 && (
+      normalizedTopic === normalizedGuess ||
+      normalizedTopic.includes(normalizedGuess) ||
+      normalizedGuess.includes(normalizedTopic)
+    )
+    
+    return { hasGuessed: true, guess, isCorrect }
   })()
+  
+  const hasAiGuessed = aiGuessResult.hasGuessed
   
   // 保存画布/描述数据的ref
   const canvasDataRef = useRef<string | null>(null)
@@ -71,13 +109,30 @@ export const useTacitGame = ({
     descriptionRef.current = ''
   }, [])
 
-  // 换题
-  const changeTopic = useCallback(() => {
-    if (gameType) {
+  // 换题（缓存用完时调API刷新）
+  const changeTopic = useCallback(async () => {
+    if (!gameType) return
+    
+    // 检查缓存是否用完
+    if (needsRefresh(gameType)) {
+      // 需要刷新，调用API
+      setIsRefreshing(true)
+      try {
+        const newTopic = await refreshTopics(gameType)
+        setTopic(newTopic)
+      } catch (e) {
+        console.error('刷新题库失败', e)
+        setTopic(getRandomTopic(gameType))
+      } finally {
+        setIsRefreshing(false)
+      }
+    } else {
+      // 从缓存取
       setTopic(getRandomTopic(gameType))
-      canvasDataRef.current = null
-      descriptionRef.current = ''
     }
+    
+    canvasDataRef.current = null
+    descriptionRef.current = ''
   }, [gameType])
 
   // 结束游戏
@@ -179,6 +234,9 @@ export const useTacitGame = ({
     endGame()
   }, [characterId, topic, gameType, setMessages, saveMessages, playSound, endGame])
 
+  // 获取剩余题目数量
+  const remainingCount = gameType ? getRemainingCount(gameType) : 0
+  
   return {
     // 状态
     showGameSelect,
@@ -186,9 +244,13 @@ export const useTacitGame = ({
     topic,
     showPanel,
     hasSent,  // 是否已发送画作/描述
-    hasAiGuessed,  // AI是否已猜测（包含格式）
+    hasAiGuessed,  // AI是否已猜测
+    aiGuess: aiGuessResult.guess,  // AI猜的内容
+    isAiCorrect: aiGuessResult.isCorrect,  // AI是否猜对
     canvasDataRef,
     descriptionRef,
+    isRefreshing,  // 是否正在刷新题库
+    remainingCount,  // 剩余题目数量
     
     // 操作
     openGameSelect,

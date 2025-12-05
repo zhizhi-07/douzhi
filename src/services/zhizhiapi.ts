@@ -156,9 +156,12 @@ export const callZhizhiApi = async (
     max_tokens
   })
   
+  // 随机起始位置，分散负载
+  const startIndex = Math.floor(Math.random() * ZHIZHI_APIS.length)
+  
   // 尝试所有API，直到成功
   for (let i = 0; i < ZHIZHI_APIS.length; i++) {
-    const api = ZHIZHI_APIS[i]
+    const api = ZHIZHI_APIS[(startIndex + i) % ZHIZHI_APIS.length]
     console.log(`🎮 [汁汁API] 尝试使用: ${api.name}`)
     
     try {

@@ -4,8 +4,10 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { callZhizhiApi } from '../services/zhizhiapi'
 
-const TOPICS = {
+// 本地默认题库（备用）
+const DEFAULT_TOPICS = {
   draw: [
     '猫', '狗', '花', '月亮', '太阳', '房子',
     '汽车', '星星', '爱心', '气球', '苹果', '彩虹',
@@ -16,6 +18,71 @@ const TOPICS = {
     '打游戏', '画画', '瑜伽', '弹吉他', '骑车', '踢球',
     '睡觉', '吃饭', '喝水', '拍照', '打电话', '弹钢琴'
   ]
+}
+
+// 缓存key
+const CACHE_KEY = 'tacit_game_topics_cache'
+
+interface TopicsCache {
+  draw: string[]
+  act: string[]
+  drawIndex: number  // 当前用到第几个
+  actIndex: number
+}
+
+// 获取缓存
+const getCache = (): TopicsCache => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+  } catch (e) {
+    console.error('读取题目缓存失败', e)
+  }
+  return { draw: [], act: [], drawIndex: 0, actIndex: 0 }
+}
+
+// 保存缓存
+const saveCache = (cache: TopicsCache) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+  } catch (e) {
+    console.error('保存题目缓存失败', e)
+  }
+}
+
+// 调用zhizhiapi获取20个题目
+const fetchTopicsFromAPI = async (type: 'draw' | 'act'): Promise<string[]> => {
+  const prompt = type === 'draw' 
+    ? '请生成20个适合你画我猜游戏的词语，要求：简单易画、名词为主（如动物、物品、食物等）。直接输出词语，用逗号分隔，不要解释。'
+    : '请生成20个适合你演我猜游戏的词语，要求：动作类词语为主（如运动、日常动作等）。直接输出词语，用逗号分隔，不要解释。'
+
+  try {
+    const response = await callZhizhiApi(
+      [{ role: 'user', content: prompt }],
+      { temperature: 0.8, max_tokens: 500 }
+    )
+    
+    if (response) {
+      // 解析逗号分隔的词语
+      const topics = response
+        .split(/[,，、\n]+/)
+        .map((t: string) => t.trim())
+        .filter((t: string) => t.length > 0 && t.length <= 10)  // 过滤太长的
+        .slice(0, 20)  // 最多20个
+      
+      if (topics.length >= 5) {
+        console.log(`🎮 从zhizhiapi获取了${topics.length}个${type === 'draw' ? '你画我猜' : '你演我猜'}题目`)
+        return topics
+      }
+    }
+  } catch (e) {
+    console.error('获取题目失败', e)
+  }
+
+  // 失败时用默认题库
+  return [...DEFAULT_TOPICS[type]].sort(() => Math.random() - 0.5)
 }
 
 // ============ 游戏选择菜单（在AddMenu点击默契后弹出）============
@@ -110,7 +177,12 @@ interface TacitTopicCardProps {
   onConfirmCorrect?: () => void
   isPanelOpen: boolean
   hasSent?: boolean  // 是否已发送画作/描述
+  hasAiGuessed?: boolean  // AI是否已猜测
+  isAiCorrect?: boolean  // AI是否猜对
+  aiGuess?: string  // AI猜的内容
   isAiTyping?: boolean  // AI是否正在打字
+  isRefreshing?: boolean  // 是否正在刷新题库
+  remainingCount?: number  // 剩余题目数量
 }
 
 export const TacitTopicCard = ({
@@ -122,7 +194,12 @@ export const TacitTopicCard = ({
   onConfirmCorrect,
   isPanelOpen,
   hasSent = false,
-  isAiTyping = false
+  hasAiGuessed = false,
+  isAiCorrect = false,
+  aiGuess = '',
+  isAiTyping = false,
+  isRefreshing = false,
+  remainingCount = 0
 }: TacitTopicCardProps) => {
   const isDrawGame = gameType === 'draw'
 
@@ -190,25 +267,38 @@ export const TacitTopicCard = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 猜对按钮 - 仅在发送后且AI回复完才显示，用户确认AI猜对后点击 */}
-            {hasSent && !isPanelOpen && !isAiTyping && onConfirmCorrect && (
-              <button
-                onClick={onConfirmCorrect}
-                className="px-2.5 py-1 bg-green-500 text-white hover:bg-green-600 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-                猜对了
-              </button>
+            {/* 判定结果显示 */}
+            {hasSent && hasAiGuessed && !isPanelOpen && !isAiTyping && (
+              isAiCorrect ? (
+                // 猜对了 - 自动显示成功
+                <button
+                  onClick={onConfirmCorrect}
+                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 animate-pulse"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  猜对了！
+                </button>
+              ) : aiGuess ? (
+                // 猜错了 - 显示猜的内容
+                <div className="px-2.5 py-1 bg-red-50 text-red-500 rounded-lg text-xs font-medium">
+                  ✗ 猜的"{aiGuess}"
+                </div>
+              ) : null
             )}
 
             <button
               onClick={onChangeTopic}
-              className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1`}
+              disabled={isRefreshing}
+              className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1 disabled:opacity-50`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              换题
+              {isRefreshing ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              )}
+              {isRefreshing ? '刷新中' : remainingCount > 0 ? `换题(${remainingCount})` : '换题'}
             </button>
 
             {!isPanelOpen && (
@@ -493,9 +583,65 @@ export const TacitActPanel = ({
 }
 
 // ============ 工具函数 ============
-export const getRandomTopic = (type: 'draw' | 'act') => {
-  const topics = TOPICS[type]
-  return topics[Math.floor(Math.random() * topics.length)]
+
+// 从缓存获取下一个题目（同步版本，不调API）
+export const getRandomTopic = (type: 'draw' | 'act'): string => {
+  const cache = getCache()
+  const topics = type === 'draw' ? cache.draw : cache.act
+  const index = type === 'draw' ? cache.drawIndex : cache.actIndex
+  
+  // 如果有缓存且还没用完
+  if (topics.length > 0 && index < topics.length) {
+    const topic = topics[index]
+    // 更新索引
+    if (type === 'draw') {
+      cache.drawIndex = index + 1
+    } else {
+      cache.actIndex = index + 1
+    }
+    saveCache(cache)
+    console.log(`🎮 使用缓存题目 [${index + 1}/${topics.length}]: ${topic}`)
+    return topic
+  }
+  
+  // 缓存用完或没有缓存，用默认题库的随机一个
+  const defaultTopics = DEFAULT_TOPICS[type]
+  return defaultTopics[Math.floor(Math.random() * defaultTopics.length)]
+}
+
+// 刷新题库（调用API获取新题目）
+export const refreshTopics = async (type: 'draw' | 'act'): Promise<string> => {
+  console.log(`🔄 刷新${type === 'draw' ? '你画我猜' : '你演我猜'}题库...`)
+  
+  const newTopics = await fetchTopicsFromAPI(type)
+  const cache = getCache()
+  
+  if (type === 'draw') {
+    cache.draw = newTopics
+    cache.drawIndex = 1  // 返回第一个，索引设为1
+  } else {
+    cache.act = newTopics
+    cache.actIndex = 1
+  }
+  
+  saveCache(cache)
+  return newTopics[0]  // 返回第一个题目
+}
+
+// 检查是否需要刷新（缓存用完了）
+export const needsRefresh = (type: 'draw' | 'act'): boolean => {
+  const cache = getCache()
+  const topics = type === 'draw' ? cache.draw : cache.act
+  const index = type === 'draw' ? cache.drawIndex : cache.actIndex
+  return topics.length === 0 || index >= topics.length
+}
+
+// 获取剩余题目数
+export const getRemainingCount = (type: 'draw' | 'act'): number => {
+  const cache = getCache()
+  const topics = type === 'draw' ? cache.draw : cache.act
+  const index = type === 'draw' ? cache.drawIndex : cache.actIndex
+  return Math.max(0, topics.length - index)
 }
 
 export default {

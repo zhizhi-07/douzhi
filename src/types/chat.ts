@@ -201,6 +201,7 @@ export interface Message {
     status: 'pending' | 'paid' | 'rejected'  // 状态
     payerName?: string        // 付款人名称
     note?: string             // 备注
+    isGift?: boolean          // 是否是礼物（给AI购买）
   }
   giftCart?: {                // 送礼物（给AI购买）
     items: Array<{

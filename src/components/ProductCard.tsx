@@ -19,15 +19,13 @@ const ProductCard = ({
 }: ProductCardProps) => {
   return (
     <div className="w-[260px] bg-white rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-100/50 select-none cursor-pointer hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 group font-sans">
-      {/* 商品图片区域 */}
+      {/* 商品图片区域 - 描述叠在图片上 */}
       <div className="relative aspect-square bg-[#F8F9FB] overflow-hidden group-hover:bg-[#F2F4F8] transition-colors duration-500">
-        {/* 模拟商品图 */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center text-gray-300 group-hover:scale-110 transition-transform duration-500">
-            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-          </div>
+        {/* 描述文字覆盖在图片上 */}
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <p className="text-[12px] text-gray-500 leading-relaxed text-center line-clamp-6">
+            {description}
+          </p>
         </div>
 
         {/* 左上角标签 */}
@@ -40,13 +38,9 @@ const ProductCard = ({
 
       {/* 商品信息 */}
       <div className="p-4">
-        <h3 className="text-[14px] font-bold text-gray-900 mb-1.5 line-clamp-2 leading-snug h-[40px]">
+        <h3 className="text-[14px] font-bold text-gray-900 mb-2 line-clamp-2 leading-snug h-[40px]">
           {name}
         </h3>
-
-        <p className="text-[11px] text-gray-400 mb-3 line-clamp-1">
-          {description}
-        </p>
 
         <div className="flex items-end justify-between mb-4">
           <div className="flex items-baseline gap-0.5 text-[#FF5000]">

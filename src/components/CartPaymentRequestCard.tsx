@@ -9,10 +9,7 @@ interface CartPaymentRequestCardProps {
 const CartPaymentRequestCard = ({ message, onAccept, onReject }: CartPaymentRequestCardProps) => {
   if (!message.cartPaymentRequest) return null
 
-  const { items, totalAmount, requesterName, status, payerName } = message.cartPaymentRequest
-
-  // 判断是否是用户送给AI的礼物（用户发送的已支付状态）
-  const isGift = status === 'paid' && message.type === 'sent'
+  const { items, totalAmount, requesterName, status, payerName, isGift } = message.cartPaymentRequest
 
   // 生成随机的条形码线条
   const barcodeLines = Array.from({ length: 24 }).map(() => ({

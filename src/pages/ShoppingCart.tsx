@@ -277,7 +277,8 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
         totalAmount,
         requesterName: userName,
         status: 'paid',
-        payerName: userName
+        payerName: userName,
+        isGift: true
       }
     }
 

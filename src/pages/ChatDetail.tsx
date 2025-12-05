@@ -504,12 +504,12 @@ const ChatDetail = () => {
       e.preventDefault()
       if (chatState.inputValue.trim()) {
         chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))
-      } else if (!tacitGame.gameType) {
-        // 只有不在游戏模式时才允许空输入触发AI
+      } else if (!tacitGame.gameType || tacitGame.hasSent) {
+        // 游戏模式下已发送画作/描述后也可以触发AI回复
         chatAI.handleAIReply()
       }
     }
-  }, [chatAI, chatState, modals, tacitGame.gameType])
+  }, [chatAI, chatState, modals, tacitGame.gameType, tacitGame.hasSent])
 
   // 检测未接来电（用户返回聊天页面时）
   useEffect(() => {
@@ -801,8 +801,13 @@ const ChatDetail = () => {
           onOpenPanel={tacitGame.openPanel}
           onConfirmCorrect={tacitGame.confirmCorrect}
           isPanelOpen={tacitGame.showPanel}
-          hasSent={tacitGame.hasAiGuessed}
+          hasSent={tacitGame.hasSent}
+          hasAiGuessed={tacitGame.hasAiGuessed}
+          isAiCorrect={tacitGame.isAiCorrect}
+          aiGuess={tacitGame.aiGuess}
           isAiTyping={chatAI.isAiTyping}
+          isRefreshing={tacitGame.isRefreshing}
+          remainingCount={tacitGame.remainingCount}
         />
       )}
 
