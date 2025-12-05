@@ -110,6 +110,216 @@ export const ZHIZHI_APIS: ZhizhiApiConfig[] = [
     baseUrl: 'https://api.siliconflow.cn/v1',
     apiKey: 'sk-lvxmfnujsoputohqadherddebwwmyohwcheuonibssptjgxg',
     model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-14',
+    name: '代付API #14',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-cxuiyigevlqnaxgqrbdqhedtkpenwcrrofbwzzpydmbktiuu',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-15',
+    name: '代付API #15',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-iqvbdipfwlgfinbnlhpwbsbbpmsolnfxlzsngmspfpxmfdwf',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-16',
+    name: '代付API #16',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-oknwvapxldmmmxswerukzhchbqpobhcnohkkcsednkxxgjgb',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-17',
+    name: '代付API #17',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-xevxcpvgvqfrimvhwqvyiunvdyfeahvytooxhafrlxnrnhor',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-18',
+    name: '代付API #18',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-iwczjkrpuwghcfnxqqbeswztnkhursetzsgvfcdlixaiwypb',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-19',
+    name: '代付API #19',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ebnpntwkliygzrjaguwpzlmiqewctahadsmliwctyhrhxxsz',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-20',
+    name: '代付API #20',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-mgrxmpqvlovqrjkwcidlxvyrlediwgqsrrkhiiqhshwhfuoi',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-21',
+    name: '代付API #21',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-jwqeiurrcwxbtmmymkmcnwzzwzhbvhlyoniorpsilhwxtesx',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-22',
+    name: '代付API #22',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-zrxordvztqhkeqtycesxaixrsaewnfvfewyrihwhzdwxwlbw',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-23',
+    name: '代付API #23',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-yeiczrtbxmyblvxyogdzxpeltmldwctnjghlmeqcwovfjkfq',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-24',
+    name: '代付API #24',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-geoecctbszftoasdubovbjmcihpszxlwnankeypqsalvfoca',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-25',
+    name: '代付API #25',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-cmamdsesgixlrmhluklrzngiogajkvynckelqzhfenhgpgxj',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-26',
+    name: '代付API #26',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-gnaspydliqtkwigdkjjlqvlmfusepvgneljtjvyuwkfrlebu',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-27',
+    name: '代付API #27',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-xgxzbcdolyjbslgqibnpqekjvlbbmcznzsubczgdtdvgyfwk',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-28',
+    name: '代付API #28',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-foeclvvqdwrubxfetnicumxzamxgewuumbjtgfjfwtlynwhp',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-29',
+    name: '代付API #29',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-lppodxoigqrqbtnroctjdpaloazmllnqqaxcpvvhamlpblbz',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-30',
+    name: '代付API #30',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-mjtizmwaixwmohbnhmkqvzpijvacobutuobvruxswllfwhjn',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-31',
+    name: '代付API #31',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ezqszhpsxmmquhfkdwvtihesegmcajvfycfaqrdrrfncruxz',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-32',
+    name: '代付API #32',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ipkftmmhbpjasqzeffstxtyrhntzqevhzhipabhlcdafjtaf',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-33',
+    name: '代付API #33',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-jxixzckdvuwkurfnqigbncmranalnocyrmjvorgsclqpjgvl',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-34',
+    name: '代付API #34',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-hpkntarojtbraadrojizeifcgbyoedwhnyxajrwxdcydrnpo',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-35',
+    name: '代付API #35',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-gkagtmqixubamwhmrxeffafeafunojuqsfoqqovycegewedm',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-36',
+    name: '代付API #36',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-uewjfgfqaazpcktwpdvhcbjqmvjcopubbgtudqykkszmihtu',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-37',
+    name: '代付API #37',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ooxesynmdogmzfnfjsstzxqasewvfrvpjbbegyidcylaupye',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-38',
+    name: '代付API #38',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-hqniywuunbbviviayjagtwqxmgnnzrvzrfpxjemvjtabtacc',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-39',
+    name: '代付API #39',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ibrdnrjogongqfpcxvybvysxauxwrhvsdaqtjrutfplwjqpl',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-40',
+    name: '代付API #40',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-qyfyxxucmrtnxjqhnyxhoqubrfxavhfucpfkoqqtvovbczpt',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-41',
+    name: '代付API #41',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ljkjhudzfjeoghacqfjwlqtyrpixgvuldtzunnfsnrlndsyh',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-42',
+    name: '代付API #42',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-ysozjqflbnxhsjrcyfymgsvviouwznbcrcvwiyyyrbkucxeo',
+    model: 'deepseek-ai/DeepSeek-V3'
+  },
+  {
+    id: 'zhizhi-43',
+    name: '代付API #43',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-qqtymvjxdtmptglxsusiyqawauhcbyytwnrbupsvfbhttjcd',
+    model: 'deepseek-ai/DeepSeek-V3'
   }
 ]
 
