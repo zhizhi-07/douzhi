@@ -186,42 +186,10 @@ preloadMessages()
  * 用于页面卸载时防止数据丢失
  */
 export function forceBackupAllMessages(): void {
-  try {
-    console.log(`🔄 [强制备份] 开始备份所有消息到 localStorage`)
-    let backupCount = 0
-    
-    messageCache.forEach((messages, chatId) => {
-      if (messages.length > 0) {
-        try {
-          const backupKey = `msg_backup_${chatId}`
-          const seen = new WeakSet()
-          const jsonString = JSON.stringify({
-            messages,
-            timestamp: Date.now()
-          }, (_key, value) => {
-            if (typeof value === 'object' && value !== null) {
-              if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
-                return undefined
-              }
-              if (seen.has(value)) return undefined
-              seen.add(value)
-            }
-            if (typeof value === 'function') return undefined
-            return value
-          })
-          
-          localStorage.setItem(backupKey, jsonString)
-          backupCount++
-        } catch (e) {
-          console.error(`❌ [强制备份] 备份失败: chatId=${chatId}`, e)
-        }
-      }
-    })
-    
-    console.log(`✅ [强制备份] 完成，共备份 ${backupCount} 个聊天`)
-  } catch (error) {
-    console.error('❌ [强制备份] 失败:', error)
-  }
+  // 🔥 禁用 localStorage 备份！
+  // IndexedDB 已经是持久化存储，不需要再往 localStorage 备份
+  // 之前的备份机制会撑爆 localStorage（只有5MB），导致数据丢失
+  console.log('ℹ️ [备份] 跳过 localStorage 备份（数据已在 IndexedDB 中）')
 }
 
 /**
@@ -628,59 +596,16 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       console.log(`💾 [缓存] 保存消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
     }
     
-    // 🔥 手机优化：同步保存到localStorage作为备份（防止页面关闭时IndexedDB保存被中断）
-    // 🔥 优化：只备份15条，且移除图片内容，避免占用太多localStorage空间
-    try {
-      const backupKey = `msg_backup_${storageKey}`
-      const recentMessages = cleanedMessages.slice(-15) // 只备份最近15条（减少空间占用）
-      
-      // 🔥 移除图片内容，用占位符替代（图片太大会撑爆localStorage）
-      const lightMessages = recentMessages.map(msg => {
-        if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
-          return { ...msg, photoBase64: '[图片已省略]' }
-        }
-        return msg
-      })
-      
-      localStorage.setItem(backupKey, JSON.stringify({
-        messages: lightMessages,
-        timestamp: Date.now(),
-        totalCount: cleanedMessages.length
-      }))
-      if (import.meta.env.DEV) {
-        console.log(`💾 [localStorage备份] 已保存: storageKey=${storageKey}, backup=${lightMessages.length}/${cleanedMessages.length}`)
-      }
-    } catch {
-      // 空间不足，直接放弃备份，IndexedDB会保存完整数据
-    }
+    // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
+    // 之前的备份机制会撑爆 localStorage（只有5MB），导致数据丢失
     
     // 立即保存到IndexedDB（使用清理后的消息）
     IDB.setItem(IDB.STORES.MESSAGES, storageKey, cleanedMessages).then(() => {
       if (import.meta.env.DEV) {
         console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${cleanedMessages.length}`)
       }
-      // 🔥 手机端优化：延迟删除备份，给IndexedDB更多时间完成写入
-      setTimeout(() => {
-        try {
-          const backupKey = `msg_backup_${storageKey}`
-          const backup = localStorage.getItem(backupKey)
-          if (backup) {
-            const parsed = JSON.parse(backup)
-            // 只删除5秒前的备份，确保是已经成功保存的
-            if (Date.now() - parsed.timestamp > 5000) {
-              localStorage.removeItem(backupKey)
-              if (import.meta.env.DEV) {
-                console.log(`🗑️ [localStorage备份] 已删除旧备份: storageKey=${storageKey}`)
-              }
-            }
-          }
-        } catch (e) {
-          // 忽略删除失败
-        }
-      }, 5000) // 5秒后再删除
     }).catch(err => {
       console.error(`❌ [IndexedDB] 保存失败: storageKey=${storageKey}`, err)
-      // IndexedDB保存失败时，保留localStorage备份
     })
     
     // 🔥 触发消息保存事件，用于通知和未读标记
@@ -702,51 +627,9 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
-  // 🔥 使用账号专属的存储key
-  const storageKey = getAccountChatKey(chatId)
+  // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
   
-  // 🔥 立即同步备份到localStorage（最高优先级，确保不丢失）
-  // 🔥 优化：只备份15条，且移除图片内容
-  try {
-    const backupKey = `msg_backup_${storageKey}`
-    const cachedMessages = messageCache.get(storageKey) || []
-    const updatedMessages = [...cachedMessages, message]
-    const recentMessages = updatedMessages.slice(-15) // 只备份最近15条
-    
-    // 🔥 移除图片内容
-    const lightMessages = recentMessages.map(msg => {
-      if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
-        return { ...msg, photoBase64: '[图片已省略]' }
-      }
-      return msg
-    })
-    
-    const seen = new WeakSet()
-    const jsonString = JSON.stringify({
-      messages: lightMessages,
-      timestamp: Date.now(),
-      totalCount: updatedMessages.length
-    }, (_key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
-          return undefined
-        }
-        if (seen.has(value)) return undefined
-        seen.add(value)
-      }
-      if (typeof value === 'function') return undefined
-      return value
-    })
-    
-    localStorage.setItem(backupKey, jsonString)
-    if (import.meta.env.DEV) {
-      console.log(`💾 [addMessage] 立即备份: storageKey=${storageKey}, backup=${lightMessages.length}条`)
-    }
-  } catch {
-    // 空间不足，静默失败，IndexedDB会保存完整数据
-  }
-  
-  // 异步保存到IndexedDB（可以慢慢来）
+  // 异步保存到IndexedDB
   ensureMessagesLoaded(chatId).then(messages => {
     const existingIndex = messages.findIndex(m => m.id === message.id)
     
@@ -774,47 +657,7 @@ export function addMessage(chatId: string, message: Message): void {
 export function addMessages(chatId: string, newMessages: Message[]): void {
   if (newMessages.length === 0) return
   
-  // 🔥 使用账号专属的存储key
-  const storageKey = getAccountChatKey(chatId)
-  
-  // 🔥 立即同步备份到localStorage
-  // 🔥 优化：只备份15条，且移除图片内容
-  try {
-    const backupKey = `msg_backup_${storageKey}`
-    const cachedMessages = messageCache.get(storageKey) || []
-    const updatedMessages = [...cachedMessages, ...newMessages]
-    const recentMessages = updatedMessages.slice(-15) // 只备份15条
-    
-    // 🔥 移除图片内容
-    const lightMessages = recentMessages.map(msg => {
-      if (msg.photoBase64 && msg.photoBase64.startsWith('data:')) {
-        return { ...msg, photoBase64: '[图片已省略]' }
-      }
-      return msg
-    })
-    
-    const seen = new WeakSet()
-    const jsonString = JSON.stringify({
-      messages: lightMessages,
-      timestamp: Date.now(),
-      totalCount: updatedMessages.length
-    }, (_key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (value instanceof Node || value instanceof Window || value instanceof Document || value instanceof Event) {
-          return undefined
-        }
-        if (seen.has(value)) return undefined
-        seen.add(value)
-      }
-      if (typeof value === 'function') return undefined
-      return value
-    })
-    
-    localStorage.setItem(backupKey, jsonString)
-    console.log(`💾 [addMessages] 批量备份: ${lightMessages.length}条消息`)
-  } catch {
-    // 空间不足，静默失败
-  }
+  // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
   
   // 异步保存到IndexedDB（一次性添加所有消息）
   ensureMessagesLoaded(chatId).then(messages => {

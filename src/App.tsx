@@ -4,7 +4,7 @@ import { getAllUIIcons } from './utils/iconStorage'
 import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
 import { needsMigration, migrateAllData } from './utils/migrateToIndexedDB'
-import { cleanupOldMessages } from './utils/cleanupLocalStorage'
+import { cleanupOldMessages, checkAndCleanStorage } from './utils/cleanupLocalStorage'
 import './utils/storageDiagnostic' // 存储诊断工具（在控制台使用 window.storageDiag）
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
@@ -79,6 +79,7 @@ import Map from './pages/Map'
 import LocationHistory from './pages/LocationHistory'
 import PaymentRequest from './pages/PaymentRequest'
 import OnlineShopping from './pages/OnlineShopping'
+import ShoppingCart from './pages/ShoppingCart'
 import AIPhoneSelect from './pages/AIPhoneSelect'
 import GlobalMemory from './pages/GlobalMemory'
 import UnifiedMemory from './pages/UnifiedMemory'
@@ -203,6 +204,9 @@ function App() {
       // 即使不需要迁移，也清理一次旧数据
       cleanupOldMessages()
     }
+    
+    // 🔥 检查存储空间，不足时自动清理并警告
+    checkAndCleanStorage()
 
     // 🎨 预加载所有自定义图标到内存，避免切换页面时闪烁
     getAllUIIcons().then(icons => {
@@ -568,6 +572,7 @@ function App() {
           <Route path="/location-history/:characterId" element={<LocationHistory />} />
           <Route path="/chat/:id/payment-request" element={<PaymentRequest />} />
           <Route path="/chat/:id/shopping" element={<OnlineShopping />} />
+          <Route path="/chat/:id/shopping/cart" element={<ShoppingCart />} />
           <Route path="/ai-phone-select" element={<AIPhoneSelect />} />
           <Route path="/global-memory" element={<UnifiedMemory />} />
           <Route path="/global-memory-old" element={<GlobalMemory />} />

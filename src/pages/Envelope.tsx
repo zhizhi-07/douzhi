@@ -108,22 +108,28 @@ export default function Envelope() {
         letter.anonymous
       )
 
-      // 更新信件，添加回信
-      const updatedLetters = letters.map(l => {
-        if (l.id === letter.id) {
-          return {
-            ...l,
-            reply,
-            replyTimestamp: Date.now()
+      console.log('✅ [信封] AI回信生成成功，内容:', reply)
+
+      // 🔥 使用函数式更新，确保获取最新状态
+      setLetters(prevLetters => {
+        const updatedLetters = prevLetters.map(l => {
+          if (l.id === letter.id) {
+            return {
+              ...l,
+              reply,
+              replyTimestamp: Date.now()
+            }
           }
-        }
-        return l
+          return l
+        })
+        
+        // 保存到 localStorage
+        saveLetters(characterId, updatedLetters)
+        console.log('💾 [信封] 已保存回信到 localStorage')
+        
+        return updatedLetters
       })
 
-      setLetters(updatedLetters)
-      saveLetters(characterId, updatedLetters)
-
-      console.log('✅ [信封] AI回信生成成功')
       playSystemSound()
 
     } catch (error) {
@@ -177,7 +183,7 @@ export default function Envelope() {
       </div>
 
       {/* 主内容区域 */}
-      <div className="relative min-h-screen flex flex-col items-center justify-center p-4 pt-20">
+      <div className="relative min-h-screen flex flex-col items-center p-4 pt-20 pb-8 overflow-y-auto">
 
         {/* 列表视图：展示信箱和写信按钮 */}
         {viewState === 'list' && (
@@ -344,8 +350,8 @@ export default function Envelope() {
 
         {/* 读信视图 */}
         {viewState === 'reading' && selectedLetter && (
-          <div className="w-full max-w-2xl animate-fade-in">
-            <div className="bg-[#fcfaf5] min-h-[70vh] p-8 md:p-12 shadow-2xl relative rounded-sm mx-auto transform rotate-[-0.5deg]">
+          <div className="w-full max-w-2xl animate-fade-in my-8">
+            <div className="bg-[#fcfaf5] p-8 md:p-12 shadow-2xl relative rounded-sm mx-auto transform rotate-[-0.5deg]">
               {/* 纸张纹理 */}
               <div className="absolute inset-0 opacity-50 pointer-events-none"
                 style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/cream-paper.png")` }}></div>
@@ -357,7 +363,7 @@ export default function Envelope() {
                 <X size={24} />
               </button>
 
-              <div className="relative z-10">
+              <div className="relative z-10 max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-end border-b-2 border-[#5c4d3c] pb-4 mb-8">
                   <h2 className="text-2xl font-bold text-[#5c4d3c]">
                     {selectedLetter.anonymous ? '一封匿名信' : '我的来信'}
@@ -373,7 +379,7 @@ export default function Envelope() {
                 </div>
 
                 {selectedLetter.reply && (
-                  <div className="mt-12 relative">
+                  <div className="mt-12 relative pb-8">
                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#fcfaf5] px-4 text-[#8c7b66] text-sm tracking-widest">
                       回信
                     </div>
@@ -382,7 +388,7 @@ export default function Envelope() {
                         <img src={character.avatar} className="w-10 h-10 rounded-full border-2 border-[#d4c5a5]" alt="avatar" />
                         <span className="font-bold text-[#5c4d3c]">{character.nickname || character.realName}</span>
                       </div>
-                      <div className="text-[#5c4d3c] italic leading-relaxed bg-[#f3e9d2]/30 p-6 rounded-lg border border-[#e6dcc3]">
+                      <div className="text-[#5c4d3c] italic leading-relaxed bg-[#f3e9d2]/30 p-6 rounded-lg border border-[#e6dcc3] whitespace-pre-wrap">
                         {selectedLetter.reply}
                       </div>
                     </div>

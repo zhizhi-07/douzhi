@@ -1,63 +1,78 @@
-import type { Message } from '../types/chat'
+
 
 interface ProductCardProps {
-  message: Message
+  name: string
+  price: number
+  description: string
+  sales: number
+  onAction?: () => void
+  actionText?: string
 }
 
-const ProductCard = ({ message }: ProductCardProps) => {
-  if (!message.productCard) return null
-
-  const { name, price, description, sales } = message.productCard
-
+const ProductCard = ({
+  name,
+  price,
+  description,
+  sales,
+  onAction,
+  actionText = '立即抢购'
+}: ProductCardProps) => {
   return (
-    <div className="w-[240px] bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 select-none cursor-pointer hover:shadow-md transition-all duration-300 group">
+    <div className="w-[260px] bg-white rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-100/50 select-none cursor-pointer hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 group font-sans">
       {/* 商品图片区域 */}
-      <div className="relative aspect-square bg-gray-50 overflow-hidden">
-        {/* 模拟商品图 - 使用渐变代替 */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-          <div className="text-center p-4">
-            <div className="w-12 h-12 mx-auto bg-white/80 rounded-full shadow-sm flex items-center justify-center mb-2 backdrop-blur-sm">
-              <span className="text-2xl">🛍️</span>
-            </div>
-            <p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed opacity-80">
-              {description}
-            </p>
+      <div className="relative aspect-square bg-[#F8F9FB] overflow-hidden group-hover:bg-[#F2F4F8] transition-colors duration-500">
+        {/* 模拟商品图 */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center text-gray-300 group-hover:scale-110 transition-transform duration-500">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
           </div>
         </div>
 
         {/* 左上角标签 */}
-        <div className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-          热卖
+        <div className="absolute top-3 left-3 flex gap-1.5">
+          <div className="bg-black/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm">
+            热卖
+          </div>
         </div>
       </div>
 
       {/* 商品信息 */}
-      <div className="p-3">
-        <h3 className="text-[13px] font-medium text-gray-900 mb-2 line-clamp-2 leading-snug h-[38px]">
+      <div className="p-4">
+        <h3 className="text-[14px] font-bold text-gray-900 mb-1.5 line-clamp-2 leading-snug h-[40px]">
           {name}
         </h3>
 
-        <div className="flex items-end justify-between mb-2.5">
-          <div className="flex items-baseline gap-0.5 text-[#ff5000]">
-            <span className="text-[10px] font-medium">¥</span>
-            <span className="text-lg font-bold leading-none">{price}</span>
+        <p className="text-[11px] text-gray-400 mb-3 line-clamp-1">
+          {description}
+        </p>
+
+        <div className="flex items-end justify-between mb-4">
+          <div className="flex items-baseline gap-0.5 text-[#FF5000]">
+            <span className="text-[11px] font-bold">¥</span>
+            <span className="text-xl font-bold font-din leading-none">{price}</span>
           </div>
-          <div className="text-[10px] text-gray-400">
-            已售{sales > 10000 ? `${(sales / 10000).toFixed(1)}万` : sales}+
+          <div className="text-[10px] text-gray-400 font-medium bg-gray-50 px-1.5 py-0.5 rounded">
+            已售 {sales > 10000 ? `${(sales / 10000).toFixed(1)}w` : sales}+
           </div>
         </div>
 
         {/* 底部按钮 */}
         <button
-          className="w-full h-8 bg-gradient-to-r from-[#ff9000] to-[#ff5000] text-white rounded-full text-[11px] font-bold shadow-sm active:scale-95 transition-transform flex items-center justify-center gap-1"
-          onClick={() => {
-            // TODO: 实现购买功能
-            alert(`正在跳转商品详情：${name}`)
+          className="w-full h-9 bg-black text-white rounded-xl text-[12px] font-bold shadow-lg shadow-gray-200 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 hover:bg-gray-900"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (onAction) {
+              onAction()
+            } else {
+              alert(`正在跳转商品详情：${name}`)
+            }
           }}
         >
-          <span>立即抢购</span>
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+          <span>{actionText}</span>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
           </svg>
         </button>
       </div>

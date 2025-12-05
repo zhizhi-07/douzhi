@@ -72,7 +72,7 @@ const Desktop = () => {
 
   // 备忘录状态
   const [memoText, setMemoText] = useState(() => {
-    return localStorage.getItem('desktop_memo') || '小羊杉是妈妈'
+    return localStorage.getItem('desktop_memo') || '今天要做的事情...'
   })
   const [memoBg, setMemoBg] = useState('')
   const [showMemoHeader, setShowMemoHeader] = useState(() => {
@@ -509,7 +509,7 @@ const Desktop = () => {
                           localStorage.setItem('desktop_memo', memoText)
                         }}
                         className="w-full h-full text-xs text-gray-700 leading-relaxed resize-none bg-transparent outline-none"
-                        placeholder="小羊杉是妈妈"
+                        placeholder="今天要做的事情..."
                       />
                     ) : (
                       <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">

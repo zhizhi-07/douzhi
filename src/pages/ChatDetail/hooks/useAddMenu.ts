@@ -22,7 +22,8 @@ export const useAddMenu = (
   onFormatCorrector?: () => void,
   onOpenWeather?: () => void,
   onOpenEnvelope?: () => void,
-  onOpenJudgment?: () => void
+  onOpenJudgment?: () => void,
+  onOpenLogistics?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -222,6 +223,17 @@ export const useAddMenu = (
     }
   }, [onOpenJudgment])
 
+  /**
+   * 物流信息
+   */
+  const handleSelectLogistics = useCallback(() => {
+    console.log('🚚 点击物流按钮')
+    setShowAddMenu(false)
+    if (onOpenLogistics) {
+      onOpenLogistics()
+    }
+  }, [onOpenLogistics])
+
   return {
     showAddMenu,
     setShowAddMenu,
@@ -244,7 +256,8 @@ export const useAddMenu = (
       handleSelectFormatCorrector,
       handleSelectWeather,
       handleSelectEnvelope,
-      handleSelectJudgment
+      handleSelectJudgment,
+      handleSelectLogistics
     }
   }
 }

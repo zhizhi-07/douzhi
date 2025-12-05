@@ -248,12 +248,111 @@ export const usePaymentRequest = (
     })
   }, [chatId, characterName, setMessages])
 
+  /**
+   * AI 同意购物车代付
+   */
+  const acceptCartPayment = useCallback((messageId: number) => {
+    setMessages(prev => {
+      const updated = prev.map(msg => {
+        if (msg.id === messageId && msg.cartPaymentRequest) {
+          return {
+            ...msg,
+            cartPaymentRequest: {
+              ...msg.cartPaymentRequest,
+              status: 'paid' as const,
+              payerName: characterName
+            }
+          }
+        }
+        return msg
+      })
+
+      // 找到对应的代付消息
+      const paymentMsg = updated.find(m => m.id === messageId)
+      if (paymentMsg?.cartPaymentRequest) {
+        const isUserRequest = paymentMsg.type === 'sent'
+        
+        // 添加系统消息
+        const systemMsg: Message = {
+          id: Date.now(),
+          type: 'system',
+          content: isUserRequest
+            ? `${characterName} 已代付购物车 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}`
+            : `你已代付购物车 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}`,
+          aiReadableContent: isUserRequest
+            ? `【系统提示】你同意了购物车代付请求，已为对方支付 ${paymentMsg.cartPaymentRequest.items.length}件商品，金额 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}。你可以对此做出反应。`
+            : `【系统提示】对方同意了你的购物车代付请求，已为你支付 ${paymentMsg.cartPaymentRequest.items.length}件商品，金额 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}。你可以表示感谢。`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+          messageType: 'system'
+        }
+        updated.push(systemMsg)
+
+        console.log(`✅ [购物车代付] ${isUserRequest ? 'AI同意用户的代付' : '用户同意AI的代付'} ￥${paymentMsg.cartPaymentRequest.totalAmount}`)
+      }
+
+      // 保存到 IndexedDB
+      saveMessages(chatId, updated)
+      return updated
+    })
+  }, [chatId, characterName, setMessages])
+
+  /**
+   * AI 拒绝购物车代付
+   */
+  const rejectCartPayment = useCallback((messageId: number) => {
+    setMessages(prev => {
+      const updated = prev.map(msg => {
+        if (msg.id === messageId && msg.cartPaymentRequest) {
+          return {
+            ...msg,
+            cartPaymentRequest: {
+              ...msg.cartPaymentRequest,
+              status: 'rejected' as const
+            }
+          }
+        }
+        return msg
+      })
+
+      // 找到对应的代付消息
+      const paymentMsg = updated.find(m => m.id === messageId)
+      if (paymentMsg?.cartPaymentRequest) {
+        const isUserRequest = paymentMsg.type === 'sent'
+        
+        // 添加系统消息
+        const systemMsg: Message = {
+          id: Date.now(),
+          type: 'system',
+          content: isUserRequest
+            ? `${characterName} 拒绝了购物车代付请求`
+            : `你拒绝了购物车代付请求`,
+          aiReadableContent: isUserRequest
+            ? `【系统提示】你拒绝了对方的购物车代付请求（金额 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}）。你可以解释原因或表达歉意。`
+            : `【系统提示】对方拒绝了你的购物车代付请求（金额 ￥${paymentMsg.cartPaymentRequest.totalAmount.toFixed(2)}）。你可以表示理解。`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+          messageType: 'system'
+        }
+        updated.push(systemMsg)
+
+        console.log(`❌ [购物车代付] ${isUserRequest ? 'AI拒绝用户的代付' : '用户拒绝AI的代付'} ￥${paymentMsg.cartPaymentRequest.totalAmount}`)
+      }
+
+      // 保存到 IndexedDB
+      saveMessages(chatId, updated)
+      return updated
+    })
+  }, [chatId, characterName, setMessages])
+
   return {
     showPaymentRequestSender,
     setShowPaymentRequestSender,
     hasIntimatePay: hasIntimatePay(),
     sendPaymentRequest,
     acceptPayment,
-    rejectPayment
+    rejectPayment,
+    acceptCartPayment,
+    rejectCartPayment
   }
 }

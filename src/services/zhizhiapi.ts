@@ -28,13 +28,6 @@ export interface ZhizhiApiConfig {
  */
 export const ZHIZHI_APIS: ZhizhiApiConfig[] = [
   {
-    id: 'zhizhi-1',
-    name: '代付API #1',
-    baseUrl: 'https://api.siliconflow.cn/v1',
-    apiKey: 'sk-biaugiqxfopyfosfxpggeqcitfwkwnsgkduvjavygdtpoicm',
-    model: 'deepseek-ai/DeepSeek-V3'
-  },
-  {
     id: 'zhizhi-2',
     name: '代付API #2',
     baseUrl: 'https://api.siliconflow.cn/v1',

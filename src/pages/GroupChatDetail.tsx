@@ -27,9 +27,20 @@ import RedPacketOpenModal from '../components/RedPacketOpenModal'
 import RedPacketDetailModal from '../components/RedPacketDetailModal'
 import { GroupMessageItem, GroupInputBar, MentionList } from './GroupChatDetail/components'
 
-// 获取成员头像
+// 获取成员头像（返回IndexedDB引用或直接URL）
 const getMemberAvatar = (userId: string): string => {
-  if (userId === 'user') return ''
+  if (userId === 'user') {
+    // 返回用户头像
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const avatar = userInfo.avatar || ''
+      // 🔥 直接返回IndexedDB引用，在渲染时加载
+      return avatar
+    } catch (e) {
+      console.error('🖼️ [getMemberAvatar] 获取用户头像失败:', e)
+      return ''
+    }
+  }
   const char = characterService.getById(userId)
   return char?.avatar || ''
 }
@@ -61,6 +72,28 @@ const GroupChatDetail = () => {
   const [openRedPacketId, setOpenRedPacketId] = useState<number | null>(null)
   const [showRedPacketDetail, setShowRedPacketDetail] = useState(false)
   const [detailRedPacketId, setDetailRedPacketId] = useState<string | null>(null)
+  
+  // 🎤 语音消息状态
+  const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null)
+  const [showVoiceTextMap, setShowVoiceTextMap] = useState<Record<number, boolean>>({})
+  
+  // 语音播放处理
+  const handlePlayVoice = (messageId: number, duration: number) => {
+    console.log('🎤 播放语音:', messageId)
+    setPlayingVoiceId(messageId)
+    setTimeout(() => {
+      setPlayingVoiceId(null)
+    }, duration * 1000)
+  }
+  
+  // 语音转文字切换
+  const handleToggleVoiceText = (messageId: number) => {
+    console.log('📝 切换语音文字:', messageId)
+    setShowVoiceTextMap(prev => ({
+      ...prev,
+      [messageId]: !prev[messageId]
+    }))
+  }
   const [showMessageMenu, setShowMessageMenu] = useState(false)
   const [menuMessage, setMenuMessage] = useState<GroupMessage | null>(null)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
@@ -195,7 +228,12 @@ const GroupChatDetail = () => {
       const updatedMsgs = groupChatManager.getMessages(id)
       if (updatedMsgs.length > 0 || msgs.length === 0) {
         setMessages(updatedMsgs)
-        scrollToBottom()
+        // 🔥 使用requestAnimationFrame确保DOM渲染后立即定位，无延迟
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+          })
+        })
       }
     }
     
@@ -217,7 +255,8 @@ const GroupChatDetail = () => {
   }, [id])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // 🔥 使用 'instant' 确保无动画直接跳转
+    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
   }
 
   // 获取当前群聊信息，用于渲染成员头衔/角色
@@ -730,6 +769,14 @@ const GroupChatDetail = () => {
     
     // 更新红包状态
     const userInfo = getUserInfo()
+    const userAvatar = getMemberAvatar('user')
+    const userName = userInfo.nickname || userInfo.realName || '用户'
+    console.log('🖼️ [用户红包] 获取用户信息:', {
+      userName,
+      userAvatar: userAvatar || '❗无头像',
+      userInfo
+    })
+    
     const updatedRedPacket = {
       ...redPacket,
       remaining: Math.round((redPacket.remaining - amount) * 100) / 100,
@@ -738,13 +785,15 @@ const GroupChatDetail = () => {
         ...redPacket.received,
         {
           userId: 'user',
-          userName: userInfo.nickname || userInfo.realName,
-          userAvatar: getMemberAvatar('user'),
+          userName: userName,
+          userAvatar: userAvatar,
           amount,
           timestamp: Date.now()
         }
       ]
     }
+    
+    console.log('💾 [用户红包] 领取记录:', updatedRedPacket.received[updatedRedPacket.received.length - 1])
     
     const updatedMessages = messages.map(msg => 
       msg.id === redPacketMsg.id
@@ -752,15 +801,17 @@ const GroupChatDetail = () => {
         : msg
     )
     
-    // 添加系统提示
+    // 添加系统提示（显示金额，让AI可见）
     const systemMsg = groupChatManager.addMessage(id, {
       userId: 'system',
       userName: '系统',
       userAvatar: '',
-      content: `你领取了${redPacketMsg.userName}的红包`,
+      content: `${userName}领取了${redPacketMsg.userName}的红包 ￥${amount.toFixed(2)}`,
       type: 'system'
     })
     updatedMessages.push(systemMsg)
+    
+    console.log('✅ [用户红包] 系统消息:', systemMsg.content)
     
     // 保存更新
     groupChatManager.replaceAllMessages(id, updatedMessages)
@@ -778,6 +829,45 @@ const GroupChatDetail = () => {
     }, 300)
   }
 
+  // 重回功能：删除最后一轮AI回复并重新生成
+  const handleRegenerate = () => {
+    if (!id || isAiTyping) return
+    
+    console.log('🔄 [重回] 开始删除最后一轮AI回复...')
+    
+    // 获取所有消息
+    const allMessages = groupChatManager.getMessages(id)
+    
+    // 找到最后一条用户消息的位置
+    let lastUserIndex = -1
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      if (allMessages[i].userId === 'user') {
+        lastUserIndex = i
+        break
+      }
+    }
+    
+    if (lastUserIndex === -1) {
+      console.warn('⚠️ [重回] 没有找到用户消息')
+      return
+    }
+    
+    // 删除最后一条用户消息之后的所有AI消息
+    const messagesToKeep = allMessages.slice(0, lastUserIndex + 1)
+    const deletedCount = allMessages.length - messagesToKeep.length
+    
+    console.log(`🗑️ [重回] 删除了 ${deletedCount} 条AI消息`)
+    
+    // 更新消息列表
+    groupChatManager.replaceAllMessages(id, messagesToKeep)
+    setMessages(messagesToKeep)
+    
+    // 立即触发AI重新回复
+    setTimeout(() => {
+      handleAIReply()
+    }, 300)
+  }
+  
   // AI主动回复（用户不发消息，只触发AI聊天）
   const handleAIReply = async () => {
     console.log('🚀 [群聊AI] handleAIReply被调用')
@@ -935,6 +1025,7 @@ const GroupChatDetail = () => {
       
       if (!script) {
         console.error('生成群聊回复失败')
+        // 🚨 只在控制台显示错误，不在聊天界面显示系统消息
         return
       }
       
@@ -1042,6 +1133,49 @@ const GroupChatDetail = () => {
           hasCommand = true
         }
         
+        // 🎭 检查表情指令：[表情:描述] 或 [表情:数字]
+        const emojiMatch = content.match(/\[表情:\s*(.+?)\]/)
+        if (emojiMatch) {
+          const emojiKey = emojiMatch[1].trim()
+          console.log(`🎭 [AI指令] ${member.name} 发送表情包: ${emojiKey}`)
+          
+          // 先尝试按数字匹配，再按描述匹配
+          let emoji = null
+          if (/^\d+$/.test(emojiKey)) {
+            emoji = emojis[parseInt(emojiKey) - 1]
+          } else {
+            // 按描述匹配（模糊匹配）
+            emoji = emojis.find(e => e.description.includes(emojiKey) || emojiKey.includes(e.description))
+          }
+          
+          if (emoji) {
+            const emojiMsg = groupChatManager.addMessage(id, {
+              userId: member.id,
+              userName: member.name,
+              userAvatar: getMemberAvatar(member.id),
+              content: emoji.description,
+              type: 'emoji',
+              emojiUrl: emoji.url,
+              emojiDescription: emoji.description,
+              quotedMessage: quotedMsg
+            })
+            
+            // 🔥 添加到UI并立即渲染
+            currentMessages.push(emojiMsg)
+            flushSync(() => setMessages([...currentMessages]))
+            scrollToBottom()
+            
+            console.log(`✅ [表情] ${member.name} 发送了表情包: ${emoji.description}`)
+          } else {
+            console.warn('未找到匹配的表情包:', emojiKey)
+          }
+          
+          // 从内容中移除指令部分
+          content = content.replace(/\[表情:\s*.+?\]/, '').trim()
+          hasCommand = true
+          if (!content) continue
+        }
+        
         // 检查踢出指令：[踢出:成员名]
         const kickMatch = content.match(/\[踢出:(.+?)\]/)
         if (kickMatch) {
@@ -1108,8 +1242,11 @@ const GroupChatDetail = () => {
           if (pendingTransfer) {
             const transferAmount = (pendingTransfer as any).transfer?.amount || 0
             
+            // 🔥 从数据库重新读取完整消息列表，确保不丢失系统消息
+            const allMessages = groupChatManager.getMessages(id)
+            
             // 更新转账状态为已接收
-            const updatedMessages = currentMessages.map(msg => 
+            const updatedMessages = allMessages.map(msg => 
               msg.id === pendingTransfer.id
                 ? { ...msg, transfer: { ...(msg as any).transfer, status: 'received' } }
                 : msg
@@ -1120,7 +1257,7 @@ const GroupChatDetail = () => {
               userId: 'system',
               userName: '系统',
               userAvatar: '',
-              content: `${member.name}已收款¥${transferAmount}`,
+              content: `${member.name}已收款￥${transferAmount}`,
               type: 'system'
             })
             updatedMessages.push(systemMsg)
@@ -1158,8 +1295,11 @@ const GroupChatDetail = () => {
           if (pendingTransfer) {
             const transferAmount = (pendingTransfer as any).transfer?.amount || 0
             
+            // 🔥 从数据库重新读取完整消息列表，确保不丢失系统消息
+            const allMessages = groupChatManager.getMessages(id)
+            
             // 更新转账状态为已过期（退还）
-            const updatedMessages = currentMessages.map(msg => 
+            const updatedMessages = allMessages.map(msg => 
               msg.id === pendingTransfer.id
                 ? { ...msg, transfer: { ...(msg as any).transfer, status: 'expired' } }
                 : msg
@@ -1170,7 +1310,7 @@ const GroupChatDetail = () => {
               userId: 'system',
               userName: '系统',
               userAvatar: '',
-              content: `${member.name}已退还转账¥${transferAmount}`,
+              content: `${member.name}已退还转账￥${transferAmount}`,
               type: 'system'
             })
             updatedMessages.push(systemMsg)
@@ -1197,11 +1337,10 @@ const GroupChatDetail = () => {
         if (content.includes('[领取红包]')) {
           console.log(`🧧 [AI指令] ${member.name} 领取红包`)
           
-          // 查找可领取的红包（用户发的，还有剩余，且该成员未领取过）
+          // 查找可领取的红包（任何人发的，还有剩余，且该成员未领取过）
           const availableRedPacket = currentMessages.find(msg => 
             (msg as any).messageType === 'redPacket' &&
             (msg as any).redPacket?.remainingCount > 0 &&
-            msg.userId === 'user' &&
             !(msg as any).redPacket?.received?.some((r: any) => r.userId === member.id)
           )
           
@@ -1218,7 +1357,13 @@ const GroupChatDetail = () => {
               if (amount < 0.01) amount = 0.01
             }
             
+            // 🔥 从数据库重新读取完整消息列表，确保不丢失系统消息
+            const allMessages = groupChatManager.getMessages(id)
+            
             // 更新红包状态
+            const memberAvatar = getMemberAvatar(member.id)
+            console.log(`🖼️ [红包] 获取${member.name}的头像:`, memberAvatar ? '✅ 有头像' : '❌ 无头像')
+            
             const updatedRedPacket = {
               ...redPacket,
               remaining: Math.round((redPacket.remaining - amount) * 100) / 100,
@@ -1228,25 +1373,32 @@ const GroupChatDetail = () => {
                 {
                   userId: member.id,
                   userName: member.name,
-                  userAvatar: getMemberAvatar(member.id),
+                  userAvatar: memberAvatar,
                   amount,
                   timestamp: Date.now()
                 }
               ]
             }
             
-            const updatedMessages = currentMessages.map(msg => 
+            console.log(`💾 [红包] 领取记录:`, {
+              userId: member.id,
+              userName: member.name,
+              userAvatar: memberAvatar,
+              amount: amount.toFixed(2)
+            })
+            
+            const updatedMessages = allMessages.map(msg => 
               msg.id === availableRedPacket.id
                 ? { ...msg, redPacket: updatedRedPacket }
                 : msg
             )
             
-            // 添加系统提示消息
+            // 添加系统提示消息（显示金额）
             const systemMsg = groupChatManager.addMessage(id, {
               userId: 'system',
               userName: '系统',
               userAvatar: '',
-              content: `${member.name}领取了你的红包`,
+              content: `${member.name}领取了你的红包 ￥${amount.toFixed(2)}`,
               type: 'system'
             })
             updatedMessages.push(systemMsg)
@@ -1310,8 +1462,33 @@ const GroupChatDetail = () => {
         // 检查语音指令：[语音:文字内容]
         const voiceMatch = content.match(/\[语音:(.+?)\]/)
         if (voiceMatch) {
-          const voiceText = voiceMatch[1].trim()
+          let voiceText = voiceMatch[1].trim()
           console.log(`🎤 [AI指令] ${member.name} 发送语音: ${voiceText}`)
+          
+          // 🔥 过滤括号内容（声音描述），只保留要读的文字
+          const textToRead = voiceText.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '').trim()
+          console.log(`📝 [语音过滤] 原文: ${voiceText}`)
+          console.log(`📝 [语音过滤] 要读: ${textToRead}`)
+          
+          // 🎵 检查角色是否设置了音色，如果有则生成TTS
+          let voiceUrl = ''
+          const char = characterService.getById(member.id)
+          if (char && textToRead) {
+            const voiceSettings = localStorage.getItem(`voice_settings_${member.id}`)
+            if (voiceSettings) {
+              try {
+                const settings = JSON.parse(voiceSettings)
+                if (settings.voiceId) {
+                  console.log(`🎵 [语音TTS] ${member.name} 有音色设置，开始生成...`)
+                  const { callMinimaxTTS } = await import('../utils/voiceApi')
+                  voiceUrl = await callMinimaxTTS(textToRead, settings.voiceId)
+                  console.log(`✅ [语音TTS] 生成成功`)
+                }
+              } catch (e) {
+                console.warn(`⚠️ [语音TTS] 生成失败:`, e)
+              }
+            }
+          }
           
           const voiceMsg = groupChatManager.addMessage(id, {
             userId: member.id,
@@ -1321,7 +1498,8 @@ const GroupChatDetail = () => {
             type: 'voice',
             messageType: 'voice',
             voiceText: voiceText,
-            duration: Math.ceil(voiceText.length / 5)
+            voiceUrl: voiceUrl || undefined,
+            duration: Math.ceil(textToRead.length / 5)
           } as any)
           
           // 🔥 添加到UI并立即渲染
@@ -1515,6 +1693,12 @@ const GroupChatDetail = () => {
         scrollToBottom()
       }
       
+      // 🔥 AI回复完成，从数据库重新读取完整消息列表并保存
+      const finalMessages = groupChatManager.getMessages(id)
+      console.log(`💾 [AI回复完成] 最终消息数: ${finalMessages.length}`)
+      groupChatManager.replaceAllMessages(id, finalMessages)
+      setMessages(finalMessages)
+      
       // 🔥 AI回复完成后，后台生成/更新总结（如果开启了智能总结）
       if (smartSummaryEnabled) {
         const currentMessages = groupChatManager.getMessages(id)
@@ -1612,20 +1796,8 @@ const GroupChatDetail = () => {
     setQuotedMessage(null)  // 清除引用
     setTimeout(scrollToBottom, 100)
     
-    // 🧠 为每个AI成员增加记忆计数
-    const group = groupChatManager.getGroup(id)
-    if (group) {
-      import('../services/memoryExtractor').then(({ recordInteraction }) => {
-        group.memberIds.filter(mid => mid !== 'user').forEach(memberId => {
-          const char = characterService.getById(memberId)
-          if (char) {
-            recordInteraction(char.id, char.realName)
-          }
-        })
-      })
-    }
-    
-    // 🔥 修复：不再自动触发AI回复，用户需要手动点击空发送按钮触发
+    // 🔥 不再自动触发AI回复，用户需要手动点击空发送按钮触发
+    // 🔥 也不在这里计数，只在AI回复时计数
     console.log('✅ [发送完成] 消息已发送，未触发AI回复')
   }
 
@@ -1683,9 +1855,12 @@ const GroupChatDetail = () => {
             暂无消息
           </div>
         ) : (
-          messages.map((msg, index) => {
+          // 🔥 去重消息（根据id），避免重复key警告
+          messages.filter((msg, index, self) => 
+            index === self.findIndex(m => m.id === msg.id)
+          ).map((msg, index, uniqueMessages) => {
             // 判断是否显示时间戳（两条消息间隔超过5分钟就显示）
-            const prevMsg = messages[index - 1]
+            const prevMsg = uniqueMessages[index - 1]
             let shouldShowTimestamp = false
             
             if (index === 0) {
@@ -1769,6 +1944,10 @@ const GroupChatDetail = () => {
                   }}
                   onOpenRedPacket={handleOpenRedPacket}
                   renderMessageContent={renderMessageContent}
+                  playingVoiceId={playingVoiceId}
+                  showVoiceTextMap={showVoiceTextMap}
+                  onPlayVoice={handlePlayVoice}
+                  onToggleVoiceText={handleToggleVoiceText}
                 />
               </div>
             )
@@ -1857,6 +2036,7 @@ const GroupChatDetail = () => {
       <GroupAddMenu
         isOpen={showAddMenu}
         onClose={() => setShowAddMenu(false)}
+        onSelectRecall={handleRegenerate}
         onSelectImage={() => handleImageSelect()}
         onSelectCamera={() => handleCameraSelect()}
         onSelectTransfer={() => handleTransferStart()}
@@ -1916,6 +2096,7 @@ const GroupChatDetail = () => {
         show={showRedPacketSender}
         onClose={() => setShowRedPacketSender(false)}
         onSend={handleSendRedPacket}
+        maxCount={currentGroup?.memberIds.length}
       />
 
       {/* 拆红包弹窗 */}

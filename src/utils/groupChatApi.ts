@@ -10,6 +10,7 @@ import type { Emoji } from './emojiStorage'
 import { loadMessages } from './simpleMessageManager'
 import type { GroupChatSummary } from './groupChatSummary'
 import { getRecentAIInteractions } from './aiInteractionMemory'
+import { replaceVariables } from './variableReplacer'
 
 export interface GroupMember {
   id: string
@@ -65,6 +66,10 @@ function buildGroupChatPrompt(
   else if (currentHour >= 19 && currentHour < 22) timeOfDay = '晚上'
   else if (currentHour >= 22 || currentHour < 5) timeOfDay = '深夜'
   
+  // 获取用户信息（用于变量替换）
+  const userMember = members.find(m => m.type === 'user')
+  const userName = userMember?.name || '用户'
+  
   // 构建成员列表（包含角色和头衔）
   const aiMembers = members.filter(m => m.type === 'character')
   const aiMembersInfo = aiMembers.map(m => {
@@ -79,12 +84,15 @@ function buildGroupChatPrompt(
       identityLine = `  - 身份：${[roleInfo, titleInfo].filter(Boolean).join('、')}`
     }
     
+    // 🔥 对人设进行变量替换（支持{{user}}、{{char}}等）
+    const processedDescription = replaceVariables(m.description, {
+      charName: m.name,
+      userName: userName
+    })
+    
     return `• **${m.name}**
-  - 性格：${m.description}${identityLine ? '\n' + identityLine : ''}`
+  - 性格：${processedDescription}${identityLine ? '\n' + identityLine : ''}`
   }).join('\n')
-  
-  const userMember = members.find(m => m.type === 'user')
-  const userName = userMember?.name || '用户'
   let userIdentity = ''
   if (userMember?.role === 'owner') userIdentity = '（👑 群主）'
   else if (userMember?.role === 'admin') userIdentity = '（🛡️ 管理员）'
@@ -187,11 +195,10 @@ ${transferList}
 `
   }
   
-  // 检查待领取的红包（用户发送的且还有余额的）
+  // 检查待领取的红包（还有余额的，包括用户和AI发的）
   const availableRedPackets = messages.filter(msg => 
     (msg as any).messageType === 'redPacket' && 
-    (msg as any).redPacket?.remainingCount > 0 &&
-    msg.userId === 'user'
+    (msg as any).redPacket?.remainingCount > 0
   )
   
   let redPacketInstructions = ''
@@ -220,21 +227,33 @@ ${rpList}
 `
   }
   
-  return `# 群聊对话生成
+  return `# 群聊模拟器
 
-## 核心原则：角色第一，剧情第二
+## 核心目标
+你是即时通讯软件的后台模拟器。基于人设和历史，推演下一秒真实发生的群聊数据流。
+拒绝文学创作，拒绝剧本感，只输出最原始、最粗糙、最真实的聊天日志。
 
-你的任务是**让每个角色像活人一样自然反应**，而不是设计剧情：
+## 拟人化原则
 
-1. **先看人设，再想台词** - 每条消息前问自己："这个角色会这么说吗？"
-2. **情绪要渐进** - 同一角色的情绪可以变化，但必须有过程（平静→不耐烦→生气），禁止突然180度转变
-3. **说话像打字** - 每条消息就是一条真实的手机聊天，可以很短（一个字/表情），可以连发，可以打错字
+1. **破碎感** - 最重要！真人不会发长篇大论
+   - 禁止一段话超过30字
+   - 必须把完整句子拆成2-4条短消息
+   - 示例：下雨烦死 / 不过火锅好吃 / [图片] / 嘿嘿
+
+2. **混乱感** - 群聊本质是混乱的
+   - 允许话题并行：A说游戏，B骂老板，C发无关表情
+   - 允许无视：用户发冷场的话可以装没看见
+   - 拒绝完美语法：去掉句号、加错别字、用网络用语
+
+3. **环境感知** - 根据时间推理
+   - 现在是 ${currentTime} (${timeOfDay})
+   - 有人在吃饭（回消息慢）、打游戏（回复极短）、通勤（发语音）
+   - 除非人设明确写了，否则大家只是表面客气的网友
+   - 不要对用户（群主）特殊优待，该怼就怼
 
 ⚠️ **绝对禁止**：
-- ❌ 为了"推进剧情"让角色说不符合人设的话
-- ❌ 情绪突然翻转（上一条还温柔，下一条突然暴怒）
 - ❌ 说"根据设定/作为AI"等破坏沉浸感的话
-- ❌ 每条消息都解释动机（"我这么说是因为..."）
+- ❌ 情绪突然翻转（上一条还温柔，下一条突然暴怒）
 - ❌ 把人设卡的细节当成角色之间的已知事实
 
 ---
@@ -516,7 +535,7 @@ ${emojiList}
 
 在输出前，再次确认每个角色的核心人设（仅供你在脑中参考，角色之间不知道这些详细设定）：
 
-${aiMembers.map(m => `- **${m.name}**：${m.description.split('。')[0]}。`).join('\n')}
+${aiMembers.map(m => `- **${m.name}**：${replaceVariables(m.description, { charName: m.name, userName }).split('。')[0]}。`).join('\n')}
 
 **绝对禁止**：
 - 说出不符合人设的话
@@ -539,6 +558,19 @@ ${lorebookContext}
 
 ---
 ` : ''}
+
+## 语言风格：拒绝干巴！
+每句话都要有"呼吸感"，像真人说话一样自然，根据角色人设选择合适的语气词：
+- 句尾加语气词：呀/诶/呢/啦/嘛/哦/惹/呗/吧/啊
+- 句首加缓冲词：哎/诶/啊/嗯/哦/那/所以/反正/怎么/哈
+示例（左边禁止，右边正确）：
+- ❌"下一秒就要吃零食" → ✅"怎么下一秒就要吃零食啦"
+- ❌"你这跨度是不是有点大" → ✅"哎你这个跨度是不是有点大了"
+- ❌"注意安全" → ✅"那自己在外面注意安全啊"
+- ❌"别理他" → ✅"哎呀别理他就好了呀"
+- ❌"我也想你" → ✅"其实我也很想你诶"
+- ❌"能不能行" → ✅"能不能行呀"
+反正每个角色说的每句话都要过一遍脑子，别太干巴巴的！
 
 现在请按三步创作法输出 JSON，只输出 JSON，不要其他内容！
 `;
@@ -624,14 +656,14 @@ export async function generateGroupChatReply(
       throw new Error('未配置API设置')
     }
 
-    // 🎭 读取群聊小剧场功能开关
-    const { groupChatManager } = await import('./groupChatManager')
-    const group = groupChatManager.getGroup(groupId)
-    const enableTheatreCards = group?.enableTheatreCards ?? true // 默认开启
+    // 🎭 暂时关闭群聊工具调用（Google API不兼容）
+    const enableTheatreCards = false
     
     // 调用AI（导演可以调用send_theatre_card工具来让角色发送卡片）
+    // 🔥 修复：使用system角色发送提示词，兼容Google API等要求system消息的API
     const apiMessages: ChatMessage[] = [
-      { role: 'user', content: prompt }
+      { role: 'system', content: prompt },
+      { role: 'user', content: '请根据上述设定生成群聊对话。' }
     ]
     const aiReply = await callAIApi(apiMessages, settings, enableTheatreCards)
 

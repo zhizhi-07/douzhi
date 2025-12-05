@@ -7,7 +7,6 @@ import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
 import { addMessage, addMessages } from '../../../utils/simpleMessageManager'
 import { blacklistManager } from '../../../utils/blacklistManager'
-import { generatePlaceholderImageBase64 } from '../../../utils/imageUtils'
 import { playMessageSendSound } from '../../../utils/soundManager'
 
 export const usePhoto = (
@@ -25,11 +24,7 @@ export const usePhoto = (
     
     const isUserBlocked = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
     
-    // 生成图片的base64编码（用于AI视觉识别）
-    const photoBase64 = generatePlaceholderImageBase64(description.trim())
-    
     console.log('📸 生成照片消息，描述:', description.trim())
-    console.log('🖼️ 已生成图片base64，长度:', photoBase64.length)
 
     const photoMsg: Message = {
       id: Date.now(),
@@ -42,8 +37,8 @@ export const usePhoto = (
       timestamp: Date.now(),
       messageType: 'photo',
       blockedByReceiver: isUserBlocked,
-      photoDescription: description.trim(),
-      photoBase64: photoBase64  // 添加base64编码供AI识图使用
+      photoDescription: description.trim()
+      // 不设置 photoBase64，使用默认占位图
     }
 
     // 保存到IndexedDB

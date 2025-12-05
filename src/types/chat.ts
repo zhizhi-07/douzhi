@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -167,6 +167,54 @@ export interface Message {
     note?: string             // 备注
   }
   source?: 'dm'               // 消息来源：dm=论坛私聊（同步到主聊天时标记）
+  logistics?: {               // 物流信息
+    type: 'takeout' | 'package'  // 类型：外卖/快递
+    status: string              // 状态文本
+    detail: string              // 详细信息
+    productName: string         // 商品名称
+    price: number               // 商品价格
+  }
+  shoppingCart?: {            // 购物车
+    items: Array<{
+      id: string
+      name: string
+      price: number
+      description: string
+      quantity: number
+      image?: string          // 商品图片（emoji或URL）
+    }>
+    totalAmount: number       // 总金额
+    discount?: number         // 优惠金额
+    shipping?: number         // 运费
+    storeName?: string        // 店铺名称
+  }
+  cartPaymentRequest?: {      // 购物车代付请求
+    cartId: string            // 购物车ID
+    items: Array<{
+      id: string
+      name: string
+      price: number
+      quantity: number
+    }>
+    totalAmount: number       // 总金额
+    requesterName: string     // 发起人名称
+    status: 'pending' | 'paid' | 'rejected'  // 状态
+    payerName?: string        // 付款人名称
+    note?: string             // 备注
+  }
+  giftCart?: {                // 送礼物（给AI购买）
+    items: Array<{
+      id: string
+      name: string
+      price: number
+      quantity: number
+      image?: string
+    }>
+    totalAmount: number       // 总金额
+    senderName: string        // 送礼人名称
+    storeName?: string        // 店铺名称
+    status: 'paid'            // 状态（送礼物都是已支付）
+  }
 }
 
 export interface Character {

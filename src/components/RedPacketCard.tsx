@@ -29,7 +29,7 @@ const RedPacketCard: React.FC<RedPacketCardProps> = ({
     >
       <div className="relative overflow-hidden rounded-lg shadow-sm">
         {/* 顶部红色区域 */}
-        <div className="bg-[#fa9d3b] p-3.5 flex items-start gap-3 relative h-[88px]">
+        <div className="bg-[#fa9d3b] p-3 flex items-start gap-3 relative h-[70px]">
           {/* 红包图标 - 直接显示不加框 */}
           <div className="w-10 h-12 flex items-center justify-center flex-shrink-0">
             <svg className="w-8 h-8 text-[#f8d75d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

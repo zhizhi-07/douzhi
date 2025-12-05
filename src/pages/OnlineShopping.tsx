@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
+import ProductCard from '../components/ProductCard'
 import { addMessage } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 
@@ -10,6 +11,16 @@ interface Product {
   price: number
   description: string
   sales: number
+  image?: string
+}
+
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  description: string
+  quantity: number
+  image?: string
 }
 
 // 模拟商品数据
@@ -35,8 +46,7 @@ const OnlineShopping = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Product[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [cart, setCart] = useState<Product[]>([])
-  const [showCart, setShowCart] = useState(false)
+  const [cart, setCart] = useState<CartItem[]>([])
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [customProduct, setCustomProduct] = useState({ name: '', price: '', description: '' })
   const [selectedCategory, setSelectedCategory] = useState('推荐')
@@ -45,27 +55,62 @@ const OnlineShopping = () => {
   const displayProducts = (() => {
     // 如果有搜索结果，优先显示搜索结果
     if (searchResults.length > 0) return searchResults
-    
+
     // 如果选择了"推荐"或没有选择，显示所有商品
     if (selectedCategory === '推荐') return PRODUCTS
-    
+
     // 根据分类筛选商品（简单的关键词匹配）
-    return PRODUCTS.filter(p => 
-      p.name.includes(selectedCategory) || 
+    return PRODUCTS.filter(p =>
+      p.name.includes(selectedCategory) ||
       p.description.includes(selectedCategory)
     )
   })()
 
+  // 从localStorage加载购物车
+  useEffect(() => {
+    const savedCart = localStorage.getItem(`shopping_cart_${chatId}`)
+    if (savedCart) {
+      setCart(JSON.parse(savedCart))
+    }
+  }, [chatId])
+
+  // 保存购物车到localStorage
+  useEffect(() => {
+    if (chatId) {
+      localStorage.setItem(`shopping_cart_${chatId}`, JSON.stringify(cart))
+    }
+  }, [cart, chatId])
+
   // 加入购物车
   const addToCart = (product: Product) => {
-    setCart(prev => [...prev, product])
+    setCart(prev => {
+      const existingItem = prev.find(item => item.id === product.id)
+      if (existingItem) {
+        // 如果已存在，增加数量
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      } else {
+        // 如果不存在，添加新商品
+        return [...prev, {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          description: product.description,
+          quantity: 1,
+          image: ''
+        }]
+      }
+    })
     alert(`已加入购物车：${product.name}`)
   }
 
   // 转发商品
   const forwardProduct = (product: Product) => {
     if (!chatId) return
-    
+
     // 创建商品卡片消息
     const productMessage: Message = {
       id: Date.now(),
@@ -88,10 +133,10 @@ const OnlineShopping = () => {
         sales: product.sales
       }
     }
-    
+
     // 发送到聊天
     addMessage(chatId, productMessage)
-    
+
     // 返回聊天页面
     navigate(`/chat/${chatId}`)
   }
@@ -107,24 +152,28 @@ const OnlineShopping = () => {
     try {
       // 使用智智代付API
       const { callZhizhiApi } = await import('../services/zhizhiapi')
-      
+
       const content = await callZhizhiApi([{
         role: 'user',
-        content: `你是一个电商平台的商品推荐AI。用户搜索了"${searchQuery}"，请生成5个相关商品。
+        content: `你是电商平台的商品推荐AI。
+
+用户输入："${searchQuery}"
+
+请分析用户意图：
+- 如果是具体商品名（如"耳机"、"手机壳"），直接搜索该商品
+- 如果是需求描述（如"送男朋友的礼物"、"可以打人的东西"），理解需求后推荐合适商品
 
 要求：
-1. 商品名称必须包含"${searchQuery}"关键词
-2. 提供详细的商品描述（40-60字，包含特点、用途、优势等）
-3. 价格范围：1元到10000元
-4. 销量随机生成
+1. 生成5个符合用户需求的真实商品
+2. 商品名称要具体（如"搞怪巴掌玩具"而非用户原话）
+3. 商品描述是正式的卖点介绍（40-60字），不要复述用户需求
+4. 价格1-10000元，销量100-5000
 
-返回格式（纯JSON数组）：
-[{"name":"商品名","price":价格,"description":"描述","sales":销量}]
-
-现在请为"${searchQuery}"生成5个商品：`
+返回纯JSON数组：
+[{"name":"具体商品名","price":数字,"description":"正式商品介绍","sales":数字}]`
       }], { temperature: 0.8, max_tokens: 800 })
       const jsonMatch = content.match(/\[[\s\S]*\]/)
-      
+
       if (jsonMatch) {
         const products = JSON.parse(jsonMatch[0])
         setSearchResults(products.slice(0, 5).map((p: any, i: number) => ({
@@ -157,7 +206,7 @@ const OnlineShopping = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
+
           {/* 搜索框 */}
           <div className="flex-1 relative group">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -174,11 +223,11 @@ const OnlineShopping = () => {
               className="w-full pl-9 pr-10 py-2 bg-gray-100 border border-transparent focus:bg-white focus:border-orange-500 rounded-full text-sm outline-none transition-all placeholder-gray-400"
             />
             {searchQuery && (
-              <button 
+              <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" /></svg>
               </button>
             )}
             <button
@@ -191,6 +240,21 @@ const OnlineShopping = () => {
           </div>
 
           <button
+            onClick={() => navigate(`/chat/${chatId}/shopping/cart`)}
+            className="flex flex-col items-center justify-center text-gray-600 active:scale-95 transition-transform relative"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className="text-[10px] leading-none mt-0.5">购物车</span>
+            {cart.length > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {cart.length}
+              </div>
+            )}
+          </button>
+
+          <button
             onClick={() => setShowCustomModal(true)}
             className="flex flex-col items-center justify-center text-gray-600 active:scale-95 transition-transform"
           >
@@ -200,7 +264,7 @@ const OnlineShopping = () => {
             <span className="text-[10px] leading-none mt-0.5">自定义</span>
           </button>
         </div>
-        
+
         {/* 分类/筛选标签 */}
         <div className="flex gap-4 overflow-x-auto pb-2 pt-1 hide-scrollbar text-sm px-1">
           {CATEGORIES.map(category => (
@@ -211,11 +275,10 @@ const OnlineShopping = () => {
                 setSearchResults([]) // 清空搜索结果
                 setSearchQuery('') // 清空搜索框
               }}
-              className={`whitespace-nowrap transition-all ${
-                selectedCategory === category
-                  ? 'font-bold text-orange-500 relative after:content-[""] after:absolute after:bottom-[-4px] after:left-1/2 after:-translate-x-1/2 after:w-4 after:h-1 after:bg-orange-500 after:rounded-full'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`whitespace-nowrap transition-all ${selectedCategory === category
+                ? 'font-bold text-orange-500 relative after:content-[""] after:absolute after:bottom-[-4px] after:left-1/2 after:-translate-x-1/2 after:w-4 after:h-1 after:bg-orange-500 after:rounded-full'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               {category}
             </button>
@@ -239,69 +302,16 @@ const OnlineShopping = () => {
               {displayProducts.map(product => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col group active:scale-[0.98] transition-all duration-200"
+                  className="flex justify-center"
                 >
-                  {/* 商品图片区域 */}
-                  <div className="aspect-square relative overflow-hidden bg-gray-100">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-200 flex items-center justify-center p-6">
-                      {/* 模拟商品图片内容 */}
-                       <div className="text-center">
-                         <div className="text-4xl mb-2">📦</div>
-                         <p className="text-xs text-gray-400 line-clamp-3 px-2 opacity-60 scale-90">{product.description}</p>
-                       </div>
-                    </div>
-                    {/* 转发按钮悬浮在图片右上角 */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); forwardProduct(product); }}
-                      className="absolute top-2 right-2 w-8 h-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-orange-500 transition-colors shadow-sm z-10"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                      </svg>
-                    </button>
-                    {/* 标签 */}
-                    <div className="absolute bottom-0 left-0 bg-orange-500/90 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-tr-lg font-medium">
-                      热销
-                    </div>
-                  </div>
-
-                  {/* 商品信息 */}
-                  <div className="p-3 flex flex-col flex-1 justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-800 mb-1 line-clamp-2 leading-5 h-10">
-                        <span className="bg-orange-100 text-orange-600 text-[10px] px-1 rounded mr-1 align-middle">精选</span>
-                        {product.name}
-                      </h3>
-                      
-                      {/* 标签栏 */}
-                      <div className="flex gap-1 mb-2">
-                        <span className="text-[10px] text-orange-600 border border-orange-200 px-1 rounded">包邮</span>
-                        <span className="text-[10px] text-gray-400 border border-gray-200 px-1 rounded">运费险</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-end justify-between mb-2">
-                        <div className="flex items-baseline text-orange-600">
-                          <span className="text-xs font-medium">¥</span>
-                          <span className="text-lg font-bold font-din leading-none mx-0.5">{product.price}</span>
-                          <span className="text-xs text-gray-400 font-normal ml-1 decoration-slice">
-                            {product.sales > 1000 ? `${(product.sales/10000).toFixed(1)}万+` : product.sales}人付款
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                        className="w-full py-2 bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full text-sm font-medium active:scale-95 transition-transform shadow-md shadow-orange-200 flex items-center justify-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        加入购物车
-                      </button>
-                    </div>
-                  </div>
+                  <ProductCard
+                    name={product.name}
+                    price={product.price}
+                    description={product.description}
+                    sales={product.sales}
+                    actionText="加入购物车"
+                    onAction={() => addToCart(product)}
+                  />
                 </div>
               ))}
             </div>
@@ -333,12 +343,12 @@ const OnlineShopping = () => {
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">自定义商品卡片</h3>
               <button onClick={() => setShowCustomModal(false)} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100">
-                 <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                 </svg>
+                <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-            
+
             <div className="space-y-5">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 block ml-1">商品名称</label>

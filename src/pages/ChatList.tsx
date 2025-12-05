@@ -782,11 +782,50 @@ const ChatList = () => {
               </div>
 
               <button
-                onClick={() => {
-                  // 创建群聊逻辑...
-                  // 这里需要调用 groupChatManager.createGroup
-                  // 但为了保持代码简洁，暂时省略具体实现，只做UI展示
+                onClick={async () => {
+                  if (!groupName || selectedMembers.size === 0) return
+                  
+                  // 获取用户信息
+                  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+                  const creatorName = userInfo.nickname || userInfo.realName || '你'
+                  
+                  // 准备成员ID列表（包含用户自己）
+                  const memberIds = ['user', ...Array.from(selectedMembers)]
+                  
+                  // 准备成员名称列表
+                  const memberNames = memberIds.map(id => {
+                    if (id === 'user') return creatorName
+                    const char = characterService.getById(id)
+                    return char?.nickname || char?.realName || id
+                  })
+                  
+                  // 创建群聊
+                  const newGroup = groupChatManager.createGroup(
+                    groupName,
+                    memberIds,
+                    creatorName,
+                    memberNames
+                  )
+                  
+                  // 如果有群头像，更新群聊
+                  if (groupAvatar) {
+                    groupChatManager.updateGroup(newGroup.id, { avatar: groupAvatar })
+                  }
+                  
+                  // 关闭弹窗并重置状态
                   setShowGroupModal(false)
+                  setGroupName('')
+                  setGroupAvatar('')
+                  setSelectedMembers(new Set())
+                  
+                  // 刷新聊天列表
+                  await refreshChatList()
+                  
+                  // 播放音效
+                  playSystemSound()
+                  
+                  // 导航到新创建的群聊
+                  navigate(`/group/${newGroup.id}`)
                 }}
                 disabled={!groupName || selectedMembers.size === 0}
                 className={`w-full py-3 rounded-xl text-sm font-medium tracking-widest uppercase transition-all ${groupName && selectedMembers.size > 0

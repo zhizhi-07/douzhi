@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import * as IDB from '../utils/indexedDB'
 
 interface RedPacketRecord {
   userId: string
@@ -36,6 +37,33 @@ const RedPacketDetailModal: React.FC<RedPacketDetailModalProps> = ({
   remainingCount,
   currentUserId
 }) => {
+  const [loadedAvatars, setLoadedAvatars] = useState<Record<string, string>>({})
+  
+  // 🔥 加载IndexedDB头像
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const loadAvatars = async () => {
+      const avatars: Record<string, string> = {}
+      
+      for (const record of received) {
+        if (record.userAvatar && record.userAvatar.startsWith('indexeddb://')) {
+          const key = record.userAvatar.replace('indexeddb://', '')
+          const blob = await IDB.getItem<Blob>(IDB.STORES.IMAGES, key)
+          if (blob) {
+            avatars[record.userId] = URL.createObjectURL(blob)
+          }
+        } else if (record.userAvatar) {
+          avatars[record.userId] = record.userAvatar
+        }
+      }
+      
+      setLoadedAvatars(avatars)
+    }
+    
+    loadAvatars()
+  }, [isOpen, received])
+  
   if (!isOpen) return null
 
   const myRecord = received.find(r => r.userId === currentUserId)
@@ -55,8 +83,7 @@ const RedPacketDetailModal: React.FC<RedPacketDetailModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         style={{ 
           backgroundColor: '#f7f7f7', 
-          opacity: 1,
-          border: '1px solid rgba(0,0,0,0.1)'
+          opacity: 1
         }}
       >
         {/* 顶部红色背景 - 强制不透明 */}
@@ -157,9 +184,12 @@ const RedPacketDetailModal: React.FC<RedPacketDetailModalProps> = ({
                   <div key={index} className="p-4 flex items-start gap-3 hover:bg-gray-100/50 transition-colors">
                     {/* 列表头像 */}
                     <div className="w-9 h-9 rounded bg-gray-200 flex-shrink-0 overflow-hidden">
-                       {/* 这里实际应该传入头像URL，现在先用占位或者名字首字 */}
-                       {record.userAvatar ? (
-                         <img src={record.userAvatar} alt={record.userName} className="w-full h-full object-cover" />
+                       {loadedAvatars[record.userId] || record.userAvatar ? (
+                         <img 
+                           src={loadedAvatars[record.userId] || record.userAvatar} 
+                           alt={record.userName} 
+                           className="w-full h-full object-cover" 
+                         />
                        ) : (
                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
                            {record.userName[0]}

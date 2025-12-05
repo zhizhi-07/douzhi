@@ -9,9 +9,10 @@ interface RedPacketSenderProps {
   show: boolean
   onClose: () => void
   onSend: (totalAmount: number, count: number, blessing: string) => void
+  maxCount?: number  // 最大红包个数（群聊人数）
 }
 
-const RedPacketSender = ({ show, onClose, onSend }: RedPacketSenderProps) => {
+const RedPacketSender = ({ show, onClose, onSend, maxCount }: RedPacketSenderProps) => {
   const [totalAmount, setTotalAmount] = useState('')
   const [count, setCount] = useState('')
   const [blessing, setBlessing] = useState('恭喜发财，大吉大利')
@@ -58,8 +59,9 @@ const RedPacketSender = ({ show, onClose, onSend }: RedPacketSenderProps) => {
       return
     }
     
-    if (num > 100) {
-      alert('红包个数不能超过100个')
+    const limit = maxCount || 100
+    if (num > limit) {
+      alert(`红包个数不能超过${limit}个`)
       return
     }
     
@@ -111,19 +113,19 @@ const RedPacketSender = ({ show, onClose, onSend }: RedPacketSenderProps) => {
 
           {/* 总金额输入 */}
           <div className="flex items-center bg-white rounded-lg px-4 py-3">
-            <div className="flex items-center w-20">
+            <div className="flex items-center flex-shrink-0">
               <div className="bg-[#d64a28] text-white text-[10px] px-1 rounded mr-1">拼</div>
-              <label className="text-gray-900 font-medium">总金额</label>
+              <label className="text-gray-900 font-medium whitespace-nowrap">总金额</label>
             </div>
             <input
               type="text"
               value={totalAmount}
               onChange={handleAmountChange}
               placeholder="0.00"
-              className="flex-1 text-right bg-transparent outline-none text-gray-900 placeholder-gray-300"
+              className="flex-1 text-right bg-transparent outline-none text-gray-900 placeholder-gray-300 min-w-0"
               autoFocus
             />
-            <span className="ml-2 text-gray-900">元</span>
+            <span className="ml-2 text-gray-900 flex-shrink-0">元</span>
           </div>
           
           {/* 提示文本 */}

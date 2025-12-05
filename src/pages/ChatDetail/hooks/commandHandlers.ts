@@ -29,6 +29,7 @@ import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../../../util
 import { generateRealAIComments } from '../../../utils/forumAIComments'
 import { getAllCharacters } from '../../../utils/characterManager'
 import { saveStatusToSchedule } from '../../../utils/aiScheduleHistory'
+import { generateAutoLogistics, saveLogistics } from '../../../services/autoLogistics'
 
 /**
  * 指令处理器接口
@@ -635,6 +636,7 @@ export const photoHandler: CommandHandler = {
 
     const photoMsg = createMessageObj('photo', {
       photoDescription
+      // 不设置 photoBase64，使用默认占位图
     }, isBlocked)
 
     await addMessage(photoMsg, setMessages, chatId)
@@ -2606,6 +2608,25 @@ export const acceptPaymentHandler: CommandHandler = {
       const finalUpdated = [...updated, systemMsg]
       saveMessages(chatId, finalUpdated)
       console.log('💾 [同意代付] 已保存到IndexedDB')
+      
+      // 🚚 自动生成物流信息
+      setTimeout(async () => {
+        try {
+          console.log('🚚 [自动物流] 开始生成物流...')
+          const logistics = await generateAutoLogistics(
+            pendingPayment.paymentRequest!.itemName,
+            pendingPayment.paymentRequest!.amount,
+            1
+          )
+          
+          // 保存物流信息
+          saveLogistics(chatId, pendingPayment.id, logistics)
+          console.log('✅ [自动物流] 生成并保存成功')
+        } catch (error) {
+          console.error('❌ [自动物流] 生成失败:', error)
+        }
+      }, 1000)
+      
       return finalUpdated
     })
 
@@ -3562,6 +3583,223 @@ const busyHandler: CommandHandler = {
 }
 
 /**
+ * 购物车代付：AI同意代付
+ */
+export const acceptCartPaymentHandler: CommandHandler = {
+  pattern: /[\[【]购物车代付[:：]同意[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('🛒 [购物车代付:同意] 处理器被调用')
+
+    // 查找最近的待确认购物车代付请求
+    const pendingPayment = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
+      msg.messageType === 'cartPaymentRequest' &&
+      msg.cartPaymentRequest?.status === 'pending'
+    )
+
+    if (!pendingPayment || !pendingPayment.cartPaymentRequest) {
+      console.warn('⚠️ [购物车代付:同意] 未找到待确认的购物车代付请求')
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+
+    const { items, totalAmount } = pendingPayment.cartPaymentRequest
+    const characterName = character?.nickname || character?.realName || 'AI'
+
+    console.log('✅ [购物车代付:同意] 找到待确认的购物车代付请求:', items.length, '件商品')
+
+    // 更新代付状态为已支付
+    setMessages(prev => {
+      const updated = prev.map(msg =>
+        msg.id === pendingPayment.id && msg.cartPaymentRequest
+          ? { 
+              ...msg, 
+              cartPaymentRequest: { 
+                ...msg.cartPaymentRequest, 
+                status: 'paid' as const,
+                payerName: characterName
+              } 
+            }
+          : msg
+      )
+
+      // 添加系统消息
+      const systemMsgContent = `${characterName} 已代付购物车 ¥${totalAmount.toFixed(2)}`
+      const hasSystemMsg = updated.some(msg =>
+        msg.type === 'system' &&
+        msg.content === systemMsgContent
+      )
+
+      if (hasSystemMsg) {
+        console.warn('⚠️ [购物车代付:同意] 系统消息已存在，跳过创建')
+        return updated
+      }
+
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: systemMsgContent,
+        aiReadableContent: `【系统提示】你同意了购物车代付请求，已为对方支付 ${items.length}件商品，金额 ¥${totalAmount.toFixed(2)}。你可以对此做出反应。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+
+      const finalUpdated = [...updated, systemMsg]
+      saveMessages(chatId, finalUpdated)
+      console.log('💾 [购物车代付:同意] 已保存到IndexedDB')
+      
+      // 🚚 为购物车中的每个商品自动生成物流
+      setTimeout(async () => {
+        try {
+          console.log('🚚 [自动物流] 开始为购物车商品生成物流...')
+          for (const item of items) {
+            const logistics = await generateAutoLogistics(
+              item.name,
+              item.price,
+              item.quantity
+            )
+            // 使用购物车消息ID + 商品ID作为唯一标识
+            const logisticsKey = `${pendingPayment.id}_${item.id}`
+            localStorage.setItem(`logistics_${chatId}_${logisticsKey}`, JSON.stringify(logistics))
+            console.log(`✅ [自动物流] ${item.name} 物流生成成功`)
+          }
+        } catch (error) {
+          console.error('❌ [自动物流] 生成失败:', error)
+        }
+      }, 1000)
+      
+      return finalUpdated
+    })
+
+    return {
+      handled: true,
+      skipTextMessage: true,
+      remainingText: ''
+    }
+  }
+}
+
+/**
+ * 购物车代付：AI拒绝代付
+ */
+export const rejectCartPaymentHandler: CommandHandler = {
+  pattern: /[\[【]购物车代付[:：]拒绝[\]】]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('🛒 [购物车代付:拒绝] 处理器被调用')
+
+    // 查找最近的待确认购物车代付请求
+    const pendingPayment = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
+      msg.messageType === 'cartPaymentRequest' &&
+      msg.cartPaymentRequest?.status === 'pending'
+    )
+
+    if (!pendingPayment || !pendingPayment.cartPaymentRequest) {
+      console.warn('⚠️ [购物车代付:拒绝] 未找到待确认的购物车代付请求')
+      return { handled: false }
+    }
+
+    const { totalAmount } = pendingPayment.cartPaymentRequest
+    const characterName = character?.nickname || character?.realName || 'AI'
+
+    console.log('❌ [购物车代付:拒绝] 找到待确认的购物车代付请求')
+
+    // 更新代付状态为已拒绝
+    setMessages(prev => {
+      const updated = prev.map(msg =>
+        msg.id === pendingPayment.id && msg.cartPaymentRequest
+          ? { ...msg, cartPaymentRequest: { ...msg.cartPaymentRequest, status: 'rejected' as const } }
+          : msg
+      )
+
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `${characterName} 拒绝了购物车代付请求`,
+        aiReadableContent: `【系统提示】你拒绝了对方的购物车代付请求（金额 ¥${totalAmount.toFixed(2)}）。你可以解释原因或表达歉意。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+
+      const finalUpdated = [...updated, systemMsg]
+      saveMessages(chatId, finalUpdated)
+      console.log('💾 [购物车代付:拒绝] 已保存到IndexedDB')
+      return finalUpdated
+    })
+
+    return {
+      handled: true,
+      skipTextMessage: true,
+      remainingText: ''
+    }
+  }
+}
+
+/**
+ * AI购买购物车
+ */
+export const aiBuyCartHandler: CommandHandler = {
+  pattern: /[\[\u3010]购买购物车[:\uff1a]([^\]\u3011]+)[\]\u3011]/,
+  handler: async (match, content, { setMessages, character, messages, chatId }) => {
+    console.log('🛒 [AI购买购物车] 处理器被调用')
+
+    const cartId = match[1]
+
+    // 查找最近的购物车消息
+    const cartMessage = messages.slice().reverse().find(msg =>
+      msg.type === 'sent' &&
+      msg.messageType === 'shoppingCart' &&
+      msg.shoppingCart
+    )
+
+    if (!cartMessage || !cartMessage.shoppingCart) {
+      console.warn('⚠️ [AI购买购物车] 未找到购物车消息')
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+
+    const { items, totalAmount } = cartMessage.shoppingCart
+    const characterName = character?.nickname || character?.realName || 'AI'
+
+    console.log('✅ [AI购买购物车] 找到购物车:', items.length, '件商品')
+
+    // 添加系统消息
+    setMessages(prev => {
+      const systemMsg: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `${characterName} 为你购买了购物车商品 ¥${totalAmount.toFixed(2)}`,
+        aiReadableContent: `【系统提示】你主动为对方购买了购物车里的 ${items.length}件商品，金额 ¥${totalAmount.toFixed(2)}。你可以对此做出反应。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+
+      const finalUpdated = [...prev, systemMsg]
+      saveMessages(chatId, finalUpdated)
+      console.log('💾 [AI购买购物车] 已保存到IndexedDB')
+      return finalUpdated
+    })
+
+    return {
+      handled: true,
+      skipTextMessage: true,
+      remainingText: ''
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -3571,8 +3809,11 @@ export const commandHandlers: CommandHandler[] = [
   intimatePayHandler,
   acceptIntimatePayHandler,
   rejectIntimatePayHandler,
-  acceptPaymentHandler,  // AI同意代付
-  rejectPaymentHandler,  // AI拒绝代付
+  acceptPaymentHandler,  // AI同意代付（外卖）
+  rejectPaymentHandler,  // AI拒绝代付（外卖）
+  acceptCartPaymentHandler,  // AI同意购物车代付
+  rejectCartPaymentHandler,  // AI拒绝购物车代付
+  aiBuyCartHandler,  // AI购买购物车
   aiOrderFoodHandler,  // AI主动点外卖
   aiRequestPaymentHandler,  // AI请求用户代付
   postHandler,  // AI发送帖子

@@ -55,17 +55,13 @@ export const useScrollControl = (
   // 初始加载时立即跳到底部
   useEffect(() => {
     if (isInitialLoadRef.current && messages.length > 0) {
-      // 🔥 延迟更长时间确保滚动到底部后再允许加载更多
+      scrollToBottom(false, true)
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.classList.add('enable-smooth')
+      }
       setTimeout(() => {
-        scrollToBottom(false, true)
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.classList.add('enable-smooth')
-        }
-        // 🔥 滚动到底部后才允许检测滚动加载更多
-        setTimeout(() => {
-          isInitialLoadRef.current = false
-          console.log('📜 [初始化] 已滚动到底部，启用加载更多检测')
-        }, 200)
+        isInitialLoadRef.current = false
+        console.log('📜 [初始化] 已滚动到底部，启用加载更多检测')
       }, 100)
     }
   }, [messages, scrollToBottom])

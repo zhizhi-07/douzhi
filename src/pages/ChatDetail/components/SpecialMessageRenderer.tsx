@@ -16,6 +16,8 @@ import TheatreMessage from '../../../components/TheatreMessage'
 import RedPacketCard from '../../../components/RedPacketCard'
 import JudgmentCard from '../../../components/JudgmentCard'
 import ShopCard from '../../../components/ShopCard'
+import ShoppingCartCard from '../../../components/ShoppingCartCard'
+import CartPaymentRequestCard from '../../../components/CartPaymentRequestCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -42,6 +44,8 @@ interface SpecialMessageRendererProps {
   onRequestJudgment?: (messageId: number) => void  // 请求判定
   onRespondToAppeal?: (messageId: number) => void  // 回应AI上诉
   isJudging?: boolean  // 是否正在判定中
+  onAcceptCartPayment?: (messageId: number) => void  // 同意购物车代付
+  onRejectCartPayment?: (messageId: number) => void  // 拒绝购物车代付
 }
 
 /**
@@ -270,7 +274,30 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
 
   // 商品卡片
   if (message.messageType === 'productCard' && message.productCard) {
-    return <ProductCard message={message} />
+    return (
+      <ProductCard
+        name={message.productCard.name}
+        price={message.productCard.price}
+        description={message.productCard.description}
+        sales={message.productCard.sales}
+      />
+    )
+  }
+
+  // 购物车卡片
+  if (message.messageType === 'shoppingCart' && message.shoppingCart) {
+    return <ShoppingCartCard message={message} />
+  }
+
+  // 购物车代付请求
+  if (message.messageType === 'cartPaymentRequest' && message.cartPaymentRequest) {
+    return (
+      <CartPaymentRequestCard
+        message={message}
+        onAccept={() => onAcceptPayment?.(message.id)}
+        onReject={() => onRejectPayment?.(message.id)}
+      />
+    )
   }
 
   // 帖子卡片
@@ -389,6 +416,51 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
           }))
         }}
       />
+    )
+  }
+
+  // 物流消息
+  if (message.messageType === 'logistics' && message.logistics) {
+    const { type, status, detail, productName, price } = message.logistics
+    const isTakeout = type === 'takeout'
+
+    return (
+      <div className="flex justify-center my-3 px-4">
+        <div className="w-full max-w-[320px] bg-white rounded-2xl shadow-lg shadow-gray-100/50 overflow-hidden border border-gray-100">
+          {/* 顶部标题栏 */}
+          <div className={`px-4 py-3 flex items-center gap-3 ${isTakeout ? 'bg-gradient-to-r from-orange-500 to-orange-400' : 'bg-gradient-to-r from-blue-500 to-blue-400'}`}>
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <span className="text-2xl">{isTakeout ? '🍔' : '📦'}</span>
+            </div>
+            <div className="flex-1">
+              <div className="text-white font-semibold text-[15px]">{productName}</div>
+              <div className="text-white/80 text-xs">￥{price.toFixed(2)}</div>
+            </div>
+          </div>
+
+          {/* 状态内容 */}
+          <div className="p-4">
+            {/* 状态标签 */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${isTakeout ? 'bg-orange-500' : 'bg-blue-500'}`} />
+              <span className={`font-bold text-base ${isTakeout ? 'text-orange-600' : 'text-blue-600'}`}>{status}</span>
+            </div>
+
+            {/* 详细信息 */}
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <p className="text-sm text-gray-600 leading-relaxed">{detail}</p>
+            </div>
+
+            {/* 时间戳 */}
+            <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-gray-400">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{message.time}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 

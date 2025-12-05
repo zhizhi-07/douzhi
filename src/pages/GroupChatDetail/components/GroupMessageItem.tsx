@@ -17,6 +17,10 @@ interface GroupMessageItemProps {
   onQuoteMessage: (msg: GroupMessage) => void
   onOpenRedPacket: (messageId: number) => void
   renderMessageContent: (content: string) => React.ReactNode
+  playingVoiceId?: number | null
+  showVoiceTextMap?: Record<number, boolean>
+  onPlayVoice?: (messageId: number, duration: number) => void
+  onToggleVoiceText?: (messageId: number) => void
 }
 
 // 获取成员头像
@@ -34,7 +38,11 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   onLongPressEnd,
   onQuoteMessage,
   onOpenRedPacket,
-  renderMessageContent
+  renderMessageContent,
+  playingVoiceId,
+  showVoiceTextMap = {},
+  onPlayVoice,
+  onToggleVoiceText
 }) => {
   const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
   
@@ -77,18 +85,11 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
         )}
         
         <div
-          onClick={() => {
-            // 点击消息可以引用（非系统消息）
-            if (!msg.isRecalled) {
-              onQuoteMessage(msg)
-            }
-          }}
           onTouchStart={(e) => onLongPressStart(msg, e)}
           onTouchEnd={onLongPressEnd}
           onMouseDown={(e) => onLongPressStart(msg, e)}
           onMouseUp={onLongPressEnd}
           onMouseLeave={onLongPressEnd}
-          className="cursor-pointer"
         >
           {/* 特殊消息类型：转账、语音、位置、图片、红包等 */}
           {(msg.messageType === 'transfer' || 
@@ -97,29 +98,37 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
             msg.messageType === 'photo' ||
             msg.messageType === 'redPacket' ||
             (msg as any).redPacket) ? (
-            <SpecialMessageRenderer
-              message={{
-                ...msg,
-                id: parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now(),
-                type: msg.userId === 'user' ? 'sent' : 'received',
-                time: msg.time,
-                timestamp: msg.timestamp || Date.now(),
-                content: msg.content
-              } as any}
-              characterId={msg.userId}
-              characterName={displayName}
-              onAcceptInvite={() => {}}
-              onRejectInvite={() => {}}
-              onUpdateIntimatePayStatus={() => {}}
-              onViewForwardedChat={() => {}}
-              onReceiveTransfer={() => {}}
-              onRejectTransfer={() => {}}
-              onPlayVoice={() => {}}
-              onToggleVoiceText={() => {}}
-              playingVoiceId={null}
-              showVoiceTextMap={{}}
-              onOpenRedPacket={onOpenRedPacket}
-            />
+            <div onClick={(e) => {
+              // 红包点击事件阻止冒泡
+              const isRedPacket = msg.messageType === 'redPacket' || (msg as any).redPacket
+              if (isRedPacket) {
+                e.stopPropagation()
+              }
+            }}>
+              <SpecialMessageRenderer
+                message={{
+                  ...msg,
+                  id: parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now(),
+                  type: msg.userId === 'user' ? 'sent' : 'received',
+                  time: msg.time,
+                  timestamp: msg.timestamp || Date.now(),
+                  content: msg.content
+                } as any}
+                characterId={msg.userId}
+                characterName={displayName}
+                onAcceptInvite={() => {}}
+                onRejectInvite={() => {}}
+                onUpdateIntimatePayStatus={() => {}}
+                onViewForwardedChat={() => {}}
+                onReceiveTransfer={() => {}}
+                onRejectTransfer={() => {}}
+                onPlayVoice={onPlayVoice || (() => {})}
+                onToggleVoiceText={onToggleVoiceText || (() => {})}
+                playingVoiceId={playingVoiceId || null}
+                showVoiceTextMap={showVoiceTextMap}
+                onOpenRedPacket={onOpenRedPacket}
+              />
+            </div>
           ) : msg.type === 'emoji' && msg.emojiUrl ? (
             /* 表情包消息 */
             <img

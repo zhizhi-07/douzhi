@@ -33,7 +33,8 @@ import { TacitGameSelect, TacitTopicCard, TacitDrawPanel, TacitActPanel } from '
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame, useLogistics } from './ChatDetail/hooks'
+import LogisticsModal from '../components/LogisticsModal'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -319,6 +320,10 @@ const ChatDetail = () => {
     chatState.character?.nickname || chatState.character?.realName || 'AI',
     chatState.character?.personality
   )
+
+  // 物流功能（只读模式，不再发送消息）
+  const logistics = useLogistics()
+
   // 格式修正处理器
   const handleFormatCorrection = useCallback(async () => {
     if (!id) return
@@ -444,7 +449,8 @@ const ChatDetail = () => {
     handleFormatCorrection,  // 格式修正
     () => navigate(`/chat/${id}/weather`),  // 天气
     () => navigate(`/envelope?characterId=${id}`),  // 信封
-    () => judgment.setShowJudgmentModal(true)  // 判定对错
+    () => judgment.setShowJudgmentModal(true),  // 判定对错
+    () => logistics.openLogistics()  // 物流
   )
 
   // 多选模式
@@ -1199,6 +1205,8 @@ const ChatDetail = () => {
                             message.messageType === 'photo' ||
                             message.messageType === 'paymentRequest' ||
                             message.messageType === 'productCard' ||
+                            message.messageType === 'shoppingCart' ||
+                            message.messageType === 'cartPaymentRequest' ||
                             message.messageType === 'post' ||
                             message.messageType === 'theatre' ||
                             message.messageType === 'poke' ||
@@ -1270,6 +1278,8 @@ const ChatDetail = () => {
                               showVoiceTextMap={voice.showVoiceTextMap}
                               onAcceptPayment={paymentRequest.acceptPayment}
                               onRejectPayment={paymentRequest.rejectPayment}
+                              onAcceptCartPayment={paymentRequest.acceptCartPayment}
+                              onRejectCartPayment={paymentRequest.rejectCartPayment}
                               onAcceptFriendRequest={(messageId) => {
                                 // 解除拉黑
                                 if (id) {
@@ -1662,8 +1672,17 @@ const ChatDetail = () => {
         onSelectJudgment={addMenu.handlers.handleSelectJudgment}
         onSelectShop={handleSelectShop}
         onSelectTacitGame={tacitGame.openGameSelect}
+        onSelectLogistics={addMenu.handlers.handleSelectLogistics}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
+      />
+
+      {/* 物流弹窗 */}
+      <LogisticsModal
+        isOpen={logistics.showLogisticsModal}
+        onClose={logistics.closeLogistics}
+        messages={chatState.messages}
+        chatId={id || ''}
       />
 
       {/* 表情包面板 */}

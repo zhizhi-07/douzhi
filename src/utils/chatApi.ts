@@ -1100,6 +1100,7 @@ ${POKE_FEATURES_PROMPT}
 
 ${buildCareReminderContext(messages)}
 ${buildMemoReminderContext(messages)}
+${buildDynamicInstructions(messages)}
 ${await buildListeningTogetherContext(character)}
 
 ${momentsListPrompt}
@@ -1108,6 +1109,20 @@ ${getMemesSuggestion(
   messages.filter(m => m.type === 'sent').slice(-1)[0]?.content || '',
   messages.slice(-10).map(m => m.content).join(' ')
 )}
+
+## 语言风格：拒绝干巴！
+每句话都要有"呼吸感"，像真人说话一样自然，根据你的人设选择合适的语气词：
+- 句尾加语气词：呀/诶/呢/啦/嘛/哦/惹/呗/吧/啊
+- 句首加缓冲词：哎/诶/啊/嗯/哦/那/所以/反正/怎么/哈
+示例（左边禁止，右边正确）：
+- ❌"下一秒就要吃零食" → ✅"怎么下一秒就要吃零食啦"
+- ❌"你这跨度是不是有点大" → ✅"哎你这个跨度是不是有点大了"
+- ❌"注意安全" → ✅"那自己在外面注意安全啊"
+- ❌"别理他" → ✅"哎呀别理他就好了呀"
+- ❌"我也想你" → ✅"其实我也很想你诶"
+- ❌"能不能行" → ✅"能不能行呀"
+反正你说的每句话都要过一遍脑子，别太干巴巴的！
+
 ---
 **OK，${userNickname} 刚给你发了消息。**
 结合你的状态（${statusText}）和心情，回一条（或几条）像真人的消息。
@@ -1522,7 +1537,7 @@ const buildDynamicInstructions = (messages: Message[]): string => {
 - 处理后必须再发一条文本消息表达你的想法`)
   }
   
-  // 检查是否有待处理的代付请求（用户请求AI代付）
+  // 检查是否有待处理的代付请求（用户请求AI代付外卖）
   const pendingPayments = recentMessages.filter(
     msg => msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'pending' && msg.type === 'sent'
   )
@@ -1533,13 +1548,34 @@ const buildDynamicInstructions = (messages: Message[]): string => {
       .join('、')
     
     instructions.push(`
-🍔 代付处理（用户请求你代付）：
-- 用户发了 ${paymentCount} 个代付请求：${paymentList}
+🍔 外卖代付处理（用户请求你代付外卖）：
+- 用户发了 ${paymentCount} 个外卖代付请求：${paymentList}
 - 每个代付请求你都需要单独回应：
   - 同意：[同意代付]（每次只处理最近的一个待处理代付）
   - 拒绝：[拒绝代付]（每次只处理最近的一个待处理代付）
 - ⚠️ 如果有多个代付，你需要在不同的消息中多次使用这些指令
 - ⚠️ 注意：[同意代付]只用于回应用户的代付请求，不要在你自己发送[代付:...]后使用！`)
+  }
+  
+  // 检查是否有待处理的购物车代付请求（用户请求AI代付购物车）
+  const pendingCartPayments = recentMessages.filter(
+    msg => msg.messageType === 'cartPaymentRequest' && msg.cartPaymentRequest?.status === 'pending' && msg.type === 'sent'
+  )
+  if (pendingCartPayments.length > 0) {
+    const cartPaymentCount = pendingCartPayments.length
+    const cartPaymentList = pendingCartPayments.map(msg => {
+      const items = msg.cartPaymentRequest!.items
+      const itemNames = items.map(item => `${item.name}x${item.quantity}`).join('、')
+      return `购物车(${itemNames}) ¥${msg.cartPaymentRequest!.totalAmount.toFixed(2)}`
+    }).join('；')
+    
+    instructions.push(`
+🛒 购物车代付处理（用户请求你代付购物车）：
+- 用户发了 ${cartPaymentCount} 个购物车代付请求：${cartPaymentList}
+- 每个购物车代付请求你都需要单独回应：
+  - 同意：[购物车代付:同意]（每次只处理最近的一个待处理购物车代付）
+  - 拒绝：[购物车代付:拒绝]（每次只处理最近的一个待处理购物车代付）
+- ⚠️ 如果有多个购物车代付，你需要在不同的消息中多次使用这些指令`)
   }
   
   // 检查是否有待处理的亲密付邀请（用户邀请AI）

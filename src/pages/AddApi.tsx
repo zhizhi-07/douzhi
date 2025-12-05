@@ -94,9 +94,6 @@ const AddApi = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
-      {/* 背景装饰 */}
-      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-[80px] pointer-events-none" />
 
       <StatusBar />
 
