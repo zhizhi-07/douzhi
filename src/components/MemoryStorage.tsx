@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { Message } from '../types/chat'
-import { generateAISummary } from '../utils/subApiManager'
+import { generateAISummaryWithMeta } from '../utils/subApiManager'
 import { saveMessages } from '../utils/simpleMessageManager'
 
 interface MemoryItem {
@@ -86,16 +86,15 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
       }).join('\n')
 
       console.log('📝 对话文本长度:', conversationText.length, '字符')
-      console.log('📝 调用AI生成总结...')
+      console.log('📝 调用AI生成总结（含标题和标签）...')
 
-      // 使用副API或主API生成总结
-      const summary = await generateAISummary(conversationText, {
-        maxLength: 200,
-        style: 'brief'
-      })
+      // 使用新的API生成带标题和标签的总结
+      const result = await generateAISummaryWithMeta(conversationText)
 
-      console.log('✅ 总结生成成功:', summary.substring(0, 50) + '...')
-      setGeneratedSummary(summary)
+      console.log('✅ 总结生成成功:', result.title, result.tags)
+      setGeneratedSummary(result.summary)
+      setMemoryTitle(result.title)           // 🔥 自动填充标题
+      setMemoryTags(result.tags.join(', '))  // 🔥 自动填充标签
       
     } catch (error) {
       console.error('❌ AI总结失败:', error)

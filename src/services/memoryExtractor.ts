@@ -15,11 +15,13 @@ interface DialogueTurn {
   timestamp: number
 }
 
-// AI返回的记忆数据（包含summary和facts）
+// AI返回的记忆数据（包含title、summary、tags和facts）
 interface ExtractedMemory {
-  summary: string | null
+  title: string       // 6字标题
+  summary: string     // 50-80字总结
+  tags: string[]      // 关键词标签
   emotionalTone: 'positive' | 'neutral' | 'negative'
-  facts?: string[]  // 重要事实（生日、喜好等）
+  facts?: string[]    // 重要事实（生日、喜好等）
 }
 
 /**
@@ -125,34 +127,23 @@ function buildExtractionPrompt(turns: DialogueTurn[], characterName: string, use
     return `【第${index + 1}轮对话】\n${userName}: ${userText}\n${characterName}: ${turn.aiReply}`
   }).join('\n\n')
 
-  return `你是角色【${characterName}】的记忆系统。阅读对话，提取核心内容。
-对方是【${userName}】。
+  return `提取记忆，严格输出JSON。
 
-对话历史：
+角色：${characterName}
+对方：${userName}
+
+对话：
 ${dialogueText}
 
-## summary 要求（50-80字）
-- 一句话概括发生了什么，保留1-2个关键细节
-- 不要写成流水账，也不要太抽象
+要求：
+- title：6字以内标题
+- summary：50-80字总结
+- tags：2-4个关键词
+- emotionalTone：positive/neutral/negative
+- facts：长期有效的事实，没有就[]
 
-示例：
-❌ 太短："聊了天"
-❌ 太长："${userName}先说了A，${characterName}回了B，然后又聊到C..."
-✅ 适中："${userName}撒娇想被陪，约好周六去吃火锅，还聊到最近工作压力大"
-
-## facts 要求
-只记录**长期有效**的事实（生日、喜好、重要约定），普通闲聊就空数组。
-
-输出格式：
-\`\`\`json
-{
-  "summary": "50-80字",
-  "emotionalTone": "positive/neutral/negative",
-  "facts": []
-}
-\`\`\`
-
-直接输出JSON。`
+⚠️ 只输出JSON，不要任何其他文字：
+{"title":"标题","summary":"总结","tags":["标签"],"emotionalTone":"neutral","facts":[]}`
 }
 
 /**
@@ -160,30 +151,44 @@ ${dialogueText}
  */
 function parseMemoryFromAI(response: string): ExtractedMemory | null {
   try {
-    // 提取 JSON 部分（可能包含在代码块中）
     let jsonStr = response.trim()
     
-    // 移除 markdown 代码块
+    // 1. 移除 markdown 代码块
     const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
     if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1]
+      jsonStr = codeBlockMatch[1].trim()
     }
     
-    // 处理 null 返回
-    if (jsonStr === 'null' || jsonStr === '') {
+    // 2. 尝试提取 JSON 对象（从 { 到 }）
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0]
+    }
+    
+    // 3. 处理空值
+    if (!jsonStr || jsonStr === 'null') {
       return null
     }
     
     const parsed = JSON.parse(jsonStr)
     
-    // 验证必要字段
+    // 4. 验证必要字段
     if (!parsed || !parsed.summary) {
+      console.warn('⚠️ [记忆提取] 缺少summary字段，原始回复:', response.substring(0, 200))
       return null
     }
     
-    return parsed
+    // 5. 返回规范化的结果
+    return {
+      title: parsed.title || '对话回忆',
+      summary: parsed.summary,
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      emotionalTone: parsed.emotionalTone || 'neutral',
+      facts: Array.isArray(parsed.facts) ? parsed.facts : []
+    }
   } catch (error) {
     console.error('❌ [记忆提取] JSON解析失败:', error)
+    console.error('  原始回复:', response.substring(0, 300))
     return null
   }
 }
@@ -343,17 +348,17 @@ export async function extractMemoryFromChat(
         domain: 'chat',  // 总结类型
         characterId,
         characterName,
-        title: '对话回忆',
+        title: extractedMemory.title,  // 🔥 使用AI生成的标题
         summary: extractedMemory.summary,
         importance: 'normal',
-        tags: [],
+        tags: extractedMemory.tags,    // 🔥 使用AI生成的标签
         timestamp: Date.now(),
         emotionalTone: extractedMemory.emotionalTone,
         extractedBy: 'auto',
         timeRange
       })
       savedCount++
-      console.log(`💾 [记忆提取] 已保存总结: ${extractedMemory.summary.substring(0, 30)}...`)
+      console.log(`💾 [记忆提取] 已保存: 「${extractedMemory.title}」 标签: [${extractedMemory.tags.join(', ')}]`)
     }
     
     // 7. 保存重要事实（如果有）- 也带上timeRange

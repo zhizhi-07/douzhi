@@ -6,6 +6,7 @@
 import { STORAGE_KEYS } from './storage'
 import type { ApiSettings, ChatMessage } from '../types/chat'
 import { callAIApi } from './chatApi'
+import { callZhizhiApi } from '../services/zhizhiapi'
 
 const SUB_API_STORAGE_KEY = 'SUB_API_SETTINGS'
 
@@ -89,15 +90,24 @@ export const callApiWithFallback = async (
     }
   }
   
-  // 如果没有副API，使用主API
+  // 🔥 如果没有副API，使用 zhizhiapi（代付API），不消耗用户主API
   if (!apiSettings) {
-    const mainApiJson = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
-    if (mainApiJson) {
-      const mainApi: ApiSettings = JSON.parse(mainApiJson)
-      apiSettings = mainApi
-      console.log('✅ 使用主API进行调用')
-      console.log('  - baseUrl:', mainApi.baseUrl)
-      console.log('  - model:', mainApi.model)
+    console.log('🎯 使用 zhizhiapi（代付API）进行总结，节省主API')
+    try {
+      const response = await callZhizhiApi(messages)
+      return {
+        content: response,
+        usedSubApi: true  // 标记为使用了非主API
+      }
+    } catch (error) {
+      console.error('❌ zhizhiapi 调用失败，降级到主API:', error)
+      // zhizhiapi 失败才用主API
+      const mainApiJson = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
+      if (mainApiJson) {
+        const mainApi: ApiSettings = JSON.parse(mainApiJson)
+        apiSettings = mainApi
+        console.log('⚠️ 降级使用主API')
+      }
     }
   }
   
@@ -219,6 +229,59 @@ ${content}
   } catch (error) {
     console.error('❌ generateAISummary 失败:', error)
     throw error
+  }
+}
+
+/**
+ * 生成带标题和标签的AI总结（用于手动保存记忆）
+ */
+export const generateAISummaryWithMeta = async (
+  content: string
+): Promise<{ title: string; summary: string; tags: string[] }> => {
+  console.log('🤖 generateAISummaryWithMeta 开始')
+  
+  const prompt = `提取记忆，严格输出JSON。
+
+对话内容：
+${content}
+
+要求：
+- title：6字以内标题（如"深夜的暧昧"）
+- summary：80-150字总结
+- tags：2-4个关键词
+
+⚠️ 只输出JSON：
+{"title":"标题","summary":"总结内容","tags":["标签1","标签2"]}`
+  
+  try {
+    const { content: response } = await callApiWithFallback(
+      [{ role: 'user', content: prompt }],
+      { preferSubApi: true, maxTokens: 500, temperature: 0.5 }
+    )
+    
+    // 尝试解析JSON
+    let jsonStr = response.trim()
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0]
+    }
+    
+    const parsed = JSON.parse(jsonStr)
+    
+    console.log('✅ AI总结生成成功:', parsed.title)
+    return {
+      title: parsed.title || '对话回忆',
+      summary: parsed.summary || response,
+      tags: Array.isArray(parsed.tags) ? parsed.tags : []
+    }
+  } catch (error) {
+    console.error('❌ generateAISummaryWithMeta 失败:', error)
+    // 降级：返回简单结果
+    return {
+      title: '对话回忆',
+      summary: content.substring(0, 200),
+      tags: []
+    }
   }
 }
 
