@@ -626,11 +626,11 @@ export const locationHandler: CommandHandler = {
  * 照片指令处理器
  */
 export const photoHandler: CommandHandler = {
-  // 支持三种写法：
-  // 1. [照片:描述]
-  // 2. [你发了照片：描述]
-  // 3. [我发了照片：描述]
-  pattern: /[\[【](?:照片|(?:你|我)发了照片)[:\：](.+?)[\]】]/,
+  // 支持多种写法：
+  // 1. [照片:描述] / [图片:描述]
+  // 2. [你发了照片：描述] / [你发了图片：描述]
+  // 3. [我发了照片：描述] / [我发了图片：描述]
+  pattern: /[\[【](?:照片|图片|(?:你|我)发了(?:照片|图片))[:\：](.+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
     const photoDescription = match[1].trim()
 
@@ -3029,13 +3029,29 @@ ${personality ? `人设：${personality}` : ''}
       }
       saveNPCs(existingNPCs)
 
+      // 🔥 提取帖子内容中的 [图片:描述] 指令，生成图片URL
+      const imageMatches = postContent.matchAll(/\[图片[:：]([^\]]+)\]/g)
+      const imageUrls: string[] = []
+      let cleanedContent = postContent
+      
+      for (const imgMatch of imageMatches) {
+        const imgDesc = imgMatch[1].trim()
+        // 将中文描述转为英文关键词（简单处理）
+        const englishDesc = encodeURIComponent(imgDesc)
+        const imageUrl = `https://image.pollinations.ai/prompt/${englishDesc}?width=400&height=300&nologo=true`
+        imageUrls.push(imageUrl)
+        // 从内容中移除图片指令
+        cleanedContent = cleanedContent.replace(imgMatch[0], '').trim()
+        console.log(`🖼️ [AI发布论坛帖子] 生成图片: ${imgDesc}`)
+      }
+
       // 创建帖子
       const postId = `ai-post-${baseTimestamp}-${Math.random().toString(36).substr(2, 9)}`
       const newPost = {
         id: postId,
         npcId: npcId,
-        content: postContent,
-        images: 0,
+        content: cleanedContent || postContent,
+        images: imageUrls.length > 0 ? imageUrls : 0,  // 图片URL数组或0
         likes: likes,
         comments: 0,
         time: '刚刚',
@@ -3054,8 +3070,9 @@ ${personality ? `人设：${personality}` : ''}
         ? `\n📊 ${likes > 0 ? `获得${likes}个赞` : ''}${likes > 0 && newFollowers > 0 ? '，' : ''}${newFollowers > 0 ? `涨了${newFollowers}个粉` : ''}`
         : ''
 
-      // 格式化帖子内容，让PostCard能正确识别楼主
-      const formattedContent = `楼主（${aiName}）：${postContent}`
+      // 格式化帖子内容（使用清理后的内容），让PostCard能正确识别楼主
+      const displayContent = cleanedContent || postContent
+      const formattedContent = `楼主（${aiName}）：${displayContent}`
       const postMsg: Message = {
         id: postMessageId,
         type: 'received',
@@ -3065,10 +3082,11 @@ ${personality ? `人设：${personality}` : ''}
         messageType: 'post',
         post: {
           content: formattedContent,
-          prompt: `${aiName} 在论坛发布了帖子${statsText}`
+          prompt: `${aiName} 在论坛发布了帖子${statsText}`,
+          images: imageUrls.length > 0 ? imageUrls : undefined  // 🔥 传递图片URL
         },
         // AI读取的简洁版本
-        aiReadableContent: `【论坛发帖】${postContent}${statsText}`
+        aiReadableContent: `【论坛发帖】${displayContent}${statsText}`
       }
 
       await addMessage(postMsg, setMessages, chatId)
@@ -3144,7 +3162,11 @@ ${personality ? `人设：${personality}` : ''}
       return { handled: false }
     }
 
-    const remainingText = content.replace(match[0], '').trim()
+    // 🔥 清理 remainingText 中的图片指令，避免被 photoHandler 再次处理
+    let remainingText = content.replace(match[0], '').trim()
+    // 移除发帖内容中的图片指令（可能在发帖指令外部）
+    remainingText = remainingText.replace(/\[图片[:：][^\]]+\]/g, '').trim()
+    
     return {
       handled: true,
       remainingText,

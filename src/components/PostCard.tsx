@@ -17,7 +17,7 @@ const PostCard = ({ message }: PostCardProps) => {
     return null
   }
 
-  const { content, prompt } = message.post
+  const { content, prompt, images } = message.post
 
   // 智能识别论坛类型
   const detectForumType = () => {
@@ -131,6 +131,17 @@ const PostCard = ({ message }: PostCardProps) => {
               {summary}
             </div>
           )}
+          {/* 🔥 图片预览 */}
+          {images && Array.isArray(images) && images.length > 0 && (
+            <div className="mt-2 rounded-lg overflow-hidden">
+              <img 
+                src={images[0]} 
+                alt="帖子配图" 
+                className="w-full h-24 object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-1 px-1">
@@ -196,6 +207,22 @@ const PostCard = ({ message }: PostCardProps) => {
           <div className={`text-[15px] text-gray-700 leading-relaxed whitespace-pre-wrap break-words tracking-wide font-medium ${!isExpanded ? 'line-clamp-4' : ''
             }`}>
             {mainPost}
+          </div>
+        )}
+
+        {/* 🔥 帖子图片 */}
+        {images && Array.isArray(images) && images.length > 0 && (
+          <div className={`mt-3 ${images.length === 1 ? '' : 'grid grid-cols-2 gap-1.5'}`}>
+            {images.map((url, idx) => (
+              <div key={idx} className="rounded-xl overflow-hidden bg-gray-100">
+                <img 
+                  src={url} 
+                  alt={`配图${idx + 1}`} 
+                  className={`w-full object-cover ${images.length === 1 ? 'max-h-48' : 'h-24'}`}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              </div>
+            ))}
           </div>
         )}
 

@@ -365,33 +365,57 @@ const ChatDetail = () => {
     // 🔥 重新执行命令处理：从 commandHandlers 导入
     const { commandHandlers } = await import('./ChatDetail/hooks/commandHandlers')
 
+    // 记录需要移除的消息ID（纯指令消息处理后应该删除）
+    const messagesToRemove: Set<number | string> = new Set()
+
     // 处理每条修正后的消息
     for (const msg of updatedMessages) {
       const isTargetMessage = lastRoundAIMessages.some(m => m.id === msg.id)
       if (!isTargetMessage || !msg.content) continue
 
-      // 遍历所有指令处理器
-      for (const handler of commandHandlers) {
-        const match = msg.content.match(handler.pattern)
-        if (match) {
-          console.log(`🔧 [格式修正] 检测到指令，重新执行:`, match[0])
-          await handler.handler(match, msg.content, {
-            messages: updatedMessages,
-            setMessages: chatState.setMessages,
-            character: chatState.character,
-            chatId: id,
-            isBlocked: false
-          })
-          break
+      let currentContent = msg.content
+      let hasCommand = true
+
+      // 循环处理所有指令
+      while (hasCommand) {
+        hasCommand = false
+        for (const handler of commandHandlers) {
+          const match = currentContent.match(handler.pattern)
+          if (match) {
+            console.log(`🔧 [格式修正] 检测到指令，重新执行:`, match[0])
+            const result = await handler.handler(match, currentContent, {
+              messages: updatedMessages,
+              setMessages: chatState.setMessages,
+              character: chatState.character,
+              chatId: id,
+              isBlocked: false
+            })
+            
+            // 🔥 更新消息内容为剩余文本
+            if (result.handled && result.remainingText !== undefined) {
+              currentContent = result.remainingText
+              msg.content = currentContent
+              hasCommand = !!currentContent.trim() // 如果还有内容，继续检查其他指令
+            }
+            break
+          }
         }
+      }
+
+      // 如果处理后消息内容为空，标记为需要移除
+      if (!msg.content || !msg.content.trim()) {
+        messagesToRemove.add(msg.id)
       }
     }
 
+    // 过滤掉空消息
+    const finalMessages = updatedMessages.filter(m => !messagesToRemove.has(m.id))
+
     // 保存到存储
-    saveMessages(id, updatedMessages)
+    saveMessages(id, finalMessages)
 
     // 更新React状态
-    chatState.setMessages(updatedMessages)
+    chatState.setMessages(finalMessages)
 
     // 显示修正结果
     alert(`已修正最后一轮 ${lastRoundAIMessages.length} 条消息，共 ${totalCorrections.length} 处格式错误：\n${totalCorrections.join('\n')}\n\n命令已重新执行，请查看效果`)

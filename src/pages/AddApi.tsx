@@ -13,7 +13,7 @@ const AddApi = () => {
     apiKey: '',
     model: '',
     provider: 'openai' as const,
-    temperature: 0.7,
+    temperature: 0.5,
     maxTokens: 8000,
     supportsVision: false
   })
@@ -266,8 +266,8 @@ const AddApi = () => {
               </div>
               <input
                 type="range"
-                min="0"
-                max="2"
+                min="0.5"
+                max="0.6"
                 step="0.1"
                 value={formData.temperature}
                 onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}

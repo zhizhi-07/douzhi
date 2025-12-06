@@ -59,12 +59,27 @@ const Forum = () => {
         </p>
       )}
 
-      {/* 图片 */}
-      {post.images && post.images.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {post.images.slice(0, 3).map((_, i) => (
-            <div key={i} className="aspect-square rounded-xl bg-gray-200" />
-          ))}
+      {/* 图片 - 支持URL数组或数字 */}
+      {post.images && (Array.isArray(post.images) ? post.images.length > 0 : post.images > 0) && (
+        <div className={`mb-3 ${Array.isArray(post.images) && post.images.length === 1 ? '' : 'grid grid-cols-3 gap-2'}`}>
+          {Array.isArray(post.images) ? (
+            // URL数组：显示实际图片
+            post.images.slice(0, 3).map((url, i) => (
+              <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                <img 
+                  src={url} 
+                  alt={`配图${i + 1}`} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                />
+              </div>
+            ))
+          ) : (
+            // 数字：显示占位符
+            Array.from({ length: Math.min(post.images, 3) }).map((_, i) => (
+              <div key={i} className="aspect-square rounded-xl bg-gray-200" />
+            ))
+          )}
         </div>
       )}
 

@@ -111,23 +111,39 @@ const OfflineChat = () => {
       try {
         const savedExtensions = JSON.parse(saved) as OfflineExtension[]
         
-        // 检查是否有新的默认预设未被包含（通过名称匹配）
-        // 这样当代码更新了默认预设时，用户能自动获取到新条目
-        let hasNewDefaults = false
+        // 检查是否有新的默认预设未被包含，或已存在的默认条目需要更新内容
+        let hasChanges = false
         const mergedExtensions = [...savedExtensions]
         
         defaults.forEach(defExt => {
-          // 如果是默认条目且不在用户的列表中
-          if (defExt.isDefault && !savedExtensions.some(e => e.name === defExt.name)) {
-             mergedExtensions.push(defExt)
-             hasNewDefaults = true
+          if (!defExt.isDefault) return
+          
+          const existingIndex = mergedExtensions.findIndex(e => e.name === defExt.name)
+          
+          if (existingIndex === -1) {
+            // 新条目，添加
+            mergedExtensions.push(defExt)
+            hasChanges = true
+            console.log(`📦 [线下模式] 添加新默认预设: ${defExt.name}`)
+          } else {
+            // 已存在的条目，检查内容是否需要更新
+            const existing = mergedExtensions[existingIndex]
+            if (existing.content !== defExt.content) {
+              // 🔥 强制更新默认条目的内容（保留用户的enabled状态）
+              mergedExtensions[existingIndex] = {
+                ...defExt,
+                enabled: existing.enabled  // 保留用户的开关状态
+              }
+              hasChanges = true
+              console.log(`📦 [线下模式] 更新默认预设内容: ${defExt.name}`)
+            }
           }
         })
         
         setExtensionList(mergedExtensions)
         
-        if (hasNewDefaults) {
-          console.log('📦 [线下模式] 检测到新默认预设，已自动合并')
+        if (hasChanges) {
+          console.log('📦 [线下模式] 默认预设已同步更新')
           localStorage.setItem('offline-extensions', JSON.stringify(mergedExtensions))
         }
         
@@ -452,6 +468,7 @@ const OfflineChat = () => {
                   characterName={chatState.character!.nickname || chatState.character!.realName}
                   characterAvatar={chatState.character!.avatar}
                   chatId={id}
+                  onBranchSelect={setInputValue}
                 />
 
                 {/* 极简操作栏 - 仅悬浮显示 */}

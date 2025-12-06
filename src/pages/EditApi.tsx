@@ -16,7 +16,7 @@ const EditApi = () => {
     apiKey: existingApi?.apiKey || '',
     model: existingApi?.model || '',
     provider: existingApi?.provider || 'openai' as const,
-    temperature: existingApi?.temperature ?? 0.7,
+    temperature: existingApi?.temperature ?? 0.5,
     maxTokens: existingApi?.maxTokens ?? 8000,
     supportsVision: existingApi?.supportsVision ?? false
   })
@@ -281,8 +281,8 @@ const EditApi = () => {
               </div>
               <input
                 type="range"
-                min="0"
-                max="2"
+                min="0.5"
+                max="0.6"
                 step="0.1"
                 value={formData.temperature}
                 onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}

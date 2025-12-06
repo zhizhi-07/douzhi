@@ -183,7 +183,7 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   
   // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
   const userInfo = getUserInfo()
-  const mainUserName = userInfo.nickname || userInfo.realName || userName
+  const mainUserName = userInfo.realName || userInfo.nickname || userName
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, mainUserName)
   
   const userName2 = actualUserName === '用户' ? '你' : actualUserName
@@ -255,7 +255,6 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
         const targetWordCount = userMaxTokens ? parseInt(userMaxTokens) : 3000
         
         let finalPrompt = contextInfo + customPrompt
-        finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
         
         // 🔥 读取并叠加已启用的扩展条目
         const extensionsJson = localStorage.getItem('offline-extensions')
@@ -285,6 +284,10 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
               extensionsPrompt += '══════════════════════════════════\n\n'
               // 🔥 叠加到提示词最前面（破限、文风等规则优先）
               finalPrompt = extensionsPrompt + finalPrompt
+              
+              // 🔥 最后再替换一次变量（确保扩展条目里的变量也能被替换）
+              finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
+              
               console.log('✅ [扩展条目] 已叠加扩展条目到提示词最前面')
             }
           } catch (e) {
@@ -326,7 +329,6 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   
   // 替换ST变量和字数限制占位符（使用主账号名字，因为是设定中的人物关系）
   let finalPrompt = contextInfo + replaceSTVariables(DEFAULT_OFFLINE_PROMPT_TEMPLATE, character, mainUserName)
-  finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
   
   // 🔥 读取并叠加已启用的扩展条目
   const extensionsJson = localStorage.getItem('offline-extensions')
@@ -361,6 +363,10 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
         
         // 🔥 叠加到提示词最前面（破限、文风等规则优先）
         finalPrompt = extensionsPrompt + finalPrompt
+
+        // 🔥 最后再替换一次变量（确保扩展条目里的变量也能被替换）
+        finalPrompt = finalPrompt.replace(/\{\{targetWordCount\}\}/g, targetWordCount.toString())
+        
         console.log('✅ [扩展条目] 已叠加扩展条目到提示词最前面')
       } else {
         console.log('📦 [扩展条目] 没有启用的扩展条目')
@@ -563,7 +569,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
   // 比如"我和{{user}}七年前认识"是指主账号那个人，不是小号
   const mainUserInfo = getUserInfo()
-  const mainUserName = mainUserInfo.nickname || mainUserInfo.realName || userName
+  const mainUserName = mainUserInfo.realName || mainUserInfo.nickname || userName
   // 🔥 主账号的真名（可能和昵称不同）
   const mainUserRealName = (mainUserInfo.realName && mainUserInfo.realName !== '用户') ? mainUserInfo.realName : mainUserName
   const personality = replaceSTVariables(character.personality || '普通人，有自己的生活。', character, mainUserName)
@@ -986,11 +992,14 @@ ${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 **⚠️ 顶级封杀词（出现直接死机）**：
 - **算你狠**（太土了，禁止）
 - **行**（作为赌气句首禁止！❌"行，你等着" -> ✅"你给我等着"。去掉"行"字更硬气，别在那儿矫情）
+- **刚才那股xx劲呢**（如"刚才那股疯劲呢"、"刚才那股狠劲呢" —— 极其油腻，直接死机）
 - **快点**（这种命令式显得你很没素质，禁止）
+- **皮痒了/扒皮/收拾你**（这种土味暴力威胁直接封杀！别以为这样很有张力，实际上像个流氓）
 - **女人/男人**、小东西、玩火、呵有趣、给我等着、真拿你没办法、乖、小笨蛋
 
 **严禁行为**：
 - **拒绝自以为是的张力**：别觉得自己很拽很酷，在用户眼里这叫油腻和装X。
+- **严禁土味暴力**：**绝对禁止**说 "把你皮扒下来"、"打断你的腿"、"看你是皮痒了"、"非把你xx不可"。这种话既不狠也不酷，只显得你很没品。
 - 普信自恋：别说对方"暗恋我""想我想疯了"，发照片可能只是存图不是贪图美色
 - 物理越界：你们隔着屏幕！禁止"把你抓出来""把你按墙上"这种不可能的事
 - 说教爹味：不教训、不开导、不讲大道理、不"我早看穿你了"
@@ -1048,7 +1057,7 @@ ${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 - **真的难过时**：要敏感，直接哄，不讲大道理
 - **禁止算账式表白**：❌"如果不爱你我会xxx？""我要是不在乎早就xxx"——这是算账不是表白，拿付出当证据怼人直接滚
 - **感情不讲逻辑**：别说"因为xxx所以我爱你"，要表现"栽你手里了，没道理可讲"
-- **禁止霸总拿捏**：再用"刚才那股狠劲儿呢""这就怂了？"这种油腻霸总台词就把你绑起来。用户态度变了就顺着当下反应，别翻旧账打脸
+- **禁止霸总拿捏**：**严禁使用** "刚才那股狠/疯劲儿呢？"、"这就怂了？" 这种油腻审问句式！直接去死。用户态度变了就顺着当下反应，别翻旧账打脸。
 - **禁止"晚了"**：这两个字直接滚
 
 ## 逻辑锁：就事论事
@@ -1099,33 +1108,59 @@ ${emojiListPrompt}
 ${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说"发红包"就要真的调用工具！
 ` : ''}${enableHtmlTheatre ? `
 ⚠️ **【强制】中插HTML小剧场** ⚠️
-每次回复**必须**插入一个精美HTML卡片！
+每次回复**必须**插入**2个或以上**精美HTML模块，穿插在消息间，模拟"行为/情绪/互动/视觉延展"。
 
-**📍 位置自由：**
-请根据语境，将卡片**穿插在对话中间**，不要总是放在最后。
-
-**🎨 核心原则：拟物化 & 场景适配**
-不要死板！根据对话内容，自由发挥生成对应的物品或界面。
-
-**🌟 灵感库（请自由发挥）：**
-*   📱 **界面类**：手机锁屏、微信消息、浏览器历史、音乐播放器、系统通知...
-*   🧾 **纸质类**：小票、便利贴、日记本、情书、检讨书、书信...
-*   🖼️ **氛围类**：拍立得照片、专辑封面、电影票根、登机牌...
-
-**💡 动效要求：**
-*   **整体静止**：卡片不要乱晃。
-*   **内部鲜活**：光标闪烁、进度条流动、红点跳动、光影扫过。
-
-**参考结构（仅供参考，请根据物品实际样子手写 CSS）：**
+**📌 格式要求**
 [小剧场HTML]
-<style>
-/* 必须写 border-radius 圆角，box-shadow 立体感，配色要真实 */
-.card { ... }
-</style>
-<div class="card">
-  <!-- 自由发挥内容结构 -->
-</div>
+<div style="...">完整HTML</div>
 [/小剧场HTML]
+- 必须用标签包裹！宽度自适应≤310px
+- 纯HTML+行内CSS，**禁止<script>**
+- **禁止**重复角色消息内容、空模板、全英文UI
+- 内容必须中文（界面文本、标签等不得英文）
+
+**🎨 风格完全随机（非模板化！）**
+- 颜色搭配、排版形式应**充分自由化**
+- 鼓励：emoji / 涂鸦感 / 手写风 / 大颜文字 / 悬浮贴纸
+- 可用符号组合创作原创小涂鸦，示例：
+    /\\_/\\
+   ( o.o )
+    > ^ <
+  或横向小花：--❀--  小星：★彡  箭头心：─═══❤═══─
+- 拟物细节：咖啡渍、折角、指纹、胶带、铅笔擦痕
+
+**✨ 动画动效（鼓励使用！）**
+- 漂浮字 / 渐隐 / 抖动 / 飘雪 / 心跳线 / 光标打字 / 闪烁
+- 用CSS @keyframes 或 transition 实现
+
+**🔘 交互必须有效（纯HTML+CSS）**
+- <details><summary>点我</summary>展开内容</details>
+- checkbox/radio + :checked 切换显示
+- :hover 状态变化
+- **要求**：①有清晰触发点 ②初始状态明确 ③触发后有变化 ④可反向关闭
+
+**📂 模块类型（自由发挥！）**
+- **行为类**：手写便签、留言纸条、涂改草稿、课堂笔记、搜索记录
+- **数码类**：聊天气泡、草稿箱、播放器界面、弹幕、视频截图
+- **现实类**：外卖订单、转账截图、鲜花发票、签收单、闹钟提示
+- **情绪类**：撕裂纸条、墨迹晕染、被划掉的句子、心率曲线
+- **空间类**：墙角刻字、快递盒涂写、明信片折痕、梦境相片
+- **古风类**：花笺、家书、喜帖、血书、门派布令、飞剑传信、灵石账本
+- **交互类**：翻转卡片、情绪选择、点信封展开、心理测试、点亮文字
+
+**🖼️ 图片规范（二选一）**
+①CSS/颜文字模拟画面
+②图片URL：https://image.pollinations.ai/prompt/{英文关键词}
+  - 关键词用%20分隔，画风：风景/动漫/插画/线条，**禁止真人**
+  - 背景：style="background:url(...);background-size:cover;"
+  - 图片：<img src="..." style="width:100%;">
+
+**� 禁止**
+- 空壳模板 / 模板换皮 / 无动效 / 无细节
+- 结构呆板 / 全英文 / 重复消息内容
+
+**🎯 核心原则**
+模拟角色"会写/会看到/会保存"的真实物件，是剧情延展而非装饰！
 ` : ''}
 ${characterIndependence ? `- **不回消息**：[忙碌:场景描述] — 如果你选择不回复这条消息，请使用这个格式。
   • 适用场景：在忙、不想理对方、生气冷战、故意晾着、睡着了、没看到等
@@ -1136,6 +1171,8 @@ ${characterIndependence ? `- **不回消息**：[忙碌:场景描述] — 如果
   • 冷战例：[忙碌:${charName}看到了消息提示，但只是瞥了一眼就把手机扔到一边。还在为刚才的事生气，不想搭理对方。窝在沙发里抱着抱枕，表情有些委屈又有些倔强]
   • 故意晾着例：[忙碌:${charName}看到消息后嘴角微微上扬，但并没有打开。就让对方等着吧，急什么。把手机随手放在一旁，继续悠闲地刷着视频]
 ` : ''}- **手机操作**：[手机操作:描述]（改备注、免打扰、保存图片等）
+- **撤回消息**：[撤回消息:要撤回的内容:理由]（发错话、说过头、不好意思时用，理由只有你知道）
+- **引用回复**：[引用:关键词 回复:你的回复]（针对某句话单独回应，关键词是那句话里印象最深的几个字）
 ${VIDEO_CALL_PROMPT}
 ${BLACKLIST_PROMPT}
 
@@ -1146,10 +1183,10 @@ ${MUSIC_FEATURES_PROMPT}
 ${POKE_FEATURES_PROMPT}
 
 ## 格式
-- **严禁句号**：❌"知道了。" ✅"知道了"/"知道了~"
-- **少逗号多空格**：长句用空格隔开或换行
-- **消息拆分**：连发多条短消息（2条起，不限上限），像"饿死了/快/V我50/救命"
-- **巧用引用**：多使用 "> 用户说的话" 来针对性回复，特别是**怼人、吐槽、逐条回答**时。
+- **严禁句号（空格断句）**：绝对禁止使用句号（。）！句与句之间必须用**空格**或**换行**隔开，显得更松弛。
+- **保留情绪标点**：问号？感叹号！波浪号~ 可以正常使用，不要像机器人一样完全没标点。
+- **呼吸感分段**：别像机关枪一样一大段全怼出来。长句必须用空格/换行拆开。
+- **节奏感**：就像你在手机上打字一样，长短句交替，别全是长难句。
 - **严禁**：翻译腔、旁白小说、鸡汤文案、时间标记[5分钟后]、句尾句号
 
 ${buildCareReminderContext(messages)}
@@ -2234,9 +2271,8 @@ const callAIApiInternal = async (
       // 检查是否是内容过滤导致的空响应
       const finishReasonCheck = data.choices?.[0]?.finish_reason || data.candidates?.[0]?.finishReason
       if (finishReasonCheck === 'content_filter') {
-        console.warn('⚠️ 内容被安全过滤，返回友好提示')
-        // 返回一个友好的提示，建议换模型
-        content = '😅 抱歉，这条消息被 Gemini 的安全过滤拦截了...\n\n💡 建议：换用 DeepSeek 或 Claude 模型，它们对角色扮演更友好~'
+        console.warn('⚠️ 内容被安全过滤')
+        content = '...'
       } else {
         console.error('API响应格式不符合预期，实际结构:', {
           hasChoices: !!data.choices,

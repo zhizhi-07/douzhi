@@ -248,6 +248,11 @@ const Desktop = () => {
     e.preventDefault()
     e.stopPropagation()
 
+    // 预设软件暂时禁用点击
+    if (app.id === 'preset') {
+      return
+    }
+
     // 播放全局点击音效
     playSystemSound()
 

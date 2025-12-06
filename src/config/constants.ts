@@ -11,7 +11,7 @@ export const API_CONFIG = {
   TIMEOUT_MS: 60000,
   
   /** 默认温度参数 */
-  DEFAULT_TEMPERATURE: 0.7,
+  DEFAULT_TEMPERATURE: 0.5,
   
   /** 默认最大token数 */
   DEFAULT_MAX_TOKENS: 4000,

@@ -216,6 +216,11 @@ export interface Message {
     storeName?: string        // 店铺名称
     status: 'paid'            // 状态（送礼物都是已支付）
   }
+  metadata?: {                // 技术元数据
+    generationTime?: number   // 生成耗时(ms)
+    tokenCount?: number       // 生成内容Token数(估算)
+    model?: string            // 使用的模型
+  }
 }
 
 export interface Character {
