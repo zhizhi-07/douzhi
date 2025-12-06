@@ -5,9 +5,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { playSystemSound } from '../utils/soundManager'
-import type { Message } from '../types/chat'
 import { getLogistics, getCurrentLogisticsStatus, type AutoLogisticsResult } from '../services/autoLogistics'
 import { callZhizhiApi } from '../services/zhizhiapi'
+import { loadMessages } from '../utils/simpleMessageManager'
 
 interface PurchasedItem {
   messageId: number
@@ -21,7 +21,6 @@ interface PurchasedItem {
 interface LogisticsModalProps {
   isOpen: boolean
   onClose: () => void
-  messages: Message[]
   chatId: string
 }
 
@@ -33,7 +32,7 @@ interface ChatMessage {
   time: string
 }
 
-const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalProps) => {
+const LogisticsModal = ({ isOpen, onClose, chatId }: LogisticsModalProps) => {
   const [purchasedItems, setPurchasedItems] = useState<PurchasedItem[]>([])
   const [selectedItem, setSelectedItem] = useState<PurchasedItem | null>(null)
   
@@ -47,12 +46,15 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
 
   // 读取已购买的商品和物流信息
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || !chatId) return
 
+    // 直接从localStorage加载全部消息，避免分页加载导致遗漏
+    const allMessages = loadMessages(chatId)
+    
     const items: PurchasedItem[] = []
     const seenKeys = new Set<string>() // 用于去重
 
-    messages.forEach(msg => {
+    allMessages.forEach(msg => {
       // 查找已支付的代付请求
       if (msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'paid') {
         const key = `payment_${msg.id}`
@@ -120,7 +122,7 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
     })
 
     setPurchasedItems(items.reverse()) // 最新的在前
-  }, [isOpen, messages, chatId])
+  }, [isOpen, chatId])
 
   // 重置状态
   useEffect(() => {
@@ -184,7 +186,7 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
       const response = await callZhizhiApi([
         {
           role: 'system',
-          content: `扮演网店客服。商品：${selectedItem?.productName}，¥${selectedItem?.price.toFixed(2)}。给店铺起名，打个招呼。不超过50字。`
+          content: `网店客服，普通打工人。商品：${selectedItem?.productName}，¥${selectedItem?.price.toFixed(2)}。给店铺起个正常的名字，简单打个招呼。不要用emoji、颜文字、"亲"。像普通人说话，不超过20字。`
         }
       ], { temperature: 1.0, max_tokens: 150 })
 
@@ -238,18 +240,22 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
       const response = await callZhizhiApi([
         {
           role: 'system',
-          content: `你是活生生的人，网店客服。保持之前的店铺名和性格。
+          content: `网店客服，普通打工人。保持之前的店铺名。
 
 订单：${selectedItem?.productName}，¥${selectedItem?.price.toFixed(2)}
 物流：${getLogisticsStatusText()}
 
-你是真人，像真人一样打字：
-- 可以分段发，比如"啊？\n怎么了"
-- 可以打错字、用语气词
-- 顾客凶你可以凶回去
-- 不合理的不同意，别怂
-- 已经退过款别再补偿
-- 威胁投诉？随便
+说话要求：
+- 像普通人打字，简短直接
+- 可以分段发（用换行），每段不超过15字
+- 不要用emoji、颜文字、"亲"
+- 顾客无理取闹可以怼回去
+- 不合理的退款不同意
+
+禁止：
+- 不要提任何系统功能（拉黑、举报、投诉通道等）
+- 不要说"已为您xxx"这种假操作
+- 你只能聊天和处理退款，没有其他权限
 
 同意退款才加：[退款:${selectedItem?.price.toFixed(2)}]`
         },
@@ -266,7 +272,7 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
       
       if (refundMatch) {
         const refundAmount = parseFloat(refundMatch[1])
-        // 删除退款格式，显示退款成功提示
+        // 删除退款格式
         displayContent = response.replace(/\[退款[：:][\d.]+\]/, '').trim()
         
         // 标记订单为已退款（不删除，只是标记状态）
@@ -278,19 +284,31 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
           }))
           console.log(`✅ 退款成功：¥${refundAmount}`)
         }
-        
-        // 添加系统提示
-        displayContent += `\n\n💰 退款 ¥${refundAmount.toFixed(2)} 已到账`
       }
 
-      const merchantMsg: ChatMessage = {
-        id: Date.now() + 1,
-        role: 'merchant',
-        content: displayContent,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      // 按换行分割成多个气泡
+      const lines = displayContent.split('\n').filter(line => line.trim())
+      const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      const newMsgs: ChatMessage[] = lines.map((line, i) => ({
+        id: Date.now() + i + 1,
+        role: 'merchant' as const,
+        content: line.trim(),
+        time: now
+      }))
+      
+      // 如果有退款，添加退款成功提示
+      if (refundMatch) {
+        const refundAmount = parseFloat(refundMatch[1])
+        newMsgs.push({
+          id: Date.now() + lines.length + 1,
+          role: 'merchant',
+          content: `💰 退款 ¥${refundAmount.toFixed(2)} 已到账`,
+          time: now
+        })
       }
+
       setChatMessages(prev => {
-        const updated = [...prev, merchantMsg]
+        const updated = [...prev, ...newMsgs]
         saveChatMessages(updated)
         return updated
       })
@@ -395,7 +413,7 @@ const LogisticsModal = ({ isOpen, onClose, messages, chatId }: LogisticsModalPro
   const renderLogisticsDetail = (item: PurchasedItem) => {
     if (!item.logistics) return null
 
-    const { currentStep, progress, isCompleted } = getCurrentLogisticsStatus(item.logistics)
+    const { currentStep, isCompleted } = getCurrentLogisticsStatus(item.logistics)
     const isTakeout = item.type === 'takeout'
     const themeColor = isTakeout ? 'orange' : 'blue'
     const bgColor = isTakeout ? 'bg-orange-500' : 'bg-blue-600'

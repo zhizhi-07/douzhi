@@ -225,9 +225,11 @@ class LorebookManager {
    */
   getCharacterLorebooks(characterId: string): Lorebook[] {
     const lorebooks = this.getAllLorebooks()
-    return lorebooks.filter(lb => 
-      lb.character_ids.includes(characterId) || lb.is_global
+    const result = lorebooks.filter(lb => 
+      (Array.isArray(lb.character_ids) && lb.character_ids.includes(characterId)) || lb.is_global === true
     )
+    console.log(`📚 [世界书] 角色 ${characterId} 关联的世界书:`, result.map(lb => `${lb.name}(全局:${lb.is_global})`))
+    return result
   }
 
   /**

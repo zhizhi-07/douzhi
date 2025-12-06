@@ -86,72 +86,93 @@ ${aiReason}
 
 请根据以上信息，判断这次争执中谁更有道理，并给出判定理由和解决建议。`
 
-  try {
-    const response = await fetch(`${apiConfig.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`API请求失败: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content || ''
-    
-    // 尝试解析JSON
+  // 重试机制
+  const MAX_RETRIES = 3
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      // 清理可能的markdown代码块
-      let jsonStr = content.trim()
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7)
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3)
-      }
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3)
-      }
-      jsonStr = jsonStr.trim()
+      const currentApi = attempt === 0 ? apiConfig : getRandomZhizhiApi() // 重试时换一个API
       
-      const result = JSON.parse(jsonStr) as JudgmentResult
-      
-      // 验证并修正数据
-      if (!['user', 'ai', 'draw'].includes(result.winner)) {
-        result.winner = 'draw'
+      const response = await fetch(`${currentApi.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentApi.apiKey}`
+        },
+        body: JSON.stringify({
+          model: currentApi.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      })
+
+      if (!response.ok) {
+        // 503/502/429 可以重试
+        if ([502, 503, 429].includes(response.status) && attempt < MAX_RETRIES - 1) {
+          console.warn(`⚠️ 判定API返回 ${response.status}，${attempt + 1}秒后重试...`)
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1000))
+          continue
+        }
+        throw new Error(`API请求失败: ${response.status}`)
       }
-      if (typeof result.userScore !== 'number') result.userScore = 50
-      if (typeof result.aiScore !== 'number') result.aiScore = 50
-      if (!result.reason) result.reason = '无法给出具体理由'
-      if (!result.solution) result.solution = '建议双方冷静沟通'
+
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content || ''
       
-      return result
-    } catch (parseError) {
-      console.error('解析判定结果失败:', parseError, content)
-      // 返回默认结果
-      return {
-        winner: 'draw',
-        reason: content || '判定过程出现问题，无法给出结论',
-        solution: '建议双方心平气和地沟通，互相理解对方的立场',
-        userScore: 50,
-        aiScore: 50
+      // 尝试解析JSON
+      try {
+        // 清理可能的markdown代码块
+        let jsonStr = content.trim()
+        if (jsonStr.startsWith('```json')) {
+          jsonStr = jsonStr.slice(7)
+        } else if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.slice(3)
+        }
+        if (jsonStr.endsWith('```')) {
+          jsonStr = jsonStr.slice(0, -3)
+        }
+        jsonStr = jsonStr.trim()
+        
+        const result = JSON.parse(jsonStr) as JudgmentResult
+        
+        // 验证并修正数据
+        if (!['user', 'ai', 'draw'].includes(result.winner)) {
+          result.winner = 'draw'
+        }
+        if (typeof result.userScore !== 'number') result.userScore = 50
+        if (typeof result.aiScore !== 'number') result.aiScore = 50
+        if (!result.reason) result.reason = '无法给出具体理由'
+        if (!result.solution) result.solution = '建议双方冷静沟通'
+        
+        return result
+      } catch (parseError) {
+        console.error('解析判定结果失败:', parseError, content)
+        // 返回默认结果
+        return {
+          winner: 'draw',
+          reason: content || '判定过程出现问题，无法给出结论',
+          solution: '建议双方心平气和地沟通，互相理解对方的立场',
+          userScore: 50,
+          aiScore: 50
+        }
+      }
+    } catch (error) {
+      lastError = error as Error
+      console.error(`判定API调用失败 (尝试 ${attempt + 1}/${MAX_RETRIES}):`, error)
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise(r => setTimeout(r, (attempt + 1) * 1000))
+        continue
       }
     }
-  } catch (error) {
-    console.error('判定API调用失败:', error)
-    throw error
   }
+  
+  // 所有重试都失败了
+  throw lastError || new Error('判定服务暂时不可用，请稍后再试')
 }
 
 /**

@@ -1067,6 +1067,27 @@ const ChatDetail = () => {
                     )
                   }
 
+                  // 🎭 中插HTML小剧场卡片（用 SpecialMessageRenderer 渲染）
+                  if (message.messageType === 'theatre-html') {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <SpecialMessageRenderer
+                          message={message}
+                          characterId={chatState.character?.id || ''}
+                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                          characterAvatar={chatState.character?.avatar}
+                        />
+                      </div>
+                    )
+                  }
+
                   // 🛍️ 购买消息卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'purchase' && message.purchaseData) {
                     return (
@@ -1686,7 +1707,6 @@ const ChatDetail = () => {
       <LogisticsModal
         isOpen={logistics.showLogisticsModal}
         onClose={logistics.closeLogistics}
-        messages={chatState.messages}
         chatId={id || ''}
       />
 

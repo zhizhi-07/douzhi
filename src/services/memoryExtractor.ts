@@ -125,43 +125,30 @@ function buildExtractionPrompt(turns: DialogueTurn[], characterName: string, use
     return `【第${index + 1}轮对话】\n${userName}: ${userText}\n${characterName}: ${turn.aiReply}`
   }).join('\n\n')
 
-  return `你是角色【${characterName}】。阅读对话，**严格筛选**值得长期记录的内容。
+  return `你是角色【${characterName}】的记忆系统。阅读对话，提取核心内容。
 对方是【${userName}】。
 
 对话历史：
 ${dialogueText}
 
-## 核心原则：宁缺毋滥
-只记录**会影响未来对话**的持久性事实。如果这段对话只是闲聊，facts直接返回空数组。
+## summary 要求（50-80字）
+- 一句话概括发生了什么，保留1-2个关键细节
+- 不要写成流水账，也不要太抽象
 
-## 必须记录（事实性变化）：
-- **身份变化**：改名字、改昵称、改头像的原因/含义
-- **关系里程碑**：确立关系、分手、和好、重要承诺
-- **个人信息**：生日、职业、家庭情况、住址
-- **长期偏好**：喜欢/讨厌的东西、习惯、癖好
-- **重大事件**：搬家、换工作、生病、考试、旅行计划
+示例：
+❌ 太短："聊了天"
+❌ 太长："${userName}先说了A，${characterName}回了B，然后又聊到C..."
+✅ 适中："${userName}撒娇想被陪，约好周六去吃火锅，还聊到最近工作压力大"
 
-## 绝对不记录：
-- ❌ 短暂情绪（今天心情不好、有点累、好开心）
-- ❌ 日常闲聊（早安晚安、吃了什么、在干嘛）
-- ❌ 一次性话题（聊天中的玩笑、调侃、撒娇）
-- ❌ 头像/名字变更本身（除非有特殊含义）
-- ❌ 模糊推测（可能、好像、疑似）
-
-## 示例
-✅ 好记忆："${userName}把名字改成了'乖宝宝'，我就改成'坏宝宝'配对"
-✅ 好记忆："${userName}说下周要去北京出差"
-✅ 好记忆："${userName}不喜欢吃香菜"
-❌ 坏记忆："${userName}今天很开心" （短暂情绪）
-❌ 坏记忆："${userName}换了头像" （无意义事实）
-❌ 坏记忆："我们聊得很愉快" （无信息量）
+## facts 要求
+只记录**长期有效**的事实（生日、喜好、重要约定），普通闲聊就空数组。
 
 输出格式：
 \`\`\`json
 {
-  "summary": "30-60字概括这段对话的主要内容",
+  "summary": "50-80字",
   "emotionalTone": "positive/neutral/negative",
-  "facts": ["只放真正重要的事实，没有就空数组"]
+  "facts": []
 }
 \`\`\`
 
@@ -169,7 +156,7 @@ ${dialogueText}
 }
 
 /**
- * 从AI回复中解析JSON
+ * 从AI回复中解析JSON（单个对象）
  */
 function parseMemoryFromAI(response: string): ExtractedMemory | null {
   try {
@@ -198,6 +185,48 @@ function parseMemoryFromAI(response: string): ExtractedMemory | null {
   } catch (error) {
     console.error('❌ [记忆提取] JSON解析失败:', error)
     return null
+  }
+}
+
+// 朋友圈/互动记忆的结构
+interface MomentsMemory {
+  title: string
+  summary: string
+  importance: 'high' | 'normal' | 'low'
+  tags: string[]
+  emotionalTone: 'positive' | 'neutral' | 'negative'
+}
+
+/**
+ * 从AI回复中解析JSON数组（用于朋友圈/互动记忆）
+ */
+function parseMemoryArrayFromAI(response: string): MomentsMemory[] {
+  try {
+    let jsonStr = response.trim()
+    
+    // 移除 markdown 代码块
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1]
+    }
+    
+    // 处理空返回
+    if (jsonStr === '[]' || jsonStr === '' || jsonStr === 'null') {
+      return []
+    }
+    
+    const parsed = JSON.parse(jsonStr)
+    
+    // 确保是数组
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    
+    // 过滤有效记忆
+    return parsed.filter((m: any) => m && m.title && m.summary)
+  } catch (error) {
+    console.error('❌ [记忆提取] 数组JSON解析失败:', error)
+    return []
   }
 }
 
@@ -457,7 +486,7 @@ ${momentsSummary}
     
     console.log('📄 [朋友圈记忆提取] AI回复:', response)
     
-    const extractedMemories = parseMemoryFromAI(response)
+    const extractedMemories = parseMemoryArrayFromAI(response)
     
     if (extractedMemories.length === 0) {
       console.log('ℹ️ [朋友圈记忆提取] 没有值得记录的内容')
@@ -564,7 +593,7 @@ ${interactionsSummary}
     
     console.log(`📄 [${interactionType}记忆提取] AI回复:`, response)
     
-    const extractedMemories = parseMemoryFromAI(response)
+    const extractedMemories = parseMemoryArrayFromAI(response)
     
     if (extractedMemories.length === 0) {
       console.log(`ℹ️ [${interactionType}记忆提取] 没有值得记录的内容`)

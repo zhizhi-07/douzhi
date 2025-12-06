@@ -3583,6 +3583,37 @@ const busyHandler: CommandHandler = {
 }
 
 /**
+ * 中插HTML小剧场处理器：[小剧场HTML]...[/小剧场HTML]
+ * AI可以在回复中插入便利贴、心情卡等HTML卡片
+ */
+const htmlTheatreHandler: CommandHandler = {
+  pattern: /\[小剧场HTML\]([\s\S]*?)\[\/小剧场HTML\]/,
+  handler: async (match, content, { setMessages, chatId }) => {
+    const htmlContent = match[1].trim()
+    console.log('🎭 [中插HTML小剧场] 处理器被触发！', { htmlContent: htmlContent.substring(0, 100) + '...' })
+
+    // 创建中插HTML小剧场消息
+    // 注意：createMessageObj 第一个参数是 messageType，会被 ...data 覆盖
+    // 所以这里用 'theatre-html' 作为第一个参数
+    const theatreMsg = createMessageObj('theatre-html' as any, {
+      type: 'system',
+      content: htmlContent,
+      aiReadableContent: `[小剧场卡片：${htmlContent.replace(/<[^>]*>/g, '').substring(0, 50)}...]`
+    })
+    console.log('🎭 [中插HTML小剧场] 创建消息:', { messageType: theatreMsg.messageType, type: theatreMsg.type })
+    await addMessage(theatreMsg, setMessages, chatId)
+
+    // 处理剩余文本
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      skipTextMessage: !remainingText,
+      remainingText
+    }
+  }
+}
+
+/**
  * 购物车代付：AI同意代付
  */
 export const acceptCartPaymentHandler: CommandHandler = {
@@ -3858,6 +3889,7 @@ export const commandHandlers: CommandHandler[] = [
   purchaseHandler,  // 购买商品
   changePokeSuffixHandler,  // 修改拍一拍后缀
   busyHandler,  // 忙碌场景
+  htmlTheatreHandler,  // 中插HTML小剧场
   phoneOperationHandler,  // 手机操作（通用格式）
   judgmentResponseHandler,  // 判定回应
   aiAppealHandler  // AI上诉

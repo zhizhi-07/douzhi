@@ -256,18 +256,20 @@ export const useChatAI = (
         const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
         let enableTheatreCardsForPrompt = false // 默认关闭
         let characterIndependenceEnabled = false // 默认关闭
+        let enableHtmlTheatreForPrompt = false // 中插HTML小剧场，默认关闭
         if (chatSettingsRaw) {
           try {
             const parsed = JSON.parse(chatSettingsRaw)
             enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
             characterIndependenceEnabled = parsed.characterIndependence ?? false
+            enableHtmlTheatreForPrompt = parsed.enableHtmlTheatre ?? false
           } catch (e) {
             console.error('[useChatAI] 解析聊天设置失败:', e)
           }
         }
         // 🔥 修复：传入用户真名，而不是硬编码的"用户"
         const userName = userInfo.realName || userInfo.nickname || '用户'
-        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled)
+        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt)
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）
@@ -486,7 +488,9 @@ export const useChatAI = (
       // 🔥 获取今天的状态/行程记录，注入到消息流中
       const statusRecords: StatusRecord[] = character ? getScheduleHistory(character.id) : []
       
-      let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory, true, statusRecords)
+      // 🔥 线下模式只读取线下消息，线上模式只读取线上消息
+      const isOfflineMode = currentSceneMode === 'offline'
+      let apiMessages = convertToApiMessages(recentMessages, hideTheatreHistory, true, statusRecords, isOfflineMode)
       
       // 🔥 小插曲：把小号聊天总结作为系统消息插入到消息流开头
       if (character && isMainAccount()) {

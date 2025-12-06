@@ -536,5 +536,71 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
     )
   }
 
+  // 中插HTML小剧场
+  if (message.messageType === 'theatre-html' && message.type === 'system') {
+    const htmlContent = message.content || ''
+    
+    // 安全过滤：移除 script 标签和事件处理器
+    const sanitizeHtml = (html: string) => {
+      return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/javascript:/gi, '')
+    }
+    
+    const safeHtml = sanitizeHtml(htmlContent)
+    
+    return (
+      <div className="flex justify-center my-3 px-4">
+        {/* 中插HTML小剧场卡片样式 */}
+        <style>{`
+          .theatre-html-wrapper {
+            transform: scale(0.88);
+            transform-origin: center top;
+          }
+          .theatre-html-wrapper > div {
+            margin: 0 auto !important;
+          }
+          .theatre-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            margin: 0 auto;
+          }
+          .theatre-card.type-note {
+            background: linear-gradient(135deg, #FFF9C4 0%, #FFFDE7 100%);
+            border-color: #FFF176;
+          }
+          .theatre-card.type-mood {
+            background: linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 100%);
+            border-color: #81D4FA;
+          }
+          .theatre-card.type-reminder {
+            background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD9 100%);
+            border-color: #F48FB1;
+          }
+          .theatre-card.type-memory {
+            background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+            border-color: #CE93D8;
+          }
+          .theatre-card .tag {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+          }
+          .theatre-card .content {
+            font-size: 15px;
+            color: #333;
+            line-height: 1.6;
+          }
+        `}</style>
+        <div className="theatre-html-wrapper" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+      </div>
+    )
+  }
+
   return null
 }

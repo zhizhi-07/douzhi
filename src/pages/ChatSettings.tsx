@@ -27,8 +27,9 @@ interface ChatSettingsData {
   memorySummaryInterval: number  // 每N轮对话自动生成总结
   voiceId: string  // 角色专属音色ID
   hideTokenStats: boolean  // 是否隐藏Token统计
-  enableTheatreCards: boolean  // 是否启用小剧场卡片功能
-  hideTheatreHistory: boolean  // 是否隐藏小剧场历史记录（AI看不见）
+  enableTheatreCards: boolean  // 是否启用小剧场卡片功能（已废弃）
+  hideTheatreHistory: boolean  // 是否隐藏小剧场历史记录（已废弃）
+  enableHtmlTheatre: boolean  // 是否启用中插HTML小剧场
   characterIndependence: boolean  // 角色独立：AI可以选择不立即回复
   groupChatSync: {
     enabled: boolean  // 是否启用群聊消息同步
@@ -60,6 +61,7 @@ const ChatSettings = () => {
         hideTokenStats: data.hideTokenStats ?? false,
         enableTheatreCards: data.enableTheatreCards ?? false,
         hideTheatreHistory: data.hideTheatreHistory ?? false,
+        enableHtmlTheatre: data.enableHtmlTheatre ?? false,
         characterIndependence: data.characterIndependence ?? false,
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
@@ -82,6 +84,7 @@ const ChatSettings = () => {
       hideTokenStats: false,
       enableTheatreCards: false,
       hideTheatreHistory: false,
+      enableHtmlTheatre: false,
       characterIndependence: false,
       groupChatSync: {
         enabled: false,
@@ -112,6 +115,7 @@ const ChatSettings = () => {
             hideTokenStats: data.hideTokenStats ?? false,
             enableTheatreCards: data.enableTheatreCards ?? false,
             hideTheatreHistory: data.hideTheatreHistory ?? false,
+            enableHtmlTheatre: data.enableHtmlTheatre ?? false,
             characterIndependence: data.characterIndependence ?? false,
             groupChatSync: data.groupChatSync ?? {
               enabled: false,
@@ -139,6 +143,7 @@ const ChatSettings = () => {
       hideTokenStats: false,
       enableTheatreCards: false,
       hideTheatreHistory: false,
+      enableHtmlTheatre: false,
       characterIndependence: false,
       groupChatSync: {
         enabled: false,
@@ -551,40 +556,20 @@ const ChatSettings = () => {
             </button>
           </div>
           
-          {/* 小剧场卡片 */}
+          {/* 中插HTML小剧场 */}
           <div className="flex items-center justify-between py-2 border-t border-gray-100 pt-3 mt-3">
             <div className="flex-1">
-              <div className="text-sm text-gray-900">小剧场卡片</div>
-              <div className="text-xs text-gray-400">AI可以生成支付、红包、朋友圈等互动卡片</div>
+              <div className="text-sm text-gray-900">中插HTML小剧场</div>
+              <div className="text-xs text-gray-400">开启后每条回复都会插入HTML卡片（便利贴、聊天截图、账单等）</div>
             </div>
             <button
-              onClick={() => saveSettings({ ...settings, enableTheatreCards: !settings.enableTheatreCards })}
+              onClick={() => saveSettings({ ...settings, enableHtmlTheatre: !settings.enableHtmlTheatre })}
               className="relative w-11 h-6 rounded-full transition-all"
-              style={{ backgroundColor: settings.enableTheatreCards ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
+              style={{ backgroundColor: settings.enableHtmlTheatre ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
-                  settings.enableTheatreCards ? 'translate-x-5' : 'translate-x-0'
-                }`}
-                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
-              />
-            </button>
-          </div>
-          
-          {/* 隐藏小剧场历史 */}
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1">
-              <div className="text-sm text-gray-900">隐藏小剧场历史</div>
-              <div className="text-xs text-gray-400">开启后AI看不到历史卡片，避免学习模仿格式</div>
-            </div>
-            <button
-              onClick={() => saveSettings({ ...settings, hideTheatreHistory: !settings.hideTheatreHistory })}
-              className="relative w-11 h-6 rounded-full transition-all"
-              style={{ backgroundColor: settings.hideTheatreHistory ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
-            >
-              <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
-                  settings.hideTheatreHistory ? 'translate-x-5' : 'translate-x-0'
+                  settings.enableHtmlTheatre ? 'translate-x-5' : 'translate-x-0'
                 }`}
                 style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />

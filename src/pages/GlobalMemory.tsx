@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { unifiedMemoryService, UnifiedMemory } from '../services/unifiedMemoryService'
 import { getAllCharacters } from '../utils/characterManager'
+import { triggerCharacterMemoryExtraction } from '../services/memoryExtractor'
 import type { Character } from '../services/characterService'
 
 const GlobalMemoryPage = () => {
@@ -17,6 +18,40 @@ const GlobalMemoryPage = () => {
   const [selectedMemory, setSelectedMemory] = useState<UnifiedMemory | null>(null)
   const [characterMemoryCounts, setCharacterMemoryCounts] = useState<Record<string, number>>({})
   const [searchText, setSearchText] = useState('')
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractResult, setExtractResult] = useState<string>('')
+
+  // 手动提取记忆
+  const handleExtractMemory = async () => {
+    if (!selectedCharacter || isExtracting) return
+    
+    setIsExtracting(true)
+    setExtractResult('正在提取...')
+    
+    try {
+      // 清除上次提取时间戳，强制全量提取
+      localStorage.removeItem(`last_extract_chat_${selectedCharacter.id}`)
+      localStorage.removeItem(`last_extract_moments_${selectedCharacter.id}`)
+      
+      const results = await triggerCharacterMemoryExtraction(
+        selectedCharacter.id,
+        selectedCharacter.realName
+      )
+      
+      setExtractResult(`✅ 私聊${results.privateChat} 群聊${results.groupChat} 朋友圈${results.moments} 论坛${results.forum} 线下${results.offline}`)
+      
+      // 刷新记忆列表
+      await loadMemories()
+      
+      // 更新记忆数量
+      const mems = await unifiedMemoryService.getMemoriesByCharacter(selectedCharacter.id)
+      setCharacterMemoryCounts(prev => ({ ...prev, [selectedCharacter.id]: mems.length }))
+    } catch (error) {
+      setExtractResult(`❌ 提取失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setIsExtracting(false)
+    }
+  }
 
   // 加载角色列表
   useEffect(() => {
@@ -165,6 +200,26 @@ const GlobalMemoryPage = () => {
               <div className="text-sm text-gray-500">
                 {memories.length} 条
               </div>
+            </div>
+          </div>
+
+          {/* 提取记忆按钮 */}
+          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExtractMemory}
+                disabled={isExtracting}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isExtracting
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 text-white active:scale-95 hover:bg-blue-600'
+                }`}
+              >
+                {isExtracting ? '提取中...' : '🧠 提取记忆'}
+              </button>
+              {extractResult && (
+                <span className="text-xs text-gray-600 flex-1">{extractResult}</span>
+              )}
             </div>
           </div>
 
