@@ -22,6 +22,16 @@ const GameList = () => {
 
   const games: GameItem[] = [
     {
+      id: 'werewolf',
+      name: '狼人杀',
+      icon: '🐺',
+      description: '暗黑哥特风，沉浸式体验。天黑请闭眼...',
+      path: '/werewolf',
+      bgImage: 'linear-gradient(135deg, #2C3E50 0%, #000000 100%)',
+      tags: ['推理', '角色扮演', '语音'],
+      playerCount: '6人'
+    },
+    {
       id: 'landlord',
       name: '斗地主',
       icon: '🃏',

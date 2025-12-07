@@ -203,12 +203,11 @@ ${transferList}
   
   let redPacketInstructions = ''
   if (availableRedPackets.length > 0) {
+    // 🔥 修复：不透露红包金额，只显示基本信息（符合真实微信逻辑）
     const rpList = availableRedPackets.map(msg => {
-      const total = (msg as any).redPacket?.totalAmount || 0
-      const remaining = (msg as any).redPacket?.remaining || 0
       const remainingCount = (msg as any).redPacket?.remainingCount || 0
       const blessing = (msg as any).redPacket?.blessing || ''
-      return `- **${msg.userName}** 的红包还剩 ${remainingCount} 个 (¥${remaining}/${total}) - "${blessing}"`
+      return `- **${msg.userName}** 的红包（还剩 ${remainingCount} 个）- "${blessing}"`
     }).join('\n')
     
     redPacketInstructions = `
@@ -219,11 +218,11 @@ ${rpList}
 
 **AI角色可以领取红包**：
 - 看到红包时，可以选择领取：在actions中加入 {"actorName": "你的名字", "content": "[领取红包]"}
-- **领取后可以发消息表达心情**（例如："哇！抢到了！""谢谢！"等）
+- **红包金额是随机的，领取后才知道抢到多少钱**（系统消息会告诉你）
+- **领取后根据金额发消息表达心情**（例如："手气不错！""就这？"等）
 - **每个角色只能领取一次同一个红包**，已领取过的不能再领
-- 如果红包已被抢完（remainingCount=0），不要再尝试领取
 
-**注意**：红包先到先得，剩余金额和个数会实时更新。
+**注意**：红包先到先得，金额随机分配。
 `
   }
   

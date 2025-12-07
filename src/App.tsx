@@ -87,6 +87,7 @@ import BubbleEditor from './pages/BubbleEditor'
 import TheatreApp from './pages/TheatreApp'
 import GameList from './pages/GameList'
 import Landlord from './pages/Landlord'
+import WerewolfGame from './pages/Werewolf'
 import Calendar from './pages/Calendar'
 import AISchedule from './pages/AISchedule'
 import AIScheduleSelect from './pages/AIScheduleSelect'
@@ -581,6 +582,7 @@ function App() {
           <Route path="/game-list" element={<GameList />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/landlord" element={<Landlord />} />
+          <Route path="/werewolf" element={<WerewolfGame />} />
           <Route path="/ai-schedule" element={<AIScheduleSelect />} />
           <Route path="/ai-schedule/:characterId" element={<AISchedule />} />
           <Route path="/meme-library" element={<MemeLibrary />} />
