@@ -16,6 +16,7 @@ import { getEmojis } from '../utils/emojiStorage'
 import { getUserInfo } from '../utils/userUtils'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import GroupAddMenu from '../components/GroupAddMenu'
+import PollCreator from '../components/PollCreator'
 import { getAllUIIcons } from '../utils/iconStorage'
 import MessageMenu from '../components/MessageMenu.floating'
 import TransferSender from '../components/TransferSender'
@@ -69,6 +70,7 @@ const GroupChatDetail = () => {
   const [showLocationInput, setShowLocationInput] = useState(false)
   const [showVoiceInput, setShowVoiceInput] = useState(false)
   const [showRedPacketSender, setShowRedPacketSender] = useState(false)
+  const [showPollCreator, setShowPollCreator] = useState(false)
   const [openRedPacketId, setOpenRedPacketId] = useState<number | null>(null)
   const [showRedPacketDetail, setShowRedPacketDetail] = useState(false)
   const [detailRedPacketId, setDetailRedPacketId] = useState<string | null>(null)
@@ -217,24 +219,17 @@ const GroupChatDetail = () => {
     
     // 🔥 异步加载消息（等待IndexedDB加载完成）
     const loadMessages = async () => {
-      // 先尝试同步获取（可能返回缓存或空数组）
-      const msgs = groupChatManager.getMessages(id)
+      // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
+      const msgs = await groupChatManager.loadMessagesAsync(id)
+      console.log(`📦 GroupChatDetail 加载消息: ${id}, 数量=${msgs.length}`)
       setMessages(msgs)
       
-      // 等待100ms让异步加载完成
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
-      // 再次获取（此时应该已经从IndexedDB加载完成）
-      const updatedMsgs = groupChatManager.getMessages(id)
-      if (updatedMsgs.length > 0 || msgs.length === 0) {
-        setMessages(updatedMsgs)
-        // 🔥 使用requestAnimationFrame确保DOM渲染后立即定位，无延迟
+      // 🔥 使用requestAnimationFrame确保DOM渲染后立即定位，无延迟
+      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-          })
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
         })
-      }
+      })
     }
     
     loadMessages()
@@ -711,6 +706,102 @@ const GroupChatDetail = () => {
     setTimeout(scrollToBottom, 100)
   }
 
+  // 用户接收转账
+  const handleReceiveTransfer = (messageId: number) => {
+    if (!id) return
+    
+    const allMessages = groupChatManager.getMessages(id)
+    const transferMsg = allMessages.find(m => 
+      m.id === messageId.toString() || 
+      m.id === `msg_${messageId}` ||
+      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
+    )
+    
+    if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
+    
+    const transfer = (transferMsg as any).transfer
+    if (!transfer || transfer.status !== 'pending') return
+    
+    // 检查是否是发给用户的
+    if (transfer.toUserId !== 'user') {
+      alert('这不是发给你的转账')
+      return
+    }
+    
+    const fromName = transferMsg.userName || '未知'
+    const amount = transfer.amount || 0
+    
+    // 更新转账状态
+    const updatedMessages = allMessages.map(msg => 
+      msg.id === transferMsg.id
+        ? { ...msg, transfer: { ...transfer, status: 'received' } }
+        : msg
+    )
+    
+    // 添加系统消息
+    const userInfo = getUserInfo()
+    const systemMsg = groupChatManager.addMessage(id, {
+      userId: 'system',
+      userName: '系统',
+      userAvatar: '',
+      content: `${userInfo.realName}已接收${fromName}的转账 ￥${amount.toFixed(2)}`,
+      type: 'system'
+    })
+    updatedMessages.push(systemMsg)
+    
+    groupChatManager.replaceAllMessages(id, updatedMessages as any)
+    setMessages([...updatedMessages])
+    setTimeout(scrollToBottom, 100)
+  }
+  
+  // 用户退还转账
+  const handleRejectTransfer = (messageId: number) => {
+    if (!id) return
+    
+    const allMessages = groupChatManager.getMessages(id)
+    const transferMsg = allMessages.find(m => 
+      m.id === messageId.toString() || 
+      m.id === `msg_${messageId}` ||
+      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
+    )
+    
+    if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
+    
+    const transfer = (transferMsg as any).transfer
+    if (!transfer || transfer.status !== 'pending') return
+    
+    // 检查是否是发给用户的
+    if (transfer.toUserId !== 'user') {
+      alert('这不是发给你的转账')
+      return
+    }
+    
+    const fromName = transferMsg.userName || '未知'
+    const amount = transfer.amount || 0
+    
+    // 更新转账状态
+    const updatedMessages = allMessages.map(msg => 
+      msg.id === transferMsg.id
+        ? { ...msg, transfer: { ...transfer, status: 'refunded' } }
+        : msg
+    )
+    
+    // 添加系统消息
+    const userInfo = getUserInfo()
+    const systemMsg = groupChatManager.addMessage(id, {
+      userId: 'system',
+      userName: '系统',
+      userAvatar: '',
+      content: `${userInfo.realName}已退还${fromName}的转账 ￥${amount.toFixed(2)}`,
+      type: 'system'
+    })
+    updatedMessages.push(systemMsg)
+    
+    groupChatManager.replaceAllMessages(id, updatedMessages as any)
+    setMessages([...updatedMessages])
+    setTimeout(scrollToBottom, 100)
+  }
+
   // 打开红包（抢红包） - 显示拆红包弹窗
   const handleOpenRedPacket = (messageId: number) => {
     if (!id) return
@@ -858,8 +949,8 @@ const GroupChatDetail = () => {
     
     console.log(`🗑️ [重回] 删除了 ${deletedCount} 条AI消息`)
     
-    // 更新消息列表
-    groupChatManager.replaceAllMessages(id, messagesToKeep)
+    // 更新消息列表（使用强制覆盖模式，确保删除的消息不会被合并回来）
+    groupChatManager.replaceAllMessages(id, messagesToKeep, true)
     setMessages(messagesToKeep)
     
     // 立即触发AI重新回复
@@ -992,9 +1083,8 @@ const GroupChatDetail = () => {
         }
         
         // 基于总结生成剧本
-        const minReplyCount = group.minReplyCount || 10
+        const minReplyCount = group.minReplyCount || 15
         script = await generateGroupChatReply(
-          id,  // 群聊ID
           group.name,
           members,
           chatMessages,
@@ -1003,14 +1093,14 @@ const GroupChatDetail = () => {
           group.announcement,
           parsedOldSummary || undefined,
           minReplyCount,
-          group.lorebookId  // 传递世界书ID
+          group.lorebookId,  // 传递世界书ID
+          group.enableTheatreCards ?? false  // 中插HTML小剧场
         )
       } else {
         // 🎬 无总结：正常生成剧本
         console.log('🎬 [正常模式] 生成剧本')
-        const minReplyCount = group.minReplyCount || 10
+        const minReplyCount = group.minReplyCount || 15
         script = await generateGroupChatReply(
-          id,  // 群聊ID
           group.name,
           members,
           chatMessages,
@@ -1019,7 +1109,8 @@ const GroupChatDetail = () => {
           group.announcement,
           undefined,  // 不使用总结
           minReplyCount,
-          group.lorebookId  // 传递世界书ID
+          group.lorebookId,  // 传递世界书ID
+          group.enableTheatreCards ?? false  // 中插HTML小剧场
         )
       }
       
@@ -1093,6 +1184,30 @@ const GroupChatDetail = () => {
           console.log(`⚡ [AI回复] 立即显示第1条消息`)
         }
         
+        // 🎭 处理导演视角的小剧场HTML（独立于角色消息）
+        if (action.actorName === '导演') {
+          const htmlMatch = action.content?.match(/\[小剧场HTML\]([\s\S]*?)\[\/小剧场HTML\]/)
+          if (htmlMatch) {
+            const htmlContent = htmlMatch[1].trim()
+            console.log('🎭 [导演小剧场] 渲染HTML卡片')
+            
+            // 添加为系统消息类型，用于特殊渲染
+            const theatreMsg = groupChatManager.addMessage(id, {
+              userId: 'director',
+              userName: '导演',
+              userAvatar: '',
+              content: htmlContent,
+              type: 'theatre_html' as any,  // 特殊类型
+              messageType: 'theatre_html'
+            } as any)
+            
+            currentMessages.push(theatreMsg)
+            flushSync(() => setMessages([...currentMessages]))
+            scrollToBottom()
+          }
+          continue  // 导演消息处理完毕，跳过后续角色消息处理
+        }
+        
         // 查找成员
         const member = members.find(m => m.name === action.actorName && m.type === 'character')
         if (!member) {
@@ -1133,19 +1248,54 @@ const GroupChatDetail = () => {
           hasCommand = true
         }
         
-        // 🎭 检查表情指令：[表情:描述] 或 [表情:数字]
-        const emojiMatch = content.match(/\[表情:\s*(.+?)\]/)
+        // 🎭 检查表情指令：[表情:描述] 或 [表情包:描述] 或 [表情:数字]
+        const emojiMatch = content.match(/\[表情包?:\s*(.+?)\]/)
         if (emojiMatch) {
           const emojiKey = emojiMatch[1].trim()
           console.log(`🎭 [AI指令] ${member.name} 发送表情包: ${emojiKey}`)
           
           // 先尝试按数字匹配，再按描述匹配
           let emoji = null
-          if (/^\d+$/.test(emojiKey)) {
-            emoji = emojis[parseInt(emojiKey) - 1]
-          } else {
-            // 按描述匹配（模糊匹配）
-            emoji = emojis.find(e => e.description.includes(emojiKey) || emojiKey.includes(e.description))
+          
+          // 🔥 优先提取开头的数字（支持 "26 描述" 或 "26" 格式）
+          const numberMatch = emojiKey.match(/^(\d+)/)
+          if (numberMatch) {
+            const idx = parseInt(numberMatch[1]) - 1
+            if (idx >= 0 && idx < emojis.length) {
+              emoji = emojis[idx]
+              console.log(`🎯 [表情匹配] 数字索引匹配成功: ${idx + 1} -> ${emoji.description}`)
+            }
+          }
+          
+          // 如果数字匹配失败，尝试关键词匹配
+          if (!emoji) {
+            // 🔥 改进的模糊匹配：拆分关键词，计算匹配度
+            const keywords = emojiKey.replace(/[的是在了]+/g, '').split('').filter(c => c.trim())
+            let bestMatch = null
+            let bestScore = 0
+            
+            for (const e of emojis) {
+              const desc = e.description.replace(/[的是在了]+/g, '')
+              // 计算关键词命中数
+              let score = 0
+              for (const kw of keywords) {
+                if (desc.includes(kw)) score++
+              }
+              // 也检查反向包含
+              if (desc.includes(emojiKey) || emojiKey.includes(desc)) {
+                score += 5 // 完整包含加分
+              }
+              if (score > bestScore) {
+                bestScore = score
+                bestMatch = e
+              }
+            }
+            
+            // 至少要匹配2个关键词，或者有完整包含关系
+            if (bestScore >= 2) {
+              emoji = bestMatch
+              console.log(`🎯 [表情匹配] 关键词匹配成功，得分: ${bestScore}，匹配到: ${bestMatch?.description}`)
+            }
           }
           
           if (emoji) {
@@ -1170,8 +1320,8 @@ const GroupChatDetail = () => {
             console.warn('未找到匹配的表情包:', emojiKey)
           }
           
-          // 从内容中移除指令部分
-          content = content.replace(/\[表情:\s*.+?\]/, '').trim()
+          // 从内容中移除指令部分（同时支持[表情:]和[表情包:]）
+          content = content.replace(/\[表情包?:\s*.+?\]/, '').trim()
           hasCommand = true
           if (!content) continue
         }
@@ -1231,16 +1381,16 @@ const GroupChatDetail = () => {
         if (content.includes('[接收转账]')) {
           console.log(`💰 [AI指令] ${member.name} 接收转账`)
           
-          // 查找该成员待接收的转账
-          const pendingTransfer = currentMessages.find(msg => 
+          // 查找该成员待接收的转账（任何人发的）
+          const pendingTransfer = [...currentMessages].reverse().find(msg => 
             (msg as any).messageType === 'transfer' &&
             (msg as any).transfer?.toUserId === member.id &&
-            (msg as any).transfer?.status === 'pending' &&
-            msg.userId === 'user'
+            (msg as any).transfer?.status === 'pending'
           )
           
           if (pendingTransfer) {
             const transferAmount = (pendingTransfer as any).transfer?.amount || 0
+            const fromName = pendingTransfer.userName || '未知'
             
             // 🔥 从数据库重新读取完整消息列表，确保不丢失系统消息
             const allMessages = groupChatManager.getMessages(id)
@@ -1252,12 +1402,12 @@ const GroupChatDetail = () => {
                 : msg
             )
             
-            // 添加系统提示消息
+            // 添加系统提示消息（显示谁给谁转账）
             const systemMsg = groupChatManager.addMessage(id, {
               userId: 'system',
               userName: '系统',
               userAvatar: '',
-              content: `${member.name}已收款￥${transferAmount}`,
+              content: `${member.name}已接收${fromName}的转账 ￥${transferAmount.toFixed(2)}`,
               type: 'system'
             })
             updatedMessages.push(systemMsg)
@@ -1284,16 +1434,16 @@ const GroupChatDetail = () => {
         if (content.includes('[退还]')) {
           console.log(`💸 [AI指令] ${member.name} 退还转账`)
           
-          // 查找该成员待接收的转账
-          const pendingTransfer = currentMessages.find(msg => 
+          // 查找该成员待接收的转账（任何人发的）
+          const pendingTransfer = [...currentMessages].reverse().find(msg => 
             (msg as any).messageType === 'transfer' &&
             (msg as any).transfer?.toUserId === member.id &&
-            (msg as any).transfer?.status === 'pending' &&
-            msg.userId === 'user'
+            (msg as any).transfer?.status === 'pending'
           )
           
           if (pendingTransfer) {
             const transferAmount = (pendingTransfer as any).transfer?.amount || 0
+            const fromName = pendingTransfer.userName || '未知'
             
             // 🔥 从数据库重新读取完整消息列表，确保不丢失系统消息
             const allMessages = groupChatManager.getMessages(id)
@@ -1301,16 +1451,16 @@ const GroupChatDetail = () => {
             // 更新转账状态为已过期（退还）
             const updatedMessages = allMessages.map(msg => 
               msg.id === pendingTransfer.id
-                ? { ...msg, transfer: { ...(msg as any).transfer, status: 'expired' } }
+                ? { ...msg, transfer: { ...(msg as any).transfer, status: 'refunded' } }
                 : msg
             )
             
-            // 添加系统提示消息
+            // 添加系统提示消息（显示谁给谁转账）
             const systemMsg = groupChatManager.addMessage(id, {
               userId: 'system',
               userName: '系统',
               userAvatar: '',
-              content: `${member.name}已退还转账￥${transferAmount}`,
+              content: `${member.name}已退还${fromName}的转账 ￥${transferAmount.toFixed(2)}`,
               type: 'system'
             })
             updatedMessages.push(systemMsg)
@@ -1338,7 +1488,8 @@ const GroupChatDetail = () => {
           console.log(`🧧 [AI指令] ${member.name} 领取红包`)
           
           // 查找可领取的红包（任何人发的，还有剩余，且该成员未领取过）
-          const availableRedPacket = currentMessages.find(msg => 
+          // 🔥 使用 findLast 找到最新的红包，而不是最旧的
+          const availableRedPacket = [...currentMessages].reverse().find(msg => 
             (msg as any).messageType === 'redPacket' &&
             (msg as any).redPacket?.remainingCount > 0 &&
             !(msg as any).redPacket?.received?.some((r: any) => r.userId === member.id)
@@ -1481,7 +1632,8 @@ const GroupChatDetail = () => {
                 if (settings.voiceId) {
                   console.log(`🎵 [语音TTS] ${member.name} 有音色设置，开始生成...`)
                   const { callMinimaxTTS } = await import('../utils/voiceApi')
-                  voiceUrl = await callMinimaxTTS(textToRead, settings.voiceId)
+                  const ttsResult = await callMinimaxTTS(textToRead, settings.voiceId)
+                  voiceUrl = ttsResult.audioUrl
                   console.log(`✅ [语音TTS] 生成成功`)
                 }
               } catch (e) {
@@ -1598,6 +1750,106 @@ const GroupChatDetail = () => {
           scrollToBottom()
           
           content = content.replace(/\[红包:\d+(?:\.\d+)?:\d+:.+?\]/, '').trim()
+          hasCommand = true
+          if (!content) continue
+        }
+
+        // 🗳️ 检查发起投票指令：[发起投票:标题:选项1:选项2:...]
+        const createPollMatch = content.match(/\[发起投票:([^:\]]+):(.+?)\]/)
+        if (createPollMatch) {
+          const title = createPollMatch[1].trim()
+          const optionsStr = createPollMatch[2]
+          const options = optionsStr.split(':').map(o => o.trim()).filter(Boolean)
+          
+          if (options.length >= 2) {
+            console.log(`🗳️ [投票] ${member.name} 发起投票: ${title}，选项: ${options.join(', ')}`)
+            
+            const pollMsg = groupChatManager.addMessage(id, {
+              userId: member.id,
+              userName: member.name,
+              userAvatar: getMemberAvatar(member.id),
+              content: title,
+              type: 'text',
+              messageType: 'poll',
+              poll: {
+                title,
+                options: options.map((opt, idx) => ({ id: idx + 1, text: opt, votes: [] })),
+                createdAt: Date.now(),
+                creatorId: member.id,
+                creatorName: member.name
+              }
+            } as any)
+            
+            currentMessages.push(pollMsg)
+            flushSync(() => setMessages([...currentMessages]))
+            scrollToBottom()
+            
+            content = content.replace(/\[发起投票:[^\]]+\]/, '').trim()
+            hasCommand = true
+            if (!content) continue
+          }
+        }
+
+        // 🗳️ 检查投票指令：[投票:选项序号]
+        const voteMatch = content.match(/\[投票:(\d+)\]/)
+        if (voteMatch) {
+          const optionIndex = parseInt(voteMatch[1])
+          // 找到最近的投票消息
+          const pollMsg = [...currentMessages].reverse().find(m => (m as any).poll)
+          if (pollMsg && (pollMsg as any).poll) {
+            const poll = (pollMsg as any).poll
+            const option = poll.options.find((o: any) => o.id === optionIndex)
+            if (option) {
+              // 检查是否已投票
+              const hasVoted = poll.options.some((o: any) => o.votes.includes(member.id))
+              if (!hasVoted) {
+                option.votes.push(member.id)
+                console.log(`🗳️ [投票] ${member.name} 投给了选项${optionIndex}: ${option.text}`)
+                
+                // 更新投票消息
+                groupChatManager.replaceAllMessages(id, currentMessages)
+                
+                // 🔥 添加系统消息：XX投了XX
+                const voteSystemMsg = groupChatManager.addMessage(id, {
+                  userId: 'system',
+                  userName: '系统',
+                  userAvatar: '',
+                  content: `${member.name}投了「${option.text}」`,
+                  type: 'system'
+                })
+                currentMessages.push(voteSystemMsg)
+                flushSync(() => setMessages([...currentMessages]))
+              }
+            }
+          }
+          
+          content = content.replace(/\[投票:\d+\]/, '').trim()
+          hasCommand = true
+          if (!content) continue
+        }
+
+        // 🗳️ 检查添加选项指令：[添加选项:新选项内容]
+        const addOptionMatch = content.match(/\[添加选项:([^\]]+)\]/)
+        if (addOptionMatch) {
+          const newOptionText = addOptionMatch[1].trim()
+          // 找到最近的投票消息
+          const pollMsg = [...currentMessages].reverse().find(m => (m as any).poll)
+          if (pollMsg && (pollMsg as any).poll && newOptionText) {
+            const poll = (pollMsg as any).poll
+            // 检查选项是否已存在
+            const exists = poll.options.some((o: any) => o.text === newOptionText)
+            if (!exists && poll.options.length < 10) {
+              const newId = poll.options.length + 1
+              poll.options.push({ id: newId, text: newOptionText, votes: [], addedBy: member.name })
+              console.log(`🗳️ [添加选项] ${member.name} 添加了新选项: ${newOptionText}`)
+              
+              // 更新投票消息
+              groupChatManager.replaceAllMessages(id, currentMessages)
+              flushSync(() => setMessages([...currentMessages]))
+            }
+          }
+          
+          content = content.replace(/\[添加选项:[^\]]+\]/, '').trim()
           hasCommand = true
           if (!content) continue
         }
@@ -1788,9 +2040,9 @@ const GroupChatDetail = () => {
       } : undefined
     })
     
-    // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
-    // const updatedMsgs = groupChatManager.getMessages(id)
-    // setMessages(updatedMsgs)
+    // 🔥 手动刷新消息列表（storage事件只在其他标签页触发，同一标签页需要手动刷新）
+    const updatedMsgs = groupChatManager.getMessages(id)
+    setMessages(updatedMsgs)
     
     setInputText('')
     setQuotedMessage(null)  // 清除引用
@@ -1894,6 +2146,146 @@ const GroupChatDetail = () => {
                 </div>
               )
             }
+            
+            // 🎭 导演小剧场HTML（第三人称场景描写）
+            if ((msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html') {
+              return (
+                <div key={msg.id} className="flex justify-center my-4 px-4">
+                  <div 
+                    className="w-full max-w-[310px] rounded-xl overflow-hidden"
+                    dangerouslySetInnerHTML={{ __html: msg.content }}
+                  />
+                </div>
+              )
+            }
+
+            // 🗳️ 投票卡片
+            if ((msg as any).messageType === 'poll' && (msg as any).poll) {
+              const poll = (msg as any).poll
+              const totalVotes = poll.options.reduce((sum: number, opt: any) => sum + opt.votes.length, 0)
+              const userVoted = poll.options.find((opt: any) => opt.votes.includes('user'))
+              const isCreator = poll.creatorId === 'user'
+              
+              return (
+                <div key={msg.id} className="flex justify-center my-4 px-4">
+                  <div className="w-full max-w-[320px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    {/* 头部 */}
+                    <div className="px-4 pt-4 pb-2 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#f7f7f7] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-[#07c160]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[15px] font-semibold text-gray-900 line-clamp-2 leading-snug">
+                          {poll.title}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1 flex items-center gap-1.5">
+                          <span className="bg-[#f0f0f0] px-1.5 py-0.5 rounded text-gray-500 text-[10px] font-medium">
+                            {poll.options.length}项
+                          </span>
+                          <span>{isCreator ? '你' : poll.creatorName}发起</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 选项 */}
+                    <div className="px-4 pb-2 space-y-2">
+                      {poll.options.length === 0 ? (
+                        <div className="text-center py-4 text-gray-400 text-sm">
+                          暂无选项，点击下方添加
+                        </div>
+                      ) : poll.options.map((opt: any) => {
+                        const voteCount = opt.votes.length
+                        const votePercent = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0
+                        const isSelected = opt.votes.includes('user')
+                        
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => {
+                              if (!userVoted && id) {
+                                opt.votes.push('user')
+                                const updatedMsgs = groupChatManager.getMessages(id)
+                                groupChatManager.replaceAllMessages(id, updatedMsgs)
+                                setMessages([...updatedMsgs])
+                                
+                                // 🔥 添加系统消息：XX投了XX
+                                const userInfo = getUserInfo()
+                                const userName = userInfo.nickname || userInfo.realName || '你'
+                                groupChatManager.addMessage(id, {
+                                  userId: 'system',
+                                  userName: '系统',
+                                  userAvatar: '',
+                                  content: `${userName}投了「${opt.text}」`,
+                                  type: 'system'
+                                })
+                                const finalMsgs = groupChatManager.getMessages(id)
+                                setMessages([...finalMsgs])
+                              }
+                            }}
+                            disabled={!!userVoted}
+                            className="w-full group relative"
+                          >
+                            <div className={`relative w-full min-h-[40px] rounded-lg overflow-hidden transition-all ${
+                              isSelected 
+                                ? 'bg-[#e7f7ee] ring-1 ring-[#07c160]' 
+                                : 'bg-[#f7f7f7] group-hover:bg-[#f0f0f0]'
+                            }`}>
+                              {/* 进度条 - 始终显示 */}
+                              {votePercent > 0 && (
+                                <div 
+                                  className={`absolute left-0 top-0 bottom-0 transition-all duration-500 ease-out ${
+                                    isSelected ? 'bg-[#d1f2de]' : 'bg-[#eaeaea]'
+                                  }`}
+                                  style={{ width: `${votePercent}%` }}
+                                />
+                              )}
+                              
+                              {/* 内容 */}
+                              <div className="relative flex items-center justify-between px-3 py-2.5">
+                                <span className={`text-sm font-medium truncate mr-2 ${
+                                  isSelected ? 'text-[#07c160]' : 'text-gray-700'
+                                }`}>
+                                  {opt.text}
+                                  {opt.addedBy && (
+                                    <span className="text-xs font-normal text-gray-400 ml-1">
+                                      ({opt.addedBy})
+                                    </span>
+                                  )}
+                                </span>
+                                
+                                {/* 始终显示票数 */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {isSelected && (
+                                    <svg className="w-4 h-4 text-[#07c160]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                  <span className={`text-xs ${isSelected ? 'text-[#07c160]' : 'text-gray-500'}`}>
+                                    {voteCount}票
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    
+                    {/* 底部统计 */}
+                    <div className="px-4 py-2.5 border-t border-gray-100 bg-[#fafafa] flex justify-between items-center">
+                      <span className="text-xs text-gray-400">
+                        {totalVotes} 人参与
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {userVoted ? '已投票' : '点击选项投票'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
 
             const isSent = msg.userId === 'user'
             const char = msg.userId !== 'user' ? characterService.getById(msg.userId) : null
@@ -1943,6 +2335,8 @@ const GroupChatDetail = () => {
                     inputRef.current?.focus()
                   }}
                   onOpenRedPacket={handleOpenRedPacket}
+                  onReceiveTransfer={handleReceiveTransfer}
+                  onRejectTransfer={handleRejectTransfer}
                   renderMessageContent={renderMessageContent}
                   playingVoiceId={playingVoiceId}
                   showVoiceTextMap={showVoiceTextMap}
@@ -1953,20 +2347,26 @@ const GroupChatDetail = () => {
             )
           })
         )}
-        {/* AI正在输入提示 */}
+        {/* AI正在输入提示 - 与私聊样式一致 */}
         {isAiTyping && (
-          <div className="flex items-center gap-2 my-2 px-1">
-            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-              {groupAvatar ? (
-                <img src={groupAvatar} alt="群头像" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xs">👥</span>
-              )}
+          <div className="flex items-start gap-2 my-2 message-enter message-enter-left">
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                {groupAvatar ? (
+                  <img src={groupAvatar} alt="群头像" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg">👥</span>
+                )}
+              </div>
             </div>
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="flex flex-col items-start">
+              <div className="bg-white px-4 py-3 rounded-lg rounded-tl-none shadow-sm typing-indicator">
+                <div className="flex gap-1">
+                  <span className="dot-pulse"></span>
+                  <span className="dot-pulse"></span>
+                  <span className="dot-pulse"></span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2043,6 +2443,7 @@ const GroupChatDetail = () => {
         onSelectLocation={() => handleLocationSelect()}
         onSelectVoice={() => handleVoiceSelect()}
         onSelectRedPacket={() => setShowRedPacketSender(true)}
+        onSelectPoll={() => setShowPollCreator(true)}
         customIcons={customIcons}
       />
 
@@ -2098,6 +2499,38 @@ const GroupChatDetail = () => {
         onSend={handleSendRedPacket}
         maxCount={currentGroup?.memberIds.length}
       />
+
+      {/* 投票创建器 */}
+      {showPollCreator && (
+        <PollCreator
+          onClose={() => setShowPollCreator(false)}
+          onSubmit={(title: string, options: string[]) => {
+            if (id) {
+              const userInfo = getUserInfo()
+              groupChatManager.addMessage(id, {
+                userId: 'user',
+                userName: userInfo.nickname || userInfo.realName || '我',
+                userAvatar: getMemberAvatar('user'),
+                content: title,
+                type: 'text',
+                messageType: 'poll',
+                poll: {
+                  title,
+                  options: options.map((opt, idx) => ({ id: idx + 1, text: opt, votes: [] })),
+                  createdAt: Date.now(),
+                  creatorId: 'user',
+                  creatorName: userInfo.nickname || userInfo.realName || '我'
+                }
+              } as any)
+              
+              const updatedMsgs = groupChatManager.getMessages(id)
+              setMessages(updatedMsgs)
+              setShowPollCreator(false)
+              setTimeout(scrollToBottom, 100)
+            }
+          }}
+        />
+      )}
 
       {/* 拆红包弹窗 */}
       {openRedPacketId && (() => {

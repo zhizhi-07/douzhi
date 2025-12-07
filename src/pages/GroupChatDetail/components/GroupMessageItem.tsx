@@ -16,6 +16,8 @@ interface GroupMessageItemProps {
   onLongPressEnd: () => void
   onQuoteMessage: (msg: GroupMessage) => void
   onOpenRedPacket: (messageId: number) => void
+  onReceiveTransfer?: (messageId: number) => void
+  onRejectTransfer?: (messageId: number) => void
   renderMessageContent: (content: string) => React.ReactNode
   playingVoiceId?: number | null
   showVoiceTextMap?: Record<number, boolean>
@@ -38,6 +40,8 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   onLongPressEnd,
   onQuoteMessage,
   onOpenRedPacket,
+  onReceiveTransfer,
+  onRejectTransfer,
   renderMessageContent,
   playingVoiceId,
   showVoiceTextMap = {},
@@ -120,8 +124,14 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
                 onRejectInvite={() => {}}
                 onUpdateIntimatePayStatus={() => {}}
                 onViewForwardedChat={() => {}}
-                onReceiveTransfer={() => {}}
-                onRejectTransfer={() => {}}
+                onReceiveTransfer={() => {
+                  const messageId = parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now()
+                  onReceiveTransfer?.(messageId)
+                }}
+                onRejectTransfer={() => {
+                  const messageId = parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now()
+                  onRejectTransfer?.(messageId)
+                }}
                 onPlayVoice={onPlayVoice || (() => {})}
                 onToggleVoiceText={onToggleVoiceText || (() => {})}
                 playingVoiceId={playingVoiceId || null}

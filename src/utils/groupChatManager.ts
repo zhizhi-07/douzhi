@@ -403,11 +403,33 @@ class GroupChatManager {
       return messagesCache.get(groupId)!
     }
     
-    // 缓存未命中，异步加载
+    // 缓存未命中，返回空数组（异步加载会更新缓存）
+    return []
+  }
+
+  // 🔥 异步加载消息（页面加载时调用）
+  async loadMessagesAsync(groupId: string): Promise<GroupMessage[]> {
+    // 检查缓存
+    if (messagesCache.has(groupId) && messagesCache.get(groupId)!.length > 0) {
+      return messagesCache.get(groupId)!
+    }
+    
     const storageKey = `group_${groupId}`
-    IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(messages => {
-      if (messages && messages.length > 0) {
-        messagesCache.set(groupId, messages)
+    
+    try {
+      // 从 IndexedDB 加载
+      const dbMessages = await IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey)
+      
+      if (dbMessages && dbMessages.length > 0) {
+        // 获取当前缓存中的消息（可能已经被 addMessage 添加了新消息）
+        const currentCache = messagesCache.get(groupId) || []
+        const dbIds = new Set(dbMessages.map(m => m.id))
+        const newMessages = currentCache.filter(m => !dbIds.has(m.id))
+        const merged = [...dbMessages, ...newMessages]
+        merged.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        messagesCache.set(groupId, merged)
+        console.log(`📦 加载群聊消息: ${groupId}, 数量=${merged.length}`)
+        return merged
       } else {
         // 尝试从 localStorage 迁移
         const saved = localStorage.getItem(GROUP_MESSAGES_PREFIX + groupId)
@@ -417,14 +439,16 @@ class GroupChatManager {
           messagesCache.set(groupId, localMessages)
           IDB.setItem(IDB.STORES.MESSAGES, storageKey, localMessages)
           localStorage.removeItem(GROUP_MESSAGES_PREFIX + groupId)
-        } else {
-          messagesCache.set(groupId, [])
+          return localMessages
         }
       }
-    })
+    } catch (e) {
+      console.error('加载群聊消息失败:', e)
+    }
     
-    // 立即返回空数组或缓存
-    return messagesCache.get(groupId) || []
+    // 初始化空缓存
+    messagesCache.set(groupId, [])
+    return []
   }
 
   // 添加消息（🔥 使用 IndexedDB）
@@ -447,9 +471,25 @@ class GroupChatManager {
     // 更新缓存
     messagesCache.set(groupId, messages)
     
-    // 异步保存到 IndexedDB（不再使用 localStorage）
+    // 🔥 异步保存到 IndexedDB，但先读取最新数据避免覆盖
     const storageKey = `group_${groupId}`
-    IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).catch(e =>
+    IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(existingMessages => {
+      // 如果数据库中有消息，合并（避免缓存不完整导致消息丢失）
+      let finalMessages = messages.filter(m => m && m.id)  // 过滤无效消息
+      if (existingMessages && existingMessages.length > 0) {
+        // 🔥 过滤掉 null/undefined 消息
+        const validExistingMessages = existingMessages.filter(m => m && m.id)
+        // 合并：保留数据库中的消息，加上缓存中新增的消息
+        const existingIds = new Set(validExistingMessages.map(m => m.id))
+        const newMessages = finalMessages.filter(m => !existingIds.has(m.id))
+        finalMessages = [...validExistingMessages, ...newMessages]
+        // 按时间排序
+        finalMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        // 更新缓存
+        messagesCache.set(groupId, finalMessages)
+      }
+      return IDB.setItem(IDB.STORES.MESSAGES, storageKey, finalMessages)
+    }).catch(e =>
       console.error('保存群聊消息失败:', e)
     )
     
@@ -482,15 +522,37 @@ class GroupChatManager {
   }
 
   // 🔥 替换所有消息（用于重新生成AI回复）
-  replaceAllMessages(groupId: string, messages: GroupMessage[]): void {
+  // forceOverwrite: true 时直接覆盖，不合并（用于删除消息的场景如"重回"）
+  replaceAllMessages(groupId: string, messages: GroupMessage[], forceOverwrite: boolean = false): void {
     // 更新缓存
     messagesCache.set(groupId, messages)
     
-    // 保存到 IndexedDB
     const storageKey = `group_${groupId}`
-    IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).catch(e =>
-      console.error('替换消息失败:', e)
-    )
+    
+    if (forceOverwrite) {
+      // 🔥 强制覆盖模式：直接保存，不合并
+      IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).catch(e =>
+        console.error('替换消息失败:', e)
+      )
+    } else {
+      // 🔥 合并模式：先读取最新数据避免覆盖未保存的消息
+      IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(existingMessages => {
+        let finalMessages = messages
+        if (existingMessages && existingMessages.length > 0) {
+          // 合并：以传入的 messages 为主，补充数据库中可能遗漏的消息
+          const messageIds = new Set(messages.map(m => m.id))
+          const missingMessages = existingMessages.filter(m => !messageIds.has(m.id))
+          if (missingMessages.length > 0) {
+            finalMessages = [...messages, ...missingMessages]
+            finalMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            messagesCache.set(groupId, finalMessages)
+          }
+        }
+        return IDB.setItem(IDB.STORES.MESSAGES, storageKey, finalMessages)
+      }).catch(e =>
+        console.error('替换消息失败:', e)
+      )
+    }
     
     // 更新最后一条消息
     if (messages.length > 0) {

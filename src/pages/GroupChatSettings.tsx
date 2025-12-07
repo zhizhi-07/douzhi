@@ -25,10 +25,12 @@ const GroupChatSettings = () => {
   const [smartSummaryEnabled, setSmartSummaryEnabled] = useState(false)
   const [smartSummaryInterval, setSmartSummaryInterval] = useState(10)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
-  const [minReplyCount, setMinReplyCount] = useState(10)
+  const [minReplyCount, setMinReplyCount] = useState(15)
   const [selectedLorebookId, setSelectedLorebookId] = useState<string | undefined>(undefined)
   const [availableLorebooks, setAvailableLorebooks] = useState<Array<{id: string, name: string}>>([])
-  const [enableTheatreCards, setEnableTheatreCards] = useState(true)
+  const [enableTheatreCards, setEnableTheatreCards] = useState(false)
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [availableCharacters, setAvailableCharacters] = useState<Array<{id: string, name: string, avatar: string}>>([])
 
   useEffect(() => {
     if (!id) return
@@ -38,9 +40,9 @@ const GroupChatSettings = () => {
       setAnnouncement(group.announcement || '')
       setSmartSummaryEnabled(group.smartSummary?.enabled || false)
       setSmartSummaryInterval(group.smartSummary?.triggerInterval || 10)
-      setMinReplyCount(group.minReplyCount || 10)
+      setMinReplyCount(group.minReplyCount || 15)
       setSelectedLorebookId(group.lorebookId)
-      setEnableTheatreCards(group.enableTheatreCards ?? true)
+      setEnableTheatreCards(group.enableTheatreCards ?? false)
       
       // 加载世界书列表
       const lorebooks = lorebookManager.getAllLorebooks()
@@ -106,7 +108,7 @@ const GroupChatSettings = () => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* 成员列表 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm text-gray-500 mb-3">群成员 {members.length}人</div>
           <div className="grid grid-cols-5 gap-3">
             {members.map((member) => (
@@ -126,7 +128,19 @@ const GroupChatSettings = () => {
               </div>
             ))}
             <div className="flex flex-col items-center">
-              <button className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center active:scale-95 transition-transform">
+              <button 
+                onClick={() => {
+                  // 获取所有角色，排除已在群里的
+                  const allChars = characterService.getAll()
+                  const memberIds = members.map(m => m.id)
+                  const available = allChars
+                    .filter(c => !memberIds.includes(c.id))
+                    .map(c => ({ id: c.id, name: c.nickname || c.realName, avatar: c.avatar || '' }))
+                  setAvailableCharacters(available)
+                  setShowAddMemberModal(true)
+                }}
+                className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center active:scale-95 transition-transform"
+              >
                 <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -137,7 +151,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 群名称 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">群聊名称</span>
             {isEditing ? (
@@ -166,7 +180,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 群公告 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
             onClick={() => {
               setTempAnnouncement(announcement)
@@ -187,7 +201,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 成员权限管理 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm text-gray-500 mb-3">成员权限</div>
           <div className="space-y-2">
             {members.map((member) => {
@@ -250,7 +264,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* AI记忆增强提示 */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm mb-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm mb-4">
           <div className="text-sm text-gray-500 mb-2">💡 私信同步</div>
           <p className="text-xs text-gray-500 leading-relaxed">
             群聊AI是否能看到成员的私信内容，由每个角色自己的聊天设置中的"群聊同步"开关控制。
@@ -259,12 +273,12 @@ const GroupChatSettings = () => {
           </p>
         </div>
 
-        {/* 小剧场卡片 */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm mb-4">
+        {/* 中插HTML小剧场 */}
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm mb-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <div className="text-sm text-gray-900">小剧场卡片</div>
-              <div className="text-xs text-gray-400">AI可以生成支付、红包、朋友圈等互动卡片</div>
+              <div className="text-sm text-gray-900">中插HTML小剧场</div>
+              <div className="text-xs text-gray-400">开启后每条回复都会插入HTML卡片（便利贴、聊天截图、账单等）</div>
             </div>
             <button
               onClick={() => {
@@ -275,23 +289,21 @@ const GroupChatSettings = () => {
                   enableTheatreCards: newValue
                 })
               }}
-              className={`relative w-11 h-6 rounded-full transition-all ${
-                enableTheatreCards
-                  ? 'bg-gradient-to-br from-slate-600 to-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]' 
-                  : 'bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]'
-              }`}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: enableTheatreCards ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white/90 backdrop-blur-sm shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
                   enableTheatreCards ? 'translate-x-5' : 'translate-x-0'
                 }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
               />
             </button>
           </div>
         </div>
 
         {/* 智能总结 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="text-sm text-gray-500 mb-3">双AI架构</div>
           
           <div className="flex items-center justify-between">
@@ -393,7 +405,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* AI回复条数设置 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -435,7 +447,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 挂载世界书 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="mb-3">
             <p className="text-sm font-medium text-gray-900">挂载世界书</p>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -476,7 +488,7 @@ const GroupChatSettings = () => {
         )}
 
         {/* 置顶聊天 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">置顶聊天</span>
             <button className="relative w-11 h-6 rounded-full bg-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] active:scale-95 transition-all">
@@ -486,7 +498,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 清空聊天记录 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
             onClick={() => {
               if (id && confirm('确定要清空聊天记录吗？')) {
@@ -501,7 +513,7 @@ const GroupChatSettings = () => {
         </div>
 
         {/* 退出群聊 */}
-        <div className="glass-card rounded-2xl p-4">
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
             onClick={() => {
               if (id && confirm('确定要退出群聊吗？')) {
@@ -792,6 +804,78 @@ const GroupChatSettings = () => {
                 className="w-full mt-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
               >
                 关闭
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 添加成员模态框 */}
+      {showAddMemberModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowAddMemberModal(false)}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="glass-card rounded-2xl p-5 max-w-sm w-full shadow-2xl max-h-[70vh] flex flex-col">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                添加群成员
+              </h3>
+              
+              {availableCharacters.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  没有可添加的角色了
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {availableCharacters.map(char => (
+                    <button
+                      key={char.id}
+                      onClick={() => {
+                        if (id) {
+                          groupChatManager.addMember(id, char.id)
+                          // 更新成员列表
+                          const group = groupChatManager.getGroup(id)
+                          if (group) {
+                            const memberList = group.memberIds.map(memberId => {
+                              if (memberId === 'user') {
+                                return { id: 'user', name: '我', avatar: '' }
+                              }
+                              const c = characterService.getById(memberId)
+                              return {
+                                id: memberId,
+                                name: c ? (c.nickname || c.realName) : '成员',
+                                avatar: c?.avatar || ''
+                              }
+                            })
+                            setMembers(memberList)
+                          }
+                          setShowAddMemberModal(false)
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-gray-200 overflow-hidden flex-shrink-0">
+                        {char.avatar ? (
+                          <img src={char.avatar} alt={char.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            {char.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{char.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              <button
+                onClick={() => setShowAddMemberModal(false)}
+                className="w-full mt-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 text-sm"
+              >
+                取消
               </button>
             </div>
           </div>
