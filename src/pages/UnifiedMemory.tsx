@@ -370,10 +370,12 @@ const UnifiedMemory = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#f9f9f9] text-gray-800 font-sans selection:bg-gray-200">
-      <StatusBar />
+      {/* 合并的状态栏+导航栏 */}
+      <div className="bg-[#f9f9f9] z-10">
+        <StatusBar />
       
-      {/* 顶部导航 - 极简风格 */}
-      <div className="px-6 pt-6 pb-4 bg-[#f9f9f9] z-10">
+        {/* 顶部导航 - 极简风格 */}
+        <div className="px-6 pt-2 pb-4">
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => navigate(-1)}
@@ -480,6 +482,7 @@ const UnifiedMemory = () => {
               )}
             </button>
           ))}
+        </div>
         </div>
       </div>
 

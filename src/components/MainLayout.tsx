@@ -91,7 +91,7 @@ const MainLayout = () => {
 
     return (
         <div
-            className="h-screen flex flex-col font-serif bg-[#EDEDED]"
+            className="h-screen flex flex-col font-serif bg-[#EDEDED] page-fade-in"
             data-main-layout
             style={wechatBg ? {
                 backgroundImage: `url(${wechatBg})`,

@@ -94,7 +94,9 @@ export async function publishMoment(
   content: string,
   images: MomentImage[] = [],
   location?: string,
-  mentions?: string[]
+  mentions?: string[],
+  privacy: 'public' | 'private' | 'selected' = 'public',
+  visibleTo?: string[]
 ): Promise<Moment> {
   const newMoment: Moment = {
     id: Date.now().toString(),
@@ -107,7 +109,9 @@ export async function publishMoment(
     comments: [],
     location,
     createdAt: Date.now(),
-    mentions
+    mentions,
+    privacy,
+    visibleTo: privacy === 'selected' ? visibleTo : undefined
   }
   
   console.log('📱 准备发布朋友圈:', content.substring(0, 20) || '[纯图片]')

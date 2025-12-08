@@ -244,6 +244,9 @@ const Desktop = () => {
     return () => window.removeEventListener('iconChanged', handleIconChange)
   }, [])
 
+  // 页面退出动画状态
+  const [isExiting, setIsExiting] = useState(false)
+
   const handleAppClick = (e: React.MouseEvent, app: AppItem) => {
     e.preventDefault()
     e.stopPropagation()
@@ -259,7 +262,11 @@ const Desktop = () => {
     if (app.onClick) {
       app.onClick()
     } else if (app.route) {
-      navigate(app.route)
+      // 添加退出动画后再导航
+      setIsExiting(true)
+      setTimeout(() => {
+        navigate(app.route!)
+      }, 200) // 动画持续200ms
     }
   }
 
@@ -291,7 +298,7 @@ const Desktop = () => {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden page-fade-in" style={{ touchAction: 'pan-y pinch-zoom' }}>
+    <div className={`fixed inset-0 overflow-hidden ${isExiting ? 'desktop-exit' : 'page-fade-in'}`} style={{ touchAction: 'pan-y pinch-zoom' }}>
       {/* 背景 - 延伸到safe area */}
       {desktopBg && (
         <div

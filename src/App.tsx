@@ -237,6 +237,18 @@ function App() {
       })
     })
 
+    // 💬 预加载聊天列表到内存，避免进入微信时闪烁
+    import('./utils/chatListManager').then(({ loadChatList }) => {
+      loadChatList().then(chatList => {
+        if (chatList && chatList.length > 0) {
+          sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(chatList))
+          console.log('✅ 预加载', chatList.length, '个聊天到缓存')
+        }
+      }).catch(err => {
+        console.error('❌ 预加载聊天列表失败:', err)
+      })
+    })
+
     // 🎵 初始化音效系统，预加载常用音效
     initSoundSystem()
 

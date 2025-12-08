@@ -6,13 +6,18 @@ import { characterService, Character } from '../services/characterService'
 const Contacts = () => {
   const navigate = useNavigate()
   const { customIcons } = useOutletContext<{ customIcons: Record<string, string> }>()
-  const [characters, setCharacters] = useState<Character[]>([])
+  
+  // 🔥 直接从localStorage同步初始化，避免空状态闪烁
+  const [characters, setCharacters] = useState<Character[]>(() => characterService.getAll())
+  // 追踪是否完成首次加载
+  const [isInitialLoaded, setIsInitialLoaded] = useState(false)
 
   // 从 localStorage加载角色列表
   useEffect(() => {
     const loadCharacters = () => {
       const data = characterService.getAll()
       setCharacters(data)
+      setIsInitialLoaded(true)
     }
 
     loadCharacters()
@@ -101,7 +106,7 @@ const Contacts = () => {
         )}
 
         {/* 联系人列表或空状态 */}
-        {characters.length === 0 ? (
+        {characters.length === 0 && isInitialLoaded ? (
           <div className="flex flex-col items-center justify-center mt-20 text-[#8C8C8C]">
             <svg className="w-16 h-16 mb-4 stroke-[1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -109,7 +114,7 @@ const Contacts = () => {
             <p className="text-sm tracking-widest mb-2">暂无联系人</p>
             <p className="text-xs font-light">添加AI角色开始聊天</p>
           </div>
-        ) : (
+        ) : characters.length > 0 ? (
           <div className="space-y-2">
             {characters.map((character, index) => (
               <div
@@ -136,7 +141,7 @@ const Contacts = () => {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

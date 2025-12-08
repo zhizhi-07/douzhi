@@ -37,7 +37,8 @@ export interface Moment {
   comments: MomentComment[]
   location?: string
   createdAt: number  // 时间戳
-  visibleTo?: string[]  // 仅谁可见（用户ID列表，为空表示公开）
+  privacy?: 'public' | 'private' | 'selected'  // 隐私设置: 公开/仅自己/部分可见
+  visibleTo?: string[]  // 部分可见时，可见的用户ID列表
   mentions?: string[]   // @提到了谁（用户ID列表）
   isDeleted?: boolean   // 是否已删除
   deletedAt?: number    // 删除时间戳

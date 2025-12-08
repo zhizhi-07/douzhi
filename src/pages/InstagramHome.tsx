@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, Navigation, PlusSquare, Bell, MoreHorizontal } from 'lucide-react'
+import { Heart, MessageCircle, Share2, PlusSquare, MoreHorizontal, X, Flame, RefreshCw } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllPostsAsync, toggleLike, getNPCById, initForumData } from '../utils/forumNPC'
@@ -8,13 +8,26 @@ import { getAllCharacters } from '../utils/characterManager'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
-import EmojiContentRenderer from '../components/EmojiContentRenderer'
+import CommentContentRenderer from '../components/CommentContentRenderer'
+import { generateNPCPosts, generateHotTopics, checkAutoGeneratePosts } from '../utils/forumNPCPost'
 
 const InstagramHome = () => {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState<Character[]>([])
   const [posts, setPosts] = useState<ForumPost[]>([])
   const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
+  
+  // 刷新弹窗状态
+  const [showRefreshModal, setShowRefreshModal] = useState(false)
+  const [refreshCount, setRefreshCount] = useState(3)
+  const [topicHint, setTopicHint] = useState('')  // 用户输入的话题提示
+  const [refreshCharacterId, setRefreshCharacterId] = useState<string>('')
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // 热点弹窗状态
+  const [showHotTopics, setShowHotTopics] = useState(false)
+  const [hotTopics, setHotTopics] = useState<string[]>([])
+  const [isLoadingHotTopics, setIsLoadingHotTopics] = useState(false)
 
   const formatTimeAgo = (timestamp: number | undefined): string => {
     if (!timestamp) return '刚刚'
@@ -42,9 +55,26 @@ const InstagramHome = () => {
     setUserInfo(info)
     const chars = await getAllCharacters()
     setCharacters(chars)
+    
+    // 检查是否需要自动生成帖子（1小时后上线）
+    await checkAutoGeneratePosts()
+    
     const loadedPosts = await getAllPostsAsync()
     const mainPosts = loadedPosts.filter(p => !(p as any).topicId)
     setPosts(mainPosts)
+  }
+  
+  // 刷新热点话题
+  const refreshHotTopics = async () => {
+    setIsLoadingHotTopics(true)
+    try {
+      const topics = await generateHotTopics()
+      setHotTopics(topics)
+    } catch (e) {
+      console.error('刷新热点失败:', e)
+    } finally {
+      setIsLoadingHotTopics(false)
+    }
   }
 
   const handleLike = async (postId: string) => {
@@ -52,8 +82,34 @@ const InstagramHome = () => {
     setPosts(updatedPosts.filter(p => !(p as any).topicId))
   }
 
+  // 刷新社区动态 - 生成NPC帖子
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      const newPosts = await generateNPCPosts({
+        count: refreshCount,
+        topicHint: topicHint || undefined,
+        specificCharacterId: refreshCharacterId || undefined
+      })
+      
+      if (newPosts.length > 0) {
+        // 重新加载帖子列表
+        const allPosts = await getAllPostsAsync()
+        setPosts(allPosts.filter(p => !(p as any).topicId))
+        setShowRefreshModal(false)
+        
+        // 滚动到顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    } catch (error) {
+      console.error('生成帖子失败:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   const getCharacterName = (id: string): string => {
-    const char = characters.find(c => c.id === id)
+    const char = characters.find(c => String(c.id) === String(id))
     if (char) return char.nickname || char.realName || id
     const npc = getNPCById(id)
     if (npc) return npc.name
@@ -61,7 +117,7 @@ const InstagramHome = () => {
   }
 
   const getRealAvatar = (npcId: string, npcAvatar: string): string => {
-    const character = characters.find(c => c.id === npcId)
+    const character = characters.find(c => String(c.id) === String(npcId))
     if (character?.avatar) return character.avatar
     if (!npcAvatar || npcAvatar === '/default-avatar.png') return '/default-avatar.png'
     return npcAvatar
@@ -95,15 +151,13 @@ const InstagramHome = () => {
             >
               <PlusSquare className="w-5 h-5 stroke-[1.5]" />
             </button>
-            <button className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors relative">
-              <Bell className="w-5 h-5 stroke-[1.5]" />
-              <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-[#8B3A3A] rounded-full"></span>
-            </button>
+{/* 刷新按钮暂时隐藏，自动刷新使用zhizhi API */}
             <button
-              onClick={() => navigate('/instagram/dm/list')}
+              onClick={() => setShowHotTopics(true)}
               className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
+              title="今日热点"
             >
-              <Navigation className="w-5 h-5 stroke-[1.5] rotate-90" />
+              <Flame className="w-5 h-5 stroke-[1.5]" />
             </button>
           </div>
           </div>
@@ -164,14 +218,39 @@ const InstagramHome = () => {
           <div className="max-w-screen-sm mx-auto">
             {posts.filter(post => post.npcId).map((post) => {
               const isUserPost = post.npcId === 'user'
-              const npc = !isUserPost ? getNPCById(post.npcId) : null
-              if (!isUserPost && !npc) return null
+              
+              // 尝试获取NPC信息，找不到就用角色信息
+              let npc = !isUserPost ? getNPCById(post.npcId) : null
+              const char = !isUserPost ? characters.find(c => String(c.id) === String(post.npcId)) : null
+              
+              // 如果getNPCById找不到但角色存在，用角色信息创建临时NPC对象
+              if (!isUserPost && !npc && char) {
+                npc = {
+                  id: String(char.id),
+                  name: char.nickname || char.realName || 'Unknown',
+                  avatar: char.avatar || '/default-avatar.png',
+                  bio: char.signature || '',
+                  followers: 0
+                }
+              }
+              
+              // 如果还是找不到，跳过这条帖子
+              if (!isUserPost && !npc) {
+                return null
+              }
+              
+              // 判断是好友（角色）还是NPC
+              const isFriend = isUserPost || !!char
 
               const authorName = isUserPost ? (userInfo.nickname || userInfo.realName || '我') : npc!.name
               const authorAvatar = isUserPost ? (userInfo.avatar || '/default-avatar.png') : getRealAvatar(npc!.id, npc!.avatar)
 
               return (
-                <div key={post.id} className="mb-6 bg-white/60 backdrop-blur-md shadow-sm border border-white/40 sm:rounded-2xl sm:mx-4 overflow-hidden transition-all hover:bg-white/70 hover:shadow-md">
+                <div key={post.id} className={`mb-6 backdrop-blur-md shadow-sm border sm:rounded-2xl sm:mx-4 overflow-hidden transition-all hover:shadow-md ${
+                  isFriend 
+                    ? 'bg-white/60 border-white/40 hover:bg-white/70' 
+                    : 'bg-gray-50/60 border-gray-200/40 hover:bg-gray-50/70'
+                }`}>
                   {/* Header */}
                   <div className="px-5 py-4 flex items-center justify-between border-b border-white/30">
                     <div
@@ -188,6 +267,17 @@ const InstagramHome = () => {
                           <span className="text-sm font-medium text-[#2C2C2C] tracking-wide group-hover:text-black transition-colors">
                             {authorName}
                           </span>
+                          {/* 好友/NPC标签 */}
+                          {!isUserPost && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-sm ${
+                              isFriend 
+                                ? 'bg-blue-100 text-blue-600' 
+                                : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {isFriend ? '好友' : 'NPC'}
+                            </span>
+                          )}
+                          {/* 公众人物标签 */}
                           {(() => {
                             const char = characters.find(c => c.id === post.npcId)
                             if (!char?.isPublicFigure) return null
@@ -214,12 +304,12 @@ const InstagramHome = () => {
                   <div className="px-5 pt-3 pb-2">
                     {post.content && (
                       <div className="text-[15px] text-[#4A4A4A] leading-loose mb-3 whitespace-pre-wrap font-light text-justify">
-                        <EmojiContentRenderer content={post.content} emojiSize={18} />
+                        <CommentContentRenderer content={post.content} emojiSize={18} />
                       </div>
                     )}
 
-                    {/* Images - 艺术画廊布局 */}
-                    {(post.imageUrls?.length || 0) > 0 ? (
+                    {/* Images - 只显示imageUrls中的实际图片 */}
+                    {(post.imageUrls?.length || 0) > 0 && (
                       <div className={`grid gap-2 mb-4 rounded-xl overflow-hidden ${post.imageUrls!.length === 1 ? 'grid-cols-1' :
                         post.imageUrls!.length === 2 ? 'grid-cols-2' :
                           'grid-cols-3'
@@ -231,7 +321,9 @@ const InstagramHome = () => {
                           </div>
                         ))}
                       </div>
-                    ) : post.images > 0 ? (
+                    )}
+                    {/* 只有没有imageUrls但有images数量时才显示占位符 */}
+                    {(!post.imageUrls || post.imageUrls.length === 0) && post.images > 0 && (
                       <div className={`grid gap-2 mb-4 rounded-xl overflow-hidden ${post.images === 1 ? 'grid-cols-1' : 'grid-cols-3'
                         }`}>
                         {Array.from({ length: Math.min(post.images, 9) }).map((_, index) => (
@@ -240,7 +332,7 @@ const InstagramHome = () => {
                           </div>
                         ))}
                       </div>
-                    ) : null}
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -271,7 +363,7 @@ const InstagramHome = () => {
                     </div>
 
                     <button className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors">
-                      <Navigation className="w-5 h-5 stroke-[1.5] -rotate-45" />
+                      <Share2 className="w-5 h-5 stroke-[1.5]" />
                     </button>
                   </div>
                 </div>
@@ -286,6 +378,175 @@ const InstagramHome = () => {
           </div>
         </div>
       </div>
+
+      {/* 刷新弹窗 */}
+      {showRefreshModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-[90%] max-w-sm shadow-2xl overflow-hidden">
+            {/* 标题 */}
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-medium text-gray-800">刷新社区动态</h3>
+              <button 
+                onClick={() => setShowRefreshModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 内容 */}
+            <div className="p-5 space-y-4">
+              {/* 发帖数量 */}
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">生成帖子数量</label>
+                <div className="flex gap-2">
+                  {[1, 3, 5, 10].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setRefreshCount(n)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                        refreshCount === n 
+                          ? 'bg-[#2C2C2C] text-white' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {n}条
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 话题提示（可选） */}
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">话题方向（可选，留空则随机）</label>
+                <input
+                  type="text"
+                  value={topicHint}
+                  onChange={(e) => setTopicHint(e.target.value)}
+                  placeholder="如：美食分享、工作吐槽、恋爱八卦..."
+                  className="w-full p-2.5 rounded-lg bg-gray-100 text-sm text-gray-700 outline-none border-none placeholder:text-gray-400"
+                />
+              </div>
+
+              {/* 指定角色 */}
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">指定发帖者（可选）</label>
+                <select
+                  value={refreshCharacterId}
+                  onChange={(e) => setRefreshCharacterId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-gray-100 text-sm text-gray-700 outline-none border-none"
+                >
+                  <option value="">随机选择</option>
+                  {characters.filter(c => c.nickname || c.realName).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nickname || c.realName} {c.isPublicFigure ? '(公众人物)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 按钮 */}
+            <div className="px-5 pb-5">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="w-full py-3 bg-[#2C2C2C] text-white rounded-xl font-medium transition-all hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    生成帖子
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 热点弹窗 */}
+      {showHotTopics && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-[90%] max-w-sm shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+            {/* 标题 */}
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-orange-500" />
+                <span className="font-medium text-gray-800">今日热点</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={refreshHotTopics}
+                  disabled={isLoadingHotTopics}
+                  className="text-orange-500 hover:text-orange-600 p-1 disabled:opacity-50"
+                  title="刷新热点"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingHotTopics ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setShowHotTopics(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* 热点列表 */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {isLoadingHotTopics ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 text-orange-500 animate-spin" />
+                  <span className="ml-2 text-gray-500">正在分析论坛动态...</span>
+                </div>
+              ) : hotTopics.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400 mb-3">点击刷新获取热点</p>
+                  <button
+                    onClick={refreshHotTopics}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm"
+                  >
+                    生成热点
+                  </button>
+                </div>
+              ) : (
+                hotTopics.map((topic, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setTopicHint(topic)
+                      setShowHotTopics(false)
+                      setShowRefreshModal(true)
+                    }}
+                    className="w-full text-left p-3 rounded-xl bg-gray-50 hover:bg-orange-50 transition-colors flex items-center gap-3 group"
+                  >
+                    <span className={`text-sm font-bold ${index < 3 ? 'text-orange-500' : 'text-gray-400'}`}>
+                      {index + 1}
+                    </span>
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">
+                      {topic}
+                    </span>
+                    {index < 3 && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded">热</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* 提示 */}
+            <div className="px-5 py-3 border-t border-gray-100 text-center">
+              <span className="text-xs text-gray-400">热点根据当前帖子和角色动态生成</span>
+            </div>
+          </div>
+        </div>
+      )}
     </InstagramLayout>
   )
 }

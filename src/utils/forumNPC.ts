@@ -32,8 +32,8 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 // 从 IndexedDB 加载帖子
-async function loadPostsFromDB(): Promise<ForumPost[]> {
-  if (postsCache) return postsCache
+async function loadPostsFromDB(forceReload = false): Promise<ForumPost[]> {
+  if (postsCache && !forceReload) return postsCache
   
   try {
     const db = await openDB()
@@ -43,10 +43,16 @@ async function loadPostsFromDB(): Promise<ForumPost[]> {
       const request = store.getAll()
       
       request.onsuccess = () => {
-        const posts = request.result || []
+        const rawPosts = request.result || []
+        // 修复旧数据：确保npcId是字符串类型
+        const posts = rawPosts.map((p: ForumPost) => ({
+          ...p,
+          npcId: String(p.npcId)
+        }))
         // 按时间排序
         posts.sort((a: ForumPost, b: ForumPost) => b.timestamp - a.timestamp)
         postsCache = posts
+        console.log(`📖 从IndexedDB加载 ${posts.length} 条帖子`)
         resolve(posts)
       }
       
@@ -61,27 +67,33 @@ async function loadPostsFromDB(): Promise<ForumPost[]> {
 async function savePostsToDB(posts: ForumPost[]): Promise<void> {
   try {
     const db = await openDB()
-    const tx = db.transaction(POSTS_STORE, 'readwrite')
-    const store = tx.objectStore(POSTS_STORE)
-    
-    // 清空旧数据
-    store.clear()
     
     // 只保留最近的帖子
     const recentPosts = posts.slice(0, MAX_POSTS)
     
-    // 批量写入
-    for (const post of recentPosts) {
-      store.put(post)
-    }
+    // 先清空，再写入（用两个事务确保顺序）
+    await new Promise<void>((resolve, reject) => {
+      const clearTx = db.transaction(POSTS_STORE, 'readwrite')
+      const clearStore = clearTx.objectStore(POSTS_STORE)
+      clearStore.clear()
+      clearTx.oncomplete = () => resolve()
+      clearTx.onerror = () => reject(clearTx.error)
+    })
+    
+    // 写入新数据
+    await new Promise<void>((resolve, reject) => {
+      const writeTx = db.transaction(POSTS_STORE, 'readwrite')
+      const writeStore = writeTx.objectStore(POSTS_STORE)
+      for (const post of recentPosts) {
+        writeStore.put(post)
+      }
+      writeTx.oncomplete = () => resolve()
+      writeTx.onerror = () => reject(writeTx.error)
+    })
     
     // 更新缓存
     postsCache = recentPosts
-    
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-    })
+    console.log(`💾 已保存 ${recentPosts.length} 条帖子到IndexedDB`)
   } catch (e) {
     console.error('保存帖子到IndexedDB失败:', e)
   }
@@ -278,7 +290,8 @@ export function getAllPosts(): ForumPost[] {
 export async function getAllPostsAsync(): Promise<ForumPost[]> {
   // 先尝试迁移
   await migratePostsToIndexedDB()
-  return loadPostsFromDB()
+  // 强制从数据库加载，不使用缓存（因为可能刚保存了新数据）
+  return loadPostsFromDB(true)
 }
 
 // 保存帖子列表（异步）
@@ -324,10 +337,35 @@ export async function toggleLike(postId: string): Promise<ForumPost[]> {
   return updatedPosts
 }
 
-// 根据NPC ID获取NPC信息
+// 根据NPC ID获取NPC信息（同时检查角色列表）
 export function getNPCById(npcId: string): ForumNPC | null {
+  // 先从NPC列表查找
   const npcs = getAllNPCs()
-  return npcs.find(npc => npc.id === npcId) || null
+  const npc = npcs.find(npc => npc.id === npcId)
+  if (npc) return npc
+  
+  // 再从角色列表查找（兼容字符串和数字类型的ID比较）
+  try {
+    const stored = localStorage.getItem('characters')
+    if (stored) {
+      const characters = JSON.parse(stored)
+      // 使用 String() 确保类型一致
+      const char = characters.find((c: any) => String(c.id) === String(npcId))
+      if (char) {
+        return {
+          id: String(char.id),
+          name: char.nickname || char.realName || 'Unknown',
+          avatar: char.avatar || '/default-avatar.png',
+          bio: char.signature || char.personality?.slice(0, 50) || '',
+          followers: Math.floor(Math.random() * 1000) + 500
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('查找角色失败:', e)
+  }
+  
+  return null
 }
 
 // 清理NPC存储（一次性迁移：清理base64头像）

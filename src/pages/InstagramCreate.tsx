@@ -98,6 +98,9 @@ const InstagramCreate = () => {
     // 更新用户统计
     incrementPosts()
 
+    // 保存被标记的好友ID（用于异步生成评论）
+    const taggedIds = taggedUsers.map(u => u.id)
+
     // 立即跳转回主页
     navigate('/instagram')
 
@@ -125,11 +128,12 @@ const InstagramCreate = () => {
 
         // 传入所有角色（包括公众人物），让AI能识别并让公众人物参与评论
         const allCharacters = await getAllCharacters()
-        console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length}, 图片数: ${selectedImages.length})`)
+        console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length}, 图片数: ${selectedImages.length}, 标记好友: ${taggedIds.length})`)
         // 🔥 传入图片，让AI能看到图片内容
         // 如果没有文字只有图片，给AI一个提示
         const contentForAI = caption.trim() || (selectedImages.length > 0 ? '[用户发布了图片]' : '')
-        const result = await generateRealAIComments(postId, contentForAI, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined)
+        // 🌟 传入被标记的好友，让AI知道用户标记了谁
+        const result = await generateRealAIComments(postId, contentForAI, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined, taggedIds)
 
         // 🧠 为每个参与评论的AI角色增加记忆计数
         const allComments = await getPostComments(postId)
@@ -158,30 +162,38 @@ const InstagramCreate = () => {
           const totalComments = comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
           post.comments = totalComments
 
-          // 检查是否有公众人物参与评论或被@
-          const hasPublicFigureComment = comments.some(c => c.isPublicFigure)
-          const hasPublicFigureTagged = (post.taggedUsers || []).some(userId => {
-            const char = allCharacters.find(c => c.id === userId)
-            return char?.isPublicFigure
-          })
-          const hasPublicFigureInvolved = hasPublicFigureComment || hasPublicFigureTagged
-
-          // 点赞数：有公众人物参与则大幅增加
+          // 🌟 使用AI评估的点赞数和涨粉数（如果AI没返回则用默认值）
           let likesCount: number
-          if (hasPublicFigureInvolved) {
-            // 有公众人物参与：几千到几万点赞
-            likesCount = Math.floor(Math.random() * 50000) + 5000
+          let newFollowers: number
+          
+          if (result.likes && result.followers) {
+            // AI返回了热度数据，直接使用
+            likesCount = result.likes
+            newFollowers = result.followers
+            console.log(`🤖 使用AI评估的热度：点赞=${likesCount}，涨粉=${newFollowers}`)
           } else {
-            // 普通帖子：评论数的10-30倍
-            likesCount = Math.floor(comments.length * (10 + Math.random() * 20)) + 50
+            // AI没返回，使用默认公式
+            const hasPublicFigureComment = comments.some(c => c.isPublicFigure)
+            const hasPublicFigureTagged = (post.taggedUsers || []).some(userId => {
+              const char = allCharacters.find(c => c.id === userId)
+              return char?.isPublicFigure
+            })
+            const hasPublicFigureInvolved = hasPublicFigureComment || hasPublicFigureTagged
+
+            if (hasPublicFigureInvolved) {
+              likesCount = Math.floor(Math.random() * 50000) + 5000
+            } else {
+              likesCount = Math.floor(comments.length * (10 + Math.random() * 20)) + 50
+            }
+            newFollowers = Math.max(1, Math.floor(likesCount / 100))
+            console.log(`📊 使用默认公式：点赞=${likesCount}，涨粉=${newFollowers}`)
           }
+          
           post.likes = likesCount
 
           await savePosts(updatedPosts)
           console.log(`✅ 帖子评论数已更新: ${comments.length}，点赞数: ${likesCount}`)
-
-          // 发帖后增加粉丝：1-5个
-          const newFollowers = Math.floor(Math.random() * 5) + 1
+          console.log(`📈 涨粉: ${newFollowers}`)
           incrementFollowers(newFollowers)
 
           // 使用AI生成的私聊

@@ -164,10 +164,11 @@ async function callAIForCommentsBatch(
   apiConfig: ApiConfig,
   userPreviousPosts: string[] = [],
   mentionedPublicFigures: PublicFigureInfo[] = [],
+  mentionedNormalCharacters: { name: string; personality: string }[] = [],  // 🌟 被标记的普通好友
   mentionedUserInfo: string = '',
   postAuthorInfo: PublicFigureInfo | null = null,  // 帖子作者（楼主）信息
   imageUrls?: string[]  // 🔥 帖子图片（用于识图）
-): Promise<GeneratedComment[]> {
+): Promise<{ comments: GeneratedComment[], aiLikes?: number, aiFollowers?: number }> {
   // 只传角色名字，不传人设（人设信息只用于检测公众人物）
   const actorsForPrompt = actors.map(a => a.name)
 
@@ -185,8 +186,8 @@ ${postAuthorInfo.personality ? `- 性格人设：${postAuthorInfo.personality}` 
 
   // 构建帖子中@的其他公众人物说明
   const publicFigurePrompt = mentionedPublicFigures.length > 0 ? `
-## ⚠️ 楼主在帖子里@了以下公众人物（非常重要！）
-**楼主明确@了：${mentionedPublicFigures.map(pf => pf.name).join('、')}**
+## ⚠️ 楼主在帖子里标记/提及了以下公众人物（非常重要！）
+**被标记的人：${mentionedPublicFigures.map(pf => pf.name).join('、')}**
 
 ${mentionedPublicFigures.map(pf => {
     const desc = []
@@ -195,11 +196,26 @@ ${mentionedPublicFigures.map(pf => {
     return `- **${pf.name}**${desc.length > 0 ? '：' + desc.join('，') : ''}`
   }).join('\n')}
 
-**路人网友必须注意到楼主@了这些人：**
-- 路人网友会惊讶/好奇/围观"楼主怎么@了xxx"
+**路人网友必须注意到楼主标记了这些人：**
+- 路人网友会惊讶/好奇/围观"楼主怎么标记了xxx"
 - 很多人会讨论"楼主和xxx是什么关系"、"为什么@他"
-- 有人会问"@xxx是什么意思"、"楼主认识xxx吗"
-- 被@的公众人物可以选择回应或不回应，但**路人一定要看到这个@、讨论这个@**
+- 被标记的公众人物**必须在评论区出现并回复**，根据自己的人设语气回应
+` : ''
+
+  // 🌟 构建被标记的普通好友说明
+  const taggedFriendsPrompt = mentionedNormalCharacters.length > 0 ? `
+## 🏷️ 楼主标记了以下好友（重要！这些人必须参与评论！）
+**被标记的好友：${mentionedNormalCharacters.map(c => c.name).join('、')}**
+
+${mentionedNormalCharacters.map(c => {
+    return `- **${c.name}**${c.personality ? `：${c.personality.substring(0, 100)}` : ''}`
+  }).join('\n')}
+
+**⚠️ 被标记的好友必须做出回应：**
+- 被标记的人「${mentionedNormalCharacters.map(c => c.name).join('、')}」**必须在评论区出现**
+- 可以是问候、互动、回应帖子内容、调侃楼主等
+- 回复内容要符合自己的人设和性格
+- 这就像微信朋友圈被@了一样，被标记的人看到了会回应
 ` : ''
 
   // 构建AI角色信息（所有有人设的角色都要读，用于扮演语气）
@@ -298,6 +314,7 @@ ${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 - 但不要每条都提，自然随机地提几次就行` : ''}
 
 ${publicFigurePrompt}
+${taggedFriendsPrompt}
 ${mentionedUserInfo}
 ## 🏢 公众人物反应规则
 
@@ -366,7 +383,18 @@ ${mentionedUserInfo}
 [回复] 汁汁 -> 网友A：关你什么事
 [私聊] 汁汁：刚看到你发的，没事吧？有什么想说的可以跟我说
 
-**直接输出评论，不要解释！**`
+## 📊 帖子热度评估（必填！放在最后一行）
+根据帖子内容质量、是否有公众人物参与、话题性等，评估这个帖子的热度：
+**格式**：[热度] 点赞数=xxx 涨粉=xxx
+- 点赞数：根据帖子质量决定（普通帖子100-500，有趣帖子500-2000，热门帖子2000-10000，爆款帖子10000-50000+）
+- 涨粉数：根据点赞数决定（点赞越多涨粉越多，范围1-500）
+- 有公众人物参与或被标记 → 点赞和涨粉都要大幅增加
+
+**示例**：
+[热度] 点赞数=1234 涨粉=15
+[热度] 点赞数=28000 涨粉=320
+
+**直接输出评论和热度，不要解释！**`
 
   // 🔥 添加表情包列表（限制数量避免prompt过长）
   try {
@@ -383,6 +411,58 @@ ${emojiList}
   } catch (e) {
     console.error('获取表情包失败:', e)
   }
+
+  // 🔥 添加中插HTML小剧场支持（富文本评论）
+  systemPrompt += `
+
+---
+
+## 🎭 中插HTML小剧场
+
+评论中可以随意使用中插HTML来丰富内容！
+
+**格式**：
+[小剧场HTML]<div style="...">完整HTML</div>[/小剧场HTML]
+
+**核心**：模拟角色此刻"会写/会看到/会保存"的东西。
+比如回复帖子时，可以生成一张便签、一条未发送的消息草稿、一张截图等。
+
+**📌 要求**
+- 宽度≤310px，纯HTML+行内CSS，**禁止<script>**
+- **禁止**重复角色消息内容、空模板、全英文UI
+- 内容必须中文
+
+**🎨 风格完全随机（非模板化！）**
+- 颜色搭配、排版形式应**充分自由化**
+- 鼓励：emoji / 涂鸦感 / 手写风 / 大颜文字 / 悬浮贴纸
+- 拟物细节：咖啡渍、折角、指纹、胶带、铅笔擦痕
+
+**✨ 动画动效（鼓励使用！）**
+- 漂浮字 / 渐隐 / 抖动 / 飘雪 / 心跳线 / 闪烁
+- 用CSS @keyframes 或 transition 实现
+
+**🔘 交互必须有效（纯HTML+CSS）**
+- <details><summary>点我</summary>展开内容</details>
+- checkbox/radio + :checked 切换显示
+- :hover 状态变化
+
+**📂 模块类型（自由发挥！）**
+- **行为类**：手写便签、留言纸条、涂改草稿、课堂笔记、搜索记录
+- **数码类**：聊天气泡、草稿箱、播放器界面、弹幕、视频截图
+- **现实类**：外卖订单、转账截图、鲜花发票、签收单、闹钟提示
+- **情绪类**：撕裂纸条、墨迹晕染、被划掉的句子、心率曲线
+- **空间类**：墙角刻字、快递盒涂写、明信片折痕、梦境相片
+- **交互类**：翻转卡片、情绪选择、点信封展开、心理测试、点亮文字
+
+**🖼️ 图片规范**
+①CSS/颜文字模拟画面
+②图片URL：https://image.pollinations.ai/prompt/{英文关键词}
+
+**🎯 核心原则**
+模拟角色"会写/会看到/会保存"的真实物件，是剧情延展而非装饰！
+
+示例：
+[主楼] 汁汁：[小剧场HTML]<div style="background: linear-gradient(135deg, #FFF9C4 0%, #FFFDE7 100%); padding: 16px; border-radius: 12px; border-left: 4px solid #FFC107; font-family: 'Comic Sans MS', cursive; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); transform: rotate(-1deg); position: relative;"><div style="position: absolute; top: -8px; right: 10px; font-size: 20px;">📌</div><div style="font-size: 14px; color: #5D4037; line-height: 1.8;">看到你发的了<br>有什么想说的随时找我<br><span style="opacity: 0.6; font-size: 12px;">——写于深夜</span></div></div>[/小剧场HTML]`
 
   // 获取当前时间
   const now = new Date()
@@ -484,6 +564,18 @@ ${emojiList}
   // 去除 markdown code block 标记
   content = content.replace(/^```\s*/i, '').replace(/\s*```$/g, '')
   content = content.trim()
+
+  // 🌟 提取热度数据（点赞数和涨粉数）
+  let aiLikes: number | undefined
+  let aiFollowers: number | undefined
+  const hotMatch = content.match(/\[热度\]\s*点赞数[=＝](\d+)\s*涨粉[=＝](\d+)/i)
+  if (hotMatch) {
+    aiLikes = parseInt(hotMatch[1], 10)
+    aiFollowers = parseInt(hotMatch[2], 10)
+    console.log(`🔥 AI评估热度：点赞=${aiLikes}，涨粉=${aiFollowers}`)
+  } else {
+    console.log('⚠️ AI未返回热度数据，将使用默认值')
+  }
 
   // 解析新格式：[主楼] 或 [回复]
   const results: GeneratedComment[] = []
@@ -668,7 +760,7 @@ ${emojiList}
     console.warn(`⚠️ 评论数量偏少（${results.length}条），要求至少40条`)
   }
   
-  return results
+  return { comments: results, aiLikes, aiFollowers }
 }
 
 // 本地降级：在API失败时，用简单模板撑起最基本的生态
@@ -743,6 +835,8 @@ export interface RoastPostInfo {
 export interface GenerateResult {
   dmList: DMInfo[]
   roastPosts: RoastPostInfo[]
+  likes?: number  // 🌟 AI评估的点赞数
+  followers?: number  // 🌟 AI评估的涨粉数
 }
 
 // 生成AI角色评论（单次API调用）
@@ -753,7 +847,8 @@ export async function generateRealAIComments(
   characters: Character[],
   userPreviousPosts: string[] = [],
   postAuthor?: string,  // 帖子作者名称（如果是公众人物）
-  imageUrls?: string[]  // 🔥 帖子图片（用于识图）
+  imageUrls?: string[],  // 🔥 帖子图片（用于识图）
+  taggedUserIds?: string[]  // 🌟 被标记的好友 ID 列表
 ): Promise<GenerateResult> {
   if (!postId || !postContent) {
     console.error('❌ 帖子ID或内容为空')
@@ -848,6 +943,62 @@ export async function generateRealAIComments(
     console.log(`🎭 帖子@了 ${totalMentioned} 个角色`)
   }
 
+  // 🌟 处理被标记的好友（通过"标记好友"功能选择的）
+  if (taggedUserIds && taggedUserIds.length > 0) {
+    console.log(`🏷️ 帖子标记了 ${taggedUserIds.length} 个好友`)
+    for (const taggedId of taggedUserIds) {
+      // 根据ID找到对应的角色
+      const taggedActor = actors.find(a => a.id === taggedId)
+      if (taggedActor) {
+        // 检查是否已经在列表中（避免重复）
+        const alreadyInPublic = mentionedPublicFigures.some(p => p.name === taggedActor.name)
+        const alreadyInNormal = mentionedNormalCharacters.some(p => p.name === taggedActor.name)
+        
+        if (!alreadyInPublic && !alreadyInNormal) {
+          if (taggedActor.isPublicFigure) {
+            mentionedPublicFigures.push({
+              name: taggedActor.name,
+              personality: taggedActor.personality || '',
+              publicPersona: taggedActor.publicPersona || ''
+            })
+            console.log(`  🌟 标记了公众人物: ${taggedActor.name}`)
+          } else {
+            mentionedNormalCharacters.push({
+              name: taggedActor.name,
+              personality: taggedActor.personality || ''
+            })
+            console.log(`  👤 标记了好友: ${taggedActor.name}`)
+          }
+        }
+      } else {
+        // 尝试从characters中查找
+        const taggedChar = characters.find(c => c.id === taggedId)
+        if (taggedChar) {
+          const charName = taggedChar.nickname || taggedChar.realName
+          const alreadyInPublic = mentionedPublicFigures.some(p => p.name === charName)
+          const alreadyInNormal = mentionedNormalCharacters.some(p => p.name === charName)
+          
+          if (!alreadyInPublic && !alreadyInNormal && charName) {
+            if (taggedChar.isPublicFigure) {
+              mentionedPublicFigures.push({
+                name: charName,
+                personality: taggedChar.personality || '',
+                publicPersona: taggedChar.publicPersona || ''
+              })
+              console.log(`  🌟 标记了公众人物: ${charName}`)
+            } else {
+              mentionedNormalCharacters.push({
+                name: charName,
+                personality: taggedChar.personality || ''
+              })
+              console.log(`  👤 标记了好友: ${charName}`)
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 检测帖子中是否@了用户，如果是则读取用户信息
   let mentionedUserInfo = ''
   try {
@@ -897,9 +1048,14 @@ ${publicFigureText}
   }
 
   let generated: GeneratedComment[] = []
+  let aiLikes: number | undefined
+  let aiFollowers: number | undefined
 
   try {
-    generated = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedUserInfo, postAuthorInfo, imageUrls)
+    const result = await callAIForCommentsBatch(actors, postContent, apiConfig, userPreviousPosts, mentionedPublicFigures, mentionedNormalCharacters, mentionedUserInfo, postAuthorInfo, imageUrls)
+    generated = result.comments
+    aiLikes = result.aiLikes
+    aiFollowers = result.aiFollowers
     console.log(`📝 批量生成评论 ${generated.length} 条`)
   } catch (error) {
     console.error('❌ 批量AI评论生成失败，使用本地模板降级：', error)
@@ -1048,5 +1204,6 @@ ${publicFigureText}
     }))
 
   console.log(`🎉 评论生态生成完成（主楼 + 楼中楼），私聊 ${dmList.length} 条，挂人帖 ${roastPosts.length} 条`)
-  return { dmList, roastPosts }
+  console.log(`📊 AI评估热度：点赞=${aiLikes ?? '未知'}，涨粉=${aiFollowers ?? '未知'}`)
+  return { dmList, roastPosts, likes: aiLikes, followers: aiFollowers }
 }

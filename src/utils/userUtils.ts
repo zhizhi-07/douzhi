@@ -17,6 +17,7 @@ export interface UserInfo {
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
   isPublicFigure?: boolean  // 是否是公众人物
   publicPersona?: string  // 公众形象/社会印象（公众人物专用）
+  allowAvatarRecognition?: boolean  // 是否允许AI识别头像（默认关闭）
 }
 
 /**

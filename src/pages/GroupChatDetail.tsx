@@ -27,6 +27,7 @@ import RedPacketSender from '../components/RedPacketSender'
 import RedPacketOpenModal from '../components/RedPacketOpenModal'
 import RedPacketDetailModal from '../components/RedPacketDetailModal'
 import { GroupMessageItem, GroupInputBar, MentionList } from './GroupChatDetail/components'
+import { useGroupPagination } from './GroupChatDetail/hooks/useGroupPagination'
 
 // 获取成员头像（返回IndexedDB引用或直接URL）
 const getMemberAvatar = (userId: string): string => {
@@ -112,19 +113,29 @@ const GroupChatDetail = () => {
   
   // 🎨 自定义UI图标（与私聊同步）
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
+  const [viewingRecalledMessage, setViewingRecalledMessage] = useState<GroupMessage | null>(null)  // 查看撤回的消息
   
   // 🎨 顶栏底栏调整参数（与私聊同步）
   const [topBarScale, setTopBarScale] = useState(100)
   const [topBarX, setTopBarX] = useState(0)
   const [topBarY, setTopBarY] = useState(0)
   
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const longPressTimer = useRef<number | null>(null)
   const isAIReplying = useRef(false)  // 标志位：AI是否正在回复中
 
   // 🎨 气泡样式
   useChatBubbles(id)
+
+  // 📄 分页加载 - 解决消息过多卡顿问题
+  const {
+    displayedMessages,
+    hasMoreMessages,
+    isLoadingMore,
+    scrollContainerRef,
+    scrollToBottom,
+    resetPagination
+  } = useGroupPagination(messages, isAiTyping)
 
   // 🎨 监听装饰更新（与私聊同步）
   useEffect(() => {
@@ -210,6 +221,9 @@ const GroupChatDetail = () => {
   useEffect(() => {
     if (!id) return
     
+    // 🔥 重置分页状态
+    resetPagination()
+    
     // 加载群聊信息
     const group = groupChatManager.getGroup(id)
     if (group) {
@@ -223,13 +237,7 @@ const GroupChatDetail = () => {
       const msgs = await groupChatManager.loadMessagesAsync(id)
       console.log(`📦 GroupChatDetail 加载消息: ${id}, 数量=${msgs.length}`)
       setMessages(msgs)
-      
-      // 🔥 使用requestAnimationFrame确保DOM渲染后立即定位，无延迟
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-        })
-      })
+      // 滚动由 useGroupPagination hook 处理
     }
     
     loadMessages()
@@ -247,12 +255,7 @@ const GroupChatDetail = () => {
     
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
-  }, [id])
-
-  const scrollToBottom = () => {
-    // 🔥 使用 'instant' 确保无动画直接跳转
-    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-  }
+  }, [id, resetPagination])
 
   // 获取当前群聊信息，用于渲染成员头衔/角色
   const currentGroup = id ? groupChatManager.getGroup(id) : null
@@ -483,7 +486,7 @@ const GroupChatDetail = () => {
       return
     }
     
-    groupChatManager.recallMessage(id, menuMessage.id)
+    groupChatManager.recallMessage(id, menuMessage.id, '我')
     setShowMessageMenu(false)
     setMenuMessage(null)
   }
@@ -1241,15 +1244,23 @@ const GroupChatDetail = () => {
         if (recallMatch) {
           const targetMsgId = recallMatch[1]
           console.log(`🗑️ [AI指令] ${member.name} 撤回消息: ${targetMsgId}`)
-          groupChatManager.recallMessage(id, targetMsgId)
+          groupChatManager.recallMessage(id, targetMsgId, member.name)
           
           // 从内容中移除指令部分
           content = content.replace(/\[撤回:msg_\w+\]/, '').trim()
           hasCommand = true
         }
         
-        // 🎭 检查表情指令：[表情:描述] 或 [表情包:描述] 或 [表情:数字]
-        const emojiMatch = content.match(/\[表情包?:\s*(.+?)\]/)
+        // 🔥 移除无效的撤回指令（AI写了描述而不是真实ID）
+        if (content.match(/\[撤回[:：].+?\]/)) {
+          console.warn('⚠️ 移除无效撤回指令:', content)
+          content = content.replace(/\[撤回[:：].+?\]/g, '').trim()
+          hasCommand = true
+          if (!content) continue
+        }
+        
+        // 🎭 检查表情指令：[表情:描述] 或 [表情包:描述] 或 [发送了表情包：描述] 或 [表情:数字]
+        const emojiMatch = content.match(/\[(?:表情包?|发送了表情包)[：:]\s*(.+?)\]/)
         if (emojiMatch) {
           const emojiKey = emojiMatch[1].trim()
           console.log(`🎭 [AI指令] ${member.name} 发送表情包: ${emojiKey}`)
@@ -1320,8 +1331,8 @@ const GroupChatDetail = () => {
             console.warn('未找到匹配的表情包:', emojiKey)
           }
           
-          // 从内容中移除指令部分（同时支持[表情:]和[表情包:]）
-          content = content.replace(/\[表情包?:\s*.+?\]/, '').trim()
+          // 从内容中移除指令部分（支持多种格式）
+          content = content.replace(/\[(?:表情包?|发送了表情包)[：:]\s*.+?\]/, '').trim()
           hasCommand = true
           if (!content) continue
         }
@@ -2100,15 +2111,25 @@ const GroupChatDetail = () => {
         </div>
       </div>
 
-      {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {messages.length === 0 ? (
+      {/* 消息列表 - 使用分页加载 */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-3">
+        {/* 加载更多提示 */}
+        {hasMoreMessages && (
+          <div className="flex justify-center py-3">
+            {isLoadingMore ? (
+              <span className="text-xs text-gray-400">加载中...</span>
+            ) : (
+              <span className="text-xs text-gray-400">↑ 向上滚动加载更多</span>
+            )}
+          </div>
+        )}
+        {displayedMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             暂无消息
           </div>
         ) : (
           // 🔥 去重消息（根据id），避免重复key警告
-          messages.filter((msg, index, self) => 
+          displayedMessages.filter((msg, index, self) => 
             index === self.findIndex(m => m.id === msg.id)
           ).map((msg, index, uniqueMessages) => {
             // 判断是否显示时间戳（两条消息间隔超过5分钟就显示）
@@ -2124,8 +2145,9 @@ const GroupChatDetail = () => {
               shouldShowTimestamp = timeDiff >= 5 * 60 * 1000  // 5分钟 = 300000毫秒
             }
             
-            // 系统消息（撤回）
+            // 系统消息（撤回）- 撤回消息可点击查看
             if (msg.type === 'system' || msg.isRecalled) {
+              const isRecalledWithContent = msg.isRecalled && (msg as any).recalledContent
               return (
                 <div key={msg.id}>
                   {shouldShowTimestamp && msg.timestamp && (
@@ -2141,7 +2163,12 @@ const GroupChatDetail = () => {
                     </div>
                   )}
                   <div className="flex justify-center my-2">
-                    <span className="text-xs text-gray-400">{msg.content}</span>
+                    <span 
+                      className={`text-xs text-gray-400 ${isRecalledWithContent ? 'cursor-pointer hover:text-gray-600 transition-colors' : ''}`}
+                      onClick={() => isRecalledWithContent && setViewingRecalledMessage(msg)}
+                    >
+                      {msg.content}
+                    </span>
                   </div>
                 </div>
               )
@@ -2370,7 +2397,6 @@ const GroupChatDetail = () => {
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* 底部输入栏 */}
@@ -2635,6 +2661,53 @@ const GroupChatDetail = () => {
                 className="w-full py-3 rounded-xl text-gray-600 font-medium hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
                 取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔍 查看撤回消息弹窗 */}
+      {viewingRecalledMessage && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setViewingRecalledMessage(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-[85%] max-w-sm overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-100">
+              <h3 className="text-base font-medium text-gray-900 text-center">撤回的消息</h3>
+            </div>
+            <div className="p-4">
+              <div className="text-sm text-gray-500 mb-2">
+                {(viewingRecalledMessage as any).recalledBy || viewingRecalledMessage.userName || '未知'} 撤回了：
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-700 break-words">
+                {(() => {
+                  const recalledContent = (viewingRecalledMessage as any).recalledContent
+                  // 检查是否有有效的原始内容
+                  if (!recalledContent || 
+                      recalledContent === '撤回了一条消息' || 
+                      recalledContent === viewingRecalledMessage.content) {
+                    return '原始内容不可用'
+                  }
+                  return recalledContent
+                })()}
+              </div>
+              {(viewingRecalledMessage as any).recallReason && (
+                <div className="mt-2 text-xs text-gray-400">
+                  理由：{(viewingRecalledMessage as any).recallReason}
+                </div>
+              )}
+            </div>
+            <div className="p-2 border-t border-gray-100">
+              <button
+                onClick={() => setViewingRecalledMessage(null)}
+                className="w-full py-3 rounded-xl text-gray-600 font-medium hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                关闭
               </button>
             </div>
           </div>

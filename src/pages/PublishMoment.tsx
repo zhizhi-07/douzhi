@@ -22,6 +22,9 @@ export default function PublishMoment() {
   const [showLocationInput, setShowLocationInput] = useState(false)
   const [showMentionSelect, setShowMentionSelect] = useState(false)
   const [mentions, setMentions] = useState<string[]>([])
+  const [showPrivacySelect, setShowPrivacySelect] = useState(false)
+  const [privacy, setPrivacy] = useState<'public' | 'private' | 'selected'>('public')  // public=公开, private=仅自己, selected=部分可见
+  const [visibleTo, setVisibleTo] = useState<string[]>([])  // 可见的人ID列表
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const allCharacters = characterService.getAll()
@@ -80,7 +83,9 @@ export default function PublishMoment() {
         content.trim(),
         images,
         location.trim() || undefined,
-        mentions.length > 0 ? mentions : undefined
+        mentions.length > 0 ? mentions : undefined,
+        privacy,
+        visibleTo.length > 0 ? visibleTo : undefined
       )
 
       const momentText = content.trim() || '[纯图片]'
@@ -112,12 +117,11 @@ export default function PublishMoment() {
 
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
-      {/* 背景装饰 */}
-      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-[80px] pointer-events-none" />
+      {/* 状态栏 */}
+      <StatusBar />
 
       {/* 头部 */}
-      <div className="relative z-10 px-6 py-5 flex items-center justify-between">
+      <div className="relative z-10 px-6 py-3 flex items-center justify-between">
         <button
           onClick={() => navigate('/moments')}
           className="text-slate-500 hover:text-slate-700 transition-colors text-sm font-light tracking-wide"
@@ -224,8 +228,75 @@ export default function PublishMoment() {
                   ))}
                 </div>
                 {mentions.length > 0 && (
-                  <div className="mt-3 text-xs text-indigo-500 font-medium">
+                  <div className="mt-3 text-xs text-slate-500 font-medium">
                     已选择: @{mentions.join(' @')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 隐私设置 */}
+            {showPrivacySelect && (
+              <div className="animate-in slide-in-from-top-2 duration-200">
+                <div className="text-xs text-slate-400 mb-3 font-medium tracking-widest uppercase">谁可以看</div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <button
+                    onClick={() => { setPrivacy('public'); setVisibleTo([]) }}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'public'
+                        ? 'bg-slate-800 text-white shadow-md'
+                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
+                      }`}
+                  >
+                    🌐 公开
+                  </button>
+                  <button
+                    onClick={() => setPrivacy('selected')}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'selected'
+                        ? 'bg-slate-800 text-white shadow-md'
+                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
+                      }`}
+                  >
+                    👥 部分可见
+                  </button>
+                  <button
+                    onClick={() => { setPrivacy('private'); setVisibleTo([]) }}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'private'
+                        ? 'bg-slate-800 text-white shadow-md'
+                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
+                      }`}
+                  >
+                    🔒 仅自己
+                  </button>
+                </div>
+                {/* 部分可见时选择可见的人 */}
+                {privacy === 'selected' && (
+                  <div className="mt-3">
+                    <div className="text-xs text-slate-400 mb-2">选择可见的人</div>
+                    <div className="flex flex-wrap gap-2">
+                      {allCharacters.map(char => (
+                        <button
+                          key={char.id}
+                          onClick={() => {
+                            if (visibleTo.includes(char.id)) {
+                              setVisibleTo(prev => prev.filter(id => id !== char.id))
+                            } else {
+                              setVisibleTo(prev => [...prev, char.id])
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${visibleTo.includes(char.id)
+                              ? 'bg-green-500 text-white shadow-md'
+                              : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
+                            }`}
+                        >
+                          {char.avatar} {char.realName}
+                        </button>
+                      ))}
+                    </div>
+                    {visibleTo.length > 0 && (
+                      <div className="mt-2 text-xs text-slate-500">
+                        已选 {visibleTo.length} 人可见
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -250,7 +321,7 @@ export default function PublishMoment() {
           <button
             onClick={() => setShowLocationInput(!showLocationInput)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showLocationInput
-                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                ? 'bg-slate-100 text-slate-700 border-slate-200'
                 : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
               }`}
           >
@@ -264,7 +335,7 @@ export default function PublishMoment() {
           <button
             onClick={() => setShowMentionSelect(!showMentionSelect)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showMentionSelect || mentions.length > 0
-                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                ? 'bg-slate-100 text-slate-700 border-slate-200'
                 : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
               }`}
           >
@@ -272,6 +343,19 @@ export default function PublishMoment() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
             <span>提醒</span>
+          </button>
+
+          <button
+            onClick={() => setShowPrivacySelect(!showPrivacySelect)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showPrivacySelect || privacy !== 'public'
+                ? 'bg-slate-100 text-slate-700 border-slate-200'
+                : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
+              }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>{privacy === 'public' ? '公开' : privacy === 'private' ? '仅自己' : '部分可见'}</span>
           </button>
         </div>
       </div>

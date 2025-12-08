@@ -22,14 +22,30 @@ body,
   }
 }
 
-/* 让app-container填满可用空间 */
+/* 让app-container填满可用空间 - 包括iOS安全区域 */
 .app-container {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  /* 🔥 关键：底部延伸到屏幕边缘，而不是安全区域 */
   bottom: 0;
   overflow: hidden;
+}
+
+/* 🔥 iOS安全区域底部背景填充 - 使用伪元素避免影响内容布局 */
+.app-container::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background: inherit;
+  /* 继承父元素背景，如果有背景图也会继承 */
+  background-color: #f5f7fa;
+  z-index: 9999;
+  pointer-events: none;
 }
 
 /* 修复h-screen在iOS上的问题 - 使用100%而不是100vh */
@@ -257,6 +273,9 @@ body {
   padding: 0;
   /* iOS安全区域背景延伸 */
   background: #f5f7fa;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 body {
@@ -665,4 +684,111 @@ input[type="range"].slider::-moz-range-thumb:active {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.3s ease-out forwards;
+}
+
+/* 礼物漂浮动画 */
+@keyframes gift-float {
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.2);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.8);
+  }
+}
+
+.animate-gift-float {
+  animation: gift-float 3s ease-out forwards;
+}
+
+/* ========================================
+   🚀 页面过渡动画 - iOS风格
+   ======================================== */
+
+/* 页面淡入动画 */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.page-fade-in {
+  animation: page-fade-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* 页面淡出动画 */
+@keyframes page-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.page-fade-out {
+  animation: page-fade-out 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* iOS风格滑入动画 - 从右向左 */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slide-in-right 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* 桌面退出动画 - 柔和淡出 */
+@keyframes desktop-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.desktop-exit {
+  animation: desktop-exit 0.2s ease-out forwards;
+}
+
+/* 卡片列表入场动画 */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-enter {
+  animation: card-enter 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation-fill-mode: both;
 }

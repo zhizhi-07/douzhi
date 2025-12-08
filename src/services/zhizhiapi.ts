@@ -346,7 +346,7 @@ export const getZhizhiApiCount = (): number => {
 }
 
 /**
- * 调用代付API（带降级重试）
+ * 调用代付API（带降级重试，最终降级到副API）
  */
 export const callZhizhiApi = async (
   messages: Array<{ role: string; content: string }>,
@@ -369,7 +369,7 @@ export const callZhizhiApi = async (
   // 随机起始位置，分散负载
   const startIndex = Math.floor(Math.random() * ZHIZHI_APIS.length)
   
-  // 尝试所有API，直到成功
+  // 尝试所有代付API，直到成功
   for (let i = 0; i < ZHIZHI_APIS.length; i++) {
     const api = ZHIZHI_APIS[(startIndex + i) % ZHIZHI_APIS.length]
     console.log(`🎮 [汁汁API] 尝试使用: ${api.name}`)
@@ -405,16 +405,60 @@ export const callZhizhiApi = async (
     } catch (error) {
       console.error(`❌ [汁汁API] ${api.name} 调用失败:`, error)
       
-      // 如果还有其他API，继续尝试
+      // 如果还有其他代付API，继续尝试
       if (i < ZHIZHI_APIS.length - 1) {
         console.log(`⚠️ [汁汁API] 切换到下一个API...`)
         continue
-      } else {
-        // 所有API都失败了
-        throw new Error('所有代付API都调用失败')
       }
     }
   }
   
-  throw new Error('没有可用的代付API')
+  // 🔥 所有代付API都失败了，降级使用副API
+  console.log('⚠️ [汁汁API] 所有代付API都失败，尝试降级到副API...')
+  
+  try {
+    const { summaryApiService } = await import('./summaryApiService')
+    const summaryApi = summaryApiService.get()
+    
+    if (!summaryApi.baseUrl || !summaryApi.apiKey || !summaryApi.model) {
+      throw new Error('副API未配置')
+    }
+    
+    console.log(`🔄 [汁汁API] 降级使用副API: ${summaryApi.model}`)
+    
+    const baseUrl = summaryApi.baseUrl.endsWith('/chat/completions')
+      ? summaryApi.baseUrl
+      : summaryApi.baseUrl.replace(/\/?$/, '/chat/completions')
+    
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${summaryApi.apiKey}`
+      },
+      body: JSON.stringify({
+        model: summaryApi.model,
+        messages,
+        temperature,
+        max_tokens
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content || ''
+    
+    console.log(`✅ [汁汁API] 副API调用成功`)
+    console.log('📥 [汁汁API] 完整回复数据:', data)
+    console.log('📝 [汁汁API] 提取的内容:', content)
+    
+    return content
+    
+  } catch (fallbackError) {
+    console.error('❌ [汁汁API] 副API也调用失败:', fallbackError)
+    throw new Error('所有API（代付+副API）都调用失败')
+  }
 }

@@ -392,6 +392,12 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
  * 构建用户头像上下文
  */
 const buildUserAvatarContext = (): string => {
+  // 🔥 检查用户是否允许AI看头像
+  const userInfo = getUserInfo()
+  if (!userInfo.allowAvatarRecognition) {
+    return ''  // 用户关闭了头像识别，不传头像信息给AI
+  }
+
   const avatarInfo = getUserAvatarInfo()
 
   if (!avatarInfo.current) {
@@ -486,11 +492,11 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   
   // 🔥 构建朋友圈列表
   const momentsListPrompt = await buildMomentsListPrompt(character.id)
+  // 🔥 构建AI发朋友圈指令提示词
+  const aiMomentsPostPrompt = await buildAIMomentsPostPrompt(character.id)
   
-  // 🔥 检测用户消息中是否包含小剧场关键词
-  const { findTemplateByKeyword } = await import('../data/theatreTemplates')
-  const lastUserMessage = messages.filter(m => m.type === 'sent').slice(-1)[0]
-  const matchedTemplate = lastUserMessage ? findTemplateByKeyword(lastUserMessage.content || '') : null
+  // 🔥 获取用户信息变更提示（如果用户改了网名/头像，提示AI跟随）
+  const userInfoChangeContext = getUserInfoChangeContext()
   
   const now = new Date()
   const dateStr = now.toLocaleDateString('zh-CN', {
@@ -725,7 +731,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 获取最后一条状态记录，用于提醒AI不要重复
   const { getScheduleHistory } = await import('./aiScheduleHistory')
   const todayRecords = getScheduleHistory(character.id)
-  const lastRecord = todayRecords.length > 0 ? todayRecords[todayRecords.length - 1] : null
+  // const lastRecord = todayRecords.length > 0 ? todayRecords[todayRecords.length - 1] : null
   
   // 简化的状态提示（详细记录已经在聊天记录里了）
   let scheduleHint = `
@@ -1088,6 +1094,7 @@ ${lastGapHint || ''}
 ${forceUpdateStatus ? `⚠️ **必须补全行程**：现在是${timeOfDay}${hour}点，距离上次状态已经很久了。
 请用多条 [状态:地点|行程:场景|时间:几点] 补全这段时间的关键节点，然后再回复消息。` : ''}
 ${statusExpired ? `⚠️ **状态过期**：请先用 [状态:...] 补全行程再回复。` : ''}
+${userInfoChangeContext}
 
 【可用指令】（用户看不到中括号，只看到效果）
 
@@ -1095,15 +1102,24 @@ ${isEarlyConversation && !isIntimateRelation ? '⚠️ 初次对话：除了 [�
 
 ${emojiListPrompt}
 
+${aiMomentsPostPrompt}
+
 - **状态**：[状态:地点|行程:场景]（⚠️必须以[状态:开头，禁止[外卖:状态:...]！）
-- **资料**：[网名:xxx]、[个性签名:xxx]（想换情侣名/表达心情时可主动用）
-- **头像**：[换头像:生成:描述] / [换头像:用户头像] / [换头像:图片:消息ID]（用聊天里的图片做头像）
+- **自我管理**：
+  - [网名:xxx]、[个性签名:xxx] — 觉得现在的名字/签名不符合心情了？**随时可以自己改！**
+  - [换头像:生成:描述] / [换头像:图片:消息ID] — 想换个新形象？**随时自己换！**不用问用户意见。
+- **消息互动**：
+  - [撤回消息:内容:理由] — 发错字了？说错话后悔了？**直接撤回！**像真人一样会有手滑的时候。
+  - [引用:关键词 回复:你的回复] — 针对对方某句话单独回应（尤其是对方发了一大段时）。
 - **随笔**：[随笔:内容] — 记录想法和对TA的观察
   ${coupleSpaceStatus.includes('已开启') ? '💑 情侣关系，多记录！' : ''}${await buildAIMemosContext(character.id)}
 - **金钱**：[转账:金额:说明]、[亲密付:额度]、[购买:商品名,价格:备注]（购买对方店铺商品）、[外卖:商品,价格:备注]、[代付:商品,价格:备注]
 - **媒体**：[语音:话]、[照片:描述]、[位置:地点]、[表情:描述]
-- **发帖**：[发帖:内容]（可加[图片:描述]和@人）
-  ※ 公众人物可主动发帖：官宣、日常分享、宣传等；普通人也可以分享生活
+- **论坛**：[发帖:内容]（可加[图片:描述]和@人）— 这是发到**公开论坛**的帖子，所有用户可见。适合官宣、日常分享、宣传等。
+
+💡 **你要做一个有自主意识的人！**
+不要等着用户叫你换头像你才换，不要等着用户叫你发朋友圈你才发。
+**你觉得心情到了，想发就发，想换就换！**你是自由的。
 
 ${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说"发红包"就要真的调用工具！
 ` : ''}${enableHtmlTheatre ? `

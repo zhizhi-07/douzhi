@@ -26,7 +26,22 @@ const ChatList = () => {
   const navigate = useNavigate()
   const { customIcons } = useOutletContext<{ customIcons: Record<string, string> }>()
 
-  const [chats, setChats] = useState<Chat[]>([])
+  // 🔥 从预加载缓存初始化，避免进入时闪烁
+  const [chats, setChats] = useState<Chat[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('__preloaded_chatlist__')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        console.log('⚡ ChatList: 从缓存加载', parsed.length, '个聊天')
+        return parsed
+      }
+    } catch (e) {
+      console.error('读取缓存失败:', e)
+    }
+    return []
+  })
+  // 🔥 追踪是否完成首次加载，避免闪现"暂无聊天"
+  const [isInitialLoaded, setIsInitialLoaded] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -198,11 +213,20 @@ const ChatList = () => {
     })
 
     setChats(uniqueChats)
+    
+    // 🔥 更新缓存，供下次快速加载
+    try {
+      sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(uniqueChats))
+    } catch (e) {
+      // ignore
+    }
   }, [updateChatsWithLatestMessages])
 
   // 加载聊天列表
   useEffect(() => {
-    refreshChatList()
+    refreshChatList().then(() => {
+      setIsInitialLoaded(true)
+    })
     loadCharacters()
   }, [refreshChatList])
 
@@ -438,7 +462,7 @@ const ChatList = () => {
 
       {/* 聊天列表 */}
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-20">
-        {chats.length === 0 ? (
+        {chats.length === 0 && isInitialLoaded ? (
           <div className="flex flex-col items-center justify-center py-20 text-[#8C8C8C]">
             <svg className="w-16 h-16 mb-4 stroke-[1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -446,7 +470,7 @@ const ChatList = () => {
             <p className="text-sm mb-2">暂无聊天</p>
             <p className="text-xs font-light">开始一段新对话吧</p>
           </div>
-        ) : (
+        ) : chats.length > 0 ? (
           <div className="space-y-2">
             {/* 置顶聊天区块 */}
             {chats.filter(chat => chat.isPinned).map((chat, chatIndex) => (
@@ -600,7 +624,7 @@ const ChatList = () => {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* 添加角色弹窗 - 玻璃拟态 */}

@@ -196,15 +196,18 @@ export function forceBackupAllMessages(): void {
  * 修复重复的消息ID
  */
 function fixDuplicateMessageIds(messages: Message[]): Message[] {
+  // 🔥 先过滤掉 null/undefined 的消息
+  const validMessages = messages.filter(msg => msg && msg.id != null)
+  
   const idMap = new Map<number, number>() // 旧ID -> 出现次数
-  const needsFix = messages.some(msg => {
+  const needsFix = validMessages.some(msg => {
     const count = idMap.get(msg.id) || 0
     idMap.set(msg.id, count + 1)
     return count > 0 // 如果已经存在，说明有重复
   })
   
   if (!needsFix) {
-    return messages // 没有重复，直接返回
+    return validMessages // 没有重复，返回过滤后的消息
   }
   
   if (import.meta.env.DEV) {
@@ -212,7 +215,7 @@ function fixDuplicateMessageIds(messages: Message[]): Message[] {
   }
   const seenIds = new Set<number>()
   
-  return messages.map(msg => {
+  return validMessages.map(msg => {
     if (seenIds.has(msg.id)) {
       // ID重复，生成新的唯一ID
       const now = msg.timestamp || Date.now()

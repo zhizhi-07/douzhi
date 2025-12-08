@@ -50,6 +50,20 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
 }) => {
   const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
   
+  // 🔥 隐藏无效的AI指令消息
+  if (msg.type !== 'emoji' && !msg.emojiUrl && msg.type !== 'system') {
+    const content = msg.content.trim()
+    // 隐藏未匹配的表情包
+    const emojiPattern = /^\[(?:表情包?|发送了表情包)[：:].+?\]$/
+    // 隐藏无效的撤回指令
+    const recallPattern = /^\[撤回[:：].+?\]$/
+    
+    if (emojiPattern.test(content) || recallPattern.test(content)) {
+      console.log('🙈 隐藏无效AI指令消息:', content)
+      return null
+    }
+  }
+  
   return (
     <div className={`message-container flex items-start gap-1.5 my-1 ${
       isSent ? 'sent flex-row-reverse' : 'received flex-row'

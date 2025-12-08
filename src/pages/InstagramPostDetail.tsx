@@ -9,79 +9,9 @@ import { getAllCharacters } from '../utils/characterManager'
 import { addMessage, loadMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 import StatusBar from '../components/StatusBar'
-import EmojiContentRenderer from '../components/EmojiContentRenderer'
+import CommentContentRenderer from '../components/CommentContentRenderer'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Comment } from '../utils/forumCommentsDB'
-
-// 解析帖子内容，把[图片：描述]标记转换成图片卡片
-const parsePostContent = (content: string) => {
-  const imagePattern = /\[(图片|照片|截图)[:：]([^\]]+)\]/g
-
-  const hasImages = imagePattern.test(content)
-  if (!hasImages) {
-    return <p className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify">{content}</p>
-  }
-
-  imagePattern.lastIndex = 0
-
-  const elements: React.ReactNode[] = []
-  const images: { type: string; desc: string }[] = []
-  let lastIndex = 0
-  let match
-
-  while ((match = imagePattern.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      const text = content.slice(lastIndex, match.index)
-      if (text.trim()) {
-        if (images.length > 0) {
-          elements.push(
-            <div key={`imgs-${lastIndex}`} className="grid grid-cols-3 gap-1 my-3">
-              {images.map((img, i) => (
-                <div key={i} className="aspect-square bg-white/40 backdrop-blur-sm flex items-center justify-center p-1 rounded-sm">
-                  <span className="text-[10px] text-[#8C8C8C] text-center leading-tight line-clamp-3 font-sans tracking-wider">{img.desc}</span>
-                </div>
-              ))}
-            </div>
-          )
-          images.length = 0
-        }
-        elements.push(
-          <p key={`text-${lastIndex}`} className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify mb-3">
-            {text}
-          </p>
-        )
-      }
-    }
-
-    images.push({ type: match[1], desc: match[2] })
-    lastIndex = match.index + match[0].length
-  }
-
-  if (images.length > 0) {
-    elements.push(
-      <div key={`imgs-end`} className="grid grid-cols-3 gap-1 my-3">
-        {images.map((img, i) => (
-          <div key={i} className="aspect-square bg-white/40 backdrop-blur-sm flex items-center justify-center p-1 rounded-sm">
-            <span className="text-[10px] text-[#8C8C8C] text-center leading-tight line-clamp-3 font-sans tracking-wider">{img.desc}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (lastIndex < content.length) {
-    const text = content.slice(lastIndex)
-    if (text.trim()) {
-      elements.push(
-        <p key={`text-${lastIndex}`} className="text-[15px] text-[#4A4A4A] whitespace-pre-wrap break-words leading-loose font-light text-justify">
-          {text}
-        </p>
-      )
-    }
-  }
-
-  return <>{elements}</>
-}
 
 const InstagramPostDetail = () => {
   const navigate = useNavigate()
@@ -698,10 +628,26 @@ ${aiCharacterPrompt}
               </div>
             </div>
 
-            {/* 帖子正文 */}
-            <div className="mb-4">
-              {parsePostContent(post.content)}
+            {/* 帖子正文 - 支持HTML渲染 */}
+            <div className="mb-4 text-[15px] text-[#4A4A4A] leading-loose font-light">
+              <CommentContentRenderer content={post.content} emojiSize={18} />
             </div>
+
+            {/* 图片显示 */}
+            {post.imageUrls && post.imageUrls.length > 0 && (
+              <div className={`grid gap-2 mb-4 rounded-xl overflow-hidden ${
+                post.imageUrls.length === 1 ? 'grid-cols-1' :
+                post.imageUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+              }`}>
+                {post.imageUrls.slice(0, 9).map((url, index) => (
+                  <div key={index} className={`relative overflow-hidden bg-black/5 ${
+                    post.imageUrls!.length === 1 ? 'aspect-[4/3]' : 'aspect-square'
+                  }`}>
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 显示标记的人 */}
             {post.taggedUsers && post.taggedUsers.length > 0 && (
@@ -766,7 +712,7 @@ ${aiCharacterPrompt}
                         </div>
 
                         <div className="text-sm text-[#4A4A4A] leading-relaxed mb-1.5 font-light bg-white/30 backdrop-blur-sm p-2 rounded-lg rounded-tl-none border border-white/20">
-                          <EmojiContentRenderer content={comment.content} emojiSize={16} />
+                          <CommentContentRenderer content={comment.content} emojiSize={16} />
                         </div>
 
                         <div className="flex items-center gap-4 pl-1">
@@ -793,7 +739,7 @@ ${aiCharacterPrompt}
                                   <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans ml-auto opacity-80">{formatTimeAgo(reply.timestamp)}</span>
                                 </div>
                                 <div className="text-[#4A4A4A] leading-relaxed font-light text-xs bg-white/40 backdrop-blur-md p-2.5 rounded-lg rounded-tl-none border border-white/30 shadow-sm">
-                                  <EmojiContentRenderer content={reply.content} emojiSize={14} />
+                                  <CommentContentRenderer content={reply.content} emojiSize={14} />
                                 </div>
                                 <button
                                   className="text-[10px] text-[#8C8C8C] hover:text-[#5A5A5A] tracking-wider uppercase mt-1.5 pl-1"

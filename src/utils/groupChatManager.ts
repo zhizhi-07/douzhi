@@ -49,6 +49,7 @@ export interface GroupMessage {
   timestamp?: number
   isRecalled?: boolean  // 是否已撤回
   recalledContent?: string  // 撤回前的原始内容
+  recalledBy?: string  // 谁撤回的
   quotedMessage?: {  // 引用的消息
     id: string
     content: string
@@ -400,7 +401,9 @@ class GroupChatManager {
   getMessages(groupId: string): GroupMessage[] {
     // 检查缓存
     if (messagesCache.has(groupId)) {
-      return messagesCache.get(groupId)!
+      // 🔥 过滤掉无效消息，确保返回的数据干净
+      const cached = messagesCache.get(groupId)!
+      return cached.filter(m => m && m.id)
     }
     
     // 缓存未命中，返回空数组（异步加载会更新缓存）
@@ -421,11 +424,19 @@ class GroupChatManager {
       const dbMessages = await IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey)
       
       if (dbMessages && dbMessages.length > 0) {
+        // 🔥 过滤掉 null/undefined 的消息，避免数据损坏导致的崩溃
+        const validMessages = dbMessages.filter(m => m && m.id)
+        if (validMessages.length === 0) {
+          console.warn(`⚠️ 群聊 ${groupId} 的消息全部无效，已清理`)
+          messagesCache.set(groupId, [])
+          return []
+        }
+        
         // 获取当前缓存中的消息（可能已经被 addMessage 添加了新消息）
         const currentCache = messagesCache.get(groupId) || []
-        const dbIds = new Set(dbMessages.map(m => m.id))
-        const newMessages = currentCache.filter(m => !dbIds.has(m.id))
-        const merged = [...dbMessages, ...newMessages]
+        const dbIds = new Set(validMessages.map(m => m.id))
+        const newMessages = currentCache.filter(m => m && m.id && !dbIds.has(m.id))
+        const merged = [...validMessages, ...newMessages]
         merged.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
         messagesCache.set(groupId, merged)
         console.log(`📦 加载群聊消息: ${groupId}, 数量=${merged.length}`)
@@ -582,14 +593,18 @@ class GroupChatManager {
   }
 
   // 撤回消息
-  recallMessage(groupId: string, messageId: string): void {
+  recallMessage(groupId: string, messageId: string, recallerName?: string): void {
     const messages = this.getMessages(groupId)
     const messageIndex = messages.findIndex(m => m.id === messageId)
     
     if (messageIndex !== -1) {
+      const originalMessage = messages[messageIndex]
+      const senderName = recallerName || originalMessage.userName || '某人'
+      
       messages[messageIndex].isRecalled = true
-      messages[messageIndex].recalledContent = messages[messageIndex].content
-      messages[messageIndex].content = '撤回了一条消息'
+      messages[messageIndex].recalledContent = originalMessage.content
+      messages[messageIndex].recalledBy = senderName  // 记录谁撤回的
+      messages[messageIndex].content = `${senderName} 撤回了一条消息`
       messages[messageIndex].type = 'system'
       
       // 更新缓存和 IndexedDB

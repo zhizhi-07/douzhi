@@ -295,8 +295,8 @@ const MemeLibrary = () => {
             {/* 模态框 - 使用标准样式 */}
             {/* 设置模态框 */}
             {showSettings && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-slide-up">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-md p-4">
+                    <div className="bg-white/70 backdrop-blur-xl w-full max-w-md rounded-2xl p-6 shadow-xl border border-white/50 animate-slide-up">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-bold text-gray-900">梗推荐设置</h2>
                             <button
@@ -368,8 +368,8 @@ const MemeLibrary = () => {
             )}
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl animate-slide-up">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-md p-4">
+                    <div className="bg-white/70 backdrop-blur-xl w-full max-w-md rounded-2xl p-6 shadow-xl border border-white/50 animate-slide-up">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-bold text-gray-900">{editingId ? '编辑梗' : '添加新梗'}</h2>
                             <button

@@ -127,25 +127,27 @@ const UserProfile = () => {
     if (avatarChanged && finalUserInfo.avatar) {
       trackAvatarChange(finalUserInfo.avatar)
       
-      // 🔥 触发AI头像识别（异步，不阻塞导航）
-      // 换头像时强制重新识别，不管之前是否有记录
-      const avatarUrl = finalUserInfo.avatar
-      console.log('🔍 检测到头像变更，准备调用AI识别...')
-      recognizeUserAvatar(avatarUrl).then(description => {
-        if (description) {
-          setUserAvatarDescription(description, avatarUrl)
-          console.log('✅ 头像识别完成:', description)
-        } else {
-          // 🔥 即使识别失败，也更新URL（防止重复尝试）
-          // 设置一个更友好的占位描述，让AI知道用户换了新头像
-          setUserAvatarDescription('用户刚换了新头像（当前API不支持图片识别，无法看到具体内容）', avatarUrl)
-          console.log('⚠️ 头像识别失败，已设置占位描述')
-        }
-      }).catch(error => {
-        console.error('❌ 头像识别失败:', error)
-        // 识别出错也更新URL
-        setUserAvatarDescription('用户刚换了新头像（识别失败，无法看到具体内容）', avatarUrl)
-      })
+      // 🔥 只有开启了"允许AI看头像"才触发识别
+      if (finalUserInfo.allowAvatarRecognition) {
+        // 换头像时强制重新识别，不管之前是否有记录
+        const avatarUrl = finalUserInfo.avatar
+        console.log('🔍 检测到头像变更，准备调用AI识别...')
+        recognizeUserAvatar(avatarUrl).then(description => {
+          if (description) {
+            setUserAvatarDescription(description, avatarUrl)
+            console.log('✅ 头像识别完成:', description)
+          } else {
+            // 🔥 即使识别失败，也更新URL（防止重复尝试）
+            setUserAvatarDescription('用户刚换了新头像（当前API不支持图片识别，无法看到具体内容）', avatarUrl)
+            console.log('⚠️ 头像识别失败，已设置占位描述')
+          }
+        }).catch(error => {
+          console.error('❌ 头像识别失败:', error)
+          setUserAvatarDescription('用户刚换了新头像（识别失败，无法看到具体内容）', avatarUrl)
+        })
+      } else {
+        console.log('📷 用户未开启头像识别，跳过AI识别')
+      }
     }
     
     // 🔥 给所有AI聊天添加隐藏系统消息（AI能看见，用户看不见）
@@ -251,6 +253,23 @@ const UserProfile = () => {
             onChange={handleImageUpload}
             className="hidden"
           />
+
+          {/* 头像识别开关 */}
+          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+            <div>
+              <span className="text-gray-500 text-sm">头像识别</span>
+              <div className="text-xs text-gray-400 mt-0.5">开启后，系统会对你的头像进行视觉分析，用于生成头像描述供 AI 参考</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={userInfo.allowAvatarRecognition || false}
+                onChange={(e) => setUserInfo({ ...userInfo, allowAvatarRecognition: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+            </label>
+          </div>
 
           {/* 网名 */}
           <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
