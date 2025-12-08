@@ -182,4 +182,14 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   )
 }
 
-export default GroupMessageItem
+// 🔥 使用 React.memo 优化，避免不必要的重渲染
+export default React.memo(GroupMessageItem, (prevProps, nextProps) => {
+  // 只有当消息内容变化时才重新渲染
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.isRecalled === nextProps.message.isRecalled &&
+    prevProps.playingVoiceId === nextProps.playingVoiceId &&
+    prevProps.showVoiceTextMap === nextProps.showVoiceTextMap
+  )
+})

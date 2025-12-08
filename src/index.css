@@ -792,3 +792,152 @@ input[type="range"].slider::-moz-range-thumb:active {
   animation: card-enter 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   animation-fill-mode: both;
 }
+
+/* 角色呼吸动画 */
+@keyframes breathe {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* 聊天面板滑入动画 */
+@keyframes slide-up-panel {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up-panel {
+  animation: slide-up-panel 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 弹幕动画 */
+@keyframes danmaku-slide {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100%); }
+}
+
+.animate-danmaku {
+  animation: danmaku-slide 10s linear forwards;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+/* 聊天气泡动画 */
+@keyframes bubble-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-bubble-pop {
+  animation: bubble-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 礼物横幅进入动画 */
+@keyframes gift-banner-enter {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  15% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.animate-gift-banner {
+  animation: gift-banner-enter 4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* 连击数字跳动 */
+@keyframes combo-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.8) rotate(-10deg); text-shadow: 0 0 10px rgba(255, 200, 0, 0.8); }
+  100% { transform: scale(1); }
+}
+
+.animate-combo {
+  animation: combo-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 🚀 豪华礼物：火箭 */
+@keyframes rocket-launch {
+  0% {
+    transform: translate(-50%, 120vh) scale(0.5);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, 80vh) scale(1);
+  }
+  80% {
+    transform: translate(-50%, -20vh) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -120vh) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.animate-rocket {
+  animation: rocket-launch 3s ease-in forwards;
+}
+
+/* 👑 豪华礼物：皇冠 */
+@keyframes crown-appear {
+  0% { transform: translate(-50%, -50%) scale(0) rotate(-180deg); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
+  25% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  80% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+@keyframes crown-shine {
+  0% { filter: drop-shadow(0 0 0px gold); }
+  50% { filter: drop-shadow(0 0 30px gold); }
+  100% { filter: drop-shadow(0 0 0px gold); }
+}
+
+.animate-crown {
+  animation: crown-appear 3s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+}
+
+.animate-crown-shine {
+  animation: crown-shine 1s infinite;
+}
+
+/* 🌌 豪华礼物：银河 */
+@keyframes galaxy-spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg) scale(0); opacity: 0; }
+  10% { transform: translate(-50%, -50%) rotate(36deg) scale(1); opacity: 1; }
+  90% { transform: translate(-50%, -50%) rotate(324deg) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(360deg) scale(2); opacity: 0; }
+}
+
+.animate-galaxy {
+  animation: galaxy-spin 4s linear forwards;
+}
+
+/* 🏰 豪华礼物：城堡 */
+@keyframes castle-rise {
+  0% { transform: translate(-50%, 100%) scale(0.8); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0; }
+}
+
+.animate-castle {
+  animation: castle-rise 4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

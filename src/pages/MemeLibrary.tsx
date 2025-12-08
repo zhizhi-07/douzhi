@@ -336,8 +336,8 @@ const MemeLibrary = () => {
                             <div>
                                 <div className="font-medium text-gray-900 mb-2">最多推荐几条梗</div>
                                 <div className="text-sm text-gray-500 mb-3">每次聊天最多匹配推荐的梗数量</div>
-                                <div className="flex gap-2">
-                                    {[1, 2, 3, 5, 10].map(n => (
+                                <div className="flex flex-wrap gap-2">
+                                    {[1, 5, 10, 15, 20, 30].map(n => (
                                         <button
                                             key={n}
                                             onClick={() => {
@@ -345,7 +345,7 @@ const MemeLibrary = () => {
                                                 setSettings(newSettings)
                                                 saveMemeSettings(newSettings)
                                             }}
-                                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                                 settings.maxRecommend === n
                                                     ? 'bg-blue-500 text-white'
                                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'

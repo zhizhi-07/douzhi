@@ -10,6 +10,7 @@ import { replaceVariables } from './variableReplacer'
 import { loadMessages } from './simpleMessageManager'
 import type { Message } from '../types/chat'
 import { getDMMessages } from './instagramDM'
+import { getRandomMemes, getMemeSettings } from './memeRetrieval'
 
 interface CommentActor {
   id: string
@@ -285,6 +286,17 @@ ${normalCharacters.slice(0, 5).map(a => {
 - ❌ 禁止：发私聊骚扰用户
 ` : ''
 
+  // 获取梗推荐
+  const memeSettings = getMemeSettings()
+  let memesPrompt = ''
+  if (memeSettings.enabled) {
+    const recommendedMemes = getRandomMemes(memeSettings.maxRecommend || 5)
+    if (recommendedMemes.length > 0) {
+      memesPrompt = `\n## 🔥 当前网络热梗（可自然融入评论）\n${recommendedMemes.map(m => `「${m.name}」- ${m.description}`).join('\n')}\n（不是必须用，自然就好，NPC网友更容易用梗）\n`
+      console.log('🔥 论坛评论推荐梗:', recommendedMemes.map(m => m.name))
+    }
+  }
+
   let systemPrompt = `你是论坛评论区的导演，负责生成真实的评论生态。
 
 ## 核心规则
@@ -306,7 +318,7 @@ ${aiCharacterPrompt}
 - 评论风格：随意、口语化、简短（5-35字）
 - 可以有不同立场：赞同/反对/吐槽/调侃/问问题/围观/歪楼
 - ⚠️ **重要**：只评论帖子内容本身！如果帖子没有发图片，就不要讨论图片；如果帖子没有发视频，就不要讨论视频
-
+${memesPrompt}
 ${userPreviousPosts.length > 0 ? `
 **楼主的历史帖子（网友可以引用）：**
 ${userPreviousPosts.map((p, i) => `${i + 1}. ${p}`).join('\n')}

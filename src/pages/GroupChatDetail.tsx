@@ -3,7 +3,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import StatusBar from '../components/StatusBar'
 import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
@@ -136,6 +136,26 @@ const GroupChatDetail = () => {
     scrollToBottom,
     resetPagination
   } = useGroupPagination(messages, isAiTyping)
+
+  // 🔥 预先去重消息 - O(n) 复杂度，避免渲染时 O(n²) 的 findIndex
+  const uniqueMessages = useMemo(() => {
+    const seen = new Set<string>()
+    return displayedMessages.filter(msg => {
+      if (seen.has(msg.id)) return false
+      seen.add(msg.id)
+      return true
+    })
+  }, [displayedMessages])
+
+  // 🔥 找出需要完整渲染的HTML消息ID（只渲染最后3条HTML）
+  const renderableHtmlIds = useMemo(() => {
+    const htmlMessages = uniqueMessages.filter(msg => 
+      (msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html'
+    )
+    // 只保留最后3条HTML消息的ID
+    const lastThree = htmlMessages.slice(-3)
+    return new Set(lastThree.map(m => m.id))
+  }, [uniqueMessages])
 
   // 🎨 监听装饰更新（与私聊同步）
   useEffect(() => {
@@ -2123,15 +2143,13 @@ const GroupChatDetail = () => {
             )}
           </div>
         )}
-        {displayedMessages.length === 0 ? (
+        {uniqueMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             暂无消息
           </div>
         ) : (
-          // 🔥 去重消息（根据id），避免重复key警告
-          displayedMessages.filter((msg, index, self) => 
-            index === self.findIndex(m => m.id === msg.id)
-          ).map((msg, index, uniqueMessages) => {
+          // 🔥 使用预先去重的 uniqueMessages（O(n) 复杂度）
+          uniqueMessages.map((msg, index) => {
             // 判断是否显示时间戳（两条消息间隔超过5分钟就显示）
             const prevMsg = uniqueMessages[index - 1]
             let shouldShowTimestamp = false
@@ -2176,6 +2194,16 @@ const GroupChatDetail = () => {
             
             // 🎭 导演小剧场HTML（第三人称场景描写）
             if ((msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html') {
+              // 🔥 只渲染最后3条HTML，旧的HTML显示简化版
+              if (!renderableHtmlIds.has(msg.id)) {
+                return (
+                  <div key={msg.id} className="flex justify-center my-2">
+                    <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                      🎭 小剧场
+                    </span>
+                  </div>
+                )
+              }
               return (
                 <div key={msg.id} className="flex justify-center my-4 px-4">
                   <div 

@@ -77,18 +77,18 @@ const InstagramActivity = () => {
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-[white] font-serif text-[#2C2C2C]">
+      <div className="h-full flex flex-col bg-white">
         {/* 顶部导航（包含状态栏） */}
-        <div className="bg-[white]/90 sticky top-0 z-10 backdrop-blur-md border-b border-[#e5e5e5]">
+        <div className="bg-white/95 sticky top-0 z-10 backdrop-blur-xl">
           <StatusBar />
           <div className="flex items-center justify-between px-5 pb-4 relative">
             <button
               onClick={() => navigate('/instagram')}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#e5e5e5] active:bg-[#D4D4D4] -ml-2 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-50 -ml-2 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-[#5A5A5A] stroke-[1.5]" />
+              <ArrowLeft className="w-5 h-5 text-gray-700 stroke-[2]" />
             </button>
-            <h1 className="text-lg font-medium tracking-[0.2em] text-[#2C2C2C] absolute left-1/2 -translate-x-1/2">私信</h1>
+            <h1 className="text-base font-bold text-gray-900 absolute left-1/2 -translate-x-1/2">私信</h1>
             <div className="w-10" />
           </div>
         </div>
@@ -96,24 +96,24 @@ const InstagramActivity = () => {
         {/* 私聊列表 */}
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {conversations.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="space-y-1">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
                   onClick={() => navigate(`/instagram/dm/${conv.id}`)}
-                  className="flex items-center gap-4 py-4 cursor-pointer group"
+                  className="flex items-center gap-4 py-3 px-2 -mx-2 rounded-xl hover:bg-gray-50 cursor-pointer group transition-colors"
                 >
                   {/* 头像 */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     {conv.avatar ? (
                       <img
                         src={conv.avatar}
                         alt={conv.name}
-                        className="w-12 h-12 rounded-full object-cover border border-[#D4D4D4] group-hover:opacity-80 transition-opacity"
+                        className="w-14 h-14 rounded-full object-cover bg-gray-100"
                       />
                     ) : (
                       <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-sm"
                         style={{ background: getAvatarGradient(conv.name) }}
                       >
                         {conv.name[0]}
@@ -121,19 +121,19 @@ const InstagramActivity = () => {
                     )}
                     {/* 未读红点 */}
                     {conv.unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#8B3A3A] flex items-center justify-center border border-[white]">
-                        <span className="text-[9px] text-white font-medium">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
+                      <div className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 flex items-center justify-center border-2 border-white">
+                        <span className="text-[10px] text-white font-bold">{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
                       </div>
                     )}
                   </div>
 
                   {/* 信息 */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{conv.name}</span>
-                      <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans">{conv.lastTime}</span>
+                      <span className="text-sm font-bold text-gray-900">{conv.name}</span>
+                      <span className="text-xs text-gray-400 font-medium">{conv.lastTime}</span>
                     </div>
-                    <p className="text-xs text-[#5A5A5A] truncate font-light tracking-wide">
+                    <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
                       {conv.lastMessage || '开始聊天...'}
                     </p>
                   </div>

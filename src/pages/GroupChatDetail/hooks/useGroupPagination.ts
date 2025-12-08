@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { GroupMessage } from '../../../utils/groupChatManager'
 
-const PAGE_SIZE = 30 // 每页显示30条消息
+const PAGE_SIZE = 20 // 每页显示20条消息（减少以提升性能）
 
 export const useGroupPagination = (
   allMessages: GroupMessage[],

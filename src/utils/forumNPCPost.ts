@@ -11,6 +11,7 @@ import { replaceVariables } from './variableReplacer'
 import { getUserInfo } from './userUtils'
 import { loadMessages } from './simpleMessageManager'
 import { callZhizhiApi } from '../services/zhizhiapi'
+import { getRandomMemes, getMemeSettings } from './memeRetrieval'
 
 export interface NPCPostOptions {
   count: number              // 发帖数量 1-10
@@ -167,6 +168,17 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
     return info
   }).join('\n\n---\n\n')
   
+  // 获取梗推荐
+  const memeSettings = getMemeSettings()
+  let memesPrompt = ''
+  if (memeSettings.enabled) {
+    const recommendedMemes = getRandomMemes(memeSettings.maxRecommend || 3)
+    if (recommendedMemes.length > 0) {
+      memesPrompt = `\n\n## 🔥 当前网络热梗（可自然融入帖子）\n${recommendedMemes.map(m => `「${m.name}」- ${m.description}`).join('\n')}\n（不是必须用，自然就好）`
+      console.log('🔥 推荐梗:', recommendedMemes.map(m => m.name))
+    }
+  }
+  
   // 话题方向
   const topicPrompt = topicHint 
     ? `**用户指定话题**：${topicHint}` 
@@ -187,7 +199,7 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
 3. **结合聊天**：如果有聊天记录，帖子可以延续聊天中的话题或情绪
 
 ## 📝 话题方向
-${topicPrompt}
+${topicPrompt}${memesPrompt}
 
 ## 👥 可用发帖者（仔细阅读每个人的完整信息！）
 
@@ -545,19 +557,40 @@ export async function generateHotTopics(): Promise<string[]> {
     `${c.nickname || c.realName}${localStorage.getItem(`public-label-${c.id}`) ? `(${localStorage.getItem(`public-label-${c.id}`)})` : ''}`
   ).join('、')
   
-  const prompt = `根据以下社区动态，生成10个当前热点话题。
+  // 获取梗推荐
+  const memeSettings = getMemeSettings()
+  let memesPrompt = ''
+  if (memeSettings.enabled) {
+    const recommendedMemes = getRandomMemes(memeSettings.maxRecommend || 5)
+    if (recommendedMemes.length > 0) {
+      memesPrompt = `\n## 当前网络热梗\n${recommendedMemes.map(m => `「${m.name}」`).join('、')}\n（可以把梗融入话题）`
+      console.log('🔥 话题推荐梗:', recommendedMemes.map(m => m.name))
+    }
+  }
+  
+  const prompt = `根据以下社区动态，生成10个表白墙/社区话题标签。
 
 ## 最近帖子
 ${postsSummary || '暂无帖子'}
 
 ## 社区公众人物
 ${publicFigureNames || '暂无'}
+${memesPrompt}
+## 话题风格参考
+类似校园表白墙、微博超话、小红书话题的风格：
+- XX表白墙（如：辉城表白墙、大学生表白墙）
+- XX日常（如：深夜发疯日常、打工人日常）
+- XX分享（如：美食分享、穿搭分享、好物分享）
+- XX挑战（如：30天存钱挑战）
+- XX吐槽大会（如：甲方吐槽大会、室友吐槽大会）
+- 今日XX（如：今日份快乐、今日份emo）
+- XX互助（如：考研互助、租房互助）
 
 ## 要求
-1. 话题要结合帖子内容，有些可以是对帖子话题的延伸
-2. 可以提到公众人物的名字，如"XX的新动态"
-3. 也要有一些通用热门话题
-4. 话题要简短，10-20字
+1. 结合帖子内容，生成相关话题标签
+2. 可以用公众人物名字，如"XX粉丝后援会"
+3. 话题要简短有趣，5-15字
+4. 风格年轻化、社区感强
 5. 直接输出JSON数组，不要解释
 
 输出格式：
@@ -603,16 +636,16 @@ ${publicFigureNames || '暂无'}
 
 function getDefaultHotTopics(): string[] {
   return [
-    '今天吃什么',
-    '深夜emo时刻',
-    '工作摸鱼日常',
-    '租房那些事',
-    '社死现场分享',
-    '突然想到的事',
-    '求推荐好物',
-    '吐槽一下生活',
-    '晒晒今日穿搭',
-    '分享快乐瞬间'
+    '深夜发疯日常',
+    '打工人互助',
+    '今日份快乐',
+    '美食分享',
+    '穿搭灵感',
+    '社死现场',
+    '好物种草',
+    '室友吐槽大会',
+    'emo急救站',
+    '恋爱脑表白墙'
   ]
 }
 

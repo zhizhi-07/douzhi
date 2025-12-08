@@ -51,19 +51,20 @@ export interface GiftType {
   name: string
   icon: string
   price: number  // 金币
-  animation?: string
+  animationType: 'normal' | 'rocket' | 'crown' | 'castle' | 'galaxy' // 特效类型
+  color: string // 礼物卡片背景色
 }
 
 // 预设礼物列表
 export const GIFT_LIST: GiftType[] = [
-  { id: 'heart', name: '小心心', icon: '❤️', price: 1 },
-  { id: 'flower', name: '鲜花', icon: '🌹', price: 5 },
-  { id: 'star', name: '星星', icon: '⭐', price: 10 },
-  { id: 'crown', name: '皇冠', icon: '👑', price: 50 },
-  { id: 'rocket', name: '火箭', icon: '🚀', price: 100 },
-  { id: 'castle', name: '城堡', icon: '🏰', price: 500 },
-  { id: 'planet', name: '星球', icon: '🪐', price: 1000 },
-  { id: 'galaxy', name: '银河', icon: '🌌', price: 5000 },
+  { id: 'heart', name: '小心心', icon: '❤️', price: 1, animationType: 'normal', color: 'from-pink-500 to-rose-500' },
+  { id: 'flower', name: '鲜花', icon: '🌹', price: 10, animationType: 'normal', color: 'from-red-500 to-rose-600' },
+  { id: 'star', name: '星星', icon: '⭐', price: 50, animationType: 'normal', color: 'from-yellow-400 to-orange-500' },
+  { id: 'crown', name: '皇冠', icon: '👑', price: 200, animationType: 'crown', color: 'from-yellow-500 to-amber-600' },
+  { id: 'rocket', name: '火箭', icon: '🚀', price: 500, animationType: 'rocket', color: 'from-blue-500 to-indigo-600' },
+  { id: 'castle', name: '城堡', icon: '🏰', price: 1000, animationType: 'castle', color: 'from-purple-500 to-indigo-600' },
+  { id: 'galaxy', name: '银河', icon: '🌌', price: 5000, animationType: 'galaxy', color: 'from-violet-600 to-fuchsia-600' },
+  { id: 'planet', name: '星球', icon: '🪐', price: 2000, animationType: 'normal', color: 'from-teal-500 to-emerald-600' },
 ]
 
 // 直播分类
@@ -228,7 +229,7 @@ class LiveStreamService {
     "title": "直播标题（10-20字，吸引人）",
     "description": "直播简介（30-50字）",
     "category": "分类（音乐/情感/助眠/聊天/游戏/二次元/美食/户外/学习）",
-    "initialComments": ["弹幕1", "弹幕2", "弹幕3"],
+    "initialComments": ["弹幕1", "弹幕2", ... 共10条弹幕],
     "streamerGreeting": "主播开场白（20-40字）"
   }
 ]
@@ -238,7 +239,7 @@ class LiveStreamService {
 2. 根据时间段生成合适的内容（深夜助眠/情感，早上早安/运动，下午聊天/游戏等）
 3. 每个主播风格要不同，有男有女，有活泼有安静
 4. 标题要吸引人，让人想点进去
-5. 弹幕要自然，像真实观众
+5. 每个直播间必须有10条弹幕，弹幕要自然，像真实观众，内容多样（互动、提问、夸赞、吐槽等）
 6. 直接返回JSON数组，不要其他内容`
 
     try {
@@ -268,12 +269,13 @@ class LiveStreamService {
           const streamerName = s.streamerName || `主播${index + 1}`
           
           // 初始评论/弹幕
+          const viewerNames = ['小星星', '夜猫子', '路人甲', '粉丝一号', '新来的', '追梦少年', '甜甜圈', '小确幸', '深夜食堂', '云朵朵']
           const initialComments: LiveComment[] = (s.initialComments || []).map((c: string, i: number) => ({
             id: `init_comment_${Date.now()}_${index}_${i}`,
             userId: `user_${Math.random().toString(36).slice(2, 8)}`,
-            userName: ['小星星', '夜猫子', '路人甲', '粉丝一号', '新来的'][i] || `观众${i+1}`,
+            userName: viewerNames[i % viewerNames.length] || `观众${i+1}`,
             content: c,
-            timestamp: Date.now() - (5 - i) * 3000
+            timestamp: Date.now() - (10 - i) * 3000
           }))
 
           // 主播开场白

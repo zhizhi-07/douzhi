@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MoreHorizontal, Phone, Mic, Smile } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Phone, Mic, Smile, Play, Pause } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, sendVoiceFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
@@ -33,6 +33,10 @@ const InstagramDMDetail = () => {
   
   // 语音消息模式（打字发送但显示为语音样式）
   const [isVoiceMode, setIsVoiceMode] = useState(false)
+  
+  // 播放中的语音ID
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null)
+  const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!npcId) return
@@ -100,12 +104,41 @@ const InstagramDMDetail = () => {
 
     return () => {
       window.removeEventListener('dm-messages-loaded', handleMessagesLoaded as EventListener)
+      // 清理语音定时器
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current)
+      }
     }
   }, [npcId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isAiReplying])
+
+  // 处理语音播放
+  const handlePlayVoice = (id: string, duration: number) => {
+    // 如果点击正在播放的，则暂停（重置）
+    if (playingVoiceId === id) {
+      setPlayingVoiceId(null)
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current)
+        voiceTimeoutRef.current = null
+      }
+      return
+    }
+
+    // 播放新的
+    setPlayingVoiceId(id)
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current)
+    }
+
+    // 模拟播放结束
+    voiceTimeoutRef.current = setTimeout(() => {
+      setPlayingVoiceId(null)
+      voiceTimeoutRef.current = null
+    }, duration * 1000)
+  }
 
   // 🔥 构建论坛私聊专用提示词
   const buildDMSystemPrompt = async () => {
@@ -405,17 +438,17 @@ ${emojiPrompt}${forumContextPrompt}`
                     </div>
                   )}
 
-                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-1`}>
-                    <div className={`flex max-w-[70%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
+                  <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-4`}>
+                    <div className={`flex max-w-[70%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
                       {/* 头像 */}
-                      <div className="flex-shrink-0 w-7 h-7 mb-1">
+                      <div className="flex-shrink-0 w-8 h-8 mt-1">
                         {msg.isFromUser ? (
                           // 用户头像
                           userInfo.avatar ? (
-                            <img src={userInfo.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                            <img src={userInfo.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
                           ) : (
                             <div
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-[#3797F0]"
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold bg-[#3797F0]"
                             >
                               {(userInfo.nickname || userInfo.realName || '我')[0]}
                             </div>
@@ -423,10 +456,10 @@ ${emojiPrompt}${forumContextPrompt}`
                         ) : (
                           // AI头像
                           npcAvatar ? (
-                            <img src={npcAvatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                            <img src={npcAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />
                           ) : (
                             <div
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
                               style={{ background: getAvatarColor(npcName || 'A') }}
                             >
                               {(npcName || 'A')[0]}
@@ -437,19 +470,49 @@ ${emojiPrompt}${forumContextPrompt}`
 
                       <div className={`flex flex-col ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
                         {msg.type === 'voice' ? (
-                          // 语音消息
+                          // 语音消息 - 紧凑版
                           <div
-                            className={`flex items-center gap-3 px-4 py-2.5 ${msg.isFromUser
-                              ? 'bg-[#3797F0] text-white rounded-[22px] rounded-br-md flex-row-reverse'
-                              : 'bg-[#EFEFEF] text-black rounded-[22px] rounded-bl-md'
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-all active:scale-95 ${msg.isFromUser
+                              ? 'bg-[#3797F0] text-white rounded-[20px] rounded-tr-sm shadow-sm'
+                              : 'bg-white border border-gray-100 text-black rounded-[20px] rounded-tl-sm shadow-sm'
                             }`}
-                            style={{ minWidth: Math.min(80 + (msg.voiceDuration || 1) * 12, 180) }}
+                            style={{ minWidth: '100px', maxWidth: '240px' }}
+                            onClick={() => handlePlayVoice(msg.id, msg.voiceDuration || 1)}
                           >
-                            <span className="text-[15px]">{msg.voiceDuration || 1}″</span>
-                            {/* 声波图标 */}
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 3v18M8 8v8M4 10v4M16 8v8M20 10v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                            </svg>
+                            {/* 播放/暂停按钮 - 更小巧 */}
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              msg.isFromUser ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {playingVoiceId === msg.id ? (
+                                <Pause className="w-3.5 h-3.5 fill-current" />
+                              ) : (
+                                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                              )}
+                            </div>
+
+                            {/* 声波可视化 - 更简洁 */}
+                            <div className="flex items-center gap-[2px] h-4 flex-1 justify-end px-1">
+                              {[40, 70, 45, 90, 60, 50, 80, 55, 75].map((h, i) => (
+                                <div
+                                  key={i}
+                                  className={`w-[2px] rounded-full transition-all duration-300 ${
+                                    msg.isFromUser ? 'bg-white/70' : 'bg-gray-400'
+                                  } ${playingVoiceId === msg.id ? 'animate-pulse' : ''}`}
+                                  style={{ 
+                                    height: `${h}%`,
+                                    animationDelay: `${i * 0.1}s`,
+                                    opacity: playingVoiceId === msg.id ? 1 : 0.7
+                                  }}
+                                />
+                              ))}
+                            </div>
+
+                            {/* 时长 */}
+                            <span className={`text-xs font-medium whitespace-nowrap min-w-[20px] text-right ${
+                              msg.isFromUser ? 'text-white/90' : 'text-gray-500'
+                            }`}>
+                              {msg.voiceDuration || 1}"
+                            </span>
                           </div>
                         ) : msg.type === 'emoji' && msg.emojiUrl ? (
                           <img
@@ -460,8 +523,8 @@ ${emojiPrompt}${forumContextPrompt}`
                         ) : (
                           <div
                             className={`px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap ${msg.isFromUser
-                              ? 'bg-[#3797F0] text-white rounded-[22px] rounded-br-md'
-                              : 'bg-[#EFEFEF] text-black rounded-[22px] rounded-bl-md'
+                              ? 'bg-[#3797F0] text-white rounded-[20px] rounded-tr-sm'
+                              : 'bg-[#EFEFEF] text-black rounded-[20px] rounded-tl-sm'
                               }`}
                           >
                             <EmojiContentRenderer

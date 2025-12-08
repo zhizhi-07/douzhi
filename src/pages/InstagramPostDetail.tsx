@@ -8,6 +8,7 @@ import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
 import { addMessage, loadMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
+import { getRandomMemes, getMemeSettings } from '../utils/memeRetrieval'
 import StatusBar from '../components/StatusBar'
 import CommentContentRenderer from '../components/CommentContentRenderer'
 import type { ForumPost } from '../utils/forumNPC'
@@ -20,7 +21,7 @@ const InstagramPostDetail = () => {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null)
-  const [pendingReplies, setPendingReplies] = useState<{ id: string, commentId: string, targetName: string, content: string }[]>([])
+  const [pendingReplies, setPendingReplies] = useState<{ id: string, commentId: string, targetName: string, content: string, isReply: boolean }[]>([])
   const [isSending, setIsSending] = useState(false)
   const [characters, setCharacters] = useState<any[]>([])
   const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
@@ -276,6 +277,17 @@ ${aiCharactersWithChat.map(a => {
       }).join('\n\n')}
 ` : ''
 
+      // 获取梗推荐
+      const memeSettings = getMemeSettings()
+      let memesPrompt = ''
+      if (memeSettings.enabled) {
+        const recommendedMemes = getRandomMemes(memeSettings.maxRecommend || 5)
+        if (recommendedMemes.length > 0) {
+          memesPrompt = `\n## 🔥 当前网络热梗（可自然融入评论）\n${recommendedMemes.map(m => `「${m.name}」- ${m.description}`).join('\n')}\n（不是必须用，自然就好）\n`
+          console.log('🔥 评论回复推荐梗:', recommendedMemes.map(m => m.name))
+        }
+      }
+
       const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
 
 ## 📱 帖子内容
@@ -287,7 +299,7 @@ ${existingCommentsText || '(暂无评论)'}
 
 ## 🆕 用户刚发的回复
 ${repliesText}
-${aiCharacterPrompt}
+${aiCharacterPrompt}${memesPrompt}
 ## 🎯 你要生成的评论
 
 **⚠️ 重要规则：被明确@到的人「可以选择性地」回复，而不是必须回复。**
@@ -306,21 +318,24 @@ ${aiCharacterPrompt}
 - 围观网友的新评论（2-4条）
 - 楼中楼继续讨论（1-2条）
 
-**评论者类型：**
-- NPC网友（70%）：路人甲、吃瓜群众、小李、阿明等随机网名，是评论区主体
-- AI角色（30%）：按人设语气说话，尤其是公众人物，更多是偶尔出现点到为止
+**评论者类型与风格：**
+- **NPC网友（70%）**：
+  - 风格参考：表白墙/吐槽君/小红书/微博评论区
+  - 网名：xxx表白墙、xxx日常、深夜xxx、xxxbot、吃瓜xxx
+  - 语气：玩梗、吐槽、吃瓜、站队、@亲友围观
+  - 比如："磕到了"、"这种建议分手"、"这是什么神仙"、"笑死我了"
+- **AI角色（30%）**：按人设语气说话，尤其是公众人物，更多是偶尔出现点到为止
 
 **输出格式（严格遵守）：**
 [主楼] 网名：评论内容
 [回复] 回复者 -> 被回复者：回复内容
 
 **要求：**
-- 每条5-50字，自然口语化
+- 每条5-50字，自然口语化，可以使用emoji
 - AI角色必须符合人设：
-  - 高冷/大明星/公众人物 → 少量发言、谨慎选择要回复的人，不要一条条认真陪聊
-  - 普通熟人/朋友 → 可以稍微多回一点，但也不需要全部都回
-- 可以完全无视大部分不重要的@和路人评论，只回复少数真正值得回复的内容
-- 生成5-10条评论，自然就好，不要硬凑
+  - 高冷/大明星/公众人物 → 少量发言、谨慎选择要回复的人
+  - 普通熟人/朋友 → 可以稍微多回一点
+- 生成5-10条评论，营造热闹的社区氛围
 - 直接输出，不要解释`
 
       const apiUrl = apiConfig.baseUrl.endsWith('/chat/completions')
@@ -555,19 +570,19 @@ ${aiCharacterPrompt}
   const authorAvatar = isUserPost ? userInfo.avatar : getRealAvatar(post.npcId, npc?.avatar)
 
   return (
-    <div className="h-screen bg-transparent flex flex-col font-serif text-[#2C2C2C]" data-instagram>
-      {/* 顶部导航 - 玻璃拟态 */}
-      <div className="sticky top-0 z-20 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
+    <div className="h-screen bg-white flex flex-col font-sans text-[#262626]" data-instagram>
+      {/* 顶部导航 */}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-50">
         <StatusBar />
-        <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => navigate(-1)}
-            className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors"
+            className="text-black hover:text-gray-600 transition-colors -ml-2 p-2 rounded-full hover:bg-gray-50"
           >
-            <ArrowLeft className="w-5 h-5 stroke-[1.5]" />
+            <ArrowLeft className="w-6 h-6 stroke-[1.5]" />
           </button>
-          <h1 className="text-sm font-medium tracking-[0.2em] text-[#2C2C2C]">正文</h1>
-          <div className="flex items-center gap-4">
+          <h1 className="text-sm font-bold text-gray-900 uppercase tracking-wide">帖子</h1>
+          <div className="flex items-center gap-2">
             {post.npcId === 'user' && (
               <button
                 onClick={async () => {
@@ -578,69 +593,69 @@ ${aiCharacterPrompt}
                     navigate(-1)
                   }
                 }}
-                className="text-[#8C8C8C] hover:text-[#8B3A3A] transition-colors"
+                className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-gray-50"
               >
-                <Trash2 className="w-4 h-4 stroke-[1.5]" />
+                <Trash2 className="w-5 h-5 stroke-[1.5]" />
               </button>
             )}
-            <button className="text-[#5A5A5A] hover:text-[#2C2C2C] transition-colors">
-              <MoreHorizontal className="w-5 h-5 stroke-[1.5]" />
+            <button className="text-black hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-50 -mr-2">
+              <MoreHorizontal className="w-6 h-6 stroke-[1.5]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* 帖子和评论 */}
-      <div className="flex-1 overflow-y-auto bg-transparent">
-        {/* 用户帖子内容 - 玻璃卡片 */}
-        <div className="pb-6 border-b border-white/40 bg-white/60 backdrop-blur-xl shadow-sm mb-4">
-          <div className="px-5 pt-6 pb-2">
-            <div className="flex items-center gap-3 mb-4">
+      <div className="flex-1 overflow-y-auto bg-white">
+        {/* 用户帖子内容 */}
+        <div className="pb-4 border-b border-gray-100">
+          <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center gap-3 mb-3">
               {authorAvatar ? (
                 <img
                   src={authorAvatar}
                   alt={authorName}
-                  className="w-10 h-10 rounded-full object-cover border border-white/60 shadow-sm"
+                  className="w-10 h-10 rounded-full object-cover bg-gray-100"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-white/40 flex items-center justify-center text-[#8C8C8C] text-xs border border-white/40">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm font-bold">
                   {authorName[0]}
                 </div>
               )}
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{authorName}</span>
+                  <span className="text-sm font-bold text-[#262626]">{authorName}</span>
                   {(() => {
                     const char = characters.find(c => c.id === post.npcId)
                     if (!char?.isPublicFigure) return null
                     const savedLabel = localStorage.getItem(`public-label-${post.npcId}`)
                     const label = (savedLabel && savedLabel !== '__none__') ? savedLabel : 'OFFICIAL'
                     return (
-                      <span className="text-[9px] border border-[#8C8C8C]/50 bg-white/30 text-[#5A5A5A] px-1 rounded-sm tracking-widest scale-90 origin-left backdrop-blur-sm">
+                      <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold tracking-wide">
                         {label}
                       </span>
                     )
                   })()}
                 </div>
-                <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-80">
+                <span className="text-xs text-gray-400">
                   {formatTimeAgo(post.timestamp)}
                 </span>
               </div>
             </div>
 
-            {/* 帖子正文 - 支持HTML渲染 */}
-            <div className="mb-4 text-[15px] text-[#4A4A4A] leading-loose font-light">
+            {/* 帖子正文 */}
+            <div className="mb-3 text-[15px] text-[#262626] leading-relaxed whitespace-pre-wrap">
               <CommentContentRenderer content={post.content} emojiSize={18} />
             </div>
 
             {/* 图片显示 */}
             {post.imageUrls && post.imageUrls.length > 0 && (
-              <div className={`grid gap-2 mb-4 rounded-xl overflow-hidden ${
+              <div className={`grid gap-1 mb-4 rounded-lg overflow-hidden ${
                 post.imageUrls.length === 1 ? 'grid-cols-1' :
                 post.imageUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
               }`}>
                 {post.imageUrls.slice(0, 9).map((url, index) => (
-                  <div key={index} className={`relative overflow-hidden bg-black/5 ${
+                  <div key={index} className={`relative overflow-hidden bg-gray-100 ${
                     post.imageUrls!.length === 1 ? 'aspect-[4/3]' : 'aspect-square'
                   }`}>
                     <img src={url} alt="" className="w-full h-full object-cover" />
@@ -651,102 +666,93 @@ ${aiCharacterPrompt}
 
             {/* 显示标记的人 */}
             {post.taggedUsers && post.taggedUsers.length > 0 && (
-              <div className="flex items-center gap-1.5 mb-4 text-xs text-[#5A5A5A] italic opacity-80">
+              <div className="flex items-center gap-1.5 mb-4 text-xs text-gray-500">
                 <span>with {post.taggedUsers.map(id => `@${getCharacterName(id)}`).join(', ')}</span>
               </div>
             )}
           </div>
 
           {/* 帖子操作按钮 */}
-          <div className="px-5 flex items-center gap-6">
+          <div className="px-4 flex items-center gap-6">
             <button
               onClick={handleLike}
-              className="flex items-center gap-1.5 group"
+              className="flex items-center gap-2 group"
             >
-              <Heart className={`w-5 h-5 stroke-[1.5] transition-colors ${post.isLiked ? 'text-[#8B3A3A] fill-[#8B3A3A]' : 'text-[#5A5A5A] group-hover:text-[#2C2C2C]'}`} />
-              <span className={`text-xs tracking-wide ${post.isLiked ? 'text-[#8B3A3A]' : 'text-[#8C8C8C]'}`}>
-                {post.likes > 0 ? post.likes : 'Like'}
+              <Heart className={`w-6 h-6 stroke-[1.5] transition-all ${post.isLiked ? 'text-red-500 fill-red-500 scale-110' : 'text-black group-hover:text-gray-600'}`} />
+              <span className={`text-sm font-semibold ${post.isLiked ? 'text-red-500' : 'text-black'}`}>
+                {post.likes > 0 ? post.likes : '赞'}
               </span>
             </button>
-            <button className="flex items-center gap-1.5 group">
-              <MessageCircle className="w-5 h-5 text-[#5A5A5A] group-hover:text-[#2C2C2C] stroke-[1.5]" />
-              <span className="text-xs text-[#8C8C8C] group-hover:text-[#5A5A5A] tracking-wide">
-                {comments.length > 0 ? comments.length : 'Reply'}
+            <button className="flex items-center gap-2 group">
+              <MessageCircle className="w-6 h-6 text-black group-hover:text-blue-600 stroke-[1.5] transition-colors" />
+              <span className="text-sm font-semibold text-black group-hover:text-blue-600">
+                {comments.length > 0 ? comments.length : '评论'}
               </span>
             </button>
-            <button className="flex items-center gap-1.5 group">
-              <Share2 className="w-5 h-5 text-[#5A5A5A] group-hover:text-[#2C2C2C] stroke-[1.5]" />
-              <span className="text-xs text-[#8C8C8C] group-hover:text-[#5A5A5A] tracking-wide">Share</span>
+            <button className="flex items-center gap-2 group">
+              <Share2 className="w-6 h-6 text-black group-hover:text-green-600 stroke-[1.5] transition-colors" />
+              <span className="text-sm font-semibold text-black group-hover:text-green-600">分享</span>
             </button>
           </div>
         </div>
 
-        {/* 评论区标题 */}
-        <div className="px-5 py-4 flex items-center gap-2">
-          <div className="w-1 h-3 bg-[#2C2C2C] opacity-20"></div>
-          <span className="text-xs font-medium text-[#5A5A5A] tracking-[0.1em] uppercase">Comments ({comments.length})</span>
-        </div>
-
-        {/* 评论列表 - 对话流 */}
-        <div className="pb-24 px-5">
+        {/* 评论列表 - 极简风格 */}
+        <div className="pb-24 px-4 pt-4">
           {comments.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {[...comments].sort((a, b) => a.timestamp - b.timestamp).map((comment) => {
                 return (
                   <div key={comment.id} className="group">
                     {/* 主楼评论 */}
                     <div className="flex items-start gap-3">
                       {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
-                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/60 shadow-sm opacity-90" />
+                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full object-cover shrink-0 bg-gray-100" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/40 flex items-center justify-center text-[#8C8C8C] text-xs flex-shrink-0 border border-white/40">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs shrink-0 font-bold">
                           {comment.authorName[0]}
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-[#2C2C2C] tracking-wide">{comment.authorName}</span>
-                            <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-80">{formatTimeAgo(comment.timestamp)}</span>
-                          </div>
+                      <div className="flex-1 min-w-0 pt-1">
+                        <div className="flex items-baseline gap-2 mb-0.5">
+                            <span className="text-sm font-bold text-[#262626]">{comment.authorName}</span>
+                            <span className="text-xs text-gray-400 font-medium">{formatTimeAgo(comment.timestamp)}</span>
                         </div>
 
-                        <div className="text-sm text-[#4A4A4A] leading-relaxed mb-1.5 font-light bg-white/30 backdrop-blur-sm p-2 rounded-lg rounded-tl-none border border-white/20">
+                        <div className="text-sm text-[#262626] leading-relaxed mb-2 break-words">
                           <CommentContentRenderer content={comment.content} emojiSize={16} />
                         </div>
 
-                        <div className="flex items-center gap-4 pl-1">
+                        <div className="flex items-center gap-4">
                           <button
-                            className="text-[10px] text-[#8C8C8C] hover:text-[#5A5A5A] tracking-wider uppercase"
+                            className="text-xs font-semibold text-gray-400 hover:text-gray-600"
                             onClick={() => handleReplyClick(comment.id, comment.authorName)}
                           >
-                            Reply
+                            回复
                           </button>
-                          {comment.likes > 0 && <span className="text-[10px] text-[#8C8C8C] tracking-wider">{comment.likes} Likes</span>}
+                          {comment.likes > 0 && <span className="text-xs text-gray-400 font-medium">{comment.likes} 赞</span>}
                         </div>
 
-                        {/* 楼中楼回复 - 缩进线条 */}
+                        {/* 楼中楼回复 - 极简缩进 */}
                         {comment.replies && comment.replies.length > 0 && (
-                          <div className="mt-3 pl-4 border-l-2 border-[#2C2C2C]/10 space-y-4">
+                          <div className="mt-3 pl-3 space-y-3">
                             {comment.replies.map((reply) => (
-                              <div key={reply.id} className="text-sm relative">
-                                <div className="flex items-baseline gap-2 mb-1">
-                                  <span className="font-medium text-[#2C2C2C] text-xs tracking-wide">{reply.authorName}</span>
-                                  <span className="text-[10px] text-[#8C8C8C] tracking-wider">
-                                    <span className="mr-1 opacity-70">replying to</span>
-                                    <span className="font-medium text-[#5A5A5A]">{reply.replyTo || comment.authorName}</span>
-                                  </span>
-                                  <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans ml-auto opacity-80">{formatTimeAgo(reply.timestamp)}</span>
+                              <div key={reply.id} className="flex items-start gap-2.5">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-2 mb-0.5">
+                                    <span className="text-sm font-bold text-[#262626]">{reply.authorName}</span>
+                                    <span className="text-xs text-gray-400 font-medium">{formatTimeAgo(reply.timestamp)}</span>
+                                  </div>
+                                  <div className="text-sm text-[#262626] leading-relaxed mb-1.5 break-words">
+                                    <span className="text-blue-600 mr-1">@{reply.replyTo || comment.authorName}</span>
+                                    <CommentContentRenderer content={reply.content} emojiSize={16} />
+                                  </div>
+                                  <button
+                                    className="text-xs font-semibold text-gray-400 hover:text-gray-600"
+                                    onClick={() => handleReplyClick(comment.id, reply.authorName)}
+                                  >
+                                    回复
+                                  </button>
                                 </div>
-                                <div className="text-[#4A4A4A] leading-relaxed font-light text-xs bg-white/40 backdrop-blur-md p-2.5 rounded-lg rounded-tl-none border border-white/30 shadow-sm">
-                                  <CommentContentRenderer content={reply.content} emojiSize={14} />
-                                </div>
-                                <button
-                                  className="text-[10px] text-[#8C8C8C] hover:text-[#5A5A5A] tracking-wider uppercase mt-1.5 pl-1"
-                                  onClick={() => handleReplyClick(comment.id, reply.authorName)}
-                                >
-                                  Reply
-                                </button>
                               </div>
                             ))}
                           </div>
@@ -759,30 +765,30 @@ ${aiCharacterPrompt}
             </div>
           ) : (
             <div className="py-12 text-center">
-              <p className="text-[#8C8C8C] text-xs tracking-widest font-light bg-white/30 py-2 px-4 rounded-full inline-block backdrop-blur-sm">No comments yet</p>
+              <p className="text-gray-400 text-sm">暂无评论</p>
             </div>
           )}
           <div ref={commentsEndRef} />
         </div>
       </div>
 
-      {/* 底部评论输入框 - 玻璃拟态 */}
-      <div className="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 py-3 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+      {/* 底部评论输入框 */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
         {/* 待发送列表预览 */}
         {pendingReplies.length > 0 && (
           <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {pendingReplies.map((reply) => (
-              <div key={reply.id} className="flex-shrink-0 bg-white/60 backdrop-blur-md border border-white/50 rounded-lg px-3 py-2 w-48 shadow-sm relative group">
+              <div key={reply.id} className="flex-shrink-0 bg-gray-50 rounded-lg px-3 py-2 w-48 relative group border border-gray-100">
                 <button
                   onClick={() => setPendingReplies(prev => prev.filter(p => p.id !== reply.id))}
                   className="absolute top-1 right-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
-                <div className="text-[10px] text-[#8C8C8C] mb-1 truncate">
-                  {reply.isReply ? `Reply to @${reply.targetName}` : 'Comment'}
+                <div className="text-[10px] text-gray-400 font-bold mb-0.5 truncate uppercase tracking-wider">
+                  {reply.isReply ? `Reply to ${reply.targetName}` : 'Comment'}
                 </div>
-                <div className="text-xs text-[#2C2C2C] truncate font-light">
+                <div className="text-xs text-gray-900 truncate font-medium">
                   {reply.content}
                 </div>
               </div>
@@ -790,21 +796,21 @@ ${aiCharacterPrompt}
             <button
               onClick={handleSendAll}
               disabled={isSending}
-              className="flex-shrink-0 w-10 flex items-center justify-center bg-[#2C2C2C] text-white rounded-lg shadow-md hover:bg-black transition-colors disabled:opacity-50"
+              className="flex-shrink-0 w-10 flex items-center justify-center bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {isSending ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <Send size={16} />
+                <Send size={18} className="-ml-0.5 mt-0.5" />
               )}
             </button>
           </div>
         )}
 
         <div className="flex items-end gap-3">
-          <div className="flex-1 bg-white/50 backdrop-blur-sm border border-white/30 rounded-2xl px-4 py-2 flex items-center gap-2 focus-within:bg-white/80 focus-within:border-white/60 transition-all shadow-inner">
+          <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-2.5 flex items-center gap-2 focus-within:bg-gray-50 focus-within:ring-1 focus-within:ring-gray-200 transition-all">
             {replyingTo && (
-              <span className="text-xs text-[#8B3A3A] whitespace-nowrap font-medium bg-[#8B3A3A]/10 px-1.5 py-0.5 rounded">
+              <span className="text-xs text-blue-600 font-bold whitespace-nowrap">
                 @{replyingTo.name}
               </span>
             )}
@@ -812,8 +818,8 @@ ${aiCharacterPrompt}
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-[#2C2C2C] placeholder:text-[#8C8C8C] font-light"
+              placeholder={replyingTo ? "回复..." : "添加评论..."}
+              className="flex-1 bg-transparent border-none outline-none text-sm text-[#262626] placeholder:text-gray-400"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -825,9 +831,9 @@ ${aiCharacterPrompt}
           <button
             onClick={addPendingReply}
             disabled={!newComment.trim()}
-            className="p-2.5 rounded-full bg-[#2C2C2C] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black transition-all shadow-md active:scale-95"
+            className="p-2.5 rounded-full text-blue-600 font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 rotate-90 stroke-[1.5]" />
+            发布
           </button>
         </div>
       </div>
