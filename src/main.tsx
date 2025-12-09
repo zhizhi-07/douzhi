@@ -10,6 +10,19 @@ import 'leaflet/dist/leaflet.css'
 // 🔥 立即加载清理工具
 import './utils/cleanupLocalStorage'
 
+// 🔒 生产环境禁用所有console输出（保护提示词等敏感信息）
+if (!import.meta.env.DEV) {
+  const noop = () => {}
+  console.log = noop
+  console.warn = noop
+  console.error = noop
+  console.info = noop
+  console.debug = noop
+  console.group = noop
+  console.groupEnd = noop
+  console.table = noop
+}
+
 // 🍎 iOS Safari 全屏适配
 function setVH() {
   const vh = window.innerHeight * 0.01
