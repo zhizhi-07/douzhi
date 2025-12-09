@@ -108,7 +108,8 @@ export const createCoupleSpaceInvite = async (
   
   // 只有 active 状态才阻止创建新邀请
   if (existing && existing.status === 'active') {
-    console.log('已存在活跃的情侣空间关系')
+    console.log('已存在活跃的情侣空间关系', existing)
+    console.log('🔍 如果这是错误数据，请在控制台运行: localStorage.removeItem("couple_space_relation") 然后刷新')
     return null
   }
   

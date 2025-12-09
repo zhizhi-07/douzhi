@@ -300,11 +300,93 @@ const LiveRoom = () => {
     }
 
     return (
-        <div className="h-full w-full relative bg-black text-white font-serif overflow-hidden">
+        <div className="h-full w-full relative bg-black text-white font-serif overflow-hidden soft-page-enter">
             {/* Background with stream color */}
             <div className="absolute inset-0 z-0">
                 <div className={`w-full h-full bg-gradient-to-br ${stream.color.replace('to-', 'to-black/80 ')} animate-pulse-slow`}>
                     <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+                </div>
+            </div>
+
+            {/* Top Bar */}
+            <div className="absolute top-0 left-0 w-full p-4 pt-12 flex items-center justify-between z-20 pointer-events-auto">
+                {/* 左侧：返回 + 主播信息 */}
+                <div className="flex items-center space-x-3">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-colors"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    
+                    {/* 主播信息卡片 */}
+                    <div className="flex items-center bg-black/30 backdrop-blur-md rounded-full p-1 pr-3 border border-white/10">
+                        {/* 主播头像 */}
+                        <div className="relative">
+                            {stream.streamerAvatar ? (
+                                <img src={stream.streamerAvatar} alt={stream.streamerName} className="w-9 h-9 rounded-full object-cover border-2 border-white/20" />
+                            ) : (
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-400 to-purple-500 flex items-center justify-center border-2 border-white/20">
+                                    <span className="text-sm">👤</span>
+                                </div>
+                            )}
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-black" />
+                        </div>
+                        {/* 主播名字和粉丝数 */}
+                        <div className="ml-2">
+                            <p className="text-xs font-bold text-white leading-tight">{stream.streamerName}</p>
+                            <p className="text-[10px] text-white/60">{formatViewers(stream.followers || 0)} 粉丝</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 右侧：关注 + 刷新 */}
+                <div className="flex items-center space-x-2">
+                     <button
+                        onClick={handleFollow}
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium backdrop-blur-md border transition-all duration-300 ${isFollowed ? 'bg-white/10 border-white/10 text-white/60' : 'bg-red-500/80 border-red-500/0 text-white hover:bg-red-600'}`}
+                    >
+                        {isFollowed ? 'Following' : 'Follow'}
+                    </button>
+                    
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-colors"
+                    >
+                        <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* 观众榜/贡献榜 */}
+            <div className="absolute top-28 right-4 z-20 pointer-events-auto">
+                <div className="flex items-center bg-black/30 backdrop-blur-md rounded-full px-2 py-1 border border-white/10">
+                    <div className="flex -space-x-2">
+                        {/* 前三名观众头像 */}
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-yellow-400 to-orange-500 border border-black flex items-center justify-center text-[8px]">🥇</div>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-gray-300 to-gray-400 border border-black flex items-center justify-center text-[8px]">🥈</div>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-600 to-amber-700 border border-black flex items-center justify-center text-[8px]">🥉</div>
+                    </div>
+                    <span className="ml-2 text-[10px] text-white/80">{formatViewers(stream.viewers)}</span>
+                    <svg className="w-3 h-3 ml-1 text-white/60" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </div>
+            </div>
+
+            {/* Stream Title */}
+            <div className="absolute top-28 left-4 z-20 pointer-events-none">
+                <div className="bg-black/20 backdrop-blur-md rounded-xl p-2.5 border border-white/10 inline-block max-w-[200px]">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="px-1.5 py-0.5 bg-red-500/80 rounded text-[9px]">LIVE</span>
+                        <span className="text-[9px] text-white/60 truncate">{stream.category}</span>
+                    </div>
+                    <h2 className="text-xs font-medium truncate">{stream.title}</h2>
                 </div>
             </div>
 
@@ -317,7 +399,7 @@ const LiveRoom = () => {
                         style={{ 
                             top: `${d.top}%`, 
                             animationDuration: `${d.duration}s`,
-                            left: '100%', // 初始位置在屏幕右侧外
+                            left: '100%',
                         }}
                     >
                         <span className="text-xs text-white/70 font-medium whitespace-nowrap">{d.user}:</span>
@@ -326,30 +408,9 @@ const LiveRoom = () => {
                 ))}
             </div>
 
-            {/* 角色展示区域 (Centered) */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pb-20 pointer-events-none">
-                {/* 角色头像/形象 - 大尺寸 + 呼吸动画 */}
-                <div className="relative animate-breathe">
-                    {stream.streamerAvatar ? (
-                        <img 
-                            src={stream.streamerAvatar} 
-                            alt={stream.streamerName} 
-                            className="w-48 h-48 rounded-full object-cover border-4 border-white/10 shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
-                        />
-                    ) : (
-                        <div className="w-48 h-48 rounded-full bg-gradient-to-tr from-amber-200 to-amber-500 flex items-center justify-center border-4 border-white/10 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
-                           <span className="text-4xl">👤</span>
-                        </div>
-                    )}
-                    {/* 状态指示点 */}
-                    <div className="absolute bottom-2 right-4 w-4 h-4 bg-green-500 rounded-full border-2 border-black animate-pulse" />
-                </div>
-                
-                <h2 className="mt-4 text-xl font-medium tracking-wide text-white/90">{stream.streamerName}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                    <span className="px-2 py-0.5 bg-red-500/80 rounded text-[10px]">LIVE</span>
-                    <span className="text-xs text-white/60">{formatViewers(stream.viewers)} watching</span>
-                </div>
+            {/* 立绘区域 - 预留给后续添加 */}
+            <div className="absolute inset-0 flex flex-col items-center justify-end z-0 pb-32 pointer-events-none">
+                {/* 这里后续放立绘 */}
             </div>
 
             {/* Floating Hearts */}
@@ -369,7 +430,7 @@ const LiveRoom = () => {
 
             {/* 礼物横幅 Gift Banner */}
             {currentGift && (
-                <div key={currentGift.id} className="absolute left-4 top-24 z-30 animate-gift-banner pointer-events-none">
+                <div key={currentGift.id} className="absolute left-4 top-44 z-30 animate-gift-banner pointer-events-none">
                     <div className={`flex items-center bg-gradient-to-r ${currentGift.giftColor} backdrop-blur-md rounded-full p-1 pr-6 shadow-xl border border-white/20 overflow-hidden`}>
                         <div className="w-10 h-10 rounded-full bg-black/20 mr-2 flex items-center justify-center overflow-hidden border border-white/10">
                             <div className="text-lg">👤</div>
@@ -381,7 +442,6 @@ const LiveRoom = () => {
                         <div className="text-3xl mr-3 filter drop-shadow-md animate-bounce">{currentGift.giftIcon}</div>
                         <div className="flex items-end italic">
                             <span className="text-lg font-bold text-white mr-1 opacity-90">x</span>
-                            {/* 使用 key 强制触发连击动画 */}
                             <span key={currentGift.count} className="text-4xl font-black text-yellow-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] animate-combo">
                                 {currentGift.count}
                             </span>
@@ -390,16 +450,25 @@ const LiveRoom = () => {
                 </div>
             )}
 
-            {/* Stream Title */}
-            <div className="absolute top-24 left-4 right-4 z-20 pointer-events-none">
-                <div className="bg-black/20 backdrop-blur-md rounded-xl p-3 border border-white/10 inline-block">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 bg-red-500/80 rounded text-[10px]">LIVE</span>
-                        <span className="text-[10px] text-white/60">{stream.category}</span>
-                    </div>
-                    <h2 className="text-sm font-medium">{stream.title}</h2>
+            {/* 全屏特效 */}
+            {fullScreenEffect && (
+                <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+                    {fullScreenEffect === 'rocket' && (
+                        <div className="text-[150px] animate-rocket filter drop-shadow-[0_0_50px_rgba(59,130,246,0.6)]">🚀</div>
+                    )}
+                    {fullScreenEffect === 'crown' && (
+                        <div className="relative animate-crown">
+                            <div className="text-[120px] animate-crown-shine filter drop-shadow-[0_0_30px_rgba(234,179,8,0.6)]">👑</div>
+                        </div>
+                    )}
+                    {fullScreenEffect === 'castle' && (
+                        <div className="text-[150px] animate-castle filter drop-shadow-[0_0_60px_rgba(168,85,247,0.6)]">🏰</div>
+                    )}
+                    {fullScreenEffect === 'galaxy' && (
+                        <div className="text-[180px] animate-galaxy filter drop-shadow-[0_0_80px_rgba(139,92,246,0.8)]">🌌</div>
+                    )}
                 </div>
-            </div>
+            )}
 
             {/* 旁白气泡 - 显示在底部输入框上方，像字幕一样 */}
             {narration && (

@@ -14,11 +14,11 @@ export const THEATRE_TOOL = {
     properties: {
       template_id: {
         type: 'string',
-        description: '模板ID，用下划线命名。常用：phone_desktop(手机桌面)、wechat_chat(聊天记录)、payment_success(支付成功)、moments_post(朋友圈)、red_packet(红包)、weather(天气)、poll(投票)、universal_card(万能卡片)、memo_list(备忘录/清单)、shopping_cart(购物车)、express_delivery(物流)、call_log(通话记录)。'
+        description: '模板ID。常用：phone_desktop(手机桌面)、wechat_chat(聊天记录)、payment_success(支付成功)、moments_post(朋友圈)、red_packet(红包)、weather(天气)、poll(投票)、shopping_cart(购物车)、express_delivery(物流)、call_log(通话记录)。★如果要完全自由设计HTML(不使用通用卡片样式)，请使用 custom_html。'
       },
       data: {
         type: 'object',
-        description: '模板数据。memo_list需title/items(text/checked)，可选date/folder；universal_card需title/content...；其他按需填充。'
+        description: '模板数据。custom_html需提供html字段(完整HTML代码)；memo_list需title/items；universal_card需title/content...；其他按需填充。'
       }
     },
     required: ['template_id', 'data']
@@ -123,7 +123,8 @@ export function convertTheatreToolCallToMessage(toolCall: TheatreToolCall, chara
     weather: '天气预报',
     poll: '投票',
     universal_card: '万能卡片',
-    memo_list: '备忘录'
+    memo_list: '备忘录',
+    custom_html: '自由组件'
   }
   
   return {
@@ -144,6 +145,10 @@ export function convertTheatreToolCallToMessage(toolCall: TheatreToolCall, chara
 function generateTheatreHTML(cardType: string, fields: Record<string, any>): string {
   // 这里先返回一个简单的 HTML，后续可以根据实际模板优化
   switch (cardType) {
+    case 'custom_html':
+      // 直接返回 raw HTML，不加任何外层容器
+      return fields.html || fields.content || '<div style="color:red">Error: No HTML content provided</div>'
+
     case 'shopping_cart':
       const items = fields.items || []
       const itemsHTML = Array.isArray(items)

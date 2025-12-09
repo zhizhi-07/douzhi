@@ -1,52 +1,71 @@
-/* Music Player Styles */
+/* NetEase Style Music Player */
 
-.music-player-container {
-  position: relative;
-  min-height: 100vh;
+.soft-page-enter {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.album-cover-rotation {
-  animation: rotate 20s linear infinite;
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.album-cover-rotation.paused {
-  animation-play-state: paused;
-}
-
-@keyframes rotate {
+/* 唱片旋转动画 */
+@keyframes spin-slow {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
-/* Lyrics scrolling */
-.lyrics-container {
-  max-height: 400px;
-  overflow-y: auto;
-  scroll-behavior: smooth;
+.animate-spin-slow {
+  animation: spin-slow 25s linear infinite;
 }
 
-.lyric-line {
-  transition: all 0.3s ease;
+/* 唱针对齐动画 */
+.needle-arm {
+  transform-origin: 16px 16px;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 50;
 }
 
-.lyric-line.active {
-  font-weight: 600;
-  transform: scale(1.1);
+.needle-arm.playing {
+  transform: rotate(0deg);
 }
 
-/* Progress bar */
-.progress-bar {
-  transition: width 0.1s linear;
+.needle-arm.paused {
+  transform: rotate(-30deg);
 }
 
-/* Glass effect for music player */
-.music-glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+/* 唱片黑胶纹理 */
+.vinyl-disc {
+  background:
+    radial-gradient(circle at center, transparent 0%, transparent 28%, #111 28%, #111 30%, transparent 30%),
+    radial-gradient(circle at center, #1a1a1a 0%, #111 100%);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 8px rgba(255, 255, 255, 0.02);
+}
+
+.vinyl-texture {
+  background: repeating-radial-gradient(#111 0,
+      #111 2px,
+      #1c1c1c 3px,
+      #1c1c1c 4px);
+  opacity: 0.6;
+}
+
+/* 歌词区域遮罩 */
+.lyric-mask {
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
 }

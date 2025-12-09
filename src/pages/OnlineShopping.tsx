@@ -193,7 +193,7 @@ const OnlineShopping = () => {
   }
 
   return (
-    <div className="h-screen bg-[#f7f8fa] flex flex-col font-sans">
+    <div className="h-screen bg-[#f7f8fa] flex flex-col font-sans soft-page-enter">
       {/* 顶部导航 - 仿电商APP头部 */}
       <div className="bg-white sticky top-0 z-30 px-3 py-2 shadow-sm">
         <StatusBar />
@@ -311,6 +311,7 @@ const OnlineShopping = () => {
                     sales={product.sales}
                     actionText="加入购物车"
                     onAction={() => addToCart(product)}
+                    onShare={() => forwardProduct(product)}
                   />
                 </div>
               ))}

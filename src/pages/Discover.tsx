@@ -97,7 +97,7 @@ const Discover = () => {
   ]
 
   return (
-    <div className="h-full flex flex-col font-serif">
+    <div className="h-full flex flex-col font-serif soft-page-enter">
       {/* 顶部：StatusBar + 导航栏一体化 - 玻璃拟态 */}
       <div
         className="relative z-10"

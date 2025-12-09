@@ -6,16 +6,24 @@
 export interface ScheduleItem {
   id: string
   time: string
-  title: string
+  title: string           // 动作/活动
   description: string
   type: 'past' | 'current' | 'future'
-  isReal: boolean  // 是否为真实状态记录
+  isReal: boolean         // 是否为真实状态记录
+  mood?: string           // 心情 (如: 开心、疲惫、平静)
+  clothing?: string       // 穿着 (如: 白衬衫+牛仔裤)
+  psychology?: string     // 心理活动 (如: 有点想念你)
+  location?: string       // 地点 (如: 咖啡厅)
 }
 
 interface StatusRecord {
   time: string      // '09:30'
   action: string    // '在图书馆自习'
   timestamp: number
+  mood?: string           // 心情
+  clothing?: string       // 穿着
+  psychology?: string     // 心理活动
+  location?: string       // 地点
 }
 
 interface DailySchedule {
@@ -30,8 +38,19 @@ const SCHEDULE_HISTORY_KEY = 'ai_schedule_history_'
  *   - "19:00" - 只有时间，用当天日期
  *   - "昨天19:00" 或 "昨天 19:00" - 昨天
  *   - "11-27 19:00" 或 "2025-11-27 19:00" - 指定日期
+ * @param extraInfo 可选的额外信息（心情、穿着、心理、地点）
  */
-export function saveStatusToSchedule(characterId: string, action: string, customDateTime?: string): void {
+export function saveStatusToSchedule(
+  characterId: string, 
+  action: string, 
+  customDateTime?: string,
+  extraInfo?: {
+    mood?: string
+    clothing?: string
+    psychology?: string
+    location?: string
+  }
+): void {
   try {
     let targetDate = new Date().toISOString().split('T')[0]  // 默认今天
     let time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -125,7 +144,11 @@ export function saveStatusToSchedule(characterId: string, action: string, custom
     history[targetDate].push({
       time,
       action,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      mood: extraInfo?.mood,
+      clothing: extraInfo?.clothing,
+      psychology: extraInfo?.psychology,
+      location: extraInfo?.location
     })
     
     // 只保留最近7天的记录

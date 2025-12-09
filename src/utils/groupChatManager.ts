@@ -35,6 +35,12 @@ export interface GroupChat {
     lastSummaryMessageCount?: number  // 上次总结时的消息总数（已废弃）
     lastSummaryUserMessageCount?: number  // 上次总结时用户发送的消息数（按轮数计算）
   }
+  // 🔥 剧情摘要（每次 AI 回复后自动保存，用于下次回复时作为背景，避免 AI 失忆）
+  plotSummary?: {
+    relationships: string  // 当前人物关系
+    plot: string  // 当前剧情进展
+    updatedAt: number  // 更新时间
+  }
 }
 
 export interface GroupMessage {
@@ -93,8 +99,15 @@ export interface GroupMessage {
 const GROUP_CHATS_KEY = 'group_chats' // 仅用于迁移
 const GROUP_MESSAGES_PREFIX = 'group_messages_' // 仅用于迁移
 
-// 全局计数器，确保同一毫秒内生成的ID也是唯一的
+// 消息ID计数器（用于同一毫秒内的消息区分）
 let messageIdCounter = 0
+
+// 🔥 批量添加模式标志（AI回复期间设为true，避免每条消息都触发事件）
+let batchMode = false
+export const setBatchMode = (enabled: boolean) => {
+  batchMode = enabled
+  console.log(`📦 [批量模式] ${enabled ? '开启' : '关闭'}`)
+}
 
 // 内存缓存
 let groupsCache: GroupChat[] | null = null
@@ -412,9 +425,11 @@ class GroupChatManager {
 
   // 🔥 异步加载消息（页面加载时调用）
   async loadMessagesAsync(groupId: string): Promise<GroupMessage[]> {
-    // 检查缓存
-    if (messagesCache.has(groupId) && messagesCache.get(groupId)!.length > 0) {
-      return messagesCache.get(groupId)!
+    // 🔥 优先返回缓存，避免等待IndexedDB导致卡顿
+    const cachedMessages = messagesCache.get(groupId)
+    if (cachedMessages && cachedMessages.length > 0) {
+      console.log(`📦 [快速加载] 使用缓存消息: ${groupId}, 数量=${cachedMessages.length}`)
+      return cachedMessages
     }
     
     const storageKey = `group_${groupId}`
@@ -436,8 +451,9 @@ class GroupChatManager {
         const currentCache = messagesCache.get(groupId) || []
         const dbIds = new Set(validMessages.map(m => m.id))
         const newMessages = currentCache.filter(m => m && m.id && !dbIds.has(m.id))
-        const merged = [...validMessages, ...newMessages]
+        let merged = [...validMessages, ...newMessages]
         merged.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        // 🔥 消息全部保留在内存，不做删除（数据是用户的回忆）
         messagesCache.set(groupId, merged)
         console.log(`📦 加载群聊消息: ${groupId}, 数量=${merged.length}`)
         return merged
@@ -463,7 +479,8 @@ class GroupChatManager {
   }
 
   // 添加消息（🔥 使用 IndexedDB）
-  addMessage(groupId: string, message: Omit<GroupMessage, 'id' | 'groupId' | 'time'>): GroupMessage {
+  // silent: 是否静默模式（不触发事件，用于批量添加）
+  addMessage(groupId: string, message: Omit<GroupMessage, 'id' | 'groupId' | 'time'>, silent: boolean = false): GroupMessage {
     // 🔥 使用时间戳 + 计数器生成唯一ID，避免同一毫秒内的冲突
     const now = Date.now()
     const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
@@ -482,6 +499,11 @@ class GroupChatManager {
     // 更新缓存
     messagesCache.set(groupId, messages)
     
+    // 🔥 静默模式或批量模式：只更新缓存，不保存到数据库，不触发事件
+    if (silent || batchMode) {
+      return newMessage
+    }
+    
     // 🔥 异步保存到 IndexedDB，但先读取最新数据避免覆盖
     const storageKey = `group_${groupId}`
     IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(existingMessages => {
@@ -496,9 +518,11 @@ class GroupChatManager {
         finalMessages = [...validExistingMessages, ...newMessages]
         // 按时间排序
         finalMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        // 🔥 全部保存，不限制数量（用户的回忆不能删）
         // 更新缓存
         messagesCache.set(groupId, finalMessages)
       }
+      // 🔥 全部保存到 IndexedDB（如果太大，indexedDBManager 会自动压缩）
       return IDB.setItem(IDB.STORES.MESSAGES, storageKey, finalMessages)
     }).catch(e =>
       console.error('保存群聊消息失败:', e)

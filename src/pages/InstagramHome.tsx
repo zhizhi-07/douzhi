@@ -57,7 +57,8 @@ const InstagramHome = () => {
     setCharacters(chars)
     
     // 检查是否需要自动生成帖子（1小时后上线）
-    await checkAutoGeneratePosts()
+    // 🔒 暂时关闭自动发帖功能
+    // await checkAutoGeneratePosts()
     
     const loadedPosts = await getAllPostsAsync()
     const mainPosts = loadedPosts.filter(p => !(p as any).topicId)
@@ -125,9 +126,9 @@ const InstagramHome = () => {
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="min-h-screen bg-transparent font-serif text-[#2C2C2C]">
+      <div className="min-h-screen bg-transparent font-serif text-[#2C2C2C] soft-page-enter">
         {/* 顶部导航 - 玻璃拟态（包含状态栏） */}
-        <div className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
+        <div className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm soft-fade-in">
           <StatusBar />
           <div className="px-6 pb-4 flex items-center justify-between relative">
             <button

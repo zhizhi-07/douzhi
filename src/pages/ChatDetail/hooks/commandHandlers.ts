@@ -7,7 +7,7 @@ import type { Message } from '../../../types/chat'
 import { createMessage } from '../../../utils/messageUtils'
 import { characterService } from '../../../services/characterService'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
-import { createIntimatePayRelation, getBalance, setBalance, addTransaction } from '../../../utils/walletUtils'
+import { createIntimatePayRelationAsync, getBalance, setBalance, addTransaction } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import {
   acceptCoupleSpaceInvite,
@@ -176,7 +176,9 @@ export const receiveTransferHandler: CommandHandler = {
   pattern: /[\[【](?:接收转账|收下转账|收款|同意转账|回.*?转账|接受转账|转账[:：]?接受|转账[:：]?接收|转账[:：]?收下|转账[:：]?同意|转账[:：]?回|手机操作[:：](?:收款|接收转账|收下转账|领取转账))[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     let transferUpdated = false
+    const charName = character?.nickname || character?.realName || '对方'
 
+    // 🔥 一次性更新：同时更新转账状态和添加系统消息
     setMessages(prev => {
       const lastPending = [...prev].reverse().find(
         msg => msg.messageType === 'transfer' && msg.type === 'sent' && msg.transfer?.status === 'pending'
@@ -213,13 +215,26 @@ export const receiveTransferHandler: CommandHandler = {
         return msg
       })
 
+      // 🔥 创建系统消息
+      const systemMsg: Message = {
+        id: Date.now() + Math.random(),
+        type: 'system',
+        content: `${charName}已收款`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system',
+        aiReadableContent: `${charName}接受了你的转账`
+      }
+
+      // 🔥 一次性添加系统消息
+      const finalMessages = [...updated, systemMsg]
+
       // 🔥 立即保存到IndexedDB
-      saveMessages(chatId, updated)
+      saveMessages(chatId, finalMessages)
       console.log('💾 [接收转账] 状态已更新并保存, status=received')
       transferUpdated = true
 
-      // 🔥 强制返回新数组
-      return [...updated]
+      return finalMessages
     })
 
     // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
@@ -227,20 +242,7 @@ export const receiveTransferHandler: CommandHandler = {
 
     if (!transferUpdated) {
       console.log('⚠️ [接收转账] 未找到待处理的转账，但仍移除指令文本')
-      return {
-        handled: true,
-        remainingText,
-        skipTextMessage: !remainingText  // 如果没有剩余文本，跳过文本消息
-      }
     }
-
-    // 添加系统消息
-    const systemMsg = createMessageObj('system', {
-      content: '对方已收款',
-      aiReadableContent: `${character?.nickname || character?.realName || '对方'}接受了你的转账`,
-      type: 'system'
-    })
-    await addMessage(systemMsg, setMessages, chatId)
 
     return {
       handled: true,
@@ -258,7 +260,9 @@ export const rejectTransferHandler: CommandHandler = {
   pattern: /[\[【](?:退还(?:转账)?|拒绝(?:转账)?|不要(?:转账)?|不收(?:转账)?|退回(?:转账)?|转账[:：]?拒绝|转账[:：]?退还|转账[:：]?退回|转账[:：]?不要|转账[:：]?不收|手机操作[:：](?:退还|退回|拒绝)(?:转账)?)[\]】]|^退还$/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     let transferFound = false
+    const charName = character?.nickname || character?.realName || '对方'
 
+    // 🔥 一次性更新：同时更新转账状态和添加系统消息
     setMessages(prev => {
       // 查找最近的待处理转账（只有pending状态才能退还）
       const lastPending = [...prev].reverse().find(
@@ -271,17 +275,33 @@ export const rejectTransferHandler: CommandHandler = {
       }
 
       transferFound = true
+      const amount = lastPending.transfer?.amount || 0
+
       const updated = prev.map(msg =>
         msg.id === lastPending.id
           ? { ...msg, transfer: { ...msg.transfer!, status: 'expired' as const } }
           : msg
       )
 
+      // 🔥 创建系统消息
+      const systemMsg: Message = {
+        id: Date.now() + Math.random(),
+        type: 'system',
+        content: `${charName}已退还 ¥${amount.toFixed(2)}`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system',
+        aiReadableContent: `${charName}退还了你的转账¥${amount.toFixed(2)}`
+      }
+
+      // 🔥 一次性添加系统消息
+      const finalMessages = [...updated, systemMsg]
+
       // 🔥 手动保存到IndexedDB
-      saveMessages(chatId, updated)
+      saveMessages(chatId, finalMessages)
       console.log('💾 [转账退还] 状态已保存到IndexedDB')
 
-      return updated
+      return finalMessages
     })
 
     // 🔥 即使没有找到待处理的转账，也要移除指令文本，避免显示给用户
@@ -289,20 +309,7 @@ export const rejectTransferHandler: CommandHandler = {
 
     if (!transferFound) {
       console.log('⚠️ [退还转账] 未找到待处理的转账，但仍移除指令文本')
-      return {
-        handled: true,
-        remainingText,
-        skipTextMessage: !remainingText
-      }
     }
-
-    // 添加系统消息（只在找到转账时添加）
-    const systemMsg = createMessageObj('system', {
-      content: '对方已退还',
-      aiReadableContent: `${character?.nickname || character?.realName || '对方'}退还了你的转账`,
-      type: 'system'
-    })
-    await addMessage(systemMsg, setMessages, chatId)
 
     return {
       handled: true,
@@ -1522,7 +1529,7 @@ export const acceptIntimatePayHandler: CommandHandler = {
 
     // 创建亲密付关系（用户给AI开通，AI接受，类型是 user_to_character）
     if (character) {
-      const success = createIntimatePayRelation(
+      const success = await createIntimatePayRelationAsync(
         character.id,
         character.nickname || character.realName,
         monthlyLimit,
@@ -1927,14 +1934,23 @@ export const statusHandler: CommandHandler = {
         动作: statusUpdate.action
       })
 
-      // 记录到行程历史（简化：只记录地点+动作）
+      // 记录到行程历史（包含详细信息：地点、心情、穿着、心理活动）
       const recordContent = statusUpdate.action
         ? `${statusUpdate.location} - ${statusUpdate.action}`
         : statusUpdate.location || ''
+      
+      // 新增：传递额外信息到行程记录
+      const extraInfo = {
+        mood: statusUpdate.mood,          // 心理活动作为心情记录
+        clothing: statusUpdate.outfit,    // 服装
+        psychology: statusUpdate.mood,    // 心理活动
+        location: statusUpdate.location   // 地点
+      }
+      
       if (customTime) {
-        saveStatusToSchedule(character.id, recordContent, customTime)
+        saveStatusToSchedule(character.id, recordContent, customTime, extraInfo)
       } else {
-        saveStatusToSchedule(character.id, recordContent)
+        saveStatusToSchedule(character.id, recordContent, undefined, extraInfo)
       }
 
       // 清除强制更新标记
@@ -3300,25 +3316,26 @@ export const theatreHandler: CommandHandler = {
 
 /**
  * 拍一拍指令处理器
+ * 格式: [拍一拍:后缀] - 后缀由AI填写，如 [拍一拍:的小脑袋]
  */
 export const pokeHandler: CommandHandler = {
-  pattern: /[\[【]拍一拍[\]】]/,
+  pattern: /[\[【]拍一拍[:：]?([^\]】]*)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
     const userInfo = getUserInfo()
     const userName = userInfo.nickname || userInfo.realName || '用户'
     const aiName = character?.nickname || character?.realName || 'AI'
 
-    // 获取用户的拍一拍后缀（如果设置了）
-    const userPokeSuffix = userInfo.pokeSuffix || ''
+    // 使用AI填写的后缀
+    const pokeSuffix = match[1]?.trim() || ''
 
     const pokeMsg = createMessageObj('poke', {
       type: 'system',
-      content: `${aiName}拍了拍${userName}${userPokeSuffix}`,
-      aiReadableContent: `【系统通知】${aiName}拍了拍${userName}${userPokeSuffix}`,
+      content: `${aiName}拍了拍${userName}${pokeSuffix}`,
+      aiReadableContent: `【系统通知】${aiName}拍了拍${userName}${pokeSuffix}`,
       poke: {
         fromName: aiName,
         toName: userName,
-        suffix: userPokeSuffix
+        suffix: pokeSuffix
       }
     })
 

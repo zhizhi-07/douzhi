@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { unifiedMemoryService, UnifiedMemory } from '../services/unifiedMemoryService'
 import { getAllCharacters } from '../utils/characterManager'
-import { triggerCharacterMemoryExtraction } from '../services/memoryExtractor'
+import { triggerCharacterMemoryExtraction, retryPendingExtractions, getPendingExtractionCount } from '../services/memoryExtractor'
 import type { Character } from '../services/characterService'
 
 const GlobalMemoryPage = () => {
@@ -20,6 +20,8 @@ const GlobalMemoryPage = () => {
   const [searchText, setSearchText] = useState('')
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractResult, setExtractResult] = useState<string>('')
+  const [pendingCount, setPendingCount] = useState(0)
+  const [isRetrying, setIsRetrying] = useState(false)
 
   // 手动提取记忆
   const handleExtractMemory = async () => {
@@ -39,6 +41,8 @@ const GlobalMemoryPage = () => {
       )
       
       setExtractResult(`✅ 私聊${results.privateChat} 群聊${results.groupChat} 朋友圈${results.moments} 论坛${results.forum} 线下${results.offline}`)
+      // 🔥 更新待提取计数
+      setPendingCount(getPendingExtractionCount())
       
       // 刷新记忆列表
       await loadMemories()
@@ -56,7 +60,46 @@ const GlobalMemoryPage = () => {
   // 加载角色列表
   useEffect(() => {
     loadCharacters()
+    // 🔥 检查待提取队列
+    setPendingCount(getPendingExtractionCount())
   }, [])
+  
+  // 🔥 启动时自动重试待提取任务
+  useEffect(() => {
+    const count = getPendingExtractionCount()
+    if (count > 0) {
+      console.log(`🔄 [记忆库] 发现 ${count} 个待提取任务，将在后台重试...`)
+      // 延迟2秒后开始重试，避免影响页面加载
+      const timer = setTimeout(async () => {
+        setIsRetrying(true)
+        try {
+          await retryPendingExtractions()
+        } finally {
+          setIsRetrying(false)
+          setPendingCount(getPendingExtractionCount())
+          // 重试后刷新记忆列表
+          loadCharacters()
+        }
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+  
+  // 🔥 手动重试所有待提取任务
+  const handleRetryPending = async () => {
+    if (isRetrying) return
+    setIsRetrying(true)
+    try {
+      await retryPendingExtractions()
+      setPendingCount(getPendingExtractionCount())
+      await loadCharacters()
+      if (selectedCharacter) {
+        await loadMemories()
+      }
+    } finally {
+      setIsRetrying(false)
+    }
+  }
 
   const loadCharacters = async () => {
     const chars = await getAllCharacters()
@@ -133,7 +176,22 @@ const GlobalMemoryPage = () => {
           
           <h1 className="text-lg font-semibold">AI记忆库</h1>
           
-          <div className="w-9" /> {/* 占位保持居中 */}
+          {/* 🔥 待提取队列状态 */}
+          {pendingCount > 0 ? (
+            <button
+              onClick={handleRetryPending}
+              disabled={isRetrying}
+              className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                isRetrying
+                  ? 'bg-yellow-100 text-yellow-600'
+                  : 'bg-orange-100 text-orange-600 active:scale-95'
+              }`}
+            >
+              {isRetrying ? '重试中...' : `❗${pendingCount}待提取`}
+            </button>
+          ) : (
+            <div className="w-9" /> /* 占位保持居中 */
+          )}
         </div>
       </div>
 

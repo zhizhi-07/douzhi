@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { getUserInfo } from '../utils/userUtils'
+import { getUserInfo, getCurrentUserInfoWithAvatar } from '../utils/userUtils'
 
 interface CallMessage {
   id: number
@@ -42,7 +42,22 @@ const VideoCallScreen = ({
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [inputValue, setInputValue] = useState('')
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // 🔥 异步加载用户头像（支持 IndexedDB）
+  useEffect(() => {
+    const loadUserAvatar = async () => {
+      try {
+        const userInfo = await getCurrentUserInfoWithAvatar()
+        setUserAvatar(userInfo.avatar)
+        console.log('✅ [视频通话] 用户头像加载成功:', userInfo.avatar ? '有头像' : '无头像')
+      } catch (error) {
+        console.error('❌ [视频通话] 加载用户头像失败:', error)
+      }
+    }
+    loadUserAvatar()
+  }, [])
 
   // 计时器
   useEffect(() => {
@@ -112,8 +127,8 @@ const VideoCallScreen = ({
           {/* 小窗口（自己） */}
           <div className="absolute top-4 right-4 w-24 h-32 bg-gray-900 rounded-[32px] overflow-hidden border-2 border-white/30 shadow-2xl">
             <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-              {getUserInfo().avatar ? (
-                <img src={getUserInfo().avatar} alt="我" className="w-full h-full object-cover" />
+              {userAvatar ? (
+                <img src={userAvatar} alt="我" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-white text-2xl">我</span>
               )}

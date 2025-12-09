@@ -146,7 +146,7 @@ const MemeLibrary = () => {
     }, [memes, searchQuery])
 
     return (
-        <div className="h-screen flex flex-col bg-[#F5F5F5]">
+        <div className="h-screen flex flex-col bg-[#F5F5F5] soft-page-enter">
             {/* 顶部导航 - 纯色背景，不透明，确保状态栏清晰 */}
             <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/50">
                 <StatusBar />

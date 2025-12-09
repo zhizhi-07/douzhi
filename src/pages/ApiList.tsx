@@ -44,7 +44,7 @@ const ApiList = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans soft-page-enter">
       <StatusBar />
 
       {/* 顶部导航栏 - 玻璃态 */}

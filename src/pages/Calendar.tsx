@@ -93,7 +93,7 @@ const Calendar = () => {
   const chnWeekDays = ['日', '一', '二', '三', '四', '五', '六']
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#4A4A4A] relative overflow-y-auto overflow-x-hidden font-sans pb-10">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#4A4A4A] relative overflow-y-auto overflow-x-hidden font-sans pb-10 soft-page-enter">
       {/* 背景图 */}
       {bgImage && (
         <div 

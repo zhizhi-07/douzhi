@@ -4,20 +4,17 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { flushSync } from 'react-dom'
 import StatusBar from '../components/StatusBar'
 import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
 import { generateGroupChatSummary } from '../utils/groupChatSummary'
-import { groupChatManager, type GroupMessage } from '../utils/groupChatManager'
+import { groupChatManager, type GroupMessage, setBatchMode } from '../utils/groupChatManager'
 import { characterService } from '../services/characterService'
 import EmojiPanel from '../components/EmojiPanel'
-import type { Emoji } from '../utils/emojiStorage'
 import { getEmojis } from '../utils/emojiStorage'
 import { getUserInfo } from '../utils/userUtils'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import GroupAddMenu from '../components/GroupAddMenu'
 import PollCreator from '../components/PollCreator'
-import { getAllUIIcons } from '../utils/iconStorage'
 import MessageMenu from '../components/MessageMenu.floating'
 import TransferSender from '../components/TransferSender'
 import PhotoDescriptionInput from '../components/PhotoDescriptionInput'
@@ -27,7 +24,14 @@ import RedPacketSender from '../components/RedPacketSender'
 import RedPacketOpenModal from '../components/RedPacketOpenModal'
 import RedPacketDetailModal from '../components/RedPacketDetailModal'
 import { GroupMessageItem, GroupInputBar, MentionList } from './GroupChatDetail/components'
-import { useGroupPagination } from './GroupChatDetail/hooks/useGroupPagination'
+import {
+  useGroupPagination,
+  useGroupCustomIcons,
+  useGroupMessageActions,
+  useGroupSpecialMessages,
+  useGroupRedPacket,
+  useGroupEmoji
+} from './GroupChatDetail/hooks'
 
 // 获取成员头像（返回IndexedDB引用或直接URL）
 const getMemberAvatar = (userId: string): string => {
@@ -60,82 +64,92 @@ const GroupChatDetail = () => {
   const [showMentionList, setShowMentionList] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
-  const [quotedMessage, setQuotedMessage] = useState<GroupMessage | null>(null)
-  const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
-  const [showMemberSelect, setShowMemberSelect] = useState(false)
-  const [showTransferSender, setShowTransferSender] = useState(false)
-  const [selectedTransferMember, setSelectedTransferMember] = useState<{ id: string, name: string } | null>(null)
-  const [showPhotoInput, setShowPhotoInput] = useState(false)
-  const [showCameraInput, setShowCameraInput] = useState(false)
-  const [showLocationInput, setShowLocationInput] = useState(false)
-  const [showVoiceInput, setShowVoiceInput] = useState(false)
-  const [showRedPacketSender, setShowRedPacketSender] = useState(false)
-  const [showPollCreator, setShowPollCreator] = useState(false)
-  const [openRedPacketId, setOpenRedPacketId] = useState<number | null>(null)
-  const [showRedPacketDetail, setShowRedPacketDetail] = useState(false)
-  const [detailRedPacketId, setDetailRedPacketId] = useState<string | null>(null)
-  
-  // 🎤 语音消息状态
-  const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null)
-  const [showVoiceTextMap, setShowVoiceTextMap] = useState<Record<number, boolean>>({})
-  
-  // 语音播放处理
-  const handlePlayVoice = (messageId: number, duration: number) => {
-    console.log('🎤 播放语音:', messageId)
-    setPlayingVoiceId(messageId)
-    setTimeout(() => {
-      setPlayingVoiceId(null)
-    }, duration * 1000)
-  }
-  
-  // 语音转文字切换
-  const handleToggleVoiceText = (messageId: number) => {
-    console.log('📝 切换语音文字:', messageId)
-    setShowVoiceTextMap(prev => ({
-      ...prev,
-      [messageId]: !prev[messageId]
-    }))
-  }
-  const [showMessageMenu, setShowMessageMenu] = useState(false)
-  const [menuMessage, setMenuMessage] = useState<GroupMessage | null>(null)
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
-  
-  // 🎨 装饰图片状态（与私聊同步）
-  const [chatDecorations, setChatDecorations] = useState({
-    topBar: localStorage.getItem('chat_top_bar_image'),
-    bottomBar: localStorage.getItem('chat_bottom_bar_image'),
-    plusButton: localStorage.getItem('chat_plus_button_image'),
-    emojiButton: localStorage.getItem('chat_emoji_button_image'),
-    sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
-    sendButtonActive: localStorage.getItem('chat_send_button_active_image')
-  })
-  
-  // 🎨 自定义UI图标（与私聊同步）
-  const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
-  const [viewingRecalledMessage, setViewingRecalledMessage] = useState<GroupMessage | null>(null)  // 查看撤回的消息
-  
-  // 🎨 顶栏底栏调整参数（与私聊同步）
-  const [topBarScale, setTopBarScale] = useState(100)
-  const [topBarX, setTopBarX] = useState(0)
-  const [topBarY, setTopBarY] = useState(0)
   
   const inputRef = useRef<HTMLInputElement>(null)
-  const longPressTimer = useRef<number | null>(null)
   const isAIReplying = useRef(false)  // 标志位：AI是否正在回复中
 
   // 🎨 气泡样式
   useChatBubbles(id)
 
-  // 📄 分页加载 - 解决消息过多卡顿问题
+  // 📄 虚拟列表 - 只渲染可见消息，解决消息过多卡顿问题
   const {
     displayedMessages,
     hasMoreMessages,
     isLoadingMore,
     scrollContainerRef,
     scrollToBottom,
-    resetPagination
+    resetPagination,
+    offsetTop,
+    offsetBottom
   } = useGroupPagination(messages, isAiTyping)
+  
+  // 🎨 使用自定义图标 Hook
+  const { chatDecorations, customIcons, topBarAdjust } = useGroupCustomIcons()
+  const { scale: topBarScale, x: topBarX, y: topBarY } = topBarAdjust
+  
+  // 📝 消息操作 Hook
+  const {
+    showMessageMenu,
+    menuMessage,
+    menuPosition,
+    quotedMessage,
+    setQuotedMessage,
+    viewingRecalledMessage,
+    setViewingRecalledMessage,
+    handleLongPressStart,
+    handleLongPressEnd,
+    handleRecallMessage,
+    handleDeleteMessage,
+    handleCopyMessage,
+    handleQuoteMessage,
+    closeMessageMenu
+  } = useGroupMessageActions(id, setMessages)
+  
+  // 📦 特殊消息 Hook
+  const {
+    showPhotoInput, setShowPhotoInput,
+    showCameraInput, setShowCameraInput,
+    showLocationInput, setShowLocationInput,
+    showVoiceInput, setShowVoiceInput,
+    showRedPacketSender, setShowRedPacketSender,
+    showPollCreator, setShowPollCreator,
+    showMemberSelect, setShowMemberSelect,
+    showTransferSender, setShowTransferSender,
+    selectedTransferMember,
+    handleConfirmPhoto,
+    handleConfirmCamera,
+    handleSelectTransferMember,
+    handleSendTransfer,
+    cancelTransfer,
+    handleConfirmLocation,
+    handleConfirmVoice,
+    handleSendRedPacket
+  } = useGroupSpecialMessages(id, setMessages, scrollToBottom)
+  
+  // 🧧 红包 Hook
+  const {
+    openRedPacketId,
+    showRedPacketDetail,
+    detailRedPacketId,
+    handleOpenRedPacket,
+    handleConfirmOpenRedPacket,
+    handleReceiveTransfer,
+    handleRejectTransfer,
+    closeRedPacketModal,
+    closeRedPacketDetail
+  } = useGroupRedPacket(id, setMessages, scrollToBottom)
+  
+  // 😊 表情和语音 Hook
+  const {
+    showEmojiPanel,
+    setShowEmojiPanel,
+    handleSelectEmoji,
+    playingVoiceId,
+    showVoiceTextMap,
+    handlePlayVoice,
+    handleToggleVoiceText
+  } = useGroupEmoji(id, setMessages, scrollToBottom)
 
   // 🔥 预先去重消息 - O(n) 复杂度，避免渲染时 O(n²) 的 findIndex
   const uniqueMessages = useMemo(() => {
@@ -152,91 +166,29 @@ const GroupChatDetail = () => {
     const htmlMessages = uniqueMessages.filter(msg => 
       (msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html'
     )
-    // 只保留最后3条HTML消息的ID
-    const lastThree = htmlMessages.slice(-3)
-    return new Set(lastThree.map(m => m.id))
+    // 🔥 只保留最后1条HTML消息的ID，减轻渲染压力
+    const lastOne = htmlMessages.slice(-1)
+    return new Set(lastOne.map(m => m.id))
   }, [uniqueMessages])
 
-  // 🎨 监听装饰更新（与私聊同步）
-  useEffect(() => {
-    const handleDecorationUpdate = () => {
-      setChatDecorations({
-        topBar: localStorage.getItem('chat_top_bar_image'),
-        bottomBar: localStorage.getItem('chat_bottom_bar_image'),
-        plusButton: localStorage.getItem('chat_plus_button_image'),
-        emojiButton: localStorage.getItem('chat_emoji_button_image'),
-        sendButtonNormal: localStorage.getItem('chat_send_button_normal_image'),
-        sendButtonActive: localStorage.getItem('chat_send_button_active_image')
-      })
-    }
-    window.addEventListener('decoration-updated', handleDecorationUpdate)
-    return () => window.removeEventListener('decoration-updated', handleDecorationUpdate)
-  }, [])
+  // 🔥 预缓存角色信息，避免每条消息都调用 characterService.getById -> getAll()
+  const characterCache = useMemo(() => {
+    const cache = new Map<string, any>()
+    const allChars = characterService.getAll()  // 只调用一次！
+    allChars.forEach(char => cache.set(char.id, char))
+    return cache
+  }, [messages]) // 只在消息变化时重新计算
 
-  // 🎨 加载自定义UI图标（与私聊同步）
-  useEffect(() => {
-    const loadCustomIcons = async () => {
-      try {
-        let icons = await getAllUIIcons()
-        if (Object.keys(icons).length === 0) {
-          try {
-            const saved = localStorage.getItem('ui_custom_icons')
-            if (saved) {
-              icons = JSON.parse(saved)
-            }
-          } catch (err) {
-            console.error('从localStorage恢复图标失败:', err)
-          }
-        }
-        
-        // 🌍 全局设置：应用到群聊界面（与私聊同步）
-        if (icons['global-topbar']) {
-          // 全局顶栏应用到群聊界面（如果没有单独设置）
-          if (!icons['chat-topbar-bg']) {
-            icons['chat-topbar-bg'] = icons['global-topbar']
-            console.log('🌍 应用全局顶栏到群聊界面')
-          }
-        }
-        
-        setCustomIcons(icons)
-        console.log('✅ GroupChatDetail加载自定义图标:', Object.keys(icons).length, '个')
-      } catch (error) {
-        console.error('❌ 加载自定义图标失败:', error)
-      }
-    }
-    
-    // 🎨 加载顶栏调整参数
-    const loadAdjustParams = () => {
-      const tScale = localStorage.getItem('chat-topbar-bg-scale')
-      const tX = localStorage.getItem('chat-topbar-bg-x')
-      const tY = localStorage.getItem('chat-topbar-bg-y')
-      
-      if (tScale) setTopBarScale(parseInt(tScale))
-      if (tX) setTopBarX(parseInt(tX))
-      if (tY) setTopBarY(parseInt(tY))
-    }
-    
-    loadCustomIcons()
-    loadAdjustParams()
-    
-    const handleIconsChange = () => {
-      loadCustomIcons()
-      loadAdjustParams()
-    }
-    const handleAdjust = () => {
-      loadAdjustParams()
-    }
-    window.addEventListener('ui-icons-changed', handleIconsChange)
-    window.addEventListener('uiIconsChanged', handleIconsChange)
-    window.addEventListener('iconAdjust', handleAdjust)
-    window.addEventListener('globalDecorationUpdate', handleIconsChange)
-    return () => {
-      window.removeEventListener('ui-icons-changed', handleIconsChange)
-      window.removeEventListener('uiIconsChanged', handleIconsChange)
-      window.removeEventListener('iconAdjust', handleAdjust)
-      window.removeEventListener('globalDecorationUpdate', handleIconsChange)
-    }
-  }, [])
+  // 🔥 预缓存用户信息
+  const cachedUserInfo = useMemo(() => getUserInfo(), [messages])
+
+  // 🔥 预缓存群成员信息，避免每条消息都 find
+  const memberDetailCache = useMemo(() => {
+    const cache = new Map<string, any>()
+    const group = id ? groupChatManager.getGroup(id) : null
+    group?.members?.forEach(m => cache.set(m.id, m))
+    return cache
+  }, [id, messages])
 
   useEffect(() => {
     if (!id) return
@@ -254,10 +206,15 @@ const GroupChatDetail = () => {
     // 🔥 异步加载消息（等待IndexedDB加载完成）
     const loadMessages = async () => {
       // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
-      const msgs = await groupChatManager.loadMessagesAsync(id)
-      console.log(`📦 GroupChatDetail 加载消息: ${id}, 数量=${msgs.length}`)
+      const allMsgs = await groupChatManager.loadMessagesAsync(id)
+      // 🔥 限制初始显示的消息数量，避免消息太多导致卡顿
+      const MAX_INITIAL_MESSAGES = 100  // 🔥 显示最后100条消息
+      const msgs = allMsgs.length > MAX_INITIAL_MESSAGES 
+        ? allMsgs.slice(-MAX_INITIAL_MESSAGES) 
+        : allMsgs
+      console.log(`📦 GroupChatDetail 加载消息: ${id}, 显示=${msgs.length}/${allMsgs.length}`)
       setMessages(msgs)
-      // 滚动由 useGroupPagination hook 处理
+      // 🔥 滚动由 callback ref 自动处理，这里不需要手动滚动
     }
     
     loadMessages()
@@ -269,7 +226,10 @@ const GroupChatDetail = () => {
         console.log('🚫 [storage事件] AI回复中，忽略storage事件')
         return
       }
-      const updatedMsgs = groupChatManager.getMessages(id)
+      const allMsgs = groupChatManager.getMessages(id)
+      // 🔥 同样限制消息数量
+      const MAX_DISPLAY = 100
+      const updatedMsgs = allMsgs.length > MAX_DISPLAY ? allMsgs.slice(-MAX_DISPLAY) : allMsgs
       setMessages(updatedMsgs)
     }
     
@@ -461,135 +421,9 @@ const GroupChatDetail = () => {
     }).filter(Boolean)
   }
 
-  // 长按开始
-  const handleLongPressStart = (msg: GroupMessage, event?: React.MouseEvent | React.TouchEvent) => {
-    longPressTimer.current = window.setTimeout(() => {
-      // 获取点击位置
-      let x = 0, y = 0
-      if (event) {
-        if ('touches' in event && event.touches[0]) {
-          x = event.touches[0].clientX
-          y = event.touches[0].clientY
-        } else if ('clientX' in event) {
-          x = event.clientX
-          y = event.clientY
-        }
-      }
-      
-      setMenuMessage(msg)
-      setMenuPosition({ x, y })
-      setShowMessageMenu(true)
-    }, 500)
-  }
-
-  const handleLongPressEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
-
-  // 撤回消息
-  const handleRecallMessage = () => {
-    if (!menuMessage || !id) return
-    
-    // 检查是否可以撤回
-    const canRecall = !menuMessage.transfer && 
-                     (!menuMessage.messageType ||
-                     menuMessage.messageType === 'text' ||
-                     menuMessage.messageType === 'voice' ||
-                     menuMessage.messageType === 'photo' ||
-                     menuMessage.messageType === 'location')
-    
-    if (!canRecall) {
-      alert('转账等特殊消息不支持撤回')
-      return
-    }
-    
-    groupChatManager.recallMessage(id, menuMessage.id, '我')
-    setShowMessageMenu(false)
-    setMenuMessage(null)
-  }
-
-  // 删除消息
-  const handleDeleteMessage = () => {
-    if (!menuMessage || !id) return
-    
-    const confirmed = window.confirm('确定要永久删除这条消息吗？删除后无法恢复。')
-    if (!confirmed) return
-    
-    console.log('🗑️ 永久删除群聊消息:', menuMessage.id)
-    
-    const currentMessages = groupChatManager.getMessages(id)
-    const updatedMessages = currentMessages.filter(m => m.id !== menuMessage.id)
-    groupChatManager.replaceAllMessages(id, updatedMessages)
-    
-    setShowMessageMenu(false)
-    setMenuMessage(null)
-    console.log('✅ 消息已永久删除')
-  }
-
-  // 复制消息
-  const handleCopyMessage = () => {
-    if (!menuMessage) return
-    navigator.clipboard.writeText(menuMessage.content)
-    alert('已复制到剪贴板')
-    setShowMessageMenu(false)
-  }
-
-  // 引用消息
-  const handleQuoteMessage = () => {
-    if (!menuMessage) return
-    setQuotedMessage(menuMessage)
-    setShowMessageMenu(false)
-    inputRef.current?.focus()
-  }
-
-  // 发送表情包
-  const handleSelectEmoji = (emoji: Emoji) => {
-    if (!id) return
-
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: '我',
-      userAvatar: getMemberAvatar('user'),
-      content: emoji.description,
-      type: 'emoji',
-      timestamp: Date.now(),
-      emojiUrl: emoji.url,
-      emojiDescription: emoji.description
-    })
-
-    // 🔥 不再手动刷新消息列表，让storage事件处理，避免重复渲染
-    // const updatedMsgs = groupChatManager.getMessages(id)
-    // setMessages(updatedMsgs)
-    
-    setTimeout(scrollToBottom, 100)
-  }
-
-  // ===== 新消息类型处理函数 =====
-
   // 处理图片选择
   const handleImageSelect = () => {
     setShowPhotoInput(true)
-  }
-
-  // 确认发送图片
-  const handleConfirmPhoto = (description: string) => {
-    if (!id) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: `[图片: ${description}]`,
-      type: 'image',
-      messageType: 'photo',
-      photoDescription: description
-    })
-    setShowPhotoInput(false)
-    setTimeout(scrollToBottom, 100)
   }
 
   // 处理拍照
@@ -597,60 +431,9 @@ const GroupChatDetail = () => {
     setShowCameraInput(true)
   }
 
-  // 确认发送拍照
-  const handleConfirmCamera = (description: string) => {
-    if (!id) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: `[拍照: ${description}]`,
-      type: 'image',
-      messageType: 'photo',
-      photoDescription: description
-    })
-    setShowCameraInput(false)
-    setTimeout(scrollToBottom, 100)
-  }
-
   // 处理转账开始 - 先选择成员
   const handleTransferStart = () => {
     setShowMemberSelect(true)
-  }
-
-  // 处理选择转账对象
-  const handleSelectTransferMember = (toUserId: string, toUserName: string) => {
-    setSelectedTransferMember({ id: toUserId, name: toUserName })
-    setShowMemberSelect(false)
-    setShowTransferSender(true)
-  }
-
-  // 处理发送转账
-  const handleSendTransfer = (amount: number, message: string) => {
-    if (!id || !selectedTransferMember) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: `[转账] 给${selectedTransferMember.name}转账¥${amount}`,
-      type: 'text',
-      messageType: 'transfer',
-      transfer: {
-        amount: amount,
-        message: message,
-        toUserId: selectedTransferMember.id,
-        toUserName: selectedTransferMember.name,
-        status: 'pending'
-      }
-    })
-    
-    setShowTransferSender(false)
-    setSelectedTransferMember(null)
-    setTimeout(scrollToBottom, 100)
   }
 
   // 处理位置选择
@@ -658,289 +441,9 @@ const GroupChatDetail = () => {
     setShowLocationInput(true)
   }
 
-  // 确认发送位置
-  const handleConfirmLocation = (name: string, address: string) => {
-    if (!id) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: `[位置] ${name}`,
-      type: 'text',
-      messageType: 'location',
-      location: {
-        name: name,
-        address: address
-      }
-    })
-    setShowLocationInput(false)
-    setTimeout(scrollToBottom, 100)
-  }
-
   // 处理语音选择
   const handleVoiceSelect = () => {
     setShowVoiceInput(true)
-  }
-
-  // 确认发送语音
-  const handleConfirmVoice = (voiceText: string) => {
-    if (!id) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: voiceText,
-      type: 'voice',
-      messageType: 'voice',
-      voiceText: voiceText,
-      duration: Math.ceil(voiceText.length / 5) // 模拟时长
-    })
-    setShowVoiceInput(false)
-    setTimeout(scrollToBottom, 100)
-  }
-
-  // 发送红包
-  const handleSendRedPacket = (totalAmount: number, count: number, blessing: string) => {
-    if (!id) return
-    
-    const userInfo = getUserInfo()
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: userInfo.realName,
-      userAvatar: '',
-      content: `[红包] ${blessing}`,
-      type: 'text',
-      messageType: 'redPacket',
-      redPacket: {
-        totalAmount,
-        count,
-        blessing,
-        received: [],
-        remaining: totalAmount,
-        remainingCount: count
-      }
-    } as any)
-    
-    setShowRedPacketSender(false)
-    setTimeout(scrollToBottom, 100)
-  }
-
-  // 用户接收转账
-  const handleReceiveTransfer = (messageId: number) => {
-    if (!id) return
-    
-    const allMessages = groupChatManager.getMessages(id)
-    const transferMsg = allMessages.find(m => 
-      m.id === messageId.toString() || 
-      m.id === `msg_${messageId}` ||
-      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
-    )
-    
-    if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
-    
-    const transfer = (transferMsg as any).transfer
-    if (!transfer || transfer.status !== 'pending') return
-    
-    // 检查是否是发给用户的
-    if (transfer.toUserId !== 'user') {
-      alert('这不是发给你的转账')
-      return
-    }
-    
-    const fromName = transferMsg.userName || '未知'
-    const amount = transfer.amount || 0
-    
-    // 更新转账状态
-    const updatedMessages = allMessages.map(msg => 
-      msg.id === transferMsg.id
-        ? { ...msg, transfer: { ...transfer, status: 'received' } }
-        : msg
-    )
-    
-    // 添加系统消息
-    const userInfo = getUserInfo()
-    const systemMsg = groupChatManager.addMessage(id, {
-      userId: 'system',
-      userName: '系统',
-      userAvatar: '',
-      content: `${userInfo.realName}已接收${fromName}的转账 ￥${amount.toFixed(2)}`,
-      type: 'system'
-    })
-    updatedMessages.push(systemMsg)
-    
-    groupChatManager.replaceAllMessages(id, updatedMessages as any)
-    setMessages([...updatedMessages])
-    setTimeout(scrollToBottom, 100)
-  }
-  
-  // 用户退还转账
-  const handleRejectTransfer = (messageId: number) => {
-    if (!id) return
-    
-    const allMessages = groupChatManager.getMessages(id)
-    const transferMsg = allMessages.find(m => 
-      m.id === messageId.toString() || 
-      m.id === `msg_${messageId}` ||
-      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
-    )
-    
-    if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
-    
-    const transfer = (transferMsg as any).transfer
-    if (!transfer || transfer.status !== 'pending') return
-    
-    // 检查是否是发给用户的
-    if (transfer.toUserId !== 'user') {
-      alert('这不是发给你的转账')
-      return
-    }
-    
-    const fromName = transferMsg.userName || '未知'
-    const amount = transfer.amount || 0
-    
-    // 更新转账状态
-    const updatedMessages = allMessages.map(msg => 
-      msg.id === transferMsg.id
-        ? { ...msg, transfer: { ...transfer, status: 'refunded' } }
-        : msg
-    )
-    
-    // 添加系统消息
-    const userInfo = getUserInfo()
-    const systemMsg = groupChatManager.addMessage(id, {
-      userId: 'system',
-      userName: '系统',
-      userAvatar: '',
-      content: `${userInfo.realName}已退还${fromName}的转账 ￥${amount.toFixed(2)}`,
-      type: 'system'
-    })
-    updatedMessages.push(systemMsg)
-    
-    groupChatManager.replaceAllMessages(id, updatedMessages as any)
-    setMessages([...updatedMessages])
-    setTimeout(scrollToBottom, 100)
-  }
-
-  // 打开红包（抢红包） - 显示拆红包弹窗
-  const handleOpenRedPacket = (messageId: number) => {
-    if (!id) return
-    
-    const messages = groupChatManager.getMessages(id)
-    const redPacketMsg = messages.find(m => m.id === messageId.toString() || m.id === `msg_${messageId}`)
-    
-    if (!redPacketMsg || !redPacketMsg.redPacket) return
-    
-    // 检查是否已领取
-    const hasReceived = redPacketMsg.redPacket.received.some(r => r.userId === 'user')
-    
-    if (hasReceived) {
-      // 已领取，显示详情页
-      setDetailRedPacketId(redPacketMsg.id)
-      setShowRedPacketDetail(true)
-      return
-    }
-
-    // 检查是否已抢完
-    if (redPacketMsg.redPacket.remainingCount <= 0 || redPacketMsg.redPacket.remaining <= 0) {
-      // 已抢完，显示详情页
-      setDetailRedPacketId(redPacketMsg.id)
-      setShowRedPacketDetail(true)
-      return
-    }
-
-    // 打开拆红包弹窗
-    setOpenRedPacketId(messageId)
-  }
-
-  // 确认拆开红包
-  const handleConfirmOpenRedPacket = () => {
-    if (!id || !openRedPacketId) return
-
-    const messageId = openRedPacketId
-    const messages = groupChatManager.getMessages(id)
-    const redPacketMsg = messages.find(m => m.id === messageId.toString() || m.id === `msg_${messageId}`)
-    
-    if (!redPacketMsg || !redPacketMsg.redPacket) {
-      setOpenRedPacketId(null)
-      return
-    }
-    
-    const { redPacket } = redPacketMsg
-    
-    // 计算领取金额（简单的二倍均值算法）
-    let amount = 0
-    if (redPacket.remainingCount === 1) {
-      amount = Math.round(redPacket.remaining * 100) / 100
-    } else {
-      const max = (redPacket.remaining / redPacket.remainingCount) * 2
-      amount = Math.round(Math.random() * max * 100) / 100
-      if (amount < 0.01) amount = 0.01
-    }
-    
-    // 更新红包状态
-    const userInfo = getUserInfo()
-    const userAvatar = getMemberAvatar('user')
-    const userName = userInfo.nickname || userInfo.realName || '用户'
-    console.log('🖼️ [用户红包] 获取用户信息:', {
-      userName,
-      userAvatar: userAvatar || '❗无头像',
-      userInfo
-    })
-    
-    const updatedRedPacket = {
-      ...redPacket,
-      remaining: Math.round((redPacket.remaining - amount) * 100) / 100,
-      remainingCount: redPacket.remainingCount - 1,
-      received: [
-        ...redPacket.received,
-        {
-          userId: 'user',
-          userName: userName,
-          userAvatar: userAvatar,
-          amount,
-          timestamp: Date.now()
-        }
-      ]
-    }
-    
-    console.log('💾 [用户红包] 领取记录:', updatedRedPacket.received[updatedRedPacket.received.length - 1])
-    
-    const updatedMessages = messages.map(msg => 
-      msg.id === redPacketMsg.id
-        ? { ...msg, redPacket: updatedRedPacket }
-        : msg
-    )
-    
-    // 添加系统提示（显示金额，让AI可见）
-    const systemMsg = groupChatManager.addMessage(id, {
-      userId: 'system',
-      userName: '系统',
-      userAvatar: '',
-      content: `${userName}领取了${redPacketMsg.userName}的红包 ￥${amount.toFixed(2)}`,
-      type: 'system'
-    })
-    updatedMessages.push(systemMsg)
-    
-    console.log('✅ [用户红包] 系统消息:', systemMsg.content)
-    
-    // 保存更新
-    groupChatManager.replaceAllMessages(id, updatedMessages)
-    
-    // 立即刷新UI
-    flushSync(() => {
-      setMessages([...updatedMessages])
-    })
-    
-    // 关闭拆红包弹窗，打开详情页
-    setOpenRedPacketId(null)
-    setTimeout(() => {
-      setDetailRedPacketId(redPacketMsg.id)
-      setShowRedPacketDetail(true)
-    }, 300)
   }
 
   // 重回功能：删除最后一轮AI回复并重新生成
@@ -994,8 +497,18 @@ const GroupChatDetail = () => {
     
     console.log('✅ [群聊AI] 开始处理AI回复...')
     setIsAiTyping(true)
-    isAIReplying.current = true  // 🔥 设置AI回复标志
-    console.log('🔒 [AI回复] 已设置isAIReplying标志，storage事件将被忽略')
+    isAIReplying.current = true
+    setBatchMode(true)
+    
+    // 🔥 强制让 UI 先渲染（显示"正在输入"），再做数据准备
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve(undefined)
+        })
+      })
+    })
+    
     try {
       // 获取群聊信息
       const group = groupChatManager.getGroup(id)
@@ -1011,34 +524,55 @@ const GroupChatDetail = () => {
       // 🔥 不再删除上一轮的AI回复，直接接着聊
       console.log(`📝 [AI回复] 接着当前对话继续，消息数: ${latestMessages.length}`)
       
-      // 构建成员列表（包含角色和头衔）
+      // 🔥 让出主线程，避免卡顿
+      await new Promise(r => setTimeout(r, 0))
+      
+      // 构建成员列表（包含角色和头衔）- 使用缓存的角色信息
+      const allChars = characterService.getAll()  // 🔥 只调用一次
+      const charMap = new Map(allChars.map(c => [c.id, c]))
+      
       const members: GroupMember[] = group.memberIds.map(memberId => {
         const memberDetail = group.members?.find(m => m.id === memberId)
         
         if (memberId === 'user') {
           const userInfo = getUserInfo()
+          const userAliases = [userInfo.nickname, userInfo.realName].filter(Boolean) as string[]
           return {
             id: 'user',
             name: userInfo.nickname || userInfo.realName,
             description: '',
             type: 'user',
             role: memberDetail?.role,
-            title: memberDetail?.title
+            title: memberDetail?.title,
+            aliases: userAliases
           }
         }
-        const char = characterService.getById(memberId)
+        const char = charMap.get(memberId)  // 🔥 使用缓存
+        // 🔥 收集所有可能的名字：realName, nickname, 以及去掉后缀的版本
+        const charAliases: string[] = []
+        if (char?.realName) charAliases.push(char.realName)
+        if (char?.nickname) charAliases.push(char.nickname)
+        // 去掉常见后缀（如 "2.0", "v2" 等）的版本也加入
+        charAliases.forEach(name => {
+          const stripped = name.replace(/[\s]*(v?\d+(\.\d+)?|[二三四五六七八九十]+代?)$/i, '').trim()
+          if (stripped && stripped !== name && !charAliases.includes(stripped)) {
+            charAliases.push(stripped)
+          }
+        })
         return {
           id: memberId,
           name: char?.realName || char?.nickname || '未知',
           description: char?.personality || '',
           type: 'character',
           role: memberDetail?.role,
-          title: memberDetail?.title
+          title: memberDetail?.title,
+          aliases: charAliases
         }
       })
       
-      // 构建消息历史（使用最新的消息列表）
-      const chatMessages = latestMessages.map(msg => {
+      // 构建消息历史（只取最近50条，避免处理太慢）
+      const recentMessages = latestMessages.slice(-50)
+      const chatMessages = recentMessages.map(msg => {
         // 如果是表情包消息，标注出来
         if (msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl) {
           const description = msg.emojiDescription || msg.content || '表情包'
@@ -1058,10 +592,7 @@ const GroupChatDetail = () => {
         }
       })
       
-      console.log(`📝 传给AI的消息历史 (${chatMessages.length}条):`)
-      chatMessages.forEach((msg, idx) => {
-        console.log(`  ${idx + 1}. ${msg.userName}: ${msg.content}`)
-      })
+      console.log(`📝 传给AI的消息历史: ${chatMessages.length}条`)
       
       // 🎨 加载表情包列表
       const emojis = await getEmojis()
@@ -1117,7 +648,8 @@ const GroupChatDetail = () => {
           parsedOldSummary || undefined,
           minReplyCount,
           group.lorebookId,  // 传递世界书ID
-          group.enableTheatreCards ?? false  // 中插HTML小剧场
+          group.enableTheatreCards ?? false,  // 中插HTML小剧场
+          group.plotSummary  // 🔥 剧情摘要（避免 AI 失忆）
         )
       } else {
         // 🎬 无总结：正常生成剧本
@@ -1133,7 +665,8 @@ const GroupChatDetail = () => {
           undefined,  // 不使用总结
           minReplyCount,
           group.lorebookId,  // 传递世界书ID
-          group.enableTheatreCards ?? false  // 中插HTML小剧场
+          group.enableTheatreCards ?? false,  // 中插HTML小剧场
+          group.plotSummary  // 🔥 剧情摘要（避免 AI 失忆）
         )
       }
       
@@ -1182,30 +715,18 @@ const GroupChatDetail = () => {
               
               currentMessages.push(redPacketMsg)
               console.log(`🧧 [小剧场] ${sender.name} 发送红包 ¥${amount}`)
-              
-              // 立即刷新UI
-              flushSync(() => setMessages([...currentMessages]))
-              scrollToBottom()
             }
           }
           // 可以添加更多模板类型的处理...
         }
       }
       
-      // 逐条添加AI回复（第一条立即显示，后续间隔1.5秒）
-      console.log(`🎬 [AI回复] 开始添加${script.actions.length}条消息，延迟显示`)
+      // 🔥 批量处理AI回复（不限制条数，但优化渲染）
+      const actionsToProcess = script.actions
+      console.log(`🎬 [AI回复] 开始批量处理${actionsToProcess.length}条消息`)
       
-      for (let i = 0; i < script.actions.length; i++) {
-        const action = script.actions[i]
-        
-        // 第一条消息立即显示，后续消息延迟1.5秒
-        if (i > 0) {
-          console.log(`⏰ [AI回复] 等待1.5秒后显示第${i + 1}条消息...`)
-          await new Promise(resolve => setTimeout(resolve, 1500))
-          console.log(`✅ [AI回复] 延迟结束，现在显示第${i + 1}条消息`)
-        } else {
-          console.log(`⚡ [AI回复] 立即显示第1条消息`)
-        }
+      for (let i = 0; i < actionsToProcess.length; i++) {
+        const action = actionsToProcess[i]
         
         // 🎭 处理导演视角的小剧场HTML（独立于角色消息）
         if (action.actorName === '导演') {
@@ -1225,16 +746,26 @@ const GroupChatDetail = () => {
             } as any)
             
             currentMessages.push(theatreMsg)
-            flushSync(() => setMessages([...currentMessages]))
-            scrollToBottom()
           }
           continue  // 导演消息处理完毕，跳过后续角色消息处理
         }
         
-        // 查找成员
-        const member = members.find(m => m.name === action.actorName && m.type === 'character')
+        // 查找成员 - 🔥 支持多种名字匹配（realName、nickname、去后缀版本）
+        const member = members.find(m => {
+          if (m.type !== 'character') return false
+          // 优先检查主名字
+          if (m.name === action.actorName) return true
+          // 检查所有别名
+          if (m.aliases?.includes(action.actorName)) return true
+          // 模糊匹配：去掉AI返回名字的后缀再匹配
+          const strippedActorName = action.actorName.replace(/[\s]*(v?\d+(\.\d+)?|[二三四五六七八九十]+代?)$/i, '').trim()
+          if (strippedActorName !== action.actorName) {
+            if (m.name === strippedActorName || m.aliases?.includes(strippedActorName)) return true
+          }
+          return false
+        })
         if (!member) {
-          console.warn('找不到成员:', action.actorName)
+          console.warn('找不到成员:', action.actorName, '| 可用成员:', members.filter(m => m.type === 'character').map(m => `${m.name}(${m.aliases?.join('/')})`).join(', '))
           continue
         }
         
@@ -1341,11 +872,7 @@ const GroupChatDetail = () => {
               quotedMessage: quotedMsg
             })
             
-            // 🔥 添加到UI并立即渲染
             currentMessages.push(emojiMsg)
-            flushSync(() => setMessages([...currentMessages]))
-            scrollToBottom()
-            
             console.log(`✅ [表情] ${member.name} 发送了表情包: ${emoji.description}`)
           } else {
             console.warn('未找到匹配的表情包:', emojiKey)
@@ -1373,6 +900,18 @@ const GroupChatDetail = () => {
           
           // 从内容中移除指令部分
           content = content.replace(/\[踢出:.+?\]/, '').trim()
+          hasCommand = true
+        }
+
+        // 检查退群指令：[退群]
+        if (content.includes('[退群]')) {
+          console.log(`🚪 [AI指令] ${member.name} 主动退群`)
+          
+          // 移除该成员（isKicked=false表示主动退出）
+          groupChatManager.removeMember(id, member.id, false, member.name)
+          
+          // 从内容中移除指令部分
+          content = content.replace(/\[退群\]/, '').trim()
           hasCommand = true
         }
         
@@ -1448,11 +987,6 @@ const GroupChatDetail = () => {
             currentMessages.length = 0
             currentMessages.push(...updatedMessages)
             
-            // 立即刷新UI
-            flushSync(() => {
-              setMessages([...currentMessages])
-            })
-            
             console.log(`✅ [转账] ${member.name} 已接收转账`)
           }
           
@@ -1500,11 +1034,6 @@ const GroupChatDetail = () => {
             groupChatManager.replaceAllMessages(id, updatedMessages as any)
             currentMessages.length = 0
             currentMessages.push(...updatedMessages)
-            
-            // 立即刷新UI
-            flushSync(() => {
-              setMessages([...currentMessages])
-            })
             
             console.log(`✅ [转账] ${member.name} 已退还转账`)
           }
@@ -1590,11 +1119,6 @@ const GroupChatDetail = () => {
             currentMessages.length = 0
             currentMessages.push(...updatedMessages)
             
-            // 立即刷新UI
-            flushSync(() => {
-              setMessages([...currentMessages])
-            })
-            
             console.log(`✅ [红包] ${member.name} 已领取红包 ¥${amount.toFixed(2)}`)
           }
           
@@ -1630,10 +1154,7 @@ const GroupChatDetail = () => {
               }
             } as any)
             
-            // 🔥 添加到UI并立即渲染
             currentMessages.push(transferMsg)
-            flushSync(() => setMessages([...currentMessages]))
-            scrollToBottom()
           }
           
           content = content.replace(/\[转账:[^:]+:\d+(?:\.\d+)?:.+?\]/, '').trim()
@@ -1685,10 +1206,7 @@ const GroupChatDetail = () => {
             duration: Math.ceil(textToRead.length / 5)
           } as any)
           
-          // 🔥 添加到UI并立即渲染
           currentMessages.push(voiceMsg)
-          flushSync(() => setMessages([...currentMessages]))
-          scrollToBottom()
           
           content = content.replace(/\[语音:.+?\]/, '').trim()
           hasCommand = true
@@ -1711,10 +1229,7 @@ const GroupChatDetail = () => {
             photoDescription: description
           } as any)
           
-          // 🔥 添加到UI并立即渲染
           currentMessages.push(photoMsg)
-          flushSync(() => setMessages([...currentMessages]))
-          scrollToBottom()
           
           content = content.replace(/\[图片:.+?\]/, '').trim()
           hasCommand = true
@@ -1740,10 +1255,7 @@ const GroupChatDetail = () => {
             }
           } as any)
           
-          // 🔥 添加到UI并立即渲染
           currentMessages.push(locationMsg)
-          flushSync(() => setMessages([...currentMessages]))
-          scrollToBottom()
           
           content = content.replace(/\[位置:.+?\]/, '').trim()
           hasCommand = true
@@ -1775,10 +1287,7 @@ const GroupChatDetail = () => {
             }
           } as any)
           
-          // 🔥 添加到UI并立即渲染
           currentMessages.push(redPacketMsg)
-          flushSync(() => setMessages([...currentMessages]))
-          scrollToBottom()
           
           content = content.replace(/\[红包:\d+(?:\.\d+)?:\d+:.+?\]/, '').trim()
           hasCommand = true
@@ -1812,8 +1321,6 @@ const GroupChatDetail = () => {
             } as any)
             
             currentMessages.push(pollMsg)
-            flushSync(() => setMessages([...currentMessages]))
-            scrollToBottom()
             
             content = content.replace(/\[发起投票:[^\]]+\]/, '').trim()
             hasCommand = true
@@ -1849,7 +1356,6 @@ const GroupChatDetail = () => {
                   type: 'system'
                 })
                 currentMessages.push(voteSystemMsg)
-                flushSync(() => setMessages([...currentMessages]))
               }
             }
           }
@@ -1876,7 +1382,6 @@ const GroupChatDetail = () => {
               
               // 更新投票消息
               groupChatManager.replaceAllMessages(id, currentMessages)
-              flushSync(() => setMessages([...currentMessages]))
             }
           }
           
@@ -1962,31 +1467,41 @@ const GroupChatDetail = () => {
           })
         }
         
-        // 🔥 追加到本地数组并立即更新UI
+        // 🔥 追加到本地数组
         currentMessages.push(newMessage)
-        console.log(`📨 [AI回复] 第${i + 1}条消息已添加到UI: ${action.actorName} - ${action.content?.substring(0, 20)}`)
-        console.log(`📊 [AI回复] 当前UI显示消息总数: ${currentMessages.length}`)
+        console.log(`📨 [AI回复] 第${i + 1}条消息已添加: ${action.actorName}`)
         
-        // 使用flushSync强制同步渲染
-        flushSync(() => {
-          setMessages([...currentMessages])
-        })
+        // 🔥 使用函数式更新，只追加新消息，避免所有消息重新渲染
+        setMessages(prev => [...prev, newMessage])
+        scrollToBottom(false, true)
         
-        // 滚动到底部
-        scrollToBottom()
+        // 🔥 添加更长的延迟（800-1500ms），让消息一条条出来更真实
+        if (i < actionsToProcess.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+        }
       }
       
-      // 🔥 AI回复完成，从数据库重新读取完整消息列表并保存
-      const finalMessages = groupChatManager.getMessages(id)
-      console.log(`💾 [AI回复完成] 最终消息数: ${finalMessages.length}`)
-      groupChatManager.replaceAllMessages(id, finalMessages)
-      setMessages(finalMessages)
+      // 🔥 所有消息处理完成
+      console.log(`📊 [AI回复完成] 共添加 ${actionsToProcess.length} 条消息`)
+      
+      // 🔥 保存 AI 生成的剧情摘要（用于下次回复时作为背景，避免 AI 失忆）
+      if (script.relationships || script.plot) {
+        const plotSummary = {
+          relationships: script.relationships || '',
+          plot: script.plot || '',
+          updatedAt: Date.now()
+        }
+        groupChatManager.updateGroup(id, { plotSummary })
+        console.log(`📝 [剧情摘要] 已保存: ${script.plot?.substring(0, 50)}...`)
+      }
+      
+      console.log(`💾 [AI回复完成] 当前消息数: ${currentMessages.length}`)
       
       // 🔥 AI回复完成后，后台生成/更新总结（如果开启了智能总结）
       if (smartSummaryEnabled) {
-        const currentMessages = groupChatManager.getMessages(id)
+        const summaryMessages = groupChatManager.getMessages(id)
         // 统计用户发的消息数量（按轮数计算）
-        const userMessageCount = currentMessages.filter(m => m.userId === 'user').length
+        const userMessageCount = summaryMessages.filter(m => m.userId === 'user').length
         const lastSummaryUserMessageCount = group.smartSummary?.lastSummaryUserMessageCount || 0
         const triggerInterval = group.smartSummary?.triggerInterval || 10
         
@@ -2045,8 +1560,12 @@ const GroupChatDetail = () => {
       console.error('✅ AI回复失败:', error)
     } finally {
       setIsAiTyping(false)
-      isAIReplying.current = false  // 🔥 清除AI回复标志
-      console.log('🔓 [AI回复] 已清除isAIReplying标志，storage事件恢复响应')
+      setBatchMode(false)  // 🔥 关闭批量模式
+      // 🔥 延迟清除AI回复标志，确保异步保存完成后再响应storage事件
+      setTimeout(() => {
+        isAIReplying.current = false
+        console.log('🔓 [AI回复] 已清除isAIReplying标志，storage事件恢复响应')
+      }, 500)
     }
   }
 
@@ -2072,7 +1591,10 @@ const GroupChatDetail = () => {
     })
     
     // 🔥 手动刷新消息列表（storage事件只在其他标签页触发，同一标签页需要手动刷新）
-    const updatedMsgs = groupChatManager.getMessages(id)
+    const allMsgs = groupChatManager.getMessages(id)
+    // 🔥 限制显示的消息数量
+    const MAX_DISPLAY = 100
+    const updatedMsgs = allMsgs.length > MAX_DISPLAY ? allMsgs.slice(-MAX_DISPLAY) : allMsgs
     setMessages(updatedMsgs)
     
     setInputText('')
@@ -2085,7 +1607,7 @@ const GroupChatDetail = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 soft-page-enter">
       {/* 顶部导航 - 与私聊同步美化设置 */}
       <div className="relative glass-effect rounded-b-[20px]">
         {/* 顶栏装饰背景 */}
@@ -2131,8 +1653,14 @@ const GroupChatDetail = () => {
         </div>
       </div>
 
-      {/* 消息列表 - 使用分页加载 */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-3">
+      {/* 消息列表 */}
+      <div 
+        ref={scrollContainerRef} 
+        className="flex-1 overflow-y-auto px-4 py-3"
+      >
+        {/* 🔥 上方占位符（虚拟列表） */}
+        {offsetTop > 0 && <div style={{ height: offsetTop }} />}
+        
         {/* 加载更多提示 */}
         {hasMoreMessages && (
           <div className="flex justify-center py-3">
@@ -2207,7 +1735,7 @@ const GroupChatDetail = () => {
               return (
                 <div key={msg.id} className="flex justify-center my-4 px-4">
                   <div 
-                    className="w-full max-w-[310px] rounded-xl overflow-hidden"
+                    className="w-full max-w-[310px]"
                     dangerouslySetInnerHTML={{ __html: msg.content }}
                   />
                 </div>
@@ -2343,15 +1871,16 @@ const GroupChatDetail = () => {
             }
 
             const isSent = msg.userId === 'user'
-            const char = msg.userId !== 'user' ? characterService.getById(msg.userId) : null
+            // 🔥 使用缓存的角色信息，避免每条消息都调用 characterService.getById
+            const char = msg.userId !== 'user' ? characterCache.get(msg.userId) : null
 
-            // 计算显示名称：网名 + 角色 + 头衔
-            const memberDetail = currentGroup?.members?.find(m => m.id === msg.userId)
+            // 🔥 使用缓存的成员信息
+            const memberDetail = memberDetailCache.get(msg.userId)
 
             let baseName: string
             if (msg.userId === 'user') {
-              const userInfo = getUserInfo()
-              baseName = userInfo.nickname || userInfo.realName || '我'
+              // 🔥 使用缓存的用户信息
+              baseName = cachedUserInfo.nickname || cachedUserInfo.realName || '我'
             } else {
               baseName = char?.nickname || char?.realName || msg.userName
             }
@@ -2425,6 +1954,9 @@ const GroupChatDetail = () => {
             </div>
           </div>
         )}
+        
+        {/* 🔥 下方占位符（虚拟列表） */}
+        {offsetBottom > 0 && <div style={{ height: offsetBottom }} />}
       </div>
 
       {/* 底部输入栏 */}
@@ -2461,21 +1993,18 @@ const GroupChatDetail = () => {
           timestamp: menuMessage.timestamp || Date.now()
         } as any : null}
         menuPosition={menuPosition}
-        onClose={() => {
-          setShowMessageMenu(false)
-          setMenuMessage(null)
-        }}
+        onClose={closeMessageMenu}
         onCopy={handleCopyMessage}
         onDelete={handleDeleteMessage}
         onRecall={handleRecallMessage}
-        onQuote={handleQuoteMessage}
+        onQuote={() => handleQuoteMessage(inputRef)}
         onEdit={() => {
           alert('群聊暂不支持编辑消息')
-          setShowMessageMenu(false)
+          closeMessageMenu()
         }}
         onBatchDelete={() => {
           alert('群聊暂不支持批量删除')
-          setShowMessageMenu(false)
+          closeMessageMenu()
         }}
       />
 
@@ -2504,10 +2033,7 @@ const GroupChatDetail = () => {
       {/* 转账发送界面 */}
       <TransferSender
         show={showTransferSender}
-        onClose={() => {
-          setShowTransferSender(false)
-          setSelectedTransferMember(null)
-        }}
+        onClose={cancelTransfer}
         onSend={handleSendTransfer}
         characterName={selectedTransferMember?.name}
       />
@@ -2594,7 +2120,7 @@ const GroupChatDetail = () => {
         return (
           <RedPacketOpenModal
             show={true}
-            onClose={() => setOpenRedPacketId(null)}
+            onClose={closeRedPacketModal}
             onOpen={handleConfirmOpenRedPacket}
             senderName={msg.userName}
             senderAvatar={msg.userAvatar || getMemberAvatar(msg.userId)}
@@ -2611,10 +2137,7 @@ const GroupChatDetail = () => {
         return (
           <RedPacketDetailModal
             isOpen={true}
-            onClose={() => {
-              setShowRedPacketDetail(false)
-              setDetailRedPacketId(null)
-            }}
+            onClose={closeRedPacketDetail}
             blessing={msg.redPacket.blessing}
             senderName={msg.userName}
             senderAvatar={msg.userAvatar || getMemberAvatar(msg.userId)}

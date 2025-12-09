@@ -104,8 +104,37 @@ export async function setItem(store: string, key: string, value: any): Promise<v
       
       cleanedValue = JSON.parse(jsonString)
     } catch (cleanError) {
-      console.warn('⚠️ [IndexedDB] 清理数据失败，使用原始数据:', cleanError)
-      // 如果清理失败，仍然尝试保存原始数据
+      // 🔥 数据太大，尝试压缩后再保存
+      if (cleanError instanceof RangeError) {
+        console.warn('⚠️ [IndexedDB] 数据太大，尝试压缩...')
+        try {
+          // 如果是数组（消息列表），只保留最近300条，并移除大型数据
+          if (Array.isArray(value)) {
+            const compressed = value.slice(-300).map((item: any) => {
+              if (!item) return item
+              const copy = { ...item }
+              // 移除 base64 图片数据（太大）
+              if (copy.emojiUrl?.startsWith('data:')) {
+                copy.emojiUrl = '[图片数据已压缩]'
+              }
+              if (copy.content?.startsWith('data:image')) {
+                copy.content = '[图片]'
+              }
+              return copy
+            })
+            cleanedValue = compressed
+            console.log(`📦 [IndexedDB] 压缩后保存 ${compressed.length} 条`)
+          } else {
+            console.warn('⚠️ [IndexedDB] 无法压缩，跳过保存')
+            return
+          }
+        } catch {
+          console.warn('⚠️ [IndexedDB] 压缩失败，跳过保存')
+          return
+        }
+      } else {
+        console.warn('⚠️ [IndexedDB] 清理数据失败，使用原始数据:', cleanError)
+      }
     }
     
     const db = await initDB()

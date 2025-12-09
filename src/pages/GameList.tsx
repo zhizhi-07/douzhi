@@ -66,7 +66,7 @@ const GameList = () => {
   ]
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f5f7] text-gray-900 font-sans">
+    <div className="h-screen flex flex-col bg-[#f5f5f7] text-gray-900 font-sans soft-page-enter">
       {/* 顶部栏 - 极简白底黑字 */}
       <div className="bg-white shadow-sm z-10">
         <StatusBar theme="light" />

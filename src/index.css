@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 全局字体设置 */
+* {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
 /* iOS全屏适配 */
 html,
 body,
@@ -940,4 +945,166 @@ input[type="range"].slider::-moz-range-thumb:active {
 
 .animate-castle {
   animation: castle-rise 4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ==========================================================================
+   全局柔和动画应用 (Global Soft Animation)
+   自动为页面元素添加柔和的过渡效果
+   ========================================================================== */
+
+/* 页面容器自动淡入 */
+.h-full.flex.flex-col,
+.min-h-screen,
+[class*="page-"] {
+  animation: softPageEnter 0.25s ease-out;
+}
+
+@keyframes softPageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 模态框/弹窗背景柔和淡入 */
+.fixed.inset-0[class*="bg-black"],
+.fixed.inset-0[class*="backdrop"] {
+  animation: softOverlay 0.2s ease-out;
+}
+
+@keyframes softOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 模态框内容柔和弹出 */
+.fixed.inset-0 > div:not([class*="bg-black"]):not([class*="backdrop"]),
+[class*="modal"],
+[class*="Modal"] {
+  animation: softModalContent 0.25s ease-out;
+}
+
+@keyframes softModalContent {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 底部弹出面板 */
+.fixed.bottom-0,
+[class*="bottom-sheet"],
+[class*="action-sheet"] {
+  animation: softSlideUp 0.25s ease-out;
+}
+
+@keyframes softSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 所有按钮的柔和反馈 */
+button:not([class*="no-animation"]),
+[role="button"] {
+  transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not([class*="no-animation"]):active,
+[role="button"]:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* 可点击元素的柔和过渡 */
+[class*="cursor-pointer"],
+[class*="clickable"] {
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+
+[class*="cursor-pointer"]:active,
+[class*="clickable"]:active {
+  opacity: 0.85;
+}
+
+/* 卡片的柔和悬停效果 */
+[class*="rounded-xl"][class*="bg-white"],
+[class*="rounded-2xl"][class*="bg-white"],
+[class*="card"] {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+/* 图片的柔和加载 */
+img {
+  animation: softImageFade 0.3s ease-out;
+}
+
+@keyframes softImageFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 输入框聚焦的柔和过渡 */
+input, textarea, select {
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+/* 开关的柔和过渡 */
+[class*="toggle"],
+[class*="switch"] {
+  transition: background-color 0.2s ease-out;
+}
+
+[class*="toggle"] > *,
+[class*="switch"] > * {
+  transition: transform 0.2s ease-out;
+}
+
+/* 下拉菜单的柔和出现 */
+[class*="dropdown"],
+[class*="menu"][class*="absolute"],
+[class*="popover"] {
+  animation: softDropdown 0.15s ease-out;
+  transform-origin: top center;
+}
+
+@keyframes softDropdown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 标签页指示器的柔和滑动 */
+[class*="tab-indicator"],
+[class*="active-indicator"] {
+  transition: transform 0.2s ease-out, left 0.2s ease-out, width 0.2s ease-out;
+}
+
+/* 折叠/展开的柔和过渡 */
+[class*="collapse"],
+[class*="accordion"],
+[class*="expand"] {
+  transition: max-height 0.25s ease-out, opacity 0.25s ease-out;
+  overflow: hidden;
+}
+
+/* Toast/提示的柔和出现 */
+[class*="toast"],
+[class*="notification"],
+[class*="alert"] {
+  animation: softToast 0.2s ease-out;
+}
+
+@keyframes softToast {
+  from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 头像的柔和缩放 */
+[class*="avatar"]:active,
+img[class*="rounded-full"]:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease-out;
+}
+
+/* 禁用动画的情况 */
+.no-animation,
+.no-animation * {
+  animation: none !important;
+  transition: none !important;
 }

@@ -116,7 +116,7 @@ export default function PublishMoment() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans soft-page-enter">
       {/* 状态栏 */}
       <StatusBar />
 

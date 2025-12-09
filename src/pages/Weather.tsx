@@ -545,10 +545,10 @@ ${worldbookContext || '无'}
           }
         })
 
-        // 如果AI返回"未知"或空，保持"我的位置"不变
+        // 如果AI返回"未知"或空，强制设置为"我的位置"
         const newLocation = (parsed.location && parsed.location !== '未知') 
           ? parsed.location 
-          : userWeather.location
+          : '我的位置'
         
         setUserWeather({
           location: newLocation,

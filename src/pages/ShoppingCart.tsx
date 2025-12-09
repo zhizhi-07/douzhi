@@ -318,7 +318,7 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
   const selectedCount = selectedItems.size
 
   return (
-    <div className="h-screen bg-[#f2f4f7] flex flex-col font-sans">
+    <div className="h-screen bg-[#f2f4f7] flex flex-col font-sans soft-page-enter">
       {/* 顶部导航 - 更加沉浸式 */}
       <div className="bg-white sticky top-0 z-30">
         <StatusBar />

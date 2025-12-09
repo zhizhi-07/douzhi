@@ -570,7 +570,7 @@ ${aiCharacterPrompt}${memesPrompt}
   const authorAvatar = isUserPost ? userInfo.avatar : getRealAvatar(post.npcId, npc?.avatar)
 
   return (
-    <div className="h-screen bg-white flex flex-col font-sans text-[#262626]" data-instagram>
+    <div className="h-screen bg-white flex flex-col font-sans text-[#262626] soft-page-enter" data-instagram>
       {/* 顶部导航 */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-50">
         <StatusBar />

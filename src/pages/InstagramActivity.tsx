@@ -77,7 +77,7 @@ const InstagramActivity = () => {
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-white">
+      <div className="h-full flex flex-col bg-white soft-page-enter">
         {/* 顶部导航（包含状态栏） */}
         <div className="bg-white/95 sticky top-0 z-10 backdrop-blur-xl">
           <StatusBar />

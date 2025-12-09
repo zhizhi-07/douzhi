@@ -151,7 +151,7 @@ const BubbleEditor = () => {
   const setCurrentStyle = activeTab === 'user' ? setUserStyle : setAiStyle
   
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
+    <div className="min-h-screen bg-[#F5F5F0] soft-page-enter">
       {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">

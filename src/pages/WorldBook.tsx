@@ -110,7 +110,7 @@ const WorldBook = () => {
   )
 
   return (
-    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-serif" data-worldbook>
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-serif soft-page-enter" data-worldbook>
       {/* 背景装饰 */}
       <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-slate-200/50 to-transparent pointer-events-none" />
 

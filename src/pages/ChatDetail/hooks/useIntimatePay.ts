@@ -4,7 +4,6 @@
 
 import { useCallback, useState } from 'react'
 import type { Message } from '../../../types/chat'
-import { createIntimatePayRelation } from '../../../utils/walletUtils'
 import { blacklistManager } from '../../../utils/blacklistManager'
 import { addMessage as saveMessageToStorage } from '../../../utils/simpleMessageManager'
 

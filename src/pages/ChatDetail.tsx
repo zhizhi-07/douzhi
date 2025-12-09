@@ -434,9 +434,9 @@ const ChatDetail = () => {
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
       musicShare: {
-        title,
-        artist,
-        cover
+        songTitle: title,
+        songArtist: artist,
+        songCover: cover
       },
       aiReadableContent: `[用户分享了音乐: ${title} - ${artist}]`
     }
@@ -449,12 +449,7 @@ const ChatDetail = () => {
     })
 
     console.log('🎵 分享音乐:', title, '-', artist)
-
-    // 触发AI回复
-    setTimeout(() => {
-      chatAI.handleAIReply()
-    }, 500)
-  }, [id, chatState, chatAI])
+  }, [id, chatState])
 
   const addMenu = useAddMenu(
     chatAI.handleRegenerate,
@@ -714,7 +709,7 @@ const ChatDetail = () => {
 
   return (
     <div
-      className="h-screen flex flex-col"
+      className="h-screen flex flex-col soft-page-enter"
       style={wallpaperStyle}
       {...(hasCustomWallpaper ? { 'data-chat-wallpaper': true } : {})}
     >

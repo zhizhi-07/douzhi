@@ -65,7 +65,7 @@ const GroupChatSettings = () => {
   }, [id])
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 soft-page-enter">
       <style>{`
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;

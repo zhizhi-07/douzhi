@@ -78,7 +78,7 @@ const CharacterDetail = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f7fa]">
+    <div className="h-screen flex flex-col bg-[#f5f7fa] soft-page-enter">
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />

@@ -198,7 +198,7 @@ const UserProfile = () => {
   
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col soft-page-enter">
       {/* 顶部导航 - 包含StatusBar */}
       <div className="glass-card rounded-r-b border-gray-200">
         <StatusBar />

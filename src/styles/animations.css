@@ -5,6 +5,19 @@
 
 /* ========== 消息动画 ========== */
 
+/* 🔥 群聊消息淡入动画（轻量，不影响头像） */
+@keyframes groupMessageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 🚀 GPU加速优化 - 消息进入动画 */
 @keyframes messageSlideIn {
   from {
@@ -1481,4 +1494,174 @@ select {
 
 .modal-slide-down {
   animation: modalSlideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ==========================================================================
+   柔和动画系统 (Soft Animation System)
+   淡雅、干净、不张扬的过渡效果
+   ========================================================================== */
+
+/* ========== 柔和淡入 ========== */
+
+/* 基础柔和淡入 */
+@keyframes softFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 从下方轻微上浮淡入 */
+@keyframes softFadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 从上方轻微下落淡入 */
+@keyframes softFadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 从左侧轻微滑入 */
+@keyframes softFadeInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 从右侧轻微滑入 */
+@keyframes softFadeInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 轻微缩放淡入 */
+@keyframes softFadeInScale {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ========== 柔和动画类 ========== */
+
+.soft-fade-in { animation: softFadeIn 0.2s ease-out; }
+.soft-fade-in-up { animation: softFadeInUp 0.25s ease-out; }
+.soft-fade-in-down { animation: softFadeInDown 0.25s ease-out; }
+.soft-fade-in-left { animation: softFadeInLeft 0.25s ease-out; }
+.soft-fade-in-right { animation: softFadeInRight 0.25s ease-out; }
+.soft-fade-in-scale { animation: softFadeInScale 0.2s ease-out; }
+
+/* ========== 柔和页面过渡 ========== */
+
+@keyframes softPageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.soft-page-enter { animation: softPageEnter 0.3s ease-out; }
+
+/* ========== 柔和列表项动画（带延迟） ========== */
+
+.soft-list-item { animation: softFadeInUp 0.25s ease-out backwards; }
+.soft-list-item:nth-child(1) { animation-delay: 0.02s; }
+.soft-list-item:nth-child(2) { animation-delay: 0.04s; }
+.soft-list-item:nth-child(3) { animation-delay: 0.06s; }
+.soft-list-item:nth-child(4) { animation-delay: 0.08s; }
+.soft-list-item:nth-child(5) { animation-delay: 0.10s; }
+.soft-list-item:nth-child(6) { animation-delay: 0.12s; }
+.soft-list-item:nth-child(7) { animation-delay: 0.14s; }
+.soft-list-item:nth-child(8) { animation-delay: 0.16s; }
+.soft-list-item:nth-child(9) { animation-delay: 0.18s; }
+.soft-list-item:nth-child(10) { animation-delay: 0.20s; }
+
+/* ========== 柔和模态框 ========== */
+
+@keyframes softOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes softModalEnter {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes softSlideUpEnter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.soft-overlay { animation: softOverlayFadeIn 0.2s ease-out; }
+.soft-modal-enter { animation: softModalEnter 0.25s ease-out; }
+.soft-slide-up { animation: softSlideUpEnter 0.25s ease-out; }
+
+/* ========== 柔和过渡效果 ========== */
+
+.soft-transition { transition: all 0.2s ease-out; }
+.soft-transition-fast { transition: all 0.15s ease-out; }
+.soft-transition-slow { transition: all 0.3s ease-out; }
+
+.soft-hover {
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+.soft-hover:hover { opacity: 0.85; }
+.soft-hover:active { opacity: 0.7; transform: scale(0.98); }
+
+/* ========== 柔和按钮反馈 ========== */
+
+.soft-press {
+  transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.soft-press:active { transform: scale(0.97); opacity: 0.9; }
+
+/* ========== 柔和卡片效果 ========== */
+
+.soft-card {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.soft-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.soft-card:active { transform: translateY(0); }
+
+/* ========== 柔和切换动画 ========== */
+
+@keyframes softSwitchIn {
+  from { opacity: 0; transform: translateX(4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.soft-switch-in { animation: softSwitchIn 0.2s ease-out; }
+
+/* ========== 柔和下拉菜单 ========== */
+
+@keyframes softDropdownEnter {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.soft-dropdown-enter {
+  animation: softDropdownEnter 0.15s ease-out;
+  transform-origin: top center;
+}
+
+/* ========== 柔和提示/Toast ========== */
+
+@keyframes softToastEnter {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.soft-toast-enter { animation: softToastEnter 0.2s ease-out; }
+
+/* ========== 柔和骨架屏 ========== */
+
+@keyframes softShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.soft-skeleton {
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%);
+  background-size: 200% 100%;
+  animation: softShimmer 1.5s ease-in-out infinite;
 }

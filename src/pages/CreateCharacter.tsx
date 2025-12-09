@@ -208,7 +208,7 @@ const CreateCharacter = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col soft-page-enter">
       {/* 顶部 */}
       <div className="glass-effect">
         <StatusBar />

@@ -238,7 +238,7 @@ const CoupleSpace = () => {
   const displayUserAvatar = (relationAvatar && relationAvatar.startsWith('data:')) ? relationAvatar : userAvatar
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500" style={{ background: currentTheme.bg }}>
+    <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500 soft-page-enter" style={{ background: currentTheme.bg }}>
 
       {/* 背景装饰 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -318,13 +318,31 @@ const CoupleSpace = () => {
                 对方接受后即可开启
               </div>
 
-              <button
-                onClick={() => setIsPreviewMode(true)}
-                className="w-full py-4 rounded-2xl bg-white/90 text-gray-800 font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-2"
-              >
-                <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
-                预览效果
-              </button>
+              {/* 如果有pending邀请，显示取消邀请按钮；否则显示预览效果 */}
+              {relation && relation.status === 'pending' ? (
+                <button
+                  onClick={async () => {
+                    if (confirm('确定取消邀请吗？')) {
+                      await cancelCoupleSpaceInvite()
+                      loadRelation()
+                    }
+                  }}
+                  className="w-full py-4 rounded-2xl bg-red-500/90 text-white font-bold shadow-lg hover:bg-red-600 hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  取消邀请
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsPreviewMode(true)}
+                  className="w-full py-4 rounded-2xl bg-white/90 text-gray-800 font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-2"
+                >
+                  <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
+                  预览效果
+                </button>
+              )}
 
               {/* 强制清除按钮（用于清除缓存残留） */}
               <button

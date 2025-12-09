@@ -7,6 +7,7 @@ import InstagramLayout from '../components/InstagramLayout'
 import { getAllPostsAsync, toggleLike, getNPCById } from '../utils/forumNPC'
 import { getCurrentUserInfoWithAvatar } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
+import CommentContentRenderer from '../components/CommentContentRenderer'
 
 // 打开IndexedDB存储聊天记录
 const openChatDB = (): Promise<IDBDatabase> => {
@@ -49,8 +50,15 @@ const renderTextWithHashtags = (text: string, key: string) => {
   return parts.length > 0 ? parts : text
 }
 
-// 解析帖子内容
+// 解析帖子内容（支持小剧场HTML）
 const parsePostContent = (content: string) => {
+  // 检查是否包含小剧场HTML
+  const hasTheatreHtml = /\[小剧场HTML\][\s\S]*?\[\/小剧场HTML\]/.test(content)
+  if (hasTheatreHtml) {
+    // 使用CommentContentRenderer渲染（支持小剧场HTML）
+    return <CommentContentRenderer content={content} className="text-sm leading-loose text-[#4A4A4A] whitespace-pre-wrap font-light text-justify" emojiSize={18} />
+  }
+
   const imagePattern = /[\[【](图片|照片|截图)[:：]([^\]】]+)[\]】]/g
 
   const hasImages = imagePattern.test(content)
@@ -796,6 +804,8 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
 
   // 加载角色列表和管理员（始终加载，不限制isOwner）
   useEffect(() => {
+    if (!decodedName) return // 确保decodedName有值
+    
     const loadData = async () => {
       // 加载角色
       try {
@@ -810,14 +820,17 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
       try {
         const adminKey = `topic_admins_${decodedName}`
         const stored = localStorage.getItem(adminKey)
+        console.log(`👤 加载管理员 [${adminKey}]:`, stored)
         if (stored) {
-          setTopicAdmins(JSON.parse(stored))
+          const admins = JSON.parse(stored)
+          console.log(`👤 解析到${admins.length}个管理员:`, admins.map((a: any) => a.name))
+          setTopicAdmins(admins)
         }
       } catch (e) {
         console.error('加载管理员失败:', e)
       }
     }
-    loadData() // 始终加载，不限制isOwner
+    loadData()
   }, [decodedName])
 
   // 添加管理员
@@ -840,6 +853,7 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
     // 保存到localStorage
     const adminKey = `topic_admins_${decodedName}`
     localStorage.setItem(adminKey, JSON.stringify(newAdmins))
+    console.log(`👤 保存管理员 [${adminKey}]:`, newAdmins.map(a => a.name))
     
     // 在聊天区显示系统消息
     const systemMsg = {
@@ -999,9 +1013,9 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
 
   return (
     <InstagramLayout showHeader={false} showTabBar={false}>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white soft-page-enter">
         {/* 顶部导航 */}
-        <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm">
+        <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm soft-fade-in">
             <StatusBar />
             <div className="flex items-center justify-between px-4 py-2">
                 <button
@@ -1069,7 +1083,7 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
 
                 {/* 规则预览（可展开） */}
                 <div 
-                    className={`bg-gray-50 rounded-xl overflow-hidden transition-all duration-300 border border-gray-100 ${showRules ? 'max-h-96 p-4' : 'max-h-10 py-2 px-4 cursor-pointer hover:bg-gray-100'}`}
+                    className={`bg-gray-50 rounded-xl overflow-hidden soft-transition-slow border border-gray-100 ${showRules ? 'max-h-96 p-4' : 'max-h-10 py-2 px-4 cursor-pointer hover:bg-gray-100'}`}
                     onClick={() => !showRules && setShowRules(true)}
                 >
                     <div className="flex items-center justify-between">
@@ -1165,13 +1179,12 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
                 </button>
                 <button 
                     onClick={() => setActiveTab('chat')}
-                    className={`text-sm font-bold h-full border-b-[3px] transition-all relative flex items-center gap-1.5 ${
+                    className={`text-sm font-bold h-full border-b-[3px] transition-all relative ${
                         activeTab === 'chat' 
                         ? 'text-gray-900 border-black' 
                         : 'text-gray-400 border-transparent hover:text-gray-600'
                     }`}
                 >
-                    <MessageSquare className="w-4 h-4" />
                     闲聊区
                 </button>
             </div>

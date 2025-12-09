@@ -325,7 +325,7 @@ const BackgroundCustomizer = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f5f5f5] relative overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-[#f5f5f5] relative overflow-hidden font-sans soft-page-enter">
 
       {/* 隐藏的文件输入 */}
       <input ref={desktopFileRef} type="file" accept="image/*" onChange={handleDesktopUpload} className="hidden" />

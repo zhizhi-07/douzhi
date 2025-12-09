@@ -100,7 +100,7 @@ const Me = () => {
 
   return (
     <div
-      className="h-full flex flex-col font-serif"
+      className="h-full flex flex-col font-serif soft-page-enter"
       data-me-page
     >
       {/* 顶部 - 玻璃拟态 */}
@@ -132,7 +132,7 @@ const Me = () => {
 
       {/* 个人信息卡片 - 玻璃拟态 */}
       <div className="px-4 pt-4 mb-4">
-        <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl overflow-hidden shadow-sm soft-fade-in-up">
           <div
             onClick={() => navigate('/user-profile')}
             className="flex items-center px-5 py-6 cursor-pointer hover:bg-white/70 active:bg-white/80 transition-all"

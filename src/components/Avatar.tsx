@@ -4,8 +4,8 @@
  * 支持自定义头像框
  */
 
+import React, { useState, useEffect } from 'react'
 import { getCurrentUserInfoWithAvatar } from '../utils/userUtils'
-import { useState, useEffect } from 'react'
 
 interface AvatarProps {
   type: 'sent' | 'received'
@@ -125,13 +125,19 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
   return (
     <>
       {frameCSS && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
-      <div className="relative overflow-visible">
+      <div className="relative overflow-visible" style={{ animation: 'none', transition: 'none' }}>
         <div 
           className={`avatar-frame-ai-${chatId} w-8 h-8 ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
           onDoubleClick={onPoke}
+          style={{ animation: 'none', transition: 'none' }}
         >
           {avatar ? (
-            <img src={avatar} alt={name} className="w-full h-full object-cover" />
+            <img 
+              src={avatar} 
+              alt={name} 
+              className="w-full h-full object-cover"
+              style={{ animation: 'none', transition: 'none' }}  // 🔥 禁用动画
+            />
           ) : (
             <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -158,4 +164,12 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
   )
 }
 
-export default Avatar
+// 🔥 使用 React.memo 避免不必要的重渲染
+export default React.memo(Avatar, (prevProps, nextProps) => {
+  return (
+    prevProps.type === nextProps.type &&
+    prevProps.avatar === nextProps.avatar &&
+    prevProps.name === nextProps.name &&
+    prevProps.chatId === nextProps.chatId
+  )
+})

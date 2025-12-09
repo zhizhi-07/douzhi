@@ -265,7 +265,7 @@ const OfflineChat = () => {
 
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden relative"
+      className="flex flex-col h-screen overflow-hidden relative soft-page-enter"
       style={bgStyle}
     >
       {/* 顶部 Header */}

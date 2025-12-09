@@ -135,7 +135,7 @@ const MemoryViewer = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 soft-page-enter">
       {/* 顶部导航栏 - 状态栏和导航合并 */}
       <div className="bg-white border-b border-gray-200/50">
         <StatusBar />

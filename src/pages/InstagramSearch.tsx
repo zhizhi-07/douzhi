@@ -563,7 +563,7 @@ ${worldContextPrompt}${rulesPrompt}${publicFigurePrompt}${chatHistoryPrompt}
 
   return (
     <InstagramLayout showHeader={false}>
-      <div className="h-full flex flex-col bg-white font-sans text-[#333]">
+      <div className="h-full flex flex-col bg-white font-sans text-[#333] soft-page-enter">
         {/* 顶部搜索栏 */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
           <StatusBar />

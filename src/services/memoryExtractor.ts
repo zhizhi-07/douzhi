@@ -637,9 +637,11 @@ ${interactionsSummary}
 /**
  * 按角色的互动计数器管理
  * 每个角色有独立的计数器
+ * 🔥 新增：失败重试机制 - API失败时保留待提取状态，下次继续重试
  */
 class InteractionCounter {
   private threshold = 15 // 每15次互动提取一次
+  private pendingKey = 'pending_memory_extractions'
   
   private getStorageKey(characterId: string): string {
     return `interaction_counter_${characterId}`
@@ -654,24 +656,87 @@ class InteractionCounter {
   }
   
   /**
+   * 获取待提取队列
+   */
+  getPendingExtractions(): Array<{ characterId: string; characterName: string }> {
+    try {
+      const stored = localStorage.getItem(this.pendingKey)
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  }
+  
+  /**
+   * 添加到待提取队列
+   */
+  addToPending(characterId: string, characterName: string): void {
+    const pending = this.getPendingExtractions()
+    if (!pending.some(p => p.characterId === characterId)) {
+      pending.push({ characterId, characterName })
+      localStorage.setItem(this.pendingKey, JSON.stringify(pending))
+      console.log(`📋 [待提取队列] 添加: ${characterName}`)
+    }
+  }
+  
+  /**
+   * 从待提取队列移除（提取成功后调用）
+   */
+  removeFromPending(characterId: string): void {
+    const pending = this.getPendingExtractions().filter(p => p.characterId !== characterId)
+    localStorage.setItem(this.pendingKey, JSON.stringify(pending))
+    console.log(`✅ [待提取队列] 移除: ${characterId}`)
+  }
+  
+  /**
+   * 检查角色是否在待提取队列中
+   */
+  isPending(characterId: string): boolean {
+    return this.getPendingExtractions().some(p => p.characterId === characterId)
+  }
+  
+  /**
    * 增加角色计数
-   * @returns 是否达到阈值（需要提取记忆）
+   * @returns 是否需要提取记忆（达到阈值或有待提取任务）
    */
   increment(characterId: string): boolean {
+    // 🔥 如果已经在待提取队列，直接返回true触发重试
+    if (this.isPending(characterId)) {
+      console.log(`🔄 [互动计数] ${characterId} 有待提取任务，需要重试`)
+      return true
+    }
+    
     const current = this.getCount(characterId)
     const newCount = current + 1
     
     console.log(`📊 [互动计数] ${characterId}: ${newCount}/${this.threshold}`)
     
     if (newCount >= this.threshold) {
-      // 达到阈值，重置计数
-      localStorage.setItem(this.getStorageKey(characterId), '0')
+      // 🔥 达到阈值，不再立即重置，而是标记计数已满（等提取成功后才重置）
+      localStorage.setItem(this.getStorageKey(characterId), this.threshold.toString())
       return true
     } else {
       // 更新计数
       localStorage.setItem(this.getStorageKey(characterId), newCount.toString())
       return false
     }
+  }
+  
+  /**
+   * 提取成功后调用：重置计数并从待提取队列移除
+   */
+  markExtractionComplete(characterId: string): void {
+    this.reset(characterId)
+    this.removeFromPending(characterId)
+    console.log(`🎉 [记忆提取] ${characterId} 提取完成，计数已重置`)
+  }
+  
+  /**
+   * 提取失败后调用：添加到待提取队列
+   */
+  markExtractionFailed(characterId: string, characterName: string): void {
+    this.addToPending(characterId, characterName)
+    console.log(`⚠️ [记忆提取] ${characterName} 提取失败，已加入待提取队列`)
   }
   
   /**
@@ -704,10 +769,12 @@ export async function triggerCharacterMemoryExtraction(
   moments: number
   forum: number
   offline: number
+  success: boolean  // 🔥 新增：标记是否成功
 }> {
-  console.log(`🎯 [角色记忆提取] ${characterName} 达到15次互动，开始提取记忆...`)
+  console.log(`🎯 [角色记忆提取] ${characterName} 开始提取记忆...`)
   
-  const results = { privateChat: 0, groupChat: 0, moments: 0, forum: 0, offline: 0 }
+  const results = { privateChat: 0, groupChat: 0, moments: 0, forum: 0, offline: 0, success: false }
+  let hasApiError = false  // 🔥 追踪是否有API错误
   
   try {
     // 1. 提取该角色的私聊记忆
@@ -722,6 +789,7 @@ export async function triggerCharacterMemoryExtraction(
       }
     } catch (e) {
       console.log(`  ⚠️ [私聊] 提取失败`)
+      hasApiError = true  // 🔥 标记API错误
     }
     
     // 2. 提取该角色参与的群聊记忆
@@ -838,11 +906,24 @@ export async function triggerCharacterMemoryExtraction(
     }
     
     const total = results.privateChat + results.groupChat + results.moments + results.forum + results.offline
-    console.log(`✅ [角色记忆提取] ${characterName} 提取完成，共 ${total} 条记忆`)
+    
+    // 🔥 判断是否成功：没有API错误，或者至少提取到了一些记忆
+    if (!hasApiError || total > 0) {
+      results.success = true
+      interactionCounter.markExtractionComplete(characterId)
+      console.log(`✅ [角色记忆提取] ${characterName} 提取完成，共 ${total} 条记忆`)
+    } else {
+      // API有错误且没提取到任何记忆，标记为失败
+      interactionCounter.markExtractionFailed(characterId, characterName)
+      console.log(`⚠️ [角色记忆提取] ${characterName} 提取失败，已加入重试队列`)
+    }
+    
     return results
     
   } catch (error) {
     console.error(`❌ [角色记忆提取] ${characterName} 提取失败:`, error)
+    // 🔥 发生错误，标记为失败，下次继续重试
+    interactionCounter.markExtractionFailed(characterId, characterName)
     return results
   }
 }
@@ -864,6 +945,7 @@ export async function triggerMemoryExtraction(
 
 /**
  * 便捷函数：增加角色计数并在达到阈值时自动触发该角色的记忆提取
+ * 🔥 如果之前有失败的提取任务，会自动重试
  * @param characterId 角色ID（必填）
  * @param characterName 角色名称（必填）
  * @returns 是否触发了提取
@@ -878,11 +960,54 @@ export async function recordInteraction(
   }
   
   if (interactionCounter.increment(characterId)) {
-    // 达到阈值，异步触发该角色的记忆提取（不阻塞当前操作）
+    // 🔥 先将角色添加到待提取队列（防止提取中途失败）
+    interactionCounter.addToPending(characterId, characterName)
+    
+    // 异步触发该角色的记忆提取（不阻塞当前操作）
+    // 成功后会自动从队列移除并重置计数
     triggerCharacterMemoryExtraction(characterId, characterName).catch(err => {
       console.error(`❌ [角色记忆提取] ${characterName} 后台提取失败:`, err)
+      // 失败时保持在待提取队列中，下次继续重试
     })
     return true
   }
   return false
+}
+
+/**
+ * 🔥 重试所有待提取的记忆任务
+ * 可在应用启动时调用，处理之前失败的提取
+ */
+export async function retryPendingExtractions(): Promise<void> {
+  const pending = interactionCounter.getPendingExtractions()
+  
+  if (pending.length === 0) {
+    console.log('📋 [待提取队列] 没有待提取的任务')
+    return
+  }
+  
+  console.log(`🔄 [待提取队列] 发现 ${pending.length} 个待提取任务，开始重试...`)
+  
+  for (const { characterId, characterName } of pending) {
+    console.log(`  🔄 重试: ${characterName}`)
+    try {
+      await triggerCharacterMemoryExtraction(characterId, characterName)
+      // 成功的话 triggerCharacterMemoryExtraction 内部会处理队列
+    } catch (err) {
+      console.error(`  ❌ ${characterName} 重试失败:`, err)
+      // 保持在队列中，下次继续
+    }
+    
+    // 每个角色之间等待1秒，避免API压力过大
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+  
+  console.log('✅ [待提取队列] 重试完成')
+}
+
+/**
+ * 获取待提取队列（用于UI显示）
+ */
+export function getPendingExtractionCount(): number {
+  return interactionCounter.getPendingExtractions().length
 }

@@ -403,7 +403,7 @@ const ChatSettings = () => {
   }
   
   return (
-    <div className="h-screen flex flex-col bg-[#f2f4f6] page-enter">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] soft-page-enter">
       {/* 头部 */}
       <div className="glass-effect border-b border-gray-200/30">
         <StatusBar />

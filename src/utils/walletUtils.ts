@@ -2,6 +2,8 @@
  * 零钱工具函数
  */
 
+import { setItem, getItem, STORES } from './indexedDBManager'
+
 // 交易类型
 export type TransactionType = 
   | 'recharge'              // 充值
@@ -155,10 +157,43 @@ export interface IntimatePayRelation {
   type: 'user_to_character' | 'character_to_user'
 }
 
-// 获取所有亲密付关系
-export const getIntimatePayRelations = (): IntimatePayRelation[] => {
-  const saved = localStorage.getItem('intimate_pay_relations')
-  const relations: IntimatePayRelation[] = saved ? JSON.parse(saved) : []
+// 内存缓存
+let intimatePayCache: IntimatePayRelation[] | null = null
+let cacheInitialized = false
+
+// 从 localStorage 迁移到 IndexedDB
+const migrateFromLocalStorage = async (): Promise<IntimatePayRelation[]> => {
+  const localData = localStorage.getItem('intimate_pay_relations')
+  if (localData) {
+    try {
+      const relations = JSON.parse(localData)
+      await setItem(STORES.WALLET, 'intimate_pay_relations', relations)
+      localStorage.removeItem('intimate_pay_relations') // 删除旧数据
+      console.log('✅ [亲密付] 已从localStorage迁移到IndexedDB')
+      return relations
+    } catch (e) {
+      console.error('❌ [亲密付] 迁移失败:', e)
+    }
+  }
+  return []
+}
+
+// 获取所有亲密付关系（异步）
+export const getIntimatePayRelationsAsync = async (): Promise<IntimatePayRelation[]> => {
+  // 使用缓存
+  if (cacheInitialized && intimatePayCache) {
+    return intimatePayCache
+  }
+  
+  // 尝试从 IndexedDB 读取
+  let relations = await getItem<IntimatePayRelation[]>(STORES.WALLET, 'intimate_pay_relations')
+  
+  // 如果没有，尝试从 localStorage 迁移
+  if (!relations || relations.length === 0) {
+    relations = await migrateFromLocalStorage()
+  }
+  
+  relations = relations || []
   
   // 检查并重置每月额度
   const currentMonth = new Date().toISOString().slice(0, 7)
@@ -177,18 +212,73 @@ export const getIntimatePayRelations = (): IntimatePayRelation[] => {
   })
   
   if (hasReset) {
-    saveIntimatePayRelations(updatedRelations)
+    await saveIntimatePayRelationsAsync(updatedRelations)
   }
   
+  intimatePayCache = updatedRelations
+  cacheInitialized = true
   return updatedRelations
 }
 
-// 保存亲密付关系
-const saveIntimatePayRelations = (relations: IntimatePayRelation[]): void => {
-  localStorage.setItem('intimate_pay_relations', JSON.stringify(relations))
+// 同步版本（使用缓存，首次调用可能返回空）
+export const getIntimatePayRelations = (): IntimatePayRelation[] => {
+  // 触发异步加载
+  if (!cacheInitialized) {
+    getIntimatePayRelationsAsync()
+  }
+  return intimatePayCache || []
 }
 
-// 开通亲密付
+// 保存亲密付关系（异步）
+const saveIntimatePayRelationsAsync = async (relations: IntimatePayRelation[]): Promise<void> => {
+  intimatePayCache = relations
+  cacheInitialized = true
+  await setItem(STORES.WALLET, 'intimate_pay_relations', relations)
+}
+
+// 同步保存（内部用）- 使用异步但不等待
+const saveIntimatePayRelations = (relations: IntimatePayRelation[]): void => {
+  intimatePayCache = relations
+  cacheInitialized = true
+  saveIntimatePayRelationsAsync(relations).catch(e => {
+    console.error('❌ [亲密付] 保存失败:', e)
+  })
+}
+
+// 开通亲密付（异步版本 - 推荐使用）
+export const createIntimatePayRelationAsync = async (
+  characterId: string,
+  characterName: string,
+  monthlyLimit: number,
+  characterAvatar?: string,
+  type: 'user_to_character' | 'character_to_user' = 'user_to_character'
+): Promise<boolean> => {
+  const relations = await getIntimatePayRelationsAsync()
+  
+  // 检查是否已存在（只检查相同类型的）
+  if (relations.some(r => r.characterId === characterId && r.type === type)) {
+    return false
+  }
+  
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const newRelation: IntimatePayRelation = {
+    id: Date.now().toString(),
+    characterId,
+    characterName,
+    characterAvatar,
+    monthlyLimit,
+    usedAmount: 0,
+    createdAt: Date.now(),
+    lastResetMonth: currentMonth,
+    type
+  }
+  
+  const updatedRelations = [...relations, newRelation]
+  await saveIntimatePayRelationsAsync(updatedRelations)
+  return true
+}
+
+// 开通亲密付（同步版本 - 兼容旧代码）
 export const createIntimatePayRelation = (
   characterId: string,
   characterName: string,
@@ -216,8 +306,8 @@ export const createIntimatePayRelation = (
     type
   }
   
-  relations.push(newRelation)
-  saveIntimatePayRelations(relations)
+  const updatedRelations = [...relations, newRelation]
+  saveIntimatePayRelations(updatedRelations)
   return true
 }
 

@@ -282,7 +282,7 @@ const InstagramCreate = () => {
 
   return (
     <InstagramLayout showHeader={false} showTabBar={false}>
-      <div className="min-h-screen bg-transparent font-serif text-[#2C2C2C]">
+      <div className="min-h-screen bg-transparent font-serif text-[#2C2C2C] soft-page-enter">
         {/* 顶部导航 - 玻璃拟态（包含状态栏） */}
         <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-sm">
           <StatusBar />

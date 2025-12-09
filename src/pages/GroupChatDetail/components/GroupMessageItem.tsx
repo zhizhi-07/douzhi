@@ -65,9 +65,15 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   }
   
   return (
-    <div className={`message-container flex items-start gap-1.5 my-1 ${
-      isSent ? 'sent flex-row-reverse' : 'received flex-row'
-    }`}>
+    <div 
+      className={`message-container flex items-start gap-1.5 my-1 ${
+        isSent ? 'sent flex-row-reverse' : 'received flex-row'
+      }`}
+      style={{ 
+        animation: 'groupMessageFadeIn 0.3s ease-out',
+        opacity: 1
+      }}
+    >
       <div className="flex flex-col items-center flex-shrink-0">
         <Avatar 
           type={isSent ? 'sent' : 'received'}

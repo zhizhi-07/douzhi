@@ -160,6 +160,27 @@ export async function deleteEmoji(id: number): Promise<boolean> {
 }
 
 /**
+ * 更新表情包
+ */
+export async function updateEmoji(id: number, updates: Partial<Pick<Emoji, 'name' | 'description' | 'url'>>): Promise<boolean> {
+  try {
+    const emojis = await getEmojis()
+    const emoji = emojis.find(e => e.id === id)
+    if (emoji) {
+      if (updates.name !== undefined) emoji.name = updates.name
+      if (updates.description !== undefined) emoji.description = updates.description
+      if (updates.url !== undefined) emoji.url = updates.url
+      await saveEmojis(emojis)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('更新表情包失败:', error)
+    return false
+  }
+}
+
+/**
  * 增加使用次数
  */
 export async function incrementUseCount(id: number): Promise<void> {

@@ -241,8 +241,18 @@ function App() {
     import('./utils/chatListManager').then(({ loadChatList }) => {
       loadChatList().then(chatList => {
         if (chatList && chatList.length > 0) {
-          sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(chatList))
-          console.log('✅ 预加载', chatList.length, '个聊天到缓存')
+          try {
+            // 🔥 只保存最近50个聊天，避免配额超出
+            const toCache = chatList.slice(0, 50).map((c: any) => ({
+              ...c,
+              // 移除大型数据
+              lastMessage: c.lastMessage?.substring?.(0, 100) || c.lastMessage
+            }))
+            sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(toCache))
+            console.log('✅ 预加载', toCache.length, '个聊天到缓存')
+          } catch (e) {
+            console.warn('⚠️ 预加载缓存失败，跳过')
+          }
         }
       }).catch(err => {
         console.error('❌ 预加载聊天列表失败:', err)

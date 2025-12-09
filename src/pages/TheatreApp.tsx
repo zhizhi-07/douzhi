@@ -272,7 +272,7 @@ export default function TheatreApp() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col soft-page-enter">
       {/* 合并的状态栏+导航栏 */}
       <div className="bg-white">
         {/* 状态栏 */}

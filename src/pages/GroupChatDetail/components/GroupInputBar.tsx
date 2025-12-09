@@ -42,7 +42,7 @@ const GroupInputBar: React.FC<GroupInputBarProps> = ({
   onOpenEmojiPanel
 }) => {
   return (
-    <div className="bg-[#f5f7fa] border-t border-gray-200/50">
+    <div className="bg-transparent">
       {/* 引用消息显示区域 */}
       {quotedMessage && (
         <div className="px-4 pt-3 pb-1">
@@ -78,7 +78,7 @@ const GroupInputBar: React.FC<GroupInputBarProps> = ({
             </svg>
           )}
         </button>
-        <div className="flex-1 flex items-center bg-white rounded-full px-3 py-1.5 shadow-sm touch-transition focus-within:shadow-md focus-within:scale-[1.01] min-w-0 relative">
+        <div className="flex-1 flex items-center min-w-0">
           <input
             ref={inputRef}
             type="text"

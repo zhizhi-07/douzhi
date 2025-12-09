@@ -7,6 +7,127 @@ import StatusBar from '../components/StatusBar'
 import { getScheduleHistory, getScheduleDates, type ScheduleItem } from '../utils/aiScheduleHistory'
 import { generatePersonalizedSchedule } from '../services/aiScheduleService'
 
+// 十字架剑影入场动画组件
+const CrossSwordAnimation = ({ onComplete }: { onComplete: () => void }) => {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 1800)
+    return () => clearTimeout(timer)
+  }, [onComplete])
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#FDFBF7] flex items-center justify-center overflow-hidden">
+      {/* 十字架剑影动画 */}
+      <div className="relative w-40 h-40">
+        {/* 中心十字 */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="cross-sword-center">
+            <div className="w-1 h-20 bg-gradient-to-b from-transparent via-[#D4A373] to-transparent animate-sword-vertical"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-[#D4A373] to-transparent animate-sword-horizontal"></div>
+          </div>
+        </div>
+        
+        {/* 散射的十字架 */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              animation: `swordBurst 1.2s ease-out ${i * 0.1}s forwards`,
+              transform: `rotate(${i * 45}deg)`,
+            }}
+          >
+            <div className="relative" style={{ transform: `translateY(-60px)` }}>
+              <div className="w-0.5 h-8 bg-gradient-to-b from-[#D4A373]/80 to-transparent"></div>
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-gradient-to-r from-transparent via-[#D4A373]/60 to-transparent"></div>
+            </div>
+          </div>
+        ))}
+        
+        {/* 光晕效果 */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-24 h-24 rounded-full bg-[#D4A373]/10 animate-pulse-glow"></div>
+        </div>
+      </div>
+      
+      {/* 底部文字 */}
+      <div className="absolute bottom-20 left-0 right-0 text-center">
+        <div className="text-sm text-[#A0A0A0] tracking-[0.3em] animate-fade-in-up">
+          LOADING
+        </div>
+      </div>
+      
+      {/* 动画样式 */}
+      <style>{`
+        @keyframes swordBurst {
+          0% {
+            opacity: 0;
+            transform: rotate(var(--rotation)) translateY(0) scale(0.5);
+          }
+          30% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+            transform: rotate(var(--rotation)) translateY(-80px) scale(1);
+          }
+        }
+        
+        @keyframes pulse-glow {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(1.2);
+          }
+        }
+        
+        @keyframes fade-in-up {
+          0% {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-sword-vertical {
+          animation: swordGrow 0.8s ease-out forwards;
+        }
+        
+        .animate-sword-horizontal {
+          animation: swordGrow 0.8s ease-out 0.2s forwards;
+        }
+        
+        @keyframes swordGrow {
+          0% {
+            opacity: 0;
+            transform: scale(0);
+          }
+          50% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0.8;
+            transform: scale(1);
+          }
+        }
+        
+        .animate-pulse-glow {
+          animation: pulse-glow 1.5s ease-in-out infinite;
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out 0.3s forwards;
+          opacity: 0;
+        }
+      `}</style>
+    </div>
+  )
+}
 
 const AISchedule = () => {
   const navigate = useNavigate()
@@ -15,6 +136,7 @@ const AISchedule = () => {
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [showEntryAnimation, setShowEntryAnimation] = useState(true)
   
   // 日期翻页
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -69,7 +191,11 @@ const AISchedule = () => {
           title: record.action,
           description: '',
           type,
-          isReal: true
+          isReal: true,
+          mood: record.mood,
+          clothing: record.clothing,
+          psychology: record.psychology,
+          location: record.location
         }
       })
       
@@ -102,6 +228,11 @@ const AISchedule = () => {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  // 入场动画
+  if (showEntryAnimation) {
+    return <CrossSwordAnimation onComplete={() => setShowEntryAnimation(false)} />
   }
 
   if (isLoading) {
@@ -273,10 +404,11 @@ const AISchedule = () => {
                 }`}></div>
               </div>
 
-              {/* 右侧内容 */}
+              {/* 右侧内容 - 扩展卡片 */}
               <div className="flex-1 pl-5">
                 <div className={`transition-all duration-300 ${item.type === 'current' ? 'translate-x-0.5' : ''}`}>
-                  <div className="flex items-center gap-1.5 mb-1">
+                  {/* 标题行 */}
+                  <div className="flex items-center gap-1.5 mb-2">
                     <h3 className={`text-sm font-medium ${
                       item.type === 'past' ? 'text-[#A0A0A0]' : 'text-[#2C2C2C]'
                     }`}>
@@ -286,11 +418,62 @@ const AISchedule = () => {
                       <div className="w-1.5 h-1.5 rounded-full bg-[#D4A373] opacity-80"></div>
                     )}
                   </div>
-                  <p className={`text-xs leading-relaxed ${
-                    item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'
-                  }`}>
-                    {item.description}
-                  </p>
+                  
+                  {/* 详细信息区域 */}
+                  {(item.location || item.mood || item.clothing || item.psychology) && (
+                    <div className={`bg-white/40 rounded-xl p-3 space-y-2 border ${
+                      item.type === 'current' ? 'border-[#D4A373]/20' : 'border-[#E8E4DF]'
+                    }`}>
+                      {/* 地点 */}
+                      {item.location && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-[#B0B0B0]">📍</span>
+                          <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
+                            {item.location}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* 心情 */}
+                      {item.mood && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-[#B0B0B0]">💭</span>
+                          <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
+                            心情: {item.mood}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* 穿着 */}
+                      {item.clothing && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-[#B0B0B0]">👔</span>
+                          <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
+                            穿着: {item.clothing}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* 心理活动 */}
+                      {item.psychology && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] text-[#B0B0B0] mt-0.5">🧠</span>
+                          <span className={`text-xs leading-relaxed italic ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#8A8A8A]'}`}>
+                            "{item.psychology}"
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* 旧的描述（如果有且没有详细信息） */}
+                  {item.description && !item.location && !item.mood && !item.clothing && !item.psychology && (
+                    <p className={`text-xs leading-relaxed ${
+                      item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'
+                    }`}>
+                      {item.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

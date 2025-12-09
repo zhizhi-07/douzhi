@@ -171,7 +171,7 @@ const PresetManager = () => {
   )
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 soft-page-enter">
       {/* 顶部导航 */}
       <div className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200/50">
         <StatusBar />

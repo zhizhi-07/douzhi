@@ -73,7 +73,7 @@ const LiveBroadcast = () => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-[#0a0a0a] text-white font-serif overflow-hidden relative">
+        <div className="h-full flex flex-col bg-[#0a0a0a] text-white font-serif overflow-hidden relative soft-page-enter">
             {/* Background Ambient Light */}
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/30 blur-[120px] rounded-full pointer-events-none" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[120px] rounded-full pointer-events-none" />

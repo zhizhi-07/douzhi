@@ -137,26 +137,25 @@ export const useTransfer = (
     // 增加余额
     receiveTransfer(amount, characterName, transferMessage)
 
-    // 保存更新后的消息列表
-    saveMessages(chatId, updated)
+    // 🔥 创建系统消息
+    const systemMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'system',
+      content: `已收款 ¥${amount.toFixed(2)}，已存入余额`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      messageType: 'system',
+      aiReadableContent: `${userName}领取了转账¥${amount.toFixed(2)}，已存入余额`
+    }
 
-    // 🔥 使用函数式更新，避免触发滚动
-    setMessages(prev => {
-      // 只更新对应的消息，保持数组引用稳定
-      return prev.map(msg => {
-        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
-          return {
-            ...msg,
-            transfer: {
-              ...msg.transfer!,
-              status: 'received' as const
-            },
-            aiReadableContent: `[${userName}领取了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
-          }
-        }
-        return msg
-      })
-    })
+    // 🔥 一次性更新消息列表和添加系统消息
+    const finalMessages = [...updated, systemMsg]
+
+    // 保存更新后的消息列表
+    saveMessages(chatId, finalMessages)
+
+    // 🔥 使用函数式更新
+    setMessages(() => finalMessages)
   }, [setMessages, characterName, chatId])
 
   /**
@@ -189,25 +188,25 @@ export const useTransfer = (
       return msg
     })
 
-    // 保存更新后的消息列表
-    saveMessages(chatId, updated)
+    // 🔥 创建系统消息
+    const systemMsg: Message = {
+      id: Date.now() + Math.random(),
+      type: 'system',
+      content: `已退还 ¥${amount.toFixed(2)}`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      messageType: 'system',
+      aiReadableContent: `${userName}退还了转账¥${amount.toFixed(2)}`
+    }
 
-    // 🔥 使用函数式更新，避免触发滚动
-    setMessages(prev => {
-      return prev.map(msg => {
-        if (msg.id === messageId && msg.messageType === 'transfer' && msg.type === 'received') {
-          return {
-            ...msg,
-            transfer: {
-              ...msg.transfer!,
-              status: 'expired' as const  // 🔥 修复：使用正确的状态值'expired'而非'rejected'
-            },
-            aiReadableContent: `[${userName}退还了你的转账¥${amount.toFixed(2)}${transferMessage ? `，备注：${transferMessage}` : ''}]`
-          }
-        }
-        return msg
-      })
-    })
+    // 🔥 一次性更新消息列表和添加系统消息
+    const finalMessages = [...updated, systemMsg]
+
+    // 保存更新后的消息列表
+    saveMessages(chatId, finalMessages)
+
+    // 🔥 使用函数式更新
+    setMessages(() => finalMessages)
   }, [setMessages, chatId])
 
   return {

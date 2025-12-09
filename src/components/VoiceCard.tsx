@@ -40,30 +40,26 @@ const VoiceCard = ({
         }}
       >
         <div className="flex items-center gap-2">
-          {/* 播放按钮 */}
+          {/* 播放按钮 - 使用当前字体颜色 */}
           <button
-            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-              isSent 
-                ? 'bg-white/20' 
-                : 'bg-gray-900'
-            }`}
+            className="w-6 h-6 flex items-center justify-center flex-shrink-0"
             onClick={(e) => {
               e.stopPropagation()
               onPlay?.(message.id, duration, message.voiceUrl)
             }}
           >
             {isPlaying ? (
-              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
               </svg>
             ) : (
-              <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z"/>
               </svg>
             )}
           </button>
 
-          {/* 简洁波形 */}
+          {/* 简洁波形 - 使用当前字体颜色 */}
           <div
             className="flex items-center gap-0.5 flex-1 h-4 cursor-pointer"
             onClick={() => onToggleText?.(message.id)}
@@ -71,27 +67,20 @@ const VoiceCard = ({
             {[40, 60, 80, 60, 50, 70, 55, 75, 65].map((height, i) => (
               <div
                 key={i}
-                className={`w-0.5 rounded-full ${
-                  isSent 
-                    ? 'bg-white/60' 
-                    : 'bg-gray-400'
-                } ${
-                  isPlaying ? 'animate-pulse' : ''
-                }`}
+                className={`w-0.5 rounded-full opacity-60 ${isPlaying ? 'animate-pulse' : ''}`}
                 style={{
                   height: `${height}%`,
                   maxHeight: '14px',
                   minHeight: '4px',
-                  animationDelay: `${i * 0.1}s`
+                  animationDelay: `${i * 0.1}s`,
+                  backgroundColor: 'currentColor'
                 }}
               />
             ))}
           </div>
 
-          {/* 时长 */}
-          <div className={`text-xs ${
-            isSent ? 'text-white' : 'text-gray-600'
-          }`}>
+          {/* 时长 - 继承字体颜色 */}
+          <div className="text-xs opacity-80">
             {duration}"
           </div>
         </div>

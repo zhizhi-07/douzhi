@@ -45,7 +45,7 @@ const CoupleSpaceInviteCard = ({
 
   return (
     <div className="w-full max-w-xs">
-      <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200">
+      <div className="message-bubble overflow-hidden" style={{ borderRadius: '12px' }}>
         {/* 横向布局 */}
         <div className="flex items-stretch">
           {/* 左侧：头像或爱心图标 */}
@@ -62,7 +62,7 @@ const CoupleSpaceInviteCard = ({
           </div>
 
           {/* 右侧：信息和按钮 */}
-          <div className="flex-1 bg-white px-3 py-3 flex flex-col justify-between">
+          <div className="flex-1 px-3 py-3 flex flex-col justify-between">
             {/* 标题和描述 */}
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-0.5">{senderName}</h3>

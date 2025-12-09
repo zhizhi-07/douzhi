@@ -119,7 +119,9 @@ const MusicInviteSelector = ({ onClose, onSend, onShare }: MusicInviteSelectorPr
             <div className="px-4 py-2">
               {playlist.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-4xl mb-3">🎵</div>
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                  </svg>
                   <p className="text-gray-500 text-sm">音乐库为空</p>
                   <p className="text-gray-400 text-xs mt-1">请先上传歌曲或切换到手动输入</p>
                 </div>
@@ -129,7 +131,12 @@ const MusicInviteSelector = ({ onClose, onSend, onShare }: MusicInviteSelectorPr
                     <button
                       key={song.id}
                       onClick={(e) => handleSelectFromLibrary(e, song)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors ios-button"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors ios-button"
+                      style={{
+                        background: 'rgba(255,255,255,0.5)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.3)'
+                      }}
                     >
                       {/* 封面 */}
                       <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
@@ -214,89 +221,59 @@ const MusicInviteSelector = ({ onClose, onSend, onShare }: MusicInviteSelectorPr
               </div>
             </div>
           ) : selectedTab === 'share' ? (
-            /* 分享音乐 */
-            <div className="px-6 py-6">
-              {currentSong ? (
-                <div className="space-y-4">
-                  {/* 当前播放的歌曲 */}
-                  <div className="bg-gray-50 rounded-2xl p-4">
-                    <p className="text-xs text-gray-500 mb-3">当前播放</p>
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-                        {currentSong.cover ? (
-                          <img src={currentSong.cover} alt={currentSong.title} className="w-full h-full object-cover" />
+            /* 分享音乐 - 显示音乐库列表 */
+            <div className="px-4 py-2">
+              {playlist.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                  </svg>
+                  <p className="text-gray-500 text-sm">音乐库为空</p>
+                  <p className="text-gray-400 text-xs mt-1">请先上传歌曲或切换到手动输入</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {playlist.map((song) => (
+                    <button
+                      key={song.id}
+                      onClick={() => {
+                        if (onShare) {
+                          onShare(song.title, song.artist, song.cover)
+                        }
+                        onClose()
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors ios-button"
+                      style={{
+                        background: 'rgba(255,255,255,0.5)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.3)'
+                      }}
+                    >
+                      {/* 封面 */}
+                      <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+                        {song.cover ? (
+                          <img src={song.cover} alt={song.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                             </svg>
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">{currentSong.title}</div>
-                        <div className="text-sm text-gray-500 truncate">{currentSong.artist}</div>
+
+                      {/* 歌曲信息 */}
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="font-medium text-gray-900 truncate">{song.title}</div>
+                        <div className="text-sm text-gray-500 truncate">{song.artist}</div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* 分享按钮 */}
-                  <button
-                    onClick={() => {
-                      if (onShare) {
-                        onShare(currentSong.title, currentSong.artist, currentSong.cover)
-                      }
-                      onClose()
-                    }}
-                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium ios-button shadow-lg"
-                  >
-                    分享这首歌
-                  </button>
-                </div>
-              ) : (
-                /* 没有正在播放的歌曲，显示手动输入 */
-                <div className="space-y-4">
-                  <div className="text-center py-4">
-                    <div className="text-4xl mb-2">🎵</div>
-                    <p className="text-gray-500 text-sm">暂无正在播放的音乐</p>
-                    <p className="text-gray-400 text-xs mt-1">可以手动输入歌曲信息进行分享</p>
-                  </div>
-                  
-                  {/* 手动输入 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">歌曲名称</label>
-                    <input
-                      type="text"
-                      value={customTitle}
-                      onChange={(e) => setCustomTitle(e.target.value)}
-                      placeholder="例如：晴天"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">歌手</label>
-                    <input
-                      type="text"
-                      value={customArtist}
-                      onChange={(e) => setCustomArtist(e.target.value)}
-                      placeholder="例如：周杰伦"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (onShare && customTitle.trim() && customArtist.trim()) {
-                        onShare(customTitle.trim(), customArtist.trim())
-                        onClose()
-                      } else if (!customTitle.trim() || !customArtist.trim()) {
-                        alert('请输入歌曲名和歌手')
-                      }
-                    }}
-                    disabled={!customTitle.trim() || !customArtist.trim()}
-                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-medium ios-button shadow-lg disabled:opacity-50"
-                  >
-                    分享音乐
-                  </button>
+
+                      {/* 分享图标 */}
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

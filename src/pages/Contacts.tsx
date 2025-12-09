@@ -47,7 +47,7 @@ const Contacts = () => {
   ]
 
   return (
-    <div className="h-full flex flex-col font-serif">
+    <div className="h-full flex flex-col font-serif soft-page-enter">
       {/* 顶部 - 玻璃拟态 */}
       <div
         className="relative z-10"

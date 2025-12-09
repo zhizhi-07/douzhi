@@ -110,33 +110,11 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
       }]
     }
   } else {
-    // 🔥 NPC为主，角色为辅（约9:1的比例）
-    // 只随机选1-2个角色发帖，其余都是NPC
-    const aiCharacters = characters.filter(c => c.personality)
-    const shuffledChars = [...aiCharacters].sort(() => Math.random() - 0.5)
-    const numCharacters = Math.min(1 + Math.floor(Math.random() * 2), shuffledChars.length) // 1-2个角色
-    const selectedCharacters = shuffledChars.slice(0, numCharacters)
+    // 🔥 只让NPC发帖，角色人设仅作为背景参考
+    console.log(`📌 只允许NPC发帖，角色人设仅作为参考`)
     
-    console.log(`📌 随机选中 ${selectedCharacters.length} 个角色:`, selectedCharacters.map(c => c.nickname || c.realName))
-    
-    // 加载选中角色的人设
-    for (const c of selectedCharacters) {
-      const recentChats = await getRecentChats(c.id, c.nickname || c.realName || '')
-      const publicLabel = localStorage.getItem(`public-label-${c.id}`) || undefined
-      
-      availablePosters.push({
-        id: String(c.id),
-        name: c.nickname || c.realName || 'Unknown',
-        personality: replaceVariables(c.personality || '', { charName: c.nickname || c.realName, userName, character: c }),
-        isPublicFigure: c.isPublicFigure || false,
-        publicLabel: publicLabel && publicLabel !== '__none__' ? publicLabel : undefined,
-        signature: c.signature,
-        recentChats
-      })
-    }
-    
-    // 添加NPC（大部分帖子由NPC发）
-    const npcList = npcs.slice(0, Math.max(8, count)).map(n => ({
+    // 只添加NPC作为发帖者
+    const npcList = npcs.slice(0, Math.max(10, count + 5)).map(n => ({
       id: n.id,
       name: n.name,
       personality: n.bio || '普通社区用户，喜欢分享日常',
@@ -144,8 +122,8 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
       recentChats: undefined
     }))
     
-    availablePosters = [...availablePosters, ...npcList]
-    console.log(`📌 加入 ${npcList.length} 个NPC，总共 ${availablePosters.length} 个发帖者`)
+    availablePosters = npcList
+    console.log(`📌 共 ${npcList.length} 个NPC可发帖`)
   }
   
   if (availablePosters.length === 0) {
@@ -191,17 +169,22 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
 - 吐槽发疯：emo时刻、社死现场、奇葩经历、深夜emo、突然想到的事
 - 求助分享：求推荐、求吐槽、分享好物、避雷帖子、经验分享`
   
-  const prompt = `你是一个社区论坛的内容生成器。请根据每个角色的**完整人设**和**聊天记录**，生成贴合人设的帖子。
+  const prompt = `你是一个社区论坛的内容生成器。请生成**普通网友NPC**的帖子。
 
 ## 🎯 核心要求
-1. **人设第一**：帖子内容必须100%符合角色人设！语气、用词、关注点都要贴合人设
+1. **只能NPC发帖**：所有帖子必须由下方NPC列表中的人发布
 2. **话题多样**：每条帖子话题必须不同，禁止重复套路
-3. **结合聊天**：如果有聊天记录，帖子可以延续聊天中的话题或情绪
+3. **真实自然**：像真实的普通网友发帖，不要有AI味
+
+## ⚠️ 严禁事项
+- **禁止以任何角色/明星/公众人物的名义发帖**
+- **禁止假装是某个特定人物**
+- 只能用下方NPC列表里的名字
 
 ## 📝 话题方向
 ${topicPrompt}${memesPrompt}
 
-## 👥 可用发帖者（仔细阅读每个人的完整信息！）
+## 👥 可用发帖者（只能从这个列表选！）
 
 ${posterDetails}
 

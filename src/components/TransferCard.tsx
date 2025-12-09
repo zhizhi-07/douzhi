@@ -22,10 +22,11 @@ const TransferCard = ({ message, onReceive, onReject }: TransferCardProps) => {
 
   return (
     <div
-      className="rounded-2xl shadow-lg bg-white overflow-hidden"
+      className="message-bubble overflow-hidden"
       style={{
         position: 'relative',
-        width: '200px'
+        width: '200px',
+        borderRadius: '16px'
       }}
     >
       {/* 内容层 */}

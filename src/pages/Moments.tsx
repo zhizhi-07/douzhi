@@ -157,7 +157,7 @@ export default function Moments() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans soft-page-enter">
       {/* 背景装饰 */}
       <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[100px] pointer-events-none" />
 

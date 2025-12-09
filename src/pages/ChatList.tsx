@@ -214,11 +214,16 @@ const ChatList = () => {
 
     setChats(uniqueChats)
     
-    // 🔥 更新缓存，供下次快速加载
+    // 🔥 更新缓存，供下次快速加载（限制数量避免配额超出）
     try {
-      sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(uniqueChats))
+      const toCache = uniqueChats.slice(0, 50).map((c: any) => ({
+        ...c,
+        lastMessage: c.lastMessage?.substring?.(0, 100) || c.lastMessage
+      }))
+      sessionStorage.setItem('__preloaded_chatlist__', JSON.stringify(toCache))
     } catch (e) {
-      // ignore
+      // 配额超出，清空缓存
+      sessionStorage.removeItem('__preloaded_chatlist__')
     }
   }, [updateChatsWithLatestMessages])
 
@@ -400,7 +405,7 @@ const ChatList = () => {
   }
 
   return (
-    <div className="h-full flex flex-col font-serif">
+    <div className="h-full flex flex-col font-serif soft-page-enter">
       {/* 顶部 - 玻璃拟态 */}
       <div
         className="relative z-10"

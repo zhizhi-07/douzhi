@@ -114,7 +114,7 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
       <div className="w-[220px] bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl shadow-lg overflow-hidden p-4">
           {/* 顶部文字 */}
           <div className="text-center mb-3">
-            <div className="text-sm text-yellow-900 font-medium mb-1">我给你代付了商品吧~</div>
+            <div className="text-sm text-yellow-900 font-medium mb-1">来帮我代付吧~</div>
           </div>
 
           {/* 白色内容卡片 */}
@@ -177,9 +177,12 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
 
   // 🔥 已支付状态：黄色卡片（与待确认相同布局）
   if (isPaid) {
-    // isSent=true: 用户发的请求AI代付 -> "来帮我代付吧"（已完成）
-    // isSent=false: AI发的要给用户代付 -> "我给你代付了"
-    const displayText = isSent ? '来帮我代付吧~' : '我给你代付了商品吧~'
+    // 根据支付方式显示不同文字
+    // paymentMethod='ai': 让AI代付 -> "来帮我代付吧"
+    // paymentMethod='self'/'intimate': 用户自己付 -> "我给你代付了"
+    const displayText = isAIPayment 
+      ? (isSent ? '来帮我代付吧~' : '我帮你代付了~')
+      : '我给你代付了~'
     return (
       <div className="w-[220px] bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl shadow-lg overflow-hidden p-4">
         {/* 顶部文字 */}
@@ -237,8 +240,10 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
 
   // 🔥 已拒绝状态：黄色卡片（与待确认相同布局）
   if (isRejected) {
-    // 根据消息方向显示不同文字
-    const displayText = isSent ? '来帮我代付吧~' : '我给你代付了商品吧~'
+    // 根据支付方式显示不同文字
+    const displayText = isAIPayment 
+      ? (isSent ? '来帮我代付吧~' : '我帮你代付了~')
+      : '我给你代付了~'
     return (
       <div className="w-[220px] bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl shadow-lg overflow-hidden p-4">
         {/* 顶部文字 */}
@@ -295,11 +300,12 @@ const PaymentRequestCard = ({ message, isSent, onAccept, onReject }: PaymentRequ
   }
 
   // 🔥 其他支付方式（自己支付/亲密付）：黄色卡片
+  // 用户选择自己付款，显示"我给你代付了"
   return (
     <div className="w-[220px] bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl shadow-lg overflow-hidden p-4">
       {/* 顶部文字 */}
       <div className="text-center mb-3">
-        <div className="text-sm text-yellow-900 font-medium mb-1">{isSent ? '来帮我代付吧~' : '我给你代付了商品吧~'}</div>
+        <div className="text-sm text-yellow-900 font-medium mb-1">我给你代付了~</div>
       </div>
 
       {/* 白色内容卡片 */}

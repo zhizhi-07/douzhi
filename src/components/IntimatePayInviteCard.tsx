@@ -2,7 +2,7 @@
  * 亲密付邀请卡片
  */
 
-import { createIntimatePayRelation } from '../utils/walletUtils'
+import { createIntimatePayRelationAsync } from '../utils/walletUtils'
 
 interface IntimatePayInviteCardProps {
   monthlyLimit: number
@@ -24,9 +24,9 @@ const IntimatePayInviteCard = ({
   onUpdateStatus
 }: IntimatePayInviteCardProps) => {
   
-  const handleAccept = () => {
+  const handleAccept = async () => {
     // 开通亲密付（AI给用户开通，类型是 character_to_user）
-    const success = createIntimatePayRelation(
+    const success = await createIntimatePayRelationAsync(
       characterId,
       characterName,
       monthlyLimit,
@@ -46,7 +46,7 @@ const IntimatePayInviteCard = ({
   }
 
   return (
-    <div className="glass-card rounded-2xl p-4 max-w-xs">
+    <div className="message-bubble p-4 max-w-xs" style={{ borderRadius: '16px' }}>
       {/* 头部图标 */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center flex-shrink-0">

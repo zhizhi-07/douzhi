@@ -353,7 +353,7 @@ ${emojiPrompt}${forumContextPrompt}`
   }
 
   return (
-    <div className="h-screen flex flex-col bg-transparent font-sans text-slate-900">
+    <div className="h-screen flex flex-col bg-transparent font-sans text-slate-900 soft-page-enter">
       {/* 顶部导航 - 现代社交风格 */}
       <div className="bg-white/70 sticky top-0 z-20 backdrop-blur-xl border-b border-gray-100">
         <StatusBar theme="dark" />

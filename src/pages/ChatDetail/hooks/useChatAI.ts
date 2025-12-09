@@ -223,9 +223,15 @@ export const useChatAI = (
         !avatarInfo.current.description.includes('待识别') && 
         !avatarInfo.current.description.includes('无法看到')
       
-      const needsAvatarRecognition = userInfo.avatar && !hasValidDescription
+      const needsAvatarRecognition = userInfo.avatar && userInfo.allowAvatarRecognition && !hasValidDescription
       
-      console.log('📷 [头像检查]', hasValidDescription ? `已有描述: ${avatarInfo.current?.description}` : '需要识别头像')
+      console.log('📷 [头像检查]', {
+        有头像: !!userInfo.avatar,
+        开启识别: userInfo.allowAvatarRecognition ?? false,
+        已有描述: hasValidDescription,
+        当前描述: avatarInfo.current?.description || '无',
+        需要识别: needsAvatarRecognition
+      })
 
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', `character_${chatId}`)
