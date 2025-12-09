@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface PhotosAppProps {
@@ -5,6 +6,7 @@ interface PhotosAppProps {
 }
 
 const PhotosApp = ({ content }: PhotosAppProps) => {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   // 生成随机柔和背景色
   const getRandomColor = (index: number) => {
     const colors = [
@@ -31,6 +33,7 @@ const PhotosApp = ({ content }: PhotosAppProps) => {
           {content.photos.map((photo, index) => (
             <div
               key={index}
+              onClick={() => setSelectedIndex(index)}
               className={`aspect-square ${getRandomColor(index)} relative overflow-hidden group cursor-pointer`}
             >
               {/* 照片内容模拟 */}
@@ -48,6 +51,78 @@ const PhotosApp = ({ content }: PhotosAppProps) => {
           ))}
         </div>
       </div>
+
+      {/* 照片详情弹窗 */}
+      {selectedIndex !== null && (
+        <div
+          className="absolute inset-0 bg-black/90 z-30 flex flex-col animate-in fade-in duration-200"
+          onClick={() => setSelectedIndex(null)}
+        >
+          {/* 顶部关闭按钮 */}
+          <div className="p-4 flex justify-end">
+            <button className="text-white/80 hover:text-white">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 照片内容 */}
+          <div className="flex-1 flex flex-col items-center justify-center px-6" onClick={(e) => e.stopPropagation()}>
+            <div className={`w-64 h-64 ${getRandomColor(selectedIndex)} rounded-2xl flex items-center justify-center p-6 mb-6`}>
+              <p className="text-gray-700 text-center text-sm leading-relaxed">
+                {content.photos[selectedIndex].description}
+              </p>
+            </div>
+
+            {/* 照片信息 */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full max-w-[280px]">
+              <div className="space-y-3">
+                {/* 拍摄时间 */}
+                <div className="flex items-center gap-3">
+                  <svg className="w-4 h-4 text-white/60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-white/90 text-sm">{content.photos[selectedIndex].time}</span>
+                </div>
+
+                {/* 拍摄地点 */}
+                {content.photos[selectedIndex].location && (
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-white/60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-white/90 text-sm">{content.photos[selectedIndex].location}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 底部工具栏 */}
+          <div className="p-4 flex justify-around">
+            <button className="text-white/80 flex flex-col items-center gap-1">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span className="text-[10px]">share</span>
+            </button>
+            <button className="text-white/80 flex flex-col items-center gap-1">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span className="text-[10px]">like</span>
+            </button>
+            <button className="text-white/80 flex flex-col items-center gap-1">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span className="text-[10px]">delete</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 底部标签栏 */}
       <div className="bg-white/90 backdrop-blur-xl border-t border-gray-200/50 pb-6 pt-2 px-6 flex justify-between items-center sticky bottom-0 z-20">

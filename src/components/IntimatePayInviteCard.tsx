@@ -46,7 +46,7 @@ const IntimatePayInviteCard = ({
   }
 
   return (
-    <div className="message-bubble p-4 max-w-xs" style={{ borderRadius: '16px' }}>
+    <div className="p-4 max-w-xs bg-white shadow-sm" style={{ borderRadius: '16px' }}>
       {/* 头部图标 */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center flex-shrink-0">

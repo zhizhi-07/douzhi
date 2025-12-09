@@ -22,7 +22,7 @@ const TransferCard = ({ message, onReceive, onReject }: TransferCardProps) => {
 
   return (
     <div
-      className="message-bubble overflow-hidden"
+      className="overflow-hidden bg-white shadow-sm"
       style={{
         position: 'relative',
         width: '200px',

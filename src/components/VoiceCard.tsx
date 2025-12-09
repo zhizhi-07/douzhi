@@ -30,9 +30,9 @@ const VoiceCard = ({
     <div className={`flex flex-col gap-1.5 ${isSent ? 'items-end' : 'items-start'}`}>
       {/* 语音卡片 - 简约设计 */}
       <div
-        className={`message-bubble rounded-full px-3 py-2 ${
+        className={`rounded-full px-3 py-2 ${
           isSent
-            ? ''
+            ? 'bg-green-100'
             : 'bg-white shadow-md'
         }`}
         style={{ 

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface MapsAppProps {
@@ -5,6 +6,7 @@ interface MapsAppProps {
 }
 
 const MapsApp = ({ content }: MapsAppProps) => {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   return (
     <div className="w-full h-full relative font-sans overflow-hidden absolute inset-0">
       {/* 地图背景 */}
@@ -52,22 +54,79 @@ const MapsApp = ({ content }: MapsAppProps) => {
         {/* 列表内容 */}
         <div className="flex-1 overflow-y-auto px-4 pb-6">
           <h2 className="text-[20px] font-bold text-black mb-3">我的足迹</h2>
-          <div className="space-y-4">
+          <div className="space-y-2">
             {content.footprints.map((footprint, index) => (
-              <div key={index} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-0">
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              <div key={index} className="bg-gray-50 rounded-xl overflow-hidden">
+                {/* 主行 - 可点击 */}
+                <div
+                  className="flex items-start gap-3 p-3 cursor-pointer active:bg-gray-100 transition-colors"
+                  onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                >
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[16px] font-semibold text-black truncate">{footprint.location}</h3>
+                      <span className="text-[12px] text-gray-400 flex-shrink-0 ml-2">{footprint.time}</span>
+                    </div>
+                    <p className="text-[13px] text-gray-500 truncate">{footprint.address}</p>
+                    <p className="text-[12px] text-gray-400 mt-0.5">{footprint.activity}</p>
+                  </div>
+                  {/* 展开箭头 */}
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 mt-1 ${expandedIndex === index ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[17px] font-semibold text-black truncate">{footprint.location}</h3>
-                    <span className="text-[13px] text-gray-400">{footprint.time}</span>
+
+                {/* 展开详情 */}
+                {expandedIndex === index && (
+                  <div className="px-3 pb-3 animate-in slide-in-from-top-2 duration-200">
+                    <div className="bg-white rounded-lg p-3 ml-11 space-y-2">
+                      {/* 停留时长 */}
+                      {footprint.duration && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-[12px] text-gray-600">停留 {footprint.duration}</span>
+                        </div>
+                      )}
+
+                      {/* 心情 */}
+                      {footprint.mood && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          <span className="text-[12px] text-gray-600">心情: {footprint.mood}</span>
+                        </div>
+                      )}
+
+                      {/* 同行人 */}
+                      {footprint.companion && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          <span className="text-[12px] text-gray-600">同行: {footprint.companion}</span>
+                        </div>
+                      )}
+
+                      {/* 如果没有额外信息，显示提示 */}
+                      {!footprint.duration && !footprint.mood && !footprint.companion && (
+                        <p className="text-[12px] text-gray-400">暂无更多详情</p>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[15px] text-gray-500 truncate">{footprint.address}</p>
-                  <p className="text-[13px] text-gray-400 mt-0.5">{footprint.activity}</p>
-                </div>
+                )}
               </div>
             ))}
           </div>

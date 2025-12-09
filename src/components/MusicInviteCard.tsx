@@ -43,7 +43,7 @@ const MusicInviteCard = ({
   }
 
   return (
-    <div className="message-bubble w-52 rounded-xl overflow-hidden">
+    <div className="w-52 rounded-xl overflow-hidden bg-white shadow-sm">
       <div className="p-3">
         {/* 横向布局：封面 + 信息 */}
         <div className="flex gap-3">

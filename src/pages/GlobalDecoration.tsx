@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import {
   ChatIcon, MusicIcon, ForumIcon, DecorationIcon, SettingsIcon,
-  BookIcon, MemoryIcon, CalendarIcon, GameIcon, PhoneIcon, BrowserIcon, ImageIcon
+  BookIcon, MemoryIcon, PhoneIcon, CalendarIcon, ImageIcon, GameIcon
 } from '../components/Icons'
 import {
   saveUIIcon,
@@ -63,22 +63,23 @@ const iconNameMap: Record<string, string> = {
   'menu-fix': '修正',
   'menu-couple': '情侣空间',
   'chat-input-bg': '输入框背景',
-  // 桌面应用图标
+  // 桌面应用图标 (第一页)
   'wechat-app': '微信',
   'preset': '预设',
   'worldbook': '世界书',
   'music-app': '音乐',
   'customize': '系统设置',
   'decoration': '美化',
-  'instagram': '论坛',
-  'aiphone': '查手机',
-  'api-config': 'API',
-  'global-memory': '记忆',
   // 桌面第二页图标
-  'desktop-calendar': '桌面-日历',
-  'desktop-theater': '桌面-小剧场',
-  'desktop-phone': '桌面-电话',
-  'desktop-game': '桌面-游戏'
+  'desktop-calendar': '日历',
+  'desktop-theater': '小剧场',
+  'homeland': '行程',
+  'desktop-game': '游戏',
+  // Dock栏图标
+  'api-config': 'API',
+  'instagram': 'Forum',
+  'global-memory': '记忆',
+  'aiphone': '查手机'
 }
 
 const GlobalDecoration = () => {
@@ -281,7 +282,7 @@ const GlobalDecoration = () => {
       const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality)
       const result = URL.createObjectURL(compressedBlob)
 
-      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'instagram', 'aiphone', 'api-config', 'global-memory', 'desktop-calendar', 'desktop-theater', 'desktop-phone', 'desktop-game']
+      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'instagram', 'aiphone', 'api-config', 'global-memory', 'desktop-calendar', 'desktop-theater', 'homeland', 'desktop-game']
       const backgroundIds = ['desktop-wallpaper', 'wechat-wallpaper']
 
       if (backgroundIds.includes(currentEditingIcon)) {
@@ -572,7 +573,7 @@ const GlobalDecoration = () => {
     </div>
   )
 
-  // 桌面预览
+  // 桶面预览
   const DesktopView = () => (
     <div
       className="w-full h-full bg-gradient-to-b from-blue-400 to-purple-500 flex flex-col relative cursor-pointer group overflow-hidden rounded-[40px] border-[6px] border-white/50 shadow-inner"
@@ -587,7 +588,7 @@ const GlobalDecoration = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       } : {}}
-      title="点击空白处上传桌面背景"
+      title="点击空白处上传桶面背景"
     >
       {/* 状态栏占位 */}
       <div className="h-6 w-full" />
@@ -600,21 +601,15 @@ const GlobalDecoration = () => {
         </div>
       </div>
 
-      {/* 应用图标网格 */}
-      <div className="flex-1 px-3 grid grid-cols-4 gap-x-2 gap-y-3 content-start desktop-bg-area">
+      {/* 应用图标网格 - 第一页 */}
+      <div className="px-3 grid grid-cols-4 gap-x-2 gap-y-2 content-start desktop-bg-area">
         {[
           { id: 'wechat-app', label: '微信', icon: <ChatIcon className="w-5 h-5 text-green-500" /> },
-          { id: 'music-app', label: '音乐', icon: <MusicIcon className="w-5 h-5 text-pink-500" /> },
-          { id: 'instagram', label: '论坛', icon: <ForumIcon className="w-5 h-5 text-orange-500" /> },
-          { id: 'decoration', label: '美化', icon: <DecorationIcon className="w-5 h-5 text-purple-500" /> },
-          { id: 'api-config', label: 'API', icon: <SettingsIcon className="w-5 h-5 text-blue-500" /> },
-          { id: 'customize', label: '设置', icon: <SettingsIcon className="w-5 h-5 text-slate-500" /> },
+          { id: 'preset', label: '预设', icon: <SettingsIcon className="w-5 h-5 text-slate-500" /> },
           { id: 'worldbook', label: '世界书', icon: <BookIcon className="w-5 h-5 text-amber-600" /> },
-          { id: 'global-memory', label: '记忆', icon: <MemoryIcon className="w-5 h-5 text-cyan-500" /> },
-          { id: 'desktop-calendar', label: '日历', icon: <CalendarIcon className="w-5 h-5 text-red-500" /> },
-          { id: 'desktop-theater', label: '小剧场', icon: <GameIcon className="w-5 h-5 text-indigo-500" /> },
-          { id: 'desktop-game', label: '游戏', icon: <GameIcon className="w-5 h-5 text-emerald-500" /> },
-          { id: 'aiphone', label: '查手机', icon: <PhoneIcon className="w-5 h-5 text-teal-500" /> }
+          { id: 'music-app', label: '音乐', icon: <MusicIcon className="w-5 h-5 text-pink-500" /> },
+          { id: 'customize', label: '系统设置', icon: <SettingsIcon className="w-5 h-5 text-blue-500" /> },
+          { id: 'decoration', label: '美化', icon: <DecorationIcon className="w-5 h-5 text-purple-500" /> }
         ].map(app => {
           const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
           return (
@@ -623,11 +618,7 @@ const GlobalDecoration = () => {
                 className="w-10 h-10 rounded-xl bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center overflow-hidden"
                 onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
               >
-                {customIcon ? (
-                  <img src={customIcon} alt={app.label} className="w-full h-full object-cover" />
-                ) : (
-                  app.icon
-                )}
+                {customIcon ? <img src={customIcon} alt={app.label} className="w-full h-full object-cover" /> : app.icon}
               </div>
               <span className="text-[8px] text-white font-medium drop-shadow-md">{app.label}</span>
             </div>
@@ -635,13 +626,40 @@ const GlobalDecoration = () => {
         })}
       </div>
 
-      {/* 底部Dock栏 */}
+      {/* 分隔线 */}
+      <div className="mx-6 my-2 border-t border-white/20 desktop-bg-area" />
+      <div className="text-[8px] text-white/60 text-center mb-1 desktop-bg-area">第二页</div>
+
+      {/* 应用图标网格 - 第二页 */}
+      <div className="flex-1 px-3 grid grid-cols-4 gap-x-2 gap-y-2 content-start desktop-bg-area">
+        {[
+          { id: 'desktop-calendar', label: '日历', icon: <CalendarIcon className="w-5 h-5 text-red-500" /> },
+          { id: 'desktop-theater', label: '小剧场', icon: <ImageIcon className="w-5 h-5 text-indigo-500" /> },
+          { id: 'homeland', label: '行程', icon: <CalendarIcon className="w-5 h-5 text-blue-500" /> },
+          { id: 'desktop-game', label: '游戏', icon: <GameIcon className="w-5 h-5 text-emerald-500" /> }
+        ].map(app => {
+          const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
+          return (
+            <div key={app.id} className="flex flex-col items-center gap-0.5">
+              <div
+                className="w-10 h-10 rounded-xl bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center overflow-hidden"
+                onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
+              >
+                {customIcon ? <img src={customIcon} alt={app.label} className="w-full h-full object-cover" /> : app.icon}
+              </div>
+              <span className="text-[8px] text-white font-medium drop-shadow-md">{app.label}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 底部Dock栏 - 与 dockApps 保持一致 */}
       <div className="mx-3 mb-3 p-2 bg-white/20 backdrop-blur-xl rounded-2xl flex justify-around items-center">
         {[
-          { id: 'desktop-phone', icon: <PhoneIcon className="w-5 h-5 text-green-500" /> },
-          { id: 'desktop-message', icon: <ChatIcon className="w-5 h-5 text-green-400" /> },
-          { id: 'desktop-browser', icon: <BrowserIcon className="w-5 h-5 text-blue-500" /> },
-          { id: 'desktop-camera', icon: <ImageIcon className="w-5 h-5 text-slate-600" /> }
+          { id: 'api-config', label: 'API', icon: <SettingsIcon className="w-5 h-5 text-blue-500" /> },
+          { id: 'instagram', label: 'Forum', icon: <ForumIcon className="w-5 h-5 text-orange-500" /> },
+          { id: 'global-memory', label: '记忆', icon: <MemoryIcon className="w-5 h-5 text-cyan-500" /> },
+          { id: 'aiphone', label: '查手机', icon: <PhoneIcon className="w-5 h-5 text-teal-500" /> }
         ].map(app => {
           const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
           return (
@@ -649,9 +667,10 @@ const GlobalDecoration = () => {
               key={app.id}
               className="w-10 h-10 rounded-xl bg-white shadow-sm cursor-pointer hover:scale-110 transition-transform flex items-center justify-center overflow-hidden"
               onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
+              title={app.label}
             >
               {customIcon ? (
-                <img src={customIcon} alt="" className="w-full h-full object-cover" />
+                <img src={customIcon} alt={app.label} className="w-full h-full object-cover" />
               ) : (
                 app.icon
               )}

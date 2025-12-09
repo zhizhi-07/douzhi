@@ -13,7 +13,7 @@ const LocationCard = ({ message }: LocationCardProps) => {
   if (!message.location) return null
 
   return (
-    <div className="message-bubble w-[220px] cursor-pointer overflow-hidden rounded-2xl">
+    <div className="w-[220px] cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm">
       {/* 地图缩略图 - 用自己的背景覆盖气泡背景 */}
       <div className="h-24 relative overflow-hidden" style={{ background: 'linear-gradient(to bottom right, #dbeafe, #dcfce7)' }}>
         {/* 模拟地图网格 */}

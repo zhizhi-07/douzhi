@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface BrowserAppProps {
@@ -5,6 +6,7 @@ interface BrowserAppProps {
 }
 
 const BrowserApp = ({ content }: BrowserAppProps) => {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const favorites = [
     { name: 'Google', color: 'bg-blue-500', letter: 'G' },
     { name: 'Apple', color: 'bg-black', letter: 'A' },
@@ -36,20 +38,52 @@ const BrowserApp = ({ content }: BrowserAppProps) => {
 
         {/* 经常访问 (使用历史记录) */}
         <div>
-          <h2 className="text-[22px] font-bold text-black mb-4">经常访问</h2>
+          <h2 className="text-[22px] font-bold text-black mb-4">浏览历史</h2>
           <div className="bg-white/60 backdrop-blur-md rounded-[14px] overflow-hidden">
             {content.browserHistory.map((item, index) => (
               <div
                 key={index}
-                className={`px-4 py-3 flex items-center gap-3 active:bg-gray-200/50 transition-colors ${index !== content.browserHistory.length - 1 ? 'border-b border-gray-200/50' : ''}`}
+                className={`${index !== content.browserHistory.length - 1 ? 'border-b border-gray-200/50' : ''}`}
               >
-                <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500 font-bold text-sm">
-                  {item.title[0]}
+                {/* 主行 - 可点击 */}
+                <div
+                  className="px-4 py-3 flex items-center gap-3 active:bg-gray-200/50 transition-colors cursor-pointer"
+                  onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                >
+                  <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500 font-bold text-sm">
+                    {item.title[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[15px] text-black truncate">{item.title}</div>
+                    <div className="text-[12px] text-gray-500 truncate">{item.time}</div>
+                  </div>
+                  {/* 展开箭头 */}
+                  {item.reason && (
+                    <svg
+                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${expandedIndex === index ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[15px] text-black truncate">{item.title}</div>
-                  <div className="text-[12px] text-gray-500 truncate">{item.url}</div>
-                </div>
+
+                {/* 展开详情 - 浏览原因 */}
+                {expandedIndex === index && item.reason && (
+                  <div className="px-4 pb-3 animate-in slide-in-from-top-2 duration-200">
+                    <div className="bg-blue-50/80 rounded-lg p-3 ml-11">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        <span className="text-[11px] text-blue-600 font-medium">为什么搜这个</span>
+                      </div>
+                      <p className="text-[13px] text-gray-700 leading-relaxed">{item.reason}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

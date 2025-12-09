@@ -15,7 +15,7 @@ const MusicShareCard = ({
 }: MusicShareCardProps) => {
   return (
     <div
-      className="message-bubble w-[200px] overflow-hidden cursor-pointer select-none"
+      className="w-[200px] overflow-hidden cursor-pointer select-none bg-white shadow-sm"
       style={{ borderRadius: '12px' }}
       onClick={onClick}
     >

@@ -136,7 +136,7 @@ const AISchedule = () => {
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [showEntryAnimation, setShowEntryAnimation] = useState(true)
+  const [showEntryAnimation, setShowEntryAnimation] = useState(false)
   
   // 日期翻页
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -247,12 +247,6 @@ const AISchedule = () => {
 
   return (
     <div className="fixed inset-0 bg-[#FDFBF7] text-[#4A4A4A] flex flex-col">
-      {/* 装饰背景纹理 */}
-      <div className="fixed inset-0 opacity-[0.02] pointer-events-none" 
-        style={{ 
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` 
-        }} 
-      />
 
       {/* 顶部导航栏 */}
       <div className="sticky top-0 z-50 bg-[#FDFBF7]/95 backdrop-blur-sm">
@@ -367,7 +361,6 @@ const AISchedule = () => {
         <div className="relative max-w-md mx-auto">
           {items.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-5xl mb-4 opacity-30">📝</div>
               <div className="text-[#8C8C8C] mb-2">暂无行程记录</div>
               <div className="text-sm text-[#B0B0B0]">
                 TA 还没有更新过状态<br/>
@@ -427,7 +420,7 @@ const AISchedule = () => {
                       {/* 地点 */}
                       {item.location && (
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-[#B0B0B0]">📍</span>
+                          <span className="text-[10px] text-[#B0B0B0]">地点</span>
                           <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
                             {item.location}
                           </span>
@@ -437,9 +430,9 @@ const AISchedule = () => {
                       {/* 心情 */}
                       {item.mood && (
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-[#B0B0B0]">💭</span>
+                          <span className="text-[10px] text-[#B0B0B0]">心情</span>
                           <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
-                            心情: {item.mood}
+                            {item.mood}
                           </span>
                         </div>
                       )}
@@ -447,9 +440,9 @@ const AISchedule = () => {
                       {/* 穿着 */}
                       {item.clothing && (
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-[#B0B0B0]">👔</span>
+                          <span className="text-[10px] text-[#B0B0B0]">穿着</span>
                           <span className={`text-xs ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#7A7A7A]'}`}>
-                            穿着: {item.clothing}
+                            {item.clothing}
                           </span>
                         </div>
                       )}
@@ -457,7 +450,7 @@ const AISchedule = () => {
                       {/* 心理活动 */}
                       {item.psychology && (
                         <div className="flex items-start gap-2">
-                          <span className="text-[10px] text-[#B0B0B0] mt-0.5">🧠</span>
+                          <span className="text-[10px] text-[#B0B0B0] mt-0.5">心声</span>
                           <span className={`text-xs leading-relaxed italic ${item.type === 'past' ? 'text-[#B8B8B8]' : 'text-[#8A8A8A]'}`}>
                             "{item.psychology}"
                           </span>
@@ -480,12 +473,8 @@ const AISchedule = () => {
           ))}
         </div>
 
-        {/* 底部装饰 */}
-        <div className="mt-12 text-center">
-          <div className="text-[10px] text-[#C0C0C0] tracking-[0.15em]">
-            — ✦ —
-          </div>
-        </div>
+        {/* 底部空白 */}
+        <div className="mt-12"></div>
       </div>
     </div>
   )
