@@ -250,31 +250,21 @@ const MusicPlayer = () => {
         />
       )}
 
-      <div className="h-screen flex flex-col relative overflow-hidden bg-gray-900 text-white font-sans soft-page-enter" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <StatusBar theme="light" />
-
-        {/* 背景层 - 网易云风格：深色模糊背景 */}
-        <div className="absolute inset-0 top-0 z-0 bg-[#333]">
-          {/* 这里使用主色调或者封面进行极度模糊 */}
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-40 blur-[80px] scale-150 transition-all duration-1000"
-            style={{ backgroundImage: `url(${customBackground || currentSong.cover})` }}
-          />
-          <div className="absolute inset-0 bg-black/30" />
-        </div>
+      <div className="h-screen flex flex-col relative overflow-hidden text-gray-800 font-sans soft-page-enter" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <StatusBar theme="dark" />
 
         {/* 顶部导航 */}
         <div className="relative z-10 px-4 pt-3 pb-2 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="w-10 h-10 flex items-center justify-center text-white/90 hover:text-white transition-colors">
+          <button onClick={() => navigate('/')} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" transform="rotate(90 12 12)" /></svg>
           </button>
           <div className="flex flex-col items-center">
-            <span className="text-base font-medium">
+            <span className="text-base font-medium text-gray-800">
               {currentSong.title}
             </span>
-            <span className="text-xs text-white/60">{currentSong.artist}</span>
+            <span className="text-xs text-gray-500">{currentSong.artist}</span>
           </div>
-          <button onClick={() => navigate('/music-search')} className="w-10 h-10 flex items-center justify-center text-white/90">
+          <button onClick={() => navigate('/music-search')} className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </button>
         </div>
@@ -313,26 +303,6 @@ const MusicPlayer = () => {
         {/* 核心显示区：唱片 / 歌词 */}
         <div className="relative z-10 flex-1 flex flex-col overflow-hidden" onClick={() => setShowLyrics(!showLyrics)}>
 
-          {/* 唱针 - 优化为更真实的图形 */}
-          <div className={`absolute top-0 left-1/2 ml-[-15px] z-30 transition-opacity duration-300 ${showLyrics ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            <div className={`w-24 h-40 origin-[16px_16px] needle-arm ${isPlaying ? 'playing' : 'paused'}`}>
-              {/* 使用 SVG 绘制精致的唱针 */}
-              <div className="relative w-full h-full">
-                {/* 基座 */}
-                <div className="absolute top-[-6px] left-[-6px] w-10 h-10 rounded-full bg-[#ddd] shadow-md border border-[#999] z-20"></div>
-                <div className="absolute top-[10px] left-[13px] w-4 h-4 rounded-full bg-[#aaa] shadow-inner z-30"></div>
-
-                {/* 唱臂杆 - 更加修长精致 */}
-                <div className="absolute top-[16px] left-[16px] w-[6px] h-[100px] bg-[#e0e0e0] origin-top transform rotate-[-5deg] shadow-lg rounded-full z-10" style={{ backgroundImage: 'linear-gradient(90deg, #ccc, #f0f0f0, #bbb)' }}></div>
-
-                {/* 唱头 */}
-                <div className="absolute top-[108px] left-[26px] w-[26px] h-[40px] bg-[#fff] rounded-[4px] shadow-md transform rotate-[-5deg] border border-[#eee] z-20 flex flex-col items-center justify-end pb-1">
-                  <div className="w-[80%] h-[2px] bg-red-600 rounded-full mb-1"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 中间容器 */}
           <div className="flex-1 flex flex-col items-center justify-center relative w-full min-h-0">
 
@@ -341,19 +311,19 @@ const MusicPlayer = () => {
 
               {/* 黑胶盘 */}
               <div className="relative">
-                <div className={`w-[280px] h-[280px] rounded-full vinyl-disc flex items-center justify-center shadow-2xl ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}>
+                <div className={`w-[220px] h-[220px] rounded-full vinyl-disc flex items-center justify-center shadow-xl ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}>
                   {/* 纹理层 */}
                   <div className="absolute inset-0 rounded-full vinyl-texture" />
                   {/* 封面 */}
-                  <div className="w-[190px] h-[190px] rounded-full overflow-hidden border-[6px] border-[#181818]">
+                  <div className="w-[150px] h-[150px] rounded-full overflow-hidden border-[5px] border-[#181818]">
                     <img src={currentSong.cover} className="w-full h-full object-cover" alt="cover" />
                   </div>
                 </div>
               </div>
 
-              {/* 一起听 - 胶囊悬浮显示 - FIX: 找回了头像显示 */}
+              {/* 一起听 - 胶囊悬浮显示 */}
               {listeningTogether && (
-                <div className="mt-12 flex items-center justify-center animate-fade-in-up">
+                <div className="mt-20 flex items-center justify-center animate-fade-in-up">
                   <div className="flex items-center gap-[-8px] bg-black/20 backdrop-blur-md pl-1 pr-4 py-1.5 rounded-full border border-white/10">
                     <div className="flex items-center -space-x-3">
                       <div className="w-10 h-10 rounded-full border-2 border-white/80 shadow-lg overflow-hidden relative z-10">
@@ -380,13 +350,13 @@ const MusicPlayer = () => {
                     parsedLyrics.map((line, i) => {
                       const isCurrent = i === currentLyricIndex
                       return (
-                        <p key={i} className={`transition-all duration-300 ${isCurrent ? 'text-white text-lg font-bold' : 'text-white/40 text-sm'}`}>
+                        <p key={i} className={`transition-all duration-300 ${isCurrent ? 'text-gray-800 text-lg font-bold' : 'text-gray-400 text-sm'}`}>
                           {line}
                         </p>
                       )
                     })
                   ) : (
-                    <p className="text-white/50">暂无歌词</p>
+                    <p className="text-gray-400">暂无歌词</p>
                   )}
                 </div>
               </div>
@@ -400,56 +370,56 @@ const MusicPlayer = () => {
 
           {/* 功能按钮行：喜欢 / 下载 / 评论 / 更多 */}
           <div className="flex items-center justify-between px-8">
-            <button onClick={() => setIsLiked(!isLiked)} className={`${isLiked ? 'text-red-500' : 'text-white/70 hover:text-white'}`}>
+            <button onClick={() => setIsLiked(!isLiked)} className={`${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}>
               <svg className={`w-7 h-7 ${isLiked ? 'fill-current' : ''}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
             </button>
-            <button className="text-white/70 hover:text-white">
+            <button className="text-gray-500 hover:text-gray-700">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <button className="text-white/70 hover:text-white">
+            <button className="text-gray-500 hover:text-gray-700">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <button className="text-white/70 hover:text-white">
+            <button className="text-gray-500 hover:text-gray-700">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
             </button>
           </div>
 
           {/* 进度条 */}
           <div className="space-y-2">
-            <div className="flex justify-between text-xs text-white/40 font-mono">
+            <div className="flex justify-between text-xs text-gray-400 font-mono">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration || currentSong.duration)}</span>
             </div>
-            <div className="relative h-1 w-full bg-white/10 rounded-full group cursor-pointer">
+            <div className="relative h-1 w-full bg-gray-200 rounded-full group cursor-pointer">
               <input
                 type="range" min="0" max={duration} value={currentTime} onChange={handleSeek}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
               />
-              <div className="absolute top-0 left-0 h-full bg-white/80 rounded-full" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute top-0 left-0 h-full bg-gray-800 rounded-full" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </div>
 
           {/* 播放控制 */}
           <div className="flex items-center justify-center gap-10">
-            <button className="text-white/80 hover:text-white" onClick={() => { /* Loop Mode */ }}>
+            <button className="text-gray-500 hover:text-gray-700" onClick={() => { /* Loop Mode */ }}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
-            <button className="text-white hover:text-white/80" onClick={playPrevious}>
+            <button className="text-gray-700 hover:text-gray-900" onClick={playPrevious}>
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
             </button>
-            <button className="w-16 h-16 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-colors" onClick={togglePlay}>
+            <button className="w-16 h-16 rounded-full border border-gray-300 flex items-center justify-center text-gray-800 hover:bg-gray-100 transition-colors" onClick={togglePlay}>
               {isPlaying ? (
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
               ) : (
                 <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
               )}
             </button>
-            <button className="text-white hover:text-white/80" onClick={playNext}>
+            <button className="text-gray-700 hover:text-gray-900" onClick={playNext}>
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
             </button>
-            <button className="text-white/80 hover:text-white" onClick={() => setShowPlaylist(true)}>
+            <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowPlaylist(true)}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
           </div>
