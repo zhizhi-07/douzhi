@@ -118,6 +118,26 @@ const Customize = () => {
           bgColor: 'bg-emerald-50'
         }
       ]
+    },
+    {
+      title: '账号管理',
+      enTitle: 'ACCOUNT MANAGEMENT',
+      items: [
+        {
+          id: 'cloud-account',
+          name: '云端账号',
+          enName: 'Cloud Account',
+          description: '登录状态与云端数据',
+          route: '/cloud-account',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+            </svg>
+          ),
+          color: 'text-sky-600',
+          bgColor: 'bg-sky-50'
+        }
+      ]
     }
   ]
 

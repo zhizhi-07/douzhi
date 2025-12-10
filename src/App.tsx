@@ -96,6 +96,10 @@ import MemeLibrary from './pages/MemeLibrary'
 import SwitchAccount from './pages/SwitchAccount'
 import Weather from './pages/Weather'
 import Envelope from './pages/Envelope'
+import Auth from './pages/Auth'
+import Admin from './pages/Admin'
+import CloudAccount from './pages/CloudAccount'
+import BanCheck from './components/BanCheck'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
@@ -323,6 +327,10 @@ function App() {
       if (document.hidden) {
         console.log('📱 [visibilitychange] 页面隐藏，触发备份')
         doBackup()
+        // 🔥 云同步备份（如果已登录）
+        import('./services/cloudSyncService').then(({ autoSync }) => {
+          autoSync()
+        })
       }
     }
 
@@ -610,13 +618,20 @@ function App() {
           <Route path="/meme-library" element={<MemeLibrary />} />
           <Route path="/chat/:id/weather" element={<Weather />} />
           <Route path="/envelope" element={<Envelope />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/cloud-account" element={<CloudAccount />} />
           {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
         </Routes>
       </ContactsProvider>
     </div>
   )
 
-  return renderContent()
+  return (
+    <BanCheck>
+      {renderContent()}
+    </BanCheck>
+  )
 }
 
 export default App
