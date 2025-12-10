@@ -7,69 +7,38 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
-/* iOS全屏适配 - 使用JS计算的--vh变量 */
-html,
-body,
-#root {
+/* ===== iOS全屏兼容方案 ===== */
+/* 同时兼容：刘海屏(有safe-area) + 普通屏幕(无safe-area) */
+
+html, body, #root {
   height: 100%;
-  height: calc(var(--vh, 1vh) * 100);
+  width: 100%;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
-  /* 防止iOS橡皮筋效果 */
   overscroll-behavior: none;
 }
 
-/* 让app-container填满可用空间 - 包括iOS安全区域 */
+/* app-container：使用100%高度，不用fixed */
 .app-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* 🔥 关键：底部延伸到屏幕边缘，而不是安全区域 */
-  bottom: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
+  /* 只在有safe-area的设备上添加底部padding */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* 🔥 iOS安全区域底部背景填充 - 使用伪元素避免影响内容布局 */
-.app-container::after {
-  content: '';
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: env(safe-area-inset-bottom, 0px);
-  background: inherit;
-  /* 继承父元素背景，如果有背景图也会继承 */
-  background-color: #f5f7fa;
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* 修复h-screen在iOS上的问题 - 使用100%而不是100vh */
+/* h-screen使用100%而不是100vh（100vh在iOS上有问题） */
 .h-screen {
   height: 100% !important;
 }
 
-/* 确保min-h-screen也正确 */
 .min-h-screen {
   min-height: 100% !important;
 }
 
-/* 全局背景 - 确保覆盖iOS安全区域 */
 body {
   background: #f5f7fa !important;
-}
-
-/* iOS standalone模式（PWA添加到主屏幕）- 使用--vh变量 */
-@media all and (display-mode: standalone) {
-  html,
-  body,
-  #root {
-    height: calc(var(--vh, 1vh) * 100);
-  }
-
-  .h-screen {
-    height: calc(var(--vh, 1vh) * 100) !important;
-  }
 }
 
 /* 强制所有页面容器透明，让全局背景显示（排除论坛、Instagram、聊天页面和主布局） */
