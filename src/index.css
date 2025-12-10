@@ -49,7 +49,7 @@ body,
   background: inherit;
   /* 继承父元素背景，如果有背景图也会继承 */
   background-color: #f5f7fa;
-  z-index: 9999;
+  z-index: -1;
   pointer-events: none;
 }
 
