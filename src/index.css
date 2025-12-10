@@ -7,30 +7,24 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
-/* ===== iOS全屏终极方案 ===== */
+/* ===== iOS全屏方案 - 简化版 ===== */
 
-html, body {
+html, body, #root {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
-#root {
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-}
-
-/* app-container：使用min-height确保填满屏幕 */
+/* app-container：占满整个屏幕，无padding */
 .app-container {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0; /* 移除重复的bottom定义 */
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  padding-bottom: env(safe-area-inset-bottom, 0px); /* 补回padding，让内容不被遮挡 */
 }
 
 /* h-screen使用100%而不是100vh（100vh在iOS上有问题） */

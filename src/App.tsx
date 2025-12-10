@@ -494,10 +494,7 @@ function App() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        minHeight: '100dvh',
-      } : {
-        minHeight: '100dvh',
-      }}
+      } : undefined}
     >
       <ContactsProvider>
         {/* 全局灵动岛 */}
