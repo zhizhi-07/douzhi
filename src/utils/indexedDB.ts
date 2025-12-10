@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'WeChatAppDB'
-const DB_VERSION = 1
+const DB_VERSION = 3
 
 // 存储对象名称
 export const STORES = {

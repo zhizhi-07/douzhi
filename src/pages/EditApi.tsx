@@ -16,7 +16,7 @@ const EditApi = () => {
     apiKey: existingApi?.apiKey || '',
     model: existingApi?.model || '',
     provider: existingApi?.provider || 'openai' as const,
-    temperature: existingApi?.temperature ?? 0.5,
+    temperature: existingApi?.temperature ?? 0.6,
     maxTokens: existingApi?.maxTokens ?? 8000,
     supportsVision: existingApi?.supportsVision ?? false
   })
@@ -301,17 +301,14 @@ const EditApi = () => {
               />
             </div>
 
+
             <div className="px-5 py-4 flex items-center justify-between hover:bg-white/30 transition-colors cursor-pointer" onClick={() => setFormData({ ...formData, supportsVision: !formData.supportsVision })}>
               <div>
                 <label className="block text-sm text-slate-800 font-medium">视觉中枢 (Visual Cortex)</label>
                 <p className="text-[10px] text-slate-500 mt-0.5 font-light">开启后可识别图片内容</p>
               </div>
-              <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.supportsVision ? 'bg-slate-700' : 'bg-slate-300'
-                }`}>
-                <span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.supportsVision ? 'translate-x-5' : 'translate-x-1'
-                    }`}
-                />
+              <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.supportsVision ? 'bg-slate-700' : 'bg-slate-300'}`}>
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.supportsVision ? 'translate-x-5' : 'translate-x-1'}`} />
               </div>
             </div>
           </div>

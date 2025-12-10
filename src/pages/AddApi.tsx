@@ -13,7 +13,7 @@ const AddApi = () => {
     apiKey: '',
     model: '',
     provider: 'openai' as const,
-    temperature: 0.5,
+    temperature: 0.6,
     maxTokens: 8000,
     supportsVision: false
   })
@@ -285,6 +285,7 @@ const AddApi = () => {
                 className="w-full bg-transparent border-none outline-none text-slate-800 placeholder-slate-400 text-sm font-mono"
               />
             </div>
+
 
             <div className="px-5 py-4 flex items-center justify-between hover:bg-white/30 transition-colors cursor-pointer" onClick={() => setFormData({ ...formData, supportsVision: !formData.supportsVision })}>
               <div>
