@@ -281,8 +281,8 @@ const EditApi = () => {
               </div>
               <input
                 type="range"
-                min="0.5"
-                max="0.6"
+                min="0"
+                max="2"
                 step="0.1"
                 value={formData.temperature}
                 onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}
