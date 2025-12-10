@@ -650,6 +650,11 @@ input[type="range"].slider::-moz-range-thumb:active {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* pb-safe - 为固定在底部的元素添加iOS安全区域padding */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* StatusBar - 固定高度 */
 .status-bar {
   height: 44px;
