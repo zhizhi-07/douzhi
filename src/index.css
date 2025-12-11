@@ -226,19 +226,6 @@ input {
   box-sizing: border-box;
 }
 
-html,
-body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  /* iOS安全区域背景延伸 */
-  background: #f5f7fa;
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-}
-
 body {
   font-family: var(--global-font-family) !important;
   -webkit-font-smoothing: antialiased;
