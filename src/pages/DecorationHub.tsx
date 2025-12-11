@@ -3,12 +3,18 @@
  * 包含音乐盘装饰和全局美化分组
  */
 
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { playSystemSound } from '../utils/soundManager'
 
 const DecorationHub = () => {
   const navigate = useNavigate()
+  
+  // 隐藏消息时间戳设置
+  const [hideTimestamp, setHideTimestamp] = useState(() => {
+    return localStorage.getItem('hide_message_timestamp') === 'true'
+  })
 
   // 美化分组列表
   const groups = [
@@ -111,6 +117,47 @@ const DecorationHub = () => {
       {/* 滚动内容区 */}
       <div className="flex-1 overflow-y-auto px-6 pb-24 z-0 scrollbar-hide">
         <div className="max-w-3xl mx-auto space-y-8">
+
+          {/* 快捷设置 */}
+          <div className="space-y-3">
+            <div className="flex items-baseline gap-3 px-1">
+              <h2 className="text-sm font-medium text-slate-400 tracking-wider uppercase">QUICK SETTINGS</h2>
+              <span className="text-xs text-slate-300 font-light">快捷设置</span>
+            </div>
+            
+            {/* 隐藏时间戳开关 */}
+            <div className="bg-white/40 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-sm">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-medium text-slate-800 tracking-wide">隐藏消息时间</h3>
+                    <p className="text-xs text-slate-500 font-light mt-0.5">隐藏每条消息气泡下方的时间戳</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    playSystemSound()
+                    const newValue = !hideTimestamp
+                    setHideTimestamp(newValue)
+                    localStorage.setItem('hide_message_timestamp', newValue.toString())
+                    window.dispatchEvent(new Event('timestampVisibilityUpdate'))
+                  }}
+                  className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                    hideTimestamp ? 'bg-orange-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                    hideTimestamp ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          </div>
 
           {groups.map((group) => (
             <div key={group.title} className="space-y-3">

@@ -17,6 +17,7 @@ interface OfflineMessageBubbleProps {
 }
 
 interface StatusData {
+  title?: string
   psychology?: string
   clothing?: string
   action?: string
@@ -33,6 +34,7 @@ const parseMessageContent = (content: string) => {
   let branchOptions: string[] | null = null
 
   // 1. 提取状态面板 - 使用更直接的匹配方式
+  const titleMatch = content.match(/[>]?\s*📌\s*标题[：:]\s*(.+)/m)
   const affectionMatch = content.match(/[>]?\s*💗\s*好感[：:]\s*(\d+)/m)
   const lustMatch = content.match(/[>]?\s*🔥\s*性欲[：:]\s*(\d+)/m)
   const psychologyMatch = content.match(/[>]?\s*💭\s*心理[：:]\s*(.+)/m)
@@ -41,8 +43,9 @@ const parseMessageContent = (content: string) => {
   const locationMatch = content.match(/[>]?\s*📍\s*位置[：:]\s*(.+)/m)
   const desireMatch = content.match(/[>]?\s*🖤\s*欲念[：:]\s*(.+)/m)
 
-  if (psychologyMatch || clothingMatch || actionMatch || locationMatch || desireMatch || affectionMatch) {
+  if (psychologyMatch || clothingMatch || actionMatch || locationMatch || desireMatch || affectionMatch || titleMatch) {
     statusData = {
+      title: titleMatch?.[1]?.trim(),
       affection: affectionMatch?.[1],
       lust: lustMatch?.[1],
       psychology: psychologyMatch?.[1]?.trim(),
@@ -53,6 +56,7 @@ const parseMessageContent = (content: string) => {
     }
     // 从正文中移除状态行
     mainContent = mainContent
+      .replace(/[>]?\s*📌\s*标题[：:].+/gm, '')
       .replace(/[>]?\s*💗\s*好感[：:].+/gm, '')
       .replace(/[>]?\s*🔥\s*性欲[：:].+/gm, '')
       .replace(/[>]?\s*💭\s*心理[：:].+/gm, '')
@@ -92,227 +96,23 @@ const parseMessageContent = (content: string) => {
   }
 }
 
-// 状态卡片组件 - 杂志海报风格
-const StatusCard = ({ data }: { data: StatusData }) => {
-  if (!data) return null
-  const [isExpanded, setIsExpanded] = useState(false)
-  
-  // 颜色定义
-  const affection = parseInt(data.affection || '0')
-  const lust = parseInt(data.lust || '0')
-  
-  // Mini HUD (收起状态) - 精致票据挂件
-  if (!isExpanded) {
-    return (
-      <div 
-        onClick={() => setIsExpanded(true)}
-        className="mt-6 mx-auto w-fit cursor-pointer group select-none relative"
-      >
-        {/* 票据主体 */}
-        <div className="flex items-stretch bg-[#f8f5f2] border border-gray-200 shadow-sm rounded-sm overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-1 group-hover:shadow-lg">
-          {/* 左侧：条形码装饰 */}
-          <div className="bg-gray-800 w-8 flex flex-col items-center justify-center gap-1 py-2">
-            <div className="w-0.5 h-3 bg-white/50" />
-            <div className="writing-vertical-rl text-[10px] text-white/90 font-serif tracking-widest transform rotate-180">档案</div>
-            <div className="w-0.5 h-3 bg-white/50" />
-          </div>
-
-          {/* 中间：文字信息 */}
-          <div className="px-5 py-2 flex flex-col justify-center min-w-[140px]">
-             <div className="text-[10px] text-gray-400 font-bold tracking-widest mb-1.5">当前状态</div>
-             <div className="flex items-center gap-3">
-               <span className="font-serif text-gray-800 text-sm font-medium">{data.psychology?.split(/[,，]/)[0] || '未知'}</span>
-               <div className="w-px h-3 bg-gray-300" />
-               <span className="font-serif text-gray-500 text-xs italic">{data.location?.split(/[,，]/)[0] || '未知'}</span>
-             </div>
-          </div>
-
-          {/* 右侧：数值环 */}
-          <div className="bg-white border-l border-gray-100 px-4 py-2 flex items-center gap-4">
-             {/* 好感度环 */}
-             <div className="flex flex-col items-center gap-1">
-               <div className="relative w-9 h-9 rounded-full border-2 border-pink-50 flex items-center justify-center">
-                 <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 32 32">
-                   <circle cx="16" cy="16" r="14" fill="none" stroke="#fbcfe8" strokeWidth="2.5" />
-                   <circle cx="16" cy="16" r="14" fill="none" stroke="#ec4899" strokeWidth="2.5" strokeDasharray={`${affection * 0.88}, 100`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                 </svg>
-                 <span className="text-[10px] font-bold text-pink-500">{affection}</span>
-               </div>
-               <span className="text-[9px] text-gray-400 font-medium">好感</span>
-             </div>
-
-             {/* 性欲值环 */}
-             <div className="flex flex-col items-center gap-1">
-               <div className="relative w-9 h-9 rounded-full border-2 border-red-50 flex items-center justify-center">
-                 <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 32 32">
-                   <circle cx="16" cy="16" r="14" fill="none" stroke="#fee2e2" strokeWidth="2.5" />
-                   <circle cx="16" cy="16" r="14" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeDasharray={`${lust * 0.88}, 100`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                 </svg>
-                 <span className="text-[10px] font-bold text-red-500">{lust}</span>
-               </div>
-               <span className="text-[9px] text-gray-400 font-medium">性欲</span>
-             </div>
-          </div>
-        </div>
-        
-        {/* 底部撕纸装饰 */}
-        <div className="absolute -bottom-1 left-0 right-0 h-1 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCA0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIj48cGF0aCBkPSJNMCA0IEw1IDAgTDEwIDQgTDE1IDAgTDIwIDQgWiIgZmlsbD0iI2Y4ZjVmMiIvPjwvc3ZnPg==')] bg-repeat-x opacity-100" />
-      </div>
-    )
-  }
-  
-  // 完整海报 (展开状态)
-  return (
-    <div className="mt-8 mb-4 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)' }}>
-      <div className="relative w-full max-w-sm mx-auto bg-[#fdfbf7] shadow-2xl rounded-sm overflow-hidden transform transition-all duration-500 hover:scale-[1.01] hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)]">
-        
-        {/* 顶部：海报 Header */}
-        <div className="relative h-24 bg-gray-900 flex items-end justify-between p-5 overflow-hidden group">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-purple-500 via-transparent to-transparent transition-opacity duration-1000 group-hover:opacity-30" />
-          <div className="relative z-10">
-             <div className="text-[10px] font-mono text-gray-400 tracking-[0.2em] mb-1.5 opacity-80">CONFIDENTIAL // RECORD</div>
-             <h3 className="text-3xl font-serif text-white font-bold tracking-tight italic">STATUS REPORT</h3>
-          </div>
-          <button 
-            onClick={() => setIsExpanded(false)}
-            className="text-gray-500 hover:text-white transition-colors mb-1 p-1"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex">
-          {/* 左侧：能量槽侧边栏 */}
-          <div className="w-16 bg-gray-50/80 border-r border-gray-200 flex flex-col items-center py-6 gap-6">
-            {/* 好感槽 */}
-            <div className="flex flex-col items-center gap-2 h-32 group">
-               <div className="relative flex-1 w-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                 <div 
-                   className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-pink-600 to-pink-300 transition-all duration-1000 ease-out group-hover:brightness-110"
-                   style={{ height: `${affection}%` }}
-                 />
-               </div>
-               <span className="text-xs font-bold text-pink-500 font-mono">{affection}</span>
-               <span className="text-[10px] text-gray-400 font-medium writing-vertical-rl tracking-widest">好感</span>
-            </div>
-
-            {/* 性欲槽 */}
-            <div className="flex flex-col items-center gap-2 h-32 mt-2 group">
-               <div className="relative flex-1 w-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                 <div 
-                   className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-red-600 to-red-400 transition-all duration-1000 ease-out group-hover:brightness-110"
-                   style={{ height: `${lust}%` }}
-                 />
-               </div>
-               <span className="text-xs font-bold text-red-500 font-mono">{lust}</span>
-               <span className="text-[10px] text-gray-400 font-medium writing-vertical-rl tracking-widest">性欲</span>
-            </div>
-          </div>
-
-          {/* 右侧：内容区 */}
-          <div className="flex-1 p-6 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]">
-            
-            {/* 装饰线条 */}
-            <div className="w-full h-px bg-gray-800 mb-6 opacity-10" />
-
-            <div className="space-y-6">
-              {data.psychology && (
-                <div className="group">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                    <span className="text-xs font-bold tracking-widest text-gray-400 group-hover:text-blue-600 transition-colors">心理活动</span>
-                  </div>
-                  <p className="font-serif text-gray-800 text-sm leading-relaxed pl-4 border-l-2 border-gray-200 group-hover:border-blue-200 transition-colors">
-                    {data.psychology}
-                  </p>
-                </div>
-              )}
-
-              {data.action && (
-                <div className="group">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                    <span className="text-xs font-bold tracking-widest text-gray-400 group-hover:text-amber-600 transition-colors">当前动作</span>
-                  </div>
-                  <p className="font-serif text-gray-800 text-sm leading-relaxed pl-4 border-l-2 border-gray-200 group-hover:border-amber-200 transition-colors">
-                    {data.action}
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                {data.clothing && (
-                  <div className="group">
-                    <div className="text-[10px] font-bold tracking-widest text-gray-400 mb-1 group-hover:text-gray-600 transition-colors">衣着打扮</div>
-                    <p className="font-serif text-gray-700 text-xs leading-relaxed">{data.clothing}</p>
-                  </div>
-                )}
-                {data.location && (
-                  <div className="group">
-                    <div className="text-[10px] font-bold tracking-widest text-gray-400 mb-1 group-hover:text-gray-600 transition-colors">当前位置</div>
-                    <p className="font-serif text-gray-700 text-xs leading-relaxed">{data.location}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 底部欲念封条 */}
-            {data.desire && (
-              <div className="mt-8 relative group cursor-help select-none">
-                {/* 黑色胶带 */}
-                <div className="absolute inset-0 bg-gray-900 transform -skew-x-2 group-hover:skew-x-0 group-hover:translate-y-[110%] transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] z-10 flex items-center justify-center overflow-hidden shadow-lg border border-gray-800">
-                   <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(45deg,#fff,#fff_2px,transparent_2px,transparent_8px)]" />
-                   <span className="text-white/90 font-mono text-[10px] tracking-[0.5em] font-bold">禁忌 · 封印</span>
-                </div>
-                
-                {/* 内容 */}
-                <div className="bg-red-50 p-3 border border-red-100 min-h-[3.5rem] flex items-center relative rounded-sm">
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gray-200/50" />
-                   <p className="font-serif text-red-900/90 text-sm italic w-full text-center px-2 leading-relaxed">
-                     {data.desire}
-                   </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* 海报底部装饰 */}
-        <div className="h-1.5 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 opacity-80" />
-      </div>
-    </div>
-  )
-}
-
-// 剧情分支组件 - 视觉小说选项风格
+// 剧情分支组件
 const BranchOptions = ({ options, onSelect }: { options: string[], onSelect?: (text: string) => void }) => {
   if (!options || options.length === 0) return null
   
   return (
-    <div className="mt-8 flex flex-col gap-3 px-2">
-      <div className="flex items-center gap-2 mb-1 opacity-40 pl-1">
-        <div className="h-px w-4 bg-gray-400" />
-        <span className="text-[10px] font-serif uppercase tracking-widest text-gray-500">Choices</span>
-        <div className="h-px flex-1 bg-gray-200" />
-      </div>
-      
+    <div className="flex flex-col gap-2">
       {options.map((option, index) => (
         <div 
           key={index}
-          className="relative group cursor-pointer"
+          className="group cursor-pointer bg-gray-50 hover:bg-white rounded-lg px-4 py-3 border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all duration-300"
           onClick={() => onSelect?.(option)}
         >
-          {/* 选项背景框 */}
-          <div className="absolute inset-0 bg-gray-50 border border-gray-200 rounded-lg transform transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md group-hover:border-purple-200 group-hover:bg-white" />
-          
-          {/* 选项内容 */}
-          <div className="relative p-4 flex gap-3 items-start">
-            <span className="flex-shrink-0 font-serif text-xs text-gray-400 mt-0.5 group-hover:text-purple-400 transition-colors">
-              0{index + 1}
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 text-[10px] text-gray-400 font-mono mt-0.5 group-hover:text-pink-400 transition-colors">
+              {String(index + 1).padStart(2, '0')}
             </span>
-            <span className="text-sm font-serif text-gray-600 leading-relaxed group-hover:text-gray-800 transition-colors">
+            <span className="text-sm text-gray-600 leading-relaxed group-hover:text-gray-800 transition-colors">
               {option}
             </span>
           </div>
@@ -321,6 +121,36 @@ const BranchOptions = ({ options, onSelect }: { options: string[], onSelect?: (t
     </div>
   )
 }
+
+// 状态环组件
+const StatusRing = ({ value, color, label }: { value: number, color: string, label: string }) => (
+  <div className="flex flex-col items-center gap-1">
+    <div className="relative w-10 h-10 flex items-center justify-center">
+      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+        <path
+          className="text-gray-100"
+          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+        />
+        <path
+          className={`${color === 'pink' ? 'text-pink-400' : 'text-red-400'} transition-all duration-1000 ease-out`}
+          strokeDasharray={`${value}, 100`}
+          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className={`absolute text-[10px] font-bold ${color === 'pink' ? 'text-pink-500' : 'text-red-500'}`}>
+        {value}
+      </span>
+    </div>
+    <span className="text-[9px] text-gray-400 transform scale-90">{label}</span>
+  </div>
+)
 
 const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId, onBranchSelect }: OfflineMessageBubbleProps) => {
   const isUser = message.type === 'sent'
@@ -348,131 +178,200 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
     ? parseChatScreenshot(message.content) 
     : null
 
+  const status = parsedContent.statusData
+
   return (
-    <div className={`py-4 w-full flex ${isUser ? 'justify-end' : 'justify-start'} gap-3`}>
-      
-      {/* AI头像 (左侧) */}
-      {!isUser && (
-        <div className="flex-shrink-0 mt-1">
-           <Avatar
-            type="received"
-            avatar={characterAvatar}
-            name={characterName}
-            chatId={chatId}
-          />
+    <div className="py-4 w-full">
+      {/* 用户消息 - 镜像卡片风格 */}
+      {isUser && (
+        <div className="w-full bg-[#fffcfc] rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden group">
+          {/* 1. 头部：镜像布局 */}
+          <div className="px-6 pt-6 pb-2 flex flex-row-reverse items-start gap-4">
+             {/* 右侧头像 */}
+             <div className="relative flex-shrink-0">
+                <div className="p-1 bg-white rounded-full shadow-sm border border-gray-100 relative z-10 transition-transform duration-500 group-hover:scale-105">
+                  <Avatar
+                    type="sent"
+                    avatar={userAvatar}
+                    name="我"
+                    chatId={chatId}
+                    size={56}
+                  />
+                </div>
+                {/* 装饰圆点 - 镜像位置 */}
+                <div className="absolute top-0 -right-1 w-3 h-3 bg-indigo-200 rounded-full opacity-50 animate-pulse"></div>
+                <div className="absolute bottom-0 -left-1 w-4 h-4 bg-purple-100 rounded-full opacity-50"></div>
+             </div>
+
+             {/* 中间信息 - 靠右对齐 */}
+             <div className="flex-1 min-w-0 pt-2 flex flex-col items-end">
+                <h3 className="text-base font-bold text-gray-800 tracking-wide">我</h3>
+                <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-2 font-mono">
+                  <span>{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <span className="bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded-full text-[9px] tracking-wider uppercase font-bold">Player</span>
+                </div>
+             </div>
+          </div>
+
+          {/* 2. 内容区域 */}
+          <div className="px-6 py-4">
+             <div className="text-gray-700 text-[15px] leading-7 text-justify font-sans tracking-wide whitespace-pre-wrap">
+               {message.content}
+             </div>
+          </div>
+          
+          {/* 底部装饰条 */}
+          <div className="h-1 bg-gradient-to-l from-indigo-50 via-white to-purple-50"></div>
         </div>
       )}
 
-      {/* 消息内容区域 */}
-      <div className={`max-w-[85%] ${isUser ? 'text-right' : 'text-left'}`}>
-        
-        {/* 用户消息气泡 */}
-        {isUser && (
-          <div className="inline-block px-4 py-2 bg-[#eef2ff] text-gray-700 rounded-2xl rounded-tr-sm text-sm leading-relaxed shadow-sm border border-blue-50/50">
-            {message.content}
+      {/* AI消息 - 融合参考图风格 */}
+      {!isUser && (
+        <div className="w-full bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden group">
+          
+          {/* 1. 头部：头像 + 信息 + 状态环 */}
+          <div className="px-6 pt-6 pb-2 flex items-start gap-4">
+             {/* 左侧头像 */}
+             <div className="relative flex-shrink-0">
+                <div className="p-1 bg-white rounded-full shadow-sm border border-gray-100 relative z-10 transition-transform duration-500 group-hover:scale-105">
+                  <Avatar
+                    type="received"
+                    avatar={characterAvatar}
+                    name={characterName}
+                    chatId={chatId}
+                    size={56} // 略大的头像
+                  />
+                </div>
+                {/* 装饰圆点 */}
+                <div className="absolute top-0 -left-1 w-3 h-3 bg-pink-200 rounded-full opacity-50 animate-pulse"></div>
+                <div className="absolute bottom-0 -right-1 w-4 h-4 bg-blue-100 rounded-full opacity-50"></div>
+             </div>
+
+             {/* 中间信息 */}
+             <div className="flex-1 min-w-0 pt-1">
+                <div className="flex items-start justify-between">
+                  <div className="pt-1">
+                    <h3 className="text-base font-bold text-gray-800 tracking-wide">{characterName}</h3>
+                    <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-2 font-mono">
+                      <span className="bg-pink-50 text-pink-400 px-2 py-0.5 rounded-full text-[9px] tracking-wider uppercase font-bold">Love Story</span>
+                      <span>{new Date().toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  
+                  {/* 右侧状态环 - 恢复原始位置 */}
+                  {status && (
+                    <div className="flex items-center gap-4">
+                      <StatusRing value={parseInt(status.affection || '0')} color="pink" label="好感" />
+                      <StatusRing value={parseInt(status.lust || '0')} color="red" label="性欲" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* 标题显示在头部下方 */}
+                {status?.title && (
+                   <div className="mt-5 relative pl-1">
+                     <span className="relative z-10 text-sm font-bold text-gray-800 block flex items-center gap-2">
+                       <span className="w-1.5 h-1.5 bg-pink-400 rounded-full"></span>
+                       {status.title}
+                     </span>
+                   </div>
+                )}
+             </div>
           </div>
-        )}
 
-        {/* AI消息 - 优化后的阅读体验 */}
-        {!isUser && (
-          <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-100/50 shadow-sm transition-all duration-500 hover:shadow-md">
-             {/* 名字显示 (可选，增加辨识度) */}
-             <div className="text-xs text-gray-400 mb-2 font-medium tracking-wide">{characterName}</div>
-
-             {/* 🔥 如果是聊天截图格式，用卡片渲染 */}
+          {/* 2. 内容区域 */}
+          <div className="px-6 py-4">
              {chatScreenshot ? (
-                <div className="flex flex-col items-center gap-6 my-4">
-                  <div className="transform scale-95 origin-center transition-transform hover:scale-100 duration-500 shadow-lg shadow-gray-100 rounded-xl overflow-hidden">
-                    <ChatScreenshotCard
+                <div className="mb-4">
+                   <ChatScreenshotCard
                       title={chatScreenshot.title}
                       messages={chatScreenshot.messages}
                       characterName={characterName}
                       characterAvatar={characterAvatar}
                       userAvatar={userAvatar}
                     />
-                  </div>
-                  
-                  {/* 如果有其他内容，也显示出来 */}
-                  {message.content && (() => {
-                    const remaining = message.content
-                      .replace(/\[和.+?的聊天\]/g, '')
-                      .replace(/\[对方消息\|[^\]]*\]/g, '')
-                      .replace(/\[我的消息\|[^\]]*\]/g, '')
-                      .replace(/\[图片[：:][^\]]+\]/g, '')
-                      .replace(/\[\d{1,2}:\d{2}\]/g, '')
-                      .replace(/[╔═╝╚┌┐└┘│─]+/g, '')
-                      .replace(/\{\{对方头像\}\}/g, '')
-                      .replace(/\n{3,}/g, '\n\n')
-                      .trim()
-                    
-                    if (remaining && remaining.length > 5) {
+                    {message.content && <div className="mt-4 text-gray-600 text-sm">{message.content.replace(/\[.*?\]/g, '')}</div>}
+                </div>
+             ) : (
+               <div className="space-y-5">
+                 {parsedContent.mainContent.split('\n\n').filter(p => p.trim()).map((paragraph, index) => {
+                    const trimmed = paragraph.trim()
+
+                    // 心理活动：精致的灰色引用块
+                    const isThought = /^【.*】$/.test(trimmed) || /^\(.*\)$/.test(trimmed) || /^（.*）$/.test(trimmed) || /^`.*`$/.test(trimmed)
+                    if (isThought) {
                       return (
-                        <div className="font-sans text-gray-700 text-[15px] leading-7 tracking-wide mt-4">
-                          {remaining.split('\n\n').filter(p => p.trim()).map((paragraph, index) => (
-                            <p key={index} className="mb-3 last:mb-0 text-justify">{paragraph.trim()}</p>
-                          ))}
+                        <div key={index} className="relative group mx-1 my-2">
+                           <div className="bg-gray-50/50 rounded-lg p-3 text-sm text-gray-500 font-serif italic leading-relaxed border-l-2 border-gray-200">
+                             {trimmed.replace(/^[`【（(]|[`】）)]$/g, '')}
+                           </div>
                         </div>
                       )
                     }
-                    return null
-                  })()}
-                </div>
-             ) : (
-                <>
-                  {/* 正文渲染 */}
-                  <div className="font-sans text-gray-700 text-[15px] leading-7 tracking-wide">
-                    {parsedContent.mainContent.split('\n\n').filter(p => p.trim()).map((paragraph, index) => {
-                      const trimmed = paragraph.trim()
 
-                      // 心理描写
-                      const isThought = /^【.*】$/.test(trimmed) || /^\(.*\)$/.test(trimmed) || /^（.*）$/.test(trimmed)
-                      if (isThought) {
-                        return (
-                          <div key={index} className="my-3 px-3 py-1.5 bg-gray-50 rounded text-gray-500 italic text-sm border-l-2 border-gray-200">
-                            {trimmed}
-                          </div>
-                        )
-                      }
-
-                      // 动作描写
-                      const isAction = /^\*.*\*$/.test(trimmed)
-                      if (isAction) {
-                         return (
-                          <p key={index} className="text-gray-500 mb-3 italic text-sm">
-                            {trimmed.replace(/\*/g, '')}
-                          </p>
-                        )
-                      }
-
-                      // 普通对白/正文
-                      return (
-                        <p key={index} className="mb-3 last:mb-0 text-justify">
-                          {trimmed}
-                        </p>
+                    // 动作描写：轻量化显示
+                    const isAction = /^\*.*\*$/.test(trimmed)
+                    if (isAction) {
+                       return (
+                        <div key={index} className="flex items-center gap-2 text-gray-400 text-xs py-1 px-1">
+                          <span className="w-1 h-1 rounded-full bg-pink-300 opacity-60"></span>
+                          <span className="italic">{trimmed.replace(/\*/g, '')}</span>
+                        </div>
                       )
-                    })}
-                  </div>
+                    }
 
-                  {/* 状态卡片 */}
-                  {parsedContent.statusData && <StatusCard data={parsedContent.statusData} />}
-
-                  {/* 剧情分支选项 */}
-                  {parsedContent.branchOptions && <BranchOptions options={parsedContent.branchOptions} onSelect={onBranchSelect} />}
-                </>
+                    // 正文
+                    return (
+                      <p key={index} className="text-gray-700 text-[15px] leading-8 text-justify font-sans tracking-wide">
+                        {trimmed}
+                      </p>
+                    )
+                 })} 
+               </div>
              )}
           </div>
-        )}
-      </div>
 
-      {/* 用户头像 (右侧) */}
-      {isUser && (
-        <div className="flex-shrink-0 mt-1">
-           <Avatar
-            type="sent"
-            avatar={undefined} // 使用默认或从存储获取
-            name="我"
-            chatId={chatId}
-          />
+          {/* 3. 底部精致状态栏 - 极简主义 */}
+          {status && (status.location || status.clothing || status.action || status.psychology) && (
+            <div className="mx-6 mb-5 pt-4 border-t border-gray-100/60 border-dashed">
+                <div className="flex flex-wrap gap-y-3 gap-x-4 text-[11px]">
+                   {status.location && (
+                     <div className="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                       <span className="text-blue-400">📍</span>
+                       <span>{status.location}</span>
+                     </div>
+                   )}
+                   {status.clothing && (
+                     <div className="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                       <span className="text-purple-400">👗</span>
+                       <span>{status.clothing}</span>
+                     </div>
+                   )}
+                   {status.action && (
+                     <div className="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                       <span className="text-amber-400">🎭</span>
+                       <span>{status.action}</span>
+                     </div>
+                   )}
+                   {status.psychology && (
+                     <div className="w-full mt-1 flex items-start gap-2 text-gray-400 italic">
+                       <span className="text-pink-300 mt-0.5">💭</span>
+                       <span className="leading-relaxed">{status.psychology}</span>
+                     </div>
+                   )}
+                </div>
+            </div>
+          )}
+          
+          {/* 剧情分支 */}
+          {parsedContent.branchOptions && (
+            <div className="px-6 pb-6">
+              <BranchOptions options={parsedContent.branchOptions} onSelect={onBranchSelect} />
+            </div>
+          )}
+          
+          {/* 底部装饰条 */}
+          <div className="h-1 bg-gradient-to-r from-pink-50 via-white to-blue-50"></div>
         </div>
       )}
     </div>

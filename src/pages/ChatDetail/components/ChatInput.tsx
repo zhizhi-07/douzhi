@@ -3,6 +3,7 @@
  */
 
 import { playMessageSendSound } from '../../../utils/soundManager'
+import { useCustomIcons } from '../hooks/useCustomIcons'
 
 interface ChatInputProps {
   inputValue: string
@@ -25,6 +26,8 @@ const ChatInput = ({
   onClearQuote,
   onShowAddMenu
 }: ChatInputProps) => {
+  const { customIcons } = useCustomIcons()
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (inputValue.trim()) {
@@ -66,11 +69,15 @@ const ChatInput = ({
           onClick={() => {
             onShowAddMenu()
           }}
-          className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect"
+          className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect overflow-hidden rounded-full"
         >
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          {customIcons['chat-add-btn'] ? (
+            <img src={customIcons['chat-add-btn']} alt="add" className="w-full h-full object-cover" />
+          ) : (
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          )}
         </button>
         
         {/* 输入框 */}
@@ -87,10 +94,14 @@ const ChatInput = ({
         </div>
         
         {/* 表情按钮 */}
-        <button className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <button className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect overflow-hidden rounded-full">
+          {customIcons['chat-emoji'] ? (
+            <img src={customIcons['chat-emoji']} alt="emoji" className="w-full h-full object-cover" />
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
         </button>
         
         {/* 发送/AI按钮 */}
@@ -98,11 +109,15 @@ const ChatInput = ({
           <button
             onClick={onSend}
             disabled={isAiTyping}
-            className="w-10 h-10 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast"
+            className={`w-10 h-10 flex items-center justify-center ios-button rounded-full disabled:opacity-50 ios-spring btn-press-fast overflow-hidden ${customIcons['chat-send'] ? '' : 'bg-gray-900 text-white shadow-lg'}`}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
+            {customIcons['chat-send'] ? (
+              <img src={customIcons['chat-send']} alt="send" className="w-full h-full object-cover" />
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            )}
           </button>
         ) : (
           <button
@@ -111,13 +126,15 @@ const ChatInput = ({
               onAIReply()
             }}
             disabled={isAiTyping}
-            className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect"
+            className="w-10 h-10 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect overflow-hidden rounded-full"
           >
             {isAiTyping ? (
               <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
+            ) : customIcons['chat-ai'] ? (
+              <img src={customIcons['chat-ai']} alt="ai" className="w-full h-full object-cover" />
             ) : (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />

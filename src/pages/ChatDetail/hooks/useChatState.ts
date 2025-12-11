@@ -144,9 +144,27 @@ export const useChatState = (chatId: string) => {
       // 🔥 只有在有新消息时才更新状态
       if (moreMessages.length > 0) {
         setMessagesState(prev => {
-          const newMessages = [...moreMessages, ...prev]
-          console.log(`✅ [加载更多] 消息状态更新: ${prev.length} -> ${newMessages.length}`)
-          return newMessages
+          // 合并消息
+          const merged = [...moreMessages, ...prev]
+          
+          // 🔥 消息去重：检查是否有重复的消息ID
+          const seen = new Map<string, Message>()
+          const deduplicated = merged.filter(msg => {
+            if (seen.has(msg.id)) {
+              // 如果ID重复，保留时间戳较新的消息
+              const existing = seen.get(msg.id)!
+              if (msg.timestamp > existing.timestamp) {
+                seen.set(msg.id, msg)
+                return true
+              }
+              return false
+            }
+            seen.set(msg.id, msg)
+            return true
+          })
+          
+          console.log(`✅ [加载更多] 消息状态更新: ${prev.length} -> ${deduplicated.length}${merged.length !== deduplicated.length ? ` (去重: ${merged.length - deduplicated.length})` : ''}`)
+          return deduplicated
         })
         setCurrentOffset(prev => {
           const newOffset = prev + moreMessages.length
@@ -162,6 +180,11 @@ export const useChatState = (chatId: string) => {
       setHasMoreMessages(hasMore)
     } catch (error) {
       console.error('❌ [加载更多] 失败:', error)
+      // 🔥 关键修复：捕获异常时保持现有消息列表不变
+      // 不调用 setMessagesState，消息列表保持原样
+      setError('加载历史消息失败，请重试')
+      // 3秒后自动清除错误提示
+      setTimeout(() => setError(null), 3000)
     } finally {
       setIsLoadingMessages(false)
     }
@@ -256,6 +279,14 @@ export const useChatState = (chatId: string) => {
           console.log('📱 [useChatState] 页面隐藏，记录时间')
         }
       } else if (document.visibilityState === 'visible') {
+        // 🔥 关键修复：如果正在分页加载，不触发全量重新加载
+        if (isLoadingMessages) {
+          if (import.meta.env.DEV) {
+            console.log('🚫 [useChatState] 分页加载中，跳过全量重新加载')
+          }
+          return
+        }
+        
         // 🔥 手机端优化：只有在页面隐藏超过3秒后才重新加载
         // 避免快速切换应用时覆盖React状态中的最新消息
         const hiddenDuration = Date.now() - lastHiddenTime

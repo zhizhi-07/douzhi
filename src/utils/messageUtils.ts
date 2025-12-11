@@ -237,6 +237,12 @@ export const convertToApiMessages = (
       return false
     }
 
+    // 🎭 过滤掉中插HTML小剧场（太占token）
+    if (msg.messageType === 'theatre-html') {
+      console.log('🚫 [中插HTML过滤] 跳过HTML小剧场，节省token')
+      return false
+    }
+
     return true
   })
 

@@ -44,20 +44,26 @@ const getFromIDB = async (key: string): Promise<string> => {
 export const useChatBubbles = (chatId: string | undefined) => {
   const [userBubbleCSS, setUserBubbleCSS] = useState('')
   const [aiBubbleCSS, setAiBubbleCSS] = useState('')
+  const [cssLoaded, setCssLoaded] = useState(false)
   
   // 从IndexedDB加载CSS
   const loadCSS = async () => {
-    if (!chatId) return
+    if (!chatId) {
+      setCssLoaded(true)
+      return
+    }
     const [userCSS, aiCSS] = await Promise.all([
       getFromIDB(`user_bubble_css_${chatId}`),
       getFromIDB(`ai_bubble_css_${chatId}`)
     ])
     setUserBubbleCSS(userCSS)
     setAiBubbleCSS(aiCSS)
+    setCssLoaded(true)
   }
   
   // 初始加载
   useEffect(() => {
+    setCssLoaded(false)
     loadCSS()
   }, [chatId])
   
@@ -102,6 +108,7 @@ export const useChatBubbles = (chatId: string | undefined) => {
   
   return {
     userBubbleCSS,
-    aiBubbleCSS
+    aiBubbleCSS,
+    cssLoaded
   }
 }

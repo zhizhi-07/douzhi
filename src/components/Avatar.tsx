@@ -13,15 +13,37 @@ interface AvatarProps {
   name: string
   chatId?: string
   onPoke?: () => void  // 拍一拍回调
+  size?: 'sm' | 'md' | 'lg' | 'xl' | number // 支持预设尺寸或自定义数值
 }
 
-const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
+const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps) => {
   const [frameCSS, setFrameCSS] = useState('')
   const [shape, setShape] = useState('rounded')
   const [frameImage, setFrameImage] = useState('')
   const [frameSize, setFrameSize] = useState(120)
   const [frameOffsetX, setFrameOffsetX] = useState(0)
   const [frameOffsetY, setFrameOffsetY] = useState(0)
+
+  // 计算尺寸样式
+  const getSizeStyle = () => {
+    if (typeof size === 'number') {
+      return { width: `${size}px`, height: `${size}px` }
+    }
+    switch (size) {
+      case 'sm': return { width: '24px', height: '24px' } // 0.75rem
+      case 'md': return { width: '32px', height: '32px' } // 2rem (default)
+      case 'lg': return { width: '64px', height: '64px' } // 4rem
+      case 'xl': return { width: '96px', height: '96px' } // 6rem
+      default: return { width: '32px', height: '32px' }
+    }
+  }
+
+  const sizeStyle = getSizeStyle()
+  const pxSize = typeof size === 'number' ? size : 
+    size === 'sm' ? 24 : 
+    size === 'md' ? 32 : 
+    size === 'lg' ? 64 : 
+    size === 'xl' ? 96 : 32
 
   // 加载头像框样式和形状
   useEffect(() => {
@@ -92,11 +114,14 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
       <>
         {frameCSS && <style>{`.avatar-frame-user-${chatId} { ${frameCSS} }`}</style>}
         <div className="relative overflow-visible">
-          <div className={`avatar-frame-user-${chatId} w-8 h-8 ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}>
+          <div 
+            className={`avatar-frame-user-${chatId} ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}
+            style={sizeStyle}
+          >
             {userAvatar ? (
               <img src={userAvatar} alt="用户头像" className="w-full h-full object-cover" />
             ) : (
-              <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3/5 h-3/5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
             )}
@@ -107,8 +132,8 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
               alt="装饰框" 
               className="absolute top-1/2 left-1/2 pointer-events-none z-10"
               style={{
-                width: `${32 * frameSize / 100}px`,
-                height: `${32 * frameSize / 100}px`,
+                width: `${pxSize * frameSize / 100}px`,
+                height: `${pxSize * frameSize / 100}px`,
                 maxWidth: 'none',
                 maxHeight: 'none',
                 transform: `translate(-50%, -50%) translate(${frameOffsetX}px, ${frameOffsetY}px)`,
@@ -127,9 +152,9 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
       {frameCSS && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
       <div className="relative overflow-visible" style={{ animation: 'none', transition: 'none' }}>
         <div 
-          className={`avatar-frame-ai-${chatId} w-8 h-8 ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
+          className={`avatar-frame-ai-${chatId} ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
           onDoubleClick={onPoke}
-          style={{ animation: 'none', transition: 'none' }}
+          style={{ ...sizeStyle, animation: 'none', transition: 'none' }}
         >
           {avatar ? (
             <img 
@@ -139,7 +164,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
               style={{ animation: 'none', transition: 'none' }}  // 🔥 禁用动画
             />
           ) : (
-            <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3/5 h-3/5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
             </svg>
           )}
@@ -150,8 +175,8 @@ const Avatar = ({ type, avatar, name, chatId, onPoke }: AvatarProps) => {
             alt="装饰框" 
             className="absolute top-1/2 left-1/2 pointer-events-none z-10"
             style={{
-              width: `${32 * frameSize / 100}px`,
-              height: `${32 * frameSize / 100}px`,
+              width: `${pxSize * frameSize / 100}px`,
+              height: `${pxSize * frameSize / 100}px`,
               maxWidth: 'none',
               maxHeight: 'none',
               transform: `translate(-50%, -50%) translate(${frameOffsetX}px, ${frameOffsetY}px)`,
@@ -170,6 +195,7 @@ export default React.memo(Avatar, (prevProps, nextProps) => {
     prevProps.type === nextProps.type &&
     prevProps.avatar === nextProps.avatar &&
     prevProps.name === nextProps.name &&
-    prevProps.chatId === nextProps.chatId
+    prevProps.chatId === nextProps.chatId &&
+    prevProps.size === nextProps.size
   )
 })

@@ -6,20 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 
-// Literary Palette - Curated colors that look good
-const literaryPalette = [
-  { name: 'Ink Black', value: '#1a1a1a' },
-  { name: 'Charcoal', value: '#36454F' },
-  { name: 'Slate Blue', value: '#475569' },
-  { name: 'Deep Ocean', value: '#1e3a8a' },
-  { name: 'Forest Green', value: '#14532d' },
-  { name: 'Sage', value: '#577590' },
-  { name: 'Terracotta', value: '#9c6644' },
-  { name: 'Burgundy', value: '#7f1d1d' },
-  { name: 'Coffee', value: '#4a3b32' },
-  { name: 'Warm Grey', value: '#a8a29e' },
-]
-
 // Helper to determine text color (black or white) based on background brightness
 const getContrastColor = (hexColor: string) => {
   // Convert hex to RGB
@@ -48,6 +34,7 @@ const GlobalColors = () => {
   const [activeColor, setActiveColor] = useState(localStorage.getItem('switch_active_color') || '#475569')
   const [buttonColor, setButtonColor] = useState(localStorage.getItem('global_button_color') || '#475569')
   const [sliderThumbColor, setSliderThumbColor] = useState(localStorage.getItem('slider_thumb_color') || '#1e293b')
+  const [desktopTimeColor, setDesktopTimeColor] = useState(localStorage.getItem('desktop_time_color') || '#FFFFFF')
 
   // Apply colors on load
   useEffect(() => {
@@ -93,6 +80,12 @@ const GlobalColors = () => {
     localStorage.setItem('slider_thumb_color', color)
   }
 
+  const handleDesktopTimeColorChange = (color: string) => {
+    setDesktopTimeColor(color)
+    localStorage.setItem('desktop_time_color', color)
+    window.dispatchEvent(new Event('desktopTimeColorUpdate'))
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
       <StatusBar />
@@ -119,26 +112,42 @@ const GlobalColors = () => {
       <div className="flex-1 overflow-y-auto px-6 pb-24 z-0 scrollbar-hide">
         <div className="max-w-3xl mx-auto space-y-6">
 
-          {/* Literary Palette */}
+          {/* 桌面时间颜色 */}
           <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-6 shadow-sm">
             <div className="mb-5">
-              <h3 className="text-base font-medium text-slate-800">推荐色板</h3>
-              <p className="text-xs text-slate-500 mt-0.5 font-light">精选配色方案</p>
+              <h3 className="text-base font-medium text-slate-800">桌面时间颜色</h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-light">桌面上显示的时间文字颜色</p>
             </div>
-            <div className="grid grid-cols-5 gap-4">
-              {literaryPalette.map((color) => (
-                <button
-                  key={color.name}
-                  onClick={() => handleButtonColorChange(color.value)}
-                  className="flex flex-col items-center gap-2 group"
-                >
-                  <div
-                    className="w-12 h-12 rounded-2xl shadow-sm border border-white/50 transition-all duration-300 group-hover:scale-110 group-active:scale-95 group-hover:shadow-md"
-                    style={{ backgroundColor: color.value }}
-                  />
-                  <span className="text-[10px] text-slate-500 font-medium tracking-wide opacity-80 group-hover:opacity-100 transition-opacity">{color.name}</span>
-                </button>
-              ))}
+
+            <div className="flex items-center gap-5">
+              <div className="relative group cursor-pointer">
+                <div
+                  className="w-14 h-14 rounded-2xl border border-white/50 shadow-sm ring-1 ring-black/5 transition-transform group-hover:scale-105"
+                  style={{ backgroundColor: desktopTimeColor }}
+                  onClick={() => document.getElementById('time-color-picker')?.click()}
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-6 h-6 text-slate-600 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+              </div>
+              <input
+                id="time-color-picker"
+                type="color"
+                value={desktopTimeColor}
+                onChange={(e) => handleDesktopTimeColorChange(e.target.value)}
+                className="hidden"
+              />
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={desktopTimeColor}
+                  onChange={(e) => handleDesktopTimeColorChange(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/60 text-sm font-mono text-slate-600 focus:outline-none focus:border-blue-400 focus:bg-white/80 transition-all uppercase"
+                  placeholder="#FFFFFF"
+                />
+              </div>
             </div>
           </div>
 

@@ -73,8 +73,24 @@ const ChatDetail = () => {
   const previousScrollHeightRef = useRef<number | null>(null)
   const previousScrollTopRef = useRef<number | null>(null)
 
+  // 🔥 监听消息列表变化，恢复滚动位置（分页加载后）
+  // 注意：这个逻辑已经在 useScrollControl 中实现，这里移除以避免冲突
+
   // 气泡样式
-  useChatBubbles(id)
+  const { cssLoaded: bubbleCssLoaded } = useChatBubbles(id)
+
+  // 隐藏时间戳设置
+  const [hideTimestamp, setHideTimestamp] = useState(() => {
+    return localStorage.getItem('hide_message_timestamp') === 'true'
+  })
+  
+  useEffect(() => {
+    const handleTimestampUpdate = () => {
+      setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
+    }
+    window.addEventListener('timestampVisibilityUpdate', handleTimestampUpdate)
+    return () => window.removeEventListener('timestampVisibilityUpdate', handleTimestampUpdate)
+  }, [])
 
   // Token 统计详情面板状态
   const [showTokenDetail, setShowTokenDetail] = useState(false)
@@ -840,8 +856,8 @@ const ChatDetail = () => {
           paddingTop: tacitGame.gameType ? '100px' : undefined // 给题目卡片留空间
         }}
       >
-        {/* 🔥 加载状态骨架屏 */}
-        {chatState.isLoadingMessages && chatState.messages.length === 0 ? (
+        {/* 🔥 加载状态骨架屏 - 等待消息和气泡CSS都加载完成 */}
+        {(chatState.isLoadingMessages && chatState.messages.length === 0) || !bubbleCssLoaded ? (
           <LoadingSkeleton />
         ) : shouldUseVirtualization ? (
           <VirtualMessageList
@@ -1431,11 +1447,13 @@ const ChatDetail = () => {
                         </div>
 
                         {/* 时间戳 - 显示在气泡下方居中 */}
-                        <div className="flex justify-center mt-1">
-                          <div className="text-xs text-gray-400">
-                            {message.time}
+                        {!hideTimestamp && (
+                          <div className="flex justify-center mt-1">
+                            <div className="text-xs text-gray-400">
+                              {message.time}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                       </div>
                     </div>
@@ -1649,19 +1667,24 @@ const ChatDetail = () => {
               )}
             </button>
             {chatState.inputValue.trim() ? (
-              <button
-                onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
-                disabled={chatAI.isAiTyping}
-                className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
-              >
-                {customIcons['chat-send'] ? (
-                  <img src={customIcons['chat-send']} alt="发送" className="w-6 h-6 object-contain" />
-                ) : (
+              customIcons['chat-send'] ? (
+                <img 
+                  src={customIcons['chat-send']} 
+                  alt="发送" 
+                  onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
+                  className="w-9 h-9 object-contain cursor-pointer flex-shrink-0 ios-spring btn-press-fast"
+                />
+              ) : (
+                <button
+                  onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
+                  disabled={chatAI.isAiTyping}
+                  className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
+                >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                   </svg>
-                )}
-              </button>
+                </button>
+              )
             ) : (
               <button
                 onClick={() => chatAI.handleAIReply()}
@@ -1683,9 +1706,6 @@ const ChatDetail = () => {
                 )}
               </button>
             )}
-          </div>
-          <div className="flex justify-center pb-2">
-            <div className="w-32 h-1 bg-gray-900 rounded-full opacity-40"></div>
           </div>
         </div>
       )}

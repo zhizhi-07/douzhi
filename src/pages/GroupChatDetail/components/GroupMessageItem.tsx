@@ -2,7 +2,7 @@
  * 群聊消息项组件
  */
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Avatar from '../../../components/Avatar'
 import { SpecialMessageRenderer } from '../../ChatDetail/components/SpecialMessageRenderer'
 import type { GroupMessage } from '../../../utils/groupChatManager'
@@ -50,6 +50,19 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
 }) => {
   const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
   
+  // 直接从 localStorage 读取时间戳隐藏设置
+  const [hideTimestamp, setHideTimestamp] = useState(() => {
+    return localStorage.getItem('hide_message_timestamp') === 'true'
+  })
+  
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
+    }
+    window.addEventListener('timestampVisibilityUpdate', handleUpdate)
+    return () => window.removeEventListener('timestampVisibilityUpdate', handleUpdate)
+  }, [])
+  
   // 🔥 隐藏无效的AI指令消息
   if (msg.type !== 'emoji' && !msg.emojiUrl && msg.type !== 'system') {
     const content = msg.content.trim()
@@ -74,15 +87,17 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
         opacity: 1
       }}
     >
-      <div className="flex flex-col items-center flex-shrink-0">
+      <div className={`flex flex-col items-center flex-shrink-0 ${!isSent ? 'mt-5' : ''}`}>
         <Avatar 
           type={isSent ? 'sent' : 'received'}
           avatar={isSent ? undefined : avatar}
           name={displayName}
         />
-        <div className="text-xs text-gray-400">
-          {msg.time}
-        </div>
+        {!hideTimestamp && (
+          <div className="text-xs text-gray-400">
+            {msg.time}
+          </div>
+        )}
       </div>
       
       <div className={`flex flex-col max-w-[70%] ${

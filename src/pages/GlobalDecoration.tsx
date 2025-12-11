@@ -84,12 +84,20 @@ const iconNameMap: Record<string, string> = {
 
 const GlobalDecoration = () => {
   const navigate = useNavigate()
-  const [currentView, setCurrentView] = useState<'main' | 'chat' | 'desktop'>('main')
+  const [currentView, setCurrentView] = useState<'main' | 'chat' | 'desktop' | 'menu'>('main')
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
   const [desktopIcons, setDesktopIcons] = useState<Array<{ appId: string, icon: string }>>([])
   const [storageUsage, setStorageUsage] = useState({ used: 0, total: 5 }) // MB
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentEditingIcon, setCurrentEditingIcon] = useState<string | null>(null)
+  
+  // 悬浮预览窗口状态
+  const [showFloatingPreview, setShowFloatingPreview] = useState(false)
+  const [floatingPos, setFloatingPos] = useState({ x: 20, y: 100 })
+  const [floatingSize, setFloatingSize] = useState({ width: 180, height: 380 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
 
   // 每个图标独立的调整参数缓存
   const [adjustParams, setAdjustParams] = useState<Record<string, { scale: number, x: number, y: number }>>({
@@ -157,6 +165,16 @@ const GlobalDecoration = () => {
       }
     }
     loadIcons()
+
+    // 加载图标调整参数
+    const savedParams = localStorage.getItem('iconAdjustParams')
+    if (savedParams) {
+      try {
+        setAdjustParams(prev => ({ ...prev, ...JSON.parse(savedParams) }))
+      } catch (e) {
+        console.error('加载图标调整参数失败:', e)
+      }
+    }
   }, [])
 
   // 加载桌面应用图标配置
@@ -332,15 +350,74 @@ const GlobalDecoration = () => {
     }
   }
 
-  // 点击图标触发上传
+  // 点击图标：有图标时显示调整面板，无图标时上传
   const handleIconClick = (iconId: string) => {
     setCurrentEditingIcon(iconId)
-    setTimeout(() => {
-      if (fileInputRef.current) {
-        fileInputRef.current.click()
-      }
-    }, 0)
+    // 如果该图标还没有自定义，弹出文件选择器
+    if (!customIcons[iconId]) {
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click()
+        }
+      }, 0)
+    } else {
+      // 已有图标，打开悬浮调整面板
+      setShowFloatingPreview(true)
+    }
   }
+
+  // 重新上传图标（从调整面板调用）
+  const handleReupload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  // 悬浮窗口拖动处理
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    setDragOffset({ x: clientX - floatingPos.x, y: clientY - floatingPos.y })
+  }
+
+  const handleDragMove = (e: MouseEvent | TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    
+    if (isDragging) {
+      setFloatingPos({ x: clientX - dragOffset.x, y: clientY - dragOffset.y })
+    } else if (isResizing) {
+      const deltaX = clientX - dragOffset.x
+      // 只调整宽度，高度自动
+      setFloatingSize(prev => ({
+        ...prev,
+        width: Math.max(200, prev.width + deltaX)
+      }))
+      setDragOffset({ x: clientX, y: clientY })
+    }
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+    setIsResizing(false)
+  }
+
+  // 监听拖动/调整大小事件
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleDragMove)
+      window.addEventListener('mouseup', handleDragEnd)
+      window.addEventListener('touchmove', handleDragMove)
+      window.addEventListener('touchend', handleDragEnd)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleDragMove)
+      window.removeEventListener('mouseup', handleDragEnd)
+      window.removeEventListener('touchmove', handleDragMove)
+      window.removeEventListener('touchend', handleDragEnd)
+    }
+  }, [isDragging, isResizing, dragOffset])
 
   // 主界面预览（ChatList）
   const MainView = () => (
@@ -503,7 +580,13 @@ const GlobalDecoration = () => {
           onClick={(e) => { e.stopPropagation(); handleIconClick('chat-back') }}
           style={customIcons['chat-back'] ? { backgroundImage: `url(${customIcons['chat-back']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
         />
-        <span className="text-sm font-medium text-slate-800">联系人</span>
+        <div className="flex flex-col items-center">
+          <span className="text-sm font-medium text-slate-800">联系人</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+            <span className="text-[10px] text-gray-400">在线</span>
+          </div>
+        </div>
         <div
           className="w-6 h-6 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all"
           onClick={(e) => { e.stopPropagation(); handleIconClick('chat-more') }}
@@ -553,25 +636,112 @@ const GlobalDecoration = () => {
           backgroundRepeat: 'no-repeat'
         } : {}}
       >
+        {/* 加号按钮 */}
         <div
-          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all"
-          onClick={(e) => { e.stopPropagation(); handleIconClick('chat-voice') }}
-          style={customIcons['chat-voice'] ? { backgroundImage: `url(${customIcons['chat-voice']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
-        />
-        <div className="flex-1 h-9 bg-white rounded-full border border-slate-200" />
-        <div
-          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all"
-          onClick={(e) => { e.stopPropagation(); handleIconClick('chat-emoji') }}
-          style={customIcons['chat-emoji'] ? { backgroundImage: `url(${customIcons['chat-emoji']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
-        />
-        <div
-          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all"
+          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all flex items-center justify-center"
           onClick={(e) => { e.stopPropagation(); handleIconClick('chat-add-btn') }}
           style={customIcons['chat-add-btn'] ? { backgroundImage: `url(${customIcons['chat-add-btn']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
-        />
+          title="加号按钮"
+        >
+          {!customIcons['chat-add-btn'] && <span className="text-slate-400 text-xs">+</span>}
+        </div>
+        {/* 输入框 */}
+        <div className="flex-1 h-8 bg-white rounded-full border border-slate-200" />
+        {/* 表情按钮 */}
+        <div
+          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); handleIconClick('chat-emoji') }}
+          style={customIcons['chat-emoji'] ? { backgroundImage: `url(${customIcons['chat-emoji']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
+          title="表情"
+        >
+          {!customIcons['chat-emoji'] && <span className="text-slate-400 text-[10px]">😊</span>}
+        </div>
+        {/* 发送按钮（输入有内容时显示） */}
+        <div
+          className="w-7 h-7 bg-gray-800 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); handleIconClick('chat-send') }}
+          style={customIcons['chat-send'] ? { backgroundImage: `url(${customIcons['chat-send']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
+          title="发送按钮"
+        >
+          {!customIcons['chat-send'] && (
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          )}
+        </div>
+        {/* AI回复按钮（输入框空时显示） */}
+        <div
+          className="w-7 h-7 bg-slate-200/50 rounded-full cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); handleIconClick('chat-ai') }}
+          style={customIcons['chat-ai'] ? { backgroundImage: `url(${customIcons['chat-ai']})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
+          title="AI回复按钮"
+        >
+          {!customIcons['chat-ai'] && (
+            <svg className="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          )}
+        </div>
       </div>
     </div>
   )
+
+  // 加号菜单图标预览
+  const MenuView = () => {
+    const menuItems = [
+      { id: 'menu-recall', label: '重回' },
+      { id: 'menu-photo', label: '相册' },
+      { id: 'menu-camera', label: '拍照' },
+      { id: 'menu-transfer', label: '转账' },
+      { id: 'menu-pay', label: '亲密付' },
+      { id: 'menu-food', label: '外卖' },
+      { id: 'menu-location', label: '位置' },
+      { id: 'menu-voice', label: '语音' },
+      { id: 'menu-video', label: '视频' },
+      { id: 'menu-music', label: '音乐' },
+      { id: 'menu-memo', label: '随笔' },
+      { id: 'menu-offline', label: '线下' },
+      { id: 'menu-shop', label: '网购' },
+      { id: 'menu-post', label: '帖子' },
+      { id: 'menu-fix', label: '修正' },
+      { id: 'menu-couple', label: '情侣' }
+    ]
+
+    return (
+      <div className="w-full h-full bg-slate-100 flex flex-col relative overflow-hidden rounded-[40px] border-[6px] border-white/50 shadow-inner">
+        {/* 标题栏 */}
+        <div className="bg-white/80 backdrop-blur-md px-4 pt-10 pb-3">
+          <h2 className="text-sm font-medium text-slate-800 text-center">加号菜单图标</h2>
+          <p className="text-[10px] text-slate-500 text-center mt-1">点击图标上传自定义图片</p>
+        </div>
+
+        {/* 图标网格 */}
+        <div className="flex-1 p-3 overflow-y-auto scrollbar-hide">
+          <div className="grid grid-cols-4 gap-2">
+            {menuItems.map(item => (
+              <div key={item.id} className="flex flex-col items-center gap-1">
+                <div
+                  className="w-12 h-12 bg-white rounded-xl shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all flex items-center justify-center overflow-hidden"
+                  onClick={(e) => { e.stopPropagation(); handleIconClick(item.id) }}
+                  style={customIcons[item.id] ? { backgroundImage: `url(${customIcons[item.id]})`, backgroundSize: 'cover', backgroundColor: 'transparent' } : {}}
+                >
+                  {!customIcons[item.id] && (
+                    <span className="text-slate-300 text-lg">+</span>
+                  )}
+                </div>
+                <span className="text-[9px] text-slate-600">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 提示 */}
+        <div className="bg-white/80 backdrop-blur-md px-4 py-3 text-center">
+          <p className="text-[10px] text-slate-500">上传的图标将在聊天的+号菜单中显示</p>
+        </div>
+      </div>
+    )
+  }
 
   // 桶面预览
   const DesktopView = () => (
@@ -702,11 +872,176 @@ const GlobalDecoration = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 预览窗口按钮 */}
+          <button
+            onClick={() => setShowFloatingPreview(!showFloatingPreview)}
+            className={`w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-md border border-white/40 transition-all shadow-sm active:scale-95 ${showFloatingPreview ? 'bg-blue-500 text-white' : 'bg-white/60 text-[#5A5A5A] hover:bg-white/80'}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
           <span className="text-[10px] text-[#8C8C8C] font-mono bg-white/40 px-3 py-1 rounded-full border border-white/40 backdrop-blur-sm">
             {storageUsage.used.toFixed(1)}MB / {storageUsage.total.toFixed(0)}MB
           </span>
         </div>
       </div>
+
+      {/* 悬浮调整面板 - 可拖动位置和调整大小 */}
+      {showFloatingPreview && currentEditingIcon && customIcons[currentEditingIcon] && (
+        <div
+          className="fixed z-50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 overflow-hidden"
+          style={{ 
+            left: floatingPos.x, 
+            top: floatingPos.y, 
+            width: floatingSize.width,
+            minWidth: 200
+          }}
+        >
+          {/* 拖动条 */}
+          <div
+            className="h-8 bg-gray-700 flex items-center justify-between px-3 cursor-move select-none"
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+          >
+            <span className="text-white text-xs font-medium">
+              调整: {iconNameMap[currentEditingIcon] || currentEditingIcon}
+            </span>
+            <button
+              onClick={() => setShowFloatingPreview(false)}
+              className="w-5 h-5 flex items-center justify-center rounded-full bg-white/20 text-white text-xs hover:bg-white/40"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* 调整滑块 */}
+          <div className="p-3 space-y-3">
+            {/* 缩放 */}
+            <div>
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>缩放</span>
+                <span className="font-mono">{adjustParams[currentEditingIcon]?.scale || 100}%</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="200"
+                value={adjustParams[currentEditingIcon]?.scale || 100}
+                onChange={(e) => {
+                  const newScale = parseInt(e.target.value)
+                  setAdjustParams(prev => ({
+                    ...prev,
+                    [currentEditingIcon]: { ...prev[currentEditingIcon], scale: newScale }
+                  }))
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            {/* X位置 */}
+            <div>
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>水平</span>
+                <span className="font-mono">{adjustParams[currentEditingIcon]?.x || 0}px</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                value={adjustParams[currentEditingIcon]?.x || 0}
+                onChange={(e) => {
+                  const newX = parseInt(e.target.value)
+                  setAdjustParams(prev => ({
+                    ...prev,
+                    [currentEditingIcon]: { ...prev[currentEditingIcon], x: newX }
+                  }))
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            {/* Y位置 */}
+            <div>
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>垂直</span>
+                <span className="font-mono">{adjustParams[currentEditingIcon]?.y || 0}px</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                value={adjustParams[currentEditingIcon]?.y || 0}
+                onChange={(e) => {
+                  const newY = parseInt(e.target.value)
+                  setAdjustParams(prev => ({
+                    ...prev,
+                    [currentEditingIcon]: { ...prev[currentEditingIcon], y: newY }
+                  }))
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleReupload}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200"
+              >
+                重新上传
+              </button>
+              <button
+                onClick={() => {
+                  if (currentEditingIcon) {
+                    deleteUIIcon(currentEditingIcon)
+                    setCustomIcons(prev => {
+                      const newIcons = { ...prev }
+                      delete newIcons[currentEditingIcon]
+                      return newIcons
+                    })
+                    setCurrentEditingIcon(null)
+                  }
+                }}
+                className="flex-1 py-2 bg-red-50 text-red-500 text-xs font-medium rounded-lg hover:bg-red-100"
+              >
+                删除
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                const allParams = { ...adjustParams }
+                localStorage.setItem('iconAdjustParams', JSON.stringify(allParams))
+                window.dispatchEvent(new CustomEvent('iconAdjust', { detail: allParams }))
+                setShowFloatingPreview(false)
+              }}
+              className="w-full py-2 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600"
+            >
+              保存调整
+            </button>
+          </div>
+          
+          {/* 右下角调整大小手柄 */}
+          <div
+            className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100"
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              setIsResizing(true)
+              setDragOffset({ x: e.clientX, y: e.clientY })
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation()
+              setIsResizing(true)
+              setDragOffset({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+            }}
+          >
+            <svg className="w-full h-full text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22Z" />
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* 隐藏的文件输入框 */}
       <input
@@ -726,12 +1061,13 @@ const GlobalDecoration = () => {
             {[
               { id: 'main', label: '主界面' },
               { id: 'chat', label: '聊天' },
-              { id: 'desktop', label: '桌面' }
+              { id: 'desktop', label: '桌面' },
+              { id: 'menu', label: '菜单' }
             ].map(view => (
               <button
                 key={view.id}
                 onClick={() => setCurrentView(view.id as any)}
-                className={`px-6 py-2 rounded-full text-xs font-medium tracking-wide transition-all ${currentView === view.id
+                className={`px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all ${currentView === view.id
                   ? 'bg-white text-[#2C2C2C] shadow-sm'
                   : 'text-[#8C8C8C] hover:text-[#5A5A5A]'
                   }`}
@@ -746,6 +1082,7 @@ const GlobalDecoration = () => {
             {currentView === 'main' && <MainView />}
             {currentView === 'chat' && <ChatView />}
             {currentView === 'desktop' && <DesktopView />}
+            {currentView === 'menu' && <MenuView />}
           </div>
 
           <p className="text-xs text-[#8C8C8C] font-light text-center max-w-xs leading-relaxed">

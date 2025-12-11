@@ -37,7 +37,7 @@ interface MessageItemProps {
   onEditOfflineRecord?: (message: Message) => void  // 新增：编辑线下记录
 }
 
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 
 const MessageItemContent = ({
   message,
@@ -60,6 +60,19 @@ const MessageItemContent = ({
   onRejectMusicInvite,
   onEditOfflineRecord
 }: MessageItemProps) => {
+  // 直接从 localStorage 读取时间戳隐藏设置
+  const [hideTimestamp, setHideTimestamp] = useState(() => {
+    return localStorage.getItem('hide_message_timestamp') === 'true'
+  })
+  
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
+    }
+    window.addEventListener('timestampVisibilityUpdate', handleUpdate)
+    return () => window.removeEventListener('timestampVisibilityUpdate', handleUpdate)
+  }, [])
+
   // 过滤特殊标签的函数
   const filterSpecialTags = (content: string): string => {
     let filtered = content
@@ -183,9 +196,11 @@ const MessageItemContent = ({
           name={character.realName}
           chatId={chatId}
         />
-        <div className="text-xs text-gray-400">
-          {message.time}
-        </div>
+        {!hideTimestamp && (
+          <div className="text-xs text-gray-400">
+            {message.time}
+          </div>
+        )}
       </div>
 
       {/* 消息内容 */}

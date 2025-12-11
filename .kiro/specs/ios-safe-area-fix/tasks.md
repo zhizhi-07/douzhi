@@ -9,15 +9,17 @@
 
 
 
-- [ ] 2. 修正 Desktop 页面 dock 栏的 padding 计算
-  - 修改 `src/pages/Desktop.tsx` 第 866 行的 paddingBottom 样式
-
-
-
-
-
-  - 将 `max(24px, env(safe-area-inset-bottom, 24px))` 改为 `env(safe-area-inset-bottom, 0px)`
+- [x] 2. 修正 Desktop 页面 dock 栏的 padding 计算
+  - 修改 `src/pages/Desktop.tsx` 第 906 行的 paddingBottom 样式
+  - 当前已使用 `calc(env(safe-area-inset-bottom, 0px) + 16px)`
   - _Requirements: 1.2, 1.3, 3.3, 3.4_
+
+- [ ] 2.1 诊断并修复真正的底部空白问题
+  - 检查Desktop组件的容器结构，确认是否有多余的padding或margin
+  - 检查`.app-container`、外层div等容器的高度计算
+  - 确保dock栏的父容器没有额外的底部间距
+  - 使用浏览器开发工具检查实际渲染的padding值
+  - _Requirements: 1.1, 1.4, 2.1_
 
 
 

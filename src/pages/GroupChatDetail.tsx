@@ -65,12 +65,13 @@ const GroupChatDetail = () => {
   const [mentionSearch, setMentionSearch] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true)  // 🔥 添加消息加载状态
   
   const inputRef = useRef<HTMLInputElement>(null)
   const isAIReplying = useRef(false)  // 标志位：AI是否正在回复中
 
   // 🎨 气泡样式
-  useChatBubbles(id)
+  const { cssLoaded: bubbleCssLoaded } = useChatBubbles(id)
 
   // 📄 虚拟列表 - 只渲染可见消息，解决消息过多卡顿问题
   const {
@@ -151,44 +152,37 @@ const GroupChatDetail = () => {
     handleToggleVoiceText
   } = useGroupEmoji(id, setMessages, scrollToBottom)
 
-  // 🔥 预先去重消息 - O(n) 复杂度，避免渲染时 O(n²) 的 findIndex
-  const uniqueMessages = useMemo(() => {
-    const seen = new Set<string>()
-    return displayedMessages.filter(msg => {
-      if (seen.has(msg.id)) return false
-      seen.add(msg.id)
-      return true
-    })
-  }, [displayedMessages])
+  // 🔥 直接使用 displayedMessages，不需要额外去重（分页逻辑已保证唯一性）
+  const uniqueMessages = displayedMessages
 
-  // 🔥 找出需要完整渲染的HTML消息ID（只渲染最后3条HTML）
+  // 🔥 找出需要完整渲染的HTML消息ID（只渲染最后1条HTML）
   const renderableHtmlIds = useMemo(() => {
-    const htmlMessages = uniqueMessages.filter(msg => 
+    const htmlMessages = displayedMessages.filter(msg => 
       (msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html'
     )
     // 🔥 只保留最后1条HTML消息的ID，减轻渲染压力
     const lastOne = htmlMessages.slice(-1)
     return new Set(lastOne.map(m => m.id))
-  }, [uniqueMessages])
+  }, [displayedMessages])
 
-  // 🔥 预缓存角色信息，避免每条消息都调用 characterService.getById -> getAll()
+  // 🔥 预缓存角色信息（只在组件挂载时计算一次）
   const characterCache = useMemo(() => {
     const cache = new Map<string, any>()
-    const allChars = characterService.getAll()  // 只调用一次！
+    const allChars = characterService.getAll()
     allChars.forEach(char => cache.set(char.id, char))
     return cache
-  }, [messages]) // 只在消息变化时重新计算
+  }, []) // 空依赖，只计算一次
 
-  // 🔥 预缓存用户信息
-  const cachedUserInfo = useMemo(() => getUserInfo(), [messages])
+  // 🔥 预缓存用户信息（只在组件挂载时计算一次）
+  const cachedUserInfo = useMemo(() => getUserInfo(), [])
 
-  // 🔥 预缓存群成员信息，避免每条消息都 find
+  // 🔥 预缓存群成员信息（只在群ID变化时重新计算）
   const memberDetailCache = useMemo(() => {
     const cache = new Map<string, any>()
     const group = id ? groupChatManager.getGroup(id) : null
     group?.members?.forEach(m => cache.set(m.id, m))
     return cache
-  }, [id, messages])
+  }, [id])
 
   useEffect(() => {
     if (!id) return
@@ -203,17 +197,26 @@ const GroupChatDetail = () => {
       setGroupAvatar(group.avatar || '')
     }
     
-    // 🔥 异步加载消息（等待IndexedDB加载完成）
+    // 🔥 先尝试同步获取缓存消息，立即显示
+    const cachedMessages = groupChatManager.getMessages(id)
+    if (cachedMessages.length > 0) {
+      console.log(`⚡ 快速显示缓存消息: ${cachedMessages.length}条`)
+      setMessages(cachedMessages)
+      setIsLoadingMessages(false)
+    }
+    
+    // 🔥 异步加载完整消息（等待IndexedDB加载完成）
     const loadMessages = async () => {
-      // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
-      const allMsgs = await groupChatManager.loadMessagesAsync(id)
-      // 🔥 限制初始显示的消息数量，避免消息太多导致卡顿
-      const MAX_INITIAL_MESSAGES = 100  // 🔥 显示最后100条消息
-      const msgs = allMsgs.length > MAX_INITIAL_MESSAGES 
-        ? allMsgs.slice(-MAX_INITIAL_MESSAGES) 
-        : allMsgs
-      console.log(`📦 GroupChatDetail 加载消息: ${id}, 显示=${msgs.length}/${allMsgs.length}`)
-      setMessages(msgs)
+      try {
+        // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
+        const allMsgs = await groupChatManager.loadMessagesAsync(id)
+        console.log(`📦 GroupChatDetail 加载消息: ${id}, 总数=${allMsgs.length}`)
+        setMessages(allMsgs)
+      } catch (error) {
+        console.error('加载消息失败:', error)
+      } finally {
+        setIsLoadingMessages(false)
+      }
       // 🔥 滚动由 callback ref 自动处理，这里不需要手动滚动
     }
     
@@ -227,10 +230,7 @@ const GroupChatDetail = () => {
         return
       }
       const allMsgs = groupChatManager.getMessages(id)
-      // 🔥 同样限制消息数量
-      const MAX_DISPLAY = 100
-      const updatedMsgs = allMsgs.length > MAX_DISPLAY ? allMsgs.slice(-MAX_DISPLAY) : allMsgs
-      setMessages(updatedMsgs)
+      setMessages(allMsgs)
     }
     
     window.addEventListener('storage', handleStorageChange)
@@ -746,6 +746,16 @@ const GroupChatDetail = () => {
             } as any)
             
             currentMessages.push(theatreMsg)
+            console.log(`📨 [AI回复] 第${i + 1}条消息已添加: 导演（小剧场）`)
+            
+            // 🔥 立即更新UI，显示小剧场
+            setMessages(prev => [...prev, theatreMsg])
+            scrollToBottom(false, true)
+            
+            // 🔥 添加延迟，让小剧场显示后再继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
           }
           continue  // 导演消息处理完毕，跳过后续角色消息处理
         }
@@ -874,6 +884,10 @@ const GroupChatDetail = () => {
             
             currentMessages.push(emojiMsg)
             console.log(`✅ [表情] ${member.name} 发送了表情包: ${emoji.description}`)
+            
+            // 🔥 立即更新UI，显示表情包
+            setMessages(prev => [...prev, emojiMsg])
+            scrollToBottom(false, true)
           } else {
             console.warn('未找到匹配的表情包:', emojiKey)
           }
@@ -881,7 +895,13 @@ const GroupChatDetail = () => {
           // 从内容中移除指令部分（支持多种格式）
           content = content.replace(/\[(?:表情包?|发送了表情包)[：:]\s*.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 如果只有表情包没有文字，添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
         
         // 检查踢出指令：[踢出:成员名]
@@ -1155,11 +1175,21 @@ const GroupChatDetail = () => {
             } as any)
             
             currentMessages.push(transferMsg)
+            
+            // 🔥 立即更新UI
+            setMessages(prev => [...prev, transferMsg])
+            scrollToBottom(false, true)
           }
           
           content = content.replace(/\[转账:[^:]+:\d+(?:\.\d+)?:.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
 
         // 检查语音指令：[语音:文字内容]
@@ -1208,9 +1238,19 @@ const GroupChatDetail = () => {
           
           currentMessages.push(voiceMsg)
           
+          // 🔥 立即更新UI
+          setMessages(prev => [...prev, voiceMsg])
+          scrollToBottom(false, true)
+          
           content = content.replace(/\[语音:.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
 
         // 检查图片指令：[图片:描述]
@@ -1231,9 +1271,19 @@ const GroupChatDetail = () => {
           
           currentMessages.push(photoMsg)
           
+          // 🔥 立即更新UI
+          setMessages(prev => [...prev, photoMsg])
+          scrollToBottom(false, true)
+          
           content = content.replace(/\[图片:.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
 
         // 检查位置指令：[位置:地点名称]
@@ -1257,9 +1307,19 @@ const GroupChatDetail = () => {
           
           currentMessages.push(locationMsg)
           
+          // 🔥 立即更新UI
+          setMessages(prev => [...prev, locationMsg])
+          scrollToBottom(false, true)
+          
           content = content.replace(/\[位置:.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
 
         // 🧧 检查红包指令：[红包:金额:个数:祝福语]
@@ -1289,9 +1349,19 @@ const GroupChatDetail = () => {
           
           currentMessages.push(redPacketMsg)
           
+          // 🔥 立即更新UI
+          setMessages(prev => [...prev, redPacketMsg])
+          scrollToBottom(false, true)
+          
           content = content.replace(/\[红包:\d+(?:\.\d+)?:\d+:.+?\]/, '').trim()
           hasCommand = true
-          if (!content) continue
+          if (!content) {
+            // 🔥 添加延迟后继续
+            if (i < actionsToProcess.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            }
+            continue
+          }
         }
 
         // 🗳️ 检查发起投票指令：[发起投票:标题:选项1:选项2:...]
@@ -1322,9 +1392,19 @@ const GroupChatDetail = () => {
             
             currentMessages.push(pollMsg)
             
+            // 🔥 立即更新UI
+            setMessages(prev => [...prev, pollMsg])
+            scrollToBottom(false, true)
+            
             content = content.replace(/\[发起投票:[^\]]+\]/, '').trim()
             hasCommand = true
-            if (!content) continue
+            if (!content) {
+              // 🔥 添加延迟后继续
+              if (i < actionsToProcess.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+              }
+              continue
+            }
           }
         }
 
@@ -1592,10 +1672,7 @@ const GroupChatDetail = () => {
     
     // 🔥 手动刷新消息列表（storage事件只在其他标签页触发，同一标签页需要手动刷新）
     const allMsgs = groupChatManager.getMessages(id)
-    // 🔥 限制显示的消息数量
-    const MAX_DISPLAY = 100
-    const updatedMsgs = allMsgs.length > MAX_DISPLAY ? allMsgs.slice(-MAX_DISPLAY) : allMsgs
-    setMessages(updatedMsgs)
+    setMessages(allMsgs)
     
     setInputText('')
     setQuotedMessage(null)  // 清除引用
@@ -1671,7 +1748,11 @@ const GroupChatDetail = () => {
             )}
           </div>
         )}
-        {uniqueMessages.length === 0 ? (
+        {!bubbleCssLoaded || isLoadingMessages ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            加载中...
+          </div>
+        ) : uniqueMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             暂无消息
           </div>

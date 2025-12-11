@@ -87,21 +87,26 @@ export const useCustomIcons = () => {
     
     loadCustomIcons()
     
-    // 加载调整参数
+    // 加载调整参数（从iconAdjustParams读取）
     const loadAdjustParams = () => {
-      const tScale = localStorage.getItem('chat-topbar-bg-scale')
-      const tX = localStorage.getItem('chat-topbar-bg-x')
-      const tY = localStorage.getItem('chat-topbar-bg-y')
-      const bScale = localStorage.getItem('chat-bottombar-bg-scale')
-      const bX = localStorage.getItem('chat-bottombar-bg-x')
-      const bY = localStorage.getItem('chat-bottombar-bg-y')
-      
-      if (tScale) setTopBarScale(parseInt(tScale))
-      if (tX) setTopBarX(parseInt(tX))
-      if (tY) setTopBarY(parseInt(tY))
-      if (bScale) setBottomBarScale(parseInt(bScale))
-      if (bX) setBottomBarX(parseInt(bX))
-      if (bY) setBottomBarY(parseInt(bY))
+      try {
+        const saved = localStorage.getItem('iconAdjustParams')
+        if (saved) {
+          const params = JSON.parse(saved)
+          if (params['chat-topbar-bg']) {
+            setTopBarScale(params['chat-topbar-bg'].scale || 100)
+            setTopBarX(params['chat-topbar-bg'].x || 0)
+            setTopBarY(params['chat-topbar-bg'].y || 0)
+          }
+          if (params['chat-bottombar-bg']) {
+            setBottomBarScale(params['chat-bottombar-bg'].scale || 100)
+            setBottomBarX(params['chat-bottombar-bg'].x || 0)
+            setBottomBarY(params['chat-bottombar-bg'].y || 0)
+          }
+        }
+      } catch (e) {
+        console.error('加载调整参数失败:', e)
+      }
     }
     loadAdjustParams()
     

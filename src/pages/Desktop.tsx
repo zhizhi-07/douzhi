@@ -16,6 +16,11 @@ const Desktop = () => {
   const musicPlayer = useMusicPlayer()
   const [currentPage, setCurrentPage] = useState(0)
   const [currentTime, setCurrentTime] = useState(new Date())
+  
+  // 桌面时间颜色
+  const [desktopTimeColor, setDesktopTimeColor] = useState(() => {
+    return localStorage.getItem('desktop_time_color') || '#FFFFFF'
+  })
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
   const touchStartY = useRef(0)
@@ -195,6 +200,16 @@ const Desktop = () => {
     }, 1000)
     return () => clearInterval(timer)
   }, [])
+  
+  // 监听时间颜色更新
+  useEffect(() => {
+    const handleTimeColorUpdate = () => {
+      const newColor = localStorage.getItem('desktop_time_color') || '#FFFFFF'
+      setDesktopTimeColor(newColor)
+    }
+    window.addEventListener('desktopTimeColorUpdate', handleTimeColorUpdate)
+    return () => window.removeEventListener('desktopTimeColorUpdate', handleTimeColorUpdate)
+  }, [])
 
   // 加载备忘录背景
   useEffect(() => {
@@ -343,10 +358,10 @@ const Desktop = () => {
                     backgroundRepeat: 'no-repeat'
                   } : {}}
                 >
-                  <div className="text-8xl font-bold text-gray-900 mb-1 relative z-10">
+                  <div className="text-8xl font-bold mb-1 relative z-10" style={{ color: desktopTimeColor }}>
                     {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div className="text-base font-medium text-gray-600 relative z-10">
+                  <div className="text-base font-medium relative z-10" style={{ color: desktopTimeColor, opacity: 0.8 }}>
                     {currentTime.toLocaleDateString('zh-CN', {
                       month: 'long',
                       day: 'numeric',
@@ -856,7 +871,7 @@ const Desktop = () => {
         </div>
 
         {/* 页面指示器 */}
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+        <div className="absolute left-1/2 -translate-x-1/2 flex gap-2 z-20" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' }}>
           {[0, 1].map((page) => (
             <div
               key={page}
@@ -874,7 +889,7 @@ const Desktop = () => {
         </div>
 
         {/* Dock 栏 */}
-        <div className="px-4 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+        <div className="px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
           <div
             className="rounded-3xl p-3"
             style={{

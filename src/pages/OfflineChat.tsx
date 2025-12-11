@@ -236,7 +236,7 @@ const OfflineChat = () => {
   }
 
   // 气泡样式（与线上模式共享）
-  useChatBubbles(id)
+  const { cssLoaded: bubbleCssLoaded } = useChatBubbles(id)
 
   // 背景设置（线下模式独立）
   const [customBg, setCustomBg] = useState<string>('')
@@ -442,23 +442,42 @@ const OfflineChat = () => {
       </div>
 
       {/* Messages - 阅读区域 */}
-      <div className="flex-1 overflow-y-auto pb-32 pt-20 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-        <div className="max-w-2xl mx-auto min-h-full bg-white shadow-sm border border-gray-100/50 px-8 py-12 rounded-sm relative">
-           {/* 书页装饰 */}
-           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-100 to-transparent opacity-50"></div>
+      <div className="flex-1 overflow-y-auto pb-32 pt-16 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+        <div className="max-w-2xl mx-auto">
            
-          {offlineMessages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-96 text-center">
-              <div className="w-16 h-16 mb-6 text-gray-200">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          {!bubbleCssLoaded ? (
+            <div className="flex items-center justify-center h-96 text-gray-400 text-sm font-serif tracking-widest animate-pulse">
+              正在翻开书页...
+            </div>
+          ) : offlineMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[70vh] text-center px-6 animate-in fade-in duration-1000 slide-in-from-bottom-4">
+              <div className="w-24 h-24 mb-8 text-gray-100 relative group cursor-default">
+                 <div className="absolute inset-0 bg-gray-50 rounded-full scale-110 opacity-0 group-hover:opacity-100 transition-all duration-700 blur-xl"></div>
+                 <svg className="w-full h-full relative z-10 transition-transform duration-700 group-hover:scale-105" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={0.8} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h2 className="text-xl font-serif text-gray-800 mb-4 tracking-widest">序章</h2>
-              <p className="text-sm text-gray-400 font-serif leading-loose italic">
-                空白的书页等待着墨迹<br />
-                写下第一句话，开始你们的故事
-              </p>
+              
+              <div className="space-y-4 max-w-sm">
+                <div className="flex items-center justify-center gap-3 opacity-30 mb-6">
+                  <div className="w-12 h-px bg-gray-800"></div>
+                  <span className="text-[10px] uppercase tracking-[0.3em] font-serif">Prologue</span>
+                  <div className="w-12 h-px bg-gray-800"></div>
+                </div>
+                
+                <h2 className="text-2xl font-serif text-gray-800 tracking-[0.2em] font-light">
+                  序章：空白书页
+                </h2>
+                
+                <p className="text-sm text-gray-400 font-serif leading-loose italic font-light tracking-wide">
+                  "每一个伟大的故事，<br />
+                  都始于一次不经意的落笔。"
+                </p>
+                
+                <div className="pt-8 opacity-40 text-[10px] text-gray-400 font-serif tracking-widest uppercase">
+                  等待书写中...
+                </div>
+              </div>
             </div>
           ) : (
             offlineMessages.map(message => (
@@ -472,7 +491,7 @@ const OfflineChat = () => {
                 />
 
                 {/* 极简操作栏 - 仅悬浮显示 */}
-                <div className="absolute -right-6 top-4 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center gap-1">
+                <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                   {/* 编辑按钮 */}
                    <button
                       onClick={() => {
@@ -533,10 +552,10 @@ const OfflineChat = () => {
         </div>
       </div>
 
-      {/* Input - 底部悬浮 */}
+      {/* Input - 底部悬浮 - 极简小说创作模式 */}
       <div className="absolute bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
         <div className="max-w-2xl mx-auto pointer-events-auto">
-          <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-white/50 p-1.5 flex items-end gap-2 transition-all focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.12)] focus-within:bg-white">
+          <div className="bg-white/95 backdrop-blur-xl rounded-[20px] shadow-[0_8px_40px_rgba(0,0,0,0.06)] border border-white/60 p-1.5 flex items-end gap-2 transition-all duration-500 focus-within:shadow-[0_12px_48px_rgba(0,0,0,0.08)] focus-within:bg-white focus-within:scale-[1.01]">
             <textarea
               value={inputValue}
               onChange={(e) => {
@@ -557,33 +576,36 @@ const OfflineChat = () => {
                   handleSend()
                 }
               }}
-              placeholder="输入你的行动或指令..."
-              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 resize-none max-h-[120px] min-h-[44px] px-4 py-3 focus:outline-none"
+              placeholder="书写你的行动..."
+              className="flex-1 bg-transparent text-[15px] text-gray-800 placeholder-gray-400/80 resize-none max-h-[120px] min-h-[44px] px-4 py-3 focus:outline-none font-serif leading-relaxed tracking-wide"
               rows={1}
             />
             
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || chatAI.isAiTyping}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 mb-0.5 ${
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 mb-0.5 ${
                 inputValue.trim() 
-                  ? 'bg-black text-white shadow-md hover:bg-gray-800 transform hover:scale-105' 
-                  : 'bg-gray-100 text-gray-300'
+                  ? 'bg-gray-900 text-white shadow-lg hover:bg-black hover:shadow-xl transform hover:-translate-y-0.5' 
+                  : 'bg-gray-50 text-gray-300'
               }`}
             >
               {chatAI.isAiTyping ? (
                 <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
                 </svg>
               )}
             </button>
           </div>
           
-          {/* 保存状态提示 */}
-          <div className={`absolute -top-6 right-4 text-[10px] text-gray-400 transition-opacity duration-300 ${autoSaveStatus ? 'opacity-100' : 'opacity-0'}`}>
-            {autoSaveStatus === 'saving' ? '保存中...' : '已保存草稿'}
+          {/* 保存状态提示 - 极简风格 */}
+          <div className={`absolute -top-8 right-6 flex items-center gap-1.5 transition-all duration-500 ${autoSaveStatus ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${autoSaveStatus === 'saving' ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`}></div>
+            <span className="text-[10px] text-gray-400 font-serif tracking-widest">
+              {autoSaveStatus === 'saving' ? 'SAVING...' : 'SAVED'}
+            </span>
           </div>
         </div>
       </div>
