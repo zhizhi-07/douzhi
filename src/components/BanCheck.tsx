@@ -116,16 +116,16 @@ const BanCheck = ({ children }: BanCheckProps) => {
           <Ban className="w-12 h-12 text-red-500" />
         </div>
         
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">账号已被封禁</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">账号已被清理</h1>
         
         <p className="text-gray-500 text-center mb-4">
-          您的账号因违规操作已被封禁，无法继续使用本应用。
+          您的账号已被清理，无法继续使用本应用。
         </p>
         
         {banReason && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6 max-w-sm">
             <p className="text-sm text-red-600">
-              <span className="font-medium">封禁原因：</span>{banReason}
+              <span className="font-medium">原因：</span>{banReason}
             </p>
           </div>
         )}

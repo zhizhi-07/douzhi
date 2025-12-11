@@ -83,7 +83,7 @@ export const uploadBackup = async (): Promise<SyncResult> => {
     // 检查是否被封禁
     const banned = await checkBanned(user.id)
     if (banned) {
-      return { success: false, error: '账号已被封禁' }
+      return { success: false, error: '账号已被清理' }
     }
     
     const backupData = await collectBackupData()
@@ -128,7 +128,7 @@ export const downloadBackup = async (): Promise<SyncResult> => {
     // 检查是否被封禁
     const banned = await checkBanned(user.id)
     if (banned) {
-      return { success: false, error: '账号已被封禁' }
+      return { success: false, error: '账号已被清理' }
     }
     
     const { data, error } = await supabase
@@ -205,7 +205,7 @@ export const autoSync = async (): Promise<void> => {
   
   const banned = await checkBanned(user.id)
   if (banned) {
-    console.warn('账号已被封禁，无法同步')
+    console.warn('账号已被清理，无法同步')
     return
   }
   

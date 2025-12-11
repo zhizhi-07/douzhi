@@ -58,11 +58,44 @@ CREATE POLICY "Users can update own backups" ON user_backups
 CREATE POLICY "Users can delete own backups" ON user_backups
   FOR DELETE USING (auth.uid() = user_id);
 
--- 6. 创建索引提升查询性能
+-- 6. 设备封禁表（用于设备级封禁）
+CREATE TABLE IF NOT EXISTS banned_devices (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  device_id TEXT NOT NULL UNIQUE,
+  banned_at TIMESTAMPTZ DEFAULT NOW(),
+  banned_reason TEXT,
+  banned_by TEXT  -- 管理员邮箱
+);
+
+-- 7. 在 user_status 表添加 device_id 字段
+ALTER TABLE user_status ADD COLUMN IF NOT EXISTS device_id TEXT;
+
+-- 8. 设备封禁表策略
+ALTER TABLE banned_devices ENABLE ROW LEVEL SECURITY;
+
+-- 允许所有人查询（注册时需要检查）
+CREATE POLICY "Anyone can check banned devices" ON banned_devices
+  FOR SELECT TO authenticated USING (true);
+
+-- 允许公开查询（未登录时也需要检查）
+CREATE POLICY "Public can check banned devices" ON banned_devices
+  FOR SELECT TO anon USING (true);
+
+-- 允许管理员插入
+CREATE POLICY "Authenticated can insert banned devices" ON banned_devices
+  FOR INSERT TO authenticated WITH CHECK (true);
+
+-- 允许管理员删除（解封）
+CREATE POLICY "Authenticated can delete banned devices" ON banned_devices
+  FOR DELETE TO authenticated USING (true);
+
+-- 9. 创建索引提升查询性能
 CREATE INDEX IF NOT EXISTS idx_user_status_user_id ON user_status(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_status_is_banned ON user_status(is_banned);
+CREATE INDEX IF NOT EXISTS idx_user_status_device_id ON user_status(device_id);
 CREATE INDEX IF NOT EXISTS idx_user_backups_user_id ON user_backups(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_backups_updated_at ON user_backups(updated_at);
+CREATE INDEX IF NOT EXISTS idx_banned_devices_device_id ON banned_devices(device_id);
 
 -- ============================================
 -- 执行完成后，请在 src/lib/supabase.ts 中

@@ -16,6 +16,7 @@ interface UserStatus {
   created_at: string
   banned_at?: string
   banned_reason?: string
+  device_id?: string  // 设备ID
 }
 
 const Admin = () => {
@@ -64,9 +65,13 @@ const Admin = () => {
     }
   }
 
-  const handleBan = async (userId: string) => {
+  const handleBan = async (userId: string, banDevice: boolean = true) => {
     setActionLoading(userId)
     try {
+      // 获取用户信息（包括设备ID）
+      const user = users.find(u => u.user_id === userId)
+      
+      // 封禁用户
       const { error } = await supabase
         .from('user_status')
         .update({
@@ -81,6 +86,16 @@ const Admin = () => {
         return
       }
       
+      // 同时封禁设备
+      if (banDevice && user?.device_id) {
+        const { data: { user: adminUser } } = await supabase.auth.getUser()
+        await supabase.from('banned_devices').upsert({
+          device_id: user.device_id,
+          banned_reason: banReason || '违规操作',
+          banned_by: adminUser?.email || 'admin',
+        }, { onConflict: 'device_id' })
+      }
+      
       setShowBanModal(null)
       setBanReason('')
       await loadUsers()
@@ -89,9 +104,12 @@ const Admin = () => {
     }
   }
 
-  const handleUnban = async (userId: string) => {
+  const handleUnban = async (userId: string, unbanDevice: boolean = true) => {
     setActionLoading(userId)
     try {
+      // 获取用户信息（包括设备ID）
+      const user = users.find(u => u.user_id === userId)
+      
       const { error } = await supabase
         .from('user_status')
         .update({
@@ -104,6 +122,14 @@ const Admin = () => {
       if (error) {
         alert('解封失败: ' + error.message)
         return
+      }
+      
+      // 同时解封设备
+      if (unbanDevice && user?.device_id) {
+        await supabase
+          .from('banned_devices')
+          .delete()
+          .eq('device_id', user.device_id)
       }
       
       await loadUsers()

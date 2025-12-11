@@ -273,6 +273,7 @@ const AddApi = () => {
                 onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}
                 className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
               />
+              <p className="text-[10px] text-slate-400 mt-2 font-light">💡 Gemini 2.5 适配 1.0 左右 · Gemini 3.0 适配 0.3 左右</p>
             </div>
 
             <div className="px-5 py-4 border-b border-white/30">

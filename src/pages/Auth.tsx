@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, checkBanned } from '../lib/supabase'
 import { downloadBackup } from '../services/cloudSyncService'
 import { cfSignIn, cfSignUp, cfGetUser, getAuthChannel } from '../services/cloudflareAuthService'
+import { getDeviceId } from '../utils/deviceId'
 import { ChevronRight, Zap } from 'lucide-react'
 
 type AuthMode = 'login' | 'register'
@@ -55,7 +56,32 @@ const Auth = () => {
 
   // Supabase 登录/注册
   const handleSupabaseAuth = async () => {
+    // 获取设备ID
+    const deviceId = await getDeviceId()
+    
     if (mode === 'register') {
+      // 先检查设备是否被封禁
+      const { data: bannedDevice } = await supabase
+        .from('banned_devices')
+        .select('device_id, banned_reason')
+        .eq('device_id', deviceId)
+        .single()
+      
+      if (bannedDevice) {
+        throw new Error(`此设备已被清理，无法注册新账号`)
+      }
+      
+      // 检查设备是否已经注册过账号
+      const { data: existingUser } = await supabase
+        .from('user_status')
+        .select('email')
+        .eq('device_id', deviceId)
+        .single()
+      
+      if (existingUser) {
+        throw new Error(`此设备已注册账号 ${existingUser.email}，请直接登录`)
+      }
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -67,6 +93,7 @@ const Auth = () => {
         await supabase.from('user_status').insert({
           user_id: data.user.id,
           email: data.user.email,
+          device_id: deviceId,  // 保存设备ID
           is_banned: false,
           created_at: new Date().toISOString(),
         })
@@ -85,7 +112,7 @@ const Auth = () => {
         const banned = await checkBanned(data.user.id)
         if (banned) {
           await supabase.auth.signOut()
-          throw new Error('账号已被封禁')
+          throw new Error('账号已被清理')
         }
         localStorage.setItem('auth_channel', 'supabase')
         downloadBackup().catch(console.error)
@@ -287,7 +314,7 @@ const Auth = () => {
         </form>
 
         {/* 切换模式 */}
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-3">
           <button
             onClick={() => {
               setMode(mode === 'login' ? 'register' : 'login')
@@ -297,6 +324,34 @@ const Auth = () => {
           >
             {mode === 'login' ? '还没有账号？立即注册' : '已有账号？直接登录'}
           </button>
+          
+          {mode === 'login' && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!email) {
+                  setError('请先输入邮箱')
+                  return
+                }
+                setLoading(true)
+                try {
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/auth'
+                  })
+                  if (error) throw error
+                  setError('')
+                  alert('重置密码邮件已发送，请查收邮箱')
+                } catch (e: any) {
+                  setError(e.message || '发送失败')
+                } finally {
+                  setLoading(false)
+                }
+              }}
+              className="block mx-auto text-[#86868b] text-xs tracking-wide hover:text-[#1d1d1f] transition-colors"
+            >
+              忘记密码？
+            </button>
+          )}
         </div>
       </div>
     </div>
