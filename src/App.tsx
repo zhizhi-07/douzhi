@@ -121,9 +121,11 @@ function App() {
       // 获取真实的视口高度（不包含地址栏等）
       const vh = window.innerHeight * 0.01
       document.documentElement.style.setProperty('--vh', `${vh}px`)
-      // 同时直接设置html和body的高度
-      document.documentElement.style.height = `${window.innerHeight}px`
-      document.body.style.height = `${window.innerHeight}px`
+      // 同时直接设置html和body的高度为100vh（让浏览器自动处理）
+      document.documentElement.style.height = '100vh'
+      document.body.style.height = '100vh'
+      // 禁止body的overflow，防止滚动条出现
+      document.body.style.overflow = 'hidden'
     }
     
     setVH()

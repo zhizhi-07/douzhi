@@ -346,7 +346,7 @@ const Desktop = () => {
             style={{ transform: `translateX(-${currentPage * 100}%)` }}
           >
             {/* ========== 第一页 ========== */}
-            <div className="min-w-full h-full relative overflow-hidden pb-20">
+            <div className="min-w-full h-full relative overflow-hidden">
               {/* 黄色 - 时间widget (顶部横条) */}
               <div className="absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20">
                 <div
@@ -628,7 +628,7 @@ const Desktop = () => {
             </div>
 
             {/* ========== 第二页 ========== */}
-            <div className="min-w-full h-full relative overflow-hidden pb-20">
+            <div className="min-w-full h-full relative overflow-hidden">
               {/* 红色圆形头像 - 左上 */}
               <div
                 className="absolute cursor-pointer"
