@@ -70,7 +70,12 @@ CREATE TABLE IF NOT EXISTS banned_devices (
 -- 7. 在 user_status 表添加 device_id 字段
 ALTER TABLE user_status ADD COLUMN IF NOT EXISTS device_id TEXT;
 
--- 8. 设备封禁表策略
+-- 8. 在 user_status 表添加活跃度字段
+ALTER TABLE user_status ADD COLUMN IF NOT EXISTS total_active_seconds INTEGER DEFAULT 0;
+ALTER TABLE user_status ADD COLUMN IF NOT EXISTS today_active_seconds INTEGER DEFAULT 0;
+ALTER TABLE user_status ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+
+-- 9. 设备封禁表策略
 ALTER TABLE banned_devices ENABLE ROW LEVEL SECURITY;
 
 -- 允许所有人查询（注册时需要检查）

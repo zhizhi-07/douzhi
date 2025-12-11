@@ -9,6 +9,7 @@ import './utils/storageDiagnostic' // 存储诊断工具（在控制台使用 wi
 import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
 import { initCoupleSpaceStorage } from './utils/coupleSpaceUtils'
+import { startActivityTracker } from './services/activityTracker'
 import Desktop from './pages/Desktop'
 import ChatList from './pages/ChatList'
 import Contacts from './pages/Contacts'
@@ -172,6 +173,11 @@ function App() {
       }, 3000)
       return () => clearTimeout(timer)
     }
+  }, [])
+
+  // 📊 启动用户活跃度追踪
+  useEffect(() => {
+    startActivityTracker()
   }, [])
 
   // �🔥 后台静默迁移（不阻塞UI）

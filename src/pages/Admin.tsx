@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, isAdmin, ADMIN_EMAILS } from '../lib/supabase'
 import StatusBar from '../components/StatusBar'
-import { ChevronLeft, Shield, Ban, CheckCircle, RefreshCw } from 'lucide-react'
+import { ChevronLeft, Shield, Ban, CheckCircle, RefreshCw, Clock, Activity } from 'lucide-react'
+import { formatDuration } from '../services/activityTracker'
 
 interface UserStatus {
   id: string
@@ -16,7 +17,10 @@ interface UserStatus {
   created_at: string
   banned_at?: string
   banned_reason?: string
-  device_id?: string  // 设备ID
+  device_id?: string
+  total_active_seconds?: number  // 总使用时长（秒）
+  today_active_seconds?: number  // 今日使用时长（秒）
+  last_active_at?: string        // 最后活跃时间
 }
 
 const Admin = () => {
@@ -27,6 +31,7 @@ const Admin = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [banReason, setBanReason] = useState('')
   const [showBanModal, setShowBanModal] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'created' | 'active' | 'today'>('created')
 
   useEffect(() => {
     const checkAdminAndLoad = async () => {
@@ -44,13 +49,20 @@ const Admin = () => {
     checkAdminAndLoad()
   }, [])
 
+  // 排序方式改变时重新加载
+  useEffect(() => {
+    if (isAdminUser) {
+      loadUsers()
+    }
+  }, [sortBy])
+
   const loadUsers = async () => {
     setLoading(true)
     try {
       const { data, error } = await supabase
         .from('user_status')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order(sortBy === 'active' ? 'total_active_seconds' : sortBy === 'today' ? 'today_active_seconds' : 'created_at', { ascending: false })
       
       if (error) {
         console.error('加载用户列表失败:', error)
@@ -196,9 +208,31 @@ const Admin = () => {
         </div>
       </div>
 
-      {/* 管理员邮箱提示 */}
-      <div className="bg-amber-50/60 backdrop-blur-sm px-4 py-2 text-xs text-amber-700">
-        管理员: {ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS.join(', ') : '未配置'}
+      {/* 管理员邮箱提示 + 排序 */}
+      <div className="bg-amber-50/60 backdrop-blur-sm px-4 py-2 flex items-center justify-between">
+        <span className="text-xs text-amber-700">
+          管理员: {ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS.join(', ') : '未配置'}
+        </span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSortBy('created')}
+            className={`text-xs px-2 py-1 rounded ${sortBy === 'created' ? 'bg-amber-200 text-amber-800' : 'text-amber-600'}`}
+          >
+            注册时间
+          </button>
+          <button
+            onClick={() => setSortBy('active')}
+            className={`text-xs px-2 py-1 rounded ${sortBy === 'active' ? 'bg-blue-200 text-blue-800' : 'text-blue-600'}`}
+          >
+            总时长
+          </button>
+          <button
+            onClick={() => setSortBy('today')}
+            className={`text-xs px-2 py-1 rounded ${sortBy === 'today' ? 'bg-green-200 text-green-800' : 'text-green-600'}`}
+          >
+            今日
+          </button>
+        </div>
       </div>
 
       {/* 用户列表 */}
@@ -220,6 +254,21 @@ const Admin = () => {
                       <p className="text-xs text-[#8C8C8C] mt-0.5">
                         注册于 {formatDate(user.created_at)}
                       </p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-blue-600 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          总时长: {formatDuration(user.total_active_seconds || 0)}
+                        </span>
+                        <span className="text-xs text-green-600 flex items-center gap-1">
+                          <Activity className="w-3 h-3" />
+                          今日: {formatDuration(user.today_active_seconds || 0)}
+                        </span>
+                      </div>
+                      {user.last_active_at && (
+                        <p className="text-xs text-[#8C8C8C] mt-0.5">
+                          最后活跃: {formatDate(user.last_active_at)}
+                        </p>
+                      )}
                       {user.is_banned && (
                         <p className="text-xs text-red-500 mt-1">
                           封禁原因: {user.banned_reason || '未说明'}
