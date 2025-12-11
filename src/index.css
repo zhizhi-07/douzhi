@@ -7,10 +7,12 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
-/* ===== iOS全屏方案 - 简化版 ===== */
+/* ===== iOS全屏方案 - 使用svh确保正确高度 ===== */
 
 html, body, #root {
-  height: 100%;
+  height: 100svh;
+  height: 100dvh;
+  height: -webkit-fill-available;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -22,8 +24,12 @@ html, body, #root {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
-  height: 100%;
+  height: 100svh;
+  height: 100dvh;
+  height: -webkit-fill-available;
   overflow: hidden;
 }
 
@@ -262,11 +268,7 @@ pre,
   --sal: env(safe-area-inset-left);
 }
 
-#root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
+/* #root样式已在顶部定义 */
 
 /* 液态玻璃效果 - 增强版 */
 .glass-card {
