@@ -23,27 +23,18 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   const [frameSize, setFrameSize] = useState(120)
   const [frameOffsetX, setFrameOffsetX] = useState(0)
   const [frameOffsetY, setFrameOffsetY] = useState(0)
+  const [avatarSizePercent, setAvatarSizePercent] = useState(100)
 
-  // 计算尺寸样式
-  const getSizeStyle = () => {
-    if (typeof size === 'number') {
-      return { width: `${size}px`, height: `${size}px` }
-    }
-    switch (size) {
-      case 'sm': return { width: '24px', height: '24px' } // 0.75rem
-      case 'md': return { width: '32px', height: '32px' } // 2rem (default)
-      case 'lg': return { width: '64px', height: '64px' } // 4rem
-      case 'xl': return { width: '96px', height: '96px' } // 6rem
-      default: return { width: '32px', height: '32px' }
-    }
-  }
-
-  const sizeStyle = getSizeStyle()
-  const pxSize = typeof size === 'number' ? size : 
+  // 计算实际尺寸（应用用户设置的百分比）
+  const basePxSize = typeof size === 'number' ? size : 
     size === 'sm' ? 24 : 
     size === 'md' ? 32 : 
     size === 'lg' ? 64 : 
     size === 'xl' ? 96 : 32
+  
+  // 应用头像大小百分比（只在有chatId时生效，即聊天页面）
+  const pxSize = chatId ? Math.round(basePxSize * avatarSizePercent / 100) : basePxSize
+  const sizeStyle = { width: `${pxSize}px`, height: `${pxSize}px` }
 
   // 加载头像框样式和形状
   useEffect(() => {
@@ -59,6 +50,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
       const size = parseInt(localStorage.getItem(`avatar_frame_size_${chatId}`) || '120')
       const offsetX = parseInt(localStorage.getItem(`avatar_frame_offset_x_${chatId}`) || '0')
       const offsetY = parseInt(localStorage.getItem(`avatar_frame_offset_y_${chatId}`) || '0')
+      const avatarSizeSaved = parseInt(localStorage.getItem(`avatar_size_${chatId}`) || '100')
       
       setFrameCSS(css)
       setShape(avatarShape)
@@ -66,6 +58,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
       setFrameSize(size)
       setFrameOffsetX(offsetX)
       setFrameOffsetY(offsetY)
+      setAvatarSizePercent(avatarSizeSaved)
     }
 
     loadFrameStyle()
@@ -84,29 +77,57 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   // 根据形状选择className
   const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
-  // 🔥 异步加载用户头像
+  // 🔥 异步加载用户头像（支持面具）
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined)
   
   useEffect(() => {
     if (type === 'sent') {
-      getCurrentUserInfoWithAvatar().then(info => {
+      const loadAvatar = async () => {
+        // 🎭 检查是否使用面具
+        if (chatId) {
+          const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+          if (chatSettingsRaw) {
+            try {
+              const parsed = JSON.parse(chatSettingsRaw)
+              if (parsed.useMask && parsed.maskId) {
+                // 使用面具头像
+                const { getMasksWithAvatars } = await import('../utils/maskManager')
+                const masks = await getMasksWithAvatars()
+                const mask = masks.find(m => m.id === parsed.maskId)
+                if (mask?.avatar) {
+                  setUserAvatar(mask.avatar)
+                  return
+                }
+              }
+            } catch (e) {
+              console.error('[Avatar] 解析聊天设置失败:', e)
+            }
+          }
+        }
+        
+        // 没有面具，使用正常头像
+        const info = await getCurrentUserInfoWithAvatar()
         setUserAvatar(info.avatar)
-      })
-      
-      // 监听账号切换事件，重新加载头像
-      const handleAccountSwitch = () => {
-        getCurrentUserInfoWithAvatar().then(info => {
-          setUserAvatar(info.avatar)
-        })
       }
-      window.addEventListener('accountSwitched', handleAccountSwitch)
-      window.addEventListener('accountUpdated', handleAccountSwitch)
+      
+      loadAvatar()
+      
+      // 监听账号切换事件和面具切换事件，重新加载头像
+      const handleAvatarReload = () => {
+        loadAvatar()
+      }
+      window.addEventListener('accountSwitched', handleAvatarReload)
+      window.addEventListener('accountUpdated', handleAvatarReload)
+      window.addEventListener('maskSwitched', handleAvatarReload)
+      window.addEventListener('maskUpdated', handleAvatarReload)
       return () => {
-        window.removeEventListener('accountSwitched', handleAccountSwitch)
-        window.removeEventListener('accountUpdated', handleAccountSwitch)
+        window.removeEventListener('accountSwitched', handleAvatarReload)
+        window.removeEventListener('accountUpdated', handleAvatarReload)
+        window.removeEventListener('maskSwitched', handleAvatarReload)
+        window.removeEventListener('maskUpdated', handleAvatarReload)
       }
     }
-  }, [type])
+  }, [type, chatId])
 
   if (type === 'sent') {
     // 用户头像 - 从 IndexedDB 异步加载

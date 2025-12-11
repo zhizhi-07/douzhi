@@ -263,19 +263,37 @@ export const useChatAI = (
         let enableTheatreCardsForPrompt = false // 默认关闭
         let characterIndependenceEnabled = false // 默认关闭
         let enableHtmlTheatreForPrompt = false // 中插HTML小剧场，默认关闭
+        let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
+        
         if (chatSettingsRaw) {
           try {
             const parsed = JSON.parse(chatSettingsRaw)
             enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
             characterIndependenceEnabled = parsed.characterIndependence ?? false
             enableHtmlTheatreForPrompt = parsed.enableHtmlTheatre ?? false
+            
+            // 🎭 读取面具设置
+            if (parsed.useMask && parsed.maskId) {
+              const { getMasksWithAvatars } = await import('../../../utils/maskManager')
+              const masks = await getMasksWithAvatars()
+              const mask = masks.find(m => m.id === parsed.maskId)
+              if (mask) {
+                maskInfo = {
+                  nickname: mask.nickname,
+                  realName: mask.realName,
+                  signature: mask.signature,
+                  persona: mask.persona
+                }
+                console.log('🎭 [面具模式] 使用面具:', mask.nickname)
+              }
+            }
           } catch (e) {
             console.error('[useChatAI] 解析聊天设置失败:', e)
           }
         }
         // 🔥 修复：传入用户真名，而不是硬编码的"用户"
         const userName = userInfo.realName || userInfo.nickname || '用户'
-        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt)
+        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo)
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）

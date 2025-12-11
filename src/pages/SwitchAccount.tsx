@@ -11,23 +11,45 @@ import {
   Account
 } from '../utils/accountManager'
 import { getUserAvatar } from '../utils/avatarStorage'
+import { getMasksWithAvatars, createMask, updateMask, deleteMask, Mask } from '../utils/maskManager'
+
+type TabType = 'mask' | 'account'
 
 const SwitchAccount = () => {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<TabType>('mask')
+  
+  // 账号相关
   const [accounts, setAccounts] = useState<Account[]>([])
   const [currentAccountId, setCurrentAccountId] = useState<string>('')
+  
+  // 面具相关
+  const [masks, setMasks] = useState<Mask[]>([])
+  
+  // 弹窗相关
   const [showCreateModal, setShowCreateModal] = useState(false)
+  // 小号用
   const [newAccountName, setNewAccountName] = useState('')
   const [newAccountSignature, setNewAccountSignature] = useState('')
   const [newAccountAvatar, setNewAccountAvatar] = useState<string>('')
+  // 面具用
+  const [newMaskNickname, setNewMaskNickname] = useState('')
+  const [newMaskRealName, setNewMaskRealName] = useState('')
+  const [newMaskSignature, setNewMaskSignature] = useState('')
+  const [newMaskDescription, setNewMaskDescription] = useState('')
+  const [newMaskPersona, setNewMaskPersona] = useState('')
+  const [newMaskAvatar, setNewMaskAvatar] = useState<string>('')
+  
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [editingMask, setEditingMask] = useState<Mask | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [deleteType, setDeleteType] = useState<'account' | 'mask'>('account')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [mainAccountAvatar, setMainAccountAvatar] = useState<string>('')
 
   useEffect(() => {
-    loadAccounts()
+    loadData()
     // 从 IndexedDB 加载主账号头像
     const loadMainAvatar = async () => {
       const avatar = await getUserAvatar()
@@ -48,41 +70,108 @@ const SwitchAccount = () => {
     }
   }, [])
 
-  const loadAccounts = async () => {
-    // 使用异步版本加载带头像的账号列表
+  const loadData = async () => {
+    // 加载账号
     const accountsWithAvatars = await getAccountsWithAvatars()
     setAccounts(accountsWithAvatars)
     setCurrentAccountId(getCurrentAccountId())
+    // 加载面具（带头像）
+    const masksWithAvatars = await getMasksWithAvatars()
+    setMasks(masksWithAvatars)
   }
 
+  // ===== 账号相关操作 =====
   const handleSwitchAccount = (accountId: string) => {
     if (accountId === currentAccountId) return
     switchAccount(accountId)
     setCurrentAccountId(accountId)
-    loadAccounts()
+    loadData()
     navigate('/wechat')
   }
 
   const handleCreateAccount = async () => {
     if (!newAccountName.trim()) return
-
-    await createSubAccountAsync(
-      newAccountName.trim(),
-      newAccountAvatar || undefined,
-      newAccountSignature.trim() || undefined
-    )
-
-    setNewAccountName('')
-    setNewAccountSignature('')
-    setNewAccountAvatar('')
-    setShowCreateModal(false)
-    loadAccounts()
+    await createSubAccountAsync(newAccountName.trim(), newAccountAvatar || undefined, newAccountSignature.trim() || undefined)
+    resetModal()
+    loadData()
   }
 
   const handleDeleteAccount = (accountId: string) => {
     deleteSubAccount(accountId)
     setShowDeleteConfirm(null)
-    loadAccounts()
+    loadData()
+  }
+
+  const handleEditAccount = (account: Account) => {
+    if (account.isMain) {
+      navigate('/user-profile')
+      return
+    }
+    setEditingAccount(account)
+  }
+
+  const handleSaveEditAccount = async () => {
+    if (!editingAccount) return
+    await updateAccountAsync(editingAccount.id, {
+      name: editingAccount.name,
+      signature: editingAccount.signature
+    })
+    setEditingAccount(null)
+    loadData()
+  }
+
+  // ===== 面具相关操作 =====
+  const handleCreateMask = async () => {
+    if (!newMaskNickname.trim()) return
+    await createMask({
+      nickname: newMaskNickname.trim(),
+      realName: newMaskRealName.trim() || undefined,
+      avatar: newMaskAvatar || undefined,
+      signature: newMaskSignature.trim() || undefined,
+      description: newMaskDescription.trim() || undefined,
+      persona: newMaskPersona.trim() || undefined
+    })
+    resetModal()
+    loadData()
+  }
+
+  const handleDeleteMask = async (maskId: string) => {
+    await deleteMask(maskId)
+    setShowDeleteConfirm(null)
+    loadData()
+  }
+
+  const handleEditMask = (mask: Mask) => {
+    setEditingMask(mask)
+  }
+
+  const handleSaveEditMask = async () => {
+    if (!editingMask) return
+    await updateMask(editingMask.id, {
+      nickname: editingMask.nickname,
+      realName: editingMask.realName,
+      signature: editingMask.signature,
+      description: editingMask.description,
+      persona: editingMask.persona
+    })
+    setEditingMask(null)
+    loadData()
+  }
+
+  // ===== 通用操作 =====
+  const resetModal = () => {
+    // 小号
+    setNewAccountName('')
+    setNewAccountSignature('')
+    setNewAccountAvatar('')
+    // 面具
+    setNewMaskNickname('')
+    setNewMaskRealName('')
+    setNewMaskSignature('')
+    setNewMaskDescription('')
+    setNewMaskPersona('')
+    setNewMaskAvatar('')
+    setShowCreateModal(false)
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,30 +184,18 @@ const SwitchAccount = () => {
       if (editingAccount) {
         await updateAccountAsync(editingAccount.id, { avatar: base64 })
         setEditingAccount({ ...editingAccount, avatar: base64 })
-        loadAccounts()
-      } else {
+        loadData()
+      } else if (editingMask) {
+        await updateMask(editingMask.id, { avatar: base64 })
+        setEditingMask({ ...editingMask, avatar: base64 })
+        loadData()
+      } else if (activeTab === 'account') {
         setNewAccountAvatar(base64)
+      } else {
+        setNewMaskAvatar(base64)
       }
     }
     reader.readAsDataURL(file)
-  }
-
-  const handleEditAccount = (account: Account) => {
-    if (account.isMain) {
-      navigate('/user-profile')
-      return
-    }
-    setEditingAccount(account)
-  }
-
-  const handleSaveEdit = async () => {
-    if (!editingAccount) return
-    await updateAccountAsync(editingAccount.id, {
-      name: editingAccount.name,
-      signature: editingAccount.signature
-    })
-    setEditingAccount(null)
-    loadAccounts()
   }
 
   return (
@@ -135,7 +212,7 @@ const SwitchAccount = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-[17px] font-semibold text-gray-900">切换账号</h1>
+          <h1 className="text-[17px] font-semibold text-gray-900">切换身份</h1>
           <button
             onClick={() => setShowCreateModal(true)}
             className="w-8 h-8 flex items-center justify-center -mr-2 rounded-full hover:bg-black/5 transition-colors text-gray-900"
@@ -147,245 +224,267 @@ const SwitchAccount = () => {
         </div>
       </div>
 
-      {/* 说明文字 */}
+      {/* Tab切换 */}
       <div className="px-6 pb-4">
-        <p className="text-[13px] text-gray-400 font-medium tracking-wide">
-          独立身份 · 独立记录
+        <div className="flex bg-white/60 rounded-2xl p-1">
+          <button
+            onClick={() => setActiveTab('mask')}
+            className={`flex-1 py-2.5 rounded-xl text-[14px] font-medium transition-all ${
+              activeTab === 'mask' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+            }`}
+          >
+            面具
+          </button>
+          <button
+            onClick={() => setActiveTab('account')}
+            className={`flex-1 py-2.5 rounded-xl text-[14px] font-medium transition-all ${
+              activeTab === 'account' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+            }`}
+          >
+            小号
+          </button>
+        </div>
+        <p className="text-[12px] text-gray-400 mt-2 text-center">
+          {activeTab === 'mask' ? '换个马甲，AI还认识你' : '独立身份，独立记录'}
         </p>
       </div>
 
-      {/* 账号列表 */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
-        {accounts.map((account) => (
-          <div
-            key={account.id}
-            className={`group relative rounded-[24px] p-5 transition-all duration-300 ${account.id === currentAccountId
-                ? 'bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] scale-[1.02]'
-                : 'bg-white/60 hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.03)]'
-              }`}
-            onClick={() => handleSwitchAccount(account.id)}
-          >
-            <div className="flex items-center gap-4">
-              {/* 头像 - 主账号从IndexedDB加载 */}
-              <div className="relative">
-                <div className="w-16 h-16 rounded-[20px] overflow-hidden bg-gray-100 shadow-inner">
-                  {(() => {
-                    // 主账号用单独加载的头像，小号用已加载的account.avatar
-                    const avatarToShow = account.isMain ? mainAccountAvatar : account.avatar
-                    return avatarToShow && (avatarToShow.startsWith('data:') || avatarToShow.startsWith('blob:')) ? (
-                      <img src={avatarToShow} alt="" className="w-full h-full object-cover" />
+      {/* 列表 */}
+      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-3">
+        {activeTab === 'mask' ? (
+          <>
+            {/* 面具列表 */}
+            {masks.map((mask) => (
+              <div
+                key={mask.id}
+                className="group relative rounded-[24px] p-4 bg-white/60 hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-[16px] overflow-hidden bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+                    {mask.avatar ? (
+                      <img src={mask.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                        <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                    )
-                  })()}
-                </div>
-                {account.id === currentAccountId && (
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-[3px] border-white flex items-center justify-center">
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
+                      <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* 信息 */}
-              <div className="flex-1 min-w-0 py-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className={`text-[17px] font-semibold truncate ${account.id === currentAccountId ? 'text-gray-900' : 'text-gray-700'
-                    }`}>
-                    {account.name}
-                  </h3>
-                  {account.isMain && (
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-full tracking-wide">
-                      MAIN
-                    </span>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[15px] font-semibold text-gray-800 truncate">{mask.nickname}</h3>
+                    <p className="text-[12px] text-gray-400 truncate">{mask.description || '(未填写描述)'}</p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEditMask(mask)}
+                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => { setDeleteType('mask'); setShowDeleteConfirm(mask.id) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[13px] text-gray-400 truncate font-light">
-                  {account.signature || (account.isMain ? '主账号身份' : '独立分身账号')}
-                </p>
               </div>
-
-              {/* 操作按钮 */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleEditAccount(account)
-                  }}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-                {!account.isMain && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowDeleteConfirm(account.id)
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* 添加账号按钮 */}
-        {accounts.length <= 1 && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="w-full py-4 rounded-[24px] border-2 border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 group"
-          >
-            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            ))}
+            {/* 创建面具按钮 */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-full py-4 rounded-[24px] border-2 border-dashed border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-500 transition-all flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-            </div>
-            <span className="text-[15px] font-medium">创建新身份</span>
-          </button>
+              <span className="text-[14px] font-medium">创建新面具</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* 小号列表（过滤掉主账号） */}
+            {accounts.filter(a => !a.isMain).map((account) => (
+              <div
+                key={account.id}
+                className={`group relative rounded-[24px] p-4 transition-all cursor-pointer ${
+                  account.id === currentAccountId
+                    ? 'bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]'
+                    : 'bg-white/60 hover:bg-white'
+                }`}
+                onClick={() => handleSwitchAccount(account.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-[16px] overflow-hidden bg-gray-100">
+                      {(() => {
+                        const avatarToShow = account.isMain ? mainAccountAvatar : account.avatar
+                        return avatarToShow ? (
+                          <img src={avatarToShow} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                    {account.id === currentAccountId && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[15px] font-semibold text-gray-800 truncate">{account.name}</h3>
+                      {account.isMain && (
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-medium rounded-full">MAIN</span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-gray-400 truncate">
+                      {account.signature || (account.isMain ? '主账号' : '独立小号')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleEditAccount(account) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    {!account.isMain && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteType('account'); setShowDeleteConfirm(account.id) }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {/* 创建小号按钮 */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-full py-4 rounded-[24px] border-2 border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-all flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="text-[14px] font-medium">创建小号</span>
+            </button>
+          </>
         )}
       </div>
 
-      {/* 创建/编辑账号弹窗 - 极简风格 */}
-      {(showCreateModal || editingAccount) && (
+      {/* 创建/编辑弹窗 */}
+      {(showCreateModal || editingAccount || editingMask) && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
-            onClick={() => {
-              setShowCreateModal(false)
-              setEditingAccount(null)
-            }}
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={() => { resetModal(); setEditingAccount(null); setEditingMask(null) }}
           />
-          <div className="relative bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
-            <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-8" />
-
-            <div className="text-center mb-8">
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                {editingAccount ? '编辑身份' : '新身份'}
-              </h2>
-            </div>
-
-            <div className="space-y-6">
-              {/* 头像 */}
-              <div className="flex justify-center">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-24 h-24 rounded-[28px] bg-gray-50 flex items-center justify-center overflow-hidden hover:bg-gray-100 transition-all shadow-sm group relative"
-                >
-                  {(editingAccount ? editingAccount.avatar : newAccountAvatar) ? (
-                    <img
-                      src={editingAccount ? editingAccount.avatar : newAccountAvatar}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center text-gray-300 group-hover:text-gray-400 transition-colors">
-                      <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                      </svg>
-                      <span className="text-[10px] font-medium tracking-wide uppercase">Avatar</span>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+          <div className="relative bg-white w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-slide-up">
+            <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-4">
+              {editingAccount ? '编辑小号' : editingMask ? '编辑面具' : (activeTab === 'mask' ? '新面具' : '新小号')}
+            </h2>
+            
+            {/* 小号表单 */}
+            {(editingAccount || (activeTab === 'account' && !editingMask)) && (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-20 h-20 rounded-[24px] bg-gray-50 flex items-center justify-center overflow-hidden hover:bg-gray-100 transition-all group">
+                    {(editingAccount?.avatar || newAccountAvatar) ? (
+                      <img src={editingAccount?.avatar || newAccountAvatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                    )}
+                  </button>
+                </div>
+                <input type="text" value={editingAccount?.name || newAccountName} onChange={(e) => editingAccount ? setEditingAccount({ ...editingAccount, name: e.target.value }) : setNewAccountName(e.target.value)} placeholder="名称" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                <input type="text" value={editingAccount?.signature || newAccountSignature} onChange={(e) => editingAccount ? setEditingAccount({ ...editingAccount, signature: e.target.value }) : setNewAccountSignature(e.target.value)} placeholder="签名" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                <button onClick={() => editingAccount ? handleSaveEditAccount() : handleCreateAccount()} disabled={!(editingAccount?.name?.trim() || newAccountName.trim())} className="w-full py-3.5 rounded-xl bg-black text-white font-medium disabled:bg-gray-200 disabled:text-gray-400">
+                  {editingAccount ? '保存' : '创建小号'}
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
               </div>
-
-              {/* 名称 */}
-              <div className="group">
-                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider ml-1">
-                  名称
-                </label>
-                <input
-                  type="text"
-                  value={editingAccount ? editingAccount.name : newAccountName}
-                  onChange={(e) => editingAccount
-                    ? setEditingAccount({ ...editingAccount, name: e.target.value })
-                    : setNewAccountName(e.target.value)
-                  }
-                  placeholder="输入身份名称"
-                  className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-black/5 text-gray-900 placeholder-gray-400 transition-all outline-none font-medium text-[15px]"
-                />
+            )}
+            
+            {/* 面具表单 */}
+            {(editingMask || (activeTab === 'mask' && !editingAccount)) && (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-20 h-20 rounded-[24px] bg-gray-50 flex items-center justify-center overflow-hidden hover:bg-gray-100 transition-all group">
+                    {(editingMask?.avatar || newMaskAvatar) ? (
+                      <img src={editingMask?.avatar || newMaskAvatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                    )}
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 ml-1">网名 <span className="text-red-400">*</span></label>
+                  <input type="text" value={editingMask?.nickname || newMaskNickname} onChange={(e) => editingMask ? setEditingMask({ ...editingMask, nickname: e.target.value }) : setNewMaskNickname(e.target.value)} placeholder="对外显示的名字" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 ml-1">真名</label>
+                  <input type="text" value={editingMask?.realName || newMaskRealName} onChange={(e) => editingMask ? setEditingMask({ ...editingMask, realName: e.target.value }) : setNewMaskRealName(e.target.value)} placeholder="AI知道的你的真名" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 ml-1">签名</label>
+                  <input type="text" value={editingMask?.signature || newMaskSignature} onChange={(e) => editingMask ? setEditingMask({ ...editingMask, signature: e.target.value }) : setNewMaskSignature(e.target.value)} placeholder="个性签名" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 ml-1">面具描述</label>
+                  <input type="text" value={editingMask?.description || newMaskDescription} onChange={(e) => editingMask ? setEditingMask({ ...editingMask, description: e.target.value }) : setNewMaskDescription(e.target.value)} placeholder="帮你区分不同面具" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 ml-1">人设（可选）</label>
+                  <textarea value={editingMask?.persona || newMaskPersona} onChange={(e) => editingMask ? setEditingMask({ ...editingMask, persona: e.target.value }) : setNewMaskPersona(e.target.value)} placeholder="这个面具的人物设定..." rows={3} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-gray-200 resize-none" />
+                </div>
+                <button onClick={() => editingMask ? handleSaveEditMask() : handleCreateMask()} disabled={!(editingMask?.nickname?.trim() || newMaskNickname.trim())} className="w-full py-3.5 rounded-xl bg-black text-white font-medium disabled:bg-gray-200 disabled:text-gray-400">
+                  {editingMask ? '保存' : '创建面具'}
+                </button>
               </div>
-
-              {/* 签名 */}
-              <div className="group">
-                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider ml-1">
-                  签名
-                </label>
-                <input
-                  type="text"
-                  value={editingAccount ? (editingAccount.signature || '') : newAccountSignature}
-                  onChange={(e) => editingAccount
-                    ? setEditingAccount({ ...editingAccount, signature: e.target.value })
-                    : setNewAccountSignature(e.target.value)
-                  }
-                  placeholder="写一句签名..."
-                  className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-black/5 text-gray-900 placeholder-gray-400 transition-all outline-none text-[15px]"
-                />
-              </div>
-
-              <button
-                onClick={editingAccount ? handleSaveEdit : handleCreateAccount}
-                disabled={editingAccount ? !editingAccount.name.trim() : !newAccountName.trim()}
-                className={`w-full py-4 rounded-2xl font-bold text-[15px] text-white shadow-lg transition-all mt-4 ${(editingAccount ? !editingAccount.name.trim() : !newAccountName.trim())
-                    ? 'bg-gray-200 cursor-not-allowed shadow-none text-gray-400'
-                    : 'bg-black hover:bg-gray-800 active:scale-[0.98] shadow-black/20'
-                  }`}
-              >
-                {editingAccount ? '保存修改' : '创建身份'}
-              </button>
-            </div>
+            )}
+            
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
         </div>
       )}
 
-      {/* 删除确认弹窗 - 极简风格 */}
+      {/* 删除确认弹窗 */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
-            onClick={() => setShowDeleteConfirm(null)}
-          />
-          <div className="relative bg-white w-full max-w-xs rounded-[32px] p-6 shadow-2xl animate-scale-in text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(null)} />
+          <div className="relative bg-white w-full max-w-xs rounded-[28px] p-6 shadow-2xl text-center">
+            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">删除此身份？</h3>
-            <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
-              删除后，该身份的所有数据和聊天记录将无法恢复。
-            </p>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">删除{deleteType === 'mask' ? '面具' : '小号'}？</h3>
+            <p className="text-[13px] text-gray-500 mb-5">删除后无法恢复</p>
             <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-medium">取消</button>
               <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-50 text-gray-600 font-medium hover:bg-gray-100 transition-colors text-sm"
+                onClick={() => deleteType === 'mask' ? handleDeleteMask(showDeleteConfirm) : handleDeleteAccount(showDeleteConfirm)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-medium"
               >
-                取消
-              </button>
-              <button
-                onClick={() => handleDeleteAccount(showDeleteConfirm)}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30 text-sm"
-              >
-                确认删除
+                删除
               </button>
             </div>
           </div>

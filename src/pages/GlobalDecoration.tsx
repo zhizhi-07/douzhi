@@ -782,13 +782,14 @@ const GlobalDecoration = () => {
           { id: 'decoration', label: '美化', icon: <DecorationIcon className="w-5 h-5 text-purple-500" /> }
         ].map(app => {
           const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
+          const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
           return (
             <div key={app.id} className="flex flex-col items-center gap-0.5">
               <div
-                className="w-10 h-10 rounded-xl bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center overflow-hidden"
+                className={`w-10 h-10 ${isPNG ? '' : 'rounded-xl'} bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center ${isPNG ? '' : 'overflow-hidden'}`}
                 onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
               >
-                {customIcon ? <img src={customIcon} alt={app.label} className="w-full h-full object-cover" /> : app.icon}
+                {customIcon ? <img src={customIcon} alt={app.label} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} /> : app.icon}
               </div>
               <span className="text-[8px] text-white font-medium drop-shadow-md">{app.label}</span>
             </div>
@@ -809,13 +810,14 @@ const GlobalDecoration = () => {
           { id: 'desktop-game', label: '游戏', icon: <GameIcon className="w-5 h-5 text-emerald-500" /> }
         ].map(app => {
           const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
+          const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
           return (
             <div key={app.id} className="flex flex-col items-center gap-0.5">
               <div
-                className="w-10 h-10 rounded-xl bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center overflow-hidden"
+                className={`w-10 h-10 ${isPNG ? '' : 'rounded-xl'} bg-white shadow-md cursor-pointer hover:scale-105 transition-transform flex items-center justify-center ${isPNG ? '' : 'overflow-hidden'}`}
                 onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
               >
-                {customIcon ? <img src={customIcon} alt={app.label} className="w-full h-full object-cover" /> : app.icon}
+                {customIcon ? <img src={customIcon} alt={app.label} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} /> : app.icon}
               </div>
               <span className="text-[8px] text-white font-medium drop-shadow-md">{app.label}</span>
             </div>
@@ -832,15 +834,16 @@ const GlobalDecoration = () => {
           { id: 'aiphone', label: '查手机', icon: <PhoneIcon className="w-5 h-5 text-teal-500" /> }
         ].map(app => {
           const customIcon = desktopIcons.find(i => i.appId === app.id)?.icon
+          const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
           return (
             <div
               key={app.id}
-              className="w-10 h-10 rounded-xl bg-white shadow-sm cursor-pointer hover:scale-110 transition-transform flex items-center justify-center overflow-hidden"
+              className={`w-10 h-10 ${isPNG ? '' : 'rounded-xl'} bg-white shadow-sm cursor-pointer hover:scale-110 transition-transform flex items-center justify-center ${isPNG ? '' : 'overflow-hidden'}`}
               onClick={(e) => { e.stopPropagation(); handleIconClick(app.id) }}
               title={app.label}
             >
               {customIcon ? (
-                <img src={customIcon} alt={app.label} className="w-full h-full object-cover" />
+                <img src={customIcon} alt={app.label} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
               ) : (
                 app.icon
               )}

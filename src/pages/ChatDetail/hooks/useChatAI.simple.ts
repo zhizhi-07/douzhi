@@ -68,21 +68,38 @@ export const useSimpleChatAI = (
       const recentMessages = getRecentMessages(allMessages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)
 
-      // 🎭 读取小剧场功能开关
+      // 🎭 读取小剧场功能开关和面具设置
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
       let enableTheatreCards = false // 默认关闭
       let characterIndependence = false // 默认关闭
+      let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
+      
       if (chatSettingsRaw) {
         try {
           const parsed = JSON.parse(chatSettingsRaw)
           enableTheatreCards = parsed.enableTheatreCards ?? false
           characterIndependence = parsed.characterIndependence ?? false
+          
+          // 🎭 读取面具设置
+          if (parsed.useMask && parsed.maskId) {
+            const { getMasksWithAvatars } = await import('../../../utils/maskManager')
+            const masks = await getMasksWithAvatars()
+            const mask = masks.find(m => m.id === parsed.maskId)
+            if (mask) {
+              maskInfo = {
+                nickname: mask.nickname,
+                realName: mask.realName,
+                signature: mask.signature,
+                persona: mask.persona
+              }
+            }
+          }
         } catch (e) {
           console.error('[简单聊天] 解析聊天设置失败:', e)
         }
       }
       
-      const systemPrompt = await buildSystemPrompt(character, '用户', allMessages, enableTheatreCards, characterIndependence)
+      const systemPrompt = await buildSystemPrompt(character, '用户', allMessages, enableTheatreCards, characterIndependence, false, maskInfo)
       const apiResponse = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings,

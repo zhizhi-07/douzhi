@@ -186,7 +186,7 @@ const MessageItemContent = ({
   // 普通消息
   return (
     <div
-      className={'message-container flex items-start gap-2 my-2 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
+      className={'message-container flex items-start gap-3 my-3 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
     >
       {/* 头像和时间 */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0 p-1">
@@ -292,8 +292,8 @@ const MessageItemContent = ({
           <div
             className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
               message.type === 'sent'
-                ? 'shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
+                ? 'shadow-sm mr-2'
+                : 'bg-white text-gray-900 shadow-sm ml-2'
             )}
             style={{
               borderRadius: message.type === 'sent'

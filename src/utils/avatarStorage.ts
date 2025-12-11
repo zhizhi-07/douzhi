@@ -8,7 +8,7 @@ const DB_VERSION = 1
 const STORE_NAME = 'avatars'
 
 // 头像类型
-type AvatarType = 'user' | 'character' | 'account'
+type AvatarType = 'user' | 'character' | 'account' | 'mask'
 
 interface AvatarRecord {
   id: string  // 'user' 或 'character_xxx'
@@ -56,7 +56,7 @@ function openDB(): Promise<IDBDatabase> {
 export async function saveAvatar(type: AvatarType, id: string, data: string): Promise<boolean> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
@@ -92,7 +92,7 @@ export async function saveAvatar(type: AvatarType, id: string, data: string): Pr
 export async function getAvatar(type: AvatarType, id: string = ''): Promise<string | null> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readonly')
@@ -126,7 +126,7 @@ export async function getAvatar(type: AvatarType, id: string = ''): Promise<stri
 export async function deleteAvatar(type: AvatarType, id: string = ''): Promise<boolean> {
   try {
     const db = await openDB()
-    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : `character_${id}`
+    const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
@@ -189,4 +189,25 @@ export async function getAccountAvatar(accountId: string): Promise<string | null
  */
 export async function deleteAccountAvatar(accountId: string): Promise<boolean> {
   return deleteAvatar('account', accountId)
+}
+
+/**
+ * 保存面具头像（便捷方法）
+ */
+export async function saveMaskAvatar(maskId: string, data: string): Promise<boolean> {
+  return saveAvatar('mask', maskId, data)
+}
+
+/**
+ * 获取面具头像（便捷方法）
+ */
+export async function getMaskAvatar(maskId: string): Promise<string | null> {
+  return getAvatar('mask', maskId)
+}
+
+/**
+ * 删除面具头像（便捷方法）
+ */
+export async function deleteMaskAvatar(maskId: string): Promise<boolean> {
+  return deleteAvatar('mask', maskId)
 }

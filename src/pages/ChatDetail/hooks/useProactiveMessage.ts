@@ -140,22 +140,39 @@ export const useProactiveMessage = ({
         return
       }
 
-      // 🎭 读取小剧场功能开关
+      // 🎭 读取小剧场功能开关和面具设置
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
       let enableTheatreCards = false // 默认关闭
       let characterIndependence = false // 默认关闭
+      let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
+      
       if (chatSettingsRaw) {
         try {
           const parsed = JSON.parse(chatSettingsRaw)
           enableTheatreCards = parsed.enableTheatreCards ?? false
           characterIndependence = parsed.characterIndependence ?? false
+          
+          // 🎭 读取面具设置
+          if (parsed.useMask && parsed.maskId) {
+            const { getMasksWithAvatars } = await import('../../../utils/maskManager')
+            const masks = await getMasksWithAvatars()
+            const mask = masks.find(m => m.id === parsed.maskId)
+            if (mask) {
+              maskInfo = {
+                nickname: mask.nickname,
+                realName: mask.realName,
+                signature: mask.signature,
+                persona: mask.persona
+              }
+            }
+          }
         } catch (e) {
           console.error('[主动发消息] 解析聊天设置失败:', e)
         }
       }
       
       // 使用主API生成消息
-      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards, characterIndependence)
+      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards, characterIndependence, false, maskInfo)
       // 使用用户设置的消息条数，而不是硬编码50条
       const recentMessages = getRecentMessages(messages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)

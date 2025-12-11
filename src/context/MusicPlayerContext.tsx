@@ -11,6 +11,8 @@ interface Song {
   lyrics?: string
 }
 
+type PlayMode = 'sequence' | 'shuffle' | 'repeat-one' | 'repeat-all'
+
 interface MusicPlayerContextType {
   currentSong: Song | null
   isPlaying: boolean
@@ -18,6 +20,7 @@ interface MusicPlayerContextType {
   duration: number
   playlist: Song[]
   currentIndex: number
+  playMode: PlayMode
   setCurrentSong: (song: Song, index: number) => void
   setPlaylist: (songs: Song[]) => void
   play: () => void
@@ -27,6 +30,8 @@ interface MusicPlayerContextType {
   previous: () => void
   seek: (time: number) => void
   setVolume: (volume: number) => void
+  setPlayMode: (mode: PlayMode) => void
+  togglePlayMode: () => void
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined)
@@ -39,6 +44,21 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [playMode, setPlayModeState] = useState<PlayMode>(() => {
+    return (localStorage.getItem('musicPlayMode') as PlayMode) || 'repeat-all'
+  })
+  
+  // 使用 ref 存储最新状态，解决闭包问题
+  const playlistRef = useRef<Song[]>([])
+  const currentIndexRef = useRef(0)
+  const playModeRef = useRef<PlayMode>('repeat-all')
+  const isPlayingRef = useRef(false)
+  
+  // 同步 ref
+  useEffect(() => { playlistRef.current = playlist }, [playlist])
+  useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
+  useEffect(() => { playModeRef.current = playMode }, [playMode])
+  useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
 
   // 初始化音频元素
   useEffect(() => {
@@ -57,7 +77,7 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
       
       // 监听播放结束
       audioRef.current.addEventListener('ended', () => {
-        next()
+        handleSongEnded()
       })
     }
 
@@ -191,6 +211,69 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
   const setPlaylist = (songs: Song[]) => {
     setPlaylistState(songs)
   }
+  
+  // 歌曲播放结束处理（使用 ref 避免闭包问题）
+  const handleSongEnded = () => {
+    const mode = playModeRef.current
+    const list = playlistRef.current
+    const idx = currentIndexRef.current
+    
+    if (list.length === 0) return
+    
+    if (mode === 'repeat-one') {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0
+        audioRef.current.play()
+      }
+    } else if (mode === 'shuffle') {
+      let randomIndex = Math.floor(Math.random() * list.length)
+      if (list.length > 1 && randomIndex === idx) {
+        randomIndex = (randomIndex + 1) % list.length
+      }
+      const nextSong = list[randomIndex]
+      setCurrentSong(nextSong, randomIndex)
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play().then(() => setIsPlaying(true))
+        }
+      }, 100)
+    } else if (mode === 'sequence') {
+      if (idx < list.length - 1) {
+        const nextSong = list[idx + 1]
+        setCurrentSong(nextSong, idx + 1)
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.play().then(() => setIsPlaying(true))
+          }
+        }, 100)
+      } else {
+        setIsPlaying(false)
+      }
+    } else {
+      const nextIndex = (idx + 1) % list.length
+      const nextSong = list[nextIndex]
+      setCurrentSong(nextSong, nextIndex)
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play().then(() => setIsPlaying(true))
+        }
+      }, 100)
+    }
+  }
+  
+  // 设置播放模式
+  const setPlayMode = (mode: PlayMode) => {
+    setPlayModeState(mode)
+    localStorage.setItem('musicPlayMode', mode)
+  }
+  
+  // 切换播放模式
+  const togglePlayMode = () => {
+    const modes: PlayMode[] = ['repeat-all', 'repeat-one', 'shuffle', 'sequence']
+    const currentIdx = modes.indexOf(playMode)
+    const nextMode = modes[(currentIdx + 1) % modes.length]
+    setPlayMode(nextMode)
+  }
 
   // 播放
   const play = () => {
@@ -315,6 +398,7 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
         duration,
         playlist,
         currentIndex,
+        playMode,
         setCurrentSong,
         setPlaylist,
         play,
@@ -323,7 +407,9 @@ export const MusicPlayerProvider = ({ children }: { children: ReactNode }) => {
         next,
         previous,
         seek,
-        setVolume
+        setVolume,
+        setPlayMode,
+        togglePlayMode
       }}
     >
       {children}

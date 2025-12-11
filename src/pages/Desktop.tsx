@@ -391,32 +391,30 @@ const Desktop = () => {
               <div className="absolute grid grid-cols-2 gap-4 z-10" style={{ top: '35%', right: '6%' }}>
                 {page1Apps.slice(0, 4).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
-                  const hasCustomIcon = getCustomIcon(app.id)
+                  const customIcon = getCustomIcon(app.id)
+                  const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
 
                   return (
                     <div
                       key={app.id}
                       className="flex flex-col items-center gap-2"
                     >
-                      {hasCustomIcon ? (
+                      {customIcon ? (
+                        // PNG图标不包裹圆角，其他格式包裹圆角
                         <div
-                          className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
-                          style={{
-                            backgroundColor: 'transparent'
-                          }}
+                          className={`w-16 h-16 ${isPNG ? '' : 'rounded-2xl overflow-hidden'} cursor-pointer hover:scale-105 transition-transform`}
+                          style={{ backgroundColor: 'transparent' }}
                           onClick={(e) => handleAppClick(e, app)}
                         >
-                          <img src={getCustomIcon(app.id)!} alt={app.name} className="w-full h-full object-contain" />
+                          <img src={customIcon} alt={app.name} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
                         </div>
                       ) : isImageIcon ? (
                         <div
                           className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
-                          style={{
-                            backgroundColor: 'transparent'
-                          }}
+                          style={{ backgroundColor: 'transparent' }}
                           onClick={(e) => handleAppClick(e, app)}
                         >
-                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
+                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
                         <div
@@ -576,6 +574,7 @@ const Desktop = () => {
                 {page1Apps.slice(4, 5).map((app) => {
                   const isImageIcon = typeof app.icon === 'string'
                   const customIcon = getCustomIcon(app.id)
+                  const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
 
                   return (
                     <div
@@ -584,12 +583,13 @@ const Desktop = () => {
                       className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
                     >
                       {customIcon ? (
-                        <div className="w-16 h-16 rounded-2xl overflow-hidden">
-                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                        // PNG图标不包裹圆角，其他格式包裹圆角
+                        <div className={`w-16 h-16 ${isPNG ? '' : 'rounded-2xl overflow-hidden'}`}>
+                          <img src={customIcon} alt={app.name} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
                         </div>
                       ) : isImageIcon ? (
-                        <div className="w-16 h-16 flex items-center justify-center">
-                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center">
+                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
                         <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>
@@ -604,26 +604,33 @@ const Desktop = () => {
                 })}
 
                 {/* 美化图标 */}
-                <div
-                  key={`decoration-${iconRefresh}`}
-                  className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
-                  onClick={() => navigate('/decoration')}
-                >
-                  {getCustomIcon('decoration') ? (
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <img src={getCustomIcon('decoration')!} alt="美化" className="w-full h-full object-contain" />
-                    </div>
-                  ) : (
+                {(() => {
+                  const decorationIcon = getCustomIcon('decoration')
+                  const isPNG = decorationIcon && (decorationIcon.includes('image/png') || decorationIcon.toLowerCase().endsWith('.png'))
+                  return (
+                    <div
+                      key={`decoration-${iconRefresh}`}
+                      className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+                      onClick={() => navigate('/decoration')}
+                    >
+                      {decorationIcon ? (
+                        // PNG图标不包裹圆角，其他格式包裹圆角
+                        <div className={`w-16 h-16 ${isPNG ? '' : 'rounded-2xl overflow-hidden'} flex items-center justify-center`}>
+                          <img src={decorationIcon} alt="美化" className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
+                        </div>
+                      ) : (
                     <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-300">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                       </svg>
                     </div>
-                  )}
-                  <span className="text-xs text-gray-700 text-center font-medium">
-                    美化
-                  </span>
-                </div>
+                      )}
+                      <span className="text-xs text-gray-700 text-center font-medium">
+                        美化
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -904,6 +911,7 @@ const Desktop = () => {
               {dockApps.map((app) => {
                 const isImageIcon = typeof app.icon === 'string'
                 const customIcon = getCustomIcon(app.id)
+                const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
                 return (
                   <div
                     key={`${app.id}-${iconRefresh}`}
@@ -911,12 +919,19 @@ const Desktop = () => {
                     className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform"
                   >
                     {customIcon ? (
-                      <div className="w-14 h-14 flex items-center justify-center">
-                        <img src={customIcon} alt={app.name} className="w-full h-full object-contain" />
-                      </div>
+                      // PNG图标不包裹圆角，其他格式包裹圆角
+                      isPNG ? (
+                        <div className="w-14 h-14 flex items-center justify-center">
+                          <img src={customIcon} alt={app.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center">
+                          <img src={customIcon} alt={app.name} className="w-full h-full object-cover" />
+                        </div>
+                      )
                     ) : isImageIcon ? (
-                      <div className="w-14 h-14 flex items-center justify-center">
-                        <img src={app.icon as string} alt={app.name} className="w-full h-full object-contain" />
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center">
+                        <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center shadow-lg border border-white/30`}>

@@ -14,6 +14,7 @@ import { getAllMemos } from './aiMemoManager'
 import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
 import { isMainAccount, getCurrentAccount } from './accountManager'
+// 面具支持在 buildSystemPrompt 的 maskInfo 参数中实现
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT, VIDEO_CALL_PROMPT, BLACKLIST_PROMPT } from './prompts'
@@ -479,10 +480,18 @@ const getTimeSinceLastMessage = (messages: Message[]): string => {
   return `${days}天`
 }
 
+// 面具信息类型
+interface MaskInfo {
+  nickname: string
+  realName?: string
+  signature?: string
+  persona?: string
+}
+
 /**
  * 构建系统提示词（完整版）
  */
-export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false, enableHtmlTheatre: boolean = false): Promise<string> => {
+export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false, enableHtmlTheatre: boolean = false, maskInfo?: MaskInfo): Promise<string> => {
   // 🔥 小号模式：加载主账号的聊天记录给AI看（作为AI对主账号的记忆）
   const { loadMainAccountMessages } = await import('./simpleMessageManager')
   const mainAccountMessages = !isMainAccount() ? loadMainAccountMessages(character.id) : []
@@ -561,15 +570,29 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   // 🔥 小号模式：使用小号的名字，AI不认识这个人
   const isSubAccount = !isMainAccount()
   const subAccount = isSubAccount ? getCurrentAccount() : null
+  
+  // 🎭 面具模式：使用面具的信息，但AI记忆保持（面具只是换个马甲）
+  const isUsingMask = !!maskInfo
+  
+  // 用户昵称（显示名称）
   const userNickname = isSubAccount 
     ? (subAccount?.name || '陌生人') 
-    : (userInfo.nickname || userInfo.realName || userName)
+    : isUsingMask
+      ? maskInfo.nickname
+      : (userInfo.nickname || userInfo.realName || userName)
   
   // 确保用户真名不为空（如果为空或默认值，使用传入的userName）
   // 小号模式下使用小号名字
+  // 面具模式下使用面具的真名（如果有）
   const userRealName = isSubAccount 
     ? (subAccount?.name || '陌生人')
-    : ((userInfo.realName && userInfo.realName !== '用户') ? userInfo.realName : userName)
+    : isUsingMask
+      ? (maskInfo.realName || maskInfo.nickname)
+      : ((userInfo.realName && userInfo.realName !== '用户') ? userInfo.realName : userName)
+  
+  // 🎭 面具人设（面具模式下使用）
+  const maskPersona = isUsingMask ? maskInfo.persona : undefined
+  const maskSignature = isUsingMask ? maskInfo.signature : undefined
 
   // 对所有角色字段应用变量替换
   // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
@@ -1000,7 +1023,8 @@ ${(() => {
 
 **底线**：不说自己是AI/机器人，不提技术词（token、接口）和幕后细节。消息中的时间标记如(5分钟后)(30秒后)[今天下午2:30，距上条1小时]等是系统自动添加的，你绝对不能模仿！
 
-关于对方的身份信息，你心里大概是这样认识的：
+# 2. 对方是谁（你正在和谁聊天）
+
 ${(() => {
   // 🔥 小号模式：AI认识主账号那个人（通过聊天记录），但现在在和另一个陌生人聊天
   if (!isMainAccount()) {
@@ -1046,15 +1070,35 @@ ${mainChatSummary}
 不要把「${subName}」和「${mainUserName}」/「${mainUserRealName}」混为一谈！`
   }
   
-  // 主账号模式：正常显示用户信息
-  return userInfo.nickname && userRealName !== userInfo.nickname 
-    ? `- TA 的真实姓名是：${userRealName}
-- TA 在这里使用的网名/昵称是：${userInfo.nickname}
-- 你平时叫 TA 时，可以根据亲密度选择叫真名（${userRealName}）或网名（${userInfo.nickname}），亲密时更倾向用真名。`
-    : `- TA 的名字是：${userRealName}${userInfo.nickname && userInfo.nickname !== userRealName ? `（也叫 ${userInfo.nickname}）` : ''}`
+  // 🎭 面具模式或主账号模式
+  const displayNickname = isUsingMask ? maskInfo!.nickname : (userInfo.nickname || userRealName)
+  const displayRealName = isUsingMask ? (maskInfo!.realName || maskInfo!.nickname) : userRealName
+  const displaySignature = isUsingMask ? maskSignature : userInfo.signature
+  const displayPersona = isUsingMask ? maskPersona : userInfo.persona
+  
+  let info = ''
+  // 名字信息
+  if (displayRealName && displayNickname && displayRealName !== displayNickname) {
+    info += `- **TA 的真名**：${displayRealName}
+- **TA 的网名/昵称**：${displayNickname}
+- 你叫 TA 时可以用真名或网名，亲密时用真名更自然`
+  } else {
+    info += `- **TA 的名字**：${displayRealName || displayNickname || '未知'}`
+  }
+  
+  // 签名
+  if (displaySignature) {
+    info += `\n- **TA 的个性签名**：${displaySignature}（当成对方的心情或态度线索）`
+  }
+  
+  // 人设（重要！）
+  if (displayPersona) {
+    info += `\n- **关于 TA 的事实**：${displayPersona}
+  （⚠️ 重要：这是关于对方的真实信息，你需要据此调整对 TA 的态度和回复方式！）`
+  }
+  
+  return info
 })()}
-${isMainAccount() ? (userInfo.signature ? `- TA 的个性签名：${userInfo.signature}（可以当成对方的心情或态度线索）` : '') : ''}
-${isMainAccount() ? (userInfo.persona ? `- TA 给出的自我介绍/人设：${userInfo.persona}（你会据此调整对 Ta 的语气和距离感）` : '') : ''}
 ${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 如果人物卡写你冷淡/社恐/暴躁/利己/阴郁，就保持这种风格，不要被通用规则洗白成暖心好人。
 你有小情绪和偏好，说话方式跟着情绪变化，但始终围绕 ${charName} 这个人设。

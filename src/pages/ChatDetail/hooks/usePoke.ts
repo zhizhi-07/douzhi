@@ -11,7 +11,7 @@ export const usePoke = (
   id: string | undefined,
   character: any,
   messages: Message[],
-  setMessages: (messages: Message[]) => void
+  setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void
 ) => {
   const handlePoke = useCallback(() => {
     if (!id || !character) return
@@ -36,12 +36,15 @@ export const usePoke = (
       }
     }
     
-    const updatedMessages = [...messages, pokeMessage]
-    setMessages(updatedMessages)
-    saveMessages(id, updatedMessages)
-    
-    console.log('👋 拍一拍:', pokeMessage)
-  }, [id, character, messages, setMessages])
+    // 🔥 使用函数式更新，确保获取最新的消息列表
+    setMessages(prevMessages => {
+      const updatedMessages = [...prevMessages, pokeMessage]
+      // 🔥 在回调中保存，确保使用最新的消息列表
+      saveMessages(id, updatedMessages)
+      console.log('👋 拍一拍:', pokeMessage, `当前消息数: ${updatedMessages.length}`)
+      return updatedMessages
+    })
+  }, [id, character, setMessages])
 
   return {
     handlePoke

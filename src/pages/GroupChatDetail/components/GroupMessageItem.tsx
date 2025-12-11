@@ -79,7 +79,7 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   
   return (
     <div 
-      className={`message-container flex items-start gap-1.5 my-1 ${
+      className={`message-container flex items-start gap-3 my-3 ${
         isSent ? 'sent flex-row-reverse' : 'received flex-row'
       }`}
       style={{ 
@@ -186,8 +186,8 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
             <div 
               className={`message-bubble px-3 py-2 break-words ${
                 isSent 
-                  ? 'bg-[#95ec69] text-gray-900' 
-                  : 'bg-white text-gray-900 shadow-sm'
+                  ? 'bg-[#95ec69] text-gray-900 mr-2' 
+                  : 'bg-white text-gray-900 shadow-sm ml-2'
               }`}
               style={{
                 borderRadius: isSent 

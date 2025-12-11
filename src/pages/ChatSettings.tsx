@@ -18,6 +18,7 @@ import { testVoiceConfig } from '../utils/voiceApi'
 import { voiceService } from '../services/voiceService'
 import { exportCharacterData, downloadCharacterData } from '../utils/characterDataExporter'
 import { getAllCharacters } from '../utils/characterManager'
+import { getMasksWithAvatars, Mask } from '../utils/maskManager'
 
 interface ChatSettingsData {
   messageLimit: number  // 读取的消息条数
@@ -31,6 +32,8 @@ interface ChatSettingsData {
   hideTheatreHistory: boolean  // 是否隐藏小剧场历史记录（已废弃）
   enableHtmlTheatre: boolean  // 是否启用中插HTML小剧场
   characterIndependence: boolean  // 角色独立：AI可以选择不立即回复
+  useMask: boolean  // 是否使用面具
+  maskId: string | null  // 当前使用的面具ID
   groupChatSync: {
     enabled: boolean  // 是否启用群聊消息同步
     messageCount: number  // 同步消息条数
@@ -63,6 +66,8 @@ const ChatSettings = () => {
         hideTheatreHistory: data.hideTheatreHistory ?? false,
         enableHtmlTheatre: data.enableHtmlTheatre ?? false,
         characterIndependence: data.characterIndependence ?? false,
+        useMask: data.useMask ?? false,
+        maskId: data.maskId ?? null,
         groupChatSync: data.groupChatSync ?? {
           enabled: false,
           messageCount: 20
@@ -86,6 +91,8 @@ const ChatSettings = () => {
       hideTheatreHistory: false,
       enableHtmlTheatre: false,
       characterIndependence: false,
+      useMask: false,
+      maskId: null,
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -117,6 +124,8 @@ const ChatSettings = () => {
             hideTheatreHistory: data.hideTheatreHistory ?? false,
             enableHtmlTheatre: data.enableHtmlTheatre ?? false,
             characterIndependence: data.characterIndependence ?? false,
+            useMask: data.useMask ?? false,
+            maskId: data.maskId ?? null,
             groupChatSync: data.groupChatSync ?? {
               enabled: false,
               messageCount: 20
@@ -145,6 +154,8 @@ const ChatSettings = () => {
       hideTheatreHistory: false,
       enableHtmlTheatre: false,
       characterIndependence: false,
+      useMask: false,
+      maskId: null,
       groupChatSync: {
         enabled: false,
         messageCount: 20
@@ -165,7 +176,17 @@ const ChatSettings = () => {
   const [isPinned, setIsPinned] = useState(false)
   const [character, setCharacter] = useState<any>(null)
   const [pokeSuffix, setPokeSuffix] = useState('')
+  const [masks, setMasks] = useState<Mask[]>([])
   
+  // 加载面具列表
+  useEffect(() => {
+    const loadMasks = async () => {
+      const masksWithAvatars = await getMasksWithAvatars()
+      setMasks(masksWithAvatars)
+    }
+    loadMasks()
+  }, [])
+
   // 检查拉黑状态和置顶状态，加载角色信息
   useEffect(() => {
     if (id) {
@@ -467,6 +488,96 @@ const ChatSettings = () => {
               />
             </button>
           </div>
+        </div>
+        
+        {/* 面具设置 */}
+        <div className="rounded-2xl p-4 space-y-3 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
+          <div className="text-sm font-semibold text-slate-700">身份设置</div>
+          
+          {/* 使用面具开关 */}
+          <div className="flex items-center justify-between py-2">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">使用面具</div>
+              <div className="text-xs text-gray-400">换个马甲聊天，AI还是认识你</div>
+            </div>
+            <button
+              onClick={() => {
+                const newUseMask = !settings.useMask
+                saveSettings({ 
+                  ...settings, 
+                  useMask: newUseMask,
+                  maskId: newUseMask ? settings.maskId : null
+                })
+                // 触发头像重新加载
+                window.dispatchEvent(new CustomEvent('maskSwitched', { detail: { maskId: newUseMask ? settings.maskId : null } }))
+              }}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.useMask ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.useMask ? 'translate-x-5' : 'translate-x-0'
+                }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
+              />
+            </button>
+          </div>
+          
+          {/* 面具选择 */}
+          {settings.useMask && (
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-sm text-slate-600 mb-2">选择面具</label>
+              {masks.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-400 mb-2">还没有创建面具</p>
+                  <button
+                    onClick={() => navigate('/switch-account')}
+                    className="text-sm text-blue-500 hover:text-blue-600"
+                  >
+                    去创建面具
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {masks.map((mask) => (
+                    <div
+                      key={mask.id}
+                      onClick={() => {
+                      saveSettings({ ...settings, maskId: mask.id })
+                      window.dispatchEvent(new CustomEvent('maskSwitched', { detail: { maskId: mask.id } }))
+                    }}
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                        settings.maskId === mask.id
+                          ? 'bg-slate-100 ring-2 ring-slate-300'
+                          : 'bg-white/50 hover:bg-white/80'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center overflow-hidden">
+                        {mask.avatar ? (
+                          <img src={mask.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <svg className="w-5 h-5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">{mask.nickname}</div>
+                        {mask.description && (
+                          <div className="text-xs text-gray-400 truncate">{mask.description}</div>
+                        )}
+                      </div>
+                      {settings.maskId === mask.id && (
+                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         {/* 互动设置 */}

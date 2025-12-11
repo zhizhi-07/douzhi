@@ -27,6 +27,12 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
     localStorage.getItem(`avatar_shape_${chatId}`) || 'rounded'
   )
   
+  // 头像大小设置（百分比，默认100%）
+  const [avatarSize, setAvatarSize] = useState(() => {
+    const saved = localStorage.getItem(`avatar_size_${chatId}`)
+    return saved ? parseInt(saved) : 100
+  })
+  
   // 头像框图片设置
   const [frameImage, setFrameImage] = useState(() => 
     localStorage.getItem(`avatar_frame_image_${chatId}`) || ''
@@ -78,6 +84,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
     localStorage.setItem(`avatar_frame_size_${chatId}`, frameSize.toString())
     localStorage.setItem(`avatar_frame_offset_x_${chatId}`, frameOffsetX.toString())
     localStorage.setItem(`avatar_frame_offset_y_${chatId}`, frameOffsetY.toString())
+    localStorage.setItem(`avatar_size_${chatId}`, avatarSize.toString())
     
     // 触发更新
     window.dispatchEvent(new Event('avatarFrameUpdate'))
@@ -109,6 +116,23 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
       {/* 内容区域 */}
       {isExpanded && (
       <div className="px-6 pb-6 expand-animate">
+      
+      {/* 头像大小调整 */}
+      <div className="mb-4">
+        <div className="text-xs text-gray-500 mb-3">头像大小</div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min="80"
+            max="150"
+            value={avatarSize}
+            onChange={(e) => setAvatarSize(parseInt(e.target.value))}
+            className="flex-1 h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]"
+          />
+          <span className="text-xs text-gray-600 w-12 text-right">{avatarSize}%</span>
+        </div>
+        <div className="text-xs text-gray-400 mt-1">调整聊天中头像的显示大小</div>
+      </div>
       
       {/* 头像形状选择 */}
       <div className="mb-4">

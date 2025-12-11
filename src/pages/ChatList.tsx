@@ -423,13 +423,15 @@ const ChatList = () => {
         <div className="px-5 py-3">
           {/* 用户头像和操作区 */}
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => navigate('/')} className="text-[#5A5A5A] hover:text-[#2C2C2C] active:scale-95 transition-transform">
-              <svg className="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            <div className="w-20 flex justify-start">
+              <button onClick={() => navigate('/')} className="text-[#5A5A5A] hover:text-[#2C2C2C] active:scale-95 transition-transform">
+                <svg className="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            </div>
             <h1 className="text-lg font-medium tracking-wide text-[#2C2C2C]">微信</h1>
-            <div className="flex items-center gap-4">
+            <div className="w-20 flex items-center justify-end gap-4">
               <button
                 onClick={() => {
                   loadAllCharacters()
