@@ -115,6 +115,28 @@ function App() {
   const musicPlayer = useMusicPlayer()
   const [globalBackground, setGlobalBackground] = useState<string>('')
 
+  // 🔥 iOS全屏修复：动态计算真实视口高度
+  useEffect(() => {
+    const setVH = () => {
+      // 获取真实的视口高度（不包含地址栏等）
+      const vh = window.innerHeight * 0.01
+      document.documentElement.style.setProperty('--vh', `${vh}px`)
+      // 同时直接设置html和body的高度
+      document.documentElement.style.height = `${window.innerHeight}px`
+      document.body.style.height = `${window.innerHeight}px`
+    }
+    
+    setVH()
+    window.addEventListener('resize', setVH)
+    window.addEventListener('orientationchange', setVH)
+    // iOS Safari 有时需要延迟执行
+    setTimeout(setVH, 100)
+    
+    return () => {
+      window.removeEventListener('resize', setVH)
+      window.removeEventListener('orientationchange', setVH)
+    }
+  }, [])
 
   // 加载全局背景和按钮颜色
   useEffect(() => {

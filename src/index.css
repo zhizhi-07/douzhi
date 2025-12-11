@@ -7,29 +7,26 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
-/* ===== iOS全屏方案 - 使用svh确保正确高度 ===== */
+/* ===== iOS全屏方案 - 使用JS动态计算的精确高度 ===== */
 
 html, body, #root {
-  height: 100svh;
-  height: 100dvh;
-  height: -webkit-fill-available;
+  /* 高度由JS动态设置为window.innerHeight */
+  height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
 }
 
-/* app-container：占满整个屏幕，无padding */
+/* app-container：使用CSS变量获取精确高度 */
 .app-container {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   width: 100%;
-  height: 100svh;
-  height: 100dvh;
-  height: -webkit-fill-available;
+  /* 优先使用JS计算的--vh，fallback到100% */
+  height: calc(var(--vh, 1vh) * 100);
   overflow: hidden;
 }
 
