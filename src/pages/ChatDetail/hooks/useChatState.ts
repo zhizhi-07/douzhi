@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { ensureMessagesLoaded, loadMessagesPaginated, getMessageCount } from '../../../utils/simpleMessageManager'
+import { ensureMessagesLoaded, loadMessagesPaginated, getMessageCount, loadMessages } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 import { getCurrentAccountId } from '../../../utils/accountManager'
 
@@ -148,7 +148,7 @@ export const useChatState = (chatId: string) => {
           const merged = [...moreMessages, ...prev]
           
           // 🔥 消息去重：检查是否有重复的消息ID
-          const seen = new Map<string, Message>()
+          const seen = new Map<number, Message>()
           const deduplicated = merged.filter(msg => {
             if (seen.has(msg.id)) {
               // 如果ID重复，保留时间戳较新的消息
@@ -232,48 +232,7 @@ export const useChatState = (chatId: string) => {
     }
   }, [chatId])
 
-  useEffect(() => {
-    const loadChatMessages = async () => {
-      if (!chatId) return
-
-      // 🔥 防止AI回复时重新加载消息导致数据丢失
-      if ((window as any).__AI_REPLYING__) {
-        console.log('🚫 [useChatState] AI正在回复，跳过消息加载')
-        return
-      }
-
-      // 🔥 防止消息已存在时重复加载
-      if (messages.length > 0) {
-        console.log(`ℹ️ [useChatState] 消息已存在(${messages.length}条)，跳过加载`)
-        return
-      }
-
-      try {
-        // 等待消息加载完成
-        const loadedMessages = await ensureMessagesLoaded(chatId)
-
-        // 🔥 再次检查是否正在AI回复（异步加载期间可能状态改变）
-        if ((window as any).__AI_REPLYING__) {
-          console.log('🚫 [useChatState] 加载完成但AI正在回复，跳过设置')
-          return
-        }
-
-        setMessages(loadedMessages)
-
-        // 触发消息加载完成事件
-        window.dispatchEvent(new CustomEvent('messages-loaded', {
-          detail: { chatId, messageCount: loadedMessages.length }
-        }))
-      } catch (error) {
-        console.error('加载消息失败:', error)
-        // 降级到同步加载
-        const messages = loadMessages(chatId)
-        setMessages(messages)
-      }
-    }
-
-    loadChatMessages()
-  }, [chatId])
+  // 删除重复的useEffect，这个逻辑已经在下面的useEffect中处理了
 
   /**
    * 🔥 监听账号切换事件
@@ -324,7 +283,7 @@ export const useChatState = (chatId: string) => {
 
     // 🔥 使用分页加载，初次只加载最近50条消息
     loadChatMessagesInitial()
-  }, [chatId, accountId, loadChatMessagesInitial])
+  }, [chatId, accountId]) // 移除 loadChatMessagesInitial 依赖，避免循环
   
   /**
    * 监听页面可见性和焦点，当返回聊天窗口时重新加载消息
@@ -407,7 +366,7 @@ export const useChatState = (chatId: string) => {
       // window.removeEventListener('focus', handleFocus)
       window.removeEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     }
-  }, [chatId, loadChatMessages, refreshCharacter])
+  }, [chatId, loadChatMessages, refreshCharacter, isLoadingMessages])
   
   return {
     character,
