@@ -307,6 +307,60 @@ const SwitchAccount = () => {
           </>
         ) : (
           <>
+            {accounts.find(a => a.isMain) && (() => {
+              const main = accounts.find(a => a.isMain)!
+              return (
+                <div
+                  key={main.id}
+                  className={`group relative rounded-[24px] p-4 transition-all cursor-pointer ${
+                    main.id === currentAccountId
+                      ? 'bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]'
+                      : 'bg-white/60 hover:bg-white'
+                  }`}
+                  onClick={() => handleSwitchAccount(main.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-[16px] overflow-hidden bg-gray-100">
+                        {mainAccountAvatar ? (
+                          <img src={mainAccountAvatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {main.id === currentAccountId && (
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                          <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[15px] font-semibold text-gray-800 truncate">{main.name}</h3>
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-medium rounded-full">MAIN</span>
+                      </div>
+                      <p className="text-[12px] text-gray-400 truncate">{main.signature || '主账号'}</p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditAccount(main) }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
             {/* 小号列表（过滤掉主账号） */}
             {accounts.filter(a => !a.isMain).map((account) => (
               <div

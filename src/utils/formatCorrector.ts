@@ -349,13 +349,22 @@ export const correctAIMessageFormat = (text: string): CorrectionResult => {
 
   // ========== 13. 换头像格式修正 ==========
   
-  // 修正：[换头像生成描述] → [换头像:生成:描述]
-  fixed = fixed.replace(/\[换头像生成([^\]:\：]+)\]/g, (_match, desc) => {
+  // 修正：[换头像描述xxx] → [换头像:描述:xxx]
+  fixed = fixed.replace(/\[换头像描述([^\]:\：]+)\]/g, (_match, desc) => {
     if (desc.trim()) {
       corrections.push(`换头像格式：补充冒号`)
-      return `[换头像:生成:${desc.trim()}]`
+      return `[换头像:描述:${desc.trim()}]`
     }
-    return `[换头像生成${desc}]`
+    return _match
+  })
+  
+  // 修正：[换头像标签xxx] → [换头像:标签:xxx]
+  fixed = fixed.replace(/\[换头像标签([^\]:\：]+)\]/g, (_match, tag) => {
+    if (tag.trim()) {
+      corrections.push(`换头像格式：补充冒号`)
+      return `[换头像:标签:${tag.trim()}]`
+    }
+    return _match
   })
 
   // ========== 14. 一起听格式修正 ==========

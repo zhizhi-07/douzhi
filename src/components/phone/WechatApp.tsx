@@ -5,11 +5,12 @@ import LiveStream from './LiveStream'
 
 interface WechatAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
 type WechatView = 'chat' | 'contacts' | 'discover' | 'me' | 'live'
 
-const WechatApp = ({ content }: WechatAppProps) => {
+const WechatApp = ({ content, onBack }: WechatAppProps) => {
   const [currentView, setCurrentView] = useState<WechatView>('chat')
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({})
@@ -97,8 +98,8 @@ const WechatApp = ({ content }: WechatAppProps) => {
     if (!chat || !chat.messages || chat.messages.length === 0) {
       return (
         <div className="w-full h-full bg-[#EDEDED] flex flex-col absolute inset-0">
-          <div className="px-4 py-3 border-b border-gray-200/80 bg-[#EDEDED] flex items-center gap-3 sticky top-0 z-10">
-            <button onClick={() => setSelectedChat(null)} className="text-black">
+          <div className="px-4 py-3 border-b border-gray-200/80 bg-[#EDEDED] flex items-center gap-3 sticky top-0 z-[1000]">
+            <button onClick={(e) => { e.stopPropagation(); setSelectedChat(null); }} className="text-black z-[1001] relative">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -122,14 +123,14 @@ const WechatApp = ({ content }: WechatAppProps) => {
     return (
       <div className="w-full h-full bg-[#EDEDED] flex flex-col absolute inset-0">
         <div
-          className="px-4 py-3 border-b border-gray-200/80 bg-[#EDEDED] flex items-center gap-3 sticky top-0 z-10"
+          className="px-4 py-3 border-b border-gray-200/80 bg-[#EDEDED] flex items-center gap-3 sticky top-0 z-[1000]"
           style={customIcons['chat-topbar-bg'] ? {
             backgroundImage: `url(${customIcons['chat-topbar-bg']})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           } : {}}
         >
-          <button onClick={() => setSelectedChat(null)} className="text-black">
+          <button onClick={(e) => { e.stopPropagation(); setSelectedChat(null); }} className="text-black z-[1001] relative">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -172,7 +173,7 @@ const WechatApp = ({ content }: WechatAppProps) => {
   if (currentView === 'contacts') {
     return (
       <div className="w-full h-full bg-[#EDEDED] overflow-hidden flex flex-col absolute inset-0">
-        <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-10">
+        <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-[1000]">
           <div className="px-4 pt-3 pb-3 flex justify-between items-center">
             <h1 className="text-[17px] font-medium text-black">通讯录</h1>
             <div className="w-6 h-6 flex items-center justify-center border border-black rounded-full">
@@ -221,7 +222,7 @@ const WechatApp = ({ content }: WechatAppProps) => {
   if (currentView === 'discover') {
     return (
       <div className="w-full h-full bg-[#EDEDED] overflow-hidden flex flex-col absolute inset-0">
-        <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-10">
+        <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-[1000]">
           <div className="px-4 pt-3 pb-3">
             <h1 className="text-[17px] font-medium text-black">发现</h1>
           </div>
@@ -378,8 +379,14 @@ const WechatApp = ({ content }: WechatAppProps) => {
   // 默认渲染微信聊天列表
   return (
     <div className="w-full h-full bg-[#EDEDED] overflow-hidden flex flex-col absolute inset-0">
-      <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-10">
+      <div className="bg-[#EDEDED] border-b border-gray-200/80 sticky top-0 z-[1000]">
         <div className="px-4 pt-3 pb-3 flex justify-between items-center">
+          <button onClick={onBack} className="text-[#07C160] flex items-center gap-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            返回
+          </button>
           <h1 className="text-[17px] font-medium text-black">微信</h1>
           <div className="w-6 h-6 flex items-center justify-center border border-black rounded-full">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">

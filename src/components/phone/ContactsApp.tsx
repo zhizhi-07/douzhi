@@ -3,16 +3,22 @@ import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface ContactsAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const ContactsApp = ({ content }: ContactsAppProps) => {
+const ContactsApp = ({ content, onBack }: ContactsAppProps) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   return (
     <div className="w-full h-full bg-white flex flex-col font-sans relative absolute inset-0">
       {/* 顶部标题栏 */}
-      <div className="bg-white px-4 pt-4 pb-2 sticky top-0 z-10">
+      <div className="bg-white px-4 pt-4 pb-2 sticky top-0 z-[1000]">
         <div className="flex justify-between items-center mb-4">
-          <button className="text-[#007AFF] text-[17px]">群组</button>
+          <button onClick={onBack} className="text-[#007AFF] text-[17px] flex items-center gap-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            返回
+          </button>
           <button className="text-[#007AFF] text-[17px] font-medium">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />

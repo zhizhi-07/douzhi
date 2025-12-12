@@ -7,6 +7,10 @@ import type { Message } from '../types/chat'
 import * as IDB from './indexedDBManager'
 import { getCurrentAccountId } from './accountManager'
 
+// 🔥 保存锁机制，防止并发保存导致数据丢失
+const saveLocks = new Map<string, Promise<void>>()
+const saveQueue = new Map<string, Message[]>()
+
 /**
  * 获取账号专属的聊天存储key
  * 主账号使用原有key，小号使用独立key
@@ -180,6 +184,51 @@ async function preloadMessages() {
 
 // 启动时预加载
 preloadMessages()
+
+// 🔥 页面卸载时的保护机制
+if (typeof window !== 'undefined') {
+  // 监听页面卸载事件
+  window.addEventListener('beforeunload', () => {
+    console.log('📤 [页面卸载] 触发最终保存')
+    // 将所有缓存的消息同步保存到localStorage作为备份
+    messageCache.forEach((messages, storageKey) => {
+      if (messages && messages.length > 0) {
+        try {
+          const backupKey = `msg_backup_${storageKey}`
+          const backup = {
+            messages: messages,
+            timestamp: Date.now()
+          }
+          localStorage.setItem(backupKey, JSON.stringify(backup))
+          console.log(`💾 [页面卸载] 备份${messages.length}条消息到localStorage: ${storageKey}`)
+        } catch (e) {
+          console.error('页面卸载备份失败:', e)
+        }
+      }
+    })
+  })
+  
+  // 监听页面可见性变化，在页面隐藏时保存
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      console.log('📱 [页面隐藏] 触发保存')
+      // 遍历所有缓存的消息，确保都保存到IndexedDB
+      messageCache.forEach((messages, storageKey) => {
+        if (messages && messages.length > 0) {
+          const chatId = storageKey.includes('_') ? storageKey.split('_')[0] : storageKey
+          // 使用防抖，避免频繁保存
+          if (!saveLocks.has(storageKey)) {
+            IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).then(() => {
+              console.log(`✅ [页面隐藏] 保存成功: ${storageKey}`)
+            }).catch(err => {
+              console.error(`❌ [页面隐藏] 保存失败: ${storageKey}`, err)
+            })
+          }
+        }
+      })
+    }
+  })
+}
 
 /**
  * 🔥 强制备份所有缓存的消息到 localStorage
@@ -540,11 +589,19 @@ function cleanMessageForStorage(message: Message): Message {
 
 /**
  * 保存消息（立即更新缓存和IndexedDB）
+ * 🔥 增强版：添加并发控制和数据保护
  */
 export function saveMessages(chatId: string, messages: Message[]): void {
   try {
     // 🔥 使用账号专属的存储key
     const storageKey = getAccountChatKey(chatId)
+    
+    // 🔥 并发控制：如果正在保存，将消息加入队列
+    if (saveLocks.has(storageKey)) {
+      console.log(`⏳ [saveMessages] 检测到并发保存，加入队列: storageKey=${storageKey}`)
+      saveQueue.set(storageKey, messages)
+      return
+    }
     
     // 🔥 防止保存空数组覆盖已有数据
     if (messages.length === 0) {
@@ -593,23 +650,57 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       })
     }
     
+    // 🔥 数据验证：确保消息数组有效
+    if (!Array.isArray(messages)) {
+      console.error(`❌ [saveMessages] 无效的消息数组: storageKey=${storageKey}`)
+      return
+    }
+    
     // 立即更新缓存（使用原始消息）
     messageCache.set(storageKey, messages)
     if (import.meta.env.DEV) {
       console.log(`💾 [缓存] 保存消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
     }
     
-    // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
-    // 之前的备份机制会撑爆 localStorage（只有5MB），导致数据丢失
-    
-    // 立即保存到IndexedDB（使用清理后的消息）
-    IDB.setItem(IDB.STORES.MESSAGES, storageKey, cleanedMessages).then(() => {
-      if (import.meta.env.DEV) {
-        console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${cleanedMessages.length}`)
+    // 🔥 创建保存锁，防止并发
+    const savePromise = (async () => {
+      try {
+        // 保存到IndexedDB（使用清理后的消息）
+        await IDB.setItem(IDB.STORES.MESSAGES, storageKey, cleanedMessages)
+        if (import.meta.env.DEV) {
+          console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${cleanedMessages.length}`)
+        }
+        
+        // 🔥 检查是否有队列中的消息需要保存
+        const queuedMessages = saveQueue.get(storageKey)
+        if (queuedMessages) {
+          saveQueue.delete(storageKey)
+          console.log(`📦 [saveMessages] 处理队列中的消息: count=${queuedMessages.length}`)
+          // 递归调用保存队列中的消息
+          setTimeout(() => saveMessages(chatId, queuedMessages), 0)
+        }
+      } catch (err) {
+        console.error(`❌ [IndexedDB] 保存失败: storageKey=${storageKey}`, err)
+        // 🔥 保存失败时，尝试备份到localStorage
+        try {
+          const backupKey = `msg_backup_${storageKey}`
+          const backup = {
+            messages: cleanedMessages,
+            timestamp: Date.now()
+          }
+          localStorage.setItem(backupKey, JSON.stringify(backup))
+          console.log(`💾 [备份] 已备份到localStorage: ${cleanedMessages.length}条消息`)
+        } catch (e) {
+          console.error('备份到localStorage也失败:', e)
+        }
+      } finally {
+        // 清除保存锁
+        saveLocks.delete(storageKey)
       }
-    }).catch(err => {
-      console.error(`❌ [IndexedDB] 保存失败: storageKey=${storageKey}`, err)
-    })
+    })()
+    
+    // 设置保存锁
+    saveLocks.set(storageKey, savePromise)
     
     // 🔥 触发消息保存事件，用于通知和未读标记
     if (import.meta.env.DEV) {
@@ -630,27 +721,28 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
-  // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
+  // 🔥 先同步更新缓存，确保消息不会丢失
+  const storageKey = getAccountChatKey(chatId)
+  const cachedMessages = messageCache.get(storageKey) || []
+  
+  const existingIndex = cachedMessages.findIndex(m => m.id === message.id)
+  let newMessages: Message[]
+  
+  if (existingIndex !== -1) {
+    newMessages = [...cachedMessages]
+    newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+  } else {
+    newMessages = [...cachedMessages, message]
+    window.dispatchEvent(new CustomEvent('new-message', {
+      detail: { chatId, message }
+    }))
+  }
+  
+  // 立即更新缓存
+  messageCache.set(storageKey, newMessages)
   
   // 异步保存到IndexedDB
-  ensureMessagesLoaded(chatId).then(messages => {
-    const existingIndex = messages.findIndex(m => m.id === message.id)
-    
-    let newMessages: Message[]
-    if (existingIndex !== -1) {
-      newMessages = [...messages]
-      newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
-    } else {
-      newMessages = [...messages, message]
-      window.dispatchEvent(new CustomEvent('new-message', {
-        detail: { chatId, message }
-      }))
-    }
-    
-    saveMessages(chatId, newMessages)
-  }).catch(error => {
-    console.error('❌ [addMessage] IndexedDB保存失败:', error)
-  })
+  saveMessages(chatId, newMessages)
 }
 
 /**
@@ -660,29 +752,29 @@ export function addMessage(chatId: string, message: Message): void {
 export function addMessages(chatId: string, newMessages: Message[]): void {
   if (newMessages.length === 0) return
   
-  // 🔥 禁用 localStorage 备份！IndexedDB 已经是持久化存储
+  // 🔥 先同步更新缓存，确保消息不会丢失
+  const storageKey = getAccountChatKey(chatId)
+  const cachedMessages = messageCache.get(storageKey) || []
+  let updatedMessages = [...cachedMessages]
   
-  // 异步保存到IndexedDB（一次性添加所有消息）
-  ensureMessagesLoaded(chatId).then(messages => {
-    let updatedMessages = [...messages]
-    
-    for (const message of newMessages) {
-      const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
-      if (existingIndex !== -1) {
-        updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
-      } else {
-        updatedMessages.push(message)
-        window.dispatchEvent(new CustomEvent('new-message', {
-          detail: { chatId, message }
-        }))
-      }
+  for (const message of newMessages) {
+    const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
+    if (existingIndex !== -1) {
+      updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
+    } else {
+      updatedMessages.push(message)
+      window.dispatchEvent(new CustomEvent('new-message', {
+        detail: { chatId, message }
+      }))
     }
-    
-    saveMessages(chatId, updatedMessages)
-    console.log(`✅ [addMessages] 批量保存成功: ${newMessages.length}条消息`)
-  }).catch(error => {
-    console.error('❌ [addMessages] IndexedDB保存失败:', error)
-  })
+  }
+  
+  // 立即更新缓存
+  messageCache.set(storageKey, updatedMessages)
+  
+  // 异步保存到IndexedDB
+  saveMessages(chatId, updatedMessages)
+  console.log(`✅ [addMessages] 批量保存成功: ${newMessages.length}条消息`)
 }
 
 /**

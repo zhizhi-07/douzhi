@@ -94,6 +94,7 @@ import AISchedule from './pages/AISchedule'
 import AIScheduleSelect from './pages/AIScheduleSelect'
 import ScreenSettings from './pages/ScreenSettings'
 import MemeLibrary from './pages/MemeLibrary'
+import AvatarLibrary from './pages/AvatarLibrary'
 import SwitchAccount from './pages/SwitchAccount'
 import Weather from './pages/Weather'
 import Envelope from './pages/Envelope'
@@ -114,6 +115,10 @@ function App() {
   const location = useLocation()
   const musicPlayer = useMusicPlayer()
   const [globalBackground, setGlobalBackground] = useState<string>('')
+  const [screenOffsets, setScreenOffsets] = useState({
+    top: parseInt(localStorage.getItem('screen_top_offset') || '0'),
+    bottom: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
+  })
 
   // 🔥 iOS全屏修复：动态计算真实视口高度
   useEffect(() => {
@@ -138,6 +143,19 @@ function App() {
       window.removeEventListener('resize', setVH)
       window.removeEventListener('orientationchange', setVH)
     }
+  }, [])
+
+  // 监听屏幕设置变化
+  useEffect(() => {
+    const handleScreenSettingsChange = () => {
+      setScreenOffsets({
+        top: parseInt(localStorage.getItem('screen_top_offset') || '0'),
+        bottom: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
+      })
+    }
+
+    window.addEventListener('screenSettingsChanged', handleScreenSettingsChange)
+    return () => window.removeEventListener('screenSettingsChanged', handleScreenSettingsChange)
   }, [])
 
   // 加载全局背景和按钮颜色
@@ -527,12 +545,25 @@ function App() {
   const renderContent = () => (
     <div
       className="app-container"
-      style={globalBackground ? {
-        backgroundImage: `url(${globalBackground})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      } : undefined}
+      style={{
+        ...(globalBackground ? {
+          backgroundImage: `url(${globalBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        } : {}),
+        // 应用屏幕边距设置，正值向内缩进，负值向外延伸
+        paddingTop: screenOffsets.top > 0 ? `${screenOffsets.top}px` : undefined,
+        paddingBottom: screenOffsets.bottom > 0 ? `${screenOffsets.bottom}px` : undefined,
+        // 负值时使用transform向外延伸，让背景覆盖系统状态栏区域
+        transform: (screenOffsets.top < 0 || screenOffsets.bottom < 0) 
+          ? `translateY(${screenOffsets.top < 0 ? screenOffsets.top : 0}px)` 
+          : undefined,
+        // 调整高度以补偿transform的偏移
+        height: (screenOffsets.top < 0 || screenOffsets.bottom < 0)
+          ? `calc(100% + ${Math.abs(Math.min(screenOffsets.top, 0)) + Math.abs(Math.min(screenOffsets.bottom, 0))}px)`
+          : '100%'
+      }}
     >
       <ContactsProvider>
         {/* 全局灵动岛 */}
@@ -646,6 +677,7 @@ function App() {
           <Route path="/ai-schedule" element={<AIScheduleSelect />} />
           <Route path="/ai-schedule/:characterId" element={<AISchedule />} />
           <Route path="/meme-library" element={<MemeLibrary />} />
+          <Route path="/avatar-library" element={<AvatarLibrary />} />
           <Route path="/chat/:id/weather" element={<Weather />} />
           <Route path="/envelope" element={<Envelope />} />
           <Route path="/auth" element={<Auth />} />

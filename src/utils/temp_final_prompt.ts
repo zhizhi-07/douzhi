@@ -17,6 +17,7 @@ import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflineProm
 import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT } from './prompts'
 import { replaceVariables as replaceVars } from './variableReplacer'
+import { getAvatarLibraryInfo } from './avatarLibraryService'
 
 
 /**
@@ -922,8 +923,9 @@ ${emojiListPrompt}
 - 修改资料：[网名:新网名]、[个性签名:新签名]
   什么时候用：当你心情变了、想换个网名或签名来表达当下状态时。
 
-- 头像：[换头像:生成:英文描述] / [换头像:用户头像] / [换头像:图片:消息ID]
-  什么时候用：想换个新头像、或者想用对方头像（表达亲密/调皮）时。
+- 头像：[换头像:描述:关键词] / [换头像:标签:标签名] / [换头像:用户头像]
+  什么时候用：想换个新头像（用描述匹配或从标签随机选）、或者想用对方头像（表达亲密/调皮）时。
+${await getAvatarLibraryInfo()}
 
 - 随笔：[随笔:内容]
   什么时候用：当你对刚才的对话有很多感觉或想法、想记录关于 Ta 的观察时，这是你自己的小本子。

@@ -3,22 +3,30 @@
  * 处理表情包发送和语音播放
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { groupChatManager, type GroupMessage } from '../../../utils/groupChatManager'
 import type { Emoji } from '../../../utils/emojiStorage'
 
-// 获取成员头像
+// 获取成员头像（缓存）
+let cachedUserAvatar: string = ''
+let avatarLoaded = false
 const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
+    if (avatarLoaded) return cachedUserAvatar
     try {
       const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
-      return userInfo.avatar || ''
-    } catch (e) {
+      cachedUserAvatar = userInfo.avatar || ''
+      avatarLoaded = true
+      return cachedUserAvatar
+    } catch {
       return ''
     }
   }
   return ''
 }
+
+// 🔥 表情包消息ID计数器
+let emojiMsgIdCounter = 0
 
 export const useGroupEmoji = (
   groupId: string | undefined,
@@ -31,27 +39,63 @@ export const useGroupEmoji = (
   // 语音播放状态
   const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null)
   const [showVoiceTextMap, setShowVoiceTextMap] = useState<Record<number, boolean>>({})
+  
+  // 🔥 防止重复发送
+  const isSendingRef = useRef(false)
 
   // 发送表情包
   const handleSelectEmoji = useCallback((emoji: Emoji) => {
-    if (!groupId) return
-
-    // 🔥 异步处理，避免阻塞 UI
-    requestAnimationFrame(() => {
-      const newMsg = groupChatManager.addMessage(groupId, {
+    if (!groupId || isSendingRef.current) return
+    
+    isSendingRef.current = true
+    
+    // 🔥 生成唯一ID
+    const now = Date.now()
+    const uniqueId = `msg_${now}_emoji_${++emojiMsgIdCounter}`
+    
+    // 🔥 创建消息对象
+    const newMsg: GroupMessage = {
+      id: uniqueId,
+      groupId,
+      userId: 'user',
+      userName: '我',
+      userAvatar: getMemberAvatar('user'),
+      content: emoji.description,
+      type: 'emoji',
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: now,
+      emojiUrl: emoji.url,
+      emojiDescription: emoji.description
+    }
+    
+    // 🔥 立即更新 UI
+    setMessages(prev => {
+      if (prev.some(m => m.id === uniqueId)) return prev
+      return [...prev, newMsg]
+    })
+    
+    // 🔥 异步保存到数据库（silent模式）
+    queueMicrotask(() => {
+      groupChatManager.addMessage(groupId, {
         userId: 'user',
         userName: '我',
         userAvatar: getMemberAvatar('user'),
         content: emoji.description,
         type: 'emoji',
-        timestamp: Date.now(),
+        timestamp: now,
         emojiUrl: emoji.url,
         emojiDescription: emoji.description
-      })
-
-      // 🔥 只追加新消息，不重新获取全部
-      setMessages(prev => [...prev, newMsg])
-      setTimeout(scrollToBottom, 50)
+      }, true)  // silent = true
+      
+      console.log('✅ [表情包发送完成]', uniqueId)
+    })
+    
+    // 🔥 滚动到底部
+    requestAnimationFrame(() => {
+      scrollToBottom()
+      setTimeout(() => {
+        isSendingRef.current = false
+      }, 100)
     })
   }, [groupId, setMessages, scrollToBottom])
 

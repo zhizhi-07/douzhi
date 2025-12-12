@@ -253,46 +253,48 @@ export const useChatAI = (
       const currentSceneMode = forceSceneMode || (allMessages.filter(m => m.type === 'sent').pop()?.sceneMode || 'online')
       console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}${forceSceneMode ? ' (强制指定)' : ''}`)
       
+      // 🎭 读取面具设置（线上和线下模式都需要）
+      const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+      let enableTheatreCardsForPrompt = false // 默认关闭
+      let characterIndependenceEnabled = false // 默认关闭
+      let enableHtmlTheatreForPrompt = false // 中插HTML小剧场，默认关闭
+      let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
+      
+      if (chatSettingsRaw) {
+        try {
+          const parsed = JSON.parse(chatSettingsRaw)
+          enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
+          characterIndependenceEnabled = parsed.characterIndependence ?? false
+          enableHtmlTheatreForPrompt = parsed.enableHtmlTheatre ?? false
+          
+          // 🎭 读取面具设置
+          if (parsed.useMask && parsed.maskId) {
+            const { getMasksWithAvatars } = await import('../../../utils/maskManager')
+            const masks = await getMasksWithAvatars()
+            const mask = masks.find(m => m.id === parsed.maskId)
+            if (mask) {
+              maskInfo = {
+                nickname: mask.nickname,
+                realName: mask.realName,
+                signature: mask.signature,
+                persona: mask.persona
+              }
+              console.log('🎭 [面具模式] 使用面具:', mask.nickname)
+            }
+          }
+        } catch (e) {
+          console.error('[useChatAI] 解析聊天设置失败:', e)
+        }
+      }
+      
       // 根据场景模式选择提示词
       let systemPrompt: string
+      const userName = userInfo.realName || userInfo.nickname || '用户'
+      
       if (currentSceneMode === 'offline') {
-        systemPrompt = await buildOfflinePrompt(character)
+        // 🔥 线下模式也传递面具信息
+        systemPrompt = await buildOfflinePrompt(character, userName, maskInfo)
       } else {
-        // 🎭 读取小剧场功能开关（提前读取，用于系统提示词）
-        const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
-        let enableTheatreCardsForPrompt = false // 默认关闭
-        let characterIndependenceEnabled = false // 默认关闭
-        let enableHtmlTheatreForPrompt = false // 中插HTML小剧场，默认关闭
-        let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
-        
-        if (chatSettingsRaw) {
-          try {
-            const parsed = JSON.parse(chatSettingsRaw)
-            enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
-            characterIndependenceEnabled = parsed.characterIndependence ?? false
-            enableHtmlTheatreForPrompt = parsed.enableHtmlTheatre ?? false
-            
-            // 🎭 读取面具设置
-            if (parsed.useMask && parsed.maskId) {
-              const { getMasksWithAvatars } = await import('../../../utils/maskManager')
-              const masks = await getMasksWithAvatars()
-              const mask = masks.find(m => m.id === parsed.maskId)
-              if (mask) {
-                maskInfo = {
-                  nickname: mask.nickname,
-                  realName: mask.realName,
-                  signature: mask.signature,
-                  persona: mask.persona
-                }
-                console.log('🎭 [面具模式] 使用面具:', mask.nickname)
-              }
-            }
-          } catch (e) {
-            console.error('[useChatAI] 解析聊天设置失败:', e)
-          }
-        }
-        // 🔥 修复：传入用户真名，而不是硬编码的"用户"
-        const userName = userInfo.realName || userInfo.nickname || '用户'
         systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo)
       }
       
@@ -665,13 +667,12 @@ export const useChatAI = (
       // 🔥 设置当前场景模式标记（供API检测流式）
       localStorage.setItem('current-scene-mode', currentSceneMode)
 
-      // 🎭 读取小剧场功能开关
-      const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
+      // 🎭 读取小剧场功能开关（使用已读取的 chatSettingsRaw）
       let enableTheatreCards = false // 默认关闭
       if (chatSettingsRaw) {
         try {
-          const parsed = JSON.parse(chatSettingsRaw)
-          enableTheatreCards = parsed.enableTheatreCards ?? false
+          const parsedSettings = JSON.parse(chatSettingsRaw)
+          enableTheatreCards = parsedSettings.enableTheatreCards ?? false
         } catch (e) {
           console.error('[useChatAI] 解析聊天设置失败:', e)
         }
@@ -889,10 +890,16 @@ export const useChatAI = (
             
             console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')
             
-            // 保存到IndexedDB
+            // 🔥 保存到IndexedDB（确保保存完整的消息列表）
             setTimeout(() => {
               setMessages(prev => {
-                saveMessages(chatId, prev)
+                const allMessages = [...prev]
+                if (allMessages.length > 0) {
+                  console.log(`💾 [流式] 保存完整消息列表: count=${allMessages.length}`)
+                  saveMessages(chatId, allMessages)
+                } else {
+                  console.warn('⚠️ [流式] 消息列表为空，跳过保存')
+                }
                 return prev
               })
               scrollToBottom()
@@ -1636,13 +1643,13 @@ export const useChatAI = (
           const messageDelay = 300 // 统一使用较短的默认延迟
           await new Promise(resolve => setTimeout(resolve, messageDelay))
           
-          // 保存AI消息（addMessage内部会自动备份到localStorage）
-          saveMessageToStorage(chatId, aiMessage)
-          
-          // 同时更新React状态（如果组件还挂载，更新UI）
+          // 🔥 关键修复：先更新React状态，再保存到存储
           setMessages(prev => {
+            const updated = [...prev, aiMessage]
             console.log(`📱 [useChatAI] 更新React状态, 当前消息数=${prev.length}, 新AI消息id=${aiMessage.id}`)
-            return [...prev, aiMessage]
+            // 立即保存完整的消息列表
+            saveMessages(chatId, updated)
+            return updated
           })
           
           // 播放消息通知音效
@@ -1664,8 +1671,11 @@ export const useChatAI = (
       setError(error instanceof ChatApiError ? error.message : '生成回复失败')
     } finally {
       setIsAiTyping(false)
-      ;(window as any).__AI_REPLYING__ = false
-      console.log('✅ [AI回复] 结束')
+      // 🔥 延迟清除AI回复标志，确保消息保存完成
+      setTimeout(() => {
+        ;(window as any).__AI_REPLYING__ = false
+        console.log('✅ [AI回复] 结束，清除全局标志')
+      }, 500)
       
       // 🧠 全局记忆提取：每15次互动自动提取一次
       try {

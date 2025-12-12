@@ -148,12 +148,12 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
       case '浏览器历史':
         dataLines.forEach(line => {
           const parts = line.split('|||')
-          if (parts.length >= 3) {  // 放宽条件
+          if (parts.length >= 3) {
             result.browserHistory.push({
               title: parts[0].trim(),
               url: parts[1].trim(),
               time: parts[2].trim(),
-              reason: parts[3]?.trim() || ''
+              snippet: parts[3]?.trim() || ''  // 网页内容摘要
             })
           }
         })
@@ -163,13 +163,14 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
       case '淘宝订单':
         dataLines.forEach(line => {
           const parts = line.split('|||')
-          if (parts.length >= 3) {  // 放宽条件
+          if (parts.length >= 3) {
             result.taobaoOrders.push({
               title: parts[0].trim(),
               price: parts[1].trim(),
               status: parts[2].trim(),
-              reason: parts[3]?.trim() || '',
-              thought: parts[4]?.trim() || ''
+              orderTime: parts[3]?.trim() || '',  // 下单时间
+              reason: parts[4]?.trim() || '',  // 为什么买
+              thought: parts[5]?.trim() || ''  // 下单心情
             })
           }
         })
@@ -193,6 +194,7 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
         break
 
       case '相册':
+      case '相册（私密相册）':
         dataLines.forEach(line => {
           const parts = line.split('|||')
           if (parts.length >= 3) {
@@ -223,11 +225,12 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
       case '音乐播放列表':
         dataLines.forEach(line => {
           const parts = line.split('|||')
-          if (parts.length >= 2) {  // 放宽条件
+          if (parts.length >= 2) {
             result.musicPlaylist.push({
               title: parts[0].trim(),
               artist: parts[1].trim(),
-              mood: parts[2]?.trim() || ''
+              mood: parts[2]?.trim() || '',
+              feeling: parts[3]?.trim() || ''  // 听歌感受
             })
           }
         })
@@ -237,7 +240,7 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
       case '足迹':
         dataLines.forEach(line => {
           const parts = line.split('|||')
-          if (parts.length >= 5) {  // 放宽条件
+          if (parts.length >= 5) {
             result.footprints.push({
               location: parts[0].trim(),
               address: parts[1].trim(),
@@ -245,7 +248,8 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
               duration: parts[3].trim(),
               activity: parts[4].trim(),
               mood: parts[5]?.trim() || '',
-              companion: parts[6]?.trim() || ''
+              action: parts[6]?.trim() || '',  // 具体动作
+              companion: parts[7]?.trim() || ''
             })
           }
         })
@@ -255,8 +259,21 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
       case '论坛':
         dataLines.forEach(line => {
           const parts = line.split('|||')
-          if (parts.length >= 5) {  // 至少需要标题、论坛、内容、时间、是否评论
+          if (parts.length >= 5) {
             const hasCommented = parts[4].trim() === '是'
+            // 解析其他楼层评论（格式：网友昵称:评论内容）
+            const otherComments: { author: string; content: string; likes?: number }[] = []
+            for (let j = 6; j < parts.length; j++) {
+              const commentPart = parts[j]?.trim()
+              if (commentPart && commentPart.includes(':')) {
+                const colonIndex = commentPart.indexOf(':')
+                otherComments.push({
+                  author: commentPart.substring(0, colonIndex).trim(),
+                  content: commentPart.substring(colonIndex + 1).trim(),
+                  likes: Math.floor(Math.random() * 50)  // 随机点赞数
+                })
+              }
+            }
             result.forumPosts.push({
               title: parts[0].trim(),
               forum: parts[1].trim(),
@@ -264,7 +281,7 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
               time: parts[3].trim(),
               hasCommented,
               comment: hasCommented && parts[5] ? parts[5].trim() : undefined,
-              reason: parts[6]?.trim() || undefined
+              otherComments: otherComments.length > 0 ? otherComments : undefined
             })
           }
         })

@@ -145,22 +145,24 @@ export const getCurrentUserInfoWithAvatar = async (): Promise<UserInfo> => {
  */
 export const saveUserInfo = (info: UserInfo): void => {
   try {
+    // 🔥 先读取旧信息，用于比较变更
+    const oldInfo = getUserInfo()
+    
     // 🔥 保存前先追踪变更（只追踪网名和签名，不追踪真实名字）
     
-    // 只追踪网名变更
-    if (info.nickname) {
+    // 只追踪网名变更（且确实发生了变更）
+    if (info.nickname && info.nickname !== oldInfo.nickname) {
       trackNicknameChange(info.nickname)
     }
 
-    // 只追踪签名变更
-    if (info.signature !== undefined) {  // 允许空字符串
+    // 只追踪签名变更（且确实发生了变更）
+    if (info.signature !== undefined && info.signature !== oldInfo.signature) {
       trackSignatureChange(info.signature)
     }
 
-    // 只追踪头像变更
-    if (info.avatar) {
-      trackAvatarChange(info.avatar)
-    }
+    // 🔥 修复：只有头像真的变了才追踪，避免只改人设时误报
+    // 不在这里追踪头像变更，改为在 UserProfile.tsx 中手动追踪
+    // 因为头像是base64，每次都比较会很慢
 
     // 真实名字不追踪，AI不需要知道用户改了真名
 

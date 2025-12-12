@@ -218,12 +218,17 @@ export default function PublishMoment() {
                           setMentions(prev => [...prev, name])
                         }
                       }}
-                      className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${mentions.includes(char.realName)
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all ${mentions.includes(char.realName)
                           ? 'bg-slate-800 text-white shadow-md'
                           : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
                         }`}
                     >
-                      {char.avatar} {char.realName}
+                      {char.avatar?.startsWith('data:') || char.avatar?.startsWith('http') ? (
+                        <img src={char.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      ) : (
+                        <span>{char.avatar || '👤'}</span>
+                      )}
+                      {char.realName}
                     </button>
                   ))}
                 </div>
@@ -283,12 +288,17 @@ export default function PublishMoment() {
                               setVisibleTo(prev => [...prev, char.id])
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${visibleTo.includes(char.id)
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${visibleTo.includes(char.id)
                               ? 'bg-green-500 text-white shadow-md'
                               : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
                             }`}
                         >
-                          {char.avatar} {char.realName}
+                          {char.avatar?.startsWith('data:') || char.avatar?.startsWith('http') ? (
+                            <img src={char.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                          ) : (
+                            <span>{char.avatar || '👤'}</span>
+                          )}
+                          {char.realName}
                         </button>
                       ))}
                     </div>

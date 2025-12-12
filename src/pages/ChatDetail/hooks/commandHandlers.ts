@@ -22,7 +22,8 @@ import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils
 import { callMinimaxTTS } from '../../../utils/voiceApi'
 import { addAIMemo } from '../../../utils/aiMemoManager'
 import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } from '../../../utils/aiStatusManager'
-import { generateAvatarForAI } from '../../../utils/imageGenerator'
+// 头像库服务
+import { getAvatarByDescription, getRandomAvatarByTagName, getTags } from '../../../utils/avatarLibraryService'
 import { getUserInfo } from '../../../utils/userUtils'
 import { fillTemplate } from '../../../data/theatreTemplates'
 import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../../../utils/forumNPC'
@@ -2335,10 +2336,11 @@ export const aiMemoHandler: CommandHandler = {
 
 /**
  * AI换头像处理器
- * 支持三种方式：
- * 1. [换头像:生成:描述] - AI生成新头像
- * 2. [换头像:用户头像] - 使用用户的头像
- * 3. [换头像:图片:消息ID] - 使用某条消息中的图片
+ * 支持四种方式：
+ * 1. [换头像:描述:关键词] - 根据描述匹配头像
+ * 2. [换头像:标签:标签名] - 从标签中随机选择头像
+ * 3. [换头像:用户头像] - 使用用户的头像
+ * 4. [换头像:图片:消息ID] - 使用某条消息中的图片
  */
 export const changeAvatarHandler: CommandHandler = {
   pattern: /[\[【]换头像[:\：](.+?)[\]】]/,
@@ -2351,28 +2353,49 @@ export const changeAvatarHandler: CommandHandler = {
     let newAvatar: string | null = null
     let usedPrompt = ''
 
-    // 方式1: 生成新头像
-    if (param.startsWith('生成:') || param.startsWith('生成：')) {
-      const description = param.replace(/^生成[:\：]/, '').trim()
-      console.log('🎨 [AI换头像] 生成新头像，描述:', description)
+    // 方式1: 根据描述匹配头像
+    if (param.startsWith('描述:') || param.startsWith('描述：')) {
+      const desc = param.replace(/^描述[:\：]/, '').trim()
+      console.log('🎨 [AI换头像] 描述匹配:', desc)
 
-      newAvatar = await generateAvatarForAI(description)
-      usedPrompt = description
-
-      if (!newAvatar) {
-        console.error('❌ [AI换头像] 生成失败，添加降级提示')
-        // 🔥 降级处理：生成失败时，添加系统消息但继续处理，不中断AI回复
+      const avatar = await getAvatarByDescription(desc)
+      if (!avatar) {
         const failMsg = createMessageObj('system', {
-          content: `${character.nickname || character.realName} 想换头像，但生成失败了`,
-          aiReadableContent: `[系统通知：头像生成失败，可能是网络问题或API不可用]`,
+          content: `${character.nickname || character.realName} 想换头像，但没找到匹配"${desc}"的头像`,
+          aiReadableContent: `[系统通知：换头像失败，头像库中没有匹配"${desc}"的头像]`,
           type: 'system'
         })
         await addMessage(failMsg, setMessages, chatId)
-        // 继续处理，不返回 handled: false
-        newAvatar = null
+        const remainingText = content.replace(match[0], '').trim()
+        return { handled: true, remainingText, skipTextMessage: !remainingText }
       }
+
+      newAvatar = avatar.imageData
+      usedPrompt = `描述:${desc}`
     }
-    // 方式2: 使用用户头像
+    // 方式2: 从标签中随机选择
+    else if (param.startsWith('标签:') || param.startsWith('标签：')) {
+      const tagName = param.replace(/^标签[:\：]/, '').trim()
+      console.log('🎨 [AI换头像] 标签随机:', tagName)
+
+      const avatar = await getRandomAvatarByTagName(tagName)
+      if (!avatar) {
+        const tags = await getTags()
+        const tagNames = tags.map(t => t.name).join('、') || '无'
+        const failMsg = createMessageObj('system', {
+          content: `${character.nickname || character.realName} 想换头像，但没找到"${tagName}"标签`,
+          aiReadableContent: `[系统通知：换头像失败，没有"${tagName}"标签。可用标签：${tagNames}]`,
+          type: 'system'
+        })
+        await addMessage(failMsg, setMessages, chatId)
+        const remainingText = content.replace(match[0], '').trim()
+        return { handled: true, remainingText, skipTextMessage: !remainingText }
+      }
+
+      newAvatar = avatar.imageData
+      usedPrompt = `标签:${tagName}`
+    }
+    // 方式3: 使用用户头像
     else if (param === '用户头像' || param === '对方头像') {
       console.log('👤 [AI换头像] 使用用户头像')
 
@@ -3067,7 +3090,8 @@ ${personality ? `人设：${personality}` : ''}
         id: postId,
         npcId: npcId,
         content: cleanedContent || postContent,
-        images: imageUrls.length > 0 ? imageUrls : 0,  // 图片URL数组或0
+        images: imageUrls.length,  // 图片数量
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,  // 图片URL数组
         likes: likes,
         comments: 0,
         time: '刚刚',
@@ -3098,8 +3122,7 @@ ${personality ? `人设：${personality}` : ''}
         messageType: 'post',
         post: {
           content: formattedContent,
-          prompt: `${aiName} 在论坛发布了帖子${statsText}`,
-          images: imageUrls.length > 0 ? imageUrls : undefined  // 🔥 传递图片URL
+          prompt: `${aiName} 在论坛发布了帖子${statsText}`
         },
         // AI读取的简洁版本
         aiReadableContent: `【论坛发帖】${displayContent}${statsText}`
@@ -3634,10 +3657,11 @@ const htmlTheatreHandler: CommandHandler = {
     // 创建中插HTML小剧场消息
     // 注意：createMessageObj 第一个参数是 messageType，会被 ...data 覆盖
     // 所以这里用 'theatre-html' 作为第一个参数
+    // 🔥 不设置 aiReadableContent，避免AI读取小剧场内容并模仿
     const theatreMsg = createMessageObj('theatre-html' as any, {
       type: 'system',
-      content: htmlContent,
-      aiReadableContent: `[小剧场卡片：${htmlContent.replace(/<[^>]*>/g, '').substring(0, 50)}...]`
+      content: htmlContent
+      // 🔥 移除 aiReadableContent，小剧场不应该被AI记忆
     })
     console.log('🎭 [中插HTML小剧场] 创建消息:', { messageType: theatreMsg.messageType, type: theatreMsg.type })
     await addMessage(theatreMsg, setMessages, chatId)

@@ -4,18 +4,19 @@ import { ChevronLeftIcon } from '../Icons'
 
 interface AlipayAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const AlipayApp = ({ content }: AlipayAppProps) => {
+const AlipayApp = ({ content, onBack }: AlipayAppProps) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   return (
     <div className="w-full h-full bg-[#F5F5F5] flex flex-col font-sans absolute inset-0">
       {/* 顶部导航栏 - 支付宝蓝 */}
       <div className="bg-[#1677FF] text-white pt-4 pb-3 px-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-3">
+        <button onClick={onBack} className="flex items-center gap-3">
           <ChevronLeftIcon size={22} className="text-white" />
           <h1 className="text-[19px] font-medium tracking-wide">账单</h1>
-        </div>
+        </button>
         <div className="flex items-center gap-4">
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -27,7 +28,7 @@ const AlipayApp = ({ content }: AlipayAppProps) => {
       </div>
 
       {/* 月份筛选栏 */}
-      <div className="bg-[#F5F5F5] px-4 py-3 flex items-center justify-between sticky top-0 z-0">
+      <div className="bg-[#F5F5F5] px-4 py-3 flex items-center justify-between sticky top-0 z-[1000]">
         <div className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
           <span className="text-sm font-medium text-gray-800">本月</span>
           <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

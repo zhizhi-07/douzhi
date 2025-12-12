@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息持久化测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .test-title {
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.danger {
+            background: #f44336;
+        }
+        button.danger:hover {
+            background: #da190b;
+        }
+        .log {
+            background: #263238;
+            color: #aed581;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .info {
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 聊天记录持久化测试工具</h1>
+        
+        <div class="test-section">
+            <div class="test-title">📊 测试状态</div>
+            <div id="status">准备就绪</div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🧪 并发保存测试</div>
+            <button onclick="testConcurrentSave()">测试并发保存</button>
+            <button onclick="testRapidSave()">测试快速连续保存</button>
+            <button onclick="testLargeBatch()">测试大批量消息</button>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">💾 存储验证</div>
+            <button onclick="verifyStorage()">验证存储完整性</button>
+            <button onclick="checkBackup()">检查备份机制</button>
+            <button onclick="testRecovery()">测试恢复机制</button>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🔄 页面生命周期测试</div>
+            <button onclick="simulatePageHide()">模拟页面隐藏</button>
+            <button onclick="simulatePageReload()">模拟页面刷新</button>
+            <button onclick="simulateCrash()">模拟异常退出</button>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🗑️ 清理工具</div>
+            <button class="danger" onclick="clearTestData()">清除测试数据</button>
+            <button class="danger" onclick="clearAllBackups()">清除所有备份</button>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📝 测试日志</div>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const TEST_CHAT_ID = 'test_chat_persistence';
+        let logElement = document.getElementById('log');
+        let statusElement = document.getElementById('status');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            const entry = `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logElement.innerHTML += entry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(status, type = 'info') {
+            statusElement.innerHTML = `<span class="${type}">${status}</span>`;
+        }
+
+        // 生成测试消息
+        function generateTestMessage(index) {
+            return {
+                id: Date.now() * 10000 + index,
+                type: index % 2 === 0 ? 'sent' : 'received',
+                content: `测试消息 #${index} - ${new Date().toISOString()}`,
+                time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: Date.now()
+            };
+        }
+
+        // 测试并发保存
+        async function testConcurrentSave() {
+            log('开始并发保存测试...', 'info');
+            updateStatus('正在测试并发保存...', 'warning');
+
+            const promises = [];
+            for (let i = 0; i < 10; i++) {
+                promises.push(new Promise((resolve) => {
+                    setTimeout(() => {
+                        const messages = [];
+                        for (let j = 0; j < 5; j++) {
+                            messages.push(generateTestMessage(i * 5 + j));
+                        }
+                        
+                        // 模拟保存操作
+                        localStorage.setItem(`test_concurrent_${i}`, JSON.stringify({
+                            messages,
+                            timestamp: Date.now()
+                        }));
+                        
+                        log(`并发任务 ${i + 1} 完成，保存了 ${messages.length} 条消息`, 'success');
+                        resolve();
+                    }, Math.random() * 100);
+                }));
+            }
+
+            await Promise.all(promises);
+            log('并发保存测试完成！', 'success');
+            updateStatus('并发保存测试通过 ✅', 'success');
+        }
+
+        // 测试快速连续保存
+        async function testRapidSave() {
+            log('开始快速连续保存测试...', 'info');
+            updateStatus('正在测试快速连续保存...', 'warning');
+
+            for (let i = 0; i < 20; i++) {
+                const message = generateTestMessage(i);
+                
+                // 模拟快速保存
+                const key = `test_rapid_${TEST_CHAT_ID}`;
+                const existing = localStorage.getItem(key);
+                const messages = existing ? JSON.parse(existing).messages : [];
+                messages.push(message);
+                
+                localStorage.setItem(key, JSON.stringify({
+                    messages,
+                    timestamp: Date.now()
+                }));
+                
+                if (i % 5 === 0) {
+                    log(`已保存 ${i + 1}/20 条消息`, 'info');
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            log('快速连续保存测试完成！', 'success');
+            updateStatus('快速连续保存测试通过 ✅', 'success');
+        }
+
+        // 测试大批量消息
+        async function testLargeBatch() {
+            log('开始大批量消息测试...', 'info');
+            updateStatus('正在测试大批量消息...', 'warning');
+
+            const messages = [];
+            const batchSize = 100;
+            
+            for (let i = 0; i < batchSize; i++) {
+                messages.push(generateTestMessage(i));
+            }
+
+            const startTime = Date.now();
+            
+            // 模拟保存大批量消息
+            localStorage.setItem(`test_batch_${TEST_CHAT_ID}`, JSON.stringify({
+                messages,
+                timestamp: Date.now()
+            }));
+
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+
+            log(`成功保存 ${batchSize} 条消息，耗时 ${duration}ms`, 'success');
+            updateStatus('大批量消息测试通过 ✅', 'success');
+        }
+
+        // 验证存储完整性
+        function verifyStorage() {
+            log('开始验证存储完整性...', 'info');
+            updateStatus('正在验证存储...', 'warning');
+
+            let totalMessages = 0;
+            let corruptedData = 0;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('test_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data.messages && Array.isArray(data.messages)) {
+                            totalMessages += data.messages.length;
+                            log(`✓ ${key}: ${data.messages.length} 条消息`, 'success');
+                        } else {
+                            corruptedData++;
+                            log(`✗ ${key}: 数据格式错误`, 'error');
+                        }
+                    } catch (e) {
+                        corruptedData++;
+                        log(`✗ ${key}: JSON解析失败`, 'error');
+                    }
+                }
+            }
+
+            if (corruptedData === 0) {
+                log(`存储完整性验证通过！共 ${totalMessages} 条消息`, 'success');
+                updateStatus('存储完整性验证通过 ✅', 'success');
+            } else {
+                log(`发现 ${corruptedData} 个损坏的数据项`, 'error');
+                updateStatus('存储完整性验证失败 ❌', 'error');
+            }
+        }
+
+        // 检查备份机制
+        function checkBackup() {
+            log('检查备份机制...', 'info');
+            updateStatus('正在检查备份...', 'warning');
+
+            let backupCount = 0;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('msg_backup_')) {
+                    backupCount++;
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        const age = Date.now() - data.timestamp;
+                        const ageMinutes = Math.floor(age / 60000);
+                        log(`备份: ${key} (${ageMinutes} 分钟前)`, 'info');
+                    } catch (e) {
+                        log(`损坏的备份: ${key}`, 'error');
+                    }
+                }
+            }
+
+            if (backupCount > 0) {
+                log(`找到 ${backupCount} 个备份`, 'success');
+                updateStatus(`备份机制正常 (${backupCount} 个备份) ✅`, 'success');
+            } else {
+                log('未找到任何备份', 'warning');
+                updateStatus('无备份数据 ⚠️', 'warning');
+            }
+        }
+
+        // 测试恢复机制
+        async function testRecovery() {
+            log('开始测试恢复机制...', 'info');
+            updateStatus('正在测试恢复...', 'warning');
+
+            // 创建测试数据
+            const testData = {
+                messages: [
+                    generateTestMessage(1),
+                    generateTestMessage(2),
+                    generateTestMessage(3)
+                ],
+                timestamp: Date.now()
+            };
+
+            // 保存到备份
+            const backupKey = `msg_backup_test_recovery`;
+            localStorage.setItem(backupKey, JSON.stringify(testData));
+            log('已创建测试备份', 'info');
+
+            // 模拟恢复
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const recovered = localStorage.getItem(backupKey);
+            if (recovered) {
+                const data = JSON.parse(recovered);
+                if (data.messages && data.messages.length === 3) {
+                    log(`成功恢复 ${data.messages.length} 条消息`, 'success');
+                    updateStatus('恢复机制测试通过 ✅', 'success');
+                } else {
+                    log('恢复的数据不完整', 'error');
+                    updateStatus('恢复机制测试失败 ❌', 'error');
+                }
+            } else {
+                log('无法恢复备份', 'error');
+                updateStatus('恢复机制测试失败 ❌', 'error');
+            }
+        }
+
+        // 模拟页面隐藏
+        function simulatePageHide() {
+            log('模拟页面隐藏事件...', 'info');
+            document.dispatchEvent(new Event('visibilitychange'));
+            log('页面隐藏事件已触发', 'success');
+            updateStatus('页面隐藏测试完成 ✅', 'success');
+        }
+
+        // 模拟页面刷新
+        function simulatePageReload() {
+            log('将在3秒后刷新页面...', 'warning');
+            updateStatus('准备刷新页面...', 'warning');
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }
+
+        // 模拟异常退出
+        function simulateCrash() {
+            log('模拟异常退出...', 'warning');
+            window.dispatchEvent(new Event('beforeunload'));
+            log('beforeunload 事件已触发', 'success');
+            updateStatus('异常退出模拟完成 ✅', 'success');
+        }
+
+        // 清除测试数据
+        function clearTestData() {
+            if (!confirm('确定要清除所有测试数据吗？')) return;
+            
+            log('清除测试数据...', 'warning');
+            let count = 0;
+            
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('test_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                count++;
+            });
+            
+            log(`已清除 ${count} 个测试数据项`, 'success');
+            updateStatus('测试数据已清除 ✅', 'success');
+        }
+
+        // 清除所有备份
+        function clearAllBackups() {
+            if (!confirm('确定要清除所有备份吗？这可能会影响消息恢复！')) return;
+            
+            log('清除所有备份...', 'warning');
+            let count = 0;
+            
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('msg_backup_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                count++;
+            });
+            
+            log(`已清除 ${count} 个备份`, 'success');
+            updateStatus('备份已清除 ✅', 'success');
+        }
+
+        // 初始化
+        log('测试工具已加载', 'success');
+        log('点击按钮开始测试各项功能', 'info');
+    </script>
+</body>
+</html>

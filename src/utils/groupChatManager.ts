@@ -504,27 +504,11 @@ class GroupChatManager {
       return newMessage
     }
     
-    // 🔥 异步保存到 IndexedDB，但先读取最新数据避免覆盖
+    // 🔥 关键修复：直接保存缓存，不再读取合并，避免并发冲突
     const storageKey = `group_${groupId}`
-    IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(existingMessages => {
-      // 如果数据库中有消息，合并（避免缓存不完整导致消息丢失）
-      let finalMessages = messages.filter(m => m && m.id)  // 过滤无效消息
-      if (existingMessages && existingMessages.length > 0) {
-        // 🔥 过滤掉 null/undefined 消息
-        const validExistingMessages = existingMessages.filter(m => m && m.id)
-        // 合并：保留数据库中的消息，加上缓存中新增的消息
-        const existingIds = new Set(validExistingMessages.map(m => m.id))
-        const newMessages = finalMessages.filter(m => !existingIds.has(m.id))
-        finalMessages = [...validExistingMessages, ...newMessages]
-        // 按时间排序
-        finalMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-        // 🔥 全部保存，不限制数量（用户的回忆不能删）
-        // 更新缓存
-        messagesCache.set(groupId, finalMessages)
-      }
-      // 🔥 全部保存到 IndexedDB（如果太大，indexedDBManager 会自动压缩）
-      return IDB.setItem(IDB.STORES.MESSAGES, storageKey, finalMessages)
-    }).catch(e =>
+    const validMessages = messages.filter(m => m && m.id)  // 过滤无效消息
+    
+    IDB.setItem(IDB.STORES.MESSAGES, storageKey, validMessages).catch(e =>
       console.error('保存群聊消息失败:', e)
     )
     
@@ -559,35 +543,14 @@ class GroupChatManager {
   // 🔥 替换所有消息（用于重新生成AI回复）
   // forceOverwrite: true 时直接覆盖，不合并（用于删除消息的场景如"重回"）
   replaceAllMessages(groupId: string, messages: GroupMessage[], forceOverwrite: boolean = false): void {
-    // 更新缓存
-    messagesCache.set(groupId, messages)
+    // 🔥 关键修复：直接更新缓存并保存，不再异步合并，避免并发冲突
+    const validMessages = messages.filter(m => m && m.id)  // 过滤无效消息
+    messagesCache.set(groupId, validMessages)
     
     const storageKey = `group_${groupId}`
-    
-    if (forceOverwrite) {
-      // 🔥 强制覆盖模式：直接保存，不合并
-      IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).catch(e =>
-        console.error('替换消息失败:', e)
-      )
-    } else {
-      // 🔥 合并模式：先读取最新数据避免覆盖未保存的消息
-      IDB.getItem<GroupMessage[]>(IDB.STORES.MESSAGES, storageKey).then(existingMessages => {
-        let finalMessages = messages
-        if (existingMessages && existingMessages.length > 0) {
-          // 合并：以传入的 messages 为主，补充数据库中可能遗漏的消息
-          const messageIds = new Set(messages.map(m => m.id))
-          const missingMessages = existingMessages.filter(m => !messageIds.has(m.id))
-          if (missingMessages.length > 0) {
-            finalMessages = [...messages, ...missingMessages]
-            finalMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-            messagesCache.set(groupId, finalMessages)
-          }
-        }
-        return IDB.setItem(IDB.STORES.MESSAGES, storageKey, finalMessages)
-      }).catch(e =>
-        console.error('替换消息失败:', e)
-      )
-    }
+    IDB.setItem(IDB.STORES.MESSAGES, storageKey, validMessages).catch(e =>
+      console.error('替换消息失败:', e)
+    )
     
     // 更新最后一条消息
     if (messages.length > 0) {

@@ -13,13 +13,14 @@ import { loadMoments } from './momentsManager'
 import { getAllMemos } from './aiMemoManager'
 import { getUserAvatarInfo } from './userAvatarManager'
 import { getUserInfoChangeContext } from './userInfoChangeTracker'
-import { isMainAccount, getCurrentAccount } from './accountManager'
+import { isMainAccount, getCurrentAccount, getCurrentAccountId } from './accountManager'
 // 面具支持在 buildSystemPrompt 的 maskInfo 参数中实现
 import { DEFAULT_OFFLINE_PROMPT_TEMPLATE } from '../constants/defaultOfflinePrompt'
 import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT, VIDEO_CALL_PROMPT, BLACKLIST_PROMPT } from './prompts'
 import { getMemesSuggestion } from './memeRetrieval'
 import { replaceVariables as replaceVars } from './variableReplacer'
+import { getAvatarLibraryInfo } from './avatarLibraryService'
 
 
 /**
@@ -150,7 +151,7 @@ ${emojiList}
 /**
  * 构建线下模式提示词（小说叙事风格）
  */
-export const buildOfflinePrompt = async (character: Character, userName: string = '用户'): Promise<string> => {
+export const buildOfflinePrompt = async (character: Character, userName: string = '用户', maskInfo?: MaskInfo): Promise<string> => {
   const now = new Date()
   const dateStr = now.toLocaleDateString('zh-CN', { 
     year: 'numeric', 
@@ -178,9 +179,15 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   // 🔥 小号模式：当前聊天对象使用小号的名字
   const isSubAccount = !isMainAccount()
   const subAccount = isSubAccount ? getCurrentAccount() : null
+  
+  // 🎭 面具模式：使用面具的信息
+  const isUsingMask = !!maskInfo
+  
   const actualUserName = isSubAccount 
     ? (subAccount?.name || '陌生人') 
-    : userName
+    : isUsingMask
+      ? maskInfo.nickname
+      : userName
   
   // 🔥 角色卡中的 {{user}} 变量始终指向主账号（设定中的人物关系）
   const userInfo = getUserInfo()
@@ -189,8 +196,16 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   
   const userName2 = actualUserName === '用户' ? '你' : actualUserName
   
-  // 获取用户信息（小号模式下不显示主账号的人设）
-  const userPersona = isSubAccount ? '' : (userInfo.persona ? `\n- ${userName2}的人设：${userInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）` : '')
+  // 获取用户信息（小号模式下不显示主账号的人设，面具模式使用面具人设）
+  let userPersona = ''
+  if (isSubAccount) {
+    userPersona = '' // 小号模式不显示人设
+  } else if (isUsingMask && maskInfo.persona) {
+    userPersona = `\n- ${userName2}的人设：${maskInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）`
+    console.log('🎭 [线下模式] 使用面具人设:', maskInfo.persona)
+  } else if (userInfo.persona) {
+    userPersona = `\n- ${userName2}的人设：${userInfo.persona}（你需要根据这些信息调整对TA的态度和回复方式）`
+  }
   
   // 检查是否有自定义预设
   const customPreset = localStorage.getItem('offline-preset')
@@ -568,8 +583,17 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const userInfo = getUserInfo()
   
   // 🔥 小号模式：使用小号的名字，AI不认识这个人
+  const currentAccountId = getCurrentAccountId()
   const isSubAccount = !isMainAccount()
   const subAccount = isSubAccount ? getCurrentAccount() : null
+  
+  // 🔥 调试：打印账号状态
+  console.log('🔑 [buildSystemPrompt] 账号状态:', {
+    currentAccountId,
+    isSubAccount,
+    subAccountName: subAccount?.name,
+    isUsingMask: !!maskInfo
+  })
   
   // 🎭 面具模式：使用面具的信息，但AI记忆保持（面具只是换个马甲）
   const isUsingMask = !!maskInfo
@@ -1217,7 +1241,8 @@ ${aiMomentsPostPrompt}
 - **状态**：[状态:地点|行程:场景]（⚠️必须以[状态:开头，禁止[外卖:状态:...]！）
 - **自我管理**：
   - [网名:xxx]、[个性签名:xxx] — 觉得现在的名字/签名不符合心情了？**随时可以自己改！**
-  - [换头像:生成:描述] / [换头像:图片:消息ID] — 想换个新形象？**随时自己换！**不用问用户意见。
+  - [换头像:描述:关键词] / [换头像:标签:标签名] — 想换个新形象？用描述匹配或从标签随机选！
+${await getAvatarLibraryInfo()}
 - **消息互动**：
   - [撤回消息:内容:理由] — 发错字了？说错话后悔了？**直接撤回！**像真人一样会有手滑的时候。
   - [引用:关键词 回复:你的回复] — 针对对方某句话单独回应（尤其是对方发了一大段时）。
@@ -1301,9 +1326,14 @@ ${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生�
 **🖼️ 图片规范（二选一）**
 ①CSS/颜文字模拟画面
 ②图片URL：https://image.pollinations.ai/prompt/{英文关键词}
-  - 关键词用%20分隔，画风：风景/动漫/插画/线条，**禁止真人**
+  - 关键词用%20分隔，画风必须是：anime style / illustration / cartoon / sketch
   - 背景：style="background:url(...);background-size:cover;"
   - 图片：<img src="..." style="width:100%;">
+
+**🚫 图片严禁**
+- **绝对禁止真人照片**：不要生成任何真人风格的图片，必须是动漫/插画/卡通风格
+- **禁止生成用户或角色的照片/头像**：不要试图生成"我的照片""你的头像""自拍"等
+- **禁止 realistic / photo / portrait 等关键词**
 
 **🚫 禁止**
 - 空壳模板 / 模板换皮 / 无动效 / 无细节

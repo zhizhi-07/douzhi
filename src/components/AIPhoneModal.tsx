@@ -82,6 +82,8 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
     { id: 'forum', name: '论坛', IconComponent: ForumIcon, bgClass: 'bg-purple-500', onClick: () => setSelectedApp('forum') },
   ]
 
+  const handleBackToDesktop = () => setSelectedApp(null)
+
   const renderAppContent = (appId: string) => {
     if (!phoneContent) {
       return (
@@ -93,16 +95,16 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
     }
 
     switch (appId) {
-      case 'contacts': return <ContactsApp content={phoneContent} />
-      case 'wechat': return <WechatApp content={phoneContent} />
-      case 'browser': return <BrowserApp content={phoneContent} />
-      case 'taobao': return <TaobaoApp content={phoneContent} />
-      case 'alipay': return <AlipayApp content={phoneContent} />
-      case 'photos': return <PhotosApp content={phoneContent} />
-      case 'notes': return <NotesApp content={phoneContent} />
-      case 'music': return <MusicApp content={phoneContent} />
-      case 'footprints': return <MapsApp content={phoneContent} />
-      case 'forum': return <ForumApp content={phoneContent} />
+      case 'contacts': return <ContactsApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'wechat': return <WechatApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'browser': return <BrowserApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'taobao': return <TaobaoApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'alipay': return <AlipayApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'photos': return <PhotosApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'notes': return <NotesApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'music': return <MusicApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'footprints': return <MapsApp content={phoneContent} onBack={handleBackToDesktop} />
+      case 'forum': return <ForumApp content={phoneContent} onBack={handleBackToDesktop} />
       default:
         return (
           <div className="w-full h-full bg-gray-50/50 backdrop-blur-xl rounded-3xl p-6 flex flex-col items-center justify-center">
@@ -141,10 +143,10 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 关闭按钮 */}
+        {/* 关闭整个手机界面的按钮 */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-50 w-7 h-7 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white/80 hover:bg-black/40 transition-all"
+          className="absolute top-3 right-3 z-[9999] w-7 h-7 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-all"
         >
           <CloseIcon size={14} />
         </button>
@@ -159,21 +161,13 @@ const AIPhoneModal = ({ onClose, characterId, characterName, forceNew = true, hi
           ) : selectedApp ? (
             // 应用界面
             <div className="w-full h-full relative animate-fade-in overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>
-              {/* 底部 Home Indicator (应用内) */}
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/20 rounded-full z-50"></div>
-
-              {/* 返回桌面按钮 */}
-              <button
-                className="absolute top-3 left-3 z-50 w-7 h-7 rounded-full bg-black/10 backdrop-blur-md flex items-center justify-center text-gray-700 hover:bg-black/20 transition-all"
-                onClick={() => setSelectedApp(null)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
               {/* 应用内容 */}
-              {renderAppContent(selectedApp)}
+              <div className="w-full h-full relative">
+                {renderAppContent(selectedApp)}
+              </div>
+
+              {/* 底部 Home Indicator */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/20 rounded-full z-[999]"></div>
             </div>
           ) : (
             // 桌面 (Home Screen)

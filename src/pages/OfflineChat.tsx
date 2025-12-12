@@ -9,6 +9,7 @@ import { useChatState, useChatAI } from './ChatDetail/hooks'
 import OfflineMessageBubble from './ChatDetail/components/OfflineMessageBubble'
 import MemoryStorage from '../components/MemoryStorage'
 import OfflineBeautifySettings from './OfflineChat/OfflineBeautifySettings'
+import StatusBar from '../components/StatusBar'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { saveMessages } from '../utils/simpleMessageManager'
 import { getDefaultExtensions, type OfflineExtension } from '../constants/defaultOfflineExtensions'
@@ -53,6 +54,33 @@ const OfflineChat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatState.messages])
+
+  // 🔥 首次加载时滚动到底部（确保DOM渲染完成后执行）
+  useEffect(() => {
+    // 使用 requestAnimationFrame 确保在下一帧渲染后滚动
+    const scrollToBottom = () => {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+      })
+    }
+    
+    // 延迟执行，确保消息列表已渲染
+    const timer = setTimeout(scrollToBottom, 100)
+    return () => clearTimeout(timer)
+  }, []) // 空依赖数组，只在组件挂载时执行一次
+
+  // 🎭 监听面具切换事件（从聊天设置页面触发）
+  // useChatAI 在每次 handleAIReply 时会从 localStorage 读取最新设置
+  // 这里只需要监听事件用于调试日志
+  useEffect(() => {
+    const handleMaskSwitched = (event: CustomEvent<{ maskId: string | null }>) => {
+      console.log('[OfflineChat] 🎭 面具已切换:', event.detail?.maskId || '主身份')
+      console.log('[OfflineChat] 下次 AI 回复将使用新面具设置')
+    }
+    
+    window.addEventListener('maskSwitched', handleMaskSwitched as EventListener)
+    return () => window.removeEventListener('maskSwitched', handleMaskSwitched as EventListener)
+  }, [id])
 
   // 只显示线下模式的消息（使用 useMemo 避免渲染时触发状态更新）
   const offlineMessages = useMemo(() =>
@@ -268,53 +296,71 @@ const OfflineChat = () => {
       className="flex flex-col h-screen overflow-hidden relative soft-page-enter"
       style={bgStyle}
     >
-      {/* 顶部 Header */}
-      <div className="absolute top-0 left-0 right-0 z-50 px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-gray-100/50">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          {/* 返回按钮 */}
+      {/* 顶部 Header - 极简/沉浸式设计 */}
+      <div className="absolute top-0 left-0 right-0 z-50 transition-all duration-500">
+        {/* 渐变背景 - 保证文字可读性但移除生硬边框 */}
+        <div className="absolute inset-0 h-32 bg-gradient-to-b from-white/90 via-white/60 to-transparent pointer-events-none duration-500" />
+        
+        {/* 系统状态栏 */}
+        <div className="relative z-20">
+          <StatusBar />
+        </div>
+        
+        <div className="relative max-w-3xl mx-auto px-6 py-2 flex items-center justify-between">
+          {/* 返回按钮 - 优雅箭头 */}
           <button
             onClick={() => navigate(`/chat/${id}`)}
-            className="text-gray-400 hover:text-gray-800 transition-colors p-2 -ml-2 rounded-full hover:bg-gray-100"
+            className="group flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors py-2 pl-2 pr-4 rounded-full hover:bg-white/50"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <svg className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
+            <span className="text-xs font-serif tracking-widest opacity-0 -translate-x-2 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">返回</span>
           </button>
 
-          {/* 角色名称 */}
-          <h1 className="text-sm font-serif font-medium text-gray-800 tracking-widest">
-            {chatState.character.nickname || chatState.character.realName}
-          </h1>
+          {/* 角色名称 - 居中衬线体 */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+            <h1 className="text-base font-serif font-medium text-gray-800 tracking-[0.3em] ml-1">
+              {chatState.character.nickname || chatState.character.realName}
+            </h1>
+            <div className="w-4 h-0.5 bg-gray-200 mt-1 rounded-full opacity-50" />
+          </div>
 
           {/* 右侧按钮组 */}
           <div className="flex items-center gap-1">
              <button
                 onClick={() => setShowMemoryStorage(true)}
-                className="text-gray-400 hover:text-gray-800 transition-colors p-2 rounded-full hover:bg-gray-100"
+                className="text-gray-400 hover:text-gray-800 transition-colors p-2.5 rounded-full hover:bg-white/60 backdrop-blur-sm group relative"
                 title="记忆片段"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <svg className="w-5 h-5 transition-transform duration-500 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
+                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-serif text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">记忆</span>
               </button>
+
             <div className="relative">
                <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="text-gray-400 hover:text-gray-800 transition-colors p-2 -mr-2 rounded-full hover:bg-gray-100"
+                  className={`text-gray-400 hover:text-gray-800 transition-all duration-300 p-2.5 -mr-2 rounded-full hover:bg-white/60 backdrop-blur-sm group ${showSettings ? 'rotate-90 bg-white/80 text-gray-800 shadow-sm' : ''}`}
                   title="设置"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
                 </button>
-                 {/* 设置面板 */}
+                
+                 {/* 设置面板 - 悬浮卡片风格 */}
                  {showSettings && (
-                  <div className="absolute right-0 top-10 bg-[#fdfbf7] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-5 min-w-[320px] z-50 border border-gray-100/50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-gray-800 font-serif tracking-widest">阅读设定</h3>
+                  <div className="absolute right-0 top-12 bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] p-6 min-w-[340px] z-50 border border-white/50 animate-in fade-in zoom-in-95 duration-200 slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1 h-4 bg-gray-800 rounded-full"></span>
+                        <h3 className="text-sm font-medium text-gray-800 font-serif tracking-[0.2em]">阅读设定</h3>
+                      </div>
                       <button
                         onClick={() => setShowSettings(false)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-300 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
@@ -322,7 +368,7 @@ const OfflineChat = () => {
                       </button>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-7">
                       {/* 字数控制 */}
                       <div>
                         <div className="flex justify-between text-xs text-gray-500 mb-2 font-serif tracking-wide">
@@ -442,7 +488,7 @@ const OfflineChat = () => {
       </div>
 
       {/* Messages - 阅读区域 */}
-      <div className="flex-1 overflow-y-auto pb-32 pt-16 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto pb-32 pt-28 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
         <div className="max-w-2xl mx-auto">
            
           {!bubbleCssLoaded ? (

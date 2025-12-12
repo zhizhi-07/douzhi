@@ -85,7 +85,7 @@ const Desktop = () => {
   })
   const [isEditingMemo, setIsEditingMemo] = useState(false)
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
-  const memoLongPressTimer = useRef<number | null>(null)
+  const memoLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 第二页状态
   const [bubble1Text, setBubble1Text] = useState(() => {
@@ -312,22 +312,40 @@ const Desktop = () => {
     }
   }
 
+  // 获取屏幕边距设置
+  const [screenOffsets] = useState(() => ({
+    top: parseInt(localStorage.getItem('screen_top_offset') || '0'),
+    bottom: parseInt(localStorage.getItem('screen_bottom_offset') || '0')
+  }))
+
   return (
     <div className={`fixed inset-0 overflow-hidden ${isExiting ? 'desktop-exit' : 'page-fade-in'}`} style={{ touchAction: 'pan-y pinch-zoom' }}>
-      {/* 背景 - 延伸到safe area */}
+      {/* 背景 - 延伸到safe area，并根据负值偏移延伸 */}
       {desktopBg && (
         <div
-          className="desktop-background fixed inset-0 bg-cover bg-center transition-opacity duration-300"
+          className="desktop-background fixed bg-cover bg-center transition-opacity duration-300"
           style={{
             backgroundImage: `url(${desktopBg})`,
             opacity: 1,
-            bottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))'
+            // 根据屏幕边距设置调整背景位置和大小
+            top: screenOffsets.top < 0 ? `${screenOffsets.top}px` : 0,
+            bottom: screenOffsets.bottom < 0 ? `${screenOffsets.bottom}px` : 'calc(-1 * env(safe-area-inset-bottom, 0px))',
+            left: 0,
+            right: 0,
+            // 如果有负值偏移，需要增加高度
+            height: (screenOffsets.top < 0 || screenOffsets.bottom < 0) 
+              ? `calc(100% + ${Math.abs(Math.min(screenOffsets.top, 0)) + Math.abs(Math.min(screenOffsets.bottom, 0))}px)`
+              : '100%'
           }}
         />
       )}
 
-      {/* 内容容器 */}
-      <div className="relative h-full flex flex-col">
+      {/* 内容容器 - 应用顶部边距 */}
+      <div className="relative h-full flex flex-col" style={{
+        // 正值时添加顶部内边距，负值时内容保持原位（背景已经延伸）
+        paddingTop: screenOffsets.top > 0 ? `${screenOffsets.top}px` : 0,
+        paddingBottom: screenOffsets.bottom > 0 ? `${screenOffsets.bottom}px` : 0
+      }}>
         <div style={{ background: 'transparent', position: 'relative', zIndex: 1 }}>
           <StatusBar />
         </div>

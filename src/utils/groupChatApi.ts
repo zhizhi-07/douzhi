@@ -560,6 +560,8 @@ ${enableHtmlTheatre ? `---
 **🖼️ 图片规范**
 ①CSS/颜文字模拟画面
 ②图片URL：https://image.pollinations.ai/prompt/{英文关键词}
+  - 画风必须是：anime style / illustration / cartoon / sketch
+  - **绝对禁止真人照片、禁止生成用户或角色的照片/头像**
 
 **🎯 核心原则**
 模拟角色"会写/会看到/会保存"的真实物件，是剧情延展而非装饰！

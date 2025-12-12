@@ -133,10 +133,10 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
     // 用户头像 - 从 IndexedDB 异步加载
     return (
       <>
-        {frameCSS && <style>{`.avatar-frame-user-${chatId} { ${frameCSS} }`}</style>}
+        {frameCSS && chatId && <style>{`.avatar-frame-user-${chatId} { ${frameCSS} }`}</style>}
         <div className="relative overflow-visible">
           <div 
-            className={`avatar-frame-user-${chatId} ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}
+            className={`${chatId && frameCSS ? `avatar-frame-user-${chatId}` : ''} ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}
             style={sizeStyle}
           >
             {userAvatar ? (
@@ -170,10 +170,10 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   // AI头像
   return (
     <>
-      {frameCSS && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
+      {frameCSS && chatId && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
       <div className="relative overflow-visible" style={{ animation: 'none', transition: 'none' }}>
         <div 
-          className={`avatar-frame-ai-${chatId} ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
+          className={`${chatId && frameCSS ? `avatar-frame-ai-${chatId}` : ''} ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
           onDoubleClick={onPoke}
           style={{ ...sizeStyle, animation: 'none', transition: 'none' }}
         >

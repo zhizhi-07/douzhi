@@ -190,7 +190,8 @@ const ChatSettings = () => {
   // 检查拉黑状态和置顶状态，加载角色信息
   useEffect(() => {
     if (id) {
-      const blocked = blacklistManager.isBlockedByMe('user', id)
+      // 🔥 修复：使用 character_ 前缀，与 useChatAI.ts 中的检查保持一致
+      const blocked = blacklistManager.isBlockedByMe('user', `character_${id}`)
       setIsBlocked(blocked)
       
       // 加载角色信息
@@ -267,8 +268,11 @@ const ChatSettings = () => {
   // 切换拉黑状态
   const toggleBlock = () => {
     if (!id) return
-    const newBlockStatus = blacklistManager.toggleBlock('user', id)
+    // 🔥 修复：使用 character_ 前缀，与 useChatAI.ts 中的检查保持一致
+    const newBlockStatus = blacklistManager.toggleBlock('user', `character_${id}`)
     setIsBlocked(newBlockStatus)
+    // 触发拉黑状态变化事件
+    window.dispatchEvent(new CustomEvent('blacklist-changed'))
   }
 
   // 测试语音配置

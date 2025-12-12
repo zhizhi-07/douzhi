@@ -4,9 +4,10 @@ import { ChevronLeft } from 'lucide-react'
 
 interface NotesAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const NotesApp = ({ content }: NotesAppProps) => {
+const NotesApp = ({ content, onBack }: NotesAppProps) => {
   const [selectedNote, setSelectedNote] = useState<number | null>(null)
 
   // 详情页 - 仿iOS备忘录风格
@@ -17,7 +18,10 @@ const NotesApp = ({ content }: NotesAppProps) => {
         {/* 顶部导航栏 - 透明背景 */}
         <div className="px-4 pt-2 pb-2 flex items-center justify-between z-10">
           <button 
-            onClick={() => setSelectedNote(null)} 
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelectedNote(null)
+            }} 
             className="flex items-center text-[#D4A017] active:opacity-60 transition-opacity"
           >
             <ChevronLeft size={28} />
@@ -67,7 +71,13 @@ const NotesApp = ({ content }: NotesAppProps) => {
   return (
     <div className="w-full h-full bg-[#F2F2F7] flex flex-col absolute inset-0">
       {/* 顶部大标题 */}
-      <div className="px-4 pt-10 pb-2 bg-white/80 backdrop-blur-xl sticky top-0 z-10">
+      <div className="px-4 pt-4 pb-2 bg-white/80 backdrop-blur-xl sticky top-0 z-[1000]">
+        <button onClick={onBack} className="text-[#D4A017] flex items-center gap-1 mb-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          返回
+        </button>
         <h1 className="text-3xl font-bold text-black mb-2">备忘录</h1>
         {/* 搜索框 */}
         <div className="bg-[#E3E3E8] rounded-xl px-3 py-2 flex items-center gap-2 mb-2">

@@ -49,7 +49,38 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
   )
 
   // 预设头像框样式
-  const presets: Array<{name: string, userCSS: string, aiCSS: string}> = []
+  const presets: Array<{name: string, userCSS: string, aiCSS: string}> = [
+    {
+      name: '金色边框',
+      userCSS: 'border: 3px solid #FFD700 !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;',
+      aiCSS: 'border: 3px solid #FFD700 !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;'
+    },
+    {
+      name: '彩虹渐变',
+      userCSS: 'border: 3px solid transparent !important; background: linear-gradient(white, white) padding-box, linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) border-box !important;',
+      aiCSS: 'border: 3px solid transparent !important; background: linear-gradient(white, white) padding-box, linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) border-box !important;'
+    },
+    {
+      name: '霓虹发光',
+      userCSS: 'border: 2px solid #00ffff !important; box-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 15px #00ffff !important;',
+      aiCSS: 'border: 2px solid #ff00ff !important; box-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff !important;'
+    },
+    {
+      name: '双层边框',
+      userCSS: 'border: 2px solid #333 !important; outline: 2px solid #fff !important; outline-offset: 2px !important;',
+      aiCSS: 'border: 2px solid #333 !important; outline: 2px solid #fff !important; outline-offset: 2px !important;'
+    },
+    {
+      name: '动态呼吸',
+      userCSS: 'border: 3px solid #4CAF50 !important; animation: pulse-border 2s infinite !important;',
+      aiCSS: 'border: 3px solid #2196F3 !important; animation: pulse-border 2s infinite !important;'
+    },
+    {
+      name: '立体阴影',
+      userCSS: 'border: 2px solid #666 !important; box-shadow: 3px 3px 0 #333, 6px 6px 0 #555 !important;',
+      aiCSS: 'border: 2px solid #666 !important; box-shadow: 3px 3px 0 #333, 6px 6px 0 #555 !important;'
+    }
+  ]
 
   // 应用预设
   const applyPreset = (preset: typeof presets[0]) => {
@@ -221,6 +252,11 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.7; }
                   }
+                  @keyframes pulse-border {
+                    0% { box-shadow: 0 0 0 0 currentColor; }
+                    50% { box-shadow: 0 0 0 4px transparent; }
+                    100% { box-shadow: 0 0 0 0 currentColor; }
+                  }
                 `}
               </style>
               <style>
@@ -347,7 +383,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
             setUserFrameCSS(e.target.value)
             setPreviewUserCSS(e.target.value)
           }}
-          placeholder="输入CSS样式，如：border: 2px solid #FFD700 !important;"
+          placeholder="输入CSS样式，如：border: 3px solid #FFD700 !important; box-shadow: 0 0 10px #FFD700 !important;"
           className="w-full h-24 px-3 py-2 bg-gray-50 rounded-lg text-xs font-mono resize-none focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
         />
       </div>
@@ -360,7 +396,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
             setAiFrameCSS(e.target.value)
             setPreviewAiCSS(e.target.value)
           }}
-          placeholder="输入CSS样式，如：border: 2px solid #87CEEB !important;"
+          placeholder="输入CSS样式，如：border: 3px solid #87CEEB !important; box-shadow: 0 0 10px #87CEEB !important;"
           className="w-full h-24 px-3 py-2 bg-gray-50 rounded-lg text-xs font-mono resize-none focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20"
         />
       </div>

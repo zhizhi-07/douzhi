@@ -56,9 +56,12 @@ export const useGroupPagination = (
 
       // 首次加载时立即滚动到底部（不使用动画，避免闪烁）
       if (!hasScrolledRef.current && allMessages.length > 0) {
-        // 立即设置，不等待下一帧
-        node.scrollTop = node.scrollHeight
-        hasScrolledRef.current = true
+        // 🔥 关键修复：等待 DOM 渲染完成后再滚动
+        setTimeout(() => {
+          const targetScrollTop = Math.max(0, node.scrollHeight - node.clientHeight)
+          node.scrollTop = targetScrollTop
+          hasScrolledRef.current = true
+        }, 100)
       }
 
       // 加载更多后保持滚动位置

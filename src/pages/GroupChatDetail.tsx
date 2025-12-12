@@ -3,7 +3,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
 import { generateGroupChatSummary } from '../utils/groupChatSummary'
@@ -30,7 +30,9 @@ import {
   useGroupMessageActions,
   useGroupSpecialMessages,
   useGroupRedPacket,
-  useGroupEmoji
+  useGroupEmoji,
+  useGroupSendMessage,
+  isSendingMessage
 } from './GroupChatDetail/hooks'
 
 // 获取成员头像（返回IndexedDB引用或直接URL）
@@ -152,6 +154,17 @@ const GroupChatDetail = () => {
     handleToggleVoiceText
   } = useGroupEmoji(id, setMessages, scrollToBottom)
 
+  // �  发送消息 Hook
+  const { handleSend: sendMessage } = useGroupSendMessage({
+    groupId: id,
+    isAiTyping,
+    quotedMessage,
+    setMessages,
+    setInputText,
+    setQuotedMessage,
+    scrollToBottom
+  })
+
   // 🔥 直接使用 displayedMessages，不需要额外去重（分页逻辑已保证唯一性）
   const uniqueMessages = displayedMessages
 
@@ -229,6 +242,12 @@ const GroupChatDetail = () => {
         console.log('🚫 [storage事件] AI回复中，忽略storage事件')
         return
       }
+      // 🔥 用户发送消息期间不响应storage事件，避免重复添加
+      if (isSendingMessage) {
+        console.log('🚫 [storage事件] 用户发送中，忽略storage事件')
+        return
+      }
+
       const allMsgs = groupChatManager.getMessages(id)
       setMessages(allMsgs)
     }
@@ -497,6 +516,12 @@ const GroupChatDetail = () => {
     
     console.log('✅ [群聊AI] 开始处理AI回复...')
     setIsAiTyping(true)
+    // 🔥 关键优化：防止重复调用
+    if (isAIReplying.current) {
+      console.warn('⚠️ [群聊AI] AI正在回复中，跳过重复调用')
+      return
+    }
+    
     isAIReplying.current = true
     setBatchMode(true)
     
@@ -527,8 +552,8 @@ const GroupChatDetail = () => {
       // 🔥 让出主线程，避免卡顿
       await new Promise(r => setTimeout(r, 0))
       
-      // 构建成员列表（包含角色和头衔）- 使用缓存的角色信息
-      const allChars = characterService.getAll()  // 🔥 只调用一次
+      // 🔥 关键优化：使用缓存，避免重复获取
+      const allChars = characterService.getAll()
       const charMap = new Map(allChars.map(c => [c.id, c]))
       
       const members: GroupMember[] = group.memberIds.map(memberId => {
@@ -570,8 +595,8 @@ const GroupChatDetail = () => {
         }
       })
       
-      // 构建消息历史（只取最近50条，避免处理太慢）
-      const recentMessages = latestMessages.slice(-50)
+      // 🔥 关键优化：只取最近30条，减少处理时间
+      const recentMessages = latestMessages.slice(-30)
       const chatMessages = recentMessages.map(msg => {
         // 如果是表情包消息，标注出来
         if (msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl) {
@@ -721,8 +746,14 @@ const GroupChatDetail = () => {
         }
       }
       
-      // 🔥 批量处理AI回复（不限制条数，但优化渲染）
-      const actionsToProcess = script.actions
+      // 🔥 关键优化：限制单次回复的消息数量，避免卡死
+      const MAX_MESSAGES_PER_REPLY = 50  // 最多50条消息
+      const actionsToProcess = script.actions.slice(0, MAX_MESSAGES_PER_REPLY)
+      
+      if (script.actions.length > MAX_MESSAGES_PER_REPLY) {
+        console.warn(`⚠️ [AI回复] 消息过多(${script.actions.length}条)，已限制为${MAX_MESSAGES_PER_REPLY}条`)
+      }
+      
       console.log(`🎬 [AI回复] 开始批量处理${actionsToProcess.length}条消息`)
       
       for (let i = 0; i < actionsToProcess.length; i++) {
@@ -1649,39 +1680,10 @@ const GroupChatDetail = () => {
     }
   }
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !id || isAiTyping) return
-    
-    const userMessage = inputText
-    console.log('📤 [发送消息] 仅发送用户消息，不触发AI回复')
-    
-    // 发送消息（带引用）
-    groupChatManager.addMessage(id, {
-      userId: 'user',
-      userName: '我',
-      userAvatar: getMemberAvatar('user'),
-      content: userMessage,
-      type: 'text',
-      timestamp: Date.now(),
-      quotedMessage: quotedMessage ? {
-        id: quotedMessage.id,
-        content: quotedMessage.content,
-        userName: quotedMessage.userName
-      } : undefined
-    })
-    
-    // 🔥 手动刷新消息列表（storage事件只在其他标签页触发，同一标签页需要手动刷新）
-    const allMsgs = groupChatManager.getMessages(id)
-    setMessages(allMsgs)
-    
-    setInputText('')
-    setQuotedMessage(null)  // 清除引用
-    setTimeout(scrollToBottom, 100)
-    
-    // 🔥 不再自动触发AI回复，用户需要手动点击空发送按钮触发
-    // 🔥 也不在这里计数，只在AI回复时计数
-    console.log('✅ [发送完成] 消息已发送，未触发AI回复')
-  }
+  // 🔥 发送消息（使用 hook）- 使用 useCallback 避免重渲染
+  const handleSend = useCallback(() => {
+    sendMessage(inputText)
+  }, [sendMessage, inputText])
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 soft-page-enter">

@@ -3,10 +3,13 @@ import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface PhotosAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const PhotosApp = ({ content }: PhotosAppProps) => {
+const PhotosApp = ({ content, onBack }: PhotosAppProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'album' | 'private'>('album')
+  
   // 生成随机柔和背景色
   const getRandomColor = (index: number) => {
     const colors = [
@@ -19,51 +22,103 @@ const PhotosApp = ({ content }: PhotosAppProps) => {
   return (
     <div className="w-full h-full bg-white flex flex-col font-sans absolute inset-0">
       {/* 顶部标题栏 */}
-      <div className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-gray-100">
+      <div className="bg-white/90 backdrop-blur-md sticky top-0 z-[1000] border-b border-gray-100">
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-          <div className="w-10"></div> {/* 占位 */}
-          <h1 className="text-[17px] font-semibold text-black">图库</h1>
+          <button onClick={onBack} className="text-[#007AFF] flex items-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+<h1 className="text-[17px] font-semibold text-black">{activeTab === 'album' ? '相册' : '私密相册'}</h1>
           <button className="text-[17px] text-[#007AFF] font-normal">选择</button>
         </div>
       </div>
 
       {/* 照片网格 */}
       <div className="flex-1 overflow-y-auto bg-white">
-        <div className="grid grid-cols-3 gap-[2px] mb-20">
-          {content.photos.map((photo, index) => (
-            <div
-              key={index}
-              onClick={() => setSelectedIndex(index)}
-              className={`aspect-square ${getRandomColor(index)} relative overflow-hidden group cursor-pointer`}
-            >
-              {/* 照片内容模拟 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 transition-transform duration-200 active:scale-95">
-                <p className="text-[11px] text-gray-600 text-center font-medium leading-relaxed line-clamp-4">
-                  {photo.description}
-                </p>
-                <span className="text-[9px] text-gray-400 mt-1">{photo.time.split(' ')[0]}</span>
+        {activeTab === 'album' ? (
+          /* 普通相册 - 显示前5张照片作为普通照片 */
+          <div className="grid grid-cols-3 gap-[2px] mb-20">
+            {content.photos.slice(0, 5).map((photo, index) => (
+              <div
+                key={index}
+                onClick={() => setSelectedIndex(index)}
+                className={`aspect-square ${getRandomColor(index)} relative overflow-hidden group cursor-pointer`}
+              >
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-3 transition-transform duration-200 active:scale-95">
+                  <p className="text-[11px] text-gray-600 text-center font-medium leading-relaxed line-clamp-4">
+                    {photo.description}
+                  </p>
+                  <span className="text-[9px] text-gray-400 mt-1">{photo.time.split(' ')[0]}</span>
+                </div>
               </div>
+            ))}
+            {Array.from({ length: Math.max(0, 12 - Math.min(5, content.photos.length)) }).map((_, i) => (
+              <div key={`empty-${i}`} className="aspect-square bg-gray-50"></div>
+            ))}
+          </div>
+        ) : (
+          /* 私密相册 - 显示剩余照片 */
+          <div className="p-4">
+            <div className="bg-pink-50 rounded-xl p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
+                </svg>
+                <span className="text-pink-600 font-medium text-sm">私密照片</span>
+              </div>
+              <p className="text-[12px] text-pink-500">这里存放着不想让别人看到的照片~</p>
             </div>
-          ))}
-          {/* 填充一些空白格子以模拟更多内容 */}
-          {Array.from({ length: Math.max(0, 15 - content.photos.length) }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square bg-gray-50"></div>
-          ))}
-        </div>
+            <div className="grid grid-cols-3 gap-[2px] mb-20">
+              {content.photos.slice(5).map((photo, index) => (
+                <div
+                  key={index + 5}
+                  onClick={() => setSelectedIndex(index + 5)}
+                  className={`aspect-square ${getRandomColor(index + 5)} relative overflow-hidden group cursor-pointer`}
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-3 transition-transform duration-200 active:scale-95">
+                    <p className="text-[11px] text-gray-600 text-center font-medium leading-relaxed line-clamp-4">
+                      {photo.description}
+                    </p>
+                    <span className="text-[9px] text-gray-400 mt-1">{photo.time.split(' ')[0]}</span>
+                  </div>
+                </div>
+              ))}
+              {content.photos.length <= 5 && (
+                <div className="col-span-3 text-center text-gray-400 py-8">
+                  <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
+                  </svg>
+                  <p className="text-sm">暂无私密照片</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 照片详情弹窗 */}
       {selectedIndex !== null && (
         <div
-          className="absolute inset-0 bg-black/90 z-30 flex flex-col animate-in fade-in duration-200"
-          onClick={() => setSelectedIndex(null)}
+          className="absolute inset-0 bg-black/90 z-[2000] flex flex-col animate-in fade-in duration-200"
+          onClick={(e) => {
+            e.stopPropagation()
+            setSelectedIndex(null)
+          }}
         >
           {/* 顶部关闭按钮 */}
-          <div className="p-4 flex justify-end">
-            <button className="text-white/80 hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="p-4 flex justify-start">
+            <button 
+              className="text-white/80 hover:text-white flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedIndex(null)
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+              <span className="text-sm">返回相册</span>
             </button>
           </div>
 
@@ -126,19 +181,19 @@ const PhotosApp = ({ content }: PhotosAppProps) => {
 
       {/* 底部标签栏 */}
       <div className="bg-white/90 backdrop-blur-xl border-t border-gray-200/50 pb-6 pt-2 px-6 flex justify-between items-center sticky bottom-0 z-20">
-        <div className="flex flex-col items-center gap-1">
-          <svg className="w-6 h-6 text-[#007AFF]" fill="currentColor" viewBox="0 0 24 24">
+        <button onClick={() => setActiveTab('album')} className="flex flex-col items-center gap-1">
+          <svg className={`w-6 h-6 ${activeTab === 'album' ? 'text-[#007AFF]' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z" />
             <path d="M4 18l4-5h3l4 5h5v-2l-5-6-4 5-3-4-4 6v1z" />
           </svg>
-          <span className="text-[10px] text-[#007AFF] font-medium">图库</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          <span className={`text-[10px] font-medium ${activeTab === 'album' ? 'text-[#007AFF]' : 'text-gray-500'}`}>相册</span>
+        </button>
+        <button onClick={() => setActiveTab('private')} className="flex flex-col items-center gap-1">
+          <svg className={`w-6 h-6 ${activeTab === 'private' ? 'text-[#007AFF]' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
           </svg>
-          <span className="text-[10px] text-gray-500 font-medium">为你推荐</span>
-        </div>
+          <span className={`text-[10px] font-medium ${activeTab === 'private' ? 'text-[#007AFF]' : 'text-gray-500'}`}>私密相册</span>
+        </button>
         <div className="flex flex-col items-center gap-1">
           <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
             <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />

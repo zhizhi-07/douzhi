@@ -84,13 +84,17 @@ const GroupInputBar: React.FC<GroupInputBarProps> = ({
             type="text"
             value={inputText}
             onChange={onInputChange}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !isAiTyping) {
-                if (inputText.trim()) {
-                  onSend()  // 有文字：发送用户消息
-                } else {
-                  onAIReply()  // 无文字：触发 AI 回复
-                }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isAiTyping && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                // 🔥 使用 setTimeout 避免阻塞键盘事件
+                setTimeout(() => {
+                  if (inputText.trim()) {
+                    onSend()
+                  } else {
+                    onAIReply()
+                  }
+                }, 0)
               }
             }}
             placeholder={isAiTyping ? 'AI正在回复...' : '发送消息'}

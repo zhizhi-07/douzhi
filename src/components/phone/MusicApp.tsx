@@ -2,9 +2,10 @@ import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface MusicAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const MusicApp = ({ content }: MusicAppProps) => {
+const MusicApp = ({ content, onBack }: MusicAppProps) => {
   // 生成随机渐变背景
   const getGradient = (index: number) => {
     const gradients = [
@@ -20,7 +21,15 @@ const MusicApp = ({ content }: MusicAppProps) => {
   return (
     <div className="w-full h-full bg-white flex flex-col font-sans relative absolute inset-0">
       {/* 顶部标题栏 */}
-      <div className="bg-white px-5 pt-4 pb-2 sticky top-0 z-10">
+      <div className="bg-white px-5 pt-4 pb-2 sticky top-0 z-[1000]">
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={onBack} className="text-[#FA233B] flex items-center gap-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            返回
+          </button>
+        </div>
         <h1 className="text-[34px] font-bold text-black tracking-tight mb-4">音乐</h1>
         <div className="flex items-center gap-6 border-b border-gray-200 pb-2">
           <span className="text-[17px] font-semibold text-black border-b-2 border-[#FA233B] pb-2">资料库</span>
@@ -50,6 +59,12 @@ const MusicApp = ({ content }: MusicAppProps) => {
                 <div className="text-[13px] text-gray-500 truncate mt-0.5">
                   {song.artist} {song.mood ? `· ${song.mood}` : ''}
                 </div>
+                {/* 听歌感受 */}
+                {song.feeling && (
+                  <div className="text-[11px] text-gray-400 mt-1 leading-relaxed italic">
+                    「{song.feeling}」
+                  </div>
+                )}
               </div>
 
               <button className="p-2 text-[#FA233B]">

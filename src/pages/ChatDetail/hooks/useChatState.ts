@@ -196,17 +196,83 @@ export const useChatState = (chatId: string) => {
   const loadChatMessages = useCallback(async () => {
     if (!chatId) return
 
-    // 🔥 确保预加载完成后再加载消息，避免返回空数组
-    const savedMessages = await ensureMessagesLoaded(chatId)
-    
-    if (import.meta.env.DEV) {
-      console.log(`📨 [useChatState] 加载消息: chatId=${chatId}, 总数=${savedMessages.length}`)
+    // 🔥 防止AI回复时重新加载消息导致数据丢失
+    if ((window as any).__AI_REPLYING__) {
+      console.log('🚫 [useChatState] AI正在回复，跳过消息加载')
+      return
     }
-    // 直接设置状态，不触发保存（因为是从IndexedDB加载的）
-    setMessagesState(savedMessages)
 
-    // 清除未读数
-    clearUnread(chatId)
+    // 🔥 防止消息已存在时重复加载
+    if (messages.length > 0) {
+      console.log(`ℹ️ [useChatState] 消息已存在(${messages.length}条)，跳过加载`)
+      return
+    }
+
+    try {
+      // 等待消息加载完成
+      const loadedMessages = await ensureMessagesLoaded(chatId)
+
+      // 🔥 再次检查是否正在AI回复（异步加载期间可能状态改变）
+      if ((window as any).__AI_REPLYING__) {
+        console.log('🚫 [useChatState] 加载完成但AI正在回复，跳过设置')
+        return
+      }
+
+      setMessages(loadedMessages)
+
+      // 触发消息加载完成事件
+      window.dispatchEvent(new CustomEvent('messages-loaded', {
+        detail: { chatId, messageCount: loadedMessages.length }
+      }))
+    } catch (error) {
+      console.error('加载消息失败:', error)
+      // 降级到同步加载
+      const messages = loadMessages(chatId)
+      setMessages(messages)
+    }
+  }, [chatId])
+
+  useEffect(() => {
+    const loadChatMessages = async () => {
+      if (!chatId) return
+
+      // 🔥 防止AI回复时重新加载消息导致数据丢失
+      if ((window as any).__AI_REPLYING__) {
+        console.log('🚫 [useChatState] AI正在回复，跳过消息加载')
+        return
+      }
+
+      // 🔥 防止消息已存在时重复加载
+      if (messages.length > 0) {
+        console.log(`ℹ️ [useChatState] 消息已存在(${messages.length}条)，跳过加载`)
+        return
+      }
+
+      try {
+        // 等待消息加载完成
+        const loadedMessages = await ensureMessagesLoaded(chatId)
+
+        // 🔥 再次检查是否正在AI回复（异步加载期间可能状态改变）
+        if ((window as any).__AI_REPLYING__) {
+          console.log('🚫 [useChatState] 加载完成但AI正在回复，跳过设置')
+          return
+        }
+
+        setMessages(loadedMessages)
+
+        // 触发消息加载完成事件
+        window.dispatchEvent(new CustomEvent('messages-loaded', {
+          detail: { chatId, messageCount: loadedMessages.length }
+        }))
+      } catch (error) {
+        console.error('加载消息失败:', error)
+        // 降级到同步加载
+        const messages = loadMessages(chatId)
+        setMessages(messages)
+      }
+    }
+
+    loadChatMessages()
   }, [chatId])
 
   /**

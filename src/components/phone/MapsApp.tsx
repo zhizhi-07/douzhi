@@ -3,14 +3,31 @@ import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface MapsAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const MapsApp = ({ content }: MapsAppProps) => {
+const MapsApp = ({ content, onBack }: MapsAppProps) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   return (
     <div className="w-full h-full relative font-sans overflow-hidden absolute inset-0">
-      {/* 地图背景 */}
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2674&auto=format&fit=crop')] bg-cover bg-center opacity-80"></div>
+      {/* 地图背景 - 简洁的渐变背景 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#E8F4E8] via-[#D4E8D4] to-[#C8DCC8]">
+        {/* 模拟地图网格 */}
+        <div className="absolute inset-0 opacity-30">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#9CAA9C" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+        </div>
+        {/* 模拟道路 */}
+        <div className="absolute top-1/4 left-0 right-0 h-8 bg-white/40"></div>
+        <div className="absolute top-1/2 left-1/4 w-6 h-full bg-white/40"></div>
+        <div className="absolute top-1/3 right-1/3 w-6 h-2/3 bg-white/40"></div>
+      </div>
 
       {/* 地图上的标记点 (模拟) */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
@@ -19,6 +36,14 @@ const MapsApp = ({ content }: MapsAppProps) => {
           当前位置
         </div>
       </div>
+
+      {/* 返回按钮 */}
+      <button onClick={onBack} className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md rounded-lg shadow-sm px-3 py-2 flex items-center gap-1 text-green-600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        返回
+      </button>
 
       {/* 顶部工具栏 */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
@@ -102,11 +127,21 @@ const MapsApp = ({ content }: MapsAppProps) => {
 
                       {/* 心情 */}
                       {footprint.mood && (
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                           </svg>
-                          <span className="text-[12px] text-gray-600">心情: {footprint.mood}</span>
+                          <span className="text-[12px] text-gray-600 leading-relaxed">心情: {footprint.mood}</span>
+                        </div>
+                      )}
+
+                      {/* 具体动作 */}
+                      {footprint.action && (
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span className="text-[12px] text-gray-600 leading-relaxed">动作: {footprint.action}</span>
                         </div>
                       )}
 

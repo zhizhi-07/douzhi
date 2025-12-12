@@ -68,8 +68,8 @@ const ScreenSettings = () => {
           <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-medium text-slate-800">顶部边距</h3>
-                <p className="text-xs text-slate-500 mt-0.5 font-light">调整顶部黑边（负值向上延伸）</p>
+                <h3 className="text-base font-medium text-slate-800">顶部边框</h3>
+                <p className="text-xs text-slate-500 mt-0.5 font-light">调整顶部边距，负值让背景延伸覆盖状态栏</p>
               </div>
               <span className="text-sm font-mono bg-white/60 border border-white/60 px-3 py-1 rounded-lg text-slate-600 min-w-[3rem] text-center">
                 {topOffset}
@@ -97,8 +97,8 @@ const ScreenSettings = () => {
           <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-medium text-slate-800">底部边距</h3>
-                <p className="text-xs text-slate-500 mt-0.5 font-light">调整底部黑边（负值向下延伸）</p>
+                <h3 className="text-base font-medium text-slate-800">底部边框</h3>
+                <p className="text-xs text-slate-500 mt-0.5 font-light">调整底部边距，负值让背景向下延伸</p>
               </div>
               <span className="text-sm font-mono bg-white/60 border border-white/60 px-3 py-1 rounded-lg text-slate-600 min-w-[3rem] text-center">
                 {bottomOffset}
@@ -168,9 +168,10 @@ const ScreenSettings = () => {
               <div className="text-xs text-blue-800/80 leading-relaxed">
                 <p className="font-medium mb-1 text-blue-900">使用说明</p>
                 <ul className="space-y-1 opacity-80">
-                  <li>• 如果屏幕上下有黑边，尝试调整为<strong>负值</strong></li>
-                  <li>• 边框模式适合电脑端预览或截图</li>
+                  <li>• <strong>iOS全屏模式</strong>：调整为<strong>负值</strong>让背景延伸覆盖状态栏</li>
+                  <li>• <strong>正值</strong>：添加内边距，适合需要边框的场景</li>
                   <li>• 修改后返回桌面查看效果</li>
+                  <li>• 建议iOS用户使用预设中的"iPhone"选项</li>
                 </ul>
               </div>
             </div>

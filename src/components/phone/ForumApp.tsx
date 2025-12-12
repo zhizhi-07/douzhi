@@ -2,13 +2,20 @@ import { AIPhoneContent } from '../../utils/aiPhoneGenerator'
 
 interface ForumAppProps {
   content: AIPhoneContent
+  onBack?: () => void
 }
 
-const ForumApp = ({ content }: ForumAppProps) => {
+const ForumApp = ({ content, onBack }: ForumAppProps) => {
   return (
     <div className="w-full h-full bg-[#F7F7F7] flex flex-col font-sans absolute inset-0">
       {/* 顶部标题栏 - 豆瓣绿 */}
-      <div className="bg-[#42BD56] px-4 pt-3 pb-3 sticky top-0 z-10 shadow-sm">
+      <div className="bg-[#42BD56] px-4 pt-3 pb-3 sticky top-0 z-[1000] shadow-sm">
+        <button onClick={onBack} className="flex items-center gap-1 text-white mb-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          返回
+        </button>
         <div className="flex justify-between items-center mb-4">
           <div className="flex gap-4 text-white/80 text-[15px] font-medium">
             <span className="text-white font-bold border-b-2 border-white pb-1">我的小组</span>
@@ -67,6 +74,39 @@ const ForumApp = ({ content }: ForumAppProps) => {
               </div>
             )}
 
+            {/* 其他楼层评论（楼中楼） */}
+            {post.otherComments && post.otherComments.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-[11px] text-gray-400 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                  </svg>
+                  <span>精选评论</span>
+                </div>
+                {post.otherComments.map((comment, commentIndex) => (
+                  <div key={commentIndex} className="bg-gray-50 rounded-lg p-2.5 flex gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                      {comment.author[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-gray-600">{comment.author}</span>
+                        {comment.likes !== undefined && (
+                          <div className="flex items-center gap-0.5 text-gray-400">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            <span className="text-[10px]">{comment.likes}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-gray-700 mt-0.5 leading-relaxed">{comment.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* 底部互动栏 */}
             <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50">
               <div className="flex gap-4">
@@ -79,11 +119,6 @@ const ForumApp = ({ content }: ForumAppProps) => {
                   <span className="text-xs">回应</span>
                 </div>
               </div>
-              {post.reason && (
-                <div className="text-[10px] text-gray-300">
-                  {post.reason}
-                </div>
-              )}
             </div>
           </div>
         ))}
