@@ -161,12 +161,19 @@ async function preloadMessages() {
           const fixedMessages = fixDuplicateMessageIds(messages)
           messageCache.set(chatId, fixedMessages)
           
-          // 如果修复了ID，保存回数据库
+          // 如果修复了ID，保存回数据库（异步执行，不阻塞）
           if (fixedMessages !== messages) {
-            await IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
-            if (import.meta.env.DEV) {
-              console.log(`✅ 预加载时修复消息ID: chatId=${chatId}`)
-            }
+            // 使用setTimeout让保存操作异步执行，避免阻塞主线程
+            setTimeout(async () => {
+              try {
+                await IDB.setItem(IDB.STORES.MESSAGES, chatId, fixedMessages)
+                if (import.meta.env.DEV) {
+                  console.log(`✅ 后台修复消息ID: chatId=${chatId}`)
+                }
+              } catch (e) {
+                console.error('保存修复的消息失败:', e)
+              }
+            }, 100)
           }
         }
       }
@@ -189,20 +196,27 @@ preloadMessages()
 if (typeof window !== 'undefined') {
   // 监听页面卸载事件
   window.addEventListener('beforeunload', () => {
-    console.log('📤 [页面卸载] 触发最终保存')
+    // beforeunload事件中必须使用同步操作，避免console.log
     // 将所有缓存的消息同步保存到localStorage作为备份
     messageCache.forEach((messages, storageKey) => {
       if (messages && messages.length > 0) {
         try {
           const backupKey = `msg_backup_${storageKey}`
+          // 清理消息，确保可以序列化
+          const cleanMessages = messages.map(msg => ({
+            ...msg,
+            // 移除可能导致序列化失败的属性
+            nativeEvent: undefined,
+            event: undefined
+          }))
           const backup = {
-            messages: messages,
+            messages: cleanMessages,
             timestamp: Date.now()
           }
-          localStorage.setItem(backupKey, JSON.stringify(backup))
-          console.log(`💾 [页面卸载] 备份${messages.length}条消息到localStorage: ${storageKey}`)
+          const backupStr = JSON.stringify(backup)
+          localStorage.setItem(backupKey, backupStr)
         } catch (e) {
-          console.error('页面卸载备份失败:', e)
+          // beforeunload中不能使用console.error，静默失败
         }
       }
     })
@@ -504,9 +518,15 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
       const fixedMessages = fixDuplicateMessageIds(loaded)
       messageCache.set(storageKey, fixedMessages)
       
-      // 如果修复了ID，保存回数据库
+      // 如果修复了ID，保存回数据库（异步执行）
       if (fixedMessages !== loaded) {
-        await IDB.setItem(IDB.STORES.MESSAGES, storageKey, fixedMessages)
+        setTimeout(async () => {
+          try {
+            await IDB.setItem(IDB.STORES.MESSAGES, storageKey, fixedMessages)
+          } catch (e) {
+            console.error('保存修复的消息失败:', e)
+          }
+        }, 100)
       }
       
       if (import.meta.env.DEV) {
@@ -517,9 +537,10 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
     return []
   }
   
-  if (import.meta.env.DEV) {
-    console.log(`✅ 从缓存返回消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
-  }
+  // 关闭调试日志，避免控制台刷屏
+  // if (import.meta.env.DEV) {
+  //   console.log(`✅ 从缓存返回消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
+  // }
   return messages
 }
 

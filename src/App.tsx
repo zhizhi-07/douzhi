@@ -30,6 +30,7 @@ import CoupleSpace from './pages/CoupleSpace'
 import CoupleAlbum from './pages/CoupleAlbum'
 import CoupleAnniversary from './pages/CoupleAnniversary'
 import CoupleMessageBoard from './pages/CoupleMessageBoard'
+import { emergencyCleanup } from './utils/emergencyCleanup'
 import Wallet from './pages/Wallet'
 import WalletTransactions from './pages/WalletTransactions'
 import WalletCards from './pages/WalletCards'
@@ -238,6 +239,13 @@ function App() {
     migrateFromLocalStorage().catch(err => {
       console.error('❌ 迁移失败:', err)
     })
+
+    // 紧急清理localStorage空间（如果满了）
+    try {
+      emergencyCleanup()
+    } catch (e) {
+      console.error('紧急清理失败:', e)
+    }
 
     // 初始化情侣空间存储（从IndexedDB加载数据到缓存）
     initCoupleSpaceStorage().catch(err => {

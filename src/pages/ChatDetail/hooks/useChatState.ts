@@ -28,9 +28,10 @@ export const useChatState = (chatId: string) => {
 
   // 包装setMessages：仅更新React状态
   const setMessages = useCallback((fn: ((prev: Message[]) => Message[]) | Message[]) => {
-    if (import.meta.env.DEV) {
-      console.log(`📂 [useChatState] setMessages 被调用`)
-    }
+    // 关闭调试日志，避免控制台刷屏
+    // if (import.meta.env.DEV) {
+    //   console.log(`📂 [useChatState] setMessages 被调用`)
+    // }
     setMessagesState(fn)
   }, [])
   
@@ -71,8 +72,9 @@ export const useChatState = (chatId: string) => {
   
   /**
    * 🔥 分页加载消息（初次加载所有消息，不再分页）
+   * 注意：这个函数不使用 useCallback，避免依赖问题
    */
-  const loadChatMessagesInitial = useCallback(async () => {
+  const loadChatMessagesInitial = async () => {
     if (!chatId) return
 
     setIsLoadingMessages(true)
@@ -93,7 +95,7 @@ export const useChatState = (chatId: string) => {
         0
       )
 
-      console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}/${total}, 还有更多=${hasMore}`)
+      // console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}/${total}, 还有更多=${hasMore}`)
 
       // 🔥 关键修复：只有当加载到消息时才设置状态，防止空数组覆盖
       if (initialMessages.length > 0 || total === 0) {
@@ -111,7 +113,7 @@ export const useChatState = (chatId: string) => {
     } finally {
       setIsLoadingMessages(false)
     }
-  }, [chatId])
+  }
 
   /**
    * 🔥 加载更多历史消息
@@ -198,13 +200,13 @@ export const useChatState = (chatId: string) => {
 
     // 🔥 防止AI回复时重新加载消息导致数据丢失
     if ((window as any).__AI_REPLYING__) {
-      console.log('🚫 [useChatState] AI正在回复，跳过消息加载')
+      // console.log('🚫 [useChatState] AI正在回复，跳过消息加载')
       return
     }
 
     // 🔥 防止消息已存在时重复加载
     if (messages.length > 0) {
-      console.log(`ℹ️ [useChatState] 消息已存在(${messages.length}条)，跳过加载`)
+      // console.log(`ℹ️ [useChatState] 消息已存在(${messages.length}条)，跳过加载`)
       return
     }
 
@@ -214,16 +216,16 @@ export const useChatState = (chatId: string) => {
 
       // 🔥 再次检查是否正在AI回复（异步加载期间可能状态改变）
       if ((window as any).__AI_REPLYING__) {
-        console.log('🚫 [useChatState] 加载完成但AI正在回复，跳过设置')
+        // console.log('🚫 [useChatState] 加载完成但AI正在回复，跳过设置')
         return
       }
 
       setMessages(loadedMessages)
 
-      // 触发消息加载完成事件
-      window.dispatchEvent(new CustomEvent('messages-loaded', {
-        detail: { chatId, messageCount: loadedMessages.length }
-      }))
+      // 🔥 移除事件触发，避免循环
+      // window.dispatchEvent(new CustomEvent('messages-loaded', {
+      //   detail: { chatId, messageCount: loadedMessages.length }
+      // }))
     } catch (error) {
       console.error('加载消息失败:', error)
       // 降级到同步加载
@@ -260,19 +262,24 @@ export const useChatState = (chatId: string) => {
   useEffect(() => {
     if (!chatId) return
 
-    console.log(`📂 [useChatState] 加载消息: chatId=${chatId}, accountId=${accountId}`)
+    // 🔥 防止重复加载
+    let mounted = true
+
+    // console.log(`📂 [useChatState] 加载消息: chatId=${chatId}, accountId=${accountId}`)
 
     // 🔥 等待IndexedDB加载完成后再获取角色
     const loadCharacter = async () => {
       // 先等待characterService加载完成
       await characterService.waitForLoad()
       
+      if (!mounted) return // 组件已卸载，停止执行
+      
       const char = characterService.getById(chatId)
       if (char) {
         setCharacter(char)
-        if (import.meta.env.DEV) {
-          console.log('✅ 角色加载成功:', char.nickname || char.realName)
-        }
+        // if (import.meta.env.DEV) {
+        //   console.log('✅ 角色加载成功:', char.nickname || char.realName)
+        // }
       } else {
         console.error(`❌ 角色不存在，ID: ${chatId}`)
         setError(`角色不存在: ${chatId}`)
@@ -282,7 +289,13 @@ export const useChatState = (chatId: string) => {
     loadCharacter()
 
     // 🔥 使用分页加载，初次只加载最近50条消息
-    loadChatMessagesInitial()
+    if (mounted) {
+      loadChatMessagesInitial()
+    }
+
+    return () => {
+      mounted = false // 清理标记
+    }
   }, [chatId, accountId]) // 移除 loadChatMessagesInitial 依赖，避免循环
   
   /**
@@ -294,6 +307,7 @@ export const useChatState = (chatId: string) => {
     if (!chatId) return
     
     let lastHiddenTime = 0
+    let mounted = true // 防止组件卸载后继续执行
     
     // 页面可见性变化时重新加载
     const handleVisibilityChange = () => {
@@ -315,7 +329,7 @@ export const useChatState = (chatId: string) => {
         // 🔥 手机端优化：只有在页面隐藏超过3秒后才重新加载
         // 避免快速切换应用时覆盖React状态中的最新消息
         const hiddenDuration = Date.now() - lastHiddenTime
-        if (hiddenDuration > 3000) {
+        if (hiddenDuration > 3000 && mounted) {
           if (import.meta.env.DEV) {
             console.log(`📱 [useChatState] 页面重新可见（隐藏了${Math.floor(hiddenDuration/1000)}秒），重新加载消息`)
           }
@@ -339,32 +353,20 @@ export const useChatState = (chatId: string) => {
     //   refreshCharacter()  // 同时刷新角色信息
     // }
     
-    // 🔥 监听异步加载完成事件
-    const handleMessagesLoaded = (e: CustomEvent) => {
-      if (e.detail.chatId === chatId) {
-        // 🔥 AI回复期间不响应加载事件，避免消息一次性显示
-        if ((window as any).__AI_REPLYING__) {
-          if (import.meta.env.DEV) {
-            console.log('🚫 [useChatState] AI回复中，忽略messages-loaded事件')
-          }
-          return
-        }
-        if (import.meta.env.DEV) {
-          console.log('📥 [useChatState] 异步加载完成，刷新UI')
-        }
-        loadChatMessages()
-      }
-    }
+    // 🔥 移除messages-loaded事件监听，避免无限循环
+    // 这个事件会导致loadChatMessages被重复调用
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     // 🔥 手机端优化：移除focus事件监听
     // window.addEventListener('focus', handleFocus)
-    window.addEventListener('messages-loaded', handleMessagesLoaded as EventListener)
+    // 🔥 移除messages-loaded监听，避免无限循环
+    // window.addEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     
     return () => {
+      mounted = false // 清理标记
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       // window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('messages-loaded', handleMessagesLoaded as EventListener)
+      // window.removeEventListener('messages-loaded', handleMessagesLoaded as EventListener)
     }
   }, [chatId, loadChatMessages, refreshCharacter, isLoadingMessages])
   
