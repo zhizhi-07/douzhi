@@ -86,8 +86,17 @@ const DataManager = () => {
         const file = (e.target as HTMLInputElement).files?.[0]
         if (file) {
           await importAllData(file)
-          alert('✅ 数据导入成功！页面即将刷新')
-          setTimeout(() => window.location.reload(), 1000)
+          alert(`✅ 数据导入成功！
+
+📍 数据位置说明：
+• 角色数据 → 首页聊天列表
+• 聊天记录 → 点击角色进入聊天
+• 朋友圈 → 朋友圈页面
+• 表情包 → 聊天输入框的表情按钮
+• 论坛帖子 → 论坛页面
+
+页面即将刷新...`)
+          setTimeout(() => window.location.reload(), 1500)
         }
       }
       input.click()

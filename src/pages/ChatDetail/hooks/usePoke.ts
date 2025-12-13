@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react'
 import type { Message } from '../../../types/chat'
-import { getUserInfo } from '../../../utils/userUtils'
+import { getCurrentUserName } from '../../../utils/userUtils'
 import { saveMessages } from '../../../utils/simpleMessageManager'
 
 export const usePoke = (
@@ -16,8 +16,8 @@ export const usePoke = (
   const handlePoke = useCallback(() => {
     if (!id || !character) return
     
-    const userInfo = getUserInfo()
-    const userName = userInfo.nickname || userInfo.realName || '用户'
+    // 🔥 使用考虑小号的函数获取用户名
+    const userName = getCurrentUserName()
     const aiName = character.nickname || character.realName
     const pokeSuffix = character.pokeSuffix || ''
     

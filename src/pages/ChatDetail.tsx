@@ -83,10 +83,18 @@ const ChatDetail = () => {
   const [hideTimestamp, setHideTimestamp] = useState(() => {
     return localStorage.getItem('hide_message_timestamp') === 'true'
   })
+  const [timestampInBubble, setTimestampInBubble] = useState(() => {
+    return localStorage.getItem('timestamp_in_bubble') === 'true'
+  })
+  // 用于强制消息列表刷新的key
+  const [timestampRefreshKey, setTimestampRefreshKey] = useState(0)
   
   useEffect(() => {
     const handleTimestampUpdate = () => {
       setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
+      setTimestampInBubble(localStorage.getItem('timestamp_in_bubble') === 'true')
+      // 强制消息列表刷新
+      setTimestampRefreshKey(k => k + 1)
     }
     window.addEventListener('timestampVisibilityUpdate', handleTimestampUpdate)
     return () => window.removeEventListener('timestampVisibilityUpdate', handleTimestampUpdate)
@@ -298,6 +306,7 @@ const ChatDetail = () => {
   // 💕 默契游戏 Hook
   const tacitGame = useTacitGame({
     characterId: id,
+    characterName: chatState.character?.nickname || chatState.character?.realName || 'TA',
     saveMessages,
     setMessages: chatState.setMessages,
     messages: chatState.messages,
@@ -730,7 +739,7 @@ const ChatDetail = () => {
       {...(hasCustomWallpaper ? { 'data-chat-wallpaper': true } : {})}
     >
       <ChatHeader
-        characterName={character.nickname || character.realName}
+        characterName={character.remark || character.nickname || character.realName}
         characterId={id}
         isAiTyping={chatAI.isAiTyping}
         onBack={handleBack}
@@ -832,15 +841,13 @@ const ChatDetail = () => {
           topic={tacitGame.topic}
           gameType={tacitGame.gameType}
           onChangeTopic={tacitGame.changeTopic}
+          onSetCustomTopic={tacitGame.setCustomTopic}
           onClose={tacitGame.endGame}
           onOpenPanel={tacitGame.openPanel}
-          onConfirmCorrect={tacitGame.confirmCorrect}
           isPanelOpen={tacitGame.showPanel}
           hasSent={tacitGame.hasSent}
-          hasAiGuessed={tacitGame.hasAiGuessed}
-          isAiCorrect={tacitGame.isAiCorrect}
-          aiGuess={tacitGame.aiGuess}
           isAiTyping={chatAI.isAiTyping}
+          isJudging={tacitGame.isJudging}
           isRefreshing={tacitGame.isRefreshing}
           remainingCount={tacitGame.remainingCount}
         />
@@ -929,6 +936,7 @@ const ChatDetail = () => {
             hasMoreMessages={chatState.hasMoreMessages}
             isLoadingMessages={chatState.isLoadingMessages}
             onLoadMore={chatState.loadMoreMessages}
+            timestampRefreshKey={timestampRefreshKey}
           />
         ) : (
           <>
@@ -1123,6 +1131,27 @@ const ChatDetail = () => {
                     )
                   }
 
+                  // 🎯 默契游戏结果卡片（用 SpecialMessageRenderer 渲染）
+                  if (message.messageType === 'tacitGameResult' && message.tacitGameResult) {
+                    return (
+                      <div key={message.id}>
+                        {shouldShow5MinTimestamp && (
+                          <div className="flex justify-center my-2">
+                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                            </div>
+                          </div>
+                        )}
+                        <SpecialMessageRenderer
+                          message={message}
+                          characterId={chatState.character?.id || ''}
+                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                          characterAvatar={chatState.character?.avatar}
+                        />
+                      </div>
+                    )
+                  }
+
                   // 🛍️ 购买消息卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'purchase' && message.purchaseData) {
                     return (
@@ -1277,7 +1306,8 @@ const ChatDetail = () => {
                             message.messageType === 'judgment' ||
                             message.messageType === 'shop' ||
                             message.messageType === 'busy' ||
-                            (message.messageType as any) === 'musicInvite' ? (
+                            (message.messageType as any) === 'musicInvite' ||
+                            (message.messageType as any) === 'emojiDrawInvite' ? (
                             <SpecialMessageRenderer
                               message={message}
                               characterId={chatState.character?.id || ''}
@@ -1446,8 +1476,8 @@ const ChatDetail = () => {
 
                         </div>
 
-                        {/* 时间戳 - 显示在气泡下方居中 */}
-                        {!hideTimestamp && (
+                        {/* 时间戳 - 显示在气泡下方居中（如果不是在气泡内显示） */}
+                        {!hideTimestamp && !timestampInBubble && (
                           <div className="flex justify-center mt-1">
                             <div className="text-xs text-gray-400">
                               {message.time}
@@ -1602,7 +1632,7 @@ const ChatDetail = () => {
             <div className="relative z-10 px-4 py-2 bg-gray-100 flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-xs text-blue-600 font-medium">
-                  {modals.quotedMessage.type === 'sent' ? '我' : character.nickname || character.realName}
+                  {modals.quotedMessage.type === 'sent' ? '我' : character.remark || character.nickname || character.realName}
                 </div>
                 <div className="text-sm text-gray-600 truncate">
                   {modals.quotedMessage.content}
@@ -1895,7 +1925,7 @@ const ChatDetail = () => {
       <IncomingCallScreen
         show={videoCall.showIncomingCall}
         character={{
-          name: character.nickname || character.realName,
+          name: character.remark || character.nickname || character.realName,
           avatar: character.avatar
         }}
         isVideoCall={true}
@@ -1906,7 +1936,7 @@ const ChatDetail = () => {
       <VideoCallScreen
         show={videoCall.isCallActive}
         character={{
-          name: character.nickname || character.realName,
+          name: character.remark || character.nickname || character.realName,
           avatar: character.avatar,
           realName: character.realName
         }}
@@ -2015,7 +2045,7 @@ const ChatDetail = () => {
           <AIStatusModal
             isOpen={showAIStatusModal}
             onClose={() => setShowAIStatusModal(false)}
-            characterName={character.nickname || character.realName}
+            characterName={character.remark || character.nickname || character.realName}
             characterId={id || ''}
             characterAvatar={character.avatar}
             status={currentAIStatus}
@@ -2045,14 +2075,14 @@ const ChatDetail = () => {
         isOpen={showFriendRequestModal}
         onClose={() => setShowFriendRequestModal(false)}
         onSend={handleSendFriendRequest}
-        characterName={character.nickname || character.realName}
+        characterName={character.remark || character.nickname || character.realName}
       />
 
       {/* ⚖️ 判定对错输入弹窗 */}
       <JudgmentInputModal
         isOpen={judgment.showJudgmentModal}
         onClose={() => judgment.setShowJudgmentModal(false)}
-        characterName={character.nickname || character.realName}
+        characterName={character.remark || character.nickname || character.realName}
         onSubmit={judgment.respondingToAppealId ? judgment.sendAppealResponse : judgment.sendJudgmentRequest}
         isRespondingToAppeal={!!judgment.respondingToAppealId}
       />

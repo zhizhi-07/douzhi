@@ -102,7 +102,7 @@ const GlobalProactiveMessageManager = () => {
       if (!state) return false
 
       // 极简提示词，只告诉AI身份和人设
-      const coreSystemPrompt = `你是${character.nickname || character.realName}。
+      const coreSystemPrompt = `你是${character.remark || character.nickname || character.realName}。
 性格：${character.personality || '普通人，有自己的生活。'}`
 
       // 构建判断提示词
@@ -263,7 +263,7 @@ const GlobalProactiveMessageManager = () => {
           // 🔔 保存消息时立即发送系统通知
           const displayMessage = messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent
           sendSystemNotification(
-            character.nickname || character.realName || 'AI',
+            character.remark || character.nickname || character.realName || 'AI',
             displayMessage,
             character.avatar
           )
@@ -271,7 +271,7 @@ const GlobalProactiveMessageManager = () => {
           // 同时触发应用内通知事件
           window.dispatchEvent(new CustomEvent('background-chat-message', {
             detail: {
-              title: character.nickname || character.realName,
+              title: character.remark || character.nickname || character.realName,
               message: displayMessage,
               chatId,
               avatar: character.avatar

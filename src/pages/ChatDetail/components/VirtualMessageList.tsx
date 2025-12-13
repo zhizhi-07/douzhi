@@ -32,6 +32,8 @@ interface VirtualMessageListProps {
   hasMoreMessages?: boolean
   isLoadingMessages?: boolean
   onLoadMore?: () => void
+  // 时间戳刷新key
+  timestampRefreshKey?: number
 }
 
 const VirtualMessageList = ({
@@ -58,6 +60,7 @@ const VirtualMessageList = ({
   hasMoreMessages = false,
   isLoadingMessages = false,
   onLoadMore,
+  timestampRefreshKey = 0,
 }: VirtualMessageListProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [visibleRange, setVisibleRange] = useState(() => {
@@ -247,7 +250,7 @@ const VirtualMessageList = ({
       {/* 可见消息 */}
       {visibleMessages.map((message) => (
         <MessageItem
-          key={message.id}
+          key={`${message.id}-${timestampRefreshKey}`}
           message={message}
           character={character}
           chatId={chatId}

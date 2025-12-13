@@ -24,6 +24,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   const [frameOffsetX, setFrameOffsetX] = useState(0)
   const [frameOffsetY, setFrameOffsetY] = useState(0)
   const [avatarSizePercent, setAvatarSizePercent] = useState(100)
+  const [hideAvatar, setHideAvatar] = useState(false)
 
   // 计算实际尺寸（应用用户设置的百分比）
   const basePxSize = typeof size === 'number' ? size : 
@@ -41,16 +42,18 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
     if (!chatId) return
 
     const loadFrameStyle = () => {
-      const key = type === 'sent' 
-        ? `user_avatar_frame_${chatId}` 
-        : `ai_avatar_frame_${chatId}`
-      const css = localStorage.getItem(key) || ''
+      const prefix = type === 'sent' ? 'user' : 'ai'
+      const cssKey = `${prefix}_avatar_frame_${chatId}`
+      const css = localStorage.getItem(cssKey) || ''
       const avatarShape = localStorage.getItem(`avatar_shape_${chatId}`) || 'rounded'
-      const image = localStorage.getItem(`avatar_frame_image_${chatId}`) || ''
-      const size = parseInt(localStorage.getItem(`avatar_frame_size_${chatId}`) || '120')
-      const offsetX = parseInt(localStorage.getItem(`avatar_frame_offset_x_${chatId}`) || '0')
-      const offsetY = parseInt(localStorage.getItem(`avatar_frame_offset_y_${chatId}`) || '0')
+      
+      // 独立的头像框图片设置（用户和AI分开）
+      const image = localStorage.getItem(`${prefix}_avatar_frame_image_${chatId}`) || localStorage.getItem(`avatar_frame_image_${chatId}`) || ''
+      const size = parseInt(localStorage.getItem(`${prefix}_avatar_frame_size_${chatId}`) || localStorage.getItem(`avatar_frame_size_${chatId}`) || '120')
+      const offsetX = parseInt(localStorage.getItem(`${prefix}_avatar_frame_offset_x_${chatId}`) || localStorage.getItem(`avatar_frame_offset_x_${chatId}`) || '0')
+      const offsetY = parseInt(localStorage.getItem(`${prefix}_avatar_frame_offset_y_${chatId}`) || localStorage.getItem(`avatar_frame_offset_y_${chatId}`) || '0')
       const avatarSizeSaved = parseInt(localStorage.getItem(`avatar_size_${chatId}`) || '100')
+      const hideAvatarSaved = localStorage.getItem(`hide_avatar_${chatId}`) === 'true'
       
       setFrameCSS(css)
       setShape(avatarShape)
@@ -59,6 +62,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
       setFrameOffsetX(offsetX)
       setFrameOffsetY(offsetY)
       setAvatarSizePercent(avatarSizeSaved)
+      setHideAvatar(hideAvatarSaved)
     }
 
     loadFrameStyle()
@@ -129,6 +133,11 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
     }
   }, [type, chatId])
 
+  // 如果设置了隐藏头像，返回null
+  if (hideAvatar && chatId) {
+    return null
+  }
+
   if (type === 'sent') {
     // 用户头像 - 从 IndexedDB 异步加载
     return (
@@ -136,7 +145,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
         {frameCSS && chatId && <style>{`.avatar-frame-user-${chatId} { ${frameCSS} }`}</style>}
         <div className="relative overflow-visible">
           <div 
-            className={`${chatId && frameCSS ? `avatar-frame-user-${chatId}` : ''} ${shapeClass} bg-gray-300 flex items-center justify-center overflow-hidden`}
+            className={`${chatId && frameCSS ? `avatar-frame-user-${chatId}` : ''} ${shapeClass} bg-gray-300 flex items-center justify-center ${frameCSS ? '' : 'overflow-hidden'}`}
             style={sizeStyle}
           >
             {userAvatar ? (
@@ -173,7 +182,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
       {frameCSS && chatId && <style>{`.avatar-frame-ai-${chatId} { ${frameCSS} }`}</style>}
       <div className="relative overflow-visible" style={{ animation: 'none', transition: 'none' }}>
         <div 
-          className={`${chatId && frameCSS ? `avatar-frame-ai-${chatId}` : ''} ${shapeClass} bg-gray-200 flex items-center justify-center overflow-hidden ${onPoke ? 'cursor-pointer' : ''}`}
+          className={`${chatId && frameCSS ? `avatar-frame-ai-${chatId}` : ''} ${shapeClass} bg-gray-200 flex items-center justify-center ${frameCSS ? '' : 'overflow-hidden'} ${onPoke ? 'cursor-pointer' : ''}`}
           onDoubleClick={onPoke}
           style={{ ...sizeStyle, animation: 'none', transition: 'none' }}
         >

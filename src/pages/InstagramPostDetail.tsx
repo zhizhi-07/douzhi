@@ -42,7 +42,7 @@ const InstagramPostDetail = () => {
   // 🔥 把角色ID转换成名字
   const getCharacterName = (id: string): string => {
     const char = characters.find(c => c.id === id)
-    if (char) return char.nickname || char.realName || id
+    if (char) return char.remark || char.nickname || char.realName || id
     const npc = getNPCById(id)
     if (npc) return npc.name
     return id

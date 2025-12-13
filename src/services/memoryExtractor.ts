@@ -325,6 +325,12 @@ export async function extractMemoryFromChat(
     
     console.log('📄 [记忆提取] AI原始回复:', response)
     
+    // 🔥 如果API返回空字符串，表示所有API都失败了，返回-1表示API错误
+    if (!response || response.trim() === '') {
+      console.log('⚠️ [记忆提取] API返回空，下次继续计数')
+      return -1  // 返回-1表示API失败
+    }
+    
     // 4. 解析AI返回的记忆数据
     const extractedMemory = parseMemoryFromAI(response)
     
@@ -491,6 +497,12 @@ ${momentsSummary}
     
     console.log('📄 [朋友圈记忆提取] AI回复:', response)
     
+    // 🔥 如果API返回空字符串，表示所有API都失败了
+    if (!response || response.trim() === '') {
+      console.log('⚠️ [朋友圈记忆提取] API返回空，下次继续计数')
+      return -1
+    }
+    
     const extractedMemories = parseMemoryArrayFromAI(response)
     
     if (extractedMemories.length === 0) {
@@ -598,6 +610,12 @@ ${interactionsSummary}
     
     console.log(`📄 [${interactionType}记忆提取] AI回复:`, response)
     
+    // 🔥 如果API返回空字符串，表示所有API都失败了
+    if (!response || response.trim() === '') {
+      console.log(`⚠️ [${interactionType}记忆提取] API返回空，下次继续计数`)
+      return -1
+    }
+    
     const extractedMemories = parseMemoryArrayFromAI(response)
     
     if (extractedMemories.length === 0) {
@@ -640,11 +658,36 @@ ${interactionsSummary}
  * 🔥 新增：失败重试机制 - API失败时保留待提取状态，下次继续重试
  */
 class InteractionCounter {
-  private threshold = 15 // 每15次互动提取一次
+  private readonly THRESHOLD_KEY = 'memory_extraction_threshold'
+  private readonly DEFAULT_THRESHOLD = 15 // 默认每15次互动提取一次
   private pendingKey = 'pending_memory_extractions'
   
   private getStorageKey(characterId: string): string {
     return `interaction_counter_${characterId}`
+  }
+  
+  /**
+   * 获取当前阈值（从 localStorage 读取，支持用户自定义）
+   */
+  getThreshold(): number {
+    const stored = localStorage.getItem(this.THRESHOLD_KEY)
+    if (stored) {
+      const value = parseInt(stored, 10)
+      if (!isNaN(value) && value >= 1 && value <= 100) {
+        return value
+      }
+    }
+    return this.DEFAULT_THRESHOLD
+  }
+  
+  /**
+   * 设置阈值（全局设置，影响所有角色）
+   */
+  setThreshold(value: number): void {
+    if (value >= 1 && value <= 100) {
+      localStorage.setItem(this.THRESHOLD_KEY, value.toString())
+      console.log(`⚙️ [记忆提取] 阈值已设置为: ${value} 轮`)
+    }
   }
   
   /**
@@ -709,11 +752,12 @@ class InteractionCounter {
     const current = this.getCount(characterId)
     const newCount = current + 1
     
-    console.log(`📊 [互动计数] ${characterId}: ${newCount}/${this.threshold}`)
+    const threshold = this.getThreshold()
+    console.log(`📊 [互动计数] ${characterId}: ${newCount}/${threshold}`)
     
-    if (newCount >= this.threshold) {
+    if (newCount >= threshold) {
       // 🔥 达到阈值，不再立即重置，而是标记计数已满（等提取成功后才重置）
-      localStorage.setItem(this.getStorageKey(characterId), this.threshold.toString())
+      localStorage.setItem(this.getStorageKey(characterId), threshold.toString())
       return true
     } else {
       // 更新计数
@@ -746,12 +790,6 @@ class InteractionCounter {
     localStorage.setItem(this.getStorageKey(characterId), '0')
   }
   
-  /**
-   * 获取阈值
-   */
-  getThreshold(): number {
-    return this.threshold
-  }
 }
 
 export const interactionCounter = new InteractionCounter()
@@ -782,14 +820,21 @@ export async function triggerCharacterMemoryExtraction(
       const { loadMessages } = await import('../utils/simpleMessageManager')
       const chatMessages = loadMessages(characterId)
       if (chatMessages.length > 0) {
-        results.privateChat = await extractMemoryFromChat(characterId, characterName, chatMessages, 'chat')
-        if (results.privateChat > 0) {
-          console.log(`  📱 [私聊] 提取了 ${results.privateChat} 条记忆`)
+        const chatResult = await extractMemoryFromChat(characterId, characterName, chatMessages, 'chat')
+        if (chatResult === -1) {
+          // 🔥 API失败，标记错误
+          hasApiError = true
+          console.log(`  ⚠️ [私聊] API失败，下次继续`)
+        } else {
+          results.privateChat = chatResult
+          if (chatResult > 0) {
+            console.log(`  📱 [私聊] 提取了 ${chatResult} 条记忆`)
+          }
         }
       }
     } catch (e) {
       console.log(`  ⚠️ [私聊] 提取失败`)
-      hasApiError = true  // 🔥 标记API错误
+      hasApiError = true
     }
     
     // 2. 提取该角色参与的群聊记忆
@@ -819,9 +864,14 @@ export async function triggerCharacterMemoryExtraction(
             formattedMessages,
             'chat'
           )
-          results.groupChat += count
-          if (count > 0) {
-            console.log(`  👥 [群聊] ${group.name}: 提取了 ${count} 条记忆`)
+          if (count === -1) {
+            hasApiError = true
+            console.log(`  ⚠️ [群聊] ${group.name}: API失败`)
+          } else {
+            results.groupChat += count
+            if (count > 0) {
+              console.log(`  👥 [群聊] ${group.name}: 提取了 ${count} 条记忆`)
+            }
           }
         }
       }
@@ -835,9 +885,15 @@ export async function triggerCharacterMemoryExtraction(
       const moments = loadMoments()
       
       if (moments.length > 0) {
-        results.moments = await extractMemoryFromMoments(characterId, characterName, moments)
-        if (results.moments > 0) {
-          console.log(`  📸 [朋友圈] 提取了 ${results.moments} 条记忆`)
+        const momentsResult = await extractMemoryFromMoments(characterId, characterName, moments)
+        if (momentsResult === -1) {
+          hasApiError = true
+          console.log(`  ⚠️ [朋友圈] API失败`)
+        } else {
+          results.moments = momentsResult
+          if (momentsResult > 0) {
+            console.log(`  📸 [朋友圈] 提取了 ${momentsResult} 条记忆`)
+          }
         }
       }
     } catch (e) {
@@ -875,9 +931,15 @@ export async function triggerCharacterMemoryExtraction(
             return summary
           })
           
-          results.forum = await extractMemoryFromAction(characterId, characterName, interactions, '论坛互动')
-          if (results.forum > 0) {
-            console.log(`  📝 [论坛] 提取了 ${results.forum} 条记忆`)
+          const forumResult = await extractMemoryFromAction(characterId, characterName, interactions, '论坛互动')
+          if (forumResult === -1) {
+            hasApiError = true
+            console.log(`  ⚠️ [论坛] API失败`)
+          } else {
+            results.forum = forumResult
+            if (forumResult > 0) {
+              console.log(`  📝 [论坛] 提取了 ${forumResult} 条记忆`)
+            }
           }
         }
       }
@@ -896,9 +958,15 @@ export async function triggerCharacterMemoryExtraction(
           `【线下记录】${r.offlineSummary?.title || ''}：${r.offlineSummary?.summary || ''}`
         )
         
-        results.offline = await extractMemoryFromAction(characterId, characterName, interactions, '线下记录')
-        if (results.offline > 0) {
-          console.log(`  🏠 [线下] 提取了 ${results.offline} 条记忆`)
+        const offlineResult = await extractMemoryFromAction(characterId, characterName, interactions, '线下记录')
+        if (offlineResult === -1) {
+          hasApiError = true
+          console.log(`  ⚠️ [线下] API失败`)
+        } else {
+          results.offline = offlineResult
+          if (offlineResult > 0) {
+            console.log(`  🏠 [线下] 提取了 ${offlineResult} 条记忆`)
+          }
         }
       }
     } catch (e) {

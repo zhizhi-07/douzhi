@@ -36,7 +36,7 @@ const InstagramActivity = () => {
 
   // 开始和角色私聊
   const startChatWithCharacter = (char: Character) => {
-    const name = char.nickname || char.realName || ''
+    const name = char.remark || char.nickname || char.realName || ''
 
     // 检查是否已有会话
     const existing = conversations.find(c => c.id === char.id)
@@ -66,7 +66,7 @@ const InstagramActivity = () => {
 
   // 过滤角色
   const filteredCharacters = characters.filter(char => {
-    const name = char.nickname || char.realName || ''
+    const name = char.remark || char.nickname || char.realName || ''
     return name.toLowerCase().includes(searchText.toLowerCase())
   })
 
@@ -241,13 +241,13 @@ const InstagramActivity = () => {
                           ) : (
                             <div
                               className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                              style={{ background: getAvatarGradient(char.nickname || char.realName) }}
+                              style={{ background: getAvatarGradient(char.remark || char.nickname || char.realName) }}
                             >
-                              {(char.nickname || char.realName)[0]}
+                              {(char.remark || char.nickname || char.realName)[0]}
                             </div>
                           )}
                           <span className="text-[10px] text-[#5A5A5A] text-center truncate w-full tracking-wide">
-                            {char.nickname || char.realName}
+                            {char.remark || char.nickname || char.realName}
                           </span>
                         </div>
                       ))}

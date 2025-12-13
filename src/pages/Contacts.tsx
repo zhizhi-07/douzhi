@@ -133,7 +133,7 @@ const Contacts = () => {
                   )}
                 </div>
                 <div className="ml-4 flex-1 min-w-0">
-                  <h3 className="text-[#2C2C2C] font-medium text-sm tracking-wide truncate">{character.nickname || character.realName}</h3>
+                  <h3 className="text-[#2C2C2C] font-medium text-sm tracking-wide truncate">{character.remark || character.nickname || character.realName}</h3>
                   {character.signature && (
                     <p className="text-xs text-[#8C8C8C] truncate mt-0.5 font-light">{character.signature}</p>
                   )}

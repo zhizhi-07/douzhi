@@ -111,7 +111,7 @@ const InstagramHome = () => {
 
   const getCharacterName = (id: string): string => {
     const char = characters.find(c => String(c.id) === String(id))
-    if (char) return char.nickname || char.realName || id
+    if (char) return char.remark || char.nickname || char.realName || id
     const npc = getNPCById(id)
     if (npc) return npc.name
     return id

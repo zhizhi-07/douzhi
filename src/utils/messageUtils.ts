@@ -351,6 +351,15 @@ export const convertToApiMessages = (
         }
       }
 
+      // 🎯 默契游戏结果消息 - AI需要知道用户评分
+      if (msg.messageType === 'tacitGameResult' && msg.aiReadableContent) {
+        console.log('  ✅ 默契游戏结果:', msg.aiReadableContent)
+        return {
+          role: 'system' as const,
+          content: msg.aiReadableContent + timeInterval
+        }
+      }
+
       // 重要系统消息列表（这些消息需要让AI看到）
       const importantKeywords = [
         '亲密付',
@@ -818,8 +827,8 @@ export const parseAIMessages = (aiReply: string): string[] => {
     console.log('💼 [parseAIMessages] 检测到忙碌指令，返回完整指令（不分割）')
     return [busyMatch[0]]
   }
-  
-  // 检测中插HTML小剧场：[小剧场HTML]...[/小剧场HTML]
+
+  // 检测中插HTML小剧场：[小剧场HTML]...[/小剧场HTML]（必须在画作检测之前）
   const htmlTheatreMatch = aiReply.match(/\[小剧场HTML\]([\s\S]*?)\[\/小剧场HTML\]/)
   if (htmlTheatreMatch) {
     console.log('🎭 [parseAIMessages] 检测到中插HTML小剧场')
@@ -838,9 +847,37 @@ export const parseAIMessages = (aiReply: string): string[] => {
     // 中插HTML作为单独一条消息
     messages.push(htmlTheatreMatch[0])
     
-    // 后面的内容按行分割
+    // 后面的内容递归处理（可能包含[画:]等指令）
     if (afterHtml) {
-      const afterMessages = afterHtml.split('\n').map(m => m.trim()).filter(m => m.length > 0)
+      const afterMessages = parseAIMessages(afterHtml)
+      messages.push(...afterMessages)
+    }
+    
+    return messages
+  }
+
+  // 检测AI画作指令：[画:...] 或 【画:...】（支持多行内容，必须在HTML小剧场之后）
+  const drawMatch = aiReply.match(/[\[【]画[:\：]([\s\S]+?)[\]】]/)
+  if (drawMatch) {
+    console.log('🎨 [parseAIMessages] 检测到AI画作指令')
+    const messages: string[] = []
+    
+    // 获取画作指令之前和之后的内容
+    const beforeDraw = aiReply.substring(0, drawMatch.index || 0).trim()
+    const afterDraw = aiReply.substring((drawMatch.index || 0) + drawMatch[0].length).trim()
+    
+    // 前面的内容按行分割
+    if (beforeDraw) {
+      const beforeMessages = beforeDraw.split('\n').map(m => m.trim()).filter(m => m.length > 0)
+      messages.push(...beforeMessages)
+    }
+    
+    // 画作指令作为单独一条消息（保持完整）
+    messages.push(drawMatch[0])
+    
+    // 后面的内容按行分割
+    if (afterDraw) {
+      const afterMessages = afterDraw.split('\n').map(m => m.trim()).filter(m => m.length > 0)
       messages.push(...afterMessages)
     }
     

@@ -459,6 +459,7 @@ export const callZhizhiApi = async (
     
   } catch (fallbackError) {
     console.error('❌ [汁汁API] 副API也调用失败:', fallbackError)
-    throw new Error('所有API（代付+副API）都调用失败')
+    // 🔥 返回空字符串而不是抛错，让调用方决定是否继续计数
+    return ''
   }
 }

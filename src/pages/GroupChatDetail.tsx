@@ -1670,6 +1670,14 @@ const GroupChatDetail = () => {
     } catch (error) {
       console.error('✅ AI回复失败:', error)
     } finally {
+      // 🔥 关键修复：批量模式结束前，将所有消息保存到 IndexedDB
+      // 批量模式期间 addMessage 只更新缓存不保存数据库，这里统一保存
+      const allMessages = groupChatManager.getMessages(id)
+      if (allMessages.length > 0) {
+        console.log(`💾 [AI回复完成] 保存 ${allMessages.length} 条消息到 IndexedDB`)
+        groupChatManager.replaceAllMessages(id, allMessages)
+      }
+      
       setIsAiTyping(false)
       setBatchMode(false)  // 🔥 关闭批量模式
       // 🔥 延迟清除AI回复标志，确保异步保存完成后再响应storage事件

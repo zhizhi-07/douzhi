@@ -31,6 +31,8 @@ interface MessageListProps {
   hasMoreMessages?: boolean
   isLoadingMessages?: boolean
   onLoadMore?: () => void
+  // 时间戳刷新key
+  timestampRefreshKey?: number
 }
 
 const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({ 
@@ -53,7 +55,8 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
   onRejectCoupleSpace,
   hasMoreMessages,
   isLoadingMessages,
-  onLoadMore
+  onLoadMore,
+  timestampRefreshKey = 0
 }, ref) => {
   // 性能优化：超过30条消息时启用虚拟化
   const shouldUseVirtualization = messages.length > 30
@@ -84,6 +87,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
         hasMoreMessages={hasMoreMessages}
         isLoadingMessages={isLoadingMessages}
         onLoadMore={onLoadMore}
+        timestampRefreshKey={timestampRefreshKey}
       />
     )
   }
@@ -97,7 +101,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(({
     >
       {messages.map((message) => (
         <MessageItem
-          key={message.id}
+          key={`${message.id}-${timestampRefreshKey}`}
           message={message}
           character={character}
           chatId={chatId}

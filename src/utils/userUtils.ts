@@ -105,6 +105,25 @@ export const hasUserAvatar = (): boolean => {
 }
 
 /**
+ * 获取当前账号的用户名（同步，考虑小号）
+ * 拍一拍等需要同步获取用户名的场景使用
+ */
+export const getCurrentUserName = (): string => {
+  if (isMainAccount()) {
+    const userInfo = getUserInfo()
+    return userInfo.nickname || userInfo.realName || '用户'
+  }
+  
+  const account = getCurrentAccount()
+  if (account) {
+    return account.name || '用户'
+  }
+  
+  const userInfo = getUserInfo()
+  return userInfo.nickname || userInfo.realName || '用户'
+}
+
+/**
  * 获取当前账号的用户信息（考虑小号）
  * 如果是主账号，返回主账号信息
  * 如果是小号，返回小号的名称和头像

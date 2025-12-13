@@ -5,6 +5,7 @@
 
 import { Message } from '../types/chat'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface PostCardProps {
   message: Message
@@ -12,12 +13,20 @@ interface PostCardProps {
 
 const PostCard = ({ message }: PostCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const navigate = useNavigate()
 
   if (!message.post) {
     return null
   }
 
-  const { content, prompt, images } = message.post
+  const { content, prompt, images, postId } = message.post
+
+  // 点击跳转到帖子详情（论坛帖子）
+  const handleViewDetail = () => {
+    if (postId) {
+      navigate(`/forum/post/${postId}`)
+    }
+  }
 
   // 智能识别论坛类型
   const detectForumType = () => {
@@ -111,7 +120,10 @@ const PostCard = ({ message }: PostCardProps) => {
     const summary = lines.slice(1).join(' ').trim()
 
     return (
-      <div className="w-[280px] rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-white/60 cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500 group backdrop-blur-xl bg-white/60">
+      <div 
+        className="w-[280px] rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-white/60 cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500 group backdrop-blur-xl bg-white/60"
+        onClick={handleViewDetail}
+      >
         <div className="flex items-start gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-black/90 flex items-center justify-center shadow-lg shadow-black/10 flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

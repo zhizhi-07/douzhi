@@ -24,7 +24,7 @@ import { addAIMemo } from '../../../utils/aiMemoManager'
 import { extractStatusFromReply, setAIStatus, getForceUpdateFlag, clearForceUpdateFlag } from '../../../utils/aiStatusManager'
 // 头像库服务
 import { getAvatarByDescription, getRandomAvatarByTagName, getTags } from '../../../utils/avatarLibraryService'
-import { getUserInfo } from '../../../utils/userUtils'
+import { getUserInfo, getCurrentUserName } from '../../../utils/userUtils'
 import { fillTemplate } from '../../../data/theatreTemplates'
 import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../../../utils/forumNPC'
 import { generateRealAIComments } from '../../../utils/forumAIComments'
@@ -88,18 +88,19 @@ const addMessage = async (
 
   if (chatId) {
     // 🔥 直接保存到IndexedDB（不依赖React状态，确保即使组件卸载也能保存）
-    // addMessage会触发new-message事件
+    // saveMessageToStorage会触发new-message事件，useChatState会监听并更新React状态
+    // 因此不需要再手动调用setMessages，否则会导致消息重复
     saveMessageToStorage(chatId, message)
     console.log('💾 [addMessage] 消息已保存到存储:', {
       chatId,
       messageId: message.id,
       messageType: message.messageType
     })
+  } else {
+    // 没有chatId时，直接更新React状态
+    setMessages(prev => [...prev, message])
+    console.log('📱 [addMessage] React状态已更新（无chatId）')
   }
-
-  // 同时更新React状态（如果组件还挂载，更新UI）
-  setMessages(prev => [...prev, message])
-  console.log('📱 [addMessage] React状态已更新')
 }
 
 /**
@@ -3122,7 +3123,9 @@ ${personality ? `人设：${personality}` : ''}
         messageType: 'post',
         post: {
           content: formattedContent,
-          prompt: `${aiName} 在论坛发布了帖子${statsText}`
+          prompt: `${aiName} 在论坛发布了帖子${statsText}`,
+          postId: postId,
+          images: imageUrls.length > 0 ? imageUrls : undefined
         },
         // AI读取的简洁版本
         aiReadableContent: `【论坛发帖】${displayContent}${statsText}`
@@ -3344,8 +3347,8 @@ export const theatreHandler: CommandHandler = {
 export const pokeHandler: CommandHandler = {
   pattern: /[\[【]拍一拍[:：]?([^\]】]*)[\]】]/,
   handler: async (match, content, { setMessages, character, chatId }) => {
-    const userInfo = getUserInfo()
-    const userName = userInfo.nickname || userInfo.realName || '用户'
+    // 🔥 使用考虑小号的函数获取用户名
+    const userName = getCurrentUserName()
     const aiName = character?.nickname || character?.realName || 'AI'
 
     // 使用AI填写的后缀
@@ -3894,6 +3897,34 @@ export const aiBuyCartHandler: CommandHandler = {
 }
 
 /**
+ * AI画emoji/字符画处理器
+ * 格式：[画:字符画内容]
+ */
+export const emojiDrawHandler: CommandHandler = {
+  pattern: /[\[【]画[:\：]([\s\S]+?)[\]】]/,
+  handler: async (match, content, { setMessages, chatId, isBlocked }) => {
+    const drawContent = match[1].trim()
+    
+    console.log('🎨 [AI画作] 检测到AI字符画:', drawContent.substring(0, 50))
+
+    const drawMsg = createMessageObj('emojiDraw' as any, {
+      emojiDraw: {
+        content: drawContent
+      }
+    }, isBlocked)
+
+    await addMessage(drawMsg, setMessages, chatId)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -3952,6 +3983,7 @@ export const commandHandlers: CommandHandler[] = [
   purchaseHandler,  // 购买商品
   changePokeSuffixHandler,  // 修改拍一拍后缀
   busyHandler,  // 忙碌场景
+  emojiDrawHandler,  // AI画emoji/字符画
   htmlTheatreHandler,  // 中插HTML小剧场
   phoneOperationHandler,  // 手机操作（通用格式）
   judgmentResponseHandler,  // 判定回应

@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -97,6 +97,10 @@ export interface Message {
     songArtist: string        // 歌手
     songCover?: string        // 封面图片
   }
+  emojiDrawInvite?: {         // 颜文字你画我猜邀请
+    inviterName: string       // 邀请人姓名
+    status: 'pending' | 'accepted' | 'rejected'  // 邀请状态
+  }
   paymentRequest?: {          // 代付请求
     itemName: string          // 商品/项目名称（外卖、衣服等）
     amount: number            // 金额
@@ -117,6 +121,8 @@ export interface Message {
   post?: {                    // 帖子卡片
     content: string           // 帖子内容（完整的帖子文本）
     prompt: string            // 用户的生成描述
+    postId?: string           // 帖子ID（用于跳转详情页）
+    images?: string[]         // 帖子图片
   }
   theatre?: {                 // 小剧场HTML
     templateId: string        // 模板ID
@@ -216,6 +222,14 @@ export interface Message {
     storeName?: string        // 店铺名称
     status: 'paid'            // 状态（送礼物都是已支付）
   }
+  tacitGameResult?: {         // 默契游戏结果
+    gameType: 'draw' | 'act'  // 游戏类型
+    topic: string             // 题目
+    aiGuess: string           // AI猜测的内容
+    isCorrect: boolean        // 是否猜对
+    characterName: string     // AI角色名
+    rating?: number           // 用户评分（1-5星）
+  }
   metadata?: {                // 技术元数据
     generationTime?: number   // 生成耗时(ms)
     tokenCount?: number       // 生成内容Token数(估算)
@@ -232,6 +246,7 @@ export interface Character {
   personality?: string  // 人设描述/性格
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
+  worldSetting?: string  // 世界观设定（自定义）
   // 以下为可选扩展字段（兼容外部角色卡/预设）
   world?: string
   scenario?: string

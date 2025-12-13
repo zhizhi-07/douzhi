@@ -156,9 +156,9 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   const dateStr = now.toLocaleDateString('zh-CN', { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric',
-    weekday: 'long'
+    day: 'numeric'
   })
+  const weekdayStr = now.toLocaleDateString('zh-CN', { weekday: 'long' })
   const currentTime = now.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -256,7 +256,8 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
         
         // 添加时间和角色信息
         const contextInfo = `
-当前时间：${dateStr} ${timeOfDay} ${currentTime}
+当前时间：${dateStr}（${weekdayStr}）${timeOfDay} ${currentTime}
+⚠️ 今天是${weekdayStr}，注意时间线一致性
 
 角色设定：
 - ${charName}：${personality}
@@ -329,7 +330,8 @@ export const buildOfflinePrompt = async (character: Character, userName: string 
   }
   
   // 默认提示词：使用导入的模板并替换变量
-  const contextInfo = `当前时间：${dateStr} ${timeOfDay} ${currentTime}
+  const contextInfo = `当前时间：${dateStr}（${weekdayStr}）${timeOfDay} ${currentTime}
+⚠️ 今天是${weekdayStr}，注意时间线一致性
 
 角色设定：
 - ${charName}：${personality}
@@ -504,6 +506,22 @@ interface MaskInfo {
 }
 
 /**
+ * 构建世界观上下文提示词
+ * 如果用户设置了自定义世界观，将其注入到系统提示词中
+ */
+function buildWorldSettingContext(worldSetting?: string): string {
+  if (!worldSetting || worldSetting.trim() === '') {
+    return ''  // 没有设置世界观，使用默认现代世界
+  }
+  
+  return `
+🌍 **世界观设定**
+${worldSetting}
+请根据以上世界观调整你的用语和行为方式，不要出现与世界观不符的现代词汇。
+`
+}
+
+/**
  * 构建系统提示词（完整版）
  */
 export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false, enableHtmlTheatre: boolean = false, maskInfo?: MaskInfo): Promise<string> => {
@@ -526,9 +544,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const dateStr = now.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
-    weekday: 'long'
+    day: 'numeric'
   })
+  const weekdayStr = now.toLocaleDateString('zh-CN', { weekday: 'long' })
   const currentTime = now.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -836,48 +854,68 @@ ${fullStatus}
   console.log(`📚 [世界书] 所有世界书:`, allLorebooks.map(lb => `${lb.name}(is_global:${lb.is_global}, character_ids:${JSON.stringify(lb.character_ids)})`))
   const lorebooks = lorebookManager.getCharacterLorebooks(character.id)
   console.log(`📚 [世界书] 最终使用 ${lorebooks.length} 本世界书`)
-  let lorebookContext = ''
+  
+  // 🔥 按位置分组世界书条目
+  const lorebookByPosition: Record<string, string[]> = {
+    top: [],        // 顶部：系统提示词最开头
+    before_char: [], // 角色前：在角色人设之前
+    after_char: [],  // 角色后：在角色人设之后
+    bottom: []       // 底部：系统提示词最后面
+  }
   
   if (lorebooks.length > 0) {
-    const allEntries: string[] = []
-    
     for (const lorebook of lorebooks) {
       const enabledEntries = lorebook.entries.filter(e => e.enabled)
       
       for (const entry of enabledEntries) {
+        let shouldInclude = false
+        
         // 如果是 constant 条目，始终包含
         if (entry.constant) {
-          allEntries.push(`【${entry.name || '背景设定'}】\n${entry.content}`)
-          continue
+          shouldInclude = true
+        } else {
+          // 否则检查是否匹配关键词
+          const recentMessages = messages.slice(-lorebook.scan_depth).map(m => m.content).join(' ')
+          shouldInclude = entry.keys.some(key => {
+            if (entry.use_regex) {
+              try {
+                const regex = new RegExp(key, entry.case_sensitive ? '' : 'i')
+                return regex.test(recentMessages)
+              } catch {
+                return false
+              }
+            } else {
+              return entry.case_sensitive 
+                ? recentMessages.includes(key)
+                : recentMessages.toLowerCase().includes(key.toLowerCase())
+            }
+          })
         }
         
-        // 否则检查是否匹配关键词
-        const recentMessages = messages.slice(-lorebook.scan_depth).map(m => m.content).join(' ')
-        const shouldInclude = entry.keys.some(key => {
-          if (entry.use_regex) {
-            try {
-              const regex = new RegExp(key, entry.case_sensitive ? '' : 'i')
-              return regex.test(recentMessages)
-            } catch {
-              return false
-            }
-          } else {
-            return entry.case_sensitive 
-              ? recentMessages.includes(key)
-              : recentMessages.toLowerCase().includes(key.toLowerCase())
-          }
-        })
-        
         if (shouldInclude) {
-          allEntries.push(`【${entry.name || '相关信息'}】\n${entry.content}`)
+          const position = entry.position || 'after_char'
+          const formattedEntry = `【${entry.name || '背景设定'}】\n${entry.content}`
+          lorebookByPosition[position].push(formattedEntry)
         }
       }
     }
     
-    if (allEntries.length > 0) {
-      lorebookContext = `\n\n世界观与背景知识：\n${allEntries.join('\n\n')}\n`
+    // 打印调试信息
+    const totalEntries = Object.values(lorebookByPosition).reduce((sum, arr) => sum + arr.length, 0)
+    if (totalEntries > 0) {
+      console.log(`📚 [世界书] 触发条目分布: top=${lorebookByPosition.top.length}, before_char=${lorebookByPosition.before_char.length}, after_char=${lorebookByPosition.after_char.length}, bottom=${lorebookByPosition.bottom.length}`)
     }
   }
+  
+  // 构建各位置的上下文
+  const lorebookTop = lorebookByPosition.top.length > 0 
+    ? `\n\n【世界观设定】\n${lorebookByPosition.top.join('\n\n')}\n` : ''
+  const lorebookBeforeChar = lorebookByPosition.before_char.length > 0 
+    ? `\n\n【世界观背景】\n${lorebookByPosition.before_char.join('\n\n')}\n` : ''
+  const lorebookAfterChar = lorebookByPosition.after_char.length > 0 
+    ? `\n\n【相关背景知识】\n${lorebookByPosition.after_char.join('\n\n')}\n` : ''
+  const lorebookBottom = lorebookByPosition.bottom.length > 0 
+    ? `\n\n【补充信息】\n${lorebookByPosition.bottom.join('\n\n')}\n` : ''
 
   // 🔥 读取线下记录（线下经历总结）
   let offlineRecordsContext = ''
@@ -943,7 +981,9 @@ ${fullStatus}
     console.error('读取天气信息失败:', e)
   }
 
-  return `${sceneSwitchReminder}
+  // 🌍 构建基础提示词，稍后根据世界观设定替换术语
+  // 🔥 lorebookTop 放在最开头（世界观大背景）
+  const basePrompt = `${lorebookTop}${sceneSwitchReminder}
 ⏰ **现在是 ${dateStr} ${timeOfDay} ${hour}:${now.getMinutes().toString().padStart(2, '0')}**
 ${timeSinceLastMessage ? `📱 距离上次消息已过 ${timeSinceLastMessage}` : ''}
 
@@ -1019,13 +1059,15 @@ ${timeSinceLastMessage ? `📱 距离上次消息已过 ${timeSinceLastMessage}`
 2. 其次：去油腻 / 反AI感的通用限制
 3. 最后：功能指令说明、聊天风格建议
 
+${lorebookBeforeChar}
 # 1. 你是谁（优先级最高）
 - **身份**：${charName}
 - **性格**：${personality}
 - **世界**：${(character as any).world || '现代现实世界'}
 - **签名**：${signature || '（无）'}
 - **当前状态**：${statusText}
-- **当前时间**：${dateStr} ${timeOfDay} ${currentTime}${weatherContext}
+- **当前时间**：${dateStr}（${weekdayStr}）${timeOfDay} ${currentTime}${weatherContext}
+- **⚠️ 时间感知**：今天是${weekdayStr}，约定事情时要注意日期，不要约"这个周六"如果今天已经是周六
 ${(character as any).isPublicFigure ? `- **公众人物**：你在公开场合有包袱，但现在是私聊，请卸下公关面具，展现私下真实的一面。
 - **公众形象**：${(character as any).publicPersona || '知名人物'}（这是你在网络上的人设，粉丝认识你的这个身份）
 - **社交平台**：你有自己的论坛账号，会偶尔更新动态（如官宣、日常分享、宣传等），可以用[发帖:内容]发论坛` : ''}
@@ -1042,7 +1084,7 @@ ${(() => {
   return ''
 })()}
 
-如果有世界观设定或背景信息，你心里会记着，在合适的时候自然带一点进去，而不是用设定文档的口吻背出来：${lorebookContext}
+如果有世界观设定或背景信息，你心里会记着，在合适的时候自然带一点进去，而不是用设定文档的口吻背出来：${lorebookAfterChar}
 如果你们有线下相处的经历，你会把那些当作已经发生过的真实记忆，可以在聊天里自然地回忆、提起或调侃，但不会当成此刻正在进行：${offlineRecordsContext}
 
 **底线**：不说自己是AI/机器人，不提技术词（token、接口）和幕后细节。消息中的时间标记如(5分钟后)(30秒后)[今天下午2:30，距上条1小时]等是系统自动添加的，你绝对不能模仿！
@@ -1405,7 +1447,12 @@ ${getMemesSuggestion(
 3. **拒绝解释**：不要解释你的行为（"我只是担心你"），直接做。
 4. **禁止句号**：句尾不要句号。
 
-不要加开头（如"好的"、"回复："），直接输出消息内容：`
+不要加开头（如"好的"、"回复："），直接输出消息内容：
+${lorebookBottom}`
+
+  // 🌍 添加世界观上下文（如果设置了的话）
+  const worldContext = buildWorldSettingContext(character.worldSetting)
+  return worldContext ? worldContext + '\n' + basePrompt : basePrompt
 }
 
 /**

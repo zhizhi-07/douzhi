@@ -119,15 +119,28 @@ const CloudAccount = () => {
     
     setSyncing(true)
     try {
-      const result = await downloadBackup()
+      // 添加超时机制，防止无限等待
+      const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) => {
+        setTimeout(() => resolve({ success: false, error: '操作超时，请重试' }), 30000)
+      })
+      
+      const result = await Promise.race([downloadBackup(), timeoutPromise])
+      
+      // 先重置状态，再处理结果
+      setSyncing(false)
+      
       if (result.success) {
-        alert('恢复成功，页面将刷新')
-        window.location.reload()
+        // 使用 setTimeout 确保 UI 更新后再刷新
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
       } else {
         alert('恢复失败: ' + result.error)
       }
-    } finally {
+    } catch (e) {
+      console.error('恢复异常:', e)
       setSyncing(false)
+      alert('恢复出错: ' + String(e))
     }
   }
 

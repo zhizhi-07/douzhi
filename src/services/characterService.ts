@@ -3,10 +3,12 @@
 
 import * as CharacterManager from '../utils/characterManager'
 
+
 export interface Character {
   id: string
   realName: string
   nickname?: string
+  remark?: string  // 用户给角色设置的备注名（类似微信备注）
   signature?: string
   personality?: string
   avatar?: string
@@ -16,6 +18,7 @@ export interface Character {
   isPublicFigure?: boolean  // 是否为公众人物（网络上都认识的人）
   publicPersona?: string  // 网络人设描述（如：全网黑、网红、争议人物）
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
+  worldSetting?: string  // 世界观设定（自定义，如"古代仙侠世界，用传信玉佩联系"）
 }
 
 // 🔥 完全移除localStorage依赖，只用IndexedDB

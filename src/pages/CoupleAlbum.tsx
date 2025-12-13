@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import FlipPhotoCard from '../components/FlipPhotoCard'
-import { getCouplePhotos, addCouplePhoto, type CoupleAlbumPhoto } from '../utils/coupleSpaceContentUtils'
+import { getCouplePhotos, addCouplePhoto, deleteCouplePhoto, type CoupleAlbumPhoto } from '../utils/coupleSpaceContentUtils'
 import { getCoupleSpaceRelation } from '../utils/coupleSpaceUtils'
 import { compressImage } from '../utils/imageCompression'
 
@@ -16,7 +16,8 @@ const CoupleAlbum = () => {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [photoDescription, setPhotoDescription] = useState('')
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [_imageFile, setImageFile] = useState<File | null>(null)
+  const [isManageMode, setIsManageMode] = useState(false) // 管理模式
 
   useEffect(() => {
     loadPhotos()
@@ -112,6 +113,23 @@ const CoupleAlbum = () => {
     setShowUploadModal(false)
   }
 
+  // 删除照片
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('确定要删除这张照片吗？')) return
+    
+    try {
+      const success = await deleteCouplePhoto(photoId)
+      if (success) {
+        await loadPhotos() // 重新加载照片列表
+      } else {
+        alert('删除失败，请重试')
+      }
+    } catch (error) {
+      console.error('❌ 删除照片失败:', error)
+      alert('删除失败，请重试')
+    }
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[#f5f7fa]">
       {/* 顶部栏 */}
@@ -125,12 +143,20 @@ const CoupleAlbum = () => {
             返回
           </button>
           <h1 className="text-lg font-semibold text-gray-900">相册</h1>
-          <button 
-            onClick={() => setShowUploadModal(true)}
-            className="text-blue-500 ios-button"
-          >
-            上传
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsManageMode(!isManageMode)}
+              className={`ios-button ${isManageMode ? 'text-red-500' : 'text-gray-500'}`}
+            >
+              {isManageMode ? '完成' : '管理'}
+            </button>
+            <button 
+              onClick={() => setShowUploadModal(true)}
+              className="text-blue-500 ios-button"
+            >
+              上传
+            </button>
+          </div>
         </div>
       </div>
 
@@ -168,7 +194,7 @@ const CoupleAlbum = () => {
               return (
                 <div key={photo.id} className="space-y-2">
                   {/* 照片显示 */}
-                  <div className="flex justify-center">
+                  <div className="flex justify-center relative">
                     {photo.imageUrl ? (
                       /* 真实照片 */
                       <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-lg">
@@ -177,13 +203,37 @@ const CoupleAlbum = () => {
                           alt={photo.description}
                           className="w-full h-full object-cover"
                         />
+                        {/* 删除按钮 - 管理模式下显示 */}
+                        {isManageMode && (
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 backdrop-blur-sm rounded-full flex items-center justify-center text-white shadow-lg ios-button"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     ) : (
                       /* 占位符卡片（兼容旧数据） */
-                      <FlipPhotoCard 
-                        description={photo.description}
-                        messageId={photo.timestamp}
-                      />
+                      <div className="relative">
+                        <FlipPhotoCard 
+                          description={photo.description}
+                          messageId={photo.timestamp}
+                        />
+                        {/* 删除按钮 - 管理模式下显示 */}
+                        {isManageMode && (
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 backdrop-blur-sm rounded-full flex items-center justify-center text-white shadow-lg ios-button z-10"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   

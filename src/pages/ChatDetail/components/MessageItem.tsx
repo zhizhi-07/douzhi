@@ -37,7 +37,7 @@ interface MessageItemProps {
   onEditOfflineRecord?: (message: Message) => void  // 新增：编辑线下记录
 }
 
-import { memo, useState, useEffect } from 'react'
+import { memo } from 'react'
 
 const MessageItemContent = ({
   message,
@@ -60,18 +60,10 @@ const MessageItemContent = ({
   onRejectMusicInvite,
   onEditOfflineRecord
 }: MessageItemProps) => {
-  // 直接从 localStorage 读取时间戳隐藏设置
-  const [hideTimestamp, setHideTimestamp] = useState(() => {
-    return localStorage.getItem('hide_message_timestamp') === 'true'
-  })
-  
-  useEffect(() => {
-    const handleUpdate = () => {
-      setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
-    }
-    window.addEventListener('timestampVisibilityUpdate', handleUpdate)
-    return () => window.removeEventListener('timestampVisibilityUpdate', handleUpdate)
-  }, [])
+  // 直接从 localStorage 读取时间戳设置（每次渲染时读取，确保实时生效）
+  const hideTimestamp = localStorage.getItem('hide_message_timestamp') === 'true'
+  const timestampInBubble = localStorage.getItem('timestamp_in_bubble') === 'true'
+  const globalButtonColor = localStorage.getItem('global_button_color') || '#475569'
 
   // 过滤特殊标签的函数
   const filterSpecialTags = (content: string): string => {
@@ -196,7 +188,7 @@ const MessageItemContent = ({
           name={character.realName}
           chatId={chatId}
         />
-        {!hideTimestamp && (
+        {!hideTimestamp && !timestampInBubble && (
           <div className="text-xs text-gray-400">
             {message.time}
           </div>
@@ -306,7 +298,16 @@ const MessageItemContent = ({
             onMouseUp={onLongPressEnd}
             onMouseLeave={onLongPressEnd}
           >
-            <div className="whitespace-pre-wrap">{filterSpecialTags(message.content || '')}</div>
+            {timestampInBubble && !hideTimestamp ? (
+              <div className="flex items-end gap-2">
+                <div className="whitespace-pre-wrap flex-1">{filterSpecialTags(message.content || '')}</div>
+                <span style={{ color: globalButtonColor, opacity: 0.7, fontSize: '10px' }}>
+                  {message.time}
+                </span>
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">{filterSpecialTags(message.content || '')}</div>
+            )}
           </div>
         )}
       </div>

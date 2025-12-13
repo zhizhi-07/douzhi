@@ -16,6 +16,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onLongPressStart,
   onLongPressEnd
 }) => {
+  // 读取时间戳设置
+  const hideTimestamp = localStorage.getItem('hide_message_timestamp') === 'true'
+  const timestampInBubble = localStorage.getItem('timestamp_in_bubble') === 'true'
+  const globalButtonColor = localStorage.getItem('global_button_color') || '#475569'
+  
   // 过滤掉特殊标签（这些只应在特定场景中显示）
   const filterSpecialTags = (content?: string) => {
     if (!content) return ''
@@ -71,7 +76,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}
     >
-      <div className="leading-relaxed">{formatText(displayContent)}</div>
+      {timestampInBubble && !hideTimestamp ? (
+        <div className="flex items-end gap-2">
+          <div className="leading-relaxed flex-1">{formatText(displayContent)}</div>
+          <span style={{ color: globalButtonColor, opacity: 0.7, fontSize: '10px' }}>
+            {message.time}
+          </span>
+        </div>
+      ) : (
+        <div className="leading-relaxed">{formatText(displayContent)}</div>
+      )}
     </div>
   )
 }

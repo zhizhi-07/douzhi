@@ -134,7 +134,7 @@ const GlobalMessageMonitor = () => {
               console.log(`❌ [GlobalMessageMonitor] 找不到角色: ${chatId}`)
               return
             }
-            title = character.nickname || character.realName
+            title = character.remark || character.nickname || character.realName
             avatar = character.avatar || ''
           }
           

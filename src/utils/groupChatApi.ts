@@ -58,9 +58,9 @@ function buildGroupChatPrompt(
   const currentDate = now.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
-    weekday: 'long'
+    day: 'numeric'
   })
+  const weekdayStr = now.toLocaleDateString('zh-CN', { weekday: 'long' })
   const currentHour = now.getHours()
   let timeOfDay = ''
   if (currentHour >= 5 && currentHour < 8) timeOfDay = '清晨'
@@ -569,7 +569,8 @@ ${enableHtmlTheatre ? `---
 
 ## 4. 当前环境
 
-- **时间**：${currentDate} ${currentTime} (${timeOfDay})
+- **时间**：${currentDate}（${weekdayStr}）${currentTime} (${timeOfDay})
+- **⚠️ 时间感知**：今天是${weekdayStr}，约定事情时注意日期
 - **群名**：${groupName}
 - **公告**：${announcement || '无'}
 - **用户**：${userName}${userIdentity} (这是真实用户，不是AI)

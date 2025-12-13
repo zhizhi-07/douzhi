@@ -154,13 +154,15 @@ export const useChatAI = (
         blocked: isUserBlocked
       })
       
-      // 保存用户消息（addMessage内部会自动备份到localStorage）
-      saveMessageToStorage(chatId, userMessage)
-      
-      // 更新React状态（更新UI）
+      // 🔥 先更新React状态（更新UI），再保存到存储
+      // 这样可以避免new-message事件重复添加消息
       setMessages(prev => {
         console.log(`📱 [handleSend] 更新React状态, 当前消息数=${prev.length}, 新消息id=${userMessage.id}`)
-        return [...prev, userMessage]
+        // 先添加到状态，然后保存
+        const newMessages = [...prev, userMessage]
+        // 异步保存，不触发new-message事件
+        saveMessages(chatId, newMessages)
+        return newMessages
       })
       setInputValue('')
       if (clearQuote) clearQuote()

@@ -84,7 +84,7 @@ const InstagramDMDetail = () => {
       const char = characters.find(c => c.id === npcId)
       if (char) {
         setCharacter(char as Character)
-        setNpcName(char.nickname || char.realName)
+        setNpcName(char.remark || char.nickname || char.realName)
         setNpcAvatar(char.avatar)
       }
 

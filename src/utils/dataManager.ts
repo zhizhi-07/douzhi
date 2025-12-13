@@ -310,6 +310,20 @@ async function exportIndexedDB(dbName: string): Promise<Record<string, any> | nu
   })
 }
 
+// 🔥 DouzhiDB 需要的完整 stores 列表（与 indexedDBManager.ts 保持一致）
+const DOUZHI_DB_STORES = [
+  'messages',        // 聊天消息
+  'moments',         // 朋友圈
+  'characters',      // 角色数据
+  'userInfo',        // 用户信息
+  'wallet',          // 钱包数据
+  'emojis',          // 表情包
+  'settings',        // 各种设置
+  'misc',            // 其他杂项
+  'dmMessages',      // 论坛私聊消息
+  'dmConversations'  // 论坛私聊会话
+]
+
 /**
  * 导入单个 IndexedDB 数据库
  * 🔥 修复：支持 key-value 格式和旧格式兼容
@@ -326,6 +340,9 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
     setTimeout(resolve, 2000)
   })
   
+  // 🔥 DouzhiDB 需要使用正确的版本号
+  const dbVersion = dbName === 'DouzhiDB' ? 4 : 1
+  
   return new Promise((resolve, reject) => {
     // 添加超时
     const timeout = setTimeout(() => {
@@ -333,12 +350,23 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
       reject(new Error(`打开数据库超时: ${dbName}`))
     }, 10000)
     
-    // 打开数据库（指定版本1，确保触发onupgradeneeded）
-    const request = indexedDB.open(dbName, 1)
+    // 打开数据库
+    const request = indexedDB.open(dbName, dbVersion)
     
     request.onupgradeneeded = () => {
       const db = request.result
-      // 创建所有需要的 object store（不使用 keyPath，用外部 key）
+      
+      // 🔥 DouzhiDB 需要创建完整的 stores 结构
+      if (dbName === 'DouzhiDB') {
+        DOUZHI_DB_STORES.forEach(storeName => {
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName)
+            console.log(`  📦 创建 store: ${storeName}`)
+          }
+        })
+      }
+      
+      // 创建导入数据中的 store
       Object.keys(data).forEach(storeName => {
         if (!db.objectStoreNames.contains(storeName)) {
           db.createObjectStore(storeName)

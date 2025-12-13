@@ -11,10 +11,14 @@ import { playSystemSound } from '../utils/soundManager'
 const DecorationHub = () => {
   const navigate = useNavigate()
   
-  // 隐藏消息时间戳设置
+  // 时间戳设置
   const [hideTimestamp, setHideTimestamp] = useState(() => {
     return localStorage.getItem('hide_message_timestamp') === 'true'
   })
+  const [timestampInBubble, setTimestampInBubble] = useState(() => {
+    return localStorage.getItem('timestamp_in_bubble') === 'true'
+  })
+  const [timestampExpanded, setTimestampExpanded] = useState(false)
 
   // 美化分组列表
   const groups = [
@@ -125,9 +129,16 @@ const DecorationHub = () => {
               <span className="text-xs text-slate-300 font-light">快捷设置</span>
             </div>
             
-            {/* 隐藏时间戳开关 */}
-            <div className="bg-white/40 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl p-4">
-              <div className="flex items-center justify-between">
+            {/* 时间戳设置卡片 */}
+            <div className="bg-white/40 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl overflow-hidden">
+              {/* 标题行 - 可点击展开 */}
+              <div 
+                className="p-4 flex items-center justify-between cursor-pointer"
+                onClick={() => {
+                  playSystemSound()
+                  setTimestampExpanded(!timestampExpanded)
+                }}
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-sm">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,27 +146,73 @@ const DecorationHub = () => {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-base font-medium text-slate-800 tracking-wide">隐藏消息时间</h3>
-                    <p className="text-xs text-slate-500 font-light mt-0.5">隐藏每条消息气泡下方的时间戳</p>
+                    <h3 className="text-base font-medium text-slate-800 tracking-wide">时间戳</h3>
+                    <p className="text-xs text-slate-500 font-light mt-0.5">消息时间显示设置</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    playSystemSound()
-                    const newValue = !hideTimestamp
-                    setHideTimestamp(newValue)
-                    localStorage.setItem('hide_message_timestamp', newValue.toString())
-                    window.dispatchEvent(new Event('timestampVisibilityUpdate'))
-                  }}
-                  className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
-                    hideTimestamp ? 'bg-orange-500' : 'bg-slate-300'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                    hideTimestamp ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
+                <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${timestampExpanded ? 'bg-slate-100 rotate-180' : ''}`}>
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
+              
+              {/* 展开内容 */}
+              {timestampExpanded && (
+                <div className="px-4 pb-4 space-y-3 border-t border-white/30">
+                  {/* 隐藏时间戳 */}
+                  <div className="flex items-center justify-between pt-3">
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">隐藏时间戳</div>
+                      <div className="text-xs text-slate-500 font-light mt-0.5">不显示消息发送时间</div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        playSystemSound()
+                        const newValue = !hideTimestamp
+                        setHideTimestamp(newValue)
+                        localStorage.setItem('hide_message_timestamp', newValue.toString())
+                        window.dispatchEvent(new Event('timestampVisibilityUpdate'))
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                        hideTimestamp ? 'bg-orange-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                        hideTimestamp ? 'left-6' : 'left-1'
+                      }`} />
+                    </button>
+                  </div>
+                  
+                  {/* 时间戳在气泡内 */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">时间戳在气泡内</div>
+                      <div className="text-xs text-slate-500 font-light mt-0.5">WhatsApp风格，时间显示在消息内部</div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        playSystemSound()
+                        const newValue = !timestampInBubble
+                        setTimestampInBubble(newValue)
+                        localStorage.setItem('timestamp_in_bubble', newValue.toString())
+                        window.dispatchEvent(new Event('timestampVisibilityUpdate'))
+                      }}
+                      disabled={hideTimestamp}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                        hideTimestamp ? 'bg-slate-200 cursor-not-allowed' : timestampInBubble ? 'bg-orange-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                        timestampInBubble && !hideTimestamp ? 'left-6' : 'left-1'
+                      }`} />
+                    </button>
+                  </div>
+                  
+                </div>
+              )}
             </div>
           </div>
 

@@ -175,11 +175,23 @@ export const getCouplePhotosSync = (characterId?: string): CoupleAlbumPhoto[] =>
   }
 }
 
-export const deleteCouplePhoto = (photoId: string): boolean => {
+export const deleteCouplePhoto = async (photoId: string): Promise<boolean> => {
   try {
+    // 1. 删除 localStorage 中的记录
     const photos = getCouplePhotosSync()
     const filtered = photos.filter((p: CoupleAlbumPhoto) => p.id !== photoId)
     localStorage.setItem(STORAGE_KEYS.ALBUM, JSON.stringify(filtered))
+    
+    // 2. 同时删除 IndexedDB 中的照片数据
+    try {
+      const { deletePhotoFromDB } = await import('./couplePhotosDB')
+      await deletePhotoFromDB(photoId)
+      console.log(`✅ 照片已从 IndexedDB 删除: ${photoId}`)
+    } catch (dbError) {
+      console.warn('⚠️ 从 IndexedDB 删除照片失败（可能不存在）:', dbError)
+      // 不影响整体删除结果
+    }
+    
     return true
   } catch (error) {
     console.error('删除照片失败:', error)

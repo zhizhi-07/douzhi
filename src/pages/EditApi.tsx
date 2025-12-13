@@ -36,7 +36,7 @@ const EditApi = () => {
     { value: 'google', label: 'Google Gemini', example: 'https://generativelanguage.googleapis.com/v1beta' },
     { value: 'openai', label: 'OpenAI', example: 'https://api.openai.com/v1' },
     { value: 'siliconflow', label: 'SiliconFlow', example: 'https://api.siliconflow.cn/v1' },
-    { value: 'custom', label: 'Custom Node', example: '' },
+    { value: 'custom', label: '自定义', example: '' },
   ]
 
   const handleProviderChange = (provider: string) => {

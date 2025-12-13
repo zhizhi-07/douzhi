@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { unifiedMemoryService, UnifiedMemory } from '../services/unifiedMemoryService'
 import { getAllCharacters } from '../utils/characterManager'
-import { triggerCharacterMemoryExtraction, retryPendingExtractions, getPendingExtractionCount } from '../services/memoryExtractor'
+import { triggerCharacterMemoryExtraction, retryPendingExtractions, getPendingExtractionCount, interactionCounter } from '../services/memoryExtractor'
 import type { Character } from '../services/characterService'
 
 const GlobalMemoryPage = () => {
@@ -22,6 +22,11 @@ const GlobalMemoryPage = () => {
   const [extractResult, setExtractResult] = useState<string>('')
   const [pendingCount, setPendingCount] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [showThresholdModal, setShowThresholdModal] = useState(false)
+  const [thresholdValue, setThresholdValue] = useState(15)
+  const [editingMemory, setEditingMemory] = useState<UnifiedMemory | null>(null)
+  const [editSummary, setEditSummary] = useState('')
+  const [editTitle, setEditTitle] = useState('')
 
   // 手动提取记忆
   const handleExtractMemory = async () => {
@@ -62,6 +67,8 @@ const GlobalMemoryPage = () => {
     loadCharacters()
     // 🔥 检查待提取队列
     setPendingCount(getPendingExtractionCount())
+    // 🔥 加载当前阈值设置
+    setThresholdValue(interactionCounter.getThreshold())
   }, [])
   
   // 🔥 启动时自动重试待提取任务
@@ -176,22 +183,30 @@ const GlobalMemoryPage = () => {
           
           <h1 className="text-lg font-semibold">AI记忆库</h1>
           
-          {/* 🔥 待提取队列状态 */}
-          {pendingCount > 0 ? (
+          {/* 🔥 右侧按钮组 */}
+          <div className="flex items-center gap-2">
+            {/* 设置按钮 - 更明显 */}
             <button
-              onClick={handleRetryPending}
-              disabled={isRetrying}
-              className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                isRetrying
-                  ? 'bg-yellow-100 text-yellow-600'
-                  : 'bg-orange-100 text-orange-600 active:scale-95'
-              }`}
+              onClick={() => setShowThresholdModal(true)}
+              className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium active:scale-95 transition-transform"
             >
-              {isRetrying ? '重试中...' : `❗${pendingCount}待提取`}
+              设置
             </button>
-          ) : (
-            <div className="w-9" /> /* 占位保持居中 */
-          )}
+            {/* 待提取队列状态 */}
+            {pendingCount > 0 && (
+              <button
+                onClick={handleRetryPending}
+                disabled={isRetrying}
+                className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isRetrying
+                    ? 'bg-yellow-100 text-yellow-600'
+                    : 'bg-orange-100 text-orange-600 active:scale-95'
+                }`}
+              >
+                {isRetrying ? '重试中...' : `❗${pendingCount}待提取`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -320,18 +335,15 @@ const GlobalMemoryPage = () => {
                         </div>
                         <p className="text-sm text-gray-600 line-clamp-2">{memory.summary}</p>
                       </div>
-                      {/* 删除按钮 - 直接显示在右上角 */}
+                      {/* 删除按钮 - 红色文字更明显 */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           deleteMemory(memory.id)
                         }}
-                        className="ml-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="删除这条记忆"
+                        className="ml-2 px-2 py-1 text-xs text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        删除
                       </button>
                     </div>
                     
@@ -377,15 +389,26 @@ const GlobalMemoryPage = () => {
                           </div>
                         )}
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingMemory(memory)
+                              setEditTitle(memory.title)
+                              setEditSummary(memory.summary)
+                            }}
+                            className="px-4 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium"
+                          >
+                            编辑
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
                               deleteMemory(memory.id)
                             }}
-                            className="px-4 py-2 text-sm text-red-600 hover:glass-card rounded-lg transition-colors"
+                            className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium"
                           >
-                            删除记忆
+                            删除
                           </button>
                         </div>
                       </div>
@@ -401,6 +424,108 @@ const GlobalMemoryPage = () => {
                 <p className="text-sm">暂无记忆</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* 🔥 阈值设置弹窗 */}
+      {showThresholdModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowThresholdModal(false)}>
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">记忆提取设置</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              这是<span className="font-medium text-orange-600">全局设置</span>，影响所有AI角色。每过设定的轮数后，系统会自动提取记忆。
+            </p>
+            <p className="text-xs text-gray-400 mb-4">
+              一轮 = 一次AI回复，包括私聊、论坛评论、群聊等所有互动。
+            </p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-gray-600">每</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={thresholdValue}
+                onChange={e => setThresholdValue(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600">轮提取一次记忆</span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowThresholdModal(false)}
+                className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium active:scale-95 transition-transform"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  interactionCounter.setThreshold(thresholdValue)
+                  setShowThresholdModal(false)
+                }}
+                className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium active:scale-95 transition-transform"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 🔥 编辑记忆弹窗 */}
+      {editingMemory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingMemory(null)}>
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">编辑记忆</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">标题</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="记忆标题"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">内容</label>
+                <textarea
+                  value={editSummary}
+                  onChange={e => setEditSummary(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={6}
+                  placeholder="记忆内容..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingMemory(null)}
+                className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium active:scale-95 transition-transform"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  if (editingMemory) {
+                    await unifiedMemoryService.updateMemory(editingMemory.id, {
+                      title: editTitle,
+                      summary: editSummary
+                    })
+                    setEditingMemory(null)
+                    await loadMemories()
+                    console.log('✅ 记忆已更新')
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium active:scale-95 transition-transform"
+              >
+                保存
+              </button>
+            </div>
           </div>
         </div>
       )}

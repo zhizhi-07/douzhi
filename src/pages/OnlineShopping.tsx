@@ -40,6 +40,9 @@ const PRODUCTS: Product[] = [
 // 商品分类
 const CATEGORIES = ['推荐', '数码', '美妆', '居家', '服饰', '食品', '百货']
 
+// 保存的自定义商品key
+const SAVED_PRODUCTS_KEY = 'saved_custom_products'
+
 const OnlineShopping = () => {
   const navigate = useNavigate()
   const { id: chatId } = useParams<{ id: string }>()
@@ -50,6 +53,8 @@ const OnlineShopping = () => {
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [customProduct, setCustomProduct] = useState({ name: '', price: '', description: '' })
   const [selectedCategory, setSelectedCategory] = useState('推荐')
+  const [savedProducts, setSavedProducts] = useState<Product[]>([])
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
 
   // 显示的商品列表（根据分类和搜索结果筛选）
   const displayProducts = (() => {
@@ -73,6 +78,63 @@ const OnlineShopping = () => {
       setCart(JSON.parse(savedCart))
     }
   }, [chatId])
+
+  // 从localStorage加载已保存的自定义商品
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_PRODUCTS_KEY)
+    if (saved) {
+      setSavedProducts(JSON.parse(saved))
+    }
+  }, [])
+
+  // 保存自定义商品到列表
+  const saveCustomProduct = () => {
+    if (!customProduct.name || !customProduct.price || !customProduct.description) {
+      alert('请填写完整信息')
+      return
+    }
+    
+    const newProduct: Product = {
+      id: editingProductId || `saved-${Date.now()}`,
+      name: customProduct.name,
+      price: parseFloat(customProduct.price),
+      description: customProduct.description,
+      sales: Math.floor(Math.random() * 5000)
+    }
+    
+    let updated: Product[]
+    if (editingProductId) {
+      // 编辑现有商品
+      updated = savedProducts.map(p => p.id === editingProductId ? newProduct : p)
+    } else {
+      // 新增商品
+      updated = [...savedProducts, newProduct]
+    }
+    
+    setSavedProducts(updated)
+    localStorage.setItem(SAVED_PRODUCTS_KEY, JSON.stringify(updated))
+    setCustomProduct({ name: '', price: '', description: '' })
+    setEditingProductId(null)
+    alert(editingProductId ? '商品已更新' : '商品已保存')
+  }
+
+  // 删除已保存的商品
+  const deleteSavedProduct = (productId: string) => {
+    const updated = savedProducts.filter(p => p.id !== productId)
+    setSavedProducts(updated)
+    localStorage.setItem(SAVED_PRODUCTS_KEY, JSON.stringify(updated))
+  }
+
+  // 编辑已保存的商品
+  const editSavedProduct = (product: Product) => {
+    setCustomProduct({
+      name: product.name,
+      price: product.price.toString(),
+      description: product.description
+    })
+    setEditingProductId(product.id)
+    setShowCustomModal(true)
+  }
 
   // 保存购物车到localStorage
   useEffect(() => {
@@ -298,6 +360,64 @@ const OnlineShopping = () => {
           </div>
         ) : (
           <>
+            {/* 自定义商品区域 - 显示在最上面 */}
+            {savedProducts.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h3 className="text-sm font-bold text-gray-700">我的自定义商品</h3>
+                  <span className="text-xs text-gray-400">{savedProducts.length}件</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {savedProducts.map(product => (
+                    <div key={product.id} className="flex justify-center relative">
+                      <ProductCard
+                        name={product.name}
+                        price={product.price}
+                        description={product.description}
+                        sales={product.sales}
+                        actionText="加入购物车"
+                        onAction={() => addToCart(product)}
+                        onShare={() => forwardProduct(product)}
+                      />
+                      {/* 编辑/删除按钮 */}
+                      <div className="absolute top-2 right-2 flex gap-1 z-10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            editSavedProduct(product)
+                          }}
+                          className="w-6 h-6 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm active:scale-95"
+                        >
+                          <svg className="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm('确定删除这个商品吗？')) {
+                              deleteSavedProduct(product.id)
+                            }
+                          }}
+                          className="w-6 h-6 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm active:scale-95"
+                        >
+                          <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 普通商品列表 */}
+            {displayProducts.length > 0 && savedProducts.length > 0 && (
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h3 className="text-sm font-bold text-gray-700">全部商品</h3>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               {displayProducts.map(product => (
                 <div
@@ -337,13 +457,26 @@ const OnlineShopping = () => {
         <>
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
-            onClick={() => setShowCustomModal(false)}
+            onClick={() => {
+              setShowCustomModal(false)
+              setEditingProductId(null)
+              setCustomProduct({ name: '', price: '', description: '' })
+            }}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] animate-slide-up max-h-[85vh] overflow-y-auto">
             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">自定义商品卡片</h3>
-              <button onClick={() => setShowCustomModal(false)} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editingProductId ? '编辑商品' : '自定义商品卡片'}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowCustomModal(false)
+                  setEditingProductId(null)
+                  setCustomProduct({ name: '', price: '', description: '' })
+                }} 
+                className="p-2 bg-gray-50 rounded-full hover:bg-gray-100"
+              >
                 <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -390,26 +523,66 @@ const OnlineShopping = () => {
               <div className="pt-4 flex gap-3">
                 <button
                   onClick={() => {
-                    if (!customProduct.name || !customProduct.price || !customProduct.description) {
-                      alert('请填写完整信息')
-                      return
-                    }
-                    const newProduct: Product = {
-                      id: `custom-${Date.now()}`,
-                      name: customProduct.name,
-                      price: parseFloat(customProduct.price),
-                      description: customProduct.description,
-                      sales: Math.floor(Math.random() * 5000) // 随机销量
-                    }
-                    forwardProduct(newProduct)
                     setCustomProduct({ name: '', price: '', description: '' })
+                    setEditingProductId(null)
+                    setShowCustomModal(false)
+                  }}
+                  className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-full font-bold text-lg active:scale-[0.98] transition-transform"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    saveCustomProduct()
                     setShowCustomModal(false)
                   }}
                   className="flex-1 py-3.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full font-bold text-lg shadow-lg shadow-orange-200 active:scale-[0.98] transition-transform"
                 >
-                  生成并发送
+                  {editingProductId ? '更新商品' : '保存商品'}
                 </button>
               </div>
+
+              {/* 已保存的商品列表 */}
+              {savedProducts.length > 0 && (
+                <div className="pt-4 border-t border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-500 mb-3">已保存的商品（点击发送）</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {savedProducts.map(product => (
+                      <div 
+                        key={product.id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group"
+                      >
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => {
+                            forwardProduct(product)
+                            setShowCustomModal(false)
+                          }}
+                        >
+                          <div className="font-medium text-gray-800 text-sm">{product.name}</div>
+                          <div className="text-orange-500 font-din font-bold text-sm">¥{product.price}</div>
+                        </div>
+                        <button
+                          onClick={() => editSavedProduct(product)}
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => deleteSavedProduct(product.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>

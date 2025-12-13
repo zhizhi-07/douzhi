@@ -77,7 +77,7 @@ const ChatList = () => {
         return {
           ...chat,
           avatar: character?.avatar || chat.avatar,
-          name: character ? (character.nickname || character.realName) : chat.name,
+          name: character ? (character.remark || character.nickname || character.realName) : chat.name,
           unread
         }
       }
@@ -98,7 +98,7 @@ const ChatList = () => {
         return {
           ...chat,
           avatar: character?.avatar || chat.avatar,
-          name: character ? (character.nickname || character.realName) : chat.name
+          name: character ? (character.remark || character.nickname || character.realName) : chat.name
           // 保留 unread 字段
         }
       }
@@ -122,7 +122,7 @@ const ChatList = () => {
       return {
         ...chat,
         avatar: character?.avatar || chat.avatar,
-        name: character ? (character.nickname || character.realName) : chat.name,
+        name: character ? (character.remark || character.nickname || character.realName) : chat.name,
         lastMessage: lastMessageText,
         time: lastMessage.time,
         timestamp: lastMessage.timestamp || 0,  // 保存时间戳用于排序

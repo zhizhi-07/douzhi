@@ -52,16 +52,16 @@ const saveCache = (cache: TopicsCache) => {
   }
 }
 
-// 调用zhizhiapi获取20个题目
+// 调用zhizhiapi获取100个题目
 const fetchTopicsFromAPI = async (type: 'draw' | 'act'): Promise<string[]> => {
   const prompt = type === 'draw' 
-    ? '请生成20个适合你画我猜游戏的词语，要求：简单易画、名词为主（如动物、物品、食物等）。直接输出词语，用逗号分隔，不要解释。'
-    : '请生成20个适合你演我猜游戏的词语，要求：动作类词语为主（如运动、日常动作等）。直接输出词语，用逗号分隔，不要解释。'
+    ? '请生成100个适合你画我猜游戏的词语，要求：简单易画、名词为主（如动物、物品、食物、植物、交通工具、生活用品等）。直接输出词语，用逗号分隔，不要解释。'
+    : '请生成100个适合你演我猜游戏的词语，要求：动作类词语为主（如运动、日常动作、职业动作等）。直接输出词语，用逗号分隔，不要解释。'
 
   try {
     const response = await callZhizhiApi(
       [{ role: 'user', content: prompt }],
-      { temperature: 0.8, max_tokens: 500 }
+      { temperature: 0.8, max_tokens: 2000 }
     )
     
     if (response) {
@@ -70,7 +70,7 @@ const fetchTopicsFromAPI = async (type: 'draw' | 'act'): Promise<string[]> => {
         .split(/[,，、\n]+/)
         .map((t: string) => t.trim())
         .filter((t: string) => t.length > 0 && t.length <= 10)  // 过滤太长的
-        .slice(0, 20)  // 最多20个
+        .slice(0, 100)  // 最多100个
       
       if (topics.length >= 5) {
         console.log(`🎮 从zhizhiapi获取了${topics.length}个${type === 'draw' ? '你画我猜' : '你演我猜'}题目`)
@@ -89,7 +89,7 @@ const fetchTopicsFromAPI = async (type: 'draw' | 'act'): Promise<string[]> => {
 interface TacitGameSelectProps {
   isOpen: boolean
   onClose: () => void
-  onSelectGame: (type: 'draw' | 'act') => void
+  onSelectGame: (type: 'draw' | 'act' | 'ai-draw') => void
   characterName: string
 }
 
@@ -114,46 +114,62 @@ export const TacitGameSelect = ({
 
         <div className="p-6 space-y-6">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-rose-50 to-orange-50 mb-3 shadow-inner border border-rose-100/50">
-              <svg className="w-8 h-8 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-50 mb-3 shadow-sm border border-rose-100">
+              <svg className="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 tracking-tight">默契大考验</h3>
+            <h3 className="text-xl font-bold text-gray-900 tracking-tight">默契大考验</h3>
             <p className="text-sm text-gray-500 mt-1">和 {characterName} 看看你们有多合拍</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => onSelectGame('draw')}
-              className="group relative p-4 bg-gradient-to-br from-amber-50/80 to-orange-50/80 hover:from-amber-100 hover:to-orange-100 rounded-2xl border border-orange-100/50 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
+              className="group relative p-4 bg-white hover:bg-orange-50/50 rounded-2xl border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
             >
-              <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-orange-500">
+              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-orange-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </div>
               <div className="text-left relative z-10">
-                <div className="text-lg font-bold text-gray-800 mb-0.5">你画我猜</div>
-                <div className="text-xs text-gray-500 font-medium">灵魂画手上线</div>
+                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-orange-700 transition-colors">你画我猜</div>
+                <div className="text-xs text-gray-500 font-medium group-hover:text-orange-600/70">灵魂画手上线</div>
               </div>
             </button>
 
             <button
               onClick={() => onSelectGame('act')}
-              className="group relative p-4 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 hover:from-blue-100 hover:to-cyan-100 rounded-2xl border border-blue-100/50 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
+              className="group relative p-4 bg-white hover:bg-blue-50/50 rounded-2xl border border-gray-100 hover:border-blue-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
             >
-              <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-blue-500">
+              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-blue-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="text-left relative z-10">
-                <div className="text-lg font-bold text-gray-800 mb-0.5">你演我猜</div>
-                <div className="text-xs text-gray-500 font-medium">戏精本精登场</div>
+                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-blue-700 transition-colors">你演我猜</div>
+                <div className="text-xs text-gray-500 font-medium group-hover:text-blue-600/70">戏精本精登场</div>
               </div>
             </button>
           </div>
+
+          {/* AI画你猜 - 单独一行 */}
+          <button
+            onClick={() => onSelectGame('ai-draw')}
+            className="group relative w-full p-4 bg-white hover:bg-purple-50/50 rounded-2xl border border-gray-100 hover:border-purple-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-purple-600 text-xl">
+                🎨
+              </div>
+              <div className="text-left relative z-10">
+                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-purple-700 transition-colors">{characterName}画你猜</div>
+                <div className="text-xs text-gray-500 font-medium group-hover:text-purple-600/70">TA用字符画画，你来猜</div>
+              </div>
+            </div>
+          </button>
 
           <button
             onClick={onClose}
@@ -172,15 +188,13 @@ interface TacitTopicCardProps {
   topic: string
   gameType: 'draw' | 'act'
   onChangeTopic: () => void
+  onSetCustomTopic?: (topic: string) => void  // 设置自定义题目
   onClose: () => void
   onOpenPanel: () => void
-  onConfirmCorrect?: () => void
   isPanelOpen: boolean
   hasSent?: boolean  // 是否已发送画作/描述
-  hasAiGuessed?: boolean  // AI是否已猜测
-  isAiCorrect?: boolean  // AI是否猜对
-  aiGuess?: string  // AI猜的内容
   isAiTyping?: boolean  // AI是否正在打字
+  isJudging?: boolean  // 是否正在AI判定
   isRefreshing?: boolean  // 是否正在刷新题库
   remainingCount?: number  // 剩余题目数量
 }
@@ -189,18 +203,18 @@ export const TacitTopicCard = ({
   topic,
   gameType,
   onChangeTopic,
+  onSetCustomTopic,
   onClose,
   onOpenPanel,
-  onConfirmCorrect,
   isPanelOpen,
   hasSent = false,
-  hasAiGuessed = false,
-  isAiCorrect = false,
-  aiGuess = '',
   isAiTyping = false,
+  isJudging = false,
   isRefreshing = false,
   remainingCount = 0
 }: TacitTopicCardProps) => {
+  const [isCustomMode, setIsCustomMode] = useState(false)
+  const [customInput, setCustomInput] = useState('')
   const isDrawGame = gameType === 'draw'
 
   // 动态样式配置
@@ -216,7 +230,7 @@ export const TacitTopicCard = ({
     accent: 'text-orange-600',
     topic: 'text-gray-800',
     btn: 'bg-gray-50 text-gray-600 hover:bg-gray-100',
-    mainBtn: 'bg-gray-900 text-white shadow-lg shadow-gray-200',
+    mainBtn: 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200',
     label: '画板'
   } : {
     bg: 'bg-white/90',
@@ -230,7 +244,7 @@ export const TacitTopicCard = ({
     accent: 'text-blue-600',
     topic: 'text-gray-800',
     btn: 'bg-gray-50 text-gray-600 hover:bg-gray-100',
-    mainBtn: 'bg-gray-900 text-white shadow-lg shadow-gray-200',
+    mainBtn: 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-200',
     label: '输入'
   }
 
@@ -259,58 +273,119 @@ export const TacitTopicCard = ({
 
         {/* 内容区 */}
         <div className="flex items-end justify-between">
-          <div className="relative">
-            <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">Current Topic</div>
-            <div className={`text-2xl font-bold ${styles.topic} tracking-tight leading-none`}>
-              {topic}
+          <div className="relative flex-1 mr-3">
+            <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">
+              {isCustomMode ? 'Custom Topic' : 'Current Topic'}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* 判定结果显示 */}
-            {hasSent && hasAiGuessed && !isPanelOpen && !isAiTyping && (
-              isAiCorrect ? (
-                // 猜对了 - 自动显示成功
+            {isCustomMode ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="输入自定义题目..."
+                  className="flex-1 text-lg font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customInput.trim()) {
+                      onSetCustomTopic?.(customInput.trim())
+                      setIsCustomMode(false)
+                      setCustomInput('')
+                    } else if (e.key === 'Escape') {
+                      setIsCustomMode(false)
+                      setCustomInput('')
+                    }
+                  }}
+                />
                 <button
-                  onClick={onConfirmCorrect}
-                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 animate-pulse"
+                  onClick={() => {
+                    if (customInput.trim()) {
+                      onSetCustomTopic?.(customInput.trim())
+                      setIsCustomMode(false)
+                      setCustomInput('')
+                    }
+                  }}
+                  disabled={!customInput.trim()}
+                  className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold disabled:opacity-50"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                  猜对了！
+                  确定
                 </button>
-              ) : aiGuess ? (
-                // 猜错了 - 显示猜的内容
-                <div className="px-2.5 py-1 bg-red-50 text-red-500 rounded-lg text-xs font-medium">
-                  ✗ 猜的"{aiGuess}"
-                </div>
-              ) : null
-            )}
-
-            <button
-              onClick={onChangeTopic}
-              disabled={isRefreshing}
-              className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1 disabled:opacity-50`}
-            >
-              {isRefreshing ? (
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              )}
-              {isRefreshing ? '刷新中' : remainingCount > 0 ? `换题(${remainingCount})` : '换题'}
-            </button>
-
-            {!isPanelOpen && (
-              <button
-                onClick={onOpenPanel}
-                className={`px-4 py-1.5 ${styles.mainBtn} rounded-lg text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5`}
-              >
-                <span>{styles.label}</span>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
+                <button
+                  onClick={() => {
+                    setIsCustomMode(false)
+                    setCustomInput('')
+                  }}
+                  className="px-2 py-1.5 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className={`text-2xl font-bold ${styles.topic} tracking-tight leading-none`}>
+                {topic}
+              </div>
             )}
           </div>
+
+          {!isCustomMode && (
+            <div className="flex items-center gap-2">
+              {/* 判定状态显示 */}
+              {hasSent && !isPanelOpen && (
+                isJudging ? (
+                  // 正在AI判定中
+                  <div className="px-3 py-1.5 bg-blue-50 text-blue-500 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    判定中...
+                  </div>
+                ) : isAiTyping ? (
+                  // AI正在打字
+                  <div className="px-2.5 py-1 bg-gray-50 text-gray-400 rounded-lg text-xs font-medium">
+                    等待回复...
+                  </div>
+                ) : null
+              )}
+
+              {/* 自定义题目按钮 */}
+              <button
+                onClick={() => setIsCustomMode(true)}
+                className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1`}
+                title="自定义题目"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                自定
+              </button>
+
+              <button
+                onClick={onChangeTopic}
+                disabled={isRefreshing}
+                className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1 disabled:opacity-50`}
+              >
+                {isRefreshing ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                )}
+                {isRefreshing ? '刷新中' : remainingCount > 0 ? `换题(${remainingCount})` : '换题'}
+              </button>
+
+              {!isPanelOpen && (
+                <button
+                  onClick={onOpenPanel}
+                  className={`px-4 py-1.5 ${styles.mainBtn} rounded-lg text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5`}
+                >
+                  <span>{styles.label}</span>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -500,7 +575,7 @@ export const TacitDrawPanel = ({
         <button
           onClick={handleSend}
           disabled={!hasDrawn}
-          className="px-6 py-3 bg-gray-900 text-white rounded-full font-bold shadow-lg shadow-gray-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
+          className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-bold shadow-lg shadow-orange-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
         >
           <span>发送</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -559,7 +634,7 @@ export const TacitActPanel = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="描述动作让TA猜..."
-            className="w-full h-32 p-4 bg-gray-50 rounded-2xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all text-base text-gray-800 placeholder:text-gray-400"
+            className="w-full h-32 p-4 bg-gray-50 rounded-2xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-base text-gray-800 placeholder:text-gray-400"
           />
           <div className="absolute bottom-3 right-3 text-xs text-gray-400 font-medium">
             {description.length}/50
@@ -572,7 +647,7 @@ export const TacitActPanel = ({
         <button
           onClick={handleSend}
           disabled={!description.trim()}
-          className="px-8 py-3 bg-gray-900 text-white rounded-full font-bold shadow-lg shadow-gray-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
+          className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
         >
           <span>发送</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>

@@ -56,14 +56,14 @@ export default function SimpleNotificationListener() {
 
       // 显示通知
       setNotification({
-        title: character.nickname || character.realName,
+        title: character.remark || character.nickname || character.realName,
         message: message.content || '[消息]',
         chatId,
         avatar: character.avatar
       })
       setShowNotification(true)
 
-      console.log(`📬 新消息通知: ${character.nickname || character.realName}`)
+      console.log(`📬 新消息通知: ${character.remark || character.nickname || character.realName}`)
     }
     
     // 🔥 监听后台消息事件（由 GlobalMessageMonitor 触发）

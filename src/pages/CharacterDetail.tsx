@@ -10,12 +10,15 @@ const CharacterDetail = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     nickname: '',
+    remark: '',
     realName: '',
     signature: '',
     personality: '',
     avatar: '',
     isPublicFigure: false,
-    publicPersona: ''
+    publicPersona: '',
+    pokeSuffix: '',
+    worldSetting: ''
   })
 
   useEffect(() => {
@@ -25,12 +28,15 @@ const CharacterDetail = () => {
         setCharacter(data)
         setFormData({
           nickname: data.nickname || '',
+          remark: data.remark || '',
           realName: data.realName,
           signature: data.signature || '',
           personality: data.personality || '',
           avatar: data.avatar || '',
           isPublicFigure: data.isPublicFigure || false,
-          publicPersona: data.publicPersona || ''
+          publicPersona: data.publicPersona || '',
+          pokeSuffix: data.pokeSuffix || '',
+          worldSetting: data.worldSetting || ''
         })
       }
     }
@@ -175,6 +181,24 @@ const CharacterDetail = () => {
 
           <div className="border-b border-gray-100 my-3"></div>
 
+          {/* 备注 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">备注</label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.remark}
+                onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                placeholder="给TA设置一个备注名"
+                className="w-full bg-transparent text-gray-900 outline-none text-sm"
+              />
+            ) : (
+              <p className="text-gray-900 text-sm">{character.remark || '未设置'}</p>
+            )}
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
           {/* 个性签名 */}
           <div className="mb-4">
             <label className="block text-xs text-gray-500 mb-1.5">个性签名</label>
@@ -206,6 +230,43 @@ const CharacterDetail = () => {
               />
             ) : (
               <p className="text-gray-900 text-sm">{character.personality || '未设置'}</p>
+            )}
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
+          {/* 拍一拍后缀 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">拍一拍后缀</label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.pokeSuffix}
+                onChange={(e) => setFormData({ ...formData, pokeSuffix: e.target.value })}
+                placeholder="如：的小脑袋（可选）"
+                className="w-full bg-transparent text-gray-900 outline-none text-sm"
+              />
+            ) : (
+              <p className="text-gray-900 text-sm">{character.pokeSuffix || '未设置'}</p>
+            )}
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
+          {/* 世界观设定 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">世界观设定</label>
+            <div className="text-xs text-gray-400 mb-2">描述角色所在的世界观（如古代、仙侠、科幻等）</div>
+            {isEditing ? (
+              <textarea
+                value={formData.worldSetting}
+                onChange={(e) => setFormData({ ...formData, worldSetting: e.target.value })}
+                placeholder="例如：古代仙侠世界，用传信玉佩联系，发消息叫传书...（留空则为现代世界）"
+                rows={2}
+                className="w-full bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none resize-none"
+              />
+            ) : (
+              <p className="text-gray-900 text-sm">{character.worldSetting || '现代世界（默认）'}</p>
             )}
           </div>
 

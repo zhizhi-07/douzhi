@@ -5,7 +5,6 @@ import { characterService } from '../services/characterService'
 import { extractCharacterCardFromPNG, convertCharacterCardToInternal } from '../utils/characterCardParser'
 import { lorebookManager } from '../utils/lorebookSystem'
 import { readImportFile, importCharacterData } from '../utils/characterDataExporter'
-import { promptPassword } from '../utils/passwordProtection'
 
 const CreateCharacter = () => {
   const navigate = useNavigate()
@@ -21,7 +20,8 @@ const CreateCharacter = () => {
     avatar: '',        // 头像
     isPublicFigure: false,  // 是否为公众人物
     publicPersona: '', // 网络人设描述
-    pokeSuffix: ''     // 拍一拍后缀
+    pokeSuffix: '',    // 拍一拍后缀
+    worldSetting: ''     // 世界观设定（自定义）
   })
   
   const [isImporting, setIsImporting] = useState(false)
@@ -84,7 +84,8 @@ const CreateCharacter = () => {
           personality: converted.description,
           isPublicFigure: false,
           publicPersona: '',
-          pokeSuffix: ''
+          pokeSuffix: '',
+          worldSetting: ''
         })
         
         setIsImporting(false)
@@ -238,13 +239,7 @@ const CreateCharacter = () => {
               className="hidden"
             />
             <button 
-              onClick={async () => {
-                // 需要密码验证才能导入角色卡
-                const verified = await promptPassword()
-                if (verified) {
-                  characterCardInputRef.current?.click()
-                }
-              }}
+              onClick={() => characterCardInputRef.current?.click()}
               disabled={isImporting}
               className="text-sm text-blue-600 font-medium disabled:opacity-50"
               title="导入角色卡PNG"
@@ -361,6 +356,21 @@ const CreateCharacter = () => {
               onChange={(e) => setFormData({ ...formData, pokeSuffix: e.target.value })}
               placeholder="如：的小脑袋（可选）"
               className="w-full bg-transparent text-gray-900 outline-none text-sm"
+            />
+          </div>
+
+          <div className="border-b border-gray-100 my-3"></div>
+
+          {/* 世界观设定 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">世界观设定</label>
+            <div className="text-xs text-gray-400 mb-2">描述角色所在的世界观（如古代、仙侠、科幻等），系统会根据这个设定调整提示词</div>
+            <textarea
+              value={formData.worldSetting}
+              onChange={(e) => setFormData({ ...formData, worldSetting: e.target.value })}
+              placeholder="例如：古代仙侠世界，用传信玉佩联系，发消息叫传书，朋友圈叫仙友动态...（留空则为现代世界）"
+              rows={2}
+              className="w-full bg-gray-50 rounded-lg px-3 py-2 text-sm outline-none resize-none"
             />
           </div>
 

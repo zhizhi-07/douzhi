@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { unifiedMemoryService, type UnifiedMemory, type MemoryDomain } from '../services/unifiedMemoryService'
 import { characterService } from '../services/characterService'
+import { interactionCounter } from '../services/memoryExtractor'
 
 // 角色类型
 interface Character {
@@ -29,6 +30,11 @@ const UnifiedMemory = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string>('all')
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [thresholdValue, setThresholdValue] = useState(15)
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editSummary, setEditSummary] = useState('')
   
   // 添加记忆表单
   const [newMemory, setNewMemory] = useState<{
@@ -59,6 +65,8 @@ const UnifiedMemory = () => {
       await loadCharacters()
       await migrateOldMemories()  // 自动迁移
       await loadMemories()
+      // 加载当前阈值设置
+      setThresholdValue(interactionCounter.getThreshold())
     }
     init()
   }, [])
@@ -387,6 +395,13 @@ const UnifiedMemory = () => {
           </button>
           
           <div className="flex items-center gap-2">
+            {/* 设置按钮 - 极简风格 */}
+            <button 
+              onClick={() => setShowSettingsModal(true)}
+              className="px-4 py-1.5 border border-gray-200 rounded-full text-xs font-medium text-gray-600 hover:border-gray-900 hover:text-gray-900 transition-colors tracking-wide"
+            >
+              设置
+            </button>
             {/* 添加记忆按钮 */}
             <button 
               onClick={() => setShowAddModal(true)}
@@ -622,15 +637,24 @@ const UnifiedMemory = () => {
                 </div>
               </div>
 
-              {/* 删除按钮 */}
-              <div className="mt-16 flex justify-center">
+              {/* 编辑和删除按钮 - 极简黑白灰 */}
+              <div className="mt-16 flex justify-center gap-4 pt-8 border-t border-gray-50">
+                <button
+                  onClick={() => {
+                    setEditingMemory(selectedMemory)
+                    setEditTitle(selectedMemory.title)
+                    setEditSummary(selectedMemory.summary)
+                    setSelectedMemory(null)
+                  }}
+                  className="px-8 py-3 bg-gray-900 text-white text-xs tracking-[0.1em] hover:bg-black transition-colors shadow-lg shadow-gray-100"
+                >
+                  编辑
+                </button>
                 <button
                   onClick={() => handleDeleteMemory(selectedMemory.id)}
-                  className="group text-xs text-gray-300 hover:text-gray-500 tracking-widest uppercase transition-colors flex items-center gap-2"
+                  className="px-8 py-3 text-xs tracking-[0.1em] text-gray-400 hover:text-gray-900 transition-colors border-b border-transparent hover:border-gray-200"
                 >
-                  <span className="w-4 h-[1px] bg-gray-200 group-hover:bg-gray-400 transition-colors" />
-                  DELETE
-                  <span className="w-4 h-[1px] bg-gray-200 group-hover:bg-gray-400 transition-colors" />
+                  删除
                 </button>
               </div>
             </div>
@@ -798,6 +822,121 @@ const UnifiedMemory = () => {
                   保存记忆
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 🔥 设置弹窗 - 极简杂志风（中文为主） */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowSettingsModal(false)}>
+          <div className="bg-white w-full max-w-sm p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-serif text-gray-900 mb-2">记忆提取设置</h3>
+              <p className="text-[10px] text-gray-300 tracking-[0.2em] uppercase font-serif">SETTINGS</p>
+            </div>
+            
+            <div className="space-y-6">
+              <p className="text-sm text-gray-500 font-light leading-relaxed text-center">
+                这是全局设置，影响所有AI角色。<br/>
+                每过设定的轮数后，系统会自动提取记忆。
+              </p>
+              
+              <div className="flex items-center justify-center gap-4 py-4 border-y border-gray-100">
+                <span className="text-sm text-gray-400 font-serif italic">每</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={thresholdValue}
+                  onChange={e => setThresholdValue(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                  className="w-16 text-center text-3xl font-serif text-gray-900 border-b border-gray-200 focus:border-gray-900 focus:outline-none bg-transparent py-1"
+                />
+                <span className="text-sm text-gray-400 font-serif italic">轮</span>
+              </div>
+              
+              <p className="text-[10px] text-gray-300 text-center tracking-wide uppercase">
+                1 TURN = 1 AI REPLY
+              </p>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="flex-1 py-3 text-xs tracking-[0.1em] text-gray-400 hover:text-gray-900 transition-colors border-b border-transparent hover:border-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  interactionCounter.setThreshold(thresholdValue)
+                  setShowSettingsModal(false)
+                }}
+                className="flex-1 py-3 bg-gray-900 text-white text-xs tracking-[0.1em] hover:bg-black transition-colors"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 🔥 编辑记忆弹窗 - 极简杂志风（中文为主） */}
+      {editingMemory && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setEditingMemory(null)}>
+          <div className="bg-white w-full max-w-lg p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100" onClick={e => e.stopPropagation()}>
+            <div className="mb-8">
+              <h3 className="text-2xl font-serif text-gray-900 mb-2">编辑记忆</h3>
+              <p className="text-[10px] text-gray-300 tracking-[0.2em] uppercase font-serif">EDIT MEMORY</p>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold tracking-[0.1em] text-gray-400 uppercase">标题 / TITLE</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full py-2 border-b border-gray-200 focus:border-gray-900 focus:outline-none font-serif text-lg bg-transparent transition-colors"
+                  placeholder="记忆标题"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold tracking-[0.1em] text-gray-400 uppercase">内容 / CONTENT</label>
+                <textarea
+                  value={editSummary}
+                  onChange={e => setEditSummary(e.target.value)}
+                  className="w-full p-4 bg-gray-50 border-none focus:ring-1 focus:ring-gray-200 focus:outline-none text-sm leading-relaxed text-gray-600 resize-none font-light"
+                  rows={8}
+                  placeholder="记忆详情..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-4 mt-8 pt-4 border-t border-gray-50">
+              <button
+                onClick={() => setEditingMemory(null)}
+                className="flex-1 py-3 text-xs tracking-[0.1em] text-gray-400 hover:text-gray-900 transition-colors border-b border-transparent hover:border-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  if (editingMemory) {
+                    await unifiedMemoryService.updateMemory(editingMemory.id, {
+                      title: editTitle,
+                      summary: editSummary
+                    })
+                    setEditingMemory(null)
+                    await loadMemories()
+                    console.log('✅ 记忆已更新')
+                  }
+                }}
+                className="flex-1 py-3 bg-gray-900 text-white text-xs tracking-[0.1em] hover:bg-black transition-colors shadow-lg shadow-gray-200"
+              >
+                保存修改
+              </button>
             </div>
           </div>
         </div>

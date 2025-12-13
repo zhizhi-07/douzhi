@@ -60,7 +60,7 @@ const ForwardModal = ({ isOpen, onClose, onConfirm }: ForwardModalProps) => {
                 {/* 名称 */}
                 <div className="flex-1 text-left">
                   <div className="font-medium text-gray-900">
-                    {character.nickname || character.realName}
+                    {character.remark || character.nickname || character.realName}
                   </div>
                   {character.nickname && (
                     <div className="text-sm text-gray-500">{character.realName}</div>

@@ -1,12 +1,14 @@
 /**
  * 默契游戏 Hook - 你画我猜 / 你演我猜
  */
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { getRandomTopic, refreshTopics, needsRefresh, getRemainingCount } from '../../../components/TacitGamePanel'
+import { judgeGuess } from '../../../services/tacitGameJudge'
 import type { Message } from '../../../types/chat'
 
 interface UseTacitGameProps {
   characterId: string | undefined
+  characterName: string  // 角色名称，用于结果卡片
   saveMessages: (id: string, messages: Message[]) => void
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>
   messages: Message[]  // 当前消息列表
@@ -16,6 +18,7 @@ interface UseTacitGameProps {
 
 export const useTacitGame = ({
   characterId,
+  characterName,
   saveMessages,
   setMessages,
   messages,
@@ -29,12 +32,18 @@ export const useTacitGame = ({
   const [showPanel, setShowPanel] = useState(false)
   const [hasSent, setHasSent] = useState(false)  // 是否已发送画作/描述
   const [isRefreshing, setIsRefreshing] = useState(false)  // 是否正在刷新题库
-  
-  // 检查AI是否已经猜了，以及猜的内容
-  const aiGuessResult = (() => {
-    if (!hasSent || !topic) return { hasGuessed: false, guess: '', isCorrect: false }
-    
-    // 找到最后一条游戏消息（用户发的画/描述）
+  const [isJudging, setIsJudging] = useState(false)  // 是否正在AI判定
+  const [judgeResult, setJudgeResult] = useState<{ hasJudged: boolean, guess: string, isCorrect: boolean } | null>(null)
+
+  // 记录已处理的AI回复消息ID，避免重复判定
+  const processedReplyIdRef = useRef<number | null>(null)
+
+  // 监听AI回复，自动进行AI判定
+  useEffect(() => {
+    // 已经判定过就不再判定（防止重复触发）
+    if (!hasSent || !topic || !gameType || !characterId || isJudging || judgeResult?.hasJudged) return
+
+    // 找到最后一条游戏消息
     let lastGameMsgIndex = -1
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]
@@ -45,52 +54,176 @@ export const useTacitGame = ({
         break
       }
     }
-    if (lastGameMsgIndex === -1) return { hasGuessed: false, guess: '', isCorrect: false }
-    
+    if (lastGameMsgIndex === -1) return
+
     // 获取AI的回复
     const aiReplies = messages.slice(lastGameMsgIndex + 1).filter(msg => 
-      msg.type === 'received' && msg.content
+      msg.type === 'received' && msg.content && msg.messageType !== 'tacitGameResult'
     )
-    if (aiReplies.length === 0) return { hasGuessed: false, guess: '', isCorrect: false }
-    
-    // 从最新的AI回复中提取猜测
-    const lastReply = aiReplies[aiReplies.length - 1].content || ''
-    
-    // 提取猜测内容（支持多种格式）
-    const patterns = [
-      /你画我猜[：:]\s*(.+?)(?:\s|$|[，。！？])/,
-      /你演我猜[：:]\s*(.+?)(?:\s|$|[，。！？])/,
-      /我猜[是]?[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
-      /应该是[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
-      /是不是[：:]?\s*(.+?)(?:\s|$|[，。！？])/,
-    ]
-    
-    let guess = ''
-    for (const pattern of patterns) {
-      const match = lastReply.match(pattern)
-      if (match) {
-        guess = match[1].trim()
-        break
+    if (aiReplies.length === 0) return
+
+    const lastReply = aiReplies[aiReplies.length - 1]
+
+    // 如果这条回复已经处理过，跳过
+    if (processedReplyIdRef.current === lastReply.id) return
+
+    // 合并所有AI回复，让判定函数从中找猜测
+    const allRepliesText = aiReplies.map(r => r.content || '').join('\n')
+
+    // 开始AI判定
+    const doJudge = async () => {
+      setIsJudging(true)
+      processedReplyIdRef.current = lastReply.id
+
+      try {
+        const result = await judgeGuess(topic, allRepliesText, gameType)
+        console.log('默契游戏判定结果:', result)
+
+        setJudgeResult({
+          hasJudged: true,
+          guess: result.extractedGuess,
+          isCorrect: result.isCorrect
+        })
+
+        // 发送结果卡片
+        const resultMessage: Message = {
+          id: Date.now(),
+          type: 'system',
+          messageType: 'tacitGameResult',
+          content: '',
+          tacitGameResult: {
+            gameType,
+            topic,
+            aiGuess: result.extractedGuess,
+            isCorrect: result.isCorrect,
+            characterName
+          },
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
+        }
+
+        setMessages(prev => {
+          const updated = [...prev, resultMessage]
+          saveMessages(characterId, updated)
+          return updated
+        })
+
+        playSound()
+        scrollToBottom()
+
+        // 结束游戏
+        setTimeout(() => {
+          setGameType(null)
+          setTopic('')
+          setShowPanel(false)
+          setHasSent(false)
+          setJudgeResult(null)
+          processedReplyIdRef.current = null
+        }, 500)
+
+      } catch (e) {
+        console.error('AI判定失败:', e)
+      } finally {
+        setIsJudging(false)
       }
     }
-    
-    // 判定是否猜对（模糊匹配）
-    const normalizedTopic = topic.toLowerCase().trim()
-    const normalizedGuess = guess.toLowerCase().trim()
-    const isCorrect = normalizedGuess.length > 0 && (
-      normalizedTopic === normalizedGuess ||
-      normalizedTopic.includes(normalizedGuess) ||
-      normalizedGuess.includes(normalizedTopic)
-    )
-    
-    return { hasGuessed: true, guess, isCorrect }
-  })()
-  
-  const hasAiGuessed = aiGuessResult.hasGuessed
-  
+
+    doJudge()
+  }, [messages, hasSent, topic, gameType, characterId, characterName, isJudging, judgeResult, setMessages, saveMessages, playSound, scrollToBottom])
+
+  // 监听评分事件
+  useEffect(() => {
+    const handleRate = (e: CustomEvent<{ messageId: number, rating: number }>) => {
+      const { messageId, rating } = e.detail
+      if (!characterId) return
+
+      setMessages(prev => {
+        const updated = prev.map(msg => {
+          if (msg.id === messageId && msg.tacitGameResult) {
+            const { gameType, topic, aiGuess, isCorrect, characterName } = msg.tacitGameResult
+            const gameTypeName = gameType === 'draw' ? '你画我猜' : '你演我猜'
+            const ratingText = rating === 5 ? '太厉害了' : rating >= 4 ? '很不错' : rating >= 3 ? '还可以' : rating >= 2 ? '加油' : '下次努力'
+            
+            return {
+              ...msg,
+              tacitGameResult: {
+                ...msg.tacitGameResult,
+                rating
+              },
+              // 让AI知道用户给了几分
+              aiReadableContent: `[${gameTypeName}游戏结束] 答案是「${topic}」，${characterName}猜的是「${aiGuess}」，${isCorrect ? '猜对了' : '猜错了'}。用户给${characterName}打了${rating}分（满分5分），评价：${ratingText}。`
+            }
+          }
+          return msg
+        })
+        saveMessages(characterId, updated)
+        return updated
+      })
+    }
+
+    window.addEventListener('tacit-game-rate', handleRate as EventListener)
+    return () => window.removeEventListener('tacit-game-rate', handleRate as EventListener)
+  }, [characterId, setMessages, saveMessages])
+
+  const hasAiGuessed = judgeResult?.hasJudged || false
+
   // 保存画布/描述数据的ref
   const canvasDataRef = useRef<string | null>(null)
   const descriptionRef = useRef<string>('')
+
+  // 记录已处理的emojiDrawInvite消息ID，避免重复更新
+  const processedInviteIdRef = useRef<number | null>(null)
+
+  // 监听AI回复，自动将emojiDrawInvite状态更新为accepted
+  useEffect(() => {
+    if (!characterId) return
+
+    // 找到最后一条pending状态的emojiDrawInvite消息
+    let lastInviteMsg: Message | null = null
+    let lastInviteIndex = -1
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as any
+      if (msg.messageType === 'emojiDrawInvite' && 
+          msg.emojiDrawInvite?.status === 'pending' &&
+          msg.type === 'sent') {
+        lastInviteMsg = msg
+        lastInviteIndex = i
+        break
+      }
+    }
+
+    if (!lastInviteMsg || lastInviteIndex === -1) return
+
+    // 如果已经处理过这个邀请，跳过
+    if (processedInviteIdRef.current === lastInviteMsg.id) return
+
+    // 检查邀请之后是否有AI回复
+    const hasAiReply = messages.slice(lastInviteIndex + 1).some(msg => 
+      msg.type === 'received' && msg.content
+    )
+
+    if (hasAiReply) {
+      // AI已回复，更新邀请状态为accepted
+      processedInviteIdRef.current = lastInviteMsg.id
+      
+      setMessages(prev => {
+        const updated = prev.map(msg => {
+          if (msg.id === lastInviteMsg!.id) {
+            return {
+              ...msg,
+              emojiDrawInvite: {
+                ...(msg as any).emojiDrawInvite,
+                status: 'accepted'
+              }
+            }
+          }
+          return msg
+        })
+        saveMessages(characterId, updated)
+        return updated
+      })
+    }
+  }, [messages, characterId, setMessages, saveMessages])
 
   // 打开游戏选择菜单
   const openGameSelect = useCallback(() => {
@@ -99,15 +232,61 @@ export const useTacitGame = ({
   }, [playSound])
 
   // 选择游戏类型并开始
-  const startGame = useCallback((type: 'draw' | 'act') => {
+  const startGame = useCallback((type: 'draw' | 'act' | 'ai-draw') => {
     setShowGameSelect(false)
+    
+    if (type === 'ai-draw') {
+      // AI画你猜模式：发送邀请卡片
+      if (!characterId) return
+      
+      const message: Message = {
+        id: Date.now(),
+        type: 'sent',
+        messageType: 'emojiDrawInvite' as any,
+        content: '邀请你玩你画我猜',
+        aiReadableContent: `[你画我猜邀请] 用户邀请你玩"你画我猜"游戏！这次是你来画！
+
+【重要格式】使用 [画:内容] 发送，内容全部写在一个括号里！
+
+示例：
+[画:  (\_/)
+ (o.o)
+ (> <)]
+
+或：
+[画: 🐷🐽]
+
+规则：
+1. 想一个简单事物（动物/食物/物品）
+2. 用一个 [画:...] 包住全部字符画
+3. 画完后问"猜猜这是什么？"
+4. 不要说答案，等用户猜`,
+        emojiDrawInvite: {
+          inviterName: characterName,
+          status: 'pending'
+        },
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now()
+      } as any
+
+      setMessages(prev => {
+        const updated = [...prev, message]
+        saveMessages(characterId, updated)
+        return updated
+      })
+
+      scrollToBottom()
+      return
+    }
+    
+    // 普通模式
     setGameType(type)
     setTopic(getRandomTopic(type))
     setShowPanel(true)
     setHasSent(false)  // 重置发送状态
     canvasDataRef.current = null
     descriptionRef.current = ''
-  }, [])
+  }, [characterId, setMessages, saveMessages, scrollToBottom])
 
   // 换题（缓存用完时调API刷新）
   const changeTopic = useCallback(async () => {
@@ -135,6 +314,13 @@ export const useTacitGame = ({
     descriptionRef.current = ''
   }, [gameType])
 
+  // 设置自定义题目
+  const setCustomTopic = useCallback((customTopic: string) => {
+    setTopic(customTopic)
+    canvasDataRef.current = null
+    descriptionRef.current = ''
+  }, [])
+
   // 结束游戏
   const endGame = useCallback(() => {
     setGameType(null)
@@ -157,10 +343,7 @@ export const useTacitGame = ({
       type: 'sent',
       messageType: 'photo',
       content: `[你画我猜: ${topic}]`,  // 用户看到的，显示答案
-      aiReadableContent: `[你画我猜游戏] 我画了一幅画给你猜！请看图猜猜这是什么。
-⚠️ 必须用这个格式回复：你画我猜：你的答案
-例如：你画我猜：太阳  或  你画我猜：猫
-直接猜，不要解释，只说"你画我猜：XX"`,
+      aiReadableContent: `[你画我猜游戏] 我画了一幅画给你猜！请看图猜猜这是什么。自然地说出你的猜测就好，不需要特定格式。`,
       photoBase64: imageData,
       photoDescription: `你画我猜游戏`,  // 不暴露题目
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
@@ -189,10 +372,7 @@ export const useTacitGame = ({
       type: 'sent',
       messageType: 'text',
       content: description,
-      aiReadableContent: `[你演我猜游戏] 我在描述一个动作让你猜！我的描述是："${description}"
-⚠️ 必须用这个格式回复：你演我猜：你的答案
-例如：你演我猜：跳舞  或  你演我猜：游泳
-直接猜，不要解释，只说"你演我猜：XX"`,
+      aiReadableContent: `[你演我猜游戏] 我在描述一个动作让你猜！我的描述是："${description}"。自然地说出你的猜测就好，不需要特定格式。`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
     }
@@ -245,8 +425,9 @@ export const useTacitGame = ({
     showPanel,
     hasSent,  // 是否已发送画作/描述
     hasAiGuessed,  // AI是否已猜测
-    aiGuess: aiGuessResult.guess,  // AI猜的内容
-    isAiCorrect: aiGuessResult.isCorrect,  // AI是否猜对
+    aiGuess: judgeResult?.guess || '',  // AI猜的内容
+    isAiCorrect: judgeResult?.isCorrect || false,  // AI是否猜对
+    isJudging,  // 是否正在AI判定
     canvasDataRef,
     descriptionRef,
     isRefreshing,  // 是否正在刷新题库
@@ -257,6 +438,7 @@ export const useTacitGame = ({
     closeGameSelect: () => setShowGameSelect(false),
     startGame,
     changeTopic,
+    setCustomTopic,  // 设置自定义题目
     endGame,
     openPanel,
     closePanel,

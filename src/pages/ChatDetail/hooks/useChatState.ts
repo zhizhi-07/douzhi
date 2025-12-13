@@ -255,6 +255,40 @@ export const useChatState = (chatId: string) => {
   }, [])
 
   /**
+   * 🔥 监听后台新消息事件
+   * 解决：后台AI主动发消息后，点进聊天看不到消息的问题
+   */
+  useEffect(() => {
+    if (!chatId) return
+
+    const handleNewMessage = (e: CustomEvent) => {
+      const { chatId: msgChatId, message } = e.detail
+      // 只处理当前聊天的消息
+      if (msgChatId !== chatId) return
+
+      console.log('📬 [useChatState] 收到后台新消息:', message?.content?.substring(0, 30))
+      
+      // 🔥 将新消息添加到状态中（去重）
+      setMessagesState(prev => {
+        // 检查消息是否已存在
+        if (prev.some(m => m.id === message.id)) {
+          console.log('ℹ️ [useChatState] 消息已存在，跳过')
+          return prev
+        }
+        console.log('✅ [useChatState] 添加新消息到状态')
+        return [...prev, message]
+      })
+    }
+
+    // 监听 new-message 事件（由 addMessage 触发）
+    window.addEventListener('new-message', handleNewMessage as EventListener)
+    
+    return () => {
+      window.removeEventListener('new-message', handleNewMessage as EventListener)
+    }
+  }, [chatId])
+
+  /**
    * 初始化：加载角色和历史消息
    * 🔥 优化：使用分页加载，避免卡顿
    * 🔥 添加accountId依赖：账号切换时重新加载
