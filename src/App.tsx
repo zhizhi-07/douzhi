@@ -103,6 +103,7 @@ import Auth from './pages/Auth'
 import Admin from './pages/Admin'
 import CloudAccount from './pages/CloudAccount'
 import BanCheck from './components/BanCheck'
+import InviteCodeCheck from './components/InviteCodeCheck'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
@@ -698,9 +699,11 @@ function App() {
   )
 
   return (
-    <BanCheck>
-      {renderContent()}
-    </BanCheck>
+    <InviteCodeCheck>
+      <BanCheck>
+        {renderContent()}
+      </BanCheck>
+    </InviteCodeCheck>
   )
 }
 

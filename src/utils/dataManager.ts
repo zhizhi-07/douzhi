@@ -3,15 +3,24 @@
  * 导出、导入、清除所有数据
  */
 
-// 🔥 实际使用的数据库列表
+// 🔥 实际使用的数据库列表（必须与实际代码中的DB_NAME保持一致）
 const INDEXED_DB_NAMES = [
-  'DouzhiDB',        // 主数据库（消息、角色、设置等）
-  'AppStorage',      // 图片、音频
-  'BubbleDB',        // 气泡样式
-  'EmojiDB',         // 表情包
-  'LocationDB',      // 位置历史
-  'CouplePhotosDB',  // 情侣照片
-  'UnifiedMemoryDB', // 记忆系统
+  'DouzhiDB',           // 主数据库（消息、角色、设置等）
+  'AppStorage',         // 图片、音频、壁纸
+  'BubbleStyleDB',      // 气泡样式（BubbleSettings, CardSettings, useChatBubbles）
+  'EmojiDB',            // 表情包
+  'AILocationDB',       // AI位置历史（locationService.ts）
+  'CouplePhotosDB',     // 情侣照片
+  'UnifiedMemoryDB',    // 记忆系统
+  'FontStorage',        // 自定义字体
+  'IconStorage',        // 自定义图标
+  'BackgroundStorage',  // 背景存储
+  'AvatarStorage',      // 头像存储
+  'kiro_avatar_library', // 头像库
+  'forum_db',           // 论坛帖子
+  'forum-comments-db',  // 论坛评论
+  'topic_chat_db',      // 话题聊天
+  'douzhi_device',      // 设备ID
 ]
 
 /**
@@ -123,6 +132,8 @@ export async function importAllData(file: File): Promise<void> {
         'simple-chat-messages': 'DouzhiDB',
         'moments-storage': 'DouzhiDB', 
         'characters-db': 'DouzhiDB',
+        'BubbleDB': 'BubbleStyleDB',      // 旧名称 -> 正确名称
+        'LocationDB': 'AILocationDB',     // 旧名称 -> 正确名称
       }
 
       for (const dbName of Object.keys(data.indexedDB)) {
