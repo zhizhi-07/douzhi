@@ -37,11 +37,9 @@ export const useIntimatePay = (
       }
     }
 
-    // 🔥 保存到IndexedDB，确保退出后不丢失
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     saveMessageToStorage(chatId, msg)
     console.log('💾 [亲密付] 消息已保存到IndexedDB')
-    
-    setMessages(prev => [...prev, msg])
     setShowIntimatePaySender(false)
   }, [setMessages, chatId])
 

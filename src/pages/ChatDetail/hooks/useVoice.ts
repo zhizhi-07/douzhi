@@ -40,10 +40,8 @@ export const useVoice = (
       voiceText: voiceText.trim()
     }
 
-    // 保存到IndexedDB
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(chatId, voiceMsg)
-    
-    setMessages(prev => [...prev, voiceMsg])
     
     // 播放发送音效
     playMessageSendSound()

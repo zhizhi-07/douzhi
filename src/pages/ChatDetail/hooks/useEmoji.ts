@@ -30,13 +30,8 @@ export const useEmoji = (
       }
     }
     
-    // 🔥 保存到IndexedDB（触发new-message事件）
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     saveMessageToStorage(chatId, emojiMessage)
-    console.log('💾 表情包已保存到IndexedDB:', emoji.description)
-    
-    // 更新React状态
-    setMessages(prev => [...prev, emojiMessage])
-    
     console.log('📤 发送表情包:', emoji.description, isUserBlocked ? '(被AI拉黑)' : '')
   }, [chatId, setMessages])
 

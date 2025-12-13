@@ -39,10 +39,8 @@ export const useLocationMsg = (
       }
     }
 
-    // 保存到IndexedDB
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(chatId, locationMsg)
-    
-    setMessages(prev => [...prev, locationMsg])
     setShowLocationSender(false)
   }, [setMessages, chatId])
 

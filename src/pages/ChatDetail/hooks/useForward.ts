@@ -23,12 +23,8 @@ export const useForward = (
       }
     }
 
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(targetCharacterId, forwardedMessage)
-    
-    // 如果是转发到当前聊天
-    if (targetCharacterId === chatId) {
-      setMessages(prev => [...prev, forwardedMessage])
-    }
 
     console.log(`📤 转发 ${selectedMessages.length} 条消息到:`, targetCharacterId)
   }, [chatId, setMessages])

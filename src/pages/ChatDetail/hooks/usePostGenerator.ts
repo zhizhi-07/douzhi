@@ -143,9 +143,8 @@ export const usePostGenerator = (
     
     console.log('📤 [发送帖子消息]:', postMsg)
     
-    // 保存并显示
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(chatId, postMsg)
-    setMessages(prev => [...prev, postMsg])
     
     // 播放发送音效
     playMessageSendSound()

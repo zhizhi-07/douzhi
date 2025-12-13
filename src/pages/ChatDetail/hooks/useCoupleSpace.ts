@@ -96,9 +96,8 @@ export const useCoupleSpace = (
         senderAvatar: undefined
       }
     }
-    // 🔥 修复：保存到存储，避免退出窗口后消息丢失
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     saveMessage(chatId, newMessage)
-    setMessages(prev => [...prev, newMessage])
   }
 
   // 接受邀请
@@ -136,7 +135,8 @@ export const useCoupleSpace = (
         timestamp: Date.now(),
         messageType: 'system'
       }
-      setMessages(prev => [...prev, systemMsg])
+      // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
+      saveMessage(chatId, systemMsg)
       console.log('✅ [情侣空间] 接受成功')
     } else {
       console.error('❌ [情侣空间] 接受失败')
@@ -178,7 +178,8 @@ export const useCoupleSpace = (
         timestamp: Date.now(),
         messageType: 'system'
       }
-      setMessages(prev => [...prev, systemMsg])
+      // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
+      saveMessage(chatId, systemMsg)
       console.log('✅ [情侣空间] 拒绝成功')
     } else {
       console.error('❌ [情侣空间] 拒绝失败')
@@ -200,8 +201,8 @@ export const useCoupleSpace = (
           timestamp: Date.now(),
           messageType: 'system'
         }
+        // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
         saveMessage(chatId, systemMsg)
-        setMessages(prev => [...prev, systemMsg])
       } catch (error) {
         console.error('❌ 保存照片失败:', error)
         alert(error instanceof Error ? error.message : '保存失败，请重试')
@@ -217,8 +218,8 @@ export const useCoupleSpace = (
         timestamp: Date.now(),
         messageType: 'system'
       }
+      // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
       saveMessage(chatId, systemMsg)
-      setMessages(prev => [...prev, systemMsg])
     } else if (inputType === 'anniversary' && data?.date && data?.title) {
       addCoupleAnniversary(chatId, character.nickname || character.realName, data.date, data.title, content || undefined)
       const systemMsg: Message = {
@@ -230,8 +231,8 @@ export const useCoupleSpace = (
         timestamp: Date.now(),
         messageType: 'system'
       }
+      // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
       saveMessage(chatId, systemMsg)
-      setMessages(prev => [...prev, systemMsg])
     }
   }
 

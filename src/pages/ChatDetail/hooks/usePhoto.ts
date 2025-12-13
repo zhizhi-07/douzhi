@@ -41,10 +41,8 @@ export const usePhoto = (
       // 不设置 photoBase64，使用默认占位图
     }
 
-    // 保存到IndexedDB
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(chatId, photoMsg)
-    
-    setMessages(prev => [...prev, photoMsg])
     
     // 播放发送音效
     playMessageSendSound()
@@ -90,13 +88,8 @@ export const usePhoto = (
       return msg
     })
 
-    // 🔥 使用批量添加，避免竞态条件导致只保存一张
+    // 🔥 使用批量添加（触发new-message事件，自动更新React状态）
     addMessages(chatId, photoMessages)
-
-    // 🔥 使用函数式更新，避免触发滚动逻辑
-    setMessages(prev => {
-      return [...prev, ...photoMessages]
-    })
 
     // 播放一次发送音效（批量发送也只播一次）
     playMessageSendSound()

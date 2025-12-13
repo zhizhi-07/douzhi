@@ -97,10 +97,8 @@ export const useTransfer = (
       }
     }
 
-    // 保存到IndexedDB
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     saveMessageToStorage(chatId, transferMsg)
-    
-    setMessages(prev => [...prev, transferMsg])
     setShowTransferSender(false)
   }, [setMessages, characterName, chatId])
 

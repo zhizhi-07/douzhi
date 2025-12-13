@@ -211,15 +211,10 @@ export const useProactiveMessage = ({
         return
       }
 
-      // 添加消息到界面
-      setMessages((prev) => {
-        const newMessages = [...prev]
-        aiMessagesList.forEach((content) => {
-          const msg = createMessage(content, 'received')
-          newMessages.push(msg)
-          saveMessageToStorage(chatId, msg)
-        })
-        return newMessages
+      // 🔥 保存消息到IndexedDB（触发new-message事件，自动更新React状态）
+      aiMessagesList.forEach((content) => {
+        const msg = createMessage(content, 'received')
+        saveMessageToStorage(chatId, msg)
       })
 
       Logger.success('[主动发消息] AI主动发送消息成功')

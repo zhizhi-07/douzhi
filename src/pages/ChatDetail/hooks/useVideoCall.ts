@@ -301,12 +301,9 @@ export const useVideoCall = (
       messageType: 'system'
     }
     
-    // 立即保存到localStorage
+    // 🔥 保存到IndexedDB（触发new-message事件，自动更新React状态）
     addMessage(chatId, rejectMsg)
     console.log('💾 [useVideoCall] 拒绝通话消息已保存')
-    
-    // 更新React状态
-    setMessages(prev => [...prev, rejectMsg])
     
     // 清空开场白
     openingLinesRef.current = null

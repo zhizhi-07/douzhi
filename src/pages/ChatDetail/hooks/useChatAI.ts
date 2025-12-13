@@ -732,11 +732,8 @@ export const useChatAI = (
             data: Object.keys(toolCall.data || {})
           })
           
-          // 保存小剧场消息
+          // 🔥 保存小剧场消息（触发new-message事件，自动更新React状态）
           saveMessageToStorage(chatId, theatreMessage)
-          
-          // 更新 React 状态
-          setMessages(prev => [...prev, theatreMessage])
           
           // 延迟一下，让卡片逐个出现
           await new Promise(resolve => setTimeout(resolve, 200))
@@ -1352,11 +1349,8 @@ export const useChatAI = (
                 data: Object.keys(toolCallData.data || {})
               })
               
-              // 保存小剧场消息
+              // 🔥 保存小剧场消息（触发new-message事件，自动更新React状态）
               saveMessageToStorage(chatId, theatreMessage)
-              
-              // 更新 React 状态
-              setMessages(prev => [...prev, theatreMessage])
               
               // 延迟一下，让卡片逐个出现
               await new Promise(resolve => setTimeout(resolve, 200))
