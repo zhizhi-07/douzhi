@@ -19,7 +19,9 @@ const VALID_INVITE_CODES = [
   '泮个终于',
   'zhizhiiloveu',
   '雪无尘',
-  '韧啫喱'
+  '韧啫喱',
+  'sule1029',
+  '荷包蛋最可爱！'
 ]
 
 const InviteCodeCheck = ({ children }: InviteCodeCheckProps) => {
