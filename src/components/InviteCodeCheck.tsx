@@ -18,7 +18,8 @@ const VALID_INVITE_CODES = [
   'TianTian520',
   '泮个终于',
   'zhizhiiloveu',
-  '雪无尘'
+  '雪无尘',
+  '韧啫喱'
 ]
 
 const InviteCodeCheck = ({ children }: InviteCodeCheckProps) => {
