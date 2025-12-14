@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>豆汁数据导入工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .step {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+    }
+    .step-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .step-num {
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #c82333;
+    }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #5a6fd6;
+    }
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+    .btn-success:hover {
+      background: #218838;
+    }
+    #progress {
+      display: none;
+      margin-top: 20px;
+    }
+    .progress-bar {
+      background: #e9ecef;
+      border-radius: 10px;
+      height: 20px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-text {
+      text-align: center;
+      margin-top: 10px;
+      color: #666;
+    }
+    #log {
+      background: #1e1e1e;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 20px;
+      display: none;
+    }
+    .log-error { color: #ff6b6b; }
+    .log-success { color: #51cf66; }
+    .log-info { color: #74c0fc; }
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #856404;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🫘 豆汁数据导入工具</h1>
+    <p class="subtitle">独立工具，避免应用冲突</p>
+    
+    <div class="warning">
+      ⚠️ 请先关闭豆汁应用的所有标签页，只保留这个页面！
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span class="step-num">1</span>
+        清空所有旧数据
+      </div>
+      <button class="btn-danger" onclick="clearAllData()">🗑️ 清空数据库</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span class="step-num">2</span>
+        选择备份文件导入
+      </div>
+      <input type="file" id="fileInput" accept=".json,.备份" style="display:none" onchange="handleFile(this)">
+      <button class="btn-primary" onclick="document.getElementById('fileInput').click()">📁 选择备份文件</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span class="step-num">3</span>
+        返回应用
+      </div>
+      <button class="btn-success" onclick="goBack()">🚀 返回豆汁应用</button>
+    </div>
+
+    <div id="progress">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText">准备中...</div>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const DB_NAMES = [
+      'DouzhiDB', 'EmojiDB', 'AILocationDB', 'forum_db', 
+      'forum-comments-db', 'topic_chat_db', 'douzhi_device',
+      'AvatarDB', 'IconDB', 'WallpaperDB', 'BubbleStyleDB', 'FontDB',
+      'UnifiedMemoryDB', 'CouplePhotosDB', 'AppStorage', 'AvatarStorage',
+      'BackgroundStorage', 'IconStorage', 'FontStorage', 'kiro_avatar_library'
+    ];
+
+    function log(msg, type = 'info') {
+      const logEl = document.getElementById('log');
+      logEl.style.display = 'block';
+      const line = document.createElement('div');
+      line.className = 'log-' + type;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setProgress(percent, text) {
+      document.getElementById('progress').style.display = 'block';
+      document.getElementById('progressFill').style.width = percent + '%';
+      document.getElementById('progressText').textContent = text;
+    }
+
+    // 🔥 保存的用户信息（清空前备份）
+    let savedUserInfo = null;
+    let savedApiConfig = null;
+
+    async function clearAllData() {
+      if (!confirm('确定要清空所有数据吗？这将删除所有角色和聊天记录！\n\n（登录信息会保留）')) return;
+      
+      log('开始清空数据...', 'info');
+      setProgress(0, '清空中...');
+      
+      // 🔥 先保存用户登录信息
+      savedUserInfo = localStorage.getItem('user_info');
+      savedApiConfig = localStorage.getItem('api_config');
+      if (savedUserInfo) {
+        log('💾 已保存用户登录信息', 'info');
+      }
+      
+      // 清空 localStorage
+      localStorage.clear();
+      log('✅ localStorage 已清空', 'success');
+      
+      // 🔥 恢复用户登录信息
+      if (savedUserInfo) {
+        localStorage.setItem('user_info', savedUserInfo);
+        log('✅ 已恢复用户登录信息', 'success');
+      }
+      if (savedApiConfig) {
+        localStorage.setItem('api_config', savedApiConfig);
+        log('✅ 已恢复 API 配置', 'success');
+      }
+      
+      // 删除所有 IndexedDB
+      let deleted = 0;
+      for (const dbName of DB_NAMES) {
+        try {
+          await new Promise((resolve) => {
+            const req = indexedDB.deleteDatabase(dbName);
+            req.onsuccess = () => {
+              log(`✅ 已删除: ${dbName}`, 'success');
+              resolve();
+            };
+            req.onerror = () => {
+              log(`⚠️ 删除失败: ${dbName}`, 'error');
+              resolve();
+            };
+            req.onblocked = () => {
+              log(`⚠️ 被阻塞: ${dbName}`, 'error');
+              resolve();
+            };
+            setTimeout(resolve, 3000);
+          });
+          deleted++;
+          setProgress((deleted / DB_NAMES.length) * 100, `已删除 ${deleted}/${DB_NAMES.length}`);
+        } catch (e) {
+          log(`❌ 错误: ${dbName} - ${e.message}`, 'error');
+        }
+      }
+      
+      setProgress(100, '清空完成！');
+      log('🎉 所有数据已清空！', 'success');
+      alert('✅ 数据已清空！现在可以导入备份文件了。');
+    }
+
+    async function handleFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      
+      log(`📁 读取文件: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`, 'info');
+      setProgress(5, '读取文件...');
+      
+      try {
+        const text = await file.text();
+        setProgress(20, '解析数据...');
+        log('📝 解析 JSON...', 'info');
+        
+        const data = JSON.parse(text);
+        log(`✅ 解析成功: 版本 ${data.version || '未知'}`, 'success');
+        
+        // 导入 localStorage
+        if (data.localStorage) {
+          setProgress(30, '导入 localStorage...');
+          let count = 0;
+          for (const key in data.localStorage) {
+            try {
+              localStorage.setItem(key, data.localStorage[key]);
+              count++;
+            } catch (e) {
+              // 跳过太大的项
+            }
+          }
+          log(`✅ localStorage: ${count} 项`, 'success');
+        }
+        
+        // 导入 IndexedDB
+        if (data.indexedDB) {
+          const dbNames = Object.keys(data.indexedDB);
+          log(`📦 开始导入 ${dbNames.length} 个数据库...`, 'info');
+          
+          for (let i = 0; i < dbNames.length; i++) {
+            const dbName = dbNames[i];
+            const dbData = data.indexedDB[dbName];
+            
+            setProgress(30 + (i / dbNames.length) * 60, `导入 ${dbName}...`);
+            
+            try {
+              await importDatabase(dbName, dbData);
+              log(`✅ ${dbName} 导入成功`, 'success');
+            } catch (e) {
+              log(`❌ ${dbName} 导入失败: ${e.message}`, 'error');
+            }
+          }
+        }
+        
+        setProgress(100, '导入完成！');
+        log('🎉 所有数据导入完成！', 'success');
+        alert('✅ 导入成功！点击"返回豆汁应用"按钮继续。');
+        
+      } catch (e) {
+        log(`❌ 导入失败: ${e.message}`, 'error');
+        alert('❌ 导入失败: ' + e.message);
+        setProgress(0, '失败');
+      }
+    }
+
+    // 🔥 DouzhiDB 需要的所有 stores
+    const DOUZHI_STORES = [
+      'messages', 'moments', 'characters', 'userInfo', 
+      'wallet', 'emojis', 'settings', 'misc',
+      'dmMessages', 'dmConversations'
+    ];
+
+    async function importDatabase(dbName, data) {
+      // 先删除旧数据库
+      await new Promise(resolve => {
+        const req = indexedDB.deleteDatabase(dbName);
+        req.onsuccess = resolve;
+        req.onerror = resolve;
+        req.onblocked = resolve;
+        setTimeout(resolve, 2000);
+      });
+      
+      return new Promise((resolve, reject) => {
+        const storeNames = Object.keys(data);
+        if (storeNames.length === 0) {
+          resolve();
+          return;
+        }
+        
+        // 🔥 DouzhiDB 使用版本 4，其他使用 1
+        const version = dbName === 'DouzhiDB' ? 4 : 1;
+        const request = indexedDB.open(dbName, version);
+        
+        request.onerror = () => reject(request.error);
+        
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          
+          // 🔥 DouzhiDB 需要创建所有预定义的 stores
+          if (dbName === 'DouzhiDB') {
+            for (const storeName of DOUZHI_STORES) {
+              if (!db.objectStoreNames.contains(storeName)) {
+                db.createObjectStore(storeName);
+                log(`  📦 创建 store: ${storeName}`, 'info');
+              }
+            }
+          }
+          
+          // 创建备份数据中的 stores
+          for (const storeName of storeNames) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName);
+            }
+          }
+        };
+        
+        request.onsuccess = async (e) => {
+          const db = e.target.result;
+          
+          try {
+            for (const storeName of storeNames) {
+              if (!db.objectStoreNames.contains(storeName)) continue;
+              
+              const storeData = data[storeName];
+              if (!storeData) continue;
+              
+              // 处理新格式 { keys, values }
+              if (storeData.keys && storeData.values) {
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                
+                for (let i = 0; i < storeData.keys.length; i++) {
+                  store.put(storeData.values[i], storeData.keys[i]);
+                }
+                
+                await new Promise((res, rej) => {
+                  tx.oncomplete = res;
+                  tx.onerror = () => rej(tx.error);
+                });
+                
+                log(`  📝 ${storeName}: ${storeData.keys.length} 条记录`, 'info');
+                
+                // 🔥 特别显示角色数量
+                if (storeName === 'characters' && storeData.values[0]) {
+                  const chars = storeData.values[0];
+                  if (Array.isArray(chars)) {
+                    log(`  👤 发现 ${chars.length} 个角色`, 'success');
+                  }
+                }
+              } else {
+                log(`  ⚠️ ${storeName}: 格式不识别`, 'error');
+              }
+            }
+            
+            db.close();
+            resolve();
+          } catch (e) {
+            db.close();
+            reject(e);
+          }
+        };
+      });
+    }
+
+    function goBack() {
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

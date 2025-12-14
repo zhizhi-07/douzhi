@@ -8,20 +8,10 @@ interface TheatreMessageProps {
 export default function TheatreMessage({ message }: TheatreMessageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   
-  console.log('🎭 [TheatreMessage] 渲染组件', {
-    hasTheatre: !!message.theatre,
-    templateName: message.theatre?.templateName,
-    htmlLength: message.theatre?.htmlContent.length
-  })
-  
   useEffect(() => {
-    if (!containerRef.current || !message.theatre?.templateId) {
-      console.log('[TheatreMessage] Early return - containerRef or templateId missing')
-      return
-    }
+    if (!containerRef.current || !message.theatre?.templateId) return
     
     const templateId = message.theatre.templateId
-    console.log(`[TheatreMessage] useEffect running for templateId: "${templateId}"`)
     
     // ==================== 刮刮乐交互 ====================
     if (templateId === 'scratch_card') {

@@ -16,22 +16,18 @@ const GlobalMessageMonitor = () => {
   const lastMessageIdsRef = useRef<Record<string, number>>({})
   
   useEffect(() => {
-    console.log('🚀 [GlobalMessageMonitor] ===== 开始初始化 =====')
-    
     // 从 localStorage 加载已通知的消息ID
     try {
       const saved = localStorage.getItem(NOTIFIED_MESSAGES_KEY)
       if (saved) {
         lastMessageIdsRef.current = JSON.parse(saved)
       }
-      console.log('📋 [GlobalMessageMonitor] 已加载通知记录:', Object.keys(lastMessageIdsRef.current).length, '个聊天')
     } catch (e) {
-      console.error('❌ [GlobalMessageMonitor] 加载已通知消息记录失败:', e)
+      // 静默处理
     }
     
     // 初始化：记录所有现有消息的最后ID
     const allCharacters = characterService.getAll()
-    console.log('👥 [GlobalMessageMonitor] 找到', allCharacters.length, '个角色')
     allCharacters.forEach(character => {
       const messages = loadMessages(character.id)
       if (messages.length > 0) {
@@ -45,14 +41,10 @@ const GlobalMessageMonitor = () => {
     
     // 保存初始化后的记录
     localStorage.setItem(NOTIFIED_MESSAGES_KEY, JSON.stringify(lastMessageIdsRef.current))
-    console.log('✅ [GlobalMessageMonitor] 全局消息监听器已初始化')
-    console.log('🎧 [GlobalMessageMonitor] 开始监听 chat-message-saved 事件')
     
     // 监听消息保存事件（立即响应）
     const handleMessageSaved = (event: CustomEvent) => {
       const { chatId, messageType } = event.detail
-      console.log(`🔔 [GlobalMessageMonitor] ===== 开始处理消息保存事件 =====`)
-      console.log(`🔔 [GlobalMessageMonitor] 监听到消息保存事件: chatId=${chatId}, type=${messageType || 'private'}`)
       
       // 🔥 区分私聊和群聊
       const isGroupChat = messageType === 'group'
@@ -66,30 +58,13 @@ const GlobalMessageMonitor = () => {
         messages = loadMessages(chatId)
       }
       
-      console.log(`📦 [GlobalMessageMonitor] 加载消息: chatId=${chatId}, 类型=${isGroupChat ? '群聊' : '私聊'}, 总数=${messages.length}`)
-      
-      if (messages.length === 0) {
-        console.log(`⚠️ [GlobalMessageMonitor] 消息为空，跳过`)
-        return
-      }
+      if (messages.length === 0) return
       
       const lastMessage = messages[messages.length - 1]
       const lastRecordedId = lastMessageIdsRef.current[chatId]
       
-      console.log(`🔍 [GlobalMessageMonitor] 检查消息`, {
-        lastMessageId: lastMessage.id,
-        lastRecordedId,
-        messageType: lastMessage.type,
-        messageSubType: lastMessage.messageType,
-        sceneMode: lastMessage.sceneMode,
-        isNew: lastMessage.id !== lastRecordedId
-      })
-      
-      // 🔥 过滤掉线下模式的消息
-      if (lastMessage.sceneMode === 'offline') {
-        console.log(`🔇 [GlobalMessageMonitor] 线下模式消息，跳过通知`)
-        return
-      }
+      // 过滤掉线下模式的消息
+      if (lastMessage.sceneMode === 'offline') return
       
       // 🔥 判断是否是新的AI消息
       const isAIMessage = isGroupChat 
@@ -97,9 +72,6 @@ const GlobalMessageMonitor = () => {
         : (lastMessage.type === 'received' && lastMessage.messageType !== 'system')  // 私聊：received类型且非系统消息
       
       if (isAIMessage && lastMessage.id !== lastRecordedId) {
-        
-        console.log(`✅ [GlobalMessageMonitor] 这是新的AI消息`)
-        
         // 更新记录
         lastMessageIdsRef.current[chatId] = lastMessage.id
         
@@ -111,12 +83,6 @@ const GlobalMessageMonitor = () => {
         const isInCurrentChat = isGroupChat 
           ? currentPath === `/group/${chatId}`  // 群聊路径
           : currentPath === `/chat/${chatId}`   // 私聊路径
-        
-        console.log(`🔍 [GlobalMessageMonitor] 用户位置检查`, {
-          currentPath,
-          chatPath: isGroupChat ? `/group/${chatId}` : `/chat/${chatId}`,
-          isInCurrentChat
-        })
         
         if (!isInCurrentChat) {
           let title = ''
@@ -130,17 +96,13 @@ const GlobalMessageMonitor = () => {
           } else {
             // 私聊：显示角色名
             const character = characterService.getById(chatId)
-            if (!character) {
-              console.log(`❌ [GlobalMessageMonitor] 找不到角色: ${chatId}`)
-              return
-            }
+            if (!character) return
             title = character.remark || character.nickname || character.realName
             avatar = character.avatar || ''
           }
           
           // 增加未读
           incrementUnread(chatId, 1)
-          console.log(`📬 [GlobalMessageMonitor] 增加未读数: chatId=${chatId}`)
           
           // 触发通知
           const messageContent = lastMessage.content || lastMessage.voiceText || '[消息]'
@@ -152,21 +114,13 @@ const GlobalMessageMonitor = () => {
               avatar: avatar
             }
           }))
-          
-          console.log(`🔔 [GlobalMessageMonitor] 已触发通知: ${title} - ${messageContent}`)
-        } else {
-          console.log(`ℹ️ [GlobalMessageMonitor] 用户在聊天窗口中，不触发通知`)
         }
-      } else {
-        console.log(`⏭️ [GlobalMessageMonitor] 跳过消息（不是新的AI消息）`)
       }
     }
     
-    console.log('➕ [GlobalMessageMonitor] 添加事件监听器: chat-message-saved')
     window.addEventListener('chat-message-saved', handleMessageSaved as EventListener)
     
     return () => {
-      console.log('➖ [GlobalMessageMonitor] 移除事件监听器: chat-message-saved')
       window.removeEventListener('chat-message-saved', handleMessageSaved as EventListener)
     }
   }, [])

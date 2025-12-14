@@ -69,9 +69,18 @@ const AIPhoneSelect = () => {
   useEffect(() => {
     const unsubscribe = backgroundGenerator.subscribe((tasks) => {
       setBackgroundTasks(tasks)
-      // 当任务完成时，刷新历史记录列表
-      if (tasks.some(t => t.status === 'completed')) {
+      // 当任务完成时，刷新历史记录列表并自动打开手机弹窗
+      const completedTask = tasks.find(t => t.status === 'completed')
+      if (completedTask) {
         setRefreshKey(prev => prev + 1)
+        // 🔥 自动获取最新的历史记录并打开弹窗
+        setTimeout(() => {
+          const history = getPhoneHistory(completedTask.characterId)
+          if (history.length > 0) {
+            setSelectedHistory(history[0]) // 打开最新生成的记录
+            setExpandedCharacterId(completedTask.characterId) // 展开该角色的历史记录
+          }
+        }, 100) // 短暂延迟确保历史记录已保存
       }
     })
     return () => {

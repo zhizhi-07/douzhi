@@ -21,6 +21,7 @@ const ShoppingCart = () => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [intimatePayBalance, setIntimatePayBalance] = useState(0)
+  const [isManageMode, setIsManageMode] = useState(false)
 
   // 从localStorage加载购物车
   useEffect(() => {
@@ -333,7 +334,12 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
           </button>
           <h1 className="text-lg font-bold text-gray-900">购物车({cartItems.length})</h1>
           <div className="w-9 flex items-center justify-end">
-            <button className="text-gray-900 font-medium text-sm">管理</button>
+            <button 
+              onClick={() => setIsManageMode(!isManageMode)}
+              className={`font-medium text-sm ${isManageMode ? 'text-[#ff5000]' : 'text-gray-900'}`}
+            >
+              {isManageMode ? '完成' : '管理'}
+            </button>
           </div>
         </div>
       </div>
@@ -410,7 +416,16 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
                     <span className="text-lg">{item.price}</span>
                   </div>
 
-                  {/* 数量控制 - 极简风格 */}
+                  {/* 管理模式下显示删除按钮 */}
+                  {isManageMode ? (
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="px-4 h-7 bg-[#ff5000] text-white text-xs font-medium rounded-lg active:bg-[#e64500] transition-colors"
+                    >
+                      删除
+                    </button>
+                  ) : (
+                  /* 数量控制 - 极简风格 */
                   <div className="flex items-center border border-gray-200 rounded-lg h-7">
                     <button
                       onClick={() => updateQuantity(item.id, -1)}
@@ -432,6 +447,7 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
                       </svg>
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             </div>

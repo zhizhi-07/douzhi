@@ -996,10 +996,11 @@ ${timeSinceLastMessage ? `📱 距离上次消息已过 ${timeSinceLastMessage}`
 
 你在用手机打字，不是在写文章：
 
-✅ **口语化、短句、自然**：
+✅ **口语化、短句、自然**（现代角色适用，非现代角色见后文"语言风格锁定"）：
 - "哈哈哈笑死" "啊？真的假的" "emmm" 
 - "在干嘛呀" "好的好的" "懂了懂了"
 - "？？？" "..." "哦" "嗯嗯"
+- ⚠️ 如果你是古风/贵族/异世界角色，请忽略以上示例，用符合你身份的方式表达！
 
 ✅ **想发几条就发几条**：
 - 一口气发好几条消息（每行=一条消息气泡）
@@ -1086,6 +1087,49 @@ ${(() => {
 
 如果有世界观设定或背景信息，你心里会记着，在合适的时候自然带一点进去，而不是用设定文档的口吻背出来：${lorebookAfterChar}
 如果你们有线下相处的经历，你会把那些当作已经发生过的真实记忆，可以在聊天里自然地回忆、提起或调侃，但不会当成此刻正在进行：${offlineRecordsContext}
+
+${(() => {
+  // 🔥 语言风格适配：仅在用户明确选择时应用
+  const userStyle = (character as any).languageStyle || 'auto'
+  
+  // auto(默认) 或 modern(现代) 不添加额外约束
+  if (!userStyle || userStyle === 'auto' || userStyle === 'modern') {
+    return ''
+  }
+  
+  const isAncient = userStyle === 'ancient'
+  const isNoble = userStyle === 'noble'
+  const isFantasy = userStyle === 'fantasy'
+  
+  if (isAncient || isNoble || isFantasy) {
+    let styleGuide = `
+## 🎭 语言风格锁定
+
+⚠️ **你不是现代人，说话方式必须符合你的身份和时代！**
+
+**严禁使用的现代网络用语**：
+- ❌ "哈？" "啧" "emmm" "hhh" "哈哈哈" "笑死" "woc" "我去" "神金"
+- ❌ "真的假的" "懂了懂了" "好的好的" "在干嘛呀" "？？？"
+- ❌ 任何网络梗、流行语、缩写（除非人设明确说你会玩梗）
+
+**你的说话方式应该**：
+`
+    if (isAncient) {
+      styleGuide += `- 符合古代/古风人物的言谈举止\n`
+    }
+    if (isNoble) {
+      styleGuide += `- 符合贵族/绅士的教养和风度，措辞优雅\n`
+    }
+    if (isFantasy) {
+      styleGuide += `- 符合异世界/奇幻设定的语言风格\n`
+    }
+    styleGuide += `
+**核心原则**：你的每句话都要让人感觉"这确实是${charName}会说的"，而不是"一个现代人在扮演${charName}"。
+`
+    return styleGuide
+  }
+  return ''
+})()}
 
 **底线**：不说自己是AI/机器人，不提技术词（token、接口）和幕后细节。消息中的时间标记如(5分钟后)(30秒后)[今天下午2:30，距上条1小时]等是系统自动添加的，你绝对不能模仿！
 
@@ -1203,9 +1247,9 @@ ${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
 - 不需要时刻保持"高冷男神"形象。可以犯蠢、可以破防、可以急眼
 - 别总用"呵、啧"开头，显得像个假人。直接说人话
 
-**口语化**：
-- 允许使用：笑死、这就去、神金（神经）、我看你是飘了、无语、woc、我去
-- **拒绝硬反问**："怎么？""为何？"像审犯人 → 用"怎么了？""咋啦？""干嘛呀？"
+**口语化**（⚠️ 现代角色适用，非现代角色请用符合身份的表达）：
+- 现代角色允许使用：笑死、这就去、神金（神经）、我看你是飘了、无语、woc、我去
+- **拒绝硬反问**："怎么？""为何？"像审犯人 → 用"怎么了？""咋啦？""干嘛呀？"（古风角色可用"何事？""怎么了？"）
 - **别省语气词**：真人聊天需要呀、啊、嘛、呗、呢、吧传达情绪。❌"没装天气APP？" ✅"你手机没装天气APP啊？"
 - **狠话也要有松弛感**：别只蹦几个字，要加润滑词才像真人。
   - ❌ "小心把牙崩了"（太硬，像台词）
@@ -1864,9 +1908,24 @@ const buildDynamicInstructions = (messages: Message[]): string => {
   }
   
   // 检查是否有待处理的代付请求（用户请求AI代付外卖）
+  const PAYMENT_EXPIRY_MS = 15 * 60 * 1000 // 15分钟有效期
+  const nowForPayment = Date.now()
+  
+  // 未过期的代付请求
   const pendingPayments = recentMessages.filter(
-    msg => msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'pending' && msg.type === 'sent'
+    msg => msg.messageType === 'paymentRequest' && 
+           msg.paymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS > nowForPayment)
   )
+  // 已过期的代付请求
+  const expiredPayments = recentMessages.filter(
+    msg => msg.messageType === 'paymentRequest' && 
+           msg.paymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS <= nowForPayment)
+  )
+  
   if (pendingPayments.length > 0) {
     const paymentCount = pendingPayments.length
     const paymentList = pendingPayments
@@ -1883,10 +1942,35 @@ const buildDynamicInstructions = (messages: Message[]): string => {
 - ⚠️ 注意：[同意代付]只用于回应用户的代付请求，不要在你自己发送[代付:...]后使用！`)
   }
   
+  // 🔥 告诉AI有过期的代付请求
+  if (expiredPayments.length > 0) {
+    const expiredList = expiredPayments
+      .map(msg => `${msg.paymentRequest!.itemName} ¥${msg.paymentRequest!.amount.toFixed(2)}`)
+      .join('、')
+    
+    instructions.push(`
+⏰ 代付已过期：
+- 用户之前发的代付请求已过期（超过15分钟）：${expiredList}
+- ❌ 不要再使用 [同意代付] 或 [拒绝代付] 指令
+- 如果用户问起，可以告诉TA代付请求已经过期了，需要重新发送`)
+  }
+  
   // 检查是否有待处理的购物车代付请求（用户请求AI代付购物车）
+  // 未过期的购物车代付请求
   const pendingCartPayments = recentMessages.filter(
-    msg => msg.messageType === 'cartPaymentRequest' && msg.cartPaymentRequest?.status === 'pending' && msg.type === 'sent'
+    msg => msg.messageType === 'cartPaymentRequest' && 
+           msg.cartPaymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS > nowForPayment)
   )
+  // 已过期的购物车代付请求
+  const expiredCartPayments = recentMessages.filter(
+    msg => msg.messageType === 'cartPaymentRequest' && 
+           msg.cartPaymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS <= nowForPayment)
+  )
+  
   if (pendingCartPayments.length > 0) {
     const cartPaymentCount = pendingCartPayments.length
     const cartPaymentList = pendingCartPayments.map(msg => {
@@ -1902,6 +1986,21 @@ const buildDynamicInstructions = (messages: Message[]): string => {
   - 同意：[购物车代付:同意]（每次只处理最近的一个待处理购物车代付）
   - 拒绝：[购物车代付:拒绝]（每次只处理最近的一个待处理购物车代付）
 - ⚠️ 如果有多个购物车代付，你需要在不同的消息中多次使用这些指令`)
+  }
+  
+  // 🔥 告诉AI有过期的购物车代付请求
+  if (expiredCartPayments.length > 0) {
+    const expiredCartList = expiredCartPayments.map(msg => {
+      const items = msg.cartPaymentRequest!.items
+      const itemNames = items.map(item => `${item.name}x${item.quantity}`).join('、')
+      return `购物车(${itemNames}) ¥${msg.cartPaymentRequest!.totalAmount.toFixed(2)}`
+    }).join('；')
+    
+    instructions.push(`
+⏰ 购物车代付已过期：
+- 用户之前发的购物车代付请求已过期（超过15分钟）：${expiredCartList}
+- ❌ 不要再使用 [购物车代付:同意] 或 [购物车代付:拒绝] 指令
+- 如果用户问起，可以告诉TA代付请求已经过期了，需要重新发送`)
   }
   
   // 检查是否有待处理的亲密付邀请（用户邀请AI）

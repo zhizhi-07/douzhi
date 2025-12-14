@@ -21,25 +21,47 @@ const STORES = {
 }
 
 let dbInstance: IDBDatabase | null = null
+let dbPromise: Promise<IDBDatabase> | null = null  // 🔥 缓存 Promise，避免重复初始化
 
 /**
  * 初始化数据库
+ * 🔥 使用单例 Promise，避免并发初始化导致超时
  */
 function initDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (dbInstance) {
-      resolve(dbInstance)
-      return
-    }
+  // 🔥 如果已有连接，直接返回
+  if (dbInstance) {
+    return Promise.resolve(dbInstance)
+  }
+  
+  // 🔥 如果正在初始化，返回同一个 Promise
+  if (dbPromise) {
+    return dbPromise
+  }
+  
+  // 🔥 创建新的初始化 Promise
+  dbPromise = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      dbPromise = null  // 清除缓存，允许重试
+      console.error('❌ IndexedDB 打开超时')
+      reject(new Error('数据库打开超时'))
+    }, 30000)  // 🔥 增加到 30 秒
 
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
+      clearTimeout(timeout)
+      dbPromise = null
       console.error('❌ 打开IndexedDB失败')
       reject(new Error('打开数据库失败'))
     }
+    
+    request.onblocked = () => {
+      console.warn('⚠️ IndexedDB 被阻塞，等待其他标签页关闭...')
+      // 不清除超时，继续等待
+    }
 
     request.onsuccess = () => {
+      clearTimeout(timeout)
       dbInstance = request.result
       console.log('✅ IndexedDB已连接')
       resolve(dbInstance)
@@ -47,16 +69,19 @@ function initDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
+      console.log('📦 正在创建/升级数据库...')
       
       // 创建所有对象存储
       Object.values(STORES).forEach(storeName => {
         if (!db.objectStoreNames.contains(storeName)) {
           db.createObjectStore(storeName)
-          console.log(`📦 创建对象存储: ${storeName}`)
+          console.log(`  📦 创建 store: ${storeName}`)
         }
       })
     }
   })
+  
+  return dbPromise
 }
 
 /**

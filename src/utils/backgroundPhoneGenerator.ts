@@ -80,11 +80,21 @@ class BackgroundPhoneGenerator {
         this.notifyListeners()
       }
 
-      // 5秒后移除失败任务
+      // 🔥 显示失败通知，让用户知道出错了
+      showNotification(
+        '查手机',
+        `${characterName}的手机内容生成失败：${error.message || '未知错误'}`,
+        {
+          subtitle: '生成失败',
+          duration: 8000
+        }
+      )
+
+      // 8秒后移除失败任务
       setTimeout(() => {
         this.tasks.delete(characterId)
         this.notifyListeners()
-      }, 5000)
+      }, 8000)
     }
   }
 

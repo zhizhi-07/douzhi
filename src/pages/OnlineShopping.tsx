@@ -452,132 +452,133 @@ const OnlineShopping = () => {
         )}
       </div>
 
-      {/* 自定义商品弹窗 */}
+      {/* 自定义商品弹窗 - iOS风格 */}
       {showCustomModal && (
         <>
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+            className="fixed inset-0 bg-black/50 z-40"
             onClick={() => {
               setShowCustomModal(false)
               setEditingProductId(null)
               setCustomProduct({ name: '', price: '', description: '' })
             }}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] animate-slide-up max-h-[85vh] overflow-y-auto">
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">
-                {editingProductId ? '编辑商品' : '自定义商品卡片'}
-              </h3>
+          <div className="fixed bottom-0 left-0 right-0 bg-[#f2f2f7] rounded-t-xl z-50 pb-safe animate-slide-up max-h-[85vh] overflow-y-auto">
+            {/* 顶部栏 */}
+            <div className="sticky top-0 bg-[#f2f2f7] z-10 px-4 py-3 flex items-center justify-between border-b border-gray-200/50">
               <button 
                 onClick={() => {
                   setShowCustomModal(false)
                   setEditingProductId(null)
                   setCustomProduct({ name: '', price: '', description: '' })
-                }} 
-                className="p-2 bg-gray-50 rounded-full hover:bg-gray-100"
+                }}
+                className="text-[#007aff] text-[17px]"
               >
-                <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                取消
+              </button>
+              <span className="text-[17px] font-semibold text-gray-900">
+                {editingProductId ? '编辑商品' : '新建商品'}
+              </span>
+              <button 
+                onClick={() => {
+                  saveCustomProduct()
+                  setShowCustomModal(false)
+                }}
+                className="text-[#007aff] text-[17px] font-semibold"
+              >
+                保存
               </button>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block ml-1">商品名称</label>
-                <input
-                  type="text"
-                  value={customProduct.name}
-                  onChange={(e) => setCustomProduct(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="例如：iPhone 15 Pro Max"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
-                />
+            <div className="p-4 space-y-6">
+              {/* 表单卡片 */}
+              <div className="bg-white rounded-xl overflow-hidden">
+                <div className="divide-y divide-gray-100">
+                  {/* 商品名称 */}
+                  <div className="flex items-center px-4 py-3">
+                    <span className="text-[17px] text-gray-900 w-20 shrink-0">名称</span>
+                    <input
+                      type="text"
+                      value={customProduct.name}
+                      onChange={(e) => setCustomProduct(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="请输入商品名称"
+                      className="flex-1 text-[17px] text-gray-900 placeholder-gray-400 outline-none bg-transparent text-right"
+                    />
+                  </div>
+                  {/* 价格 */}
+                  <div className="flex items-center px-4 py-3">
+                    <span className="text-[17px] text-gray-900 w-20 shrink-0">价格</span>
+                    <div className="flex-1 flex items-center justify-end">
+                      <span className="text-[17px] text-gray-900">¥</span>
+                      <input
+                        type="number"
+                        value={customProduct.price}
+                        onChange={(e) => setCustomProduct(prev => ({ ...prev, price: e.target.value }))}
+                        placeholder="0"
+                        className="w-24 text-[17px] text-gray-900 placeholder-gray-400 outline-none bg-transparent text-right"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block ml-1">价格（元）</label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">¥</div>
-                  <input
-                    type="number"
-                    value={customProduct.price}
-                    onChange={(e) => setCustomProduct(prev => ({ ...prev, price: e.target.value }))}
-                    placeholder="0.00"
-                    className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all font-din font-bold text-lg"
+              {/* 描述卡片 */}
+              <div className="bg-white rounded-xl overflow-hidden">
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] text-gray-500 uppercase">商品描述</span>
+                    <span className="text-[13px] text-gray-400">{customProduct.description.length}/60</span>
+                  </div>
+                  <textarea
+                    value={customProduct.description}
+                    onChange={(e) => setCustomProduct(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="输入商品描述..."
+                    rows={3}
+                    className="w-full text-[17px] text-gray-900 placeholder-gray-400 outline-none bg-transparent resize-none leading-relaxed"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block ml-1">商品描述</label>
-                <textarea
-                  value={customProduct.description}
-                  onChange={(e) => setCustomProduct(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="请输入详细的商品描述，突出卖点（40-60字最佳）"
-                  rows={3}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all resize-none"
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  onClick={() => {
-                    setCustomProduct({ name: '', price: '', description: '' })
-                    setEditingProductId(null)
-                    setShowCustomModal(false)
-                  }}
-                  className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-full font-bold text-lg active:scale-[0.98] transition-transform"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => {
-                    saveCustomProduct()
-                    setShowCustomModal(false)
-                  }}
-                  className="flex-1 py-3.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full font-bold text-lg shadow-lg shadow-orange-200 active:scale-[0.98] transition-transform"
-                >
-                  {editingProductId ? '更新商品' : '保存商品'}
-                </button>
-              </div>
-
-              {/* 已保存的商品列表 */}
+              {/* 已保存的商品 */}
               {savedProducts.length > 0 && (
-                <div className="pt-4 border-t border-gray-100">
-                  <h4 className="text-sm font-medium text-gray-500 mb-3">已保存的商品（点击发送）</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div>
+                  <div className="px-4 mb-2">
+                    <span className="text-[13px] text-gray-500 uppercase">已保存的商品（点击发送）</span>
+                  </div>
+                  <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100">
                     {savedProducts.map(product => (
                       <div 
                         key={product.id}
-                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group"
+                        className="flex items-center px-4 py-3 active:bg-gray-50"
                       >
                         <div 
-                          className="flex-1 cursor-pointer"
+                          className="flex-1 min-w-0"
                           onClick={() => {
                             forwardProduct(product)
                             setShowCustomModal(false)
                           }}
                         >
-                          <div className="font-medium text-gray-800 text-sm">{product.name}</div>
-                          <div className="text-orange-500 font-din font-bold text-sm">¥{product.price}</div>
+                          <div className="text-[17px] text-gray-900 truncate">{product.name}</div>
+                          <div className="text-[15px] text-[#ff5000]">¥{product.price}</div>
                         </div>
-                        <button
-                          onClick={() => editSavedProduct(product)}
-                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => deleteSavedProduct(product.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-2 ml-3">
+                          <button
+                            onClick={() => editSavedProduct(product)}
+                            className="w-8 h-8 flex items-center justify-center text-gray-400"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => deleteSavedProduct(product.id)}
+                            className="w-8 h-8 flex items-center justify-center text-red-500"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

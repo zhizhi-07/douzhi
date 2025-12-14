@@ -19,6 +19,7 @@ export interface Character {
   publicPersona?: string  // 网络人设描述（如：全网黑、网红、争议人物）
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
   worldSetting?: string  // 世界观设定（自定义，如"古代仙侠世界，用传信玉佩联系"）
+  languageStyle?: 'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto'  // 语言风格
 }
 
 // 🔥 完全移除localStorage依赖，只用IndexedDB
@@ -35,10 +36,11 @@ function initCharacters(): Promise<void> {
   
   loadPromise = (async () => {
     try {
+      // 🔥 增加超时时间到 15 秒
       const characters = await Promise.race([
         CharacterManager.getAllCharacters(),
         new Promise<Character[]>((_, reject) => 
-          setTimeout(() => reject(new Error('IndexedDB加载超时')), 5000)
+          setTimeout(() => reject(new Error('IndexedDB加载超时')), 15000)
         )
       ])
       
@@ -52,6 +54,8 @@ function initCharacters(): Promise<void> {
       }))
     } catch (e) {
       console.error('❌ IndexedDB 加载角色失败:', e)
+      // 🔥 超时时返回空数组，不阻塞应用
+      charactersCache = []
       isLoaded = true // 标记为已加载，避免无限等待
     }
   })()

@@ -17,11 +17,13 @@ export interface LiveStream {
   category: string
   viewers: number
   likes: number
+  followers: number
   color: string
   isLive: boolean
   startTime: number
   comments: LiveComment[]
   gifts: LiveGift[]
+  fanBadgeName?: string  // 粉丝牌名称
 }
 
 // 评论类型
@@ -68,7 +70,73 @@ export const GIFT_LIST: GiftType[] = [
 ]
 
 // 直播分类
-export const LIVE_CATEGORIES = ['推荐', '音乐', '情感', '助眠', '聊天', '游戏', '二次元']
+export const LIVE_CATEGORIES = ['推荐', '18+', '带货', '情感', '游戏', '才艺', '聊天']
+
+// 用户直播数据
+export interface UserLiveData {
+  odiumLevel: number              // 观众等级 1-50
+  exp: number                     // 当前经验值
+  totalGiftValue: number          // 总送礼金额
+  totalWatchTime: number          // 总观看时长(秒)
+  fanClubs: FanClubMembership[]   // 加入的粉丝团
+  badges: string[]                // 获得的徽章
+  roomAdminOf: string[]           // 是哪些直播间的房管
+}
+
+// 粉丝团成员信息
+export interface FanClubMembership {
+  streamerId: string
+  streamerName: string
+  level: number                   // 粉丝牌等级 1-30
+  intimacy: number                // 亲密度
+  giftValue: number               // 给这个主播送的礼物总值
+  joinTime: number
+  badgeName: string               // 粉丝牌名称
+  badgeColor: string              // 粉丝牌颜色
+}
+
+// 贡献榜条目
+export interface LeaderboardEntry {
+  odiumRank: number
+  odiumUserId: string
+  userName: string
+  avatar?: string
+  giftValue: number
+  fanLevel: number
+  isRoomAdmin: boolean
+}
+
+// 用户等级配置
+export const USER_LEVEL_CONFIG = {
+  // 等级 -> 所需经验
+  expRequired: (level: number) => Math.floor(100 * Math.pow(1.5, level - 1)),
+  // 等级对应的颜色
+  levelColor: (level: number) => {
+    if (level >= 40) return 'from-yellow-400 to-red-500'      // 传说
+    if (level >= 30) return 'from-purple-400 to-pink-500'    // 荣耀
+    if (level >= 20) return 'from-blue-400 to-cyan-500'      // 真爱
+    if (level >= 10) return 'from-green-400 to-emerald-500'  // 铁粉
+    return 'from-gray-400 to-gray-500'                        // 普通
+  },
+  // 等级称号
+  levelTitle: (level: number) => {
+    if (level >= 40) return '传说'
+    if (level >= 30) return '荣耀'
+    if (level >= 20) return '真爱'
+    if (level >= 10) return '铁粉'
+    return '观众'
+  }
+}
+
+// 粉丝牌颜色列表
+export const FAN_BADGE_COLORS = [
+  'from-pink-500 to-rose-500',
+  'from-purple-500 to-indigo-500',
+  'from-blue-500 to-cyan-500',
+  'from-green-500 to-emerald-500',
+  'from-yellow-500 to-orange-500',
+  'from-red-500 to-pink-500',
+]
 
 // 渐变色列表
 const GRADIENT_COLORS = [
@@ -301,11 +369,13 @@ class LiveStreamService {
             category: s.category || LIVE_CATEGORIES[Math.floor(Math.random() * LIVE_CATEGORIES.length)],
             viewers: Math.floor(Math.random() * 50000) + 100,
             likes: Math.floor(Math.random() * 10000),
+            followers: Math.floor(Math.random() * 100000) + 1000,
             color: GRADIENT_COLORS[index % GRADIENT_COLORS.length],
             isLive: true,
             startTime: Date.now() - Math.floor(Math.random() * 3600000),
             comments: initialComments,
-            gifts: []
+            gifts: [],
+            fanBadgeName: streamerName.slice(0, 2) + '粉'
           }
         })
 
@@ -343,11 +413,13 @@ class LiveStreamService {
       category: d.category,
       viewers: Math.floor(Math.random() * 10000) + 100,
       likes: Math.floor(Math.random() * 5000),
+      followers: Math.floor(Math.random() * 50000) + 500,
       color: GRADIENT_COLORS[i % GRADIENT_COLORS.length],
       isLive: true,
       startTime: Date.now() - Math.floor(Math.random() * 3600000),
       comments: [],
-      gifts: []
+      gifts: [],
+      fanBadgeName: d.name.slice(0, 2) + '粉'
     }))
   }
 
@@ -535,6 +607,189 @@ ${personality ? `你的人设：${personality}` : ''}
     this.streams = []
     this.isInitialized = false
     this.initPromise = null
+  }
+
+  // ========== 用户直播数据管理 ==========
+  
+  private getUserLiveDataKey() {
+    return 'user_live_data'
+  }
+
+  // 获取用户直播数据
+  getUserLiveData(): UserLiveData {
+    try {
+      const data = localStorage.getItem(this.getUserLiveDataKey())
+      if (data) return JSON.parse(data)
+    } catch (e) {
+      console.error('获取用户直播数据失败:', e)
+    }
+    // 默认数据
+    return {
+      odiumLevel: 1,
+      exp: 0,
+      totalGiftValue: 0,
+      totalWatchTime: 0,
+      fanClubs: [],
+      badges: [],
+      roomAdminOf: []
+    }
+  }
+
+  // 保存用户直播数据
+  saveUserLiveData(data: UserLiveData) {
+    localStorage.setItem(this.getUserLiveDataKey(), JSON.stringify(data))
+  }
+
+  // 增加经验值并检查升级
+  addExp(amount: number): { newLevel: number, levelUp: boolean } {
+    const data = this.getUserLiveData()
+    data.exp += amount
+    
+    let levelUp = false
+    let newLevel = data.odiumLevel
+    
+    // 检查升级
+    while (data.exp >= USER_LEVEL_CONFIG.expRequired(newLevel) && newLevel < 50) {
+      data.exp -= USER_LEVEL_CONFIG.expRequired(newLevel)
+      newLevel++
+      levelUp = true
+    }
+    
+    data.odiumLevel = newLevel
+    this.saveUserLiveData(data)
+    
+    return { newLevel, levelUp }
+  }
+
+  // 加入粉丝团
+  joinFanClub(streamerId: string, streamerName: string, badgeName: string): FanClubMembership {
+    const data = this.getUserLiveData()
+    
+    // 检查是否已加入
+    const existing = data.fanClubs.find(f => f.streamerId === streamerId)
+    if (existing) return existing
+    
+    const colorIndex = data.fanClubs.length % FAN_BADGE_COLORS.length
+    const membership: FanClubMembership = {
+      streamerId,
+      streamerName,
+      level: 1,
+      intimacy: 0,
+      giftValue: 0,
+      joinTime: Date.now(),
+      badgeName,
+      badgeColor: FAN_BADGE_COLORS[colorIndex]
+    }
+    
+    data.fanClubs.push(membership)
+    this.saveUserLiveData(data)
+    return membership
+  }
+
+  // 获取粉丝团信息
+  getFanClubMembership(streamerId: string): FanClubMembership | undefined {
+    const data = this.getUserLiveData()
+    return data.fanClubs.find(f => f.streamerId === streamerId)
+  }
+
+  // 增加粉丝团亲密度
+  addIntimacy(streamerId: string, amount: number): { newLevel: number, levelUp: boolean } {
+    const data = this.getUserLiveData()
+    const membership = data.fanClubs.find(f => f.streamerId === streamerId)
+    
+    if (!membership) return { newLevel: 0, levelUp: false }
+    
+    membership.intimacy += amount
+    
+    let levelUp = false
+    // 粉丝牌升级: 每100亲密度升1级，最高30级
+    const newLevel = Math.min(30, Math.floor(membership.intimacy / 100) + 1)
+    if (newLevel > membership.level) {
+      membership.level = newLevel
+      levelUp = true
+    }
+    
+    this.saveUserLiveData(data)
+    return { newLevel: membership.level, levelUp }
+  }
+
+  // 记录送礼
+  recordGiftSent(streamerId: string, giftValue: number) {
+    const data = this.getUserLiveData()
+    data.totalGiftValue += giftValue
+    
+    // 更新粉丝团送礼记录
+    const membership = data.fanClubs.find(f => f.streamerId === streamerId)
+    if (membership) {
+      membership.giftValue += giftValue
+    }
+    
+    this.saveUserLiveData(data)
+    
+    // 送礼获得经验
+    this.addExp(Math.floor(giftValue / 10))
+    
+    // 增加亲密度
+    if (membership) {
+      this.addIntimacy(streamerId, Math.floor(giftValue / 5))
+    }
+  }
+
+  // 设为房管
+  setRoomAdmin(streamerId: string) {
+    const data = this.getUserLiveData()
+    if (!data.roomAdminOf.includes(streamerId)) {
+      data.roomAdminOf.push(streamerId)
+      this.saveUserLiveData(data)
+    }
+  }
+
+  // 检查是否是房管
+  isRoomAdmin(streamerId: string): boolean {
+    const data = this.getUserLiveData()
+    return data.roomAdminOf.includes(streamerId)
+  }
+
+  // 生成模拟榜单数据（更真实的网名）
+  generateLeaderboard(_streamId: string): LeaderboardEntry[] {
+    // 真实风格的网名
+    const prefixes = ['小', '阿', '大', '老', '']
+    const names1 = ['星星', '月亮', '太阳', '云朵', '雨滴', '雪花', '微风', '清风']
+    const names2 = ['猫咪', '狐狸', '兔子', '熊猫', '柴犬', '企鹅', '仓鼠', '考拉']
+    const names3 = ['奶茶', '咖啡', '柠檬', '草莓', '蜜桃', '葡萄', '芒果', '西瓜']
+    const suffixes = ['', '呀', '儿', '酱', '君', 'er', '~', '']
+    
+    const generateName = () => {
+      const type = Math.floor(Math.random() * 3)
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)]
+      let name = ''
+      if (type === 0) name = names1[Math.floor(Math.random() * names1.length)]
+      else if (type === 1) name = names2[Math.floor(Math.random() * names2.length)]
+      else name = names3[Math.floor(Math.random() * names3.length)]
+      return prefix + name + suffix
+    }
+    
+    const avatars = ['🦊', '🐱', '🐼', '🦁', '🐯', '🐰', '🦋', '🌟', '🍑', '🍓']
+    const usedNames = new Set<string>()
+    
+    return Array.from({ length: 5 }, (_, i) => {
+      let name = generateName()
+      while (usedNames.has(name)) {
+        name = generateName()
+      }
+      usedNames.add(name)
+      
+      return {
+        odiumRank: i + 1,
+        odiumUserId: `user_${i}_${Date.now()}`,
+        userName: name,
+        avatar: avatars[Math.floor(Math.random() * avatars.length)],
+        giftValue: Math.floor(10000 / (i + 1)) + Math.floor(Math.random() * 1000),
+        fanLevel: Math.max(1, 20 - i * 3),
+        isRoomAdmin: i < 2
+      }
+    })
   }
 }
 

@@ -387,43 +387,8 @@ export const generateAIPhoneContent = async (
     
   } catch (error) {
     console.error('生成手机内容失败:', error)
-    
-    // 返回默认内容
-    return {
-      characterId,
-      characterName,
-      generatedAt: Date.now(),
-      contacts: [
-        { name: '妈妈', phone: '138****8888', relation: '家人', notes: '最爱我的人' }
-      ],
-      wechatChats: [
-        { name: '好友', lastMessage: '在吗？', time: '刚刚', unread: 1, messages: [{ content: '在吗？', isSelf: false, time: '刚刚' }] }
-      ],
-      browserHistory: [
-        { title: '百度首页', url: 'https://www.baidu.com', time: '5分钟前' }
-      ],
-      taobaoOrders: [
-        { title: '商品', price: '99.00', status: '待收货' }
-      ],
-      alipayBills: [
-        { title: '转账', amount: '100.00', type: 'expense', time: '今天', reason: '给朋友转账，上次一起吃饭的钱终于记得还了' }
-      ],
-      photos: [
-        { description: '风景照', location: '公园', time: '上周' }
-      ],
-      notes: [
-        { title: '待办事项', content: '记得买东西', time: '昨天' }
-      ],
-      musicPlaylist: [
-        { title: '歌曲', artist: '歌手', mood: '放松' }
-      ],
-      footprints: [
-        { location: '家', address: '住宅区', time: '08:00', duration: '2小时', activity: '起床洗漱', mood: '有点困但是今天有期待的事情所以心情不错' }
-      ],
-      forumPosts: [
-        { title: '帖子', forum: '论坛', content: '内容', time: '今天', hasCommented: false }
-      ]
-    }
+    // 🔥 抛出错误，让调用方知道失败了
+    throw error
   }
 }
 

@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
-import { exportAllData, importAllData, clearAllData } from '../utils/dataManager'
+import { exportChatData, exportStyleData, importAllData, clearAllData } from '../utils/dataManager'
 import { analyzeLocalStorage, analyzeIndexedDB, cleanupOldMessages, clearEmojis, clearImages, clearMessageBackups, emergencyCleanup } from '../utils/storageDiagnostic'
 
 interface StorageInfo {
@@ -25,6 +25,9 @@ const DataManager = () => {
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [showStorageDetail, setShowStorageDetail] = useState(false)
+  
+  // 🔥 导出/导入进度状态
+  const [progress, setProgress] = useState<{ stage: string; percent: number } | null>(null)
 
   // 加载存储信息
   const loadStorageInfo = async () => {
@@ -65,45 +68,112 @@ const DataManager = () => {
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   }
 
-  // 导出数据
-  const handleExportData = async () => {
+  // 🔥 导出聊天数据
+  const handleExportChatData = async () => {
     try {
-      await exportAllData()
-      alert('✅ 数据导出成功！文件已保存为 douzhi.备份')
+      setProgress({ stage: '准备导出聊天数据...', percent: 0 })
+      await exportChatData((stage: string, percent: number) => {
+        setProgress({ stage, percent })
+      })
+      setProgress(null)
+      alert('✅ 聊天数据导出成功！文件已保存为 douzhi_chat_backup.json')
     } catch (error) {
-      console.error('导出数据失败:', error)
-      alert('❌ 数据导出失败，请重试')
+      setProgress(null)
+      console.error('导出聊天数据失败:', error)
+      alert('❌ 导出失败，请重试')
     }
   }
 
-  // 导入数据
-  const handleImportData = async () => {
+  // 🔥 导出美化数据
+  const handleExportStyleData = async () => {
     try {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = '.备份'
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0]
-        if (file) {
-          await importAllData(file)
-          alert(`✅ 数据导入成功！
+      setProgress({ stage: '准备导出美化数据...', percent: 0 })
+      await exportStyleData((stage: string, percent: number) => {
+        setProgress({ stage, percent })
+      })
+      setProgress(null)
+      alert('✅ 美化数据导出成功！文件已保存为 douzhi_style_backup.json')
+    } catch (error) {
+      setProgress(null)
+      console.error('导出美化数据失败:', error)
+      alert('❌ 导出失败，请重试')
+    }
+  }
 
-📍 数据位置说明：
-• 角色数据 → 首页聊天列表
-• 聊天记录 → 点击角色进入聊天
-• 朋友圈 → 朋友圈页面
-• 表情包 → 聊天输入框的表情按钮
-• 论坛帖子 → 论坛页面
+  // 🔥 导入数据 - 重新设计，解决崩溃问题
+  const handleImportData = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,.备份'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      
+      const sizeMB = file.size / 1024 / 1024
+      console.log(`📦 文件大小: ${sizeMB.toFixed(2)} MB`)
+      
+      // 🔥 针对不同大小文件使用不同策略
+      if (sizeMB > 100) {
+        alert(`❌ 文件太大 (${sizeMB.toFixed(1)} MB)
 
-页面即将刷新...`)
-          setTimeout(() => window.location.reload(), 1500)
+请使用新的导出功能重新导出数据。
+新版本会自动清理图片，文件会小很多。`)
+        return
+      }
+      
+      try {
+        setProgress({ stage: '读取文件...', percent: 10 })
+        
+        // 🔥 分块读取，避免一次性加载整个文件
+        const text = await file.text()
+        setProgress({ stage: '解析数据...', percent: 30 })
+        
+        let data: any
+        try {
+          data = JSON.parse(text)
+        } catch (parseError) {
+          console.error('JSON 解析失败:', parseError)
+          alert('❌ 文件格式错误，请确保是有效的备份文件')
+          setProgress(null)
+          return
+        }
+        
+        if (!data || !data.version) {
+          alert('❌ 无效的备份文件')
+          setProgress(null)
+          return
+        }
+        
+        setProgress({ stage: '开始导入...', percent: 50 })
+        
+        // 🔥 调用导入函数
+        await importAllData(file, (stage: string, percent: number) => {
+          setProgress({ stage, percent })
+        })
+        
+        setProgress(null)
+        alert('✅ 导入成功！页面将自动刷新...')
+        
+        // 🔥 延迟刷新，让用户看到成功提示
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
+        
+      } catch (error: any) {
+        setProgress(null)
+        console.error('导入失败:', error)
+        
+        // 🔥 提供更详细的错误信息
+        if (error.message?.includes('内存')) {
+          alert('❌ 内存不足！请关闭其他标签页后重试')
+        } else if (error.message?.includes('数据库')) {
+          alert('❌ 数据库错误！请刷新页面后重试')  
+        } else {
+          alert(`❌ 导入失败: ${error.message || '未知错误'}`)
         }
       }
-      input.click()
-    } catch (error) {
-      console.error('导入数据失败:', error)
-      alert('❌ 数据导入失败，请重试')
     }
+    input.click()
   }
 
   // 清除数据
@@ -125,6 +195,30 @@ const DataManager = () => {
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans soft-page-enter">
       {showStatusBar && <StatusBar />}
+
+      {/* 🔥 进度条覆盖层 */}
+      {progress && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-6 mx-6 w-full max-w-sm shadow-xl">
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-slate-700">{progress.stage}</p>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400 text-center mt-2">{progress.percent}%</p>
+          </div>
+        </div>
+      )}
 
       {/* 顶部导航栏 */}
       <div className="relative z-10 px-6 py-5 flex items-center justify-between">
@@ -150,20 +244,43 @@ const DataManager = () => {
 
           {/* 核心操作 */}
           <div className="space-y-3">
-            {/* 导出数据 */}
+            {/* 🔥 导出聊天数据 */}
             <button
-              onClick={handleExportData}
+              onClick={handleExportChatData}
               className="w-full bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-4 text-left hover:bg-white/60 transition-all active:scale-[0.98] shadow-sm group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
                   <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-base font-medium text-slate-800">导出数据</h3>
-                  <p className="text-xs text-slate-500 mt-0.5 font-light">保存所有数据为备份文件</p>
+                  <h3 className="text-base font-medium text-slate-800">导出聊天数据</h3>
+                  <p className="text-xs text-slate-500 mt-0.5 font-light">角色、聊天记录、朋友圈、论坛、配置</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+
+            {/* 🔥 导出美化数据 */}
+            <button
+              onClick={handleExportStyleData}
+              className="w-full bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-4 text-left hover:bg-white/60 transition-all active:scale-[0.98] shadow-sm group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-medium text-slate-800">导出美化数据</h3>
+                  <p className="text-xs text-slate-500 mt-0.5 font-light">头像、图标、壁纸、气泡、字体、表情包</p>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-slate-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -69,6 +69,16 @@ const messageCache = new Map<string, Message[]>()
 let preloadPromise: Promise<void> | null = null
 
 /**
+ * 🔥 清空所有消息缓存（用于数据导入后刷新）
+ * 必须在导入数据后调用，否则旧缓存会覆盖新导入的数据
+ */
+export function clearMessageCache(): void {
+  messageCache.clear()
+  preloadPromise = null
+  console.log('🗑️ [clearMessageCache] 已清空所有消息缓存')
+}
+
+/**
  * 预加载所有聊天消息到缓存
  */
 async function preloadMessages() {
@@ -225,18 +235,12 @@ if (typeof window !== 'undefined') {
   // 监听页面可见性变化，在页面隐藏时保存
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      console.log('📱 [页面隐藏] 触发保存')
       // 遍历所有缓存的消息，确保都保存到IndexedDB
       messageCache.forEach((messages, storageKey) => {
         if (messages && messages.length > 0) {
-          const chatId = storageKey.includes('_') ? storageKey.split('_')[0] : storageKey
           // 使用防抖，避免频繁保存
           if (!saveLocks.has(storageKey)) {
-            IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).then(() => {
-              console.log(`✅ [页面隐藏] 保存成功: ${storageKey}`)
-            }).catch(err => {
-              console.error(`❌ [页面隐藏] 保存失败: ${storageKey}`, err)
-            })
+            IDB.setItem(IDB.STORES.MESSAGES, storageKey, messages).catch(() => {})
           }
         }
       })
@@ -249,10 +253,7 @@ if (typeof window !== 'undefined') {
  * 用于页面卸载时防止数据丢失
  */
 export function forceBackupAllMessages(): void {
-  // 🔥 禁用 localStorage 备份！
   // IndexedDB 已经是持久化存储，不需要再往 localStorage 备份
-  // 之前的备份机制会撑爆 localStorage（只有5MB），导致数据丢失
-  console.log('ℹ️ [备份] 跳过 localStorage 备份（数据已在 IndexedDB 中）')
 }
 
 /**
@@ -309,9 +310,6 @@ export function loadMessages(chatId: string): Message[] {
     if (!messages) {
       // 🔥 关键修复：缓存未命中时，立即尝试从localStorage备份恢复
       // 这解决了手机端刷新时IndexedDB预加载失败导致的消息丢失
-      if (import.meta.env.DEV) {
-        console.log(`⏳ 消息缓存未命中: chatId=${chatId}，尝试从localStorage恢复...`)
-      }
       
       try {
         const backupKey = `msg_backup_${storageKey}`
@@ -325,14 +323,12 @@ export function loadMessages(chatId: string): Message[] {
           if (backupAge < 24 * 60 * 60 * 1000 && parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
             messages = parsed.messages as Message[]
             messageCache.set(storageKey, messages)
-            console.log(`✅ [立即恢复] 从localStorage恢复消息: storageKey=${storageKey}, count=${messages.length}, 备份时间=${Math.floor(backupAge / 1000)}秒前`)
           } else if (backupAge >= 24 * 60 * 60 * 1000) {
-            console.warn(`⚠️ [立即恢复] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
             localStorage.removeItem(backupKey)
           }
         }
       } catch (e) {
-        console.error('❌ [立即恢复] 从localStorage恢复失败:', e)
+        // 静默处理
       }
       
       // 如果还是没有，返回空数组
@@ -347,15 +343,9 @@ export function loadMessages(chatId: string): Message[] {
         // 异步保存修复后的消息
         IDB.setItem(IDB.STORES.MESSAGES, storageKey, fixedMessages)
         messages = fixedMessages
-        if (import.meta.env.DEV) {
-          console.log(`✅ 从缓存修复消息ID: storageKey=${storageKey}`)
-        }
       }
     }
 
-    if (import.meta.env.DEV) {
-      console.log(`📦 加载消息: chatId=${chatId}, storageKey=${storageKey}, 总数=${messages.length}, 来源=${messageCache.has(storageKey) ? '缓存' : 'localStorage备份'}`)
-    }
     return messages
   } catch (error) {
     console.error('加载消息失败:', error)
@@ -611,6 +601,7 @@ function cleanMessageForStorage(message: Message): Message {
 /**
  * 保存消息（立即更新缓存和IndexedDB）
  * 🔥 增强版：添加并发控制和数据保护
+ * 🔥 关键修复：防止分页加载后的不完整列表覆盖完整列表
  */
 export function saveMessages(chatId: string, messages: Message[]): void {
   try {
@@ -624,10 +615,11 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       return
     }
     
+    // 获取缓存中的消息
+    const cachedMessages = messageCache.get(storageKey)
+    
     // 🔥 防止保存空数组覆盖已有数据
     if (messages.length === 0) {
-      // 1. 检查缓存
-      const cachedMessages = messageCache.get(storageKey)
       if (cachedMessages && cachedMessages.length > 0) {
         console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
         return
@@ -651,13 +643,47 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       }
       
       // 3. 🔥 关键修复：如果缓存和备份都没有，直接拒绝保存空数组
-      // 不再异步检查 IndexedDB，因为异步检查无法阻止后续代码执行
       console.warn(`⚠️ [saveMessages] 拒绝保存空数组到 storageKey=${storageKey}，可能是数据加载未完成`)
       return
     }
     
+    // 🔥🔥🔥 关键修复：防止分页加载后的不完整列表覆盖完整列表 🔥🔥🔥
+    // 场景：分页加载只加载30条，但缓存中有100条，新消息添加后变成31条
+    // 如果直接保存31条，会丢失69条历史消息！
+    let finalMessages = messages
+    if (cachedMessages && cachedMessages.length > messages.length) {
+      // 缓存中的消息更多，需要智能合并
+      const newMsgIds = new Set(messages.map(m => m.id))
+      const cachedMsgIds = new Set(cachedMessages.map(m => m.id))
+      
+      // 找出新消息中不在缓存中的（真正的新消息）
+      const trulyNewMessages = messages.filter(m => !cachedMsgIds.has(m.id))
+      
+      // 找出缓存中不在新列表中的（历史消息，需要保留）
+      const historicalMessages = cachedMessages.filter(m => !newMsgIds.has(m.id))
+      
+      if (historicalMessages.length > 0) {
+        // 有历史消息需要保留，进行合并
+        // 合并策略：保留所有历史消息 + 新列表中的消息
+        const mergedMap = new Map<number, Message>()
+        
+        // 先添加缓存中的所有消息
+        cachedMessages.forEach(m => mergedMap.set(m.id, m))
+        
+        // 再用新消息覆盖（新消息可能有更新的内容）
+        messages.forEach(m => mergedMap.set(m.id, m))
+        
+        // 按时间戳排序
+        finalMessages = Array.from(mergedMap.values()).sort((a, b) => 
+          (a.timestamp || 0) - (b.timestamp || 0)
+        )
+        
+        console.log(`🔄 [saveMessages] 智能合并消息: 传入=${messages.length}, 缓存=${cachedMessages.length}, 合并后=${finalMessages.length}, 新增=${trulyNewMessages.length}`)
+      }
+    }
+    
     // 清理消息，移除不可序列化的对象
-    const cleanedMessages = messages.map(cleanMessageForStorage)
+    const cleanedMessages = finalMessages.map(cleanMessageForStorage)
     
     // 🔍 调试：检查最后一条消息的messageType
     const lastMsg = messages[messages.length - 1]
@@ -672,15 +698,15 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     }
     
     // 🔥 数据验证：确保消息数组有效
-    if (!Array.isArray(messages)) {
+    if (!Array.isArray(finalMessages)) {
       console.error(`❌ [saveMessages] 无效的消息数组: storageKey=${storageKey}`)
       return
     }
     
-    // 立即更新缓存（使用原始消息）
-    messageCache.set(storageKey, messages)
+    // 立即更新缓存（使用合并后的消息）
+    messageCache.set(storageKey, finalMessages)
     if (import.meta.env.DEV) {
-      console.log(`💾 [缓存] 保存消息: chatId=${chatId}, storageKey=${storageKey}, count=${messages.length}`)
+      console.log(`💾 [缓存] 保存消息: chatId=${chatId}, storageKey=${storageKey}, count=${finalMessages.length}`)
     }
     
     // 🔥 创建保存锁，防止并发

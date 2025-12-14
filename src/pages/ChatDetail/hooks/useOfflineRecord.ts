@@ -62,11 +62,26 @@ export const useOfflineRecord = (
     setEditingOfflineRecord(null)
   }, [messages, setMessages, editingOfflineRecord, chatId, characterName])
 
+  // 🔥 删除线下记录
+  const handleDeleteOfflineRecord = useCallback((messageId: number) => {
+    if (!chatId) return
+    
+    const updatedMessages = messages.filter(m => m.id !== messageId)
+    setMessages(updatedMessages)
+    saveMessages(chatId, updatedMessages)
+    console.log('🗑️ 线下记录已删除:', messageId)
+    
+    // 关闭对话框
+    setShowOfflineRecordDialog(false)
+    setEditingOfflineRecord(null)
+  }, [messages, setMessages, chatId])
+
   return {
     showOfflineRecordDialog,
     setShowOfflineRecordDialog,
     editingOfflineRecord,
     setEditingOfflineRecord,
-    handleSaveOfflineRecord
+    handleSaveOfflineRecord,
+    handleDeleteOfflineRecord
   }
 }

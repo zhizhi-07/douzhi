@@ -57,7 +57,7 @@ const ChatDetail = () => {
 
   // 使用新的hooks
   const { wallpaperStyle, hasCustomWallpaper } = useWallpaper(id)
-  const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages, chatState.character?.realName)
+  const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord, handleDeleteOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages, chatState.character?.realName)
   const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
 
   // 滚动控制
@@ -2067,6 +2067,7 @@ const ChatDetail = () => {
           setEditingOfflineRecord(null)
         }}
         onSave={handleSaveOfflineRecord}
+        onDelete={handleDeleteOfflineRecord}
         editingMessage={editingOfflineRecord}
       />
 

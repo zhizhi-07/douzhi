@@ -138,7 +138,6 @@ export const useChatAI = (
           sceneMode: sceneMode || 'online',
           quotedMessage: cleanQuotedMessage
         }
-        console.log(`🎵 [用户分享音乐] ${songTitle} - ${songArtist}`)
       } else {
         userMessage = {
           ...createMessage(inputValue, 'sent'),
@@ -148,16 +147,9 @@ export const useChatAI = (
         }
       }
       
-      console.log('📤 [handleSend] 发送消息:', {
-        content: inputValue.substring(0, 20),
-        messageId: userMessage.id,
-        blocked: isUserBlocked
-      })
-      
       // 🔥 先更新React状态（更新UI），再保存到存储
       // 这样可以避免new-message事件重复添加消息
       setMessages(prev => {
-        console.log(`📱 [handleSend] 更新React状态, 当前消息数=${prev.length}, 新消息id=${userMessage.id}`)
         // 先添加到状态，然后保存
         const newMessages = [...prev, userMessage]
         // 异步保存，不触发new-message事件
@@ -206,7 +198,6 @@ export const useChatAI = (
     
     // 🔥 设置AI回复标志，阻止messages-loaded事件触发重新加载
     ;(window as any).__AI_REPLYING__ = true
-    console.log('🚦 [AI回复] 开始，设置全局标志')
 
     try {
       const settings = getApiSettings()
@@ -227,21 +218,11 @@ export const useChatAI = (
       
       const needsAvatarRecognition = userInfo.avatar && userInfo.allowAvatarRecognition && !hasValidDescription
       
-      console.log('📷 [头像检查]', {
-        有头像: !!userInfo.avatar,
-        开启识别: userInfo.allowAvatarRecognition ?? false,
-        已有描述: hasValidDescription,
-        当前描述: avatarInfo.current?.description || '无',
-        需要识别: needsAvatarRecognition
-      })
-
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', `character_${chatId}`)
-      console.log(`🔍 [拉黑检查] 用户拉黑了AI: ${isBlocked}, chatId=${chatId}`)
 
       // 检查AI是否拉黑了用户
       const hasAIBlockedUser = blacklistManager.isBlockedByMe(`character_${chatId}`, 'user')
-      console.log(`🔍 [拉黑检查] AI拉黑了用户: ${hasAIBlockedUser}`)
 
       // 📊 保存各部分上下文用于Token统计
       let lorebookContextText = ''
@@ -253,7 +234,6 @@ export const useChatAI = (
       
       // 检查最后一条消息的场景模式（优先使用强制指定的模式）
       const currentSceneMode = forceSceneMode || (allMessages.filter(m => m.type === 'sent').pop()?.sceneMode || 'online')
-      console.log(`🎬 [场景模式] 当前模式: ${currentSceneMode}${forceSceneMode ? ' (强制指定)' : ''}`)
       
       // 🎭 读取面具设置（线上和线下模式都需要）
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
@@ -281,7 +261,6 @@ export const useChatAI = (
                 signature: mask.signature,
                 persona: mask.persona
               }
-              console.log('🎭 [面具模式] 使用面具:', mask.nickname)
             }
           }
         } catch (e) {
@@ -328,9 +307,6 @@ export const useChatAI = (
             lorebookPrompt += '══════════════════════════════════'
             
             systemPrompt = systemPrompt + lorebookPrompt
-            console.log('📚 [世界书] 已注入世界书上下文')
-          } else {
-            console.log('📚 [世界书] 已包含世界书上下文，跳过重复注入')
           }
         }
       }
@@ -352,9 +328,6 @@ export const useChatAI = (
         memoryPrompt += '══════════════════════════════════'
         
         systemPrompt = systemPrompt + memoryPrompt
-        console.log('🧠 [记忆] 已注入记忆摘要')
-      } else {
-        console.log('🧠 [记忆] 暂无记忆条目')
       }
       
       // 读取记忆时间线（用于长期上下文）
@@ -377,9 +350,6 @@ export const useChatAI = (
         timelinePrompt += '══════════════════════════════════'
 
         systemPrompt = systemPrompt + timelinePrompt
-        console.log('🧠 [时间线] 已注入记忆时间线，长度:', timelineText.length)
-      } else {
-        console.log('🧠 [时间线] 没有找到已生成的记忆时间线')
       }
       
       // 🔥 注入群聊消息（如果启用了群聊消息同步）
@@ -441,8 +411,6 @@ export const useChatAI = (
       if (isBlocked) {
         const blacklistWarning = buildBlacklistPrompt('用户')
         systemPrompt = blacklistWarning + '\n\n' + systemPrompt
-        console.log('🚨 AI被用户拉黑，已在提示词最前面添加警告')
-        console.log('警告内容：', blacklistWarning.substring(0, 200))
         localStorage.setItem(lastBlockedStateKey, 'true')
       } else if (wasBlockedBefore) {
         // 🔥 关键修复：如果上次被拉黑，这次解除了，主动告知AI
@@ -457,7 +425,6 @@ export const useChatAI = (
 请自然地继续对话，不要刻意强调这个状态变化。
 `
         systemPrompt = unblockNotice + '\n\n' + systemPrompt
-        console.log('✅ 用户已解除拉黑，已通知AI恢复正常状态')
         localStorage.setItem(lastBlockedStateKey, 'false')
       } else {
         // 正常状态，确保标记为未拉黑
@@ -472,8 +439,6 @@ export const useChatAI = (
       if (hasAIBlockedUser) {
         const aiBlockedReminder = buildAIBlockedUserPrompt('用户')
         systemPrompt = aiBlockedReminder + '\n\n' + systemPrompt
-        console.log('🔥 AI已拉黑用户，已在提示词中添加状态提醒')
-        console.log('提醒内容：', aiBlockedReminder.substring(0, 200))
         localStorage.setItem(lastAIBlockedStateKey, 'true')
       } else if (wasAIBlockedBefore) {
         // 🔥 关键修复：如果AI之前拉黑了用户，现在解除了，主动告知AI
@@ -488,7 +453,6 @@ export const useChatAI = (
 请自然地继续对话。
 `
         systemPrompt = aiUnblockNotice + '\n\n' + systemPrompt
-        console.log('✅ AI已解除对用户的拉黑，已通知AI恢复正常状态')
         localStorage.setItem(lastAIBlockedStateKey, 'false')
       } else {
         // 正常状态，确保标记为未拉黑
@@ -553,50 +517,17 @@ export const useChatAI = (
             role: 'system',
             content: `【小插曲】最近有陌生人来找你聊过天：\n${summaryText}`
           })
-          console.log('📝 [小插曲] 已插入到消息流:', recentSummaries.length, '条')
         }
       }
       
-      // 🔥 详细日志：显示AI实际读取的所有消息
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log(`📖 [AI读取消息] 总消息数: ${currentMessages.length}条`)
-      console.log(`📖 [AI读取消息] 实际读取: ${recentMessages.length}条 (根据设置)`)
-      console.log(`📖 [AI读取消息] 转为API消息: ${apiMessages.length}条`)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      
-      // 输出读取的消息详情
-      console.table(recentMessages.map((msg, i) => ({
-        序号: i + 1,
-        角色: msg.type === 'sent' ? '用户' : 'AI',
-        时间: new Date(msg.timestamp).toLocaleString('zh-CN', {
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        内容预览: (msg.content || msg.voiceText || '[特殊消息]').substring(0, 50),
-        类型: msg.messageType || 'text'
-      })))
-      
-      // 输出转换后的API消息
-      console.log('\n📤 [API消息格式] 发送给AI的消息列表:')
-      apiMessages.forEach((msg, i) => {
-        const contentPreview = typeof msg.content === 'string' 
-          ? msg.content.substring(0, 100)
-          : '[多模态消息]'
-        console.log(`  ${i + 1}. [${msg.role}] ${contentPreview}${contentPreview.length >= 100 ? '...' : ''}`)
-      })
-      
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      // 日志已禁用以减少内存消耗
 
       // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
       if (needsAvatarRecognition && userInfo.avatar) {
         // 🔥 降级处理：检查API是否支持视觉识别
         if (!settings.supportsVision) {
-          console.warn('⚠️ [头像识别] 当前API不支持视觉识别，跳过头像识别')
-          console.warn('💡 [头像识别] 如需使用头像识别功能，请切换到支持视觉识别的API（如Gemini）')
+          // 跳过头像识别
         } else {
-          console.log('🖼️ [头像识别] 在聊天请求中附加头像图片')
 
         // 在系统提示词末尾添加识别请求
         systemPrompt += `
@@ -604,21 +535,13 @@ export const useChatAI = (
 🖼️ 用户换了头像，回复时用[头像描述:xxx]记录你看到的内容。描述30字左右，说说主体是什么、有什么特征、整体感觉。例：[头像描述:一只橘猫趴在窗台上晒太阳，毛茸茸的，眯着眼睛很惬意]`
 
         // 找到最后一条用户消息，附加头像图片
-        console.log('🔍 [头像识别] apiMessages数量:', apiMessages.length)
-        
         if (apiMessages.length > 0) {
           const lastUserMsgIndex = apiMessages.map((m, i) => ({ msg: m, index: i }))
             .filter(item => item.msg.role === 'user')
             .pop()?.index
 
-          console.log('🔍 [头像识别] 最后一条用户消息索引:', lastUserMsgIndex)
-
           if (lastUserMsgIndex !== undefined) {
             const lastUserMsg = apiMessages[lastUserMsgIndex]
-            const originalContent = typeof lastUserMsg.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg.content)
-            
-            console.log('🔍 [头像识别] 原始消息内容:', originalContent.substring(0, 100))
-            console.log('🔍 [头像识别] 头像URL长度:', userInfo.avatar?.length || 0)
 
             // 将文本消息转换为多模态消息
             apiMessages[lastUserMsgIndex] = {
@@ -637,31 +560,10 @@ export const useChatAI = (
               ]
             }
 
-            console.log('✅ [头像识别] 已在最后一条用户消息中附加头像图片')
-            console.log('🔍 [头像识别] 修改后消息格式:', JSON.stringify(apiMessages[lastUserMsgIndex]).substring(0, 200))
-          } else {
-            console.warn('⚠️ [头像识别] 找不到最后一条用户消息！')
           }
-        } else {
-          console.warn('⚠️ [头像识别] apiMessages为空！')
         }
         }
       }
-
-      Logger.log('发送API请求', {
-        messageCount: apiMessages.length,
-        lastMessage: apiMessages[apiMessages.length - 1],
-        isBlocked
-      })
-      
-      // 🔥 输出系统提示词完整内容
-      console.log('\n📝 [系统提示词] AI读取的完整提示词:')
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log(systemPrompt)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log(`📏 [提示词长度] ${systemPrompt.length} 字符`)
-      console.log(`📊 [统计信息] 消息条数: ${apiMessages.length}, 用户拉黑AI: ${isBlocked}, AI拉黑用户: ${hasAIBlockedUser}`)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
       // ⏱ 开始计时
       const startTime = Date.now()
@@ -680,9 +582,6 @@ export const useChatAI = (
         }
       }
       
-      if (import.meta.env.DEV) {
-        console.log('🎭 [小剧场] 功能状态:', enableTheatreCards ? '已启用' : '已关闭')
-      }
 
       const apiResult = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
@@ -1804,6 +1703,7 @@ export const useChatAI = (
 
   /**
    * 重新生成AI回复
+   * 使用更长的延迟确保状态更新完成
    */
   const handleRegenerate = useCallback(() => {
     setMessages(prev => {
@@ -1841,9 +1741,11 @@ export const useChatAI = (
       return newMessages
     })
     
+    // 🔥 使用更长的延迟（300ms）确保 React 状态更新完成
     setTimeout(() => {
+      console.log('🔄 重回：延迟后触发AI回复')
       handleAIReply()
-    }, 100)
+    }, 300)
   }, [chatId, setMessages, setError, handleAIReply])
 
   return {

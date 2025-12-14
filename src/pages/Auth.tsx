@@ -15,16 +15,12 @@ import { ChevronRight, Zap } from 'lucide-react'
 type AuthMode = 'login' | 'register'
 type AuthChannel = 'supabase' | 'cloudflare'
 
-// 邀请码（只有知道这个码才能注册）
-const INVITE_CODE = 'xiaoyangshan'
-
 const Auth = () => {
   const navigate = useNavigate()
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(true)
@@ -145,12 +141,6 @@ const Auth = () => {
 
     try {
       if (mode === 'register') {
-        // 验证邀请码
-        if (inviteCode !== INVITE_CODE) {
-          setError('邀请码错误')
-          setLoading(false)
-          return
-        }
         if (password !== confirmPassword) {
           setError('密码不一致')
           setLoading(false)
@@ -237,16 +227,6 @@ const Auth = () => {
                     placeholder="确认密码"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-white/50 backdrop-blur-xl border-none text-[#1d1d1f] placeholder:text-[#86868b] text-[15px] px-5 py-4 rounded-2xl focus:ring-0 focus:bg-white transition-all shadow-sm group-hover:shadow-md outline-none"
-                    required
-                  />
-                </div>
-                <div className="group relative animate-fade-in">
-                  <input
-                    type="text"
-                    placeholder="邀请码"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
                     className="w-full bg-white/50 backdrop-blur-xl border-none text-[#1d1d1f] placeholder:text-[#86868b] text-[15px] px-5 py-4 rounded-2xl focus:ring-0 focus:bg-white transition-all shadow-sm group-hover:shadow-md outline-none"
                     required
                   />

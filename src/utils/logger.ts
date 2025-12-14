@@ -21,7 +21,8 @@ export enum LogLevel {
  * 日志工具类
  */
 export class Logger {
-  private static level: LogLevel = DEV_CONFIG.IS_DEV ? LogLevel.DEBUG : LogLevel.INFO
+  // 🔥 强制禁用所有日志输出以防止内存溢出
+  private static level: LogLevel = LogLevel.NONE
   
   /**
    * 设置日志级别

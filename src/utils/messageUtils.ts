@@ -445,8 +445,15 @@ export const convertToApiMessages = (
     // 代付消息转换为AI可读格式
     if (msg.messageType === 'paymentRequest' && msg.paymentRequest) {
       const isUserSent = msg.type === 'sent'
+      // 🔥 检查是否已过期（15分钟有效期）
+      const PAYMENT_EXPIRY_MS = 15 * 60 * 1000
+      const isExpired = msg.paymentRequest.status === 'pending' && 
+                        msg.timestamp && 
+                        (Date.now() - msg.timestamp > PAYMENT_EXPIRY_MS)
+      
       // 使用已计算的 timeInterval
-      const statusText = msg.paymentRequest.status === 'pending' ? '待处理'
+      const statusText = isExpired ? '已过期'
+        : msg.paymentRequest.status === 'pending' ? '待处理'
         : msg.paymentRequest.status === 'paid' ? '已支付'
           : '已拒绝'
 

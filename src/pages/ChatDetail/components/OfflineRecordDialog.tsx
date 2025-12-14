@@ -9,6 +9,7 @@ interface OfflineRecordDialogProps {
   isOpen: boolean
   onClose: () => void
   onSave: (title: string, summary: string, timestamp: number) => void
+  onDelete?: (messageId: number) => void
   editingMessage?: Message | null
 }
 
@@ -16,6 +17,7 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   editingMessage
 }) => {
   const [title, setTitle] = useState('')
@@ -235,6 +237,19 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
 
         {/* 底部按钮 */}
         <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+          {/* 🔥 编辑模式下显示删除按钮 */}
+          {editingMessage && onDelete && (
+            <button
+              onClick={() => {
+                if (confirm('确定要删除这条线下记录吗？')) {
+                  onDelete(editingMessage.id)
+                }
+              }}
+              className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors font-medium"
+            >
+              删除
+            </button>
+          )}
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"

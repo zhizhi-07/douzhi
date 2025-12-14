@@ -18,8 +18,10 @@ const AIMemoViewer = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [memos, setMemos] = useState<AIMemo[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
-  const [isBlankMode, setIsBlankMode] = useState(false) // 空白模式
+  const [displayMode, setDisplayMode] = useState<0 | 1 | 2>(0) // 0=完整显示, 1=隐藏文字, 2=隐藏卡片
+  const [isBlankMode, setIsBlankMode] = useState(false) // 长按空白模式
   const [longPressTimer, setLongPressTimer] = useState<number | null>(null)
+  const [isLongPress, setIsLongPress] = useState(false) // 标记是否是长按
   
   // 备忘录背景
   const [memoBg, setMemoBg] = useState('')
@@ -105,7 +107,9 @@ const AIMemoViewer = () => {
 
   // 长按开始
   const handleLongPressStart = () => {
+    setIsLongPress(false)
     const timer = setTimeout(() => {
+      setIsLongPress(true)
       setIsBlankMode(prev => !prev)
     }, 800) // 长按800ms触发
     setLongPressTimer(timer)
@@ -117,6 +121,22 @@ const AIMemoViewer = () => {
       clearTimeout(longPressTimer)
       setLongPressTimer(null)
     }
+  }
+
+  // 点击切换显示模式（非长按时触发）
+  const handleClick = () => {
+    // 如果是长按触发的，不处理点击
+    if (isLongPress) {
+      setIsLongPress(false)
+      return
+    }
+    // 如果在空白模式，点击退出空白模式
+    if (isBlankMode) {
+      setIsBlankMode(false)
+      return
+    }
+    // 循环切换：0(完整) -> 1(隐藏文字) -> 2(隐藏卡片) -> 0
+    setDisplayMode(prev => ((prev + 1) % 3) as 0 | 1 | 2)
   }
 
   const currentDate = allDates[currentIndex]
@@ -178,6 +198,7 @@ const AIMemoViewer = () => {
         onTouchStart={handleLongPressStart}
         onTouchEnd={handleLongPressEnd}
         onTouchCancel={handleLongPressEnd}
+        onClick={handleClick}
       >
         {isBlankMode ? (
           // 空白模式 - 只显示背景
@@ -208,29 +229,34 @@ const AIMemoViewer = () => {
               </div>
             </div>
 
-            {/* 备忘录列表 */}
-            <div className={`space-y-3 transition-all duration-300 ${isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'}`}>
-              {memos.map((memo, index) => (
-                <div
-                  key={memo.id}
-                  className="bg-white/80 backdrop-blur-sm rounded-xl p-3 shadow-sm"
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-medium">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
-                        {memo.content}
-                      </p>
-                      <div className="mt-1 text-xs text-gray-400">
-                        {memo.time}
+            {/* 备忘录列表 - displayMode: 0=完整, 1=隐藏文字, 2=隐藏卡片 */}
+            {displayMode < 2 && (
+              <div className={`space-y-3 transition-all duration-300 ${isAnimating ? 'scale-95 opacity-50' : 'scale-100 opacity-100'}`}>
+                {memos.map((memo, index) => (
+                  <div
+                    key={memo.id}
+                    className="bg-white/80 backdrop-blur-sm rounded-xl p-3 shadow-sm"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-medium">
+                        {index + 1}
                       </div>
+                      {/* displayMode=0时显示文字，displayMode=1时隐藏 */}
+                      {displayMode === 0 && (
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
+                            {memo.content}
+                          </p>
+                          <div className="mt-1 text-xs text-gray-400">
+                            {memo.time}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* 底部导航 */}
             {allDates.length > 1 && (
@@ -276,7 +302,10 @@ const AIMemoViewer = () => {
       {!isBlankMode && allDates.length > 0 && (
         <div className="px-4 pb-4 text-center">
           <p className="text-xs text-amber-500">
-            💡 长按页面切换空白模式
+            💡 点击切换显示模式 · 长按进入空白模式
+          </p>
+          <p className="text-[10px] text-amber-400 mt-1">
+            {displayMode === 0 ? '完整显示' : displayMode === 1 ? '仅显示序号' : '仅显示日期'}
           </p>
         </div>
       )}

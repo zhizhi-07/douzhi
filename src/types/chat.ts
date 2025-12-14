@@ -247,6 +247,7 @@ export interface Character {
   currentActivity?: string  // 当前状态（如：在看电影、在上班、空闲）
   pokeSuffix?: string  // 拍一拍后缀（如："的小脑袋"）
   worldSetting?: string  // 世界观设定（自定义）
+  languageStyle?: 'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto'  // 语言风格：现代/古风/贵族/奇幻/自动检测
   // 以下为可选扩展字段（兼容外部角色卡/预设）
   world?: string
   scenario?: string

@@ -176,6 +176,7 @@ const ChatSettings = () => {
   const [isPinned, setIsPinned] = useState(false)
   const [character, setCharacter] = useState<any>(null)
   const [pokeSuffix, setPokeSuffix] = useState('')
+  const [languageStyle, setLanguageStyle] = useState<'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto'>('auto')
   const [masks, setMasks] = useState<Mask[]>([])
   
   // 加载面具列表
@@ -201,6 +202,7 @@ const ChatSettings = () => {
         if (char) {
           setCharacter(char)
           setPokeSuffix(char.pokeSuffix || '')
+          setLanguageStyle(char.languageStyle || 'auto')
         }
       }
       loadCharacter()
@@ -373,7 +375,20 @@ const ChatSettings = () => {
     const updatedCharacter = characterService.update(id, { pokeSuffix: newSuffix })
     if (updatedCharacter) {
       setCharacter(updatedCharacter)
-      console.log('✅ AI拍一拍后缀已保存:', newSuffix)
+      console.log('AI拍一拍后缀已保存:', newSuffix)
+      window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: id } }))
+    }
+  }
+
+  // 保存语言风格设置
+  const saveLanguageStyle = async (style: 'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto') => {
+    if (!character || !id) return
+    const { characterService } = await import('../services/characterService')
+    const updatedCharacter = characterService.update(id, { languageStyle: style })
+    if (updatedCharacter) {
+      setCharacter(updatedCharacter)
+      setLanguageStyle(style)
+      console.log('语言风格已保存:', style)
       window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: id } }))
     }
   }
@@ -609,6 +624,22 @@ const ChatSettings = () => {
             <p className="text-xs text-gray-400 mt-1.5">
               你拍{character?.nickname || character?.realName || 'TA'}时显示："你拍了拍{character?.nickname || character?.realName || 'TA'}{pokeSuffix && pokeSuffix.trim() ? pokeSuffix : '（示例：的小脑袋）'}"
             </p>
+          </div>
+          
+          {/* 语言风格 */}
+          <div>
+            <label className="block text-sm text-slate-600 mb-2">语言风格</label>
+            <select
+              value={languageStyle}
+              onChange={(e) => saveLanguageStyle(e.target.value as any)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-[32px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="auto">默认</option>
+              <option value="modern">现代</option>
+              <option value="ancient">古风</option>
+              <option value="noble">贵族</option>
+              <option value="fantasy">奇幻</option>
+            </select>
           </div>
         </div>
         

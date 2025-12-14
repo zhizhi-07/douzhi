@@ -10,18 +10,18 @@ import 'leaflet/dist/leaflet.css'
 // 🔥 立即加载清理工具
 import './utils/cleanupLocalStorage'
 
-// 🔒 生产环境禁用所有console输出（保护提示词等敏感信息）
-if (!import.meta.env.DEV) {
-  const noop = () => {}
-  console.log = noop
-  console.warn = noop
-  console.error = noop
-  console.info = noop
-  console.debug = noop
-  console.group = noop
-  console.groupEnd = noop
-  console.table = noop
-}
+// 🔒 禁用所有console输出（防止内存溢出 + 保护敏感信息）
+// 🔥 开发环境也禁用，因为2140个console.log会导致Out of Memory
+const noop = () => {}
+console.log = noop
+console.info = noop
+console.debug = noop
+console.group = noop
+console.groupEnd = noop
+console.table = noop
+// 保留 warn 和 error 用于调试关键问题
+// console.warn = noop
+// console.error = noop
 
 // 🍎 iOS Safari 全屏适配
 function setVH() {

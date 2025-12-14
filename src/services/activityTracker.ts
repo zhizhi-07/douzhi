@@ -170,9 +170,7 @@ export const startActivityTracker = () => {
   // 页面关闭时上报
   window.addEventListener('beforeunload', () => {
     heartbeat() // 最后一次心跳
-    // 使用 sendBeacon 确保数据发送
-    const localData = getLocalData()
-    navigator.sendBeacon?.('/api/activity', JSON.stringify(localData))
+    // 数据已保存在localStorage，无需发送到后端
   })
   
   console.log('📊 活跃度追踪已启动')

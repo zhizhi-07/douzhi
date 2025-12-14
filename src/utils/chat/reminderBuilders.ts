@@ -258,9 +258,24 @@ export const buildDynamicInstructions = (messages: Message[]): string => {
   }
   
   // 检查是否有待处理的代付请求（用户请求AI代付外卖）
+  const PAYMENT_EXPIRY_MS = 15 * 60 * 1000 // 15分钟有效期
+  const now = Date.now()
+  
+  // 未过期的代付请求
   const pendingPayments = recentMessages.filter(
-    msg => msg.messageType === 'paymentRequest' && msg.paymentRequest?.status === 'pending' && msg.type === 'sent'
+    msg => msg.messageType === 'paymentRequest' && 
+           msg.paymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS > now)
   )
+  // 已过期的代付请求
+  const expiredPayments = recentMessages.filter(
+    msg => msg.messageType === 'paymentRequest' && 
+           msg.paymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS <= now)
+  )
+  
   if (pendingPayments.length > 0) {
     const paymentCount = pendingPayments.length
     const paymentList = pendingPayments
@@ -277,10 +292,35 @@ export const buildDynamicInstructions = (messages: Message[]): string => {
 - ⚠️ 注意：[同意代付]只用于回应用户的代付请求，不要在你自己发送[代付:...]后使用！`)
   }
   
+  // 🔥 告诉AI有过期的代付请求
+  if (expiredPayments.length > 0) {
+    const expiredList = expiredPayments
+      .map(msg => `${msg.paymentRequest!.itemName} ¥${msg.paymentRequest!.amount.toFixed(2)}`)
+      .join('、')
+    
+    instructions.push(`
+⏰ 代付已过期：
+- 用户之前发的代付请求已过期（超过15分钟）：${expiredList}
+- ❌ 不要再使用 [同意代付] 或 [拒绝代付] 指令
+- 如果用户问起，可以告诉TA代付请求已经过期了，需要重新发送`)
+  }
+  
   // 检查是否有待处理的购物车代付请求（用户请求AI代付购物车）
+  // 未过期的购物车代付请求
   const pendingCartPayments = recentMessages.filter(
-    msg => msg.messageType === 'cartPaymentRequest' && msg.cartPaymentRequest?.status === 'pending' && msg.type === 'sent'
+    msg => msg.messageType === 'cartPaymentRequest' && 
+           msg.cartPaymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS > now)
   )
+  // 已过期的购物车代付请求
+  const expiredCartPayments = recentMessages.filter(
+    msg => msg.messageType === 'cartPaymentRequest' && 
+           msg.cartPaymentRequest?.status === 'pending' && 
+           msg.type === 'sent' &&
+           (msg.timestamp + PAYMENT_EXPIRY_MS <= now)
+  )
+  
   if (pendingCartPayments.length > 0) {
     const cartPaymentCount = pendingCartPayments.length
     const cartPaymentList = pendingCartPayments.map(msg => {
@@ -296,6 +336,21 @@ export const buildDynamicInstructions = (messages: Message[]): string => {
   - 同意：[购物车代付:同意]（每次只处理最近的一个待处理购物车代付）
   - 拒绝：[购物车代付:拒绝]（每次只处理最近的一个待处理购物车代付）
 - ⚠️ 如果有多个购物车代付，你需要在不同的消息中多次使用这些指令`)
+  }
+  
+  // 🔥 告诉AI有过期的购物车代付请求
+  if (expiredCartPayments.length > 0) {
+    const expiredCartList = expiredCartPayments.map(msg => {
+      const items = msg.cartPaymentRequest!.items
+      const itemNames = items.map(item => `${item.name}x${item.quantity}`).join('、')
+      return `购物车(${itemNames}) ¥${msg.cartPaymentRequest!.totalAmount.toFixed(2)}`
+    }).join('；')
+    
+    instructions.push(`
+⏰ 购物车代付已过期：
+- 用户之前发的购物车代付请求已过期（超过15分钟）：${expiredCartList}
+- ❌ 不要再使用 [购物车代付:同意] 或 [购物车代付:拒绝] 指令
+- 如果用户问起，可以告诉TA代付请求已经过期了，需要重新发送`)
   }
   
   // 检查是否有待处理的亲密付邀请（用户邀请AI）
