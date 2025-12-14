@@ -38,6 +38,7 @@ function saveUnreadData(data: Map<string, UnreadData>) {
  * 增加未读消息数
  */
 export function incrementUnread(chatId: string, count: number = 1) {
+  console.log(`📬 [incrementUnread] 开始增加未读: chatId=${chatId}, count=${count}`)
   const data = getUnreadData()
   const current = data.get(chatId)
   
@@ -55,11 +56,10 @@ export function incrementUnread(chatId: string, count: number = 1) {
   }
   
   saveUnreadData(data)
+  console.log(`📬 [incrementUnread] 已保存未读数据: ${chatId}, 总计: ${newCount}`)
   
   // 更新聊天列表
   updateChatListUnread(chatId, newCount)
-  
-  console.log(`📬 未读消息 +${count}: ${chatId}, 总计: ${newCount}`)
 }
 
 /**
@@ -86,30 +86,35 @@ export function getUnreadCount(chatId: string): number {
 
 /**
  * 更新聊天列表中的未读数
+ * 🔥 修复：使用 IndexedDB 而不是 localStorage
  */
-function updateChatListUnread(chatId: string, count: number) {
+async function updateChatListUnread(chatId: string, count: number) {
+  console.log(`📬 [updateChatListUnread] 开始更新: chatId=${chatId}, count=${count}`)
   try {
-    const CHAT_LIST_KEY = 'chat_list' // 使用正确的key
-    const chatListStr = localStorage.getItem(CHAT_LIST_KEY)
-    if (!chatListStr) {
-      console.log(`⚠️ 未找到聊天列表: key=${CHAT_LIST_KEY}`)
+    // 动态导入避免循环依赖
+    const { loadChatList, saveChatList } = await import('./chatListManager')
+    
+    const chatList = await loadChatList()
+    console.log(`📬 [updateChatListUnread] 加载聊天列表: ${chatList?.length || 0} 个`)
+    if (!chatList || chatList.length === 0) {
+      console.log(`⚠️ 未找到聊天列表`)
       return
     }
     
-    const chatList = JSON.parse(chatListStr)
-    
     const chatIndex = chatList.findIndex((c: any) => c.characterId === chatId)
+    console.log(`📬 [updateChatListUnread] 查找chatId=${chatId}, 找到索引=${chatIndex}`)
     
     if (chatIndex >= 0) {
       chatList[chatIndex].unread = count > 0 ? count : undefined
-      localStorage.setItem(CHAT_LIST_KEY, JSON.stringify(chatList))
+      await saveChatList(chatList)
       
-      console.log(`✅ 更新聊天列表未读数: chatId=${chatId}, count=${count}`)
+      console.log(`✅ [updateChatListUnread] 已更新聊天列表未读数: chatId=${chatId}, count=${count}`)
       
       // 触发未读更新事件
       window.dispatchEvent(new CustomEvent('unread-updated', {
         detail: { chatId, count }
       }))
+      console.log(`📬 [updateChatListUnread] 已触发 unread-updated 事件`)
     } else {
       console.log(`⚠️ 在聊天列表中未找到chatId: ${chatId}`)
     }

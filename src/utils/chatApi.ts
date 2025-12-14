@@ -93,17 +93,14 @@ const replaceSTVariables = (text: string, character: Character, userName: string
  * 构建表情包列表提示词
  */
 const buildEmojiListPrompt = async (): Promise<string> => {
+  console.log('🔥🔥🔥 [buildEmojiListPrompt] 函数被调用')
   try {
     const emojis = await getEmojis()
     
-    if (import.meta.env.DEV) {
-      console.log('📱 [表情包系统] 读取到的表情包数量:', emojis.length)
-    }
+    console.log('�🔥🔥 [buildEmojiListPrompt] 表情包数量:', emojis.length)
     
     if (emojis.length === 0) {
-      if (import.meta.env.DEV) {
-        console.warn('⚠️ [表情包系统] 没有可用的表情包')
-      }
+      console.warn('⚠️ [表情包系统] 没有可用的表情包')
       return ''
     }
     
@@ -530,15 +527,28 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   const mainAccountMessages = !isMainAccount() ? loadMainAccountMessages(character.id) : []
   
   // 🔥 构建表情包列表
+  console.log('🔥🔥🔥 [buildSystemPrompt] 1. 开始构建表情包列表...')
   const emojiListPrompt = await buildEmojiListPrompt()
+  console.log('🔥🔥🔥 [buildSystemPrompt] 2. 表情包列表完成')
   
   // 🔥 构建朋友圈列表
+  console.log('🔥🔥🔥 [buildSystemPrompt] 3. 开始构建朋友圈列表...')
   const momentsListPrompt = await buildMomentsListPrompt(character.id)
+  console.log('🔥🔥🔥 [buildSystemPrompt] 4. 朋友圈列表完成')
+  
   // 🔥 构建AI发朋友圈指令提示词
+  console.log('🔥🔥🔥 [buildSystemPrompt] 5. 开始构建AI发朋友圈提示词...')
   const aiMomentsPostPrompt = await buildAIMomentsPostPrompt(character.id)
+  console.log('🔥🔥🔥 [buildSystemPrompt] 6. AI发朋友圈提示词完成')
   
   // 🔥 获取用户信息变更提示（如果用户改了网名/头像，提示AI跟随）
-  const userInfoChangeContext = getUserInfoChangeContext()
+  // 只有开启了头像识别才提示头像变更
+  console.log('🔥🔥🔥 [buildSystemPrompt] 7. 开始获取用户信息变更提示...')
+  const tempUserInfo = getUserInfo()
+  console.log('🔥🔥🔥 [buildSystemPrompt] tempUserInfo:', tempUserInfo ? '已获取' : '为空')
+  const allowAvatarRecognition = tempUserInfo?.allowAvatarRecognition ?? false
+  const userInfoChangeContext = getUserInfoChangeContext(allowAvatarRecognition)
+  console.log('🔥🔥🔥 [buildSystemPrompt] 用户信息变更提示获取完成')
   
   const now = new Date()
   const dateStr = now.toLocaleDateString('zh-CN', {
@@ -826,23 +836,39 @@ ${aiStatus ? (() => {
     if (aiStatus.action) statusParts.push(`动作:${aiStatus.action}`)
     const fullStatus = statusParts.join(' | ')
     
-    // 计算距今多久
+    // 🔥 计算距今多久（支持天数）
     const diffMinutes = Math.floor((Date.now() - aiStatus.updatedAt) / 60000)
-    const timeDesc = diffMinutes < 60 ? `${diffMinutes}分钟` : `${Math.floor(diffMinutes/60)}小时`
+    const diffHours = Math.floor(diffMinutes / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    
+    let timeDesc = ''
+    if (diffDays > 0) {
+      timeDesc = `${diffDays}天前`
+    } else if (diffHours > 0) {
+      timeDesc = `${diffHours}小时前`
+    } else {
+      timeDesc = `${diffMinutes}分钟前`
+    }
     
     if (diffMinutes < 15) {
       return `
-你的当前状态（${timeDesc}前更新）：
+你的当前状态（${timeDesc}更新）：
 ${fullStatus}
 💭 地点/服装/动作没变可以不更新，但【心理】要根据这轮对话更新！`
     } else if (diffMinutes < 60) {
       return `
-你的上一条状态（${timeDesc}前）：
+你的上一条状态（${timeDesc}）：
 ${fullStatus}
 💭 过了一会儿，更新状态（尤其是【心理】要反映当前想法）`
+    } else if (diffDays >= 1) {
+      // 🔥 超过1天，强调时间已经过去很久
+      return `
+⚠️ 你的上一条状态是 **${timeDesc}** 的：
+${fullStatus}
+🚨 已经过了${diffDays}天！你不可能还在做同样的事！必须根据现在的时间（${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}）更新一个合理的新状态！`
     } else {
       return `
-你的上一条状态（${timeDesc}前）：
+你的上一条状态（${timeDesc}）：
 ${fullStatus}
 ⚠️ 过了较长时间，**必须更新完整状态**！`
     }

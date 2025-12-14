@@ -49,14 +49,18 @@ const BanCheck = ({ children }: BanCheckProps) => {
         }
         
         // Supabase 渠道（默认）
-        const { data: { user } } = await supabase.auth.getUser()
+        // 🔥 先检查本地session（不发网络请求），再验证用户
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (!user) {
-          // 未登录用户，跳转到登录页
+        if (!session) {
+          // 本地没有session，未登录
           setChecking(false)
           setNeedLogin(true)
           return
         }
+        
+        // 有本地session，获取用户信息
+        const user = session.user
 
         // 检查是否被封禁
         const banned = await checkBanned(user.id)

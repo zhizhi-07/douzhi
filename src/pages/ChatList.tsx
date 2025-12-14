@@ -237,7 +237,8 @@ const ChatList = () => {
 
   // 监听未读数更新事件和置顶更新
   useEffect(() => {
-    const handleUnreadUpdate = () => {
+    const handleUnreadUpdate = (e: Event) => {
+      console.log(`📬 [ChatList] 收到 unread-updated 事件`, (e as CustomEvent).detail)
       refreshChatList()
     }
 

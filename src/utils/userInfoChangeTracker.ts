@@ -247,8 +247,9 @@ export function trackAvatarChange(newAvatar: string): boolean {
 
 /**
  * 获取用户信息变更提示文本（用于系统提示词）
+ * @param allowAvatarRecognition 是否开启了头像识别（如果没开启，不提示头像变更）
  */
-export function getUserInfoChangeContext(): string {
+export function getUserInfoChangeContext(allowAvatarRecognition: boolean = false): string {
   const history = getUserInfoChangeHistory()
   const changes: string[] = []
   let shouldSave = false
@@ -295,8 +296,8 @@ export function getUserInfoChangeContext(): string {
     }
   }
 
-  // 显示最近的头像变更
-  if (history.avatar.history.length > 0) {
+  // 🔥 只有开启了头像识别才显示头像变更
+  if (allowAvatarRecognition && history.avatar.history.length > 0) {
     const latestIndex = history.avatar.history.length - 1
     const latest = history.avatar.history[latestIndex] as UserInfoChange
     const age = now - latest.changedAt

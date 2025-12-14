@@ -12,6 +12,8 @@ import { groupChatManager } from '../utils/groupChatManager'
 const NOTIFIED_MESSAGES_KEY = 'notified_message_ids'
 
 const GlobalMessageMonitor = () => {
+  console.log('🔔 [GlobalMessageMonitor] 组件已挂载')
+  
   // 记录每个聊天的最后消息ID（持久化）
   const lastMessageIdsRef = useRef<Record<string, number>>({})
   
@@ -45,6 +47,7 @@ const GlobalMessageMonitor = () => {
     // 监听消息保存事件（立即响应）
     const handleMessageSaved = (event: CustomEvent) => {
       const { chatId, messageType } = event.detail
+      console.log(`🔔 [GlobalMessageMonitor] 收到消息保存事件: chatId=${chatId}, messageType=${messageType}`)
       
       // 🔥 区分私聊和群聊
       const isGroupChat = messageType === 'group'
@@ -58,18 +61,26 @@ const GlobalMessageMonitor = () => {
         messages = loadMessages(chatId)
       }
       
+      console.log(`🔔 [GlobalMessageMonitor] 加载消息: count=${messages.length}`)
       if (messages.length === 0) return
       
       const lastMessage = messages[messages.length - 1]
       const lastRecordedId = lastMessageIdsRef.current[chatId]
       
+      console.log(`🔔 [GlobalMessageMonitor] 最后消息: id=${lastMessage.id}, type=${lastMessage.type}, messageType=${lastMessage.messageType}, lastRecordedId=${lastRecordedId}`)
+      
       // 过滤掉线下模式的消息
-      if (lastMessage.sceneMode === 'offline') return
+      if (lastMessage.sceneMode === 'offline') {
+        console.log(`🔔 [GlobalMessageMonitor] 线下模式消息，跳过`)
+        return
+      }
       
       // 🔥 判断是否是新的AI消息
       const isAIMessage = isGroupChat 
         ? (lastMessage.userId !== 'user' && lastMessage.type !== 'system')  // 群聊：非用户且非系统消息
         : (lastMessage.type === 'received' && lastMessage.messageType !== 'system')  // 私聊：received类型且非系统消息
+      
+      console.log(`🔔 [GlobalMessageMonitor] isAIMessage=${isAIMessage}, isNewMessage=${lastMessage.id !== lastRecordedId}`)
       
       if (isAIMessage && lastMessage.id !== lastRecordedId) {
         // 更新记录
@@ -84,6 +95,8 @@ const GlobalMessageMonitor = () => {
           ? currentPath === `/group/${chatId}`  // 群聊路径
           : currentPath === `/chat/${chatId}`   // 私聊路径
         
+        console.log(`🔔 [GlobalMessageMonitor] 用户当前路径=${currentPath}, 是否在当前聊天=${isInCurrentChat}`)
+        
         if (!isInCurrentChat) {
           let title = ''
           let avatar = ''
@@ -96,12 +109,16 @@ const GlobalMessageMonitor = () => {
           } else {
             // 私聊：显示角色名
             const character = characterService.getById(chatId)
-            if (!character) return
+            if (!character) {
+              console.log(`🔔 [GlobalMessageMonitor] 找不到角色: ${chatId}`)
+              return
+            }
             title = character.remark || character.nickname || character.realName
             avatar = character.avatar || ''
           }
           
           // 增加未读
+          console.log(`🔔 [GlobalMessageMonitor] 增加未读: chatId=${chatId}`)
           incrementUnread(chatId, 1)
           
           // 触发通知

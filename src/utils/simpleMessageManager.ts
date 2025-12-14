@@ -603,7 +603,7 @@ function cleanMessageForStorage(message: Message): Message {
  * 🔥 增强版：添加并发控制和数据保护
  * 🔥 关键修复：防止分页加载后的不完整列表覆盖完整列表
  */
-export function saveMessages(chatId: string, messages: Message[]): void {
+export function saveMessages(chatId: string, messages: Message[], forceOverwrite: boolean = false): void {
   try {
     // 🔥 使用账号专属的存储key
     const storageKey = getAccountChatKey(chatId)
@@ -615,11 +615,17 @@ export function saveMessages(chatId: string, messages: Message[]): void {
       return
     }
     
+    // 🔥🔥🔥 强制覆盖模式：先更新缓存，用于删除/重回等场景
+    if (forceOverwrite) {
+      messageCache.set(storageKey, messages)
+      console.log(`🔥 [saveMessages] 强制覆盖模式: storageKey=${storageKey}, count=${messages.length}`)
+    }
+    
     // 获取缓存中的消息
     const cachedMessages = messageCache.get(storageKey)
     
-    // 🔥 防止保存空数组覆盖已有数据
-    if (messages.length === 0) {
+    // 🔥 防止保存空数组覆盖已有数据（强制覆盖模式下跳过此检查）
+    if (messages.length === 0 && !forceOverwrite) {
       if (cachedMessages && cachedMessages.length > 0) {
         console.warn(`⚠️ [saveMessages] 阻止保存空数组，当前缓存有 ${cachedMessages.length} 条消息`)
         return
@@ -750,9 +756,7 @@ export function saveMessages(chatId: string, messages: Message[]): void {
     saveLocks.set(storageKey, savePromise)
     
     // 🔥 触发消息保存事件，用于通知和未读标记
-    if (import.meta.env.DEV) {
-      console.log(`🔔 [saveMessages] 触发 chat-message-saved 事件: chatId=${chatId}`)
-    }
+    console.log(`🔔 [saveMessages] 触发 chat-message-saved 事件: chatId=${chatId}, 消息数=${messages.length}`)
     window.dispatchEvent(new CustomEvent('chat-message-saved', {
       detail: { chatId }
     }))
@@ -768,9 +772,12 @@ export function saveMessages(chatId: string, messages: Message[]): void {
  * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
  */
 export function addMessage(chatId: string, message: Message): void {
+  console.log(`🔥🔥🔥 [addMessage] 开始保存消息: chatId=${chatId}, messageId=${message.id}, content=${(message.content || '').substring(0, 30)}...`)
+  
   // 🔥 先同步更新缓存，确保消息不会丢失
   const storageKey = getAccountChatKey(chatId)
   const cachedMessages = messageCache.get(storageKey) || []
+  console.log(`🔥🔥🔥 [addMessage] 当前缓存消息数: ${cachedMessages.length}`)
   
   const existingIndex = cachedMessages.findIndex(m => m.id === message.id)
   let newMessages: Message[]
@@ -778,8 +785,10 @@ export function addMessage(chatId: string, message: Message): void {
   if (existingIndex !== -1) {
     newMessages = [...cachedMessages]
     newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+    console.log(`🔥🔥🔥 [addMessage] 更新已有消息`)
   } else {
     newMessages = [...cachedMessages, message]
+    console.log(`🔥🔥🔥 [addMessage] 添加新消息，触发 new-message 事件`)
     window.dispatchEvent(new CustomEvent('new-message', {
       detail: { chatId, message }
     }))
@@ -787,9 +796,11 @@ export function addMessage(chatId: string, message: Message): void {
   
   // 立即更新缓存
   messageCache.set(storageKey, newMessages)
+  console.log(`🔥🔥🔥 [addMessage] 缓存已更新，新消息数: ${newMessages.length}`)
   
   // 异步保存到IndexedDB
   saveMessages(chatId, newMessages)
+  console.log(`🔥🔥🔥 [addMessage] 已调用 saveMessages`)
 }
 
 /**
@@ -831,7 +842,9 @@ export function deleteMessage(chatId: string, messageId: number): void {
   // 🔥 关键修复：异步确保消息已加载，防止误删
   ensureMessagesLoaded(chatId).then(messages => {
     const filteredMessages = messages.filter(m => m.id !== messageId)
-    saveMessages(chatId, filteredMessages)
+    
+    // 🔥 使用 forceOverwrite=true 跳过智能合并，防止被删的消息恢复
+    saveMessages(chatId, filteredMessages, true)
     if (import.meta.env.DEV) {
       console.log(`🗑️ 已删除消息: chatId=${chatId}, messageId=${messageId}`)
     }

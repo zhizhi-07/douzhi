@@ -211,7 +211,10 @@ const GlobalProactiveMessageManager = () => {
       })
 
       const response = await callAIApi(apiMessages, apiSettings)
+      console.log(`🤖 [全局主动发消息] AI原始回复:`, response.content)
+      
       const aiMessagesList = parseAIMessages(response.content)
+      console.log(`🤖 [全局主动发消息] 解析后消息数量: ${aiMessagesList.length}`, aiMessagesList)
 
       // 🔥 使用commandHandlers处理AI消息（支持照片、语音等指令）
       let currentMessages = loadMessages(chatId)
@@ -226,15 +229,16 @@ const GlobalProactiveMessageManager = () => {
 
       // 处理每条AI消息
       for (let messageContent of aiMessagesList) {
-        Logger.info(`[全局主动发消息] 💬 ${character.nickname} - 处理消息: ${messageContent.substring(0, 30)}`)
+        console.log(`💬 [全局主动发消息] ${character.nickname} - 处理消息: ${messageContent.substring(0, 50)}...`)
         
         let isCommand = false
+        let skipTextMessage = false  // 🔥 新增：是否跳过文本消息
         
         // 遍历所有指令处理器
         for (const handler of commandHandlers) {
           const match = messageContent.match(handler.pattern)
           if (match) {
-            Logger.info(`[全局主动发消息] 🎯 匹配到指令: ${handler.pattern.toString()}`)
+            console.log(`🎯 [全局主动发消息] 匹配到指令: ${handler.pattern.toString()}`)
             
             const result = await handler.handler(match, messageContent, {
               messages: currentMessages,
@@ -244,9 +248,21 @@ const GlobalProactiveMessageManager = () => {
               isBlocked: false
             })
             
+            console.log(`📋 [全局主动发消息] 指令处理结果:`, {
+              handled: result.handled,
+              skipTextMessage: result.skipTextMessage,
+              remainingText: result.remainingText?.substring(0, 30)
+            })
+            
+            // 🔥 检查是否跳过文本消息
+            if (result.skipTextMessage) {
+              skipTextMessage = true
+            }
+            
             // 如果有剩余内容，继续处理
             if (result.remainingText) {
               messageContent = result.remainingText
+              skipTextMessage = false  // 🔥 有剩余内容时，不跳过
             } else if (result.handled) {
               isCommand = true
               break
@@ -254,11 +270,13 @@ const GlobalProactiveMessageManager = () => {
           }
         }
         
-        // 如果不是指令或有剩余内容，创建普通消息
-        if (!isCommand && messageContent.trim()) {
+        console.log(`🔍 [全局主动发消息] 最终状态: isCommand=${isCommand}, skipTextMessage=${skipTextMessage}, hasContent=${!!messageContent.trim()}`)
+        
+        // 🔥 如果不是指令，且没有要求跳过文本消息，创建普通消息
+        if (!isCommand && !skipTextMessage && messageContent.trim()) {
           const msg = createMessage(messageContent, 'received')
           saveMessageToStorage(chatId, msg)
-          Logger.info(`[全局主动发消息] ✅ ${character.nickname} - 保存普通消息`)
+          console.log(`✅ [全局主动发消息] ${character.nickname} - 保存普通消息: ${messageContent.substring(0, 30)}...`)
           
           // 🔔 保存消息时立即发送系统通知
           const displayMessage = messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent

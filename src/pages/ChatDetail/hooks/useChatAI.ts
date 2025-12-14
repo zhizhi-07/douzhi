@@ -147,15 +147,14 @@ export const useChatAI = (
         }
       }
       
-      // 🔥 先更新React状态（更新UI），再保存到存储
-      // 这样可以避免new-message事件重复添加消息
-      setMessages(prev => {
-        // 先添加到状态，然后保存
-        const newMessages = [...prev, userMessage]
-        // 异步保存，不触发new-message事件
-        saveMessages(chatId, newMessages)
-        return newMessages
-      })
+      // 🔥 先保存到存储，再更新React状态
+      // 这样即使组件卸载，消息也能正确保存
+      const currentMessages = loadMessages(chatId)
+      const newMessages = [...currentMessages, userMessage]
+      saveMessages(chatId, newMessages)
+      
+      // 更新React状态
+      setMessages(prev => [...prev, userMessage])
       setInputValue('')
       if (clearQuote) clearQuote()
       
@@ -272,11 +271,18 @@ export const useChatAI = (
       let systemPrompt: string
       const userName = userInfo.realName || userInfo.nickname || '用户'
       
-      if (currentSceneMode === 'offline') {
-        // 🔥 线下模式也传递面具信息
-        systemPrompt = await buildOfflinePrompt(character, userName, maskInfo)
-      } else {
-        systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo)
+      console.log('🔥🔥🔥 [useChatAI] 开始构建系统提示词...')
+      try {
+        if (currentSceneMode === 'offline') {
+          // 🔥 线下模式也传递面具信息
+          systemPrompt = await buildOfflinePrompt(character, userName, maskInfo)
+        } else {
+          systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo)
+        }
+        console.log('🔥🔥🔥 [useChatAI] 系统提示词构建完成，长度:', systemPrompt.length)
+      } catch (err) {
+        console.error('🔥🔥🔥 [useChatAI] 构建系统提示词失败:', err)
+        throw err
       }
       
       // 🔥 注入世界书上下文（基于关键词触发）
@@ -520,7 +526,19 @@ export const useChatAI = (
         }
       }
       
-      // 日志已禁用以减少内存消耗
+      // 🔥 恢复日志输出
+      console.group('━━━━━━ 📤 发送给AI的完整提示词 ━━━━━━')
+      console.log('📝 系统提示词长度:', systemPrompt.length, '字符')
+      console.log('📝 系统提示词内容:\n', systemPrompt)
+      console.groupEnd()
+      
+      console.group('━━━━━━ 💬 发送给AI的消息历史 ━━━━━━')
+      console.log('📊 消息数量:', apiMessages.length)
+      apiMessages.forEach((msg, i) => {
+        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+        console.log(`[${i}] ${msg.role}: ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`)
+      })
+      console.groupEnd()
 
       // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
       if (needsAvatarRecognition && userInfo.avatar) {
@@ -590,6 +608,14 @@ export const useChatAI = (
       )
       
       let aiReply = apiResult.content
+      
+      console.group('━━━━━━ 📥 AI原始回复 ━━━━━━')
+      console.log('📝 回复长度:', typeof aiReply === 'string' ? aiReply.length : 0, '字符')
+      console.log('📝 完整内容:\n', aiReply)
+      if (apiResult.usage) {
+        console.log('📊 Token使用:', apiResult.usage)
+      }
+      console.groupEnd()
       
       // 🔥 强制清除AI回复中模仿的时间间隔标记（[5分钟后] 等格式）
       if (typeof aiReply === 'string') {
@@ -788,18 +814,15 @@ export const useChatAI = (
             
             console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')
             
-            // 🔥 保存到IndexedDB（确保保存完整的消息列表）
+            // 🔥 保存到IndexedDB（直接从缓存读取，不依赖React状态）
             setTimeout(() => {
-              setMessages(prev => {
-                const allMessages = [...prev]
-                if (allMessages.length > 0) {
-                  console.log(`💾 [流式] 保存完整消息列表: count=${allMessages.length}`)
-                  saveMessages(chatId, allMessages)
-                } else {
-                  console.warn('⚠️ [流式] 消息列表为空，跳过保存')
-                }
-                return prev
-              })
+              const allMessages = loadMessages(chatId)
+              if (allMessages.length > 0) {
+                console.log(`💾 [流式] 保存完整消息列表: count=${allMessages.length}`)
+                saveMessages(chatId, allMessages)
+              } else {
+                console.warn('⚠️ [流式] 消息列表为空，跳过保存')
+              }
               scrollToBottom()
             }, 100)
             
@@ -956,13 +979,10 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 更新React状态
-          setMessages(prev => {
-            const updated = [...prev, systemMessage]
-            // 🔥 手动保存到IndexedDB
-            saveMessages(chatId, updated)
-            return updated
-          })
+          // 🔥 先保存到存储，再更新React状态
+          const currentMsgs = loadMessages(chatId)
+          saveMessages(chatId, [...currentMsgs, systemMessage])
+          setMessages(prev => [...prev, systemMessage])
           console.log(`💾 [AI发朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
           
           // 记录到AI互动记忆（重要！让AI记得自己发过朋友圈）
@@ -1014,13 +1034,10 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 更新React状态
-          setMessages(prev => {
-            const updated = [...prev, systemMessage]
-            // 🔥 手动保存到IndexedDB
-            saveMessages(chatId, updated)
-            return updated
-          })
+          // 🔥 先保存到存储，再更新React状态
+          const currentMsgs2 = loadMessages(chatId)
+          saveMessages(chatId, [...currentMsgs2, systemMessage])
+          setMessages(prev => [...prev, systemMessage])
           console.log(`💾 [AI删除朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
           
           // 记录到AI互动记忆
@@ -1313,13 +1330,10 @@ export const useChatAI = (
             // 延迟300ms后添加系统消息
             await new Promise(resolve => setTimeout(resolve, 300))
             
-            // 更新React状态
-            setMessages(prev => {
-              const updated = [...prev, systemMessage]
-              // 🔥 手动保存到IndexedDB
-              saveMessages(chatId, updated)
-              return updated
-            })
+            // 🔥 先保存到存储，再更新React状态
+            const currentMsgs3 = loadMessages(chatId)
+            saveMessages(chatId, [...currentMsgs3, systemMessage])
+            setMessages(prev => [...prev, systemMessage])
             console.log(`💾 [朋友圈互动] 系统消息已保存到IndexedDB: ${systemContent}`)
             
             // 🔥 只在线上模式显示通知弹窗，线下模式不显示
@@ -1423,6 +1437,7 @@ export const useChatAI = (
       // 使用清理后的消息内容继续处理
       // 线下模式不分段，直接作为一整条消息
       let aiMessagesList: string[]
+      console.log('🔥🔥🔥 [消息处理] cleanedMessage:', cleanedMessage.substring(0, 100))
       if (currentSceneMode === 'offline') {
         aiMessagesList = [cleanedMessage]
       } else {
@@ -1430,7 +1445,7 @@ export const useChatAI = (
         const quoteSegments = preprocessMultipleQuotes(cleanedMessage)
         aiMessagesList = quoteSegments.flatMap(segment => parseAIMessages(segment))
       }
-      console.log('📝 AI消息拆分结果:', aiMessagesList)
+      console.log('🔥🔥🔥 [消息处理] AI消息拆分结果:', aiMessagesList.length, '条:', aiMessagesList)
       
       // 使用指令处理器处理每条消息
       let pendingQuotedMsg: Message['quotedMessage'] | undefined // 保存跨消息的引用
@@ -1503,7 +1518,7 @@ export const useChatAI = (
         }
 
         // 如果有剩余文本且不是纯指令消息，发送普通消息
-        console.log(`✅ 最终状态: skipTextMessage=${skipTextMessage}, messageContent="${messageContent}", hasQuote=${!!quotedMsg}`)
+        console.log(`✅ [消息处理] 最终状态: skipTextMessage=${skipTextMessage}, messageContent="${messageContent.substring(0, 50)}...", hasQuote=${!!quotedMsg}`)
         
         // 消息未保存的情况（纯指令消息）- 移除烦人的调试弹窗
         if (skipTextMessage || !messageContent || !messageContent.trim()) {
@@ -1538,14 +1553,15 @@ export const useChatAI = (
           const messageDelay = 300 // 统一使用较短的默认延迟
           await new Promise(resolve => setTimeout(resolve, messageDelay))
           
-          // 🔥 关键修复：先更新React状态，再保存到存储
-          setMessages(prev => {
-            const updated = [...prev, aiMessage]
-            console.log(`📱 [useChatAI] 更新React状态, 当前消息数=${prev.length}, 新AI消息id=${aiMessage.id}`)
-            // 立即保存完整的消息列表
-            saveMessages(chatId, updated)
-            return updated
-          })
+          // 🔥 关键修复：先保存到存储，再更新React状态
+          // 这样即使用户离开页面（组件卸载），消息也能正确保存
+          const currentMessages = loadMessages(chatId)
+          const updatedMessages = [...currentMessages, aiMessage]
+          console.log(`📱 [useChatAI] 保存消息, 当前消息数=${currentMessages.length}, 新AI消息id=${aiMessage.id}`)
+          saveMessages(chatId, updatedMessages)
+          
+          // 更新React状态（如果组件还在）
+          setMessages(prev => [...prev, aiMessage])
           
           // 播放消息通知音效
           playMessageNotifySound()
@@ -1735,8 +1751,9 @@ export const useChatAI = (
       console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${prev.length - 1} 的 ${deletedCount} 条消息`)
       
       // 🔥 真正从 IndexedDB 删除（覆盖保存整个消息列表）
+      // 使用 forceOverwrite=true 跳过智能合并，防止被删的消息恢复
       console.log(`💾 覆盖保存消息列表: chatId=${chatId}, 剩余=${newMessages.length}条`)
-      saveMessages(chatId, newMessages)
+      saveMessages(chatId, newMessages, true)
       
       return newMessages
     })
