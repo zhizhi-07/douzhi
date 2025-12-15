@@ -47,8 +47,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // ===== 拍照相关 =====
   const handleCameraSelect = useCallback(() => {
@@ -72,8 +72,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // ===== 转账相关 =====
   const handleTransferStart = useCallback(() => {
@@ -111,8 +111,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, selectedTransferMember, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, selectedTransferMember, setMessages])
 
   const cancelTransfer = useCallback(() => {
     setShowTransferSender(false)
@@ -144,8 +144,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // ===== 语音相关 =====
   const handleVoiceSelect = useCallback(() => {
@@ -170,8 +170,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // ===== 红包相关 =====
   const handleSendRedPacket = useCallback((totalAmount: number, count: number, blessing: string) => {
@@ -199,8 +199,8 @@ export const useGroupSpecialMessages = (
     
     const updatedMsgs = groupChatManager.getMessages(groupId)
     setMessages(updatedMsgs)
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   return {
     // 弹窗状态

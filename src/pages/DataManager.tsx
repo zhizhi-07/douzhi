@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { exportChatData, exportStyleData, importAllData, clearAllData } from '../utils/dataManager'
-import { analyzeLocalStorage, analyzeIndexedDB, cleanupOldMessages, clearEmojis, clearImages, clearMessageBackups, emergencyCleanup } from '../utils/storageDiagnostic'
+import { analyzeLocalStorage, analyzeIndexedDB, cleanupOldMessages, clearEmojis, clearImages, clearMessageBackups, emergencyCleanup, restoreFromBackups, restoreCharactersFromBackup } from '../utils/storageDiagnostic'
 
 interface StorageInfo {
   localStorageSize: string
@@ -335,6 +335,82 @@ const DataManager = () => {
                 </div>
               </div>
             </button>
+          </div>
+
+          {/* 🔥 紧急恢复 */}
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 backdrop-blur-md border border-orange-200 rounded-2xl p-5 shadow-sm">
+            <h3 className="text-sm font-medium text-orange-600 uppercase tracking-wider mb-4">🚨 紧急恢复</h3>
+            <button
+              onClick={async () => {
+                setProgress({ stage: '正在从备份恢复聊天记录...', percent: 30 })
+                try {
+                  const result = await restoreFromBackups()
+                  setProgress(null)
+                  if (result.restoredCount > 0) {
+                    alert(`✅ 恢复成功！\n\n恢复了 ${result.restoredCount} 个聊天\n共 ${result.totalMessages} 条消息\n\n页面将自动刷新...`)
+                    setTimeout(() => window.location.reload(), 1000)
+                  } else {
+                    alert('ℹ️ 没有需要恢复的数据\n\nIndexedDB中的数据已是最新，或没有找到备份文件')
+                  }
+                } catch (e) {
+                  setProgress(null)
+                  alert('❌ 恢复失败: ' + (e as Error).message)
+                }
+              }}
+              className="w-full bg-white hover:bg-orange-50 border border-orange-200 rounded-xl p-4 text-left flex items-center gap-4 transition-all active:scale-[0.98]"
+            >
+              <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-medium text-orange-700">从备份恢复聊天记录</p>
+                <p className="text-xs text-orange-500 mt-0.5">如果聊天记录丢失，点击这里尝试恢复</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+            {/* 恢复联系人按钮 */}
+            <button
+              onClick={async () => {
+                setProgress({ stage: '正在从备份恢复联系人...', percent: 30 })
+                try {
+                  const result = await restoreCharactersFromBackup()
+                  setProgress(null)
+                  if (result.success) {
+                    alert(`✅ 恢复成功！\n\n恢复了 ${result.restoredCount} 个联系人\n\n页面将自动刷新...`)
+                    setTimeout(() => window.location.reload(), 1000)
+                  } else {
+                    alert('ℹ️ 没有需要恢复的联系人\n\nIndexedDB中的数据已是最新，或没有找到备份文件')
+                  }
+                } catch (e) {
+                  setProgress(null)
+                  alert('❌ 恢复失败: ' + (e as Error).message)
+                }
+              }}
+              className="w-full mt-3 bg-white hover:bg-orange-50 border border-orange-200 rounded-xl p-4 text-left flex items-center gap-4 transition-all active:scale-[0.98]"
+            >
+              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-medium text-amber-700">从备份恢复联系人</p>
+                <p className="text-xs text-amber-500 mt-0.5">如果联系人丢失，点击这里尝试恢复</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+            
+            <p className="text-xs text-orange-400 mt-3 text-center">备份数据存储在 localStorage 中，会在页面关闭时自动保存</p>
           </div>
 
           {/* 存储空间诊断 */}

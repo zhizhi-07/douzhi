@@ -7,9 +7,9 @@ import type { GroupMessage } from '../../../utils/groupChatManager'
 
 // 配置参数
 const ITEM_HEIGHT_ESTIMATE = 100  // 预估消息高度
-const BUFFER_SIZE = 5              // 上下缓冲区消息数量
-const OVERSCAN = 3                 // 额外渲染的消息数量，减少白屏
-const SCROLL_DEBOUNCE = 10         // 滚动防抖延迟
+const BUFFER_SIZE = 20             // 🔥 增大缓冲区，减少白屏
+const SCROLL_DEBOUNCE = 16         // 滚动防抖延迟
+const MAX_RENDER_ALL = 100         // 🔥 消息数小于这个值时直接渲染全部
 
 interface VirtualListResult {
   displayedMessages: GroupMessage[]
@@ -88,7 +88,7 @@ export const useGroupVirtualList = (
       }
     }
     
-    const endIndex = Math.min(allMessages.length, end + BUFFER_SIZE + OVERSCAN)
+    const endIndex = Math.min(allMessages.length, end + BUFFER_SIZE)
     
     return { start: startIndex, end: endIndex }
   }, [cumulativeHeights, allMessages.length])
@@ -198,22 +198,50 @@ export const useGroupVirtualList = (
     setForceUpdate(0)
   }, [])
   
-  // 消息变化时的处理
+  // 消息变化时的处理 - 🔥 简化逻辑，避免循环触发
+  const prevMessageCountRef = useRef(allMessages.length)
   useEffect(() => {
-    // 如果在底部附近，新消息时自动滚动到底部
-    if (isNearBottom() && allMessages.length > 0) {
-      requestAnimationFrame(() => {
-        scrollToBottom(true)
-      })
+    const container = containerRef.current
+    if (!container) return
+    
+    // 消息数量增加时（新消息）
+    if (allMessages.length > prevMessageCountRef.current) {
+      if (isNearBottom()) {
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight
+          }
+        })
+      }
     }
-  }, [allMessages.length, isNearBottom, scrollToBottom])
+    // 🔥 消息数量减少时（重回/删除）- 保持当前滚动位置，重新计算可视范围
+    else if (allMessages.length < prevMessageCountRef.current && allMessages.length > 0) {
+      // 确保 visibleRange 不超出消息数组范围
+      const safeEnd = Math.min(visibleRange.end, allMessages.length)
+      const safeStart = Math.min(visibleRange.start, Math.max(0, safeEnd - 10))
+      if (safeStart !== visibleRange.start || safeEnd !== visibleRange.end) {
+        setVisibleRange({ start: safeStart, end: safeEnd })
+      }
+    }
+    
+    prevMessageCountRef.current = allMessages.length
+  }, [allMessages.length, isNearBottom, visibleRange])
   
   // 计算要显示的消息和虚拟样式
   const displayedMessages = useMemo(() => {
+    // 🔥 消息数量较少时直接渲染全部，避免闪烁
+    if (allMessages.length <= MAX_RENDER_ALL) {
+      return allMessages
+    }
     return allMessages.slice(visibleRange.start, visibleRange.end)
   }, [allMessages, visibleRange])
   
   const virtualStyle = useMemo(() => {
+    // 🔥 消息数量较少时不使用虚拟滚动
+    if (allMessages.length <= MAX_RENDER_ALL) {
+      return { paddingTop: 0, paddingBottom: 0 }
+    }
+    
     const paddingTop = visibleRange.start > 0 
       ? (cumulativeHeights[visibleRange.start - 1] || 0)
       : 0

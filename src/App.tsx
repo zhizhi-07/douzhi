@@ -98,6 +98,7 @@ import MemeLibrary from './pages/MemeLibrary'
 import AvatarLibrary from './pages/AvatarLibrary'
 import SwitchAccount from './pages/SwitchAccount'
 import Weather from './pages/Weather'
+import ChatHistorySearch from './pages/ChatHistorySearch'
 import Envelope from './pages/Envelope'
 import Auth from './pages/Auth'
 import Admin from './pages/Admin'
@@ -623,6 +624,7 @@ function App() {
           <Route path="/chat/:id/settings" element={<ChatSettings />} />
           <Route path="/chat/:id/memory-viewer" element={<MemoryViewer />} />
           <Route path="/chat/:id/memory-summary" element={<MemorySummary />} />
+          <Route path="/chat/:id/history" element={<ChatHistorySearch />} />
           <Route path="/couple-space" element={<CoupleSpace />} />
           <Route path="/couple-album" element={<CoupleAlbum />} />
           <Route path="/couple-anniversary" element={<CoupleAnniversary />} />

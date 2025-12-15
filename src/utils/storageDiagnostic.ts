@@ -378,6 +378,176 @@ export async function clearImages(): Promise<void> {
 }
 
 /**
+ * 🔥 从localStorage备份恢复联系人/角色到IndexedDB
+ */
+export async function restoreCharactersFromBackup(): Promise<{
+  restoredCount: number
+  success: boolean
+}> {
+  console.log('🔄 开始从备份恢复联系人...')
+  
+  try {
+    const backup = localStorage.getItem('characters_backup')
+    if (!backup) {
+      console.log('ℹ️ 没有找到联系人备份')
+      return { restoredCount: 0, success: false }
+    }
+    
+    const parsed = JSON.parse(backup)
+    const characters = parsed.characters
+    
+    if (!characters || !Array.isArray(characters) || characters.length === 0) {
+      console.log('ℹ️ 备份为空')
+      return { restoredCount: 0, success: false }
+    }
+    
+    // 打开IndexedDB
+    const dbName = 'DouzhiDB'
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(dbName)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    
+    // 检查当前IndexedDB中的角色数量
+    const storeName = 'characters'
+    let existingCharacters: any[] = []
+    
+    try {
+      const tx = db.transaction([storeName], 'readonly')
+      const store = tx.objectStore(storeName)
+      const getReq = store.get('all')
+      existingCharacters = await new Promise<any[]>((resolve) => {
+        getReq.onsuccess = () => resolve(getReq.result || [])
+        getReq.onerror = () => resolve([])
+      })
+    } catch (e) {
+      existingCharacters = []
+    }
+    
+    // 如果备份比IndexedDB中的数据更多，则恢复
+    if (characters.length > existingCharacters.length) {
+      const tx = db.transaction([storeName], 'readwrite')
+      const store = tx.objectStore(storeName)
+      
+      await new Promise<void>((resolve, reject) => {
+        const putReq = store.put(characters, 'all')
+        putReq.onsuccess = () => resolve()
+        putReq.onerror = () => reject(putReq.error)
+      })
+      
+      console.log(`✅ 恢复了 ${characters.length} 个联系人 (原有 ${existingCharacters.length} 个)`)
+      db.close()
+      return { restoredCount: characters.length, success: true }
+    } else {
+      console.log(`ℹ️ IndexedDB已有 ${existingCharacters.length} 个联系人，备份 ${characters.length} 个，跳过`)
+      db.close()
+      return { restoredCount: 0, success: false }
+    }
+  } catch (e) {
+    console.error('❌ 恢复联系人失败:', e)
+    return { restoredCount: 0, success: false }
+  }
+}
+
+/**
+ * 🔥 从localStorage备份恢复聊天记录到IndexedDB
+ * 用于聊天记录丢失时的紧急恢复
+ */
+export async function restoreFromBackups(): Promise<{ 
+  restoredCount: number
+  totalMessages: number
+  chatIds: string[]
+}> {
+  console.log('🔄 开始从备份恢复聊天记录...')
+  
+  let restoredCount = 0
+  let totalMessages = 0
+  const chatIds: string[] = []
+  
+  // 找出所有msg_backup_开头的key
+  const backupKeys: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith('msg_backup_')) {
+      backupKeys.push(key)
+    }
+  }
+  
+  console.log(`📦 发现 ${backupKeys.length} 个备份文件`)
+  
+  // 打开IndexedDB
+  const dbName = 'DouzhiDB'
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(dbName)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+  
+  // 恢复每个备份
+  for (const backupKey of backupKeys) {
+    try {
+      const backup = localStorage.getItem(backupKey)
+      if (!backup) continue
+      
+      const parsed = JSON.parse(backup)
+      const messages = parsed.messages
+      
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        console.log(`  ⚠️ ${backupKey}: 空备份，跳过`)
+        continue
+      }
+      
+      // 提取chatId
+      const chatId = backupKey.replace('msg_backup_', '')
+      
+      // 检查IndexedDB中是否已有数据
+      const storeName = 'messages'
+      let existingMessages: any[] = []
+      
+      try {
+        const tx = db.transaction([storeName], 'readonly')
+        const store = tx.objectStore(storeName)
+        const getReq = store.get(chatId)
+        existingMessages = await new Promise<any[]>((resolve) => {
+          getReq.onsuccess = () => resolve(getReq.result || [])
+          getReq.onerror = () => resolve([])
+        })
+      } catch (e) {
+        existingMessages = []
+      }
+      
+      // 如果备份比IndexedDB中的数据更多，则恢复
+      if (messages.length > existingMessages.length) {
+        const tx = db.transaction([storeName], 'readwrite')
+        const store = tx.objectStore(storeName)
+        
+        await new Promise<void>((resolve, reject) => {
+          const putReq = store.put(messages, chatId)
+          putReq.onsuccess = () => resolve()
+          putReq.onerror = () => reject(putReq.error)
+        })
+        
+        console.log(`  ✅ ${chatId}: 恢复 ${messages.length} 条消息 (原有 ${existingMessages.length} 条)`)
+        restoredCount++
+        totalMessages += messages.length
+        chatIds.push(chatId)
+      } else {
+        console.log(`  ℹ️ ${chatId}: IndexedDB已有 ${existingMessages.length} 条，备份 ${messages.length} 条，跳过`)
+      }
+    } catch (e) {
+      console.error(`  ❌ 恢复 ${backupKey} 失败:`, e)
+    }
+  }
+  
+  db.close()
+  
+  console.log(`✅ 恢复完成: ${restoredCount} 个聊天，共 ${totalMessages} 条消息`)
+  
+  return { restoredCount, totalMessages, chatIds }
+}
+
+/**
  * 🔥 清理消息备份文件（msg_backup_*）
  * 这些备份文件是为了防止数据丢失，但会占用大量LocalStorage空间
  */

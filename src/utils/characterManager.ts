@@ -1,6 +1,7 @@
 /**
  * 角色管理器 - 使用 IndexedDB 存储
  * 解决 localStorage 配额限制问题
+ * 🔥 新增：localStorage 备份机制，防止数据丢失
  */
 
 import type { Character } from '../services/characterService'
@@ -9,8 +10,55 @@ import * as IDB from './indexedDBManager'
 // 内存缓存
 let characterCache: Character[] | null = null
 
+// 🔥 备份 key
+const BACKUP_KEY = 'characters_backup'
+
+/**
+ * 🔥 备份角色到 localStorage
+ */
+function backupCharactersToLocalStorage(characters: Character[]): void {
+  try {
+    // 简化角色数据，移除大型字段以节省空间
+    const simplified = characters.map(c => ({
+      ...c,
+      // 保留头像URL，但如果是base64则截断
+      avatar: c.avatar?.startsWith('data:') ? c.avatar.substring(0, 100) + '...[truncated]' : c.avatar
+    }))
+    
+    const backup = {
+      characters: simplified,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backup))
+    console.log(`💾 [角色备份] 已备份 ${characters.length} 个角色到 localStorage`)
+  } catch (e) {
+    // localStorage 可能已满，静默失败
+    console.warn('⚠️ [角色备份] 备份失败:', e)
+  }
+}
+
+/**
+ * 🔥 从 localStorage 恢复角色
+ */
+function restoreCharactersFromBackup(): Character[] | null {
+  try {
+    const backup = localStorage.getItem(BACKUP_KEY)
+    if (!backup) return null
+    
+    const parsed = JSON.parse(backup)
+    if (!parsed.characters || !Array.isArray(parsed.characters)) return null
+    
+    console.log(`🔄 [角色恢复] 从 localStorage 恢复 ${parsed.characters.length} 个角色`)
+    return parsed.characters
+  } catch (e) {
+    console.warn('⚠️ [角色恢复] 恢复失败:', e)
+    return null
+  }
+}
+
 /**
  * 获取所有角色（异步）
+ * 🔥 增强：如果 IndexedDB 为空，尝试从备份恢复
  */
 export async function getAllCharacters(): Promise<Character[]> {
   // 优先使用缓存
@@ -19,22 +67,47 @@ export async function getAllCharacters(): Promise<Character[]> {
   }
   
   try {
-    const characters = await IDB.getItem<Character[]>(IDB.STORES.CHARACTERS, 'all')
+    let characters = await IDB.getItem<Character[]>(IDB.STORES.CHARACTERS, 'all')
+    
+    // 🔥 如果 IndexedDB 为空，尝试从 localStorage 备份恢复
+    if (!characters || characters.length === 0) {
+      const restored = restoreCharactersFromBackup()
+      if (restored && restored.length > 0) {
+        console.log(`✅ [角色恢复] 从备份恢复了 ${restored.length} 个角色`)
+        // 恢复到 IndexedDB
+        await IDB.setItem(IDB.STORES.CHARACTERS, 'all', restored)
+        characters = restored
+      }
+    }
+    
     characterCache = characters || []
     return characterCache
   } catch (error) {
     console.error('读取角色失败:', error)
+    
+    // 🔥 IndexedDB 失败时，尝试从备份恢复
+    const restored = restoreCharactersFromBackup()
+    if (restored && restored.length > 0) {
+      characterCache = restored
+      return characterCache
+    }
+    
     return []
   }
 }
 
 /**
  * 保存所有角色（异步）
+ * 🔥 同时备份到 localStorage
  */
 export async function saveAllCharacters(characters: Character[]): Promise<void> {
   try {
     await IDB.setItem(IDB.STORES.CHARACTERS, 'all', characters)
     characterCache = characters
+    
+    // 🔥 同时备份到 localStorage
+    backupCharactersToLocalStorage(characters)
+    
     console.log('✅ 角色数据已保存到 IndexedDB')
   } catch (error) {
     console.error('保存角色失败:', error)

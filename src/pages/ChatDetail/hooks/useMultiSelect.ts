@@ -5,7 +5,6 @@
 
 import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
-import { deleteMessage } from '../../../utils/simpleMessageManager'
 
 export const useMultiSelect = (
   chatId: string,
@@ -77,8 +76,9 @@ export const useMultiSelect = (
 
   /**
    * 批量删除选中的消息
+   * 🔥 修复：直接一次性过滤并保存，避免异步竞态条件
    */
-  const deleteSelectedMessages = useCallback(() => {
+  const deleteSelectedMessages = useCallback(async () => {
     if (selectedMessageIds.size === 0) {
       alert('请先选择要删除的消息')
       return
@@ -89,21 +89,18 @@ export const useMultiSelect = (
 
     console.log('🗑️ 批量删除消息:', Array.from(selectedMessageIds))
 
-    // 从localStorage删除每条消息
-    selectedMessageIds.forEach(messageId => {
-      deleteMessage(chatId, messageId)
-    })
+    // 🔥 关键修复：先获取完整消息列表，一次性过滤后保存
+    // 不再逐条调用 deleteMessage，避免异步竞态条件
+    const { ensureMessagesLoaded, saveMessages } = await import('../../../utils/simpleMessageManager')
+    const allMessages = await ensureMessagesLoaded(chatId)
+    const filteredMessages = allMessages.filter(m => !selectedMessageIds.has(m.id))
+    
+    // 🔥 使用 forceOverwrite=true 确保删除生效
+    saveMessages(chatId, filteredMessages, true)
+    console.log(`💾 已保存删除后的消息列表: ${allMessages.length} -> ${filteredMessages.length}`)
 
-    // 从React状态删除并保存到文件
-    setMessages(prev => {
-      const newMessages = prev.filter(m => !selectedMessageIds.has(m.id))
-      // 🔥 保存到文件，确保刷新后也生效
-      import('../../../utils/simpleMessageManager').then(({ saveMessages }) => {
-        saveMessages(chatId, newMessages)
-        console.log(`💾 已保存删除后的消息列表到文件`)
-      })
-      return newMessages
-    })
+    // 更新React状态
+    setMessages(() => filteredMessages)
 
     console.log(`✅ 已删除 ${selectedMessageIds.size} 条消息`)
     

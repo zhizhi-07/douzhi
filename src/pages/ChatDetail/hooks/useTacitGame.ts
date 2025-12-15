@@ -84,6 +84,8 @@ export const useTacitGame = ({
         /好像是/,
         /是.{1,6}吧/,
         /是.{1,6}[？?]/,
+        // 简短名词+问号（如"狗?"、"猫?"、"香蕉?"）
+        /^.{1,4}[？?]$/m,
         // 直接回答一个简短名词（2-6字，非疑问句）
         /^[^？?]{2,6}$/m,
       ]
@@ -112,11 +114,14 @@ export const useTacitGame = ({
         })
 
         // 发送结果卡片
+        const gameTypeName = gameType === 'draw' ? '你画我猜' : '你演我猜'
         const resultMessage: Message = {
           id: Date.now(),
           type: 'system',
           messageType: 'tacitGameResult',
           content: '',
+          // 让AI知道这轮游戏已结束
+          aiReadableContent: `[🎮 游戏结束] ${gameTypeName}游戏已结束！答案是「${topic}」，你猜的是「${result.extractedGuess}」，${result.isCorrect ? '猜对了' : '猜错了'}。这轮游戏已经完全结束！`,
           tacitGameResult: {
             gameType,
             topic,
@@ -163,12 +168,18 @@ export const useTacitGame = ({
       const { messageId, rating } = e.detail
       if (!characterId) return
 
+      // 找到对应的消息获取信息
+      let ratingInfo: { gameTypeName: string, characterName: string, isCorrect: boolean } | null = null
+
       setMessages(prev => {
         const updated = prev.map(msg => {
           if (msg.id === messageId && msg.tacitGameResult) {
             const { gameType, topic, aiGuess, isCorrect, characterName } = msg.tacitGameResult
             const gameTypeName = gameType === 'draw' ? '你画我猜' : '你演我猜'
             const ratingText = rating === 5 ? '太厉害了' : rating >= 4 ? '很不错' : rating >= 3 ? '还可以' : rating >= 2 ? '加油' : '下次努力'
+            
+            // 保存信息用于创建评分消息
+            ratingInfo = { gameTypeName, characterName, isCorrect }
             
             return {
               ...msg,
@@ -182,6 +193,22 @@ export const useTacitGame = ({
           }
           return msg
         })
+        
+        // 添加一条评分系统消息，让AI立即看到（解决评分延迟问题）
+        if (ratingInfo) {
+          const ratingText = rating === 5 ? '太厉害了' : rating >= 4 ? '很不错' : rating >= 3 ? '还可以' : rating >= 2 ? '加油' : '下次努力'
+          const ratingMsg: Message = {
+            id: Date.now(),
+            type: 'system',
+            messageType: 'text',
+            content: '', // 用户看不到
+            aiReadableContent: `[⭐ 用户评分] 用户给${ratingInfo.characterName}的${ratingInfo.gameTypeName}表现打了${rating}分（满分5分）！评价：${ratingText}。${ratingInfo.isCorrect ? '你猜对了，用户很满意！' : '虽然没猜对，但用户还是给了评价~'}`,
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now()
+          }
+          updated.push(ratingMsg)
+        }
+        
         saveMessages(characterId, updated)
         return updated
       })
@@ -378,7 +405,11 @@ export const useTacitGame = ({
       type: 'sent',
       messageType: 'photo',
       content: `[你画我猜: ${topic}]`,  // 用户看到的，显示答案
-      aiReadableContent: `[你画我猜游戏] 我画了一幅画给你猜！请看图猜猜这是什么。自然地说出你的猜测就好，不需要特定格式。`,
+      aiReadableContent: `[🎮 新游戏开始 - 你画我猜] 
+⚠️ 注意：之前的游戏已经结束！不要再判断之前的猜测！
+现在是【新一轮】游戏：用户画了一幅画让你来猜！
+请看图说出你的猜测，不需要用任何特殊格式，直接自然地猜就好。
+禁止使用[猜对:...]或[猜错:...]格式，那是你画用户猜时才用的！`,
       photoBase64: imageData,
       photoDescription: `你画我猜游戏`,  // 不暴露题目
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
@@ -407,7 +438,12 @@ export const useTacitGame = ({
       type: 'sent',
       messageType: 'text',
       content: description,
-      aiReadableContent: `[你演我猜游戏] 我在描述一个动作让你猜！我的描述是："${description}"。自然地说出你的猜测就好，不需要特定格式。`,
+      aiReadableContent: `[🎮 新游戏开始 - 你演我猜] 
+⚠️ 注意：之前的游戏已经结束！不要再判断之前的猜测！
+现在是【新一轮】游戏：用户在描述一个动作让你来猜！
+描述内容："${description}"
+请自然地说出你的猜测，不需要用任何特殊格式。
+禁止使用[猜对:...]或[猜错:...]格式！`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
     }

@@ -1192,8 +1192,17 @@ const GroupChatDetail = () => {
           const note = transferMatch[3].trim()
           console.log(`💰 [AI指令] ${member.name} 给${toName}转账 ¥${amount}`)
           
-          // 查找接收者
-          const receiver = members.find(m => m.name === toName)
+          // 🔥 查找接收者 - 支持多种匹配方式
+          let receiver = members.find(m => m.name === toName)
+          // 如果精确匹配失败，尝试别名匹配
+          if (!receiver) {
+            receiver = members.find(m => m.aliases?.includes(toName))
+          }
+          // 如果还是找不到，尝试模糊匹配（名字包含）
+          if (!receiver) {
+            receiver = members.find(m => m.name.includes(toName) || toName.includes(m.name))
+          }
+          console.log(`💰 [转账] 接收者查找: "${toName}" -> ${receiver ? receiver.name : '未找到'}`)
           if (receiver) {
             const transferMsg = groupChatManager.addMessage(id, {
               userId: member.id,

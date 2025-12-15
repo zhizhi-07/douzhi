@@ -825,7 +825,18 @@ const cleanTimeMarkers = (text: string): string => {
  * 特殊处理：[忙碌:...]指令会作为单独的一条消息
  */
 export const parseAIMessages = (aiReply: string): string[] => {
-  // 🔥 首先清理AI可能模仿的时间标记
+  // 🔥 首先过滤思维链 <think>...</think>
+  aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  
+  // 🔥 检测完整HTML文档（<!DOCTYPE html>...到...</html>）
+  const htmlDocMatch = aiReply.match(/<!DOCTYPE\s+html>[\s\S]*?<\/html>/i)
+  if (htmlDocMatch) {
+    console.log('🎮 [parseAIMessages] 检测到完整HTML文档，不分割')
+    // HTML文档作为单独一条消息，不分割
+    return [htmlDocMatch[0]]
+  }
+  
+  // 🔥 清理AI可能模仿的时间标记
   aiReply = cleanTimeMarkers(aiReply)
   // 检测忙碌指令：[忙碌:...] 或 【忙碌:...】（支持多行内容）
   const busyMatch = aiReply.match(/\[忙碌:[\s\S]+?\]/) || aiReply.match(/【忙碌:[\s\S]+?】/)

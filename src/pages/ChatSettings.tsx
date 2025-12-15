@@ -466,6 +466,29 @@ const ChatSettings = () => {
       {/* 设置内容 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
+        {/* 搜索聊天记录 */}
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
+          <button
+            onClick={() => navigate(`/chat/${id}/history`)}
+            className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-gray-900">搜索聊天记录</div>
+                <div className="text-xs text-gray-400">按日期浏览和关键词搜索</div>
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        
         {/* 聊天置顶 */}
         <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <div className="flex items-center justify-between">

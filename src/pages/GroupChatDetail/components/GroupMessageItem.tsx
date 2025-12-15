@@ -160,12 +160,12 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
                 onUpdateIntimatePayStatus={() => {}}
                 onViewForwardedChat={() => {}}
                 onReceiveTransfer={() => {
-                  const messageId = parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now()
-                  onReceiveTransfer?.(messageId)
+                  // 🔥 直接传递字符串ID，避免大数字精度丢失
+                  onReceiveTransfer?.(msg.id as any)
                 }}
                 onRejectTransfer={() => {
-                  const messageId = parseInt(msg.id.replace(/[^0-9]/g, '')) || Date.now()
-                  onRejectTransfer?.(messageId)
+                  // 🔥 直接传递字符串ID，避免大数字精度丢失
+                  onRejectTransfer?.(msg.id as any)
                 }}
                 onPlayVoice={onPlayVoice || (() => {})}
                 onToggleVoiceText={onToggleVoiceText || (() => {})}

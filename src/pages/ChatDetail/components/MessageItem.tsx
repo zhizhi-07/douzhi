@@ -16,6 +16,23 @@ import PostCard from '../../../components/PostCard'
 import ShopCard from '../../../components/ShopCard'
 import OfflineSummaryCard from './OfflineSummaryCard'
 
+// 安全过滤HTML：移除危险标签和属性
+const sanitizeHtml = (html: string): string => {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript:/gi, '')
+}
+
+// 检测内容是否包含HTML标签
+const containsHtml = (content: string): boolean => {
+  // 检测完整HTML文档或常见的HTML标签
+  const isHtmlDoc = /<!DOCTYPE\s+html/i.test(content) || /<html[\s>]/i.test(content)
+  const hasHtmlTags = /<(head|body|div|style|span|p|br|img|a|table|form|input|button)[\s>\/]/i.test(content)
+  console.log('🔍 [containsHtml]', { isHtmlDoc, hasHtmlTags, contentStart: content.substring(0, 50) })
+  return isHtmlDoc || hasHtmlTags
+}
+
 interface MessageItemProps {
   message: Message
   character: Character
@@ -197,7 +214,7 @@ const MessageItemContent = ({
       </div>
 
       {/* 消息内容 */}
-      <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+      <div className={'flex flex-col ' + (message.coupleSpaceInvite || containsHtml(message.content || '') ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
         {/* 引用消息 */}
         {message.quotedMessage && (
           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
@@ -289,6 +306,40 @@ const MessageItemContent = ({
               }))
             }}
           />
+        ) : containsHtml(message.content || '') ? (
+          // 🔥 HTML内容直接渲染，不用消息气泡包裹
+          (() => {
+            const htmlContent = message.content || ''
+            const isFullHtmlDoc = /<!DOCTYPE\s+html/i.test(htmlContent) || /<html[\s>]/i.test(htmlContent)
+            const safeHtml = sanitizeHtml(htmlContent)
+            console.log('🎯 [HTML渲染]', { isFullHtmlDoc, length: htmlContent.length })
+            
+            if (isFullHtmlDoc) {
+              return (
+                <div className="html-message-content">
+                  <iframe
+                    srcDoc={safeHtml}
+                    style={{
+                      width: '280px',
+                      height: '420px',
+                      border: 'none',
+                      borderRadius: '12px',
+                      background: '#000'
+                    }}
+                    sandbox="allow-same-origin"
+                    title="HTML内容"
+                  />
+                </div>
+              )
+            }
+            // 普通HTML片段
+            return (
+              <div 
+                className="html-message-content bg-white rounded-xl p-2 shadow-sm"
+                dangerouslySetInnerHTML={{ __html: safeHtml }}
+              />
+            )
+          })()
         ) : (
           <div
             className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
@@ -307,16 +358,21 @@ const MessageItemContent = ({
             onMouseUp={onLongPressEnd}
             onMouseLeave={onLongPressEnd}
           >
-            {timestampInBubble && !hideTimestamp ? (
-              <div className="flex items-end gap-2">
-                <div className="whitespace-pre-wrap flex-1">{filterSpecialTags(message.content || '')}</div>
-                <span style={{ color: globalButtonColor, opacity: 0.7, fontSize: '10px' }}>
-                  {message.time}
-                </span>
-              </div>
-            ) : (
-              <div className="whitespace-pre-wrap">{filterSpecialTags(message.content || '')}</div>
-            )}
+            {(() => {
+              const filteredContent = filterSpecialTags(message.content || '')
+              
+              // 普通文本内容
+              return timestampInBubble && !hideTimestamp ? (
+                <div className="flex items-end gap-2">
+                  <div className="whitespace-pre-wrap flex-1">{filteredContent}</div>
+                  <span style={{ color: globalButtonColor, opacity: 0.7, fontSize: '10px' }}>
+                    {message.time}
+                  </span>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap">{filteredContent}</div>
+              )
+            })()}
           </div>
         )}
       </div>

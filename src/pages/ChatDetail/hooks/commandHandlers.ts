@@ -3918,7 +3918,9 @@ export const guessResultHandler: CommandHandler = {
         score,
         comment,
         characterName
-      }
+      },
+      // 让AI知道自己已经评过分了，这轮游戏已结束
+      aiReadableContent: `[🎮 游戏结束] 你画我猜游戏已结束！你判定用户${isCorrect ? '猜对了' : '猜错了'}，答案是「${answer}」，给了${score}分。这轮游戏已经完全结束，不要再对之前的猜测做任何判定！`
     }, isBlocked)
 
     await addMessage(resultMsg, setMessages, chatId)

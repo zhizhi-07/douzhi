@@ -312,7 +312,10 @@ const MusicPlayer = () => {
 
               {/* 黑胶盘 */}
               <div className="relative">
-                <div className={`w-[220px] h-[220px] rounded-full vinyl-disc flex items-center justify-center shadow-xl ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}>
+                {/* 🔥 阴影层：固定不旋转 */}
+                <div className="absolute inset-0 w-[220px] h-[220px] rounded-full" style={{ boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)' }} />
+                {/* 旋转的唱片 */}
+                <div className={`w-[220px] h-[220px] rounded-full vinyl-disc flex items-center justify-center ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}>
                   {/* 纹理层 */}
                   <div className="absolute inset-0 rounded-full vinyl-texture" />
                   {/* 封面 */}

@@ -47,12 +47,12 @@
 }
 
 /* 唱片黑胶纹理 */
+/* 🔥 阴影已移到独立的固定层，不随唱片旋转 */
 .vinyl-disc {
   background:
     radial-gradient(circle at center, transparent 0%, transparent 28%, #111 28%, #111 30%, transparent 30%),
     radial-gradient(circle at center, #1a1a1a 0%, #111 100%);
   box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.4),
     inset 0 0 0 8px rgba(255, 255, 255, 0.02);
 }
 

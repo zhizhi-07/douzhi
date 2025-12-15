@@ -90,13 +90,10 @@ export const useGroupEmoji = (
       console.log('✅ [表情包发送完成]', uniqueId)
     })
     
-    // 🔥 滚动到底部
-    requestAnimationFrame(() => {
-      scrollToBottom()
-      setTimeout(() => {
-        isSendingRef.current = false
-      }, 100)
-    })
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+    setTimeout(() => {
+      isSendingRef.current = false
+    }, 100)
   }, [groupId, setMessages, scrollToBottom])
 
   // 语音播放

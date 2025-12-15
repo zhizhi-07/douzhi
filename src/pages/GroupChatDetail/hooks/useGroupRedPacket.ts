@@ -136,14 +136,16 @@ export const useGroupRedPacket = (
   }, [groupId, openRedPacketId, setMessages])
 
   // 接收转账
-  const handleReceiveTransfer = useCallback((messageId: number) => {
+  const handleReceiveTransfer = useCallback((messageId: string | number) => {
     if (!groupId) return
     
     const allMessages = groupChatManager.getMessages(groupId)
+    // 🔥 使用字符串比较，避免大数字ID精度丢失
+    const idStr = String(messageId)
     const transferMsg = allMessages.find(m => 
-      m.id === messageId.toString() || 
-      m.id === `msg_${messageId}` ||
-      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
+      m.id === idStr || 
+      m.id === `msg_${idStr}` ||
+      m.id.includes(idStr)
     )
     
     if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
@@ -180,18 +182,20 @@ export const useGroupRedPacket = (
     
     groupChatManager.replaceAllMessages(groupId, updatedMessages as any)
     setMessages([...updatedMessages])
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // 退还转账
-  const handleRejectTransfer = useCallback((messageId: number) => {
+  const handleRejectTransfer = useCallback((messageId: string | number) => {
     if (!groupId) return
     
     const allMessages = groupChatManager.getMessages(groupId)
+    // 🔥 使用字符串比较，避免大数字ID精度丢失
+    const idStr = String(messageId)
     const transferMsg = allMessages.find(m => 
-      m.id === messageId.toString() || 
-      m.id === `msg_${messageId}` ||
-      parseInt(m.id.replace(/[^0-9]/g, '')) === messageId
+      m.id === idStr || 
+      m.id === `msg_${idStr}` ||
+      m.id.includes(idStr)
     )
     
     if (!transferMsg || (transferMsg as any).messageType !== 'transfer') return
@@ -228,8 +232,8 @@ export const useGroupRedPacket = (
     
     groupChatManager.replaceAllMessages(groupId, updatedMessages as any)
     setMessages([...updatedMessages])
-    setTimeout(scrollToBottom, 100)
-  }, [groupId, setMessages, scrollToBottom])
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+  }, [groupId, setMessages])
 
   // 关闭红包弹窗
   const closeRedPacketModal = useCallback(() => {

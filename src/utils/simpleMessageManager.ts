@@ -143,9 +143,10 @@ async function preloadMessages() {
               messages = parsed.messages
               const backupAge = Date.now() - (parsed.timestamp || 0)
               
-              // 🔥 手机端优化：延长备份保留时间到24小时
-              if (backupAge > 24 * 60 * 60 * 1000) {
-                console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
+              // 🔥 备份永久保留，不再删除旧备份
+              if (false) {
+                // 已禁用：不再因为时间过期而删除备份
+                console.warn(`⚠️ [恢复备份] 备份太旧，跳过恢复`)
                 localStorage.removeItem(backupKey)
                 messages = null
               } else {
@@ -317,14 +318,12 @@ export function loadMessages(chatId: string): Message[] {
         
         if (backup) {
           const parsed = JSON.parse(backup)
-          const backupAge = Date.now() - (parsed.timestamp || 0)
           
-          // 备份在24小时内有效
-          if (backupAge < 24 * 60 * 60 * 1000 && parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+          // 🔥 备份永久有效，不再删除
+          if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
             messages = parsed.messages as Message[]
             messageCache.set(storageKey, messages)
-          } else if (backupAge >= 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(backupKey)
+            console.log(`🔄 [loadMessages] 从localStorage备份恢复: ${messages.length}条消息`)
           }
         }
       } catch (e) {
@@ -474,12 +473,12 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
         if (backup) {
           const parsed = JSON.parse(backup)
           loaded = parsed.messages
-          const backupAge = Date.now() - (parsed.timestamp || 0)
           
-          // 🔥 手机端优化：延长备份保留时间到24小时
-          if (backupAge > 24 * 60 * 60 * 1000) {
+          // 🔥 备份永久保留，不再删除
+          if (false) {
+            // 已禁用：不再因为时间过期而删除备份
             if (import.meta.env.DEV) {
-              console.warn(`⚠️ [恢复备份] 备份太旧 (${Math.floor(backupAge / 1000 / 60 / 60)}小时)，跳过恢复`)
+              console.warn(`⚠️ [恢复备份] 备份太旧，跳过恢复`)
             }
             localStorage.removeItem(backupKey)
             loaded = null

@@ -262,9 +262,11 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
     if (backupType === 'chat') {
       onProgress?.('清空旧数据...', 20)
       
-      // 🔥 先保存用户登录信息，防止丢失
+      // 🔥 先保存用户登录信息，防止丢失（这些信息必须保留！）
       const savedUserInfo = localStorage.getItem('user_info')
       const savedApiConfig = localStorage.getItem('api_config')
+      const savedInviteCode = localStorage.getItem('invite_code')
+      const savedDeviceId = localStorage.getItem('device_id')
       console.log('💾 保存用户登录信息...')
       
       console.log('🗑️ 清空旧的 localStorage...')
@@ -277,6 +279,11 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
         let failCount = 0
         
         for (const key of Object.keys(data.localStorage)) {
+          // 🔥 跳过登录相关的key，保持当前登录状态
+          if (['user_info', 'api_config', 'invite_code', 'device_id'].includes(key)) {
+            console.log(`  ⏭️ 跳过登录信息: ${key}`)
+            continue
+          }
           try {
             localStorage.setItem(key, data.localStorage[key])
             successCount++
@@ -288,14 +295,22 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
         console.log(`✅ localStorage 导入完成，成功 ${successCount} 项，跳过 ${failCount} 项`)
       }
       
-      // 🔥 如果备份里没有用户信息，恢复之前保存的
-      if (!localStorage.getItem('user_info') && savedUserInfo) {
+      // 🔥 必须恢复用户登录信息（不管备份里有没有）
+      if (savedUserInfo) {
         localStorage.setItem('user_info', savedUserInfo)
         console.log('✅ 恢复用户登录信息')
       }
-      if (!localStorage.getItem('api_config') && savedApiConfig) {
+      if (savedApiConfig) {
         localStorage.setItem('api_config', savedApiConfig)
         console.log('✅ 恢复 API 配置')
+      }
+      if (savedInviteCode) {
+        localStorage.setItem('invite_code', savedInviteCode)
+        console.log('✅ 恢复邀请码')
+      }
+      if (savedDeviceId) {
+        localStorage.setItem('device_id', savedDeviceId)
+        console.log('✅ 恢复设备ID')
       }
     } else {
       console.log('📦 美化数据导入，跳过 localStorage')
@@ -314,6 +329,14 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
         'BubbleDB': 'BubbleStyleDB',      // 旧名称 -> 正确名称
         'LocationDB': 'AILocationDB',     // 旧名称 -> 正确名称
       }
+      
+      // 🔥 旧 store 名称映射到新名称
+      const oldStoreMap: Record<string, string> = {
+        'chats': 'messages',              // 旧的聊天记录 store
+        'chat_messages': 'messages',      // 另一种旧名称
+        'all_characters': 'characters',   // 旧的角色 store
+        'character_list': 'characters',   // 另一种旧名称
+      }
 
       const dbNames = Object.keys(data.indexedDB)
       for (let i = 0; i < dbNames.length; i++) {
@@ -328,7 +351,18 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
             console.log(`  🔄 转换旧格式: ${dbName} -> ${targetDb}`)
           }
           
-          await importIndexedDB(targetDb, data.indexedDB[dbName])
+          // 🔥 转换旧 store 名称
+          const dbData = data.indexedDB[dbName]
+          const convertedData: Record<string, any> = {}
+          for (const storeName of Object.keys(dbData)) {
+            const targetStore = oldStoreMap[storeName] || storeName
+            if (targetStore !== storeName) {
+              console.log(`  🔄 转换旧 store: ${storeName} -> ${targetStore}`)
+            }
+            convertedData[targetStore] = dbData[storeName]
+          }
+          
+          await importIndexedDB(targetDb, convertedData)
           console.log(`  ✅ ${targetDb} 导入成功`)
           
           // 🔥 导入完成后释放该数据库的数据，减少内存占用
@@ -367,7 +401,13 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
     console.log('✅ 已清空内存缓存')
 
     onProgress?.('完成!', 100)
-    console.log('✅ 数据导入成功！请刷新页面以加载新数据。')
+    console.log('✅ 数据导入成功！')
+    
+    // 🔥 导入完成后必须刷新页面，否则数据库连接会被阻塞
+    console.log('🔄 2秒后自动刷新页面...')
+    setTimeout(() => {
+      window.location.reload()
+    }, 2000)
   } catch (error) {
     console.error('❌ 导入数据失败:', error)
     throw error
@@ -598,45 +638,36 @@ const DOUZHI_DB_STORES = [
 
 /**
  * 导入单个 IndexedDB 数据库
- * 🔥 修复：不指定版本号打开，避免 onblocked
+ * 🔥 修复：不删除数据库，直接打开并清空 store
  */
+// 🔥 数据库版本号配置（必须与 indexedDBManager.ts 保持一致）
+const DB_VERSIONS: Record<string, number> = {
+  'DouzhiDB': 4,  // 主数据库版本
+  'AppStorage': 1,
+  'BubbleStyleDB': 1,
+  'AILocationDB': 1,
+}
+
 async function importIndexedDB(dbName: string, data: Record<string, any>): Promise<void> {
   console.log(`  🔓 正在导入数据库: ${dbName}`)
   
-  // 🔥 先尝试删除旧数据库（避免版本冲突）
-  try {
-    await new Promise<void>((resolve) => {
-      const deleteReq = indexedDB.deleteDatabase(dbName)
-      deleteReq.onsuccess = () => {
-        console.log(`  🗑️ 已清空旧数据库: ${dbName}`)
-        resolve()
-      }
-      deleteReq.onerror = () => resolve() // 忽略删除错误
-      deleteReq.onblocked = () => {
-        console.warn(`  ⚠️ 数据库被占用，跳过删除: ${dbName}`)
-        resolve()
-      }
-      // 5秒超时
-      setTimeout(resolve, 5000)
-    })
-  } catch (e) {
-    console.warn(`  ⚠️ 无法删除旧数据库: ${dbName}`)
-  }
+  // 🔥 获取正确的版本号
+  const version = DB_VERSIONS[dbName] || 1
+  console.log(`  📌 使用版本号: ${version}`)
   
   return new Promise((resolve, reject) => {
-    // 🔥 减少超时时间到 30 秒
     const timeout = setTimeout(() => {
-      console.error(`  ❌ 打开数据库超时: ${dbName}`)
-      resolve() // 🔥 改为 resolve，不要让整个导入失败
-    }, 30000)
+      console.error(`  ❌ 打开数据库超时: ${dbName}，跳过`)
+      resolve()
+    }, 30000) // 30秒超时
     
-    // 🔥 使用版本号 1，确保创建新数据库
-    const request = indexedDB.open(dbName, 1)
+    // 🔥 使用正确的版本号打开数据库
+    const request = indexedDB.open(dbName, version)
     
     request.onerror = () => {
       clearTimeout(timeout)
       console.error(`  ❌ 打开数据库失败: ${dbName}`, request.error)
-      resolve() // 🔥 不要中断，继续导入其他数据
+      resolve()
     }
     
     // 🔥 如果数据库不存在，会触发 onupgradeneeded
@@ -669,7 +700,7 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
       console.log(`  ✅ 数据库已打开: ${dbName}, stores: ${Array.from(db.objectStoreNames).join(', ')}`)
       
       try {
-        const BATCH_SIZE = 50 // 🔥 每批写入50条
+        const BATCH_SIZE = 50
         
         for (const storeName of Object.keys(data)) {
           if (!db.objectStoreNames.contains(storeName)) {
@@ -687,14 +718,8 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
           
           const storeData = data[storeName]
           
-          // 🔥 特殊处理 messages store，清理 base64 数据
-          if (storeName === 'messages' && storeData) {
-            console.log(`  🧹 清理 messages 中的 base64 数据...`)
-          }
-          
           // 🔥 检测数据格式：新格式 { keys, values } 或 旧格式 [records]
           if (storeData && storeData.keys && storeData.values) {
-            // 新格式：key-value 对，分批写入
             const { keys, values } = storeData
             for (let i = 0; i < keys.length; i += BATCH_SIZE) {
               const batchEnd = Math.min(i + BATCH_SIZE, keys.length)
@@ -705,18 +730,15 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
                 store.put(values[j], keys[j])
               }
               
-              // 等待这批事务完成
               await new Promise<void>((res, rej) => {
                 tx.oncomplete = () => res()
                 tx.onerror = () => rej(tx.error)
               })
               
-              // 🔥 每批之后让主线程喘息
               await yieldToMain()
             }
             console.log(`  ✅ ${storeName}: ${keys.length} 条 (key-value格式)`)
           } else if (Array.isArray(storeData)) {
-            // 旧格式：数组，分批写入
             for (let i = 0; i < storeData.length; i += BATCH_SIZE) {
               const batchEnd = Math.min(i + BATCH_SIZE, storeData.length)
               const tx = db.transaction(storeName, 'readwrite')
@@ -738,7 +760,6 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
             console.log(`  ✅ ${storeName}: ${storeData.length} 条 (数组格式)`)
           }
           
-          // 🔥 每个store完成后让主线程喘息
           await yieldToMain()
         }
         
@@ -750,16 +771,10 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
       }
     }
     
-    request.onerror = () => {
-      clearTimeout(timeout)
-      console.error(`  ❌ 打开数据库失败: ${dbName}`, request.error)
-      reject(request.error)
-    }
-    
     request.onblocked = () => {
       clearTimeout(timeout)
       console.warn(`  ⚠️ 数据库被占用: ${dbName}，尝试继续...`)
-      // 被占用时也尝试继续
     }
   })
 }
+

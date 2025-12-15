@@ -98,9 +98,7 @@ const Desktop = () => {
   const [isEditingBubble2, setIsEditingBubble2] = useState(false)
   const bubble1Ref = useRef<HTMLTextAreaElement>(null)
   const bubble2Ref = useRef<HTMLTextAreaElement>(null)
-  const [avatarImage, setAvatarImage] = useState(() => {
-    return localStorage.getItem('desktop_page2_avatar') || ''
-  })
+  const [avatarImage, setAvatarImage] = useState('')
   const [labelText, setLabelText] = useState(() => {
     return localStorage.getItem('desktop_label_text') || '𓋫 ˚ ⑅₊⁺₊☆✞𓋫⁺𓏴𓏴𓏴✞𓏴𓏵𓏴☆₊⁺♬ᐝ๑𓋫 ˚ ⑅₊⁺₊☆✞𓋫⁺𓏴𓏴𓏴✞𓏴𓏵𓏴'
   })
@@ -108,21 +106,28 @@ const Desktop = () => {
   const labelRef = useRef<HTMLInputElement>(null)
   const [gridPhoto, setGridPhoto] = useState('')
 
-  // 从IndexedDB加载网格照片
+  // 从IndexedDB加载网格照片和第二页头像
   useEffect(() => {
-    const loadGridPhoto = async () => {
+    const loadPage2Images = async () => {
       try {
         const { getImage } = await import('../utils/unifiedStorage')
+        // 加载网格照片
         const photo = await getImage('desktop_grid_photo')
         if (photo) {
           setGridPhoto(photo)
           console.log('✅ 网格照片已从IndexedDB加载')
         }
+        // 🔥 加载第二页头像（改用IndexedDB）
+        const avatar = await getImage('desktop_page2_avatar')
+        if (avatar) {
+          setAvatarImage(avatar)
+          console.log('✅ 第二页头像已从IndexedDB加载')
+        }
       } catch (error) {
-        console.error('❌ 加载网格照片失败:', error)
+        console.error('❌ 加载图片失败:', error)
       }
     }
-    loadGridPhoto()
+    loadPage2Images()
   }, [])
   const [bubble1BgImage, setBubble1BgImage] = useState('')
   const [bubble2BgImage, setBubble2BgImage] = useState('')
@@ -666,10 +671,17 @@ const Desktop = () => {
                     const file = (e.target as HTMLInputElement).files?.[0]
                     if (file) {
                       const reader = new FileReader()
-                      reader.onload = (e) => {
+                      reader.onload = async (e) => {
                         const result = e.target?.result as string
                         setAvatarImage(result)
-                        localStorage.setItem('desktop_page2_avatar', result)
+                        // 🔥 改用IndexedDB存储，避免localStorage超出配额
+                        try {
+                          const { saveImage } = await import('../utils/unifiedStorage')
+                          await saveImage('desktop_page2_avatar', result)
+                          console.log('✅ 第二页头像已保存到IndexedDB')
+                        } catch (error) {
+                          console.error('❌ 保存第二页头像失败:', error)
+                        }
                       }
                       reader.readAsDataURL(file)
                     }
