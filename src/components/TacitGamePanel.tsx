@@ -107,75 +107,84 @@ export const TacitGameSelect = ({
         className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 transition-opacity duration-300"
         onClick={onClose}
       />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-white/50 animate-slide-up pb-safe">
-        <div className="flex justify-center pt-3 pb-2">
-          <div className="w-12 h-1.5 bg-gray-200/80 rounded-full" />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md rounded-t-sm shadow-[0_-8px_40px_rgba(0,0,0,0.15)] border-t border-gray-300/80 animate-slide-up pb-safe font-serif">
+        {/* 试卷纹理背景 */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
         </div>
+        
+        {/* 顶部装订线 */}
+        <div className="absolute top-0 left-0 w-full h-2 border-b border-dashed border-gray-300"></div>
 
-        <div className="p-6 space-y-6">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-50 mb-3 shadow-sm border border-rose-100">
-              <svg className="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
+        <div className="p-6 relative z-10">
+          <div className="text-center mb-6 border-b-2 border-gray-800 pb-4 relative">
+             {/* 红色机密印章 */}
+            <div className="absolute top-0 right-0 border-2 border-red-500 text-red-500 text-[10px] font-bold px-1 py-0.5 rotate-[-12deg] opacity-60 pointer-events-none">
+              内部文件
             </div>
-            <h3 className="text-xl font-bold text-gray-900 tracking-tight">默契大考验</h3>
-            <p className="text-sm text-gray-500 mt-1">和 {characterName} 看看你们有多合拍</p>
+            
+            <h3 className="text-2xl font-bold text-gray-900 tracking-widest">考试选择</h3>
+            <p className="text-xs text-gray-500 mt-1 font-mono tracking-wider">请选择考试科目</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            {/* 选项A: 你画我猜 */}
             <button
               onClick={() => onSelectGame('draw')}
-              className="group relative p-4 bg-white hover:bg-orange-50/50 rounded-2xl border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
+              className="w-full group relative p-4 bg-white border border-gray-300 shadow-sm hover:border-gray-800 hover:shadow-md transition-all duration-200 active:scale-[0.99] text-left overflow-hidden"
             >
-              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-orange-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-              </div>
-              <div className="text-left relative z-10">
-                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-orange-700 transition-colors">你画我猜</div>
-                <div className="text-xs text-gray-500 font-medium group-hover:text-orange-600/70">灵魂画手上线</div>
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-200 group-hover:bg-gray-800 transition-colors"></div>
+              <div className="flex items-start gap-4 pl-2">
+                <div className="w-8 h-8 flex items-center justify-center border border-gray-800 bg-gray-900 text-white font-bold font-mono text-lg shrink-0">
+                  A
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-900 font-serif group-hover:underline decoration-1 underline-offset-4">实践美术</div>
+                  <div className="text-xs text-gray-500 font-mono mt-1">科目：你画我猜（用户作画）</div>
+                </div>
               </div>
             </button>
 
+            {/* 选项B: 你演我猜 */}
             <button
               onClick={() => onSelectGame('act')}
-              className="group relative p-4 bg-white hover:bg-blue-50/50 rounded-2xl border border-gray-100 hover:border-blue-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
+              className="w-full group relative p-4 bg-white border border-gray-300 shadow-sm hover:border-gray-800 hover:shadow-md transition-all duration-200 active:scale-[0.99] text-left overflow-hidden"
             >
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 text-blue-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-200 group-hover:bg-gray-800 transition-colors"></div>
+              <div className="flex items-start gap-4 pl-2">
+                <div className="w-8 h-8 flex items-center justify-center border border-gray-800 bg-white text-gray-900 font-bold font-mono text-lg shrink-0">
+                  B
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-900 font-serif group-hover:underline decoration-1 underline-offset-4">表演艺术</div>
+                  <div className="text-xs text-gray-500 font-mono mt-1">科目：你演我猜</div>
+                </div>
               </div>
-              <div className="text-left relative z-10">
-                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-blue-700 transition-colors">你演我猜</div>
-                <div className="text-xs text-gray-500 font-medium group-hover:text-blue-600/70">戏精本精登场</div>
+            </button>
+
+            {/* 选项C: AI画你猜 */}
+            <button
+              onClick={() => onSelectGame('ai-draw')}
+              className="w-full group relative p-4 bg-white border border-gray-300 shadow-sm hover:border-gray-800 hover:shadow-md transition-all duration-200 active:scale-[0.99] text-left overflow-hidden"
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-200 group-hover:bg-gray-800 transition-colors"></div>
+              <div className="flex items-start gap-4 pl-2">
+                <div className="w-8 h-8 flex items-center justify-center border border-gray-800 bg-white text-gray-900 font-bold font-mono text-lg shrink-0">
+                  C
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-900 font-serif group-hover:underline decoration-1 underline-offset-4">艺术鉴赏</div>
+                  <div className="text-xs text-gray-500 font-mono mt-1">科目：{characterName}作画</div>
+                </div>
               </div>
             </button>
           </div>
-
-          {/* AI画你猜 - 单独一行 */}
-          <button
-            onClick={() => onSelectGame('ai-draw')}
-            className="group relative w-full p-4 bg-white hover:bg-purple-50/50 rounded-2xl border border-gray-100 hover:border-purple-100 shadow-sm hover:shadow-md transition-all duration-300 active:scale-95"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 text-purple-600 text-xl">
-                🎨
-              </div>
-              <div className="text-left relative z-10">
-                <div className="text-lg font-bold text-gray-900 mb-0.5 group-hover:text-purple-700 transition-colors">{characterName}画你猜</div>
-                <div className="text-xs text-gray-500 font-medium group-hover:text-purple-600/70">TA用字符画画，你来猜</div>
-              </div>
-            </div>
-          </button>
 
           <button
             onClick={onClose}
-            className="w-full py-3.5 text-gray-400 text-sm font-medium hover:text-gray-600 transition-colors"
+            className="w-full py-4 text-gray-400 text-xs font-mono hover:text-gray-600 transition-colors uppercase tracking-widest mt-2"
           >
-            暂不开始
+            [ 取消考试 ]
           </button>
         </div>
       </div>
@@ -217,65 +226,41 @@ export const TacitTopicCard = ({
   const [customInput, setCustomInput] = useState('')
   const isDrawGame = gameType === 'draw'
 
-  // 动态样式配置
-  const styles = isDrawGame ? {
-    bg: 'bg-white/90',
-    border: 'border-orange-100',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-      </svg>
-    ),
-    title: '你画我猜',
-    accent: 'text-orange-600',
-    topic: 'text-gray-800',
-    btn: 'bg-gray-50 text-gray-600 hover:bg-gray-100',
-    mainBtn: 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200',
-    label: '画板'
-  } : {
-    bg: 'bg-white/90',
-    border: 'border-blue-100',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    title: '你演我猜',
-    accent: 'text-blue-600',
-    topic: 'text-gray-800',
-    btn: 'bg-gray-50 text-gray-600 hover:bg-gray-100',
-    mainBtn: 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-200',
-    label: '输入'
-  }
-
   return (
-    <div className="absolute top-16 left-4 right-4 z-30 pointer-events-auto animate-fade-in-down">
-      <div className={`${styles.bg} backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border ${styles.border} p-4 ring-1 ring-black/5`}>
+    <div className="absolute top-16 left-4 right-4 z-30 pointer-events-auto animate-fade-in-down font-serif">
+      <div className="bg-white/95 backdrop-blur-sm rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-gray-300/80 p-4 relative overflow-hidden">
+         {/* 试卷纹理背景 */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+        </div>
+        
+        {/* 左侧装饰线 */}
+        <div className="absolute left-3 top-0 bottom-0 w-0.5 border-l-2 border-red-300/30"></div>
+        <div className="absolute left-4 top-0 bottom-0 w-0.5 border-l border-red-300/30"></div>
+
         {/* 顶部栏 */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 relative z-10 pl-4">
           <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-lg ${isDrawGame ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}>
-              {styles.icon}
+            <div className="px-2 py-0.5 border border-gray-800 bg-white text-gray-900 font-bold font-mono text-xs uppercase tracking-wider">
+              {isDrawGame ? '第一部分' : '第二部分'}
             </div>
-            <span className="font-bold text-sm text-gray-700 tracking-wide">
-              {styles.title}
+            <span className="font-bold text-sm text-gray-800 tracking-wide uppercase border-b border-gray-300 pb-0.5">
+              {isDrawGame ? '视觉艺术' : '表演艺术'}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all"
+            className="w-6 h-6 flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all font-mono font-bold"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            ✕
           </button>
         </div>
 
         {/* 内容区 */}
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between pl-4 relative z-10">
           <div className="relative flex-1 mr-3">
-            <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">
-              {isCustomMode ? 'Custom Topic' : 'Current Topic'}
+            <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mb-1 font-mono">
+              {isCustomMode ? '自定义题目：' : '当前题目：'}
             </div>
             {isCustomMode ? (
               <div className="flex items-center gap-2">
@@ -283,8 +268,8 @@ export const TacitTopicCard = ({
                   type="text"
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
-                  placeholder="输入自定义题目..."
-                  className="flex-1 text-lg font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400"
+                  placeholder="输入题目..."
+                  className="flex-1 text-lg font-bold text-gray-900 bg-white border-b-2 border-gray-800 rounded-none px-1 py-1 focus:outline-none focus:border-gray-500 font-mono placeholder:text-gray-300"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && customInput.trim()) {
@@ -306,24 +291,22 @@ export const TacitTopicCard = ({
                     }
                   }}
                   disabled={!customInput.trim()}
-                  className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold disabled:opacity-50"
+                  className="px-3 py-1 bg-gray-900 text-white text-xs font-bold disabled:opacity-50 font-mono uppercase"
                 >
-                  确定
+                  OK
                 </button>
                 <button
                   onClick={() => {
                     setIsCustomMode(false)
                     setCustomInput('')
                   }}
-                  className="px-2 py-1.5 text-gray-400 hover:text-gray-600"
+                  className="px-2 py-1 text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  ✕
                 </button>
               </div>
             ) : (
-              <div className={`text-2xl font-bold ${styles.topic} tracking-tight leading-none`}>
+              <div className="text-2xl font-bold text-gray-900 tracking-widest font-mono border-b-2 border-gray-800/20 inline-block pb-1 min-w-[120px]">
                 {topic}
               </div>
             )}
@@ -335,17 +318,13 @@ export const TacitTopicCard = ({
               {hasSent && !isPanelOpen && (
                 isJudging ? (
                   // 正在AI判定中
-                  <div className="px-3 py-1.5 bg-blue-50 text-blue-500 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    判定中...
+                  <div className="px-2 py-1 border border-blue-300 bg-blue-50 text-blue-600 text-[10px] font-bold flex items-center gap-1 font-mono uppercase">
+                    <span className="animate-pulse">●</span> 批改中...
                   </div>
                 ) : isAiTyping ? (
                   // AI正在打字
-                  <div className="px-2.5 py-1 bg-gray-50 text-gray-400 rounded-lg text-xs font-medium">
-                    等待回复...
+                  <div className="px-2 py-1 border border-gray-300 bg-gray-50 text-gray-500 text-[10px] font-bold font-mono uppercase">
+                    等待中...
                   </div>
                 ) : null
               )}
@@ -353,35 +332,27 @@ export const TacitTopicCard = ({
               {/* 自定义题目按钮 */}
               <button
                 onClick={() => setIsCustomMode(true)}
-                className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1`}
+                className="px-2 py-1 border border-gray-400 text-gray-600 hover:bg-gray-100 text-[10px] font-bold transition-colors flex items-center gap-1 font-mono uppercase"
                 title="自定义题目"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                自定
+                编辑
               </button>
 
               <button
                 onClick={onChangeTopic}
                 disabled={isRefreshing}
-                className={`px-3 py-1.5 ${styles.btn} rounded-lg text-xs font-bold transition-colors flex items-center gap-1 disabled:opacity-50`}
+                className="px-2 py-1 border border-gray-400 text-gray-600 hover:bg-gray-100 text-[10px] font-bold transition-colors flex items-center gap-1 disabled:opacity-50 font-mono uppercase"
               >
-                {isRefreshing ? (
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                )}
-                {isRefreshing ? '刷新中' : remainingCount > 0 ? `换题(${remainingCount})` : '换题'}
+                {isRefreshing ? '刷新中' : remainingCount > 0 ? `下一题 (${remainingCount})` : '下一题'}
               </button>
 
               {!isPanelOpen && (
                 <button
                   onClick={onOpenPanel}
-                  className={`px-4 py-1.5 ${styles.mainBtn} rounded-lg text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5`}
+                  className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold active:scale-95 transition-all flex items-center gap-1.5 shadow-sm font-mono uppercase tracking-wider"
                 >
-                  <span>{styles.label}</span>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  <span>{isDrawGame ? '作画' : '表演'}</span>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
               )}
             </div>
@@ -518,29 +489,28 @@ export const TacitDrawPanel = ({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] border-t border-gray-100 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md rounded-t-sm shadow-[0_-8px_40px_rgba(0,0,0,0.15)] border-t border-gray-300/80 pb-safe font-serif">
+      {/* 试卷纹理背景 */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none" 
+           style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+      </div>
+
       {/* 顶部拖动条 + 关闭 */}
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-300/80 relative z-10">
         <button
           onClick={handleClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors font-mono"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          ✕
         </button>
-        <div className="w-12 h-1 bg-gray-200 rounded-full" />
+        <div className="text-sm font-bold text-gray-800 tracking-widest border-b border-gray-800 pb-0.5">画板</div>
         <div className="w-8" /> {/* 占位 */}
       </div>
 
       {/* 画布容器 */}
-      <div className="px-4 pb-2">
-        <div className="relative rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-white">
-          {/* 格子背景 */}
-          <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
-            style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-          />
-
+      <div className="px-4 pb-2 pt-4 relative z-10">
+        <div className="text-[10px] text-gray-500 font-mono mb-2 tracking-wider">请在此处作画：</div>
+        <div className="relative rounded-sm overflow-hidden shadow-sm border-2 border-gray-800 bg-white">
           <canvas
             ref={canvasRef}
             width={400}
@@ -559,25 +529,25 @@ export const TacitDrawPanel = ({
       </div>
 
       {/* 按钮栏 */}
-      <div className="flex items-center gap-3 px-6 pb-6 pt-2">
+      <div className="flex items-center gap-3 px-6 pb-6 pt-2 relative z-10">
         <button
           onClick={clearCanvas}
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-sm border border-gray-400 text-gray-500 hover:border-red-500 hover:text-red-500 transition-colors bg-white shadow-sm"
           title="清空"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         </button>
 
-        <div className="flex-1 text-center text-xs text-gray-400 font-medium">
-          {hasDrawn ? 'Drawing...' : 'Start Drawing'}
+        <div className="flex-1 text-center text-xs text-gray-400 font-mono uppercase tracking-wider">
+          {hasDrawn ? '作画中...' : '等待作画'}
         </div>
 
         <button
           onClick={handleSend}
           disabled={!hasDrawn}
-          className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-bold shadow-lg shadow-orange-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
+          className="px-6 py-3 bg-gray-900 hover:bg-black text-white rounded-sm font-bold shadow-md disabled:opacity-50 disabled:shadow-none active:scale-[0.98] transition-all flex items-center gap-2 font-mono uppercase tracking-widest border border-black"
         >
-          <span>发送</span>
+          <span>提交</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
         </button>
       </div>
@@ -612,44 +582,49 @@ export const TacitActPanel = ({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] border-t border-gray-100 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md rounded-t-sm shadow-[0_-8px_40px_rgba(0,0,0,0.15)] border-t border-gray-300/80 pb-safe font-serif">
+      {/* 试卷纹理背景 */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none" 
+           style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+      </div>
+
       {/* 顶部拖动条 + 关闭 */}
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-300/80 relative z-10">
         <button
           onClick={handleClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors font-mono"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          ✕
         </button>
-        <div className="w-12 h-1 bg-gray-200 rounded-full" />
+        <div className="text-sm font-bold text-gray-800 tracking-widest border-b border-gray-800 pb-0.5">描述</div>
         <div className="w-8" />
       </div>
 
       {/* 输入区 */}
-      <div className="px-4 pb-2">
+      <div className="px-4 pb-2 pt-4 relative z-10">
+        <div className="text-[10px] text-gray-500 font-mono mb-2 tracking-wider">请描述你的动作：</div>
         <div className="relative">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="描述动作让TA猜..."
-            className="w-full h-32 p-4 bg-gray-50 rounded-2xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-base text-gray-800 placeholder:text-gray-400"
+            placeholder="在此输入你的答案..."
+            className="w-full h-32 p-4 bg-white rounded-sm border-2 border-gray-800 resize-none focus:outline-none focus:ring-0 focus:border-gray-600 transition-all text-base text-gray-900 placeholder:text-gray-300 font-serif leading-relaxed"
+            style={{ backgroundImage: 'linear-gradient(transparent 95%, #e5e7eb 95%)', backgroundSize: '100% 2rem', lineHeight: '2rem' }}
           />
-          <div className="absolute bottom-3 right-3 text-xs text-gray-400 font-medium">
-            {description.length}/50
+          <div className="absolute bottom-3 right-3 text-xs text-gray-400 font-mono">
+            {description.length}/50 字
           </div>
         </div>
       </div>
 
       {/* 按钮栏 */}
-      <div className="flex items-center justify-end px-6 pb-6 pt-2">
+      <div className="flex items-center justify-end px-6 pb-6 pt-2 relative z-10">
         <button
           onClick={handleSend}
           disabled={!description.trim()}
-          className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all flex items-center gap-2"
+          className="px-8 py-3 bg-gray-900 hover:bg-black text-white rounded-sm font-bold shadow-md disabled:opacity-50 disabled:shadow-none active:scale-[0.98] transition-all flex items-center gap-2 font-mono uppercase tracking-widest border border-black"
         >
-          <span>发送</span>
+          <span>提交</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
         </button>
       </div>

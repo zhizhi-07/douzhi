@@ -551,6 +551,7 @@ function App() {
 
 
   // 渲染主内容
+  console.log('🎯🎯🎯 [App] renderContent 被调用')
   const renderContent = () => (
     <div
       className="app-container"

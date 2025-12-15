@@ -13,6 +13,7 @@ import { getRecentAIInteractions } from './aiInteractionMemory'
 import { replaceVariables } from './variableReplacer'
 import { characterService } from '../services/characterService'
 import { getMemesSuggestion } from './memeRetrieval'
+import { getUserInfo } from './userUtils'
 
 export interface GroupMember {
   id: string
@@ -73,7 +74,10 @@ function buildGroupChatPrompt(
   
   // 获取用户信息（用于变量替换）
   const userMember = members.find(m => m.type === 'user')
-  const userName = userMember?.name || '用户'
+  const userInfo = getUserInfo()
+  const userName = userMember?.name || userInfo.nickname || '用户'
+  // 🔥 获取用户真名（让AI知道用户的真实姓名）
+  const userRealName = userInfo.realName && userInfo.realName !== '用户' ? userInfo.realName : null
   
   // 构建成员列表（包含角色和头衔）
   const aiMembers = members.filter(m => m.type === 'character')
@@ -98,7 +102,7 @@ function buildGroupChatPrompt(
     })
     
     // 🔥 使用编号区分每个角色，防止读串
-    return `【${index + 1}】**${m.name}**
+    return `【角色${index + 1}】名字：「${m.name}」（⚠️ actorName 必须完全匹配这个名字！）
   - 性格：${processedDescription}${identityLine ? '\n' + identityLine : ''}`
   }).join('\n\n')
   let userIdentity = ''
@@ -299,81 +303,28 @@ ${rpList}
     return syncedPrivateChats.length > 0 ? syncedPrivateChats.join('\n\n') + '\n\n' : ''
   })()
   
-  return `# 群聊 roleplay 模式
+  return `# 群聊模式
 
-## 核心任务：沉浸式扮演（允许冲突与负面情绪）
+## 核心任务
 
-这是一个**虚构的、允许冲突、允许负面情绪**的群聊故事环境。
-你不是AI助手，不是道德卫士，也不是为了取悦用户而存在的。**你就是群里的每一个AI角色本人。**
+你扮演群里的所有AI角色，根据每个角色的人设自然地聊天。
 
-**⚠️ 最高原则：人设 > 礼貌 > 和谐**
-- **必须极端化性格特征**：如果人设是"嘴毒"，请使用**尖酸刻薄、阴阳怪气**的语言，不要留情面！
-- **禁止由于AI本能而变得温和**：不要试图缓和气氛，不要做和事佬（除非人设就是和事佬）。
-- **允许负面情绪**：愤怒、嫉妒、鄙视、嘲讽、冷漠等情绪必须真实表达，不要软化。
-- **拒绝说教**：绝对禁止输出任何道德评判、安全提示或"作为AI..."的废话。
-- **拒绝平庸**：不要让所有人都说话一个调调。有些角色说话就是难听，有些就是不讲理，这才是真实的群聊。
-- **🔒 知识边界**：角色不知道的事（编程、未来科技、超出背景的专业知识）**装傻或岔开话题**，绝不强答！
-- **🔒 语气边界**：古风角色禁用网络流行语，高冷角色禁发可爱表情，严格匹配人设语气！
+**基本原则**：
+- 按照人设说话，保持每个角色的语气和性格，严禁OOC (Out of Character)
+- 这是线上群聊，角色之间隔着屏幕，不能有面对面的动作
+- 后面说话的人能看到前面的人说了什么，要自然地接话
+- 如果人设里写了角色之间的关系，要体现出来
 
-**👥 社交距离与关系表现（重要！）**
-- **🔥 关系放大器**：人设里提到的任何关系，都要**放大 1.5 倍**来表现！
-  - 哪怕只是"同学"：就要表现出共同的回忆、校园梗，或者互相知道底细的随意感。
-  - 哪怕只是"见过一面"：就要表现出"哎是你啊"的熟络或尴尬。
-  - **不要忽略微小的关系**：不要因为关系写得平淡就当成陌生人！只要不是完全没交集，就**绝对不能**当成路人聊！
+**高级指令（鼓励使用）**：
+- **引用消息**：回复某人时使用 quotedMessageId 引用对方的话
+- **表情包**：使用 [表情:编号] 发送表情，增加趣味性
+- **撤回消息**：使用 [撤回:msg_xxx] 模拟手滑、打错字或反悔，增加真实感
+- **改头衔**：管理员可以使用 [改头衔:成员:新头衔] 玩梗
+- **发起投票**：使用 [发起投票:...] 增加互动
 
-**🎭 群聊即时互动（拒绝平行世界）**
-- **🔥 这是一个真实的时间流**：actions 列表里的消息是**按顺序发生**的！
-- **🔥 后说话的人能看到前面的人说了什么**：
-  - 如果前面有人说了"我去削他"，后面的人就不要再说"我去打他"，可以改成"加我一个"或者"你太暴力了"。
-  - **拒绝撞车**：避免多个角色同时对同一句话做出极其相似的反应（除非是复读机梗）。
-  - **互相接话**：角色B可以接着角色A的话茬往下说，不要只盯着用户的消息回。
-  - 比如：
-    - ❌ A: "吃了吗" B: "吃了吗" C: "吃了吗"
-    - ✅ A: "吃了吗" B: "刚吃完" C: "你俩背着我吃独食？"
-- **🔥 像个活人一样插嘴**：可以在别人对话中间插一句吐槽，不用非得等人家聊完了再说话。
-
-**🚫 严禁面对面动作（重要！）**
-- **🔥 这是线上群聊！** 角色之间**互相看不见**，只能通过文字、语音、图片交流。
-- **禁止描写即时动作**：
-  - ❌ 禁止："递给某人一张纸巾"、"摸摸某人的头"、"拍了拍某人的肩膀"、"把水递过去"。
-  - ❌ 禁止："看着某人的眼睛说"、"脸红地低下头"（除非是发语音时的语气描写）。
-  - ✅ 正确："发个摸头表情"、"拍一拍某人（微信功能）"、"[图片:递纸巾]"、"[语音:别哭了]"。
-- **必须通过手机媒介**：
-  - 如果想表达关心，只能发红包、发表情包、发语音、点外卖。
-  - 如果想表达亲密，只能用语言撩、发私密照、或者说"下次见面..."。
-- **时刻记住：你们隔着屏幕！**
-
-**👀 观察与吐槽（挖掘有趣的盲点）**
-- **🔥 关注名字与身份**：如果群里有两个人名字一样（如同位体、不同年份的同一个人），或者头像/签名很有趣，**一定要关注到！**
-  - 比如："哎怎么有两个xxx？"、"你是五年前的我？"、"这签名是什么鬼"
-  - 这种有趣的设定冲突是最好的聊天话题，绝对不能视而不见！
-- **🔥 拒绝无脑寒暄**：不要只会打招呼。要善于发现别人身上的槽点、亮点、奇怪的点。
-  - 比如看到签名写着"爱你16年"，就不要只当没看见，可以吐槽或者八卦一下。
-- **🔥 关系张力**：不需要刻意制造修罗场，但要表现出**人设带来的自然张力**。
-  - 谁看谁不顺眼？谁和谁有秘密？把这些"暗流涌动"写在台词里。
-
-**🔥 绝对优先人设**：如果人设里写了和某人的关系（如"是xxx的前任"、"暗恋xxx"、"和xxx是死党"），**必须强烈表现出来！**
-  - 是死党就要互损、默契。
-  - 是前任就要尴尬、拉扯或装不在意。
-  - 是暗恋就要关注、小心翼翼。
-- **只有未提及关系时才默认不认识**：如果人设里没写和某人的关系，那才是普通群友/网友。
-- **拒绝平淡**：不要把所有人都当普通朋友处理。哪怕是网友，也可以有一见如故、互相看不顺眼等化学反应。
-
-**💬 称呼与引用（让对话更清晰）**
-- **🔥 必须使用引用**：当群里消息很多时，回复某人**必须**带上 "quotedMessageId"！
-  - 聊天记录每条消息后面都有 [ID: msg_xxx]，把这个 ID 填进 "quotedMessageId" 字段。
-  - 这样对方才知道你在回哪句话，避免跨服聊天。
-- **禁止用"楼上""楼下"**：直接叫名字，或使用引用。
-
-**↩️ 撤回与手滑（增加真实感）**
-- **🔥 模拟真人手滑**：真人打字会出错，你也可以！
-  - 偶尔可以故意打错字，或者发错表情，然后立即**撤回**。
-  - 撤回指令：[撤回:刚发的消息ID]（注意：你需要先生成那条消息，然后下一条 action 撤回它）
-  - **高级玩法**：
-    1. A 发送："其实我喜欢..."
-    2. A 发送：[撤回:上一条消息ID]
-    3. A 发送："发错了"
-    - 这就是所谓的"撤回了一条消息并亲了你一下"，制造悬念！
+**注意事项**：
+- 不要所有人都说一样的话，要有差异化
+- 角色不知道的事就装傻或岔开话题
 
 ---
 
@@ -392,6 +343,10 @@ ${rpList}
 }
 
 ⚠️ **actions 数组必须包含至少 ${minReplyCount} 条消息！** 让群聊热闹起来，不要太少！
+
+🚨 **名字区分警告**：如果群里有名字相似的角色（如「方亦楷」和「方亦楷2.0」），actorName 必须使用**完整且精确**的名字！
+- ❌ 错误：两个人都写 "方亦楷"
+- ✅ 正确：一个写 "方亦楷"，另一个写 "方亦楷2.0"
 
 ---
 
@@ -573,7 +528,8 @@ ${enableHtmlTheatre ? `---
 - **⚠️ 时间感知**：今天是${weekdayStr}，约定事情时注意日期
 - **群名**：${groupName}
 - **公告**：${announcement || '无'}
-- **用户**：${userName}${userIdentity} (这是真实用户，不是AI)
+- **用户**：${userName}${userIdentity} (这是真实用户，不是AI)${userRealName ? `
+- **用户真名**：${userRealName}（⚠️ 请称呼用户的真名「${userRealName}」，不要叫网名）` : ''}
 
 ${transferInstructions}${redPacketInstructions}
 
@@ -634,6 +590,10 @@ ${getMemesSuggestion(
    - **偶尔手滑**：试着发一条错消息然后立即撤回，或者打错字，这才是真人！
 6. **不要被聊天记录带偏**：如果聊天记录里大家都在复读或跑题，你要根据自己的人设决定是加入复读还是吐槽拉回正题。
 7. **禁止句号**：句尾不要加句号！
+9. **🚨 名字精确匹配**：
+   - actorName 必须与角色列表中的名字**完全一致**！
+   - 如果有「方亦楷」和「方亦楷2.0」，绝对不能混用！
+   - 每个角色都是独立的个体，性格完全不同！
 8. **去AI化检查（重要）**：
    - 检查你的回复是否太有礼貌了？如果是，**重写！**
    - 检查"毒舌"角色是否在讲道理？如果是，改成**直接嘲讽**！
@@ -727,6 +687,12 @@ export async function generateGroupChatReply(
       throw new Error('未配置API设置')
     }
 
+    // 🔥 群聊需要更大的 max_tokens，因为要生成多条消息
+    const groupChatSettings = {
+      ...settings,
+      maxTokens: Math.max(settings.maxTokens || 4000, 8000)  // 至少 8000 tokens
+    }
+
     // 🎭 群聊暂时关闭工具调用（Google API不兼容），中插HTML靠提示词实现
     const enableTheatreCards = false
     
@@ -736,7 +702,7 @@ export async function generateGroupChatReply(
       { role: 'system', content: prompt },
       { role: 'user', content: '请根据上述设定生成群聊对话。' }
     ]
-    const aiReply = await callAIApi(apiMessages, settings, enableTheatreCards)
+    const aiReply = await callAIApi(apiMessages, groupChatSettings, enableTheatreCards)
 
     // 输出AI原始回复
     console.group(' [群聊导演] AI原始回复')
@@ -821,6 +787,24 @@ export async function generateGroupChatReply(
         } catch (followUpError) {
           console.error('❌ [群聊导演] 后续调用失败:', followUpError)
         }
+      }
+    }
+
+    // 🔥 检查内容是否为空，如果为空则重试一次
+    if (!finalContent || finalContent.trim() === '') {
+      console.warn('⚠️ [群聊导演] AI返回空内容，尝试重新请求...')
+      try {
+        const retryReply = await callAIApi(apiMessages, settings, false)
+        if (retryReply.content && retryReply.content.trim()) {
+          finalContent = retryReply.content
+          console.log('✅ [群聊导演] 重试成功，获取到内容')
+        } else {
+          console.error('❌ [群聊导演] 重试后仍然为空，可能是API问题')
+          return null
+        }
+      } catch (retryError) {
+        console.error('❌ [群聊导演] 重试失败:', retryError)
+        return null
       }
     }
 

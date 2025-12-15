@@ -126,15 +126,12 @@ export const useGroupSendMessage = ({
       console.log('✅ [发送完成]', uniqueId)
     })
     
-    // 🔥 滚动到底部
-    requestAnimationFrame(() => {
-      scrollToBottom(true, true)
-      // 延迟清除标志
-      setTimeout(() => {
-        isSendingRef.current = false
-        isSendingMessage = false
-      }, 100)
-    })
+    // 🔥 不再强制滚动，让虚拟列表自动处理
+    // 延迟清除标志
+    setTimeout(() => {
+      isSendingRef.current = false
+      isSendingMessage = false
+    }, 100)
   }, [groupId, isAiTyping, setMessages, setInputText, setQuotedMessage, scrollToBottom])
 
   return {

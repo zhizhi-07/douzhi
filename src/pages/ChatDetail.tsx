@@ -1307,7 +1307,9 @@ const ChatDetail = () => {
                             message.messageType === 'shop' ||
                             message.messageType === 'busy' ||
                             (message.messageType as any) === 'musicInvite' ||
-                            (message.messageType as any) === 'emojiDrawInvite' ? (
+                            (message.messageType as any) === 'emojiDrawInvite' ||
+                            (message.messageType as any) === 'emojiDraw' ||
+                            (message.messageType as any) === 'guessResult' ? (
                             <SpecialMessageRenderer
                               message={message}
                               characterId={chatState.character?.id || ''}

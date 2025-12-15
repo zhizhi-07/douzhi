@@ -50,14 +50,19 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
 }) => {
   const avatar = msg.userAvatar || getMemberAvatar(msg.userId)
   
-  // 直接从 localStorage 读取时间戳隐藏设置
+  // 直接从 localStorage 读取时间戳设置
   const [hideTimestamp, setHideTimestamp] = useState(() => {
     return localStorage.getItem('hide_message_timestamp') === 'true'
   })
+  const [timestampInBubble, setTimestampInBubble] = useState(() => {
+    return localStorage.getItem('timestamp_in_bubble') === 'true'
+  })
+  const globalButtonColor = localStorage.getItem('global_button_color') || '#475569'
   
   useEffect(() => {
     const handleUpdate = () => {
       setHideTimestamp(localStorage.getItem('hide_message_timestamp') === 'true')
+      setTimestampInBubble(localStorage.getItem('timestamp_in_bubble') === 'true')
     }
     window.addEventListener('timestampVisibilityUpdate', handleUpdate)
     return () => window.removeEventListener('timestampVisibilityUpdate', handleUpdate)
@@ -93,11 +98,6 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
           avatar={isSent ? undefined : avatar}
           name={displayName}
         />
-        {!hideTimestamp && (
-          <div className="text-xs text-gray-400">
-            {msg.time}
-          </div>
-        )}
       </div>
       
       <div className={`flex flex-col max-w-[70%] ${
@@ -194,10 +194,26 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
                   ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
                   : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
               }}>
-              <div className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</div>
+              {timestampInBubble && !hideTimestamp ? (
+                <div className="flex items-end gap-2">
+                  <div className="whitespace-pre-wrap flex-1">{renderMessageContent(msg.content)}</div>
+                  <span style={{ color: globalButtonColor, opacity: 0.7, fontSize: '10px' }}>
+                    {msg.time}
+                  </span>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</div>
+              )}
             </div>
           )}
         </div>
+        
+        {/* 时间戳 - 显示在气泡下方 */}
+        {!hideTimestamp && !timestampInBubble && (
+          <div className={`text-xs text-gray-400 mt-1 ${isSent ? 'text-right mr-2' : 'text-left ml-2'}`}>
+            {msg.time}
+          </div>
+        )}
       </div>
     </div>
   )

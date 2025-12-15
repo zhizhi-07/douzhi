@@ -26,49 +26,65 @@ const EmojiDrawInviteCard = ({
   }
 
   return (
-    <div className="w-64 rounded-[18px] overflow-hidden bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-100">
-      <div className="p-5">
-        <div className="flex items-center gap-4">
-          {/* 图标 - 柔和紫配色 */}
-          <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+    <div className="w-64 bg-white/95 backdrop-blur-sm rounded-sm shadow-md border border-gray-300/80 relative overflow-hidden font-serif">
+      {/* 试卷纹理背景 */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none" 
+           style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+      </div>
+
+      {/* 顶部红色机密印章效果 */}
+      <div className="absolute top-2 right-2 border-2 border-red-500 rounded px-1 py-0.5 transform rotate-[-10deg] opacity-60">
+        <span className="text-[8px] font-bold text-red-500 tracking-widest">机密</span>
+      </div>
+
+      <div className="p-5 relative z-0">
+        {/* 标题区域 */}
+        <div className="border-b-2 border-gray-800 pb-2 mb-3 text-center">
+          <h3 className="font-bold text-gray-900 text-lg tracking-wide font-serif">默契挑战</h3>
+          <p className="text-[10px] text-gray-500 tracking-[0.2em]">你画我猜</p>
+        </div>
+
+        {/* 信息区域 */}
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between items-baseline border-b border-gray-300 border-dashed pb-1">
+            <span className="text-xs font-bold text-gray-600">邀请人：</span>
+            <span className="text-sm font-mono text-gray-900">{inviterName}</span>
           </div>
-          
-          {/* 信息 */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 text-[15px] leading-tight tracking-tight">你画我猜</h3>
-            <p className="text-xs text-gray-500 mt-1 truncate font-medium tracking-wide">
-              {isSent ? `等待 ${inviterName} 接受` : `${inviterName} 邀请你`}
-            </p>
+          <div className="flex justify-between items-baseline border-b border-gray-300 border-dashed pb-1">
+            <span className="text-xs font-bold text-gray-600">类型：</span>
+            <span className="text-sm font-mono text-gray-900">你画我猜</span>
+          </div>
+          <div className="flex justify-between items-baseline border-b border-gray-300 border-dashed pb-1">
+            <span className="text-xs font-bold text-gray-600">日期：</span>
+            <span className="text-sm font-mono text-gray-900">{new Date().toLocaleDateString()}</span>
           </div>
         </div>
 
         {/* 状态/按钮区域 */}
-        <div className="mt-5">
+        <div className="mt-4">
           {currentStatus === 'accepted' ? (
-            <div className="w-full py-2.5 bg-green-50 text-green-600 rounded-xl text-xs font-bold text-center border border-green-100 flex items-center justify-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-              游戏已开始
+            <div className="w-full py-2 border-2 border-green-600 text-green-700 rounded-sm text-xs font-bold text-center bg-green-50/50 uppercase tracking-wider relative overflow-hidden">
+              <div className="absolute inset-0 border border-green-600 m-0.5"></div>
+              挑战已开始
             </div>
           ) : isSent ? (
-            <div className="w-full py-2.5 bg-gray-50 text-gray-400 rounded-xl text-xs font-medium text-center border border-gray-100 flex items-center justify-center gap-1.5">
-              <svg className="w-3.5 h-3.5 animate-spin text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              等待回应
+            <div className="w-full py-2 border border-gray-400 text-gray-500 rounded-sm text-xs font-medium text-center bg-gray-50 uppercase tracking-wider flex items-center justify-center gap-2">
+              <span className="animate-pulse">●</span> 等待回应中
             </div>
           ) : (
             <button
               onClick={handleAccept}
-              className="w-full py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-purple-200"
+              className="w-full py-2 bg-gray-900 text-white rounded-sm text-xs font-bold hover:bg-gray-800 active:scale-[0.98] transition-all duration-200 uppercase tracking-widest shadow-sm border border-black"
             >
-              接受邀请
+              开始挑战
             </button>
           )}
         </div>
+        
+        {/* 底部备注 */}
+        <p className="text-[8px] text-center text-gray-400 mt-3 italic">
+          * 发挥你的画功，让TA猜出来吧
+        </p>
       </div>
     </div>
   )

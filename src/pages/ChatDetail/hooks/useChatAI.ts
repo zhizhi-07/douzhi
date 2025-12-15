@@ -723,6 +723,10 @@ export const useChatAI = (
             sceneMode: 'offline'
           }
           
+          // 🔥 关键修复：临时消息也要同步到缓存，防止流式过程中刷新丢失
+          const currentMsgs = loadMessages(chatId)
+          saveMessages(chatId, [...currentMsgs, tempMessage])
+          
           setMessages(prev => [...prev, tempMessage])
           
           try {
@@ -814,25 +818,70 @@ export const useChatAI = (
             
             console.log('✅ [流式] 流式接收完成，总长度:', aiReply.length, '字符')
             
-            // 🔥 保存到IndexedDB（直接从缓存读取，不依赖React状态）
-            setTimeout(() => {
-              const allMessages = loadMessages(chatId)
-              if (allMessages.length > 0) {
-                console.log(`💾 [流式] 保存完整消息列表: count=${allMessages.length}`)
-                saveMessages(chatId, allMessages)
-              } else {
-                console.warn('⚠️ [流式] 消息列表为空，跳过保存')
-              }
-              scrollToBottom()
-            }, 100)
+            // 🔥 检查空回复
+            if (!aiReply || aiReply.trim().length === 0) {
+              console.warn('⚠️ [流式] AI返回空回复')
+              // 🔥 从缓存中也删除临时消息（防止刷新后显示空消息）
+              const msgsWithoutTemp = loadMessages(chatId).filter(m => m.id !== tempMessageId)
+              saveMessages(chatId, msgsWithoutTemp, true) // forceOverwrite=true 确保删除生效
+              // 删除React状态中的临时消息
+              setMessages(prev => prev.filter(m => m.id !== tempMessageId))
+              // 设置错误提示（弹窗形式，不占用消息位置）
+              setError('AI返回了空回复，可能原因：1) 内容被安全过滤 2) API配额用尽 3) 网络问题。请重试。')
+              setIsAiTyping(false)
+              ;(window as any).__AI_REPLYING__ = false
+              return
+            }
             
+            // 🔥🔥🔥 关键修复：流式消息必须立即保存到缓存和IndexedDB
+            // 之前的问题：流式消息只更新了React状态，没有同步到缓存
+            // 导致刷新后消息丢失（因为loadMessages读的是旧缓存）
+            const finalMessage: Message = {
+              ...tempMessage,
+              content: aiReply,
+              sceneMode: 'offline'
+            }
+            
+            // 从缓存读取现有消息，替换临时消息为最终消息
+            const existingMessages = loadMessages(chatId)
+            // 检查临时消息是否已在缓存中
+            const tempMsgIndex = existingMessages.findIndex(m => m.id === tempMessageId)
+            
+            let messagesToSave: Message[]
+            if (tempMsgIndex !== -1) {
+              // 临时消息在缓存中，替换它
+              messagesToSave = [...existingMessages]
+              messagesToSave[tempMsgIndex] = finalMessage
+            } else {
+              // 临时消息不在缓存中（React状态和缓存不同步），追加最终消息
+              messagesToSave = [...existingMessages, finalMessage]
+            }
+            
+            console.log(`💾 [流式] 保存最终消息: count=${messagesToSave.length}, 内容长度=${aiReply.length}`)
+            saveMessages(chatId, messagesToSave)
+            
+            // 同步更新React状态（确保显示的是最终内容）
+            setMessages(prev => {
+              const idx = prev.findIndex(m => m.id === tempMessageId)
+              if (idx !== -1) {
+                const updated = [...prev]
+                updated[idx] = finalMessage
+                return updated
+              }
+              return [...prev, finalMessage]
+            })
+            
+            scrollToBottom()
             setIsAiTyping(false)
             ;(window as any).__AI_REPLYING__ = false
-            console.log('🚦 [流式] AI回复结束，清除全局标志')
+            console.log('🚦 [流式] AI回复结束，消息已保存，清除全局标志')
             return // 直接返回，跳过后续处理
             
           } catch (streamError) {
             console.error('❌ [流式] 流式处理错误:', streamError)
+            // 🔥 从缓存中也删除临时消息
+            const msgsWithoutTemp = loadMessages(chatId).filter(m => m.id !== tempMessageId)
+            saveMessages(chatId, msgsWithoutTemp, true)
             setMessages(prev => prev.filter(m => m.id !== tempMessageId))
             throw streamError
           }
@@ -1438,6 +1487,16 @@ export const useChatAI = (
       // 线下模式不分段，直接作为一整条消息
       let aiMessagesList: string[]
       console.log('🔥🔥🔥 [消息处理] cleanedMessage:', cleanedMessage.substring(0, 100))
+      
+      // 🔥 非流式模式空回复检查
+      if (!cleanedMessage || !cleanedMessage.trim()) {
+        console.warn('⚠️ [非流式] AI返回空回复')
+        setError('AI返回了空回复，可能原因：1) 内容被安全过滤 2) API配额用尽 3) 网络问题。请重试或检查API配置。')
+        setIsAiTyping(false)
+        ;(window as any).__AI_REPLYING__ = false
+        return
+      }
+      
       if (currentSceneMode === 'offline') {
         aiMessagesList = [cleanedMessage]
       } else {

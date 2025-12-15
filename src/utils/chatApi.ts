@@ -2422,6 +2422,20 @@ const callAIApiInternal = async (
       temperature: temperature,
       ...(useStreaming ? { stream: true } : {})
     }
+
+    // 🔥 Gemini 模型特殊配置：禁用安全过滤
+    const isGeminiModel = settings.provider === 'google' || settings.model.toLowerCase().includes('gemini')
+    if (isGeminiModel) {
+      requestBody.safetySettings = [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ]
+      if (import.meta.env.DEV) {
+        console.log('🛡️ [Gemini] 已禁用安全过滤 (BLOCK_NONE)')
+      }
+    }
     
     // 只在非线下模式或有明确设置时才添加max_tokens
     if (maxTokens !== undefined) {
@@ -2567,9 +2581,9 @@ const callAIApiInternal = async (
     }
     
     // 打印实际返回的数据，方便调试
-    if (import.meta.env.DEV) {
-      console.log('API返回的完整数据:', JSON.stringify(data, null, 2))
-    }
+    console.log('📥 [API响应] 完整数据:', JSON.stringify(data).substring(0, 1000))
+    console.log('📥 [API响应] choices:', data.choices ? JSON.stringify(data.choices).substring(0, 500) : 'undefined')
+    console.log('📥 [API响应] candidates:', data.candidates ? JSON.stringify(data.candidates).substring(0, 500) : 'undefined')
     
     // 检查是否有错误信息
     if (data.error) {
@@ -2607,10 +2621,22 @@ const callAIApiInternal = async (
     // 2. Google Gemini 格式 - 需要过滤掉 functionCall 的 parts
     else if (data.candidates?.[0]?.content?.parts) {
       const parts = data.candidates[0].content.parts
+      console.log('🔍 [Gemini] 解析 parts:', parts)
       // 只提取 text 类型的 parts，忽略 functionCall
       const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text)
       if (textParts.length > 0) {
         content = textParts.join('')
+      } else {
+        console.warn('⚠️ [Gemini] parts 中没有 text 内容:', parts)
+      }
+    }
+    // 2.5 Gemini 可能返回空 candidates 或被 blocked
+    else if (data.candidates) {
+      console.warn('⚠️ [Gemini] candidates 结构异常:', JSON.stringify(data.candidates).substring(0, 500))
+      // 检查是否被 safety filter 拦截
+      if (data.promptFeedback?.blockReason) {
+        console.error('❌ [Gemini] 被安全过滤拦截:', data.promptFeedback.blockReason)
+        throw new ChatApiError(`内容被 Gemini 安全过滤: ${data.promptFeedback.blockReason}`, 'CONTENT_FILTERED')
       }
     }
     // 3. 某些API直接返回 text 字段

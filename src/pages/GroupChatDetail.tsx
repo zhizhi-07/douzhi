@@ -25,7 +25,7 @@ import RedPacketOpenModal from '../components/RedPacketOpenModal'
 import RedPacketDetailModal from '../components/RedPacketDetailModal'
 import { GroupMessageItem, GroupInputBar, MentionList } from './GroupChatDetail/components'
 import {
-  useGroupPagination,
+  useGroupVirtualList,
   useGroupCustomIcons,
   useGroupMessageActions,
   useGroupSpecialMessages,
@@ -78,14 +78,12 @@ const GroupChatDetail = () => {
   // 📄 虚拟列表 - 只渲染可见消息，解决消息过多卡顿问题
   const {
     displayedMessages,
-    hasMoreMessages,
-    isLoadingMore,
+    virtualStyle,
     scrollContainerRef,
     scrollToBottom,
-    resetPagination,
-    offsetTop,
-    offsetBottom
-  } = useGroupPagination(messages, isAiTyping)
+    resetVirtualList,
+    isNearBottom
+  } = useGroupVirtualList(messages)
   
   // 🎨 使用自定义图标 Hook
   const { chatDecorations, customIcons, topBarAdjust } = useGroupCustomIcons()
@@ -165,8 +163,18 @@ const GroupChatDetail = () => {
     scrollToBottom
   })
 
-  // 🔥 直接使用 displayedMessages，不需要额外去重（分页逻辑已保证唯一性）
-  const uniqueMessages = displayedMessages
+  // 🔥 对 displayedMessages 进行去重，避免 React duplicate key warning
+  const uniqueMessages = useMemo(() => {
+    const seen = new Set<string>()
+    return displayedMessages.filter(msg => {
+      if (seen.has(msg.id)) {
+        console.warn('⚠️ 发现重复消息ID:', msg.id)
+        return false
+      }
+      seen.add(msg.id)
+      return true
+    })
+  }, [displayedMessages])
 
   // 🔥 找出需要完整渲染的HTML消息ID（只渲染最后1条HTML）
   const renderableHtmlIds = useMemo(() => {
@@ -200,8 +208,8 @@ const GroupChatDetail = () => {
   useEffect(() => {
     if (!id) return
     
-    // 🔥 重置分页状态
-    resetPagination()
+    // 🔥 重置虚拟列表状态
+    resetVirtualList()
     
     // 加载群聊信息
     const group = groupChatManager.getGroup(id)
@@ -254,7 +262,7 @@ const GroupChatDetail = () => {
     
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
-  }, [id, resetPagination])
+  }, [id, resetVirtualList])
 
   // 获取当前群聊信息，用于渲染成员头衔/角色
   const currentGroup = id ? groupChatManager.getGroup(id) : null
@@ -781,7 +789,6 @@ const GroupChatDetail = () => {
             
             // 🔥 立即更新UI，显示小剧场
             setMessages(prev => [...prev, theatreMsg])
-            scrollToBottom(false, true)
             
             // 🔥 添加延迟，让小剧场显示后再继续
             if (i < actionsToProcess.length - 1) {
@@ -918,7 +925,6 @@ const GroupChatDetail = () => {
             
             // 🔥 立即更新UI，显示表情包
             setMessages(prev => [...prev, emojiMsg])
-            scrollToBottom(false, true)
           } else {
             console.warn('未找到匹配的表情包:', emojiKey)
           }
@@ -1207,19 +1213,17 @@ const GroupChatDetail = () => {
             
             currentMessages.push(transferMsg)
             
-            // 🔥 立即更新UI
             setMessages(prev => [...prev, transferMsg])
-            scrollToBottom(false, true)
-          }
-          
-          content = content.replace(/\[转账:[^:]+:\d+(?:\.\d+)?:.+?\]/, '').trim()
-          hasCommand = true
-          if (!content) {
-            // 🔥 添加延迟后继续
-            if (i < actionsToProcess.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+            
+            content = content.replace(/\[转账:[^:]+:\d+(?:\.\d+)?:.+?\]/, '').trim()
+            hasCommand = true
+            if (!content) {
+              // 🔥 添加延迟后继续
+              if (i < actionsToProcess.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+              }
+              continue
             }
-            continue
           }
         }
 
@@ -1271,7 +1275,6 @@ const GroupChatDetail = () => {
           
           // 🔥 立即更新UI
           setMessages(prev => [...prev, voiceMsg])
-          scrollToBottom(false, true)
           
           content = content.replace(/\[语音:.+?\]/, '').trim()
           hasCommand = true
@@ -1304,7 +1307,6 @@ const GroupChatDetail = () => {
           
           // 🔥 立即更新UI
           setMessages(prev => [...prev, photoMsg])
-          scrollToBottom(false, true)
           
           content = content.replace(/\[图片:.+?\]/, '').trim()
           hasCommand = true
@@ -1340,7 +1342,6 @@ const GroupChatDetail = () => {
           
           // 🔥 立即更新UI
           setMessages(prev => [...prev, locationMsg])
-          scrollToBottom(false, true)
           
           content = content.replace(/\[位置:.+?\]/, '').trim()
           hasCommand = true
@@ -1382,7 +1383,6 @@ const GroupChatDetail = () => {
           
           // 🔥 立即更新UI
           setMessages(prev => [...prev, redPacketMsg])
-          scrollToBottom(false, true)
           
           content = content.replace(/\[红包:\d+(?:\.\d+)?:\d+:.+?\]/, '').trim()
           hasCommand = true
@@ -1425,7 +1425,6 @@ const GroupChatDetail = () => {
             
             // 🔥 立即更新UI
             setMessages(prev => [...prev, pollMsg])
-            scrollToBottom(false, true)
             
             content = content.replace(/\[发起投票:[^\]]+\]/, '').trim()
             hasCommand = true
@@ -1584,7 +1583,6 @@ const GroupChatDetail = () => {
         
         // 🔥 使用函数式更新，只追加新消息，避免所有消息重新渲染
         setMessages(prev => [...prev, newMessage])
-        scrollToBottom(false, true)
         
         // 🔥 添加更长的延迟（800-1500ms），让消息一条条出来更真实
         if (i < actionsToProcess.length - 1) {
@@ -1742,21 +1740,13 @@ const GroupChatDetail = () => {
 
       {/* 消息列表 */}
       <div 
-        ref={scrollContainerRef} 
-        className="flex-1 overflow-y-auto px-4 py-3"
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 pb-2 -webkit-overflow-scrolling-touch"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {/* 🔥 上方占位符（虚拟列表） */}
-        {offsetTop > 0 && <div style={{ height: offsetTop }} />}
-        
-        {/* 加载更多提示 */}
-        {hasMoreMessages && (
-          <div className="flex justify-center py-3">
-            {isLoadingMore ? (
-              <span className="text-xs text-gray-400">加载中...</span>
-            ) : (
-              <span className="text-xs text-gray-400">↑ 向上滚动加载更多</span>
-            )}
-          </div>
+        {/* 虚拟列表顶部占位 */}
+        {virtualStyle.paddingTop > 0 && (
+          <div style={{ height: virtualStyle.paddingTop }} />
         )}
         {!bubbleCssLoaded || isLoadingMessages ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
@@ -1767,7 +1757,7 @@ const GroupChatDetail = () => {
             暂无消息
           </div>
         ) : (
-          // 🔥 使用预先去重的 uniqueMessages（O(n) 复杂度）
+          // 使用预先去重的 uniqueMessages（O(n) 复杂度）
           uniqueMessages.map((msg, index) => {
             // 判断是否显示时间戳（两条消息间隔超过5分钟就显示）
             const prevMsg = uniqueMessages[index - 1]
@@ -1791,8 +1781,8 @@ const GroupChatDetail = () => {
                     <div className="flex justify-center my-3">
                       <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
                         {new Date(msg.timestamp).toLocaleString('zh-CN', {
-                          month: '2-digit',
-                          day: '2-digit',
+                          month: 'numeric',
+                          day: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
@@ -1811,20 +1801,20 @@ const GroupChatDetail = () => {
               )
             }
             
-            // 🎭 导演小剧场HTML（第三人称场景描写）
+            // 导演小剧场HTML（第三人称场景描写）
             if ((msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html') {
-              // 🔥 只渲染最后3条HTML，旧的HTML显示简化版
+              // 只渲染最后3条HTML，旧的HTML显示简化版
               if (!renderableHtmlIds.has(msg.id)) {
                 return (
-                  <div key={msg.id} className="flex justify-center my-2">
+                  <div className="flex justify-center my-2" data-message-id={msg.id}>
                     <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-                      🎭 小剧场
+                      小剧场
                     </span>
                   </div>
                 )
               }
               return (
-                <div key={msg.id} className="flex justify-center my-4 px-4">
+                <div key={msg.id} className="flex justify-center my-4 px-4" data-message-id={msg.id}>
                   <div 
                     className="w-full max-w-[310px]"
                     dangerouslySetInnerHTML={{ __html: msg.content }}
@@ -1841,7 +1831,7 @@ const GroupChatDetail = () => {
               const isCreator = poll.creatorId === 'user'
               
               return (
-                <div key={msg.id} className="flex justify-center my-4 px-4">
+                <div key={msg.id} className="flex justify-center my-4 px-4" data-message-id={msg.id}>
                   <div className="w-full max-w-[320px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     {/* 头部 */}
                     <div className="px-4 pt-4 pb-2 flex items-start gap-3">
@@ -1880,11 +1870,8 @@ const GroupChatDetail = () => {
                             onClick={() => {
                               if (!userVoted && id) {
                                 opt.votes.push('user')
-                                const updatedMsgs = groupChatManager.getMessages(id)
-                                groupChatManager.replaceAllMessages(id, updatedMsgs)
-                                setMessages([...updatedMsgs])
                                 
-                                // 🔥 添加系统消息：XX投了XX
+                                // 🔥 添加系统消息：XX投了XX（使用 silent 模式避免触发 storage 事件）
                                 const userInfo = getUserInfo()
                                 const userName = userInfo.nickname || userInfo.realName || '你'
                                 groupChatManager.addMessage(id, {
@@ -1893,8 +1880,11 @@ const GroupChatDetail = () => {
                                   userAvatar: '',
                                   content: `${userName}投了「${opt.text}」`,
                                   type: 'system'
-                                })
+                                }, true)  // silent = true
+                                
+                                // 🔥 只调用一次 setMessages，避免重复渲染
                                 const finalMsgs = groupChatManager.getMessages(id)
+                                groupChatManager.replaceAllMessages(id, finalMsgs)
                                 setMessages([...finalMsgs])
                               }
                             }}
@@ -1984,14 +1974,14 @@ const GroupChatDetail = () => {
             const displayName = [baseName, roleLabel, titleLabel].filter(Boolean).join(' ')
             
             return (
-              <div key={msg.id}>
+              <div key={msg.id} data-message-id={msg.id}>
                 {/* 时间戳 */}
                 {shouldShowTimestamp && msg.timestamp && (
                   <div className="flex justify-center my-3">
                     <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
                       {new Date(msg.timestamp).toLocaleString('zh-CN', {
-                        month: '2-digit',
-                        day: '2-digit',
+                        month: 'numeric',
+                        day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -2046,8 +2036,10 @@ const GroupChatDetail = () => {
           </div>
         )}
         
-        {/* 🔥 下方占位符（虚拟列表） */}
-        {offsetBottom > 0 && <div style={{ height: offsetBottom }} />}
+        {/* 虚拟列表底部占位 */}
+        {virtualStyle.paddingBottom > 0 && (
+          <div style={{ height: virtualStyle.paddingBottom }} />
+        )}
       </div>
 
       {/* 底部输入栏 */}

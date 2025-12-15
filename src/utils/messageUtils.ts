@@ -873,19 +873,17 @@ export const parseAIMessages = (aiReply: string): string[] => {
     const beforeDraw = aiReply.substring(0, drawMatch.index || 0).trim()
     const afterDraw = aiReply.substring((drawMatch.index || 0) + drawMatch[0].length).trim()
     
-    // 前面的内容按行分割
+    // 前面的内容保留为一条消息（减少气泡数量，避免刷屏）
     if (beforeDraw) {
-      const beforeMessages = beforeDraw.split('\n').map(m => m.trim()).filter(m => m.length > 0)
-      messages.push(...beforeMessages)
+      messages.push(beforeDraw)
     }
     
     // 画作指令作为单独一条消息（保持完整）
     messages.push(drawMatch[0])
     
-    // 后面的内容按行分割
+    // 后面的内容也保留为一条消息
     if (afterDraw) {
-      const afterMessages = afterDraw.split('\n').map(m => m.trim()).filter(m => m.length > 0)
-      messages.push(...afterMessages)
+      messages.push(afterDraw)
     }
     
     return messages

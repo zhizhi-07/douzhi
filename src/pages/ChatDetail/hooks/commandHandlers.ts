@@ -3897,20 +3897,77 @@ export const aiBuyCartHandler: CommandHandler = {
 }
 
 /**
+ * 你画我猜结果处理器
+ * 格式：[猜对:答案:得分:评语] 或 [猜错:答案:得分:评语]
+ */
+export const guessResultHandler: CommandHandler = {
+  pattern: /[\[【](猜对|猜错)[:\：]([^:\：]+)[:\：](\d+)[:\：]([^\]】]+)[\]】]/,
+  handler: async (match, content, { setMessages, chatId, isBlocked, character }) => {
+    const isCorrect = match[1] === '猜对'
+    const answer = match[2].trim()
+    const score = parseInt(match[3])
+    const comment = match[4].trim()
+    const characterName = character?.nickname || character?.realName || 'TA'
+    
+    console.log(`🎯 [你画我猜结果] ${isCorrect ? '猜对' : '猜错'}, 答案=${answer}, 得分=${score}`)
+
+    const resultMsg = createMessageObj('guessResult' as any, {
+      guessResult: {
+        isCorrect,
+        answer,
+        score,
+        comment,
+        characterName
+      }
+    }, isBlocked)
+
+    await addMessage(resultMsg, setMessages, chatId)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText
+    }
+  }
+}
+
+/**
  * AI画emoji/字符画处理器
- * 格式：[画:字符画内容]
+ * 格式：[画:题目:画板内容] 或 [画:画板内容]
  */
 export const emojiDrawHandler: CommandHandler = {
-  pattern: /[\[【]画[:\：]([\s\S]+?)[\]】]/,
+  pattern: /[\[【]画[:\uff1a]([\s\S]+?)[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
-    const drawContent = match[1].trim()
+    const fullContent = match[1].trim()
     
-    console.log('🎨 [AI画作] 检测到AI字符画:', drawContent.substring(0, 50))
+    // 解析格式：可能是 "题目:画板" 或者只有 "画板"
+    let title = ''
+    let drawContent = fullContent
+    
+    // 检查是否有题目（第一个:或：前的内容为题目）
+    const titleMatch = fullContent.match(/^([^:\uff1a\n]{1,10})[:\uff1a]([\s\S]+)$/)
+
+    if (titleMatch) {
+      title = titleMatch[1].trim()
+      drawContent = titleMatch[2].trim()
+    }
+    
+    console.log('🎨 [AI画作] 检测到AI字符画, 题目:', title, ', 内容:', drawContent.substring(0, 50))
+
+    // 🔥 关键：aiReadableContent 让AI记住自己画的答案
+    const aiReadableContent = title 
+      ? `[你画我猜] 你画了一幅画，答案是"${title}"。等用户猜测后，根据用户的答案判断：
+- 猜对了：[猜对:${title}:10:你的夸奖]
+- 猜错了：[猜错:${title}:2:你的安慰]`
+      : '[你画我猜] 你画了一幅画'
 
     const drawMsg = createMessageObj('emojiDraw' as any, {
       emojiDraw: {
+        title: title || undefined,
         content: drawContent
-      }
+      },
+      aiReadableContent
     }, isBlocked)
 
     await addMessage(drawMsg, setMessages, chatId)
@@ -3984,6 +4041,7 @@ export const commandHandlers: CommandHandler[] = [
   changePokeSuffixHandler,  // 修改拍一拍后缀
   busyHandler,  // 忙碌场景
   emojiDrawHandler,  // AI画emoji/字符画
+  guessResultHandler,  // 你画我猜结果
   htmlTheatreHandler,  // 中插HTML小剧场
   phoneOperationHandler,  // 手机操作（通用格式）
   judgmentResponseHandler,  // 判定回应

@@ -12,12 +12,11 @@ import { groupChatManager } from '../utils/groupChatManager'
 const NOTIFIED_MESSAGES_KEY = 'notified_message_ids'
 
 const GlobalMessageMonitor = () => {
-  console.log('🔔 [GlobalMessageMonitor] 组件已挂载')
-  
   // 记录每个聊天的最后消息ID（持久化）
   const lastMessageIdsRef = useRef<Record<string, number>>({})
   
   useEffect(() => {
+    console.log('🔔🔔🔔 [GlobalMessageMonitor] 组件已挂载，开始监听消息事件')
     // 从 localStorage 加载已通知的消息ID
     try {
       const saved = localStorage.getItem(NOTIFIED_MESSAGES_KEY)

@@ -109,9 +109,13 @@ export const setBatchMode = (enabled: boolean) => {
   console.log(`📦 [批量模式] ${enabled ? '开启' : '关闭'}`)
 }
 
-// 内存缓存
+// 缓存（避免频繁读取 localStorage）
 let groupsCache: GroupChat[] | null = null
+// 🔥 缓存消息（避免频繁读取 localStorage，key: groupId, value: messages）
 const messagesCache = new Map<string, GroupMessage[]>()
+// 性能优化配置
+const MAX_MESSAGES_IN_MEMORY = 300  // 内存中最多保留300条消息
+const CLEANUP_THRESHOLD = 400       // 超过400条触发清理
 
 // 启动时从 IndexedDB 加载群聊列表
 IDB.getItem<GroupChat[]>(IDB.STORES.MISC, 'group_chats').then(groups => {
@@ -412,11 +416,22 @@ class GroupChatManager {
 
   // 获取群聊消息（同步，使用缓存）
   getMessages(groupId: string): GroupMessage[] {
-    // 检查缓存
-    if (messagesCache.has(groupId)) {
-      // 🔥 过滤掉无效消息，确保返回的数据干净
-      const cached = messagesCache.get(groupId)!
-      return cached.filter(m => m && m.id)
+    // 🔥 缓存命中，直接返回
+    const cached = messagesCache.get(groupId)
+    if (cached) {
+      // 检查是否需要清理
+      if (cached.length > CLEANUP_THRESHOLD) {
+        console.warn(`⚠️ 群聊 ${groupId} 消息过多(${cached.length})，需要清理`)
+        // 保留最新的消息
+        const cleaned = cached.slice(-MAX_MESSAGES_IN_MEMORY)
+        messagesCache.set(groupId, cleaned)
+        // 异步保存到数据库
+        IDB.setItem(IDB.STORES.MESSAGES, `group_${groupId}`, cleaned).catch(e =>
+          console.error('清理消息失败:', e)
+        )
+        return cleaned
+      }
+      return cached
     }
     
     // 缓存未命中，返回空数组（异步加载会更新缓存）

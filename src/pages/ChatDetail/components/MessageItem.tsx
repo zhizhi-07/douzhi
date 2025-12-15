@@ -8,6 +8,7 @@ import TransferCard from '../../../components/TransferCard'
 import VoiceCard from '../../../components/VoiceCard'
 import LocationCard from '../../../components/LocationCard'
 import FlipPhotoCard from '../../../components/FlipPhotoCard'
+import TacitDrawingCard from '../../../components/TacitDrawingCard'
 import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
@@ -250,11 +251,19 @@ const MessageItemContent = ({
         ) : message.messageType === 'location' ? (
           <LocationCard message={message} />
         ) : message.messageType === 'photo' ? (
-          <FlipPhotoCard
-            description={message.photoDescription || '照片'}
-            messageId={message.id}
-            photoBase64={message.photoBase64}
-          />
+          // 检查是否是你画我猜游戏的画作（通过content或photoDescription判断）
+          (message.content?.includes('[你画我猜:') || message.photoDescription?.includes('你画我猜')) && message.photoBase64 ? (
+            <TacitDrawingCard
+              imageData={message.photoBase64}
+              topic={message.content?.match(/\[你画我猜:\s*(.+?)\]/)?.[1] || ''}
+            />
+          ) : (
+            <FlipPhotoCard
+              description={message.photoDescription || '照片'}
+              messageId={message.id}
+              photoBase64={message.photoBase64}
+            />
+          )
         ) : message.messageType === 'musicInvite' && message.musicInvite ? (
           <MusicInviteCard
             inviterName={message.musicInvite.inviterName}

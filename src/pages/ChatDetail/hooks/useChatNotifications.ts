@@ -4,6 +4,7 @@
 
 import { useEffect } from 'react'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
+import { clearUnread as clearUnreadMessages } from '../../../utils/unreadMessages'
 
 interface UseChatNotificationsProps {
   chatId: string | undefined
@@ -14,6 +15,7 @@ export const useChatNotifications = ({ chatId }: UseChatNotificationsProps) => {
   useEffect(() => {
     if (chatId) {
       clearUnread(chatId)
+      clearUnreadMessages(chatId)
       console.log('✅ [useChatNotifications] 已清除未读消息:', chatId)
     }
   }, [chatId])

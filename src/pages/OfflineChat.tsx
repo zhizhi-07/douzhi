@@ -23,7 +23,7 @@ const OfflineChat = () => {
   }
 
   const chatState = useChatState(id || '')
-  const [, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const chatAI = useChatAI(
     id || '',
@@ -487,6 +487,29 @@ const OfflineChat = () => {
         </div>
       </div>
 
+      {/* 错误提示 */}
+      {error && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 max-w-md mx-auto">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg flex items-start gap-3">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-medium">生成失败</p>
+              <p className="text-xs mt-1 opacity-80">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages - 阅读区域 */}
       <div className="flex-1 overflow-y-auto pb-32 pt-28 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
         <div className="max-w-2xl mx-auto">
@@ -627,17 +650,33 @@ const OfflineChat = () => {
               rows={1}
             />
             
+            {/* 重新生成按钮 - 输入框为空且有消息时显示 */}
+            {!inputValue.trim() && offlineMessages.length > 0 && !chatAI.isAiTyping && (
+              <button
+                onClick={() => chatAI.handleAIReply('offline')}
+                className="px-3 h-10 rounded-full flex items-center justify-center gap-1.5 transition-all duration-300 mb-0.5 bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800"
+                title="重新生成"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="text-xs font-serif">续写</span>
+              </button>
+            )}
+            
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || chatAI.isAiTyping}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 mb-0.5 ${
                 inputValue.trim() 
                   ? 'bg-gray-900 text-white shadow-lg hover:bg-black hover:shadow-xl transform hover:-translate-y-0.5' 
-                  : 'bg-gray-50 text-gray-300'
+                  : chatAI.isAiTyping
+                    ? 'bg-gray-200 text-gray-500'
+                    : 'bg-gray-50 text-gray-300'
               }`}
             >
               {chatAI.isAiTyping ? (
-                <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />

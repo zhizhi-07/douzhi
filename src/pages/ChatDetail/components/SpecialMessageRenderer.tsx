@@ -20,6 +20,8 @@ import ShoppingCartCard from '../../../components/ShoppingCartCard'
 import CartPaymentRequestCard from '../../../components/CartPaymentRequestCard'
 import EmojiDrawInviteCard from '../../../components/EmojiDrawInviteCard'
 import EmojiDrawCard from '../../../components/EmojiDrawCard'
+import GuessResultCard from '../../../components/GuessResultCard'
+import TacitDrawingCard from '../../../components/TacitDrawingCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -48,6 +50,7 @@ interface SpecialMessageRendererProps {
   isJudging?: boolean  // 是否正在判定中
   onAcceptCartPayment?: (messageId: number) => void  // 同意购物车代付
   onRejectCartPayment?: (messageId: number) => void  // 拒绝购物车代付
+  onEmojiDrawGuessResult?: (messageId: number, result: 'correct' | 'wrong' | 'continue', title?: string) => void  // 你画我猜结果
 }
 
 /**
@@ -78,7 +81,10 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onRejectFriendRequest,
   onRequestJudgment,
   onRespondToAppeal,
-  isJudging
+  isJudging,
+  onAcceptCartPayment,
+  onRejectCartPayment,
+  onEmojiDrawGuessResult
 }) => {
   // 红包
   if ((message.messageType as any) === 'redPacket' && (message as any).redPacket) {
@@ -215,6 +221,18 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
 
   // 照片
   if (message.messageType === 'photo') {
+    // 检查是否是你画我猜游戏的画作
+    const isTacitDrawing = message.content?.includes('[你画我猜:') || message.photoDescription?.includes('你画我猜')
+    
+    if (isTacitDrawing && message.photoBase64) {
+      return (
+        <TacitDrawingCard
+          imageData={message.photoBase64}
+          topic={message.content?.match(/\[你画我猜:\s*(.+?)\]/)?.[1] || ''}
+        />
+      )
+    }
+    
     return (
       <FlipPhotoCard
         description={message.photoDescription || '照片'}
@@ -257,6 +275,20 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
       <EmojiDrawCard
         content={(message as any).emojiDraw.content}
         characterName={characterName}
+      />
+    )
+  }
+
+  // 你画我猜结果卡片
+  if ((message.messageType as any) === 'guessResult' && (message as any).guessResult) {
+    const result = (message as any).guessResult
+    return (
+      <GuessResultCard
+        isCorrect={result.isCorrect}
+        answer={result.answer}
+        score={result.score}
+        comment={result.comment}
+        characterName={result.characterName || characterName}
       />
     )
   }
@@ -559,77 +591,92 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
     )
   }
 
-  // 默契游戏结果卡片（带评分）
+  // 默契游戏结果卡片（带评分）- 试卷风格
   if (message.messageType === 'tacitGameResult' && message.tacitGameResult) {
     const { gameType, topic, aiGuess, isCorrect, characterName, rating } = message.tacitGameResult
     const gameTypeName = gameType === 'draw' ? '你画我猜' : '你演我猜'
     
     return (
       <div className="flex justify-center my-4 px-4">
-        <div className="bg-white rounded-2xl shadow-lg shadow-gray-100/50 border border-gray-100 p-5 max-w-[300px] w-full relative overflow-hidden">
-          {/* 背景装饰 */}
-          <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-8 -mt-8 pointer-events-none ${isCorrect ? 'bg-green-100/60' : 'bg-orange-100/60'}`} />
-          
-          {/* 游戏类型标签 */}
-          <div className="flex items-center gap-2 mb-3 relative z-10">
-            <div className={`p-1.5 rounded-lg ${gameType === 'draw' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}>
-              {gameType === 'draw' ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-            </div>
-            <span className="text-sm font-bold text-gray-700">{gameTypeName}</span>
-            <div className="flex-1" />
-            {/* 结果标签 */}
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isCorrect ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-              {isCorrect ? '🎉 猜对了！' : '😅 猜错了'}
-            </span>
+        <div className="w-64 bg-white/95 backdrop-blur-sm rounded-sm shadow-md border border-gray-300/80 relative overflow-hidden font-serif">
+          {/* 试卷纹理背景 */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none" 
+               style={{ backgroundImage: 'radial-gradient(#8b8b8b 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
           </div>
+
+          {/* 顶部装订线效果 */}
+          <div className="absolute top-0 left-0 w-full h-8 border-b-2 border-dashed border-gray-300 pointer-events-none"></div>
+          <div className="absolute top-2 left-4 w-3 h-3 rounded-full border border-gray-300 bg-white z-10"></div>
           
-          {/* 答案展示 */}
-          <div className="bg-gray-50 rounded-xl p-4 mb-4 relative z-10">
-            <div className="text-center">
-              <div className="text-xs text-gray-400 mb-1">正确答案</div>
-              <div className="text-2xl font-bold text-gray-800 mb-2">「{topic}」</div>
-              <div className="text-xs text-gray-400 mt-2">
-                {characterName}猜的是：<span className={isCorrect ? 'text-green-600' : 'text-orange-600'}>{aiGuess}</span>
+          <div className="p-5 pt-8 relative z-0">
+            {/* 游戏类型标签 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="px-1.5 py-0.5 border border-gray-800 bg-gray-900 text-white text-[10px] font-bold font-mono">
+                {gameType === 'draw' ? '画' : '演'}
+              </span>
+              <span className="text-sm font-bold text-gray-700 font-serif">{gameTypeName}</span>
+              <div className="flex-1" />
+              {/* 结果标签 */}
+              <span className={`px-2 py-0.5 border text-xs font-bold ${isCorrect ? 'border-green-600 text-green-600' : 'border-orange-500 text-orange-500'}`}>
+                {isCorrect ? '猜对了' : '猜错了'}
+              </span>
+            </div>
+            
+            {/* 答案展示 - 试卷风格 */}
+            <div className="border-2 border-gray-800 p-4 mb-4 bg-white relative">
+              {/* 答题框角落标记 */}
+              <div className="absolute top-1 left-1 w-2 h-2 border-t-2 border-l-2 border-gray-400"></div>
+              <div className="absolute top-1 right-1 w-2 h-2 border-t-2 border-r-2 border-gray-400"></div>
+              <div className="absolute bottom-1 left-1 w-2 h-2 border-b-2 border-l-2 border-gray-400"></div>
+              <div className="absolute bottom-1 right-1 w-2 h-2 border-b-2 border-r-2 border-gray-400"></div>
+              
+              <div className="text-center">
+                <div className="text-xs text-gray-500 font-mono tracking-wider mb-1">正确答案：</div>
+                <div className="text-xl font-bold text-gray-900 font-serif border-b border-gray-800 inline-block px-3 pb-1">
+                  {topic}
+                </div>
+                <div className="text-xs text-gray-500 mt-3 font-mono">
+                  {characterName}猜的是：<span className={`font-bold ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>{aiGuess}</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          {/* 评分区域 */}
-          <div className="relative z-10">
-            <div className="text-center text-xs text-gray-400 mb-2">给{characterName}的表现打分</div>
-            <div className="flex justify-center gap-1" id={`rating-${message.id}`}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => {
-                    // 触发评分事件
-                    window.dispatchEvent(new CustomEvent('tacit-game-rate', {
-                      detail: { messageId: message.id, rating: star }
-                    }))
-                  }}
-                  className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
-                    rating && star <= rating
-                      ? 'bg-yellow-100 text-yellow-500 scale-110'
-                      : 'bg-gray-50 text-gray-300 hover:bg-yellow-50 hover:text-yellow-400'
-                  }`}
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </button>
-              ))}
+            
+            {/* 评分区域 - 试卷风格 */}
+            <div className="border-t border-dashed border-gray-300 pt-3">
+              <div className="text-center text-[10px] text-gray-500 font-mono tracking-wider mb-2">给{characterName}的表现打分</div>
+              <div className="flex justify-center gap-1" id={`rating-${message.id}`}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('tacit-game-rate', {
+                        detail: { messageId: message.id, rating: star }
+                      }))
+                    }}
+                    className={`w-8 h-8 flex items-center justify-center border transition-all duration-200 ${
+                      rating && star <= rating
+                        ? 'border-gray-800 bg-gray-900 text-white'
+                        : 'border-gray-300 bg-white text-gray-300 hover:border-gray-500 hover:text-gray-500'
+                    }`}
+                  >
+                    <span className="text-sm font-bold font-mono">{star}</span>
+                  </button>
+                ))}
+              </div>
+              {rating && (
+                <div className="text-center mt-2 text-xs text-gray-500 font-serif italic">
+                  {rating === 5 ? '太厉害了！' : rating >= 4 ? '很不错！' : rating >= 3 ? '还可以~' : rating >= 2 ? '加油哦~' : '下次努力！'}
+                </div>
+              )}
             </div>
+
+            {/* 右上角红笔得分圈 - 只有评分后才显示 */}
             {rating && (
-              <div className="text-center mt-2 text-sm text-gray-500">
-                {rating === 5 ? '太厉害了！🌟' : rating >= 4 ? '很不错！👍' : rating >= 3 ? '还可以~' : rating >= 2 ? '加油哦~' : '下次努力！'}
+              <div className="absolute top-10 right-4 flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full border-2 border-red-500 flex items-center justify-center transform rotate-[-5deg]">
+                  <span className="text-lg font-bold font-serif text-red-500">{rating}</span>
+                </div>
+                <span className="text-[8px] text-gray-400 font-mono mt-0.5">得分</span>
               </div>
             )}
           </div>
