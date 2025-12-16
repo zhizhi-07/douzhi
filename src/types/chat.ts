@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult' | 'html'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult' | 'html' | 'contactCard'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
@@ -229,6 +229,16 @@ export interface Message {
     isCorrect: boolean        // 是否猜对
     characterName: string     // AI角色名
     rating?: number           // 用户评分（1-5星）
+  }
+  contactCard?: {             // 名片消息
+    characterId: string       // 被推荐的角色ID
+    characterName: string     // 被推荐的角色名称
+    characterAvatar?: string  // 被推荐的角色头像
+    signature?: string        // 被推荐的角色签名
+    // 好友申请状态：pending=等待对方同意, accepted=已同意, rejected=已拒绝
+    friendStatus?: 'pending' | 'accepted' | 'rejected'
+    requestSentByAI?: boolean // 当前AI是否已发送好友申请
+    verificationMessage?: string // AI发送的验证消息
   }
   metadata?: {                // 技术元数据
     generationTime?: number   // 生成耗时(ms)

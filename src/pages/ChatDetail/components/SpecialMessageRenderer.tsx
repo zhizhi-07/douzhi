@@ -22,6 +22,7 @@ import EmojiDrawInviteCard from '../../../components/EmojiDrawInviteCard'
 import EmojiDrawCard from '../../../components/EmojiDrawCard'
 import GuessResultCard from '../../../components/GuessResultCard'
 import TacitDrawingCard from '../../../components/TacitDrawingCard'
+import ContactCardMessage from '../../../components/ContactCardMessage'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -682,6 +683,17 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
           </div>
         </div>
       </div>
+    )
+  }
+
+  // 名片消息
+  if (message.messageType === 'contactCard' && message.contactCard) {
+    return (
+      <ContactCardMessage
+        message={message}
+        currentCharacterId={characterId}
+        currentCharacterName={characterName}
+      />
     )
   }
 

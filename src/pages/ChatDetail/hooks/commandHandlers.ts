@@ -2696,7 +2696,33 @@ export const rejectPaymentHandler: CommandHandler = {
 
     if (!pendingPayment || !pendingPayment.paymentRequest) {
       console.warn('⚠️ [拒绝代付] 未找到待确认的代付请求')
-      return { handled: false }
+      // 🔥 移除指令但不报错，避免AI重复发送
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
+    }
+
+    // 🔥 防止重复：检查最近3秒内是否已经有相同的拒绝代付系统消息
+    const recentSystemMsgs = messages.filter(msg =>
+      msg.type === 'system' &&
+      msg.messageType === 'system' &&
+      msg.timestamp && Date.now() - msg.timestamp < 3000
+    )
+    const hasSameRejection = recentSystemMsgs.some(msg => {
+      const msgContent = msg.content || ''
+      return msgContent.includes('拒绝了代付请求')
+    })
+    if (hasSameRejection) {
+      console.warn('⚠️ [拒绝代付] 检测到重复处理，忽略')
+      const remainingText = content.replace(match[0], '').trim()
+      return {
+        handled: true,
+        remainingText,
+        skipTextMessage: !remainingText
+      }
     }
 
     console.log('❌ [拒绝代付] 找到待确认的代付请求:', pendingPayment.paymentRequest)
@@ -2709,11 +2735,23 @@ export const rejectPaymentHandler: CommandHandler = {
           : msg
       )
 
+      // 🔥 防止重复：检查是否已经存在相同的系统消息
+      const systemMsgContent = `${character?.nickname || character?.realName || 'AI'} 拒绝了代付请求`
+      const hasSystemMsg = updated.some(msg =>
+        msg.type === 'system' &&
+        msg.content === systemMsgContent
+      )
+
+      if (hasSystemMsg) {
+        console.warn('⚠️ [拒绝代付] 系统消息已存在，跳过创建')
+        return updated
+      }
+
       // 添加系统消息
       const systemMsg: Message = {
         id: Date.now(),
         type: 'system',
-        content: `${character?.nickname || character?.realName || 'AI'} 拒绝了代付请求`,
+        content: systemMsgContent,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now(),
         messageType: 'system'
@@ -2725,10 +2763,12 @@ export const rejectPaymentHandler: CommandHandler = {
       return finalUpdated
     })
 
+    // 🔥 返回remainingText来移除指令文本
+    const remainingText = content.replace(match[0], '').trim()
     return {
       handled: true,
-      hideCommand: true,
-      shouldRespond: false
+      remainingText,
+      skipTextMessage: !remainingText
     }
   }
 }
@@ -2744,7 +2784,9 @@ export const aiOrderFoodHandler: CommandHandler = {
     console.log('🍔 [AI点外卖] 处理器被调用')
 
     const itemsStr = match[1]
-    const note = match[2] || ''
+    // 清理备注：去掉"备注:"前缀，处理"无"等无效内容
+    let note = (match[2] || '').replace(/^备注[:：]\s*/i, '').trim()
+    if (note === '无' || note === '无备注') note = ''
 
     // 解析商品列表：商品1,价格1,商品2,价格2
     const parts = itemsStr.split(',').map(s => s.trim())
@@ -2760,10 +2802,12 @@ export const aiOrderFoodHandler: CommandHandler = {
     for (let i = 0; i < parts.length; i += 2) {
       const name = parts[i]
       const priceStr = parts[i + 1]
-      const price = parseFloat(priceStr)
+      // 去掉价格中的￥¥符号和空格
+      const cleanPrice = priceStr.replace(/[￥¥\s]/g, '')
+      const price = parseFloat(cleanPrice)
 
       if (isNaN(price)) {
-        console.warn(`⚠️ [AI点外卖] 价格解析失败: ${priceStr}`)
+        console.warn(`⚠️ [AI点外卖] 价格解析失败: ${priceStr} -> ${cleanPrice}`)
         return { handled: false }
       }
 
@@ -3984,6 +4028,98 @@ export const emojiDrawHandler: CommandHandler = {
 }
 
 /**
+ * AI添加名片好友处理器
+ * 格式：[加TA:验证消息]
+ * 新流程：AI发送好友申请，需要对方同意
+ * 自动从最近的名片消息获取目标角色ID
+ */
+export const addContactCardFriendHandler: CommandHandler = {
+  pattern: /[\[【]加TA[:\uff1a]([^\]】]+)[\]】]/,
+  handler: async (match, content, { setMessages, chatId, character, messages }) => {
+    const verificationMsg = match[1]?.trim() || `你好，我是${character?.nickname || character?.realName || 'TA'}~`
+    
+    // 从最近的名片消息中获取目标角色ID
+    const pendingCard = messages?.slice().reverse().find(
+      msg => msg.messageType === 'contactCard' && msg.contactCard && !msg.contactCard.requestSentByAI && msg.type === 'sent'
+    )
+    
+    if (!pendingCard?.contactCard) {
+      console.log('📇 [添加名片好友] 未找到待处理的名片')
+      return { handled: false }
+    }
+    
+    const targetCharacterId = pendingCard.contactCard.characterId
+    console.log('📇 [添加名片好友] AI发送好友申请:', targetCharacterId, '验证消息:', verificationMsg)
+
+    // 获取目标角色信息
+    const allCharacters = await getAllCharacters()
+    const targetChar = allCharacters.find((c: any) => c.id === targetCharacterId)
+    const targetName = targetChar?.nickname || targetChar?.realName || '未知'
+    const characterName = character?.nickname || character?.realName || 'TA'
+    const characterId = character?.id || chatId
+
+    // 创建好友关系（pending状态）
+    const { saveFriendship, addAIChatMessage } = await import('../../../components/AITwoAIChatViewer')
+    saveFriendship(characterId, targetCharacterId, {
+      status: 'pending',
+      requesterId: characterId,
+      targetId: targetCharacterId,
+      timestamp: Date.now()
+    })
+
+    // 添加好友申请消息到AI间聊天室（使用验证消息）
+    addAIChatMessage(
+      characterId,
+      characterName,
+      targetCharacterId,
+      verificationMsg
+    )
+
+    // 查找对应的名片消息并更新状态
+    setMessages(prev => {
+      const updated = prev.map(msg => {
+        if (msg.messageType === 'contactCard' && msg.contactCard?.characterId === targetCharacterId && !msg.contactCard?.requestSentByAI) {
+          return {
+            ...msg,
+            contactCard: {
+              ...msg.contactCard,
+              requestSentByAI: true,
+              friendStatus: 'pending' as const,
+              verificationMessage: verificationMsg
+            }
+          }
+        }
+        return msg
+      })
+      if (chatId) {
+        saveMessages(chatId, updated)
+      }
+      return updated
+    })
+
+    // 创建系统消息通知
+    const now = Date.now()
+    const systemMsg: Message = {
+      id: now,
+      type: 'system',
+      messageType: 'system',
+      content: `${characterName} 向 ${targetName} 发送了好友申请`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: now
+    }
+
+    await addMessage(systemMsg, setMessages, chatId)
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -4047,5 +4183,6 @@ export const commandHandlers: CommandHandler[] = [
   htmlTheatreHandler,  // 中插HTML小剧场
   phoneOperationHandler,  // 手机操作（通用格式）
   judgmentResponseHandler,  // 判定回应
-  aiAppealHandler  // AI上诉
+  aiAppealHandler,  // AI上诉
+  addContactCardFriendHandler  // AI添加名片好友
 ]

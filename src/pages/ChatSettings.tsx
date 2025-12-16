@@ -472,16 +472,9 @@ const ChatSettings = () => {
             onClick={() => navigate(`/chat/${id}/history`)}
             className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-gray-900">搜索聊天记录</div>
-                <div className="text-xs text-gray-400">按日期浏览和关键词搜索</div>
-              </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">搜索聊天记录</h2>
+              <p className="text-xs text-slate-500 mt-0.5">按日期浏览和关键词搜索</p>
             </div>
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

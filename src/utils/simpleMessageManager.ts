@@ -465,42 +465,49 @@ export async function ensureMessagesLoaded(chatId: string): Promise<Message[]> {
       console.warn('⚠️ IndexedDB读取超时')
     }
     
-    // 🔥 如果IndexedDB也没有，尝试从localStorage备份恢复
-    if (!loaded || loaded.length === 0) {
-      try {
-        const backupKey = `msg_backup_${storageKey}`
-        const backup = localStorage.getItem(backupKey)
-        if (backup) {
-          const parsed = JSON.parse(backup)
-          loaded = parsed.messages
-          
-          // 🔥 备份永久保留，不再删除
-          if (false) {
-            // 已禁用：不再因为时间过期而删除备份
-            if (import.meta.env.DEV) {
-              console.warn(`⚠️ [恢复备份] 备份太旧，跳过恢复`)
-            }
-            localStorage.removeItem(backupKey)
-            loaded = null
+    // 🔥🔥🔥 关键修复：始终检查备份并智能合并，不仅仅是IndexedDB为空时
+    try {
+      const backupKey = `msg_backup_${storageKey}`
+      const backup = localStorage.getItem(backupKey)
+      if (backup) {
+        const parsed = JSON.parse(backup)
+        const backupMessages = parsed.messages as Message[] | undefined
+        
+        if (backupMessages && backupMessages.length > 0) {
+          if (!loaded || loaded.length === 0) {
+            // IndexedDB为空，直接使用备份
+            loaded = backupMessages
+            console.log(`🔄 [恢复备份] IndexedDB为空，从备份恢复: ${loaded.length}条`)
           } else {
-            if (import.meta.env.DEV) {
-              console.log(`🔄 [恢复备份] ensureMessagesLoaded从localStorage恢复: storageKey=${storageKey}, count=${loaded?.length || 0}`)
-            }
-            // 恢复到IndexedDB
-            if (loaded && loaded.length > 0) {
-              await IDB.setItem(IDB.STORES.MESSAGES, storageKey, loaded)
-              // 🔥 关键修复：不要删除localStorage备份！
-              // 保留24小时作为安全网，防止IndexedDB保存失败导致数据丢失
-              // localStorage.removeItem(backupKey)  // 已禁用
-              if (import.meta.env.DEV) {
-                console.log(`💾 [恢复备份] 已恢复到IndexedDB，保留localStorage备份作为安全网`)
-              }
+            // 🔥🔥🔥 关键：IndexedDB和备份都有数据，进行智能合并！
+            // 合并策略：以ID为key，合并两边的消息，保留所有数据
+            const mergedMap = new Map<number, Message>()
+            
+            // 先添加备份中的消息（可能有旧消息）
+            backupMessages.forEach(m => mergedMap.set(m.id, m))
+            
+            // 再添加IndexedDB中的消息（可能有新消息，会覆盖旧版本）
+            loaded.forEach(m => mergedMap.set(m.id, m))
+            
+            const merged = Array.from(mergedMap.values()).sort((a, b) => 
+              (a.timestamp || 0) - (b.timestamp || 0)
+            )
+            
+            // 只有合并后消息更多才使用合并结果
+            if (merged.length > loaded.length) {
+              console.log(`🔄 [智能合并] IndexedDB=${loaded.length}条, 备份=${backupMessages.length}条, 合并后=${merged.length}条`)
+              loaded = merged
             }
           }
+          
+          // 保存合并后的结果到IndexedDB
+          if (loaded && loaded.length > 0) {
+            await IDB.setItem(IDB.STORES.MESSAGES, storageKey, loaded)
+          }
         }
-      } catch (e) {
-        console.warn('恢复localStorage备份失败:', e)
       }
+    } catch (e) {
+      console.warn('检查/合并localStorage备份失败:', e)
     }
     
     if (loaded && loaded.length > 0) {
@@ -717,10 +724,32 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
     // 🔥 创建保存锁，防止并发
     const savePromise = (async () => {
       try {
-        // 保存到IndexedDB（使用清理后的消息）
-        await IDB.setItem(IDB.STORES.MESSAGES, storageKey, cleanedMessages)
+        // 🔥🔥🔥 关键修复：保存前先读取IndexedDB，防止用不完整数据覆盖完整数据
+        let messagesToSave = cleanedMessages
+        if (!forceOverwrite) {
+          try {
+            const existingInDB = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
+            if (existingInDB && existingInDB.length > cleanedMessages.length) {
+              // IndexedDB中有更多数据，需要合并！
+              const mergedMap = new Map<number, Message>()
+              existingInDB.forEach(m => mergedMap.set(m.id, m))
+              cleanedMessages.forEach(m => mergedMap.set(m.id, m))
+              messagesToSave = Array.from(mergedMap.values()).sort((a, b) => 
+                (a.timestamp || 0) - (b.timestamp || 0)
+              )
+              // 同步更新缓存
+              messageCache.set(storageKey, messagesToSave)
+              console.log(`🔄 [saveMessages] IndexedDB合并: 传入=${cleanedMessages.length}, DB=${existingInDB.length}, 合并后=${messagesToSave.length}`)
+            }
+          } catch (e) {
+            console.warn('读取IndexedDB进行合并失败:', e)
+          }
+        }
+        
+        // 保存到IndexedDB
+        await IDB.setItem(IDB.STORES.MESSAGES, storageKey, messagesToSave)
         if (import.meta.env.DEV) {
-          console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${cleanedMessages.length}`)
+          console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${messagesToSave.length}`)
         }
         
         // 🔥 检查是否有队列中的消息需要保存
@@ -768,70 +797,91 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
  * 添加一条消息（立即保存）
  * 如果消息已存在，则更新它
  * 
- * 🔥 重要：这是一个同步包装器，内部会异步确保消息已加载
+ * 🔥🔥🔥 关键修复：先确保消息已从 IndexedDB 加载，然后再添加新消息
  */
 export function addMessage(chatId: string, message: Message): void {
-  console.log(`🔥🔥🔥 [addMessage] 开始保存消息: chatId=${chatId}, messageId=${message.id}, content=${(message.content || '').substring(0, 30)}...`)
+  console.log(`🔥 [addMessage] 开始: chatId=${chatId}, messageId=${message.id}`)
   
-  // 🔥 先同步更新缓存，确保消息不会丢失
   const storageKey = getAccountChatKey(chatId)
-  const cachedMessages = messageCache.get(storageKey) || []
-  console.log(`🔥🔥🔥 [addMessage] 当前缓存消息数: ${cachedMessages.length}`)
   
-  const existingIndex = cachedMessages.findIndex(m => m.id === message.id)
-  let newMessages: Message[]
-  
-  if (existingIndex !== -1) {
-    newMessages = [...cachedMessages]
-    newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
-    console.log(`🔥🔥🔥 [addMessage] 更新已有消息`)
-  } else {
-    newMessages = [...cachedMessages, message]
-    console.log(`🔥🔥🔥 [addMessage] 添加新消息，触发 new-message 事件`)
-    window.dispatchEvent(new CustomEvent('new-message', {
-      detail: { chatId, message }
-    }))
-  }
-  
-  // 立即更新缓存
-  messageCache.set(storageKey, newMessages)
-  console.log(`🔥🔥🔥 [addMessage] 缓存已更新，新消息数: ${newMessages.length}`)
-  
-  // 异步保存到IndexedDB
-  saveMessages(chatId, newMessages)
-  console.log(`🔥🔥🔥 [addMessage] 已调用 saveMessages`)
+  // 🔥🔥🔥 关键修复：先异步确保消息已加载，防止缓存为空时丢失历史消息
+  ensureMessagesLoaded(chatId).then(loadedMessages => {
+    console.log(`🔥 [addMessage] 已加载消息数: ${loadedMessages.length}`)
+    
+    const existingIndex = loadedMessages.findIndex(m => m.id === message.id)
+    let newMessages: Message[]
+    
+    if (existingIndex !== -1) {
+      newMessages = [...loadedMessages]
+      newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+      console.log(`🔥 [addMessage] 更新已有消息`)
+    } else {
+      newMessages = [...loadedMessages, message]
+      console.log(`🔥 [addMessage] 添加新消息，总数: ${newMessages.length}`)
+      window.dispatchEvent(new CustomEvent('new-message', {
+        detail: { chatId, message }
+      }))
+    }
+    
+    // 立即更新缓存
+    messageCache.set(storageKey, newMessages)
+    
+    // 保存到IndexedDB
+    saveMessages(chatId, newMessages)
+    console.log(`🔥 [addMessage] 完成，总消息数: ${newMessages.length}`)
+  }).catch(error => {
+    console.error('❤ [addMessage] 加载消息失败，尝试直接添加:', error)
+    // 降级：即使加载失败，也要确保新消息不丢失
+    const cachedMessages = messageCache.get(storageKey) || []
+    const newMessages = [...cachedMessages, message]
+    messageCache.set(storageKey, newMessages)
+    saveMessages(chatId, newMessages)
+  })
 }
 
 /**
  * 批量添加多条消息（避免竞态条件）
  * 用于一次性发送多张图片等场景
+ * 
+ * 🔥🔥🔥 关键修复：先确保消息已从 IndexedDB 加载
  */
-export function addMessages(chatId: string, newMessages: Message[]): void {
-  if (newMessages.length === 0) return
+export function addMessages(chatId: string, messagesToAdd: Message[]): void {
+  if (messagesToAdd.length === 0) return
   
-  // 🔥 先同步更新缓存，确保消息不会丢失
   const storageKey = getAccountChatKey(chatId)
-  const cachedMessages = messageCache.get(storageKey) || []
-  let updatedMessages = [...cachedMessages]
   
-  for (const message of newMessages) {
-    const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
-    if (existingIndex !== -1) {
-      updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
-    } else {
-      updatedMessages.push(message)
-      window.dispatchEvent(new CustomEvent('new-message', {
-        detail: { chatId, message }
-      }))
+  // 🔥🔥🔥 关键修复：先异步确保消息已加载，防止缓存为空时丢失历史消息
+  ensureMessagesLoaded(chatId).then(loadedMessages => {
+    console.log(`🔥 [addMessages] 已加载消息数: ${loadedMessages.length}`)
+    
+    let updatedMessages = [...loadedMessages]
+    
+    for (const message of messagesToAdd) {
+      const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
+      if (existingIndex !== -1) {
+        updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
+      } else {
+        updatedMessages.push(message)
+        window.dispatchEvent(new CustomEvent('new-message', {
+          detail: { chatId, message }
+        }))
+      }
     }
-  }
-  
-  // 立即更新缓存
-  messageCache.set(storageKey, updatedMessages)
-  
-  // 异步保存到IndexedDB
-  saveMessages(chatId, updatedMessages)
-  console.log(`✅ [addMessages] 批量保存成功: ${newMessages.length}条消息`)
+    
+    // 立即更新缓存
+    messageCache.set(storageKey, updatedMessages)
+    
+    // 保存到IndexedDB
+    saveMessages(chatId, updatedMessages)
+    console.log(`✅ [addMessages] 批量保存成功: 新增${messagesToAdd.length}条，总共${updatedMessages.length}条`)
+  }).catch(error => {
+    console.error('❌ [addMessages] 加载消息失败:', error)
+    // 降级处理
+    const cachedMessages = messageCache.get(storageKey) || []
+    const updatedMessages = [...cachedMessages, ...messagesToAdd]
+    messageCache.set(storageKey, updatedMessages)
+    saveMessages(chatId, updatedMessages)
+  })
 }
 
 /**

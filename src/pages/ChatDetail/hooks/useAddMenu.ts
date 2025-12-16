@@ -23,7 +23,8 @@ export const useAddMenu = (
   onOpenWeather?: () => void,
   onOpenEnvelope?: () => void,
   onOpenJudgment?: () => void,
-  onOpenLogistics?: () => void
+  onOpenLogistics?: () => void,
+  onOpenContactCard?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -234,6 +235,17 @@ export const useAddMenu = (
     }
   }, [onOpenLogistics])
 
+  /**
+   * 发送名片
+   */
+  const handleSelectContactCard = useCallback(() => {
+    console.log('📇 点击名片按钮')
+    setShowAddMenu(false)
+    if (onOpenContactCard) {
+      onOpenContactCard()
+    }
+  }, [onOpenContactCard])
+
   return {
     showAddMenu,
     setShowAddMenu,
@@ -257,7 +269,8 @@ export const useAddMenu = (
       handleSelectWeather,
       handleSelectEnvelope,
       handleSelectJudgment,
-      handleSelectLogistics
+      handleSelectLogistics,
+      handleSelectContactCard
     }
   }
 }

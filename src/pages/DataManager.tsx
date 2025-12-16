@@ -113,12 +113,23 @@ const DataManager = () => {
       console.log(`📦 文件大小: ${sizeMB.toFixed(2)} MB`)
       
       // 🔥 针对不同大小文件使用不同策略
-      if (sizeMB > 100) {
+      if (sizeMB > 800) {
         alert(`❌ 文件太大 (${sizeMB.toFixed(1)} MB)
 
-请使用新的导出功能重新导出数据。
-新版本会自动清理图片，文件会小很多。`)
+文件超过800MB，可能导致浏览器崩溃。
+请使用新的导出功能重新导出数据。`)
         return
+      }
+      
+      // 🔥 大文件警告
+      if (sizeMB > 100) {
+        const confirmed = window.confirm(`⚠️ 文件较大 (${sizeMB.toFixed(1)} MB)
+
+导入可能需要较长时间，期间请勿关闭页面。
+建议：导入成功后，使用新版本重新导出，文件会小很多。
+
+是否继续导入？`)
+        if (!confirmed) return
       }
       
       try {

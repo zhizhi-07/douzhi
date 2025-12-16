@@ -14,6 +14,7 @@ import {
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../types/chat'
 import Avatar from '../components/Avatar'
+import StatusBar from '../components/StatusBar'
 
 type ViewMode = 'default' | 'search' | 'date' | 'date_result'
 
@@ -145,7 +146,8 @@ const ChatHistorySearch = () => {
       }
 
       return (
-        <div className="bg-[#ededed] pt-[env(safe-area-inset-top)] sticky top-0 z-20 border-b border-[#e5e5e5]">
+        <div className="bg-[#ededed] sticky top-0 z-20 border-b border-[#e5e5e5]">
+          <StatusBar />
           <div className="px-4 h-[44px] flex items-center justify-between">
             <button 
               onClick={() => {
@@ -172,7 +174,8 @@ const ChatHistorySearch = () => {
 
     // 默认视图和搜索视图显示搜索栏
     return (
-      <div className="bg-[#ededed] pt-[env(safe-area-inset-top)] sticky top-0 z-20">
+      <div className="bg-[#ededed] sticky top-0 z-20">
+        <StatusBar />
         <div className="px-2 py-2 flex items-center">
           <div className="flex-1 relative">
             <div className="bg-white rounded-[6px] flex items-center h-[34px] px-2">

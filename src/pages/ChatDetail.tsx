@@ -35,6 +35,7 @@ import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame, useLogistics } from './ChatDetail/hooks'
 import LogisticsModal from '../components/LogisticsModal'
+import ContactCardSelector from '../components/ContactCardSelector'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -127,6 +128,9 @@ const ChatDetail = () => {
   const [showShopManager, setShowShopManager] = useState(false)
   const [showShopViewer, setShowShopViewer] = useState(false)
   const [viewingShopId, setViewingShopId] = useState<string | null>(null)
+
+  // 📇 名片选择器状态
+  const [showContactCardSelector, setShowContactCardSelector] = useState(false)
 
   // 检测拉黑状态 & 好友申请状态
   useEffect(() => {
@@ -293,6 +297,40 @@ const ChatDetail = () => {
     return () => window.removeEventListener('character-updated', handleCharacterUpdate)
   }, [id, chatState])
 
+  // 📇 发送名片
+  const handleSendContactCard = useCallback((targetCharacter: { id: string; realName: string; nickname?: string; avatar?: string; signature?: string }) => {
+    if (!id || !chatState.character) return
+
+    const now = Date.now()
+    const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    const targetName = targetCharacter.nickname || targetCharacter.realName
+
+    // 创建名片消息
+    const contactCardMsg: Message = {
+      id: now,
+      type: 'sent',
+      messageType: 'contactCard',
+      content: `[名片] ${targetName}`,
+      aiReadableContent: `[用户发送了${targetName}的名片给你，你可以使用[添加好友:${targetCharacter.id}]来添加这个人]`,
+      time: timeStr,
+      timestamp: now,
+      contactCard: {
+        characterId: targetCharacter.id,
+        characterName: targetName,
+        characterAvatar: targetCharacter.avatar,
+        signature: targetCharacter.signature,
+        addedByAI: false
+      }
+    }
+
+    chatState.setMessages(prev => {
+      const updated = [...prev, contactCardMsg]
+      saveMessages(id, updated)
+      return updated
+    })
+
+    console.log('📇 发送名片:', targetName)
+  }, [id, chatState])
 
   // 移除组件卸载时的保存逻辑，因为addMessage已经会自动备份了
   // 组件卸载时保存可能会用过时的React状态覆盖最新的备份
@@ -494,7 +532,8 @@ const ChatDetail = () => {
     () => navigate(`/chat/${id}/weather`),  // 天气
     () => navigate(`/envelope?characterId=${id}`),  // 信封
     () => judgment.setShowJudgmentModal(true),  // 判定对错
-    () => logistics.openLogistics()  // 物流
+    () => logistics.openLogistics(),  // 物流
+    () => setShowContactCardSelector(true)  // 名片
   )
 
   // 多选模式
@@ -1327,6 +1366,7 @@ const ChatDetail = () => {
                             message.messageType === 'judgment' ||
                             message.messageType === 'shop' ||
                             message.messageType === 'busy' ||
+                            message.messageType === 'contactCard' ||
                             (message.messageType as any) === 'musicInvite' ||
                             (message.messageType as any) === 'emojiDrawInvite' ||
                             (message.messageType as any) === 'emojiDraw' ||
@@ -1791,8 +1831,17 @@ const ChatDetail = () => {
         onSelectShop={handleSelectShop}
         onSelectTacitGame={tacitGame.openGameSelect}
         onSelectLogistics={addMenu.handlers.handleSelectLogistics}
+        onSelectContactCard={addMenu.handlers.handleSelectContactCard}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
+      />
+
+      {/* 名片选择器 */}
+      <ContactCardSelector
+        isOpen={showContactCardSelector}
+        onClose={() => setShowContactCardSelector(false)}
+        onSelect={handleSendContactCard}
+        currentCharacterId={id || ''}
       />
 
       {/* 物流弹窗 */}

@@ -99,31 +99,31 @@ export function formatTimeInterval(currentTimestamp: number, previousTimestamp: 
   
   // 间隔10-59秒
   if (gapSeconds < 60) {
-    return ` (${gapSeconds}秒后)`
+    return `\n(${gapSeconds}秒后)`
   }
 
   // 间隔1-59分钟
   if (gapMinutes < 60) {
-    return ` (${gapMinutes}分钟后)`
+    return `\n(${gapMinutes}分钟后)`
   }
 
-  // 🔥 间隔超过1小时：添加绝对时间帮助AI定位（包含时段描述）
+  // 🔥 间隔超过1小时：添加绝对时间帮助AI定位
   const absoluteTime = formatAbsoluteTime(currentTimestamp, true)
 
   // 间隔1-23小时
   if (gapHours < 24) {
     const remainMinutes = gapMinutes % 60
     if (remainMinutes > 0) {
-      return ` [${absoluteTime}，距上条${gapHours}小时${remainMinutes}分钟]`
+      return `\n[${absoluteTime}，距上条${gapHours}小时${remainMinutes}分钟]`
     }
-    return ` [${absoluteTime}，距上条${gapHours}小时]`
+    return `\n[${absoluteTime}，距上条${gapHours}小时]`
   }
 
-  // 间隔超过1天：绝对时间更重要
+  // 间隔超过1天
   if (gapDays === 1) {
-    return ` [${absoluteTime}，隔了一天]`
+    return `\n[${absoluteTime}，隔了一天]`
   }
-  return ` [${absoluteTime}，隔了${gapDays}天]`
+  return `\n[${absoluteTime}，隔了${gapDays}天]`
 }
 
 // 保留旧函数名以兼容
@@ -246,13 +246,23 @@ export const convertToApiMessages = (
     return true
   })
 
-  // 🔥 追踪前一条消息的时间戳，计算间隔
+  // 🔥 追踪前一条消息的时间戳和角色，只在"一轮"切换时才标记时间间隔
   let prevTimestamp: number | null = null
+  let prevRole: 'user' | 'assistant' | null = null
   
   const result = filteredMessages.map(msg => {
-    // 计算与上一条消息的时间间隔
-    const timeInterval = addTimeGaps && msg.timestamp ? formatTimeInterval(msg.timestamp, prevTimestamp) : ''
+    // 确定当前消息的角色
+    const currentRole = msg.type === 'sent' ? 'user' : 'assistant'
+    
+    // 🔥 只有角色切换时（一轮结束）才计算时间间隔
+    // 比如：用户连发6条，只在第一条标记与上一轮AI消息的间隔
+    const isRoleSwitch = prevRole !== null && prevRole !== currentRole
+    const timeInterval = (addTimeGaps && msg.timestamp && isRoleSwitch) 
+      ? formatTimeInterval(msg.timestamp, prevTimestamp) 
+      : ''
+    
     prevTimestamp = msg.timestamp
+    prevRole = currentRole
 
     // 处理撤回的消息
     if (msg.isRecalled && msg.recalledContent) {
@@ -262,7 +272,7 @@ export const convertToApiMessages = (
         : `[我撤回了消息: "${msg.recalledContent}"]`
       return {
         role: isUserRecalled ? 'user' as const : 'assistant' as const,
-        content: timeInterval ? timeInterval + ' ' + content : content
+        content: content + timeInterval
       }
     }
 
@@ -427,7 +437,6 @@ export const convertToApiMessages = (
     // 转账消息转换为AI可读格式
     if (msg.messageType === 'transfer' && msg.transfer) {
       const isUserSent = msg.type === 'sent'
-      // 使用已计算的 timeInterval
       const statusText = msg.transfer.status === 'pending' ? '待处理'
         : msg.transfer.status === 'received' ? '已收款'
           : '已退还'
@@ -469,7 +478,6 @@ export const convertToApiMessages = (
 
     // 语音消息转换为AI可读格式
     if (msg.messageType === 'voice' && msg.voiceText) {
-      // 使用已计算的 timeInterval
       const voiceInfo = `[语音: ${msg.voiceText}]`
       return {
         role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
@@ -479,7 +487,6 @@ export const convertToApiMessages = (
 
     // 位置消息转换为AI可读格式
     if (msg.messageType === 'location' && msg.location) {
-      // 使用已计算的 timeInterval
       const locationInfo = `[位置: ${msg.location.name} - ${msg.location.address}]`
       return {
         role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
@@ -517,12 +524,9 @@ export const convertToApiMessages = (
 
     // 表情包消息转换为AI可读格式
     if (msg.messageType === 'emoji' && msg.emoji) {
-      // 🔥 修复：让AI看到的格式和AI应该使用的格式一致，避免AI混淆
-      // AI看到：[表情:描述] → AI学会：也要用[表情:描述]格式发送
-      // 使用已计算的 timeInterval
       const emojiInfo = msg.type === 'sent'
         ? `[用户发了表情包] [表情:${msg.emoji.description}]`
-        : `[表情:${msg.emoji.description}]`  // AI自己发的，直接显示指令格式
+        : `[表情:${msg.emoji.description}]`
       return {
         role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
         content: emojiInfo + timeInterval
@@ -575,8 +579,6 @@ export const convertToApiMessages = (
         console.error('[messageUtils] 解析卡片数据失败:', e)
       }
 
-      // 直接描述内容，不加"你生成了/用户发送了"
-      // 使用已计算的 timeInterval
       const theatreInfo = `[${summary || templateName}]`
 
       return {
@@ -598,7 +600,6 @@ export const convertToApiMessages = (
       } else if (judgmentType === 'response') {
         role = 'assistant'
       }
-      // result 和 appeal 都用 system，确保AI能看到判决/上诉内容
       return {
         role,
         content: judgmentContent + timeInterval
@@ -619,17 +620,9 @@ export const convertToApiMessages = (
       textContent = quotedPrefix + textContent
     }
 
-    // 🔥 如果消息被拉黑，添加后缀说明
-    if (msg.blocked) {
-      if (msg.type === 'sent') {
-        textContent = textContent + ' [此消息已被你拒收]'
-      } else if (msg.type === 'received') {
-        textContent = textContent + ' [此消息已被用户拒收]'
-      }
-    }
+    // 🔥 拉黑状态不再添加文字标记（AI会学习），UI层面已有显示
 
-    // 🔥 如果开启时间戳，给消息加上时间标记（放在末尾，AI不会模仿）
-    // 使用已计算的 timeInterval
+    // 🔥 消息后加时间间隔（系统自动添加，AI不要模仿）
     return {
       role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
       content: textContent + timeInterval
@@ -806,16 +799,16 @@ export const addNotificationToChat = (characterId: string, content: string): voi
 
 /**
  * 清理AI回复中可能模仿的时间标记
- * 这些标记是系统自动添加的，AI不应该模仿
+ * 🔥 把时间标记转换成换行符，用于分段
  */
 const cleanTimeMarkers = (text: string): string => {
   return text
-    // (X秒后) (X分钟后)
-    .replace(/\s*\(\d+秒后\)/g, '')
-    .replace(/\s*\(\d+分钟后\)/g, '')
-    // [时间，距上条X小时X分钟] 或 [时间，距上条X小时] 或 [时间，隔了X天]
-    .replace(/\s*\[[^\]]*[，,]距上条\d+小时(?:\d+分钟)?\]/g, '')
-    .replace(/\s*\[[^\]]*[，,]隔了(?:一天|\d+天)\]/g, '')
+    // (X秒后) (X分钟后) → 换行符（用于分段）
+    .replace(/\s*\(\d+秒后\)/g, '\n')
+    .replace(/\s*\(\d+分钟后\)/g, '\n')
+    // [时间，距上条X小时X分钟] 等 → 换行符
+    .replace(/\s*\[[^\]]*[，,]距上条\d+小时(?:\d+分钟)?\]/g, '\n')
+    .replace(/\s*\[[^\]]*[，,]隔了(?:一天|\d+天)\]/g, '\n')
     .trim()
 }
 
