@@ -122,31 +122,9 @@ const DataManager = () => {
       }
       
       try {
-        setProgress({ stage: '读取文件...', percent: 10 })
+        setProgress({ stage: '开始导入...', percent: 5 })
         
-        // 🔥 分块读取，避免一次性加载整个文件
-        const text = await file.text()
-        setProgress({ stage: '解析数据...', percent: 30 })
-        
-        let data: any
-        try {
-          data = JSON.parse(text)
-        } catch (parseError) {
-          console.error('JSON 解析失败:', parseError)
-          alert('❌ 文件格式错误，请确保是有效的备份文件')
-          setProgress(null)
-          return
-        }
-        
-        if (!data || !data.version) {
-          alert('❌ 无效的备份文件')
-          setProgress(null)
-          return
-        }
-        
-        setProgress({ stage: '开始导入...', percent: 50 })
-        
-        // 🔥 调用导入函数
+        // 🔥 修复：直接调用导入函数，避免文件被读取两次
         await importAllData(file, (stage: string, percent: number) => {
           setProgress({ stage, percent })
         })

@@ -77,7 +77,6 @@ export async function exportStyleData(onProgress?: ProgressCallback): Promise<vo
     let exportedCount = 0
     for (let i = 0; i < STYLE_DB_NAMES.length; i++) {
       const dbName = STYLE_DB_NAMES[i]
-      const isLast = i === STYLE_DB_NAMES.length - 1
       
       try {
         onProgress?.(`导出 ${dbName}...`, Math.round((i / STYLE_DB_NAMES.length) * 90) + 5)
@@ -594,6 +593,9 @@ async function exportIndexedDBStreaming(dbName: string, cleanMessageBase64: bool
           // 🔥 导出单个 store，如果是 DouzhiDB 的 messages 则清理 base64
           const shouldClean = cleanMessageBase64 && dbName === 'DouzhiDB'
           const storeChunks = await exportStoreToJsonChunks(db, storeName, shouldClean)
+          
+          // 🔥 修复：添加 store 名称作为 key
+          allChunks.push(`"${storeName}":`)
           allChunks.push(...storeChunks)
           
           // 添加逗号分隔（除了最后一个）
