@@ -1585,12 +1585,15 @@ export const useChatAI = (
         }
         
         if (!skipTextMessage && messageContent && messageContent.trim()) {
-          console.log(`💬 创建普通消息: "${messageContent}"${quotedMsg ? ' [带引用]' : ''}`)
+          // 🔥 检测是否是HTML内容
+          const isHtmlContent = /<!DOCTYPE\s+html/i.test(messageContent)
+          console.log(`💬 创建普通消息: "${messageContent.substring(0, 50)}..."${quotedMsg ? ' [带引用]' : ''}${isHtmlContent ? ' [HTML]' : ''}`)
           const aiMessage: Message = {
             ...createMessage(messageContent, 'received'),
             quotedMessage: quotedMsg,
             blocked: isBlocked,  // 添加拉黑标记
-            sceneMode: currentSceneMode  // 继承场景模式
+            sceneMode: currentSceneMode,  // 继承场景模式
+            messageType: isHtmlContent ? 'html' : undefined  // 🔥 HTML消息设置特殊类型
           }
           
           // 调试：输出引用消息信息

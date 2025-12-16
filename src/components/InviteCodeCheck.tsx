@@ -34,6 +34,14 @@ const InviteCodeCheck = ({ children }: InviteCodeCheckProps) => {
   useEffect(() => {
     // 检查本地存储中是否有已验证的标记
     const checkVerification = () => {
+      // 🔥 开发环境自动跳过验证
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      if (isDev) {
+        setIsVerified(true)
+        setLoading(false)
+        return
+      }
+      
       const verified = localStorage.getItem('invite_code_verified')
       const verifiedCode = localStorage.getItem('verified_invite_code')
       

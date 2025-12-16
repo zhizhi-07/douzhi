@@ -10,7 +10,7 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult' | 'html'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点

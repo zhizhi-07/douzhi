@@ -7,6 +7,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import type { Message, Character } from '../../../types/chat'
 import MessageItem from './MessageItem'
 
+
 interface VirtualMessageListProps {
   messages: Message[]
   character: Character
@@ -197,6 +198,14 @@ const VirtualMessageList = ({
   
   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
   const offsetTop = visibleRange.start * ESTIMATED_MESSAGE_HEIGHT
+  
+  // 🔥 调试：检查每条消息是否包含HTML
+  visibleMessages.forEach(msg => {
+    const hasHtml = msg.content?.includes('<!DOCTYPE') || msg.content?.includes('<html')
+    if (hasHtml) {
+      console.log('🔴🔴🔴 [VirtualMessageList] 发现HTML消息:', msg.id, msg.content?.substring(0, 100))
+    }
+  })
   
   // 检查最后一条消息是否是帖子
   const lastMessage = messages[messages.length - 1]

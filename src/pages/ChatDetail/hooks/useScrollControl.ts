@@ -107,14 +107,9 @@ export const useScrollControl = (
       })
     }
     
-    // 🔥 等待 DOM 渲染和图片加载
-    const scrollTimer = setTimeout(async () => {
+    // 🔥 强制滚动到底部的函数
+    const forceScrollToBottom = () => {
       if (!container) return
-      
-      // 等待图片加载
-      await waitForImages()
-      
-      // 直接设置 scrollTop，不使用 scrollToBottom 函数
       const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
       container.scrollTop = targetScrollTop
       
@@ -126,14 +121,32 @@ export const useScrollControl = (
           finalScrollTop: container.scrollTop
         })
       }
+    }
+    
+    // 🔥 等待 DOM 渲染和图片加载
+    const scrollTimer = setTimeout(async () => {
+      if (!container) return
       
-      // 显示容器
-      container.style.visibility = 'visible'
-      container.classList.add('enable-smooth')
+      // 等待图片加载
+      await waitForImages()
       
-      // 标记初始化完成
-      isInitialLoadRef.current = false
-      console.log('📜 [初始化] 完成，启用加载更多检测')
+      // 🔥 关键修复：使用 requestAnimationFrame 确保 DOM 完全渲染
+      requestAnimationFrame(() => {
+        forceScrollToBottom()
+        
+        // 🔥 再次延迟滚动，确保"加载更多"按钮渲染后滚动位置正确
+        setTimeout(() => {
+          forceScrollToBottom()
+          
+          // 显示容器
+          container.style.visibility = 'visible'
+          container.classList.add('enable-smooth')
+          
+          // 标记初始化完成
+          isInitialLoadRef.current = false
+          console.log('📜 [初始化] 完成，启用加载更多检测')
+        }, 100)
+      })
     }, 50)
     
     return () => clearTimeout(scrollTimer)

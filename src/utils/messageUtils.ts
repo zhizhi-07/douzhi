@@ -828,8 +828,8 @@ export const parseAIMessages = (aiReply: string): string[] => {
   // 🔥 首先过滤思维链 <think>...</think>
   aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
   
-  // 🔥 检测完整HTML文档（<!DOCTYPE html>...到...</html>）
-  const htmlDocMatch = aiReply.match(/<!DOCTYPE\s+html>[\s\S]*?<\/html>/i)
+  // 🔥 检测完整HTML文档（<!DOCTYPE html...到...</html>）
+  const htmlDocMatch = aiReply.match(/<!DOCTYPE\s+html[\s\S]*?<\/html>/i)
   if (htmlDocMatch) {
     console.log('🎮 [parseAIMessages] 检测到完整HTML文档，不分割')
     // HTML文档作为单独一条消息，不分割

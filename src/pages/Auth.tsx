@@ -29,6 +29,13 @@ const Auth = () => {
   // 检查是否已登录
   useEffect(() => {
     const checkSession = async () => {
+      // 🔥 开发环境自动跳过登录
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      if (isDev) {
+        navigate('/')
+        return
+      }
+      
       // 检查上次使用的渠道
       const lastChannel = getAuthChannel()
       

@@ -80,8 +80,10 @@ const Desktop = () => {
     return localStorage.getItem('desktop_memo') || '今天要做的事情...'
   })
   const [memoBg, setMemoBg] = useState('')
-  const [showMemoHeader, setShowMemoHeader] = useState(() => {
-    return localStorage.getItem('show_memo_header') !== 'false'
+  // 备忘录显示模式: 0=全部显示, 1=隐藏文字, 2=隐藏header, 3=完全隐藏
+  const [memoDisplayMode, setMemoDisplayMode] = useState(() => {
+    const saved = localStorage.getItem('memo_display_mode')
+    return saved ? parseInt(saved) : 0
   })
   const [isEditingMemo, setIsEditingMemo] = useState(false)
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -455,48 +457,53 @@ const Desktop = () => {
                 })}
               </div>
 
-              {/* 蓝色 - 备忘录widget (右下角) */}
-              <div className="absolute z-10" style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}>
+              {/* 蓝色 - 备忘录widget (右下角) - 长按切换4种模式 */}
+              <div 
+                className="absolute z-10" 
+                style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}
+                onMouseDown={() => {
+                  memoLongPressTimer.current = setTimeout(() => {
+                    const newMode = (memoDisplayMode + 1) % 4
+                    console.log('📝 备忘录模式切换:', memoDisplayMode, '->', newMode)
+                    setMemoDisplayMode(newMode)
+                    localStorage.setItem('memo_display_mode', String(newMode))
+                  }, 500)
+                }}
+                onMouseUp={() => {
+                  if (memoLongPressTimer.current) {
+                    clearTimeout(memoLongPressTimer.current)
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (memoLongPressTimer.current) {
+                    clearTimeout(memoLongPressTimer.current)
+                  }
+                }}
+                onTouchStart={() => {
+                  memoLongPressTimer.current = setTimeout(() => {
+                    const newMode = (memoDisplayMode + 1) % 4
+                    setMemoDisplayMode(newMode)
+                    localStorage.setItem('memo_display_mode', String(newMode))
+                  }, 500)
+                }}
+                onTouchEnd={() => {
+                  if (memoLongPressTimer.current) {
+                    clearTimeout(memoLongPressTimer.current)
+                  }
+                }}
+              >
+                {/* 模式3时完全隐藏内容，但保留长按区域 */}
+                {memoDisplayMode !== 3 && (
                 <div
                   className="w-full h-full rounded-2xl overflow-hidden flex flex-col relative"
                   style={{
-                    // 有背景图时，主要通过下面的 <img> 显示，这里只保留透明底
                     backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.65)',
                     backdropFilter: memoBg ? 'none' : 'blur(20px)',
                     WebkitBackdropFilter: memoBg ? 'none' : 'blur(20px)',
                     border: '1px solid rgba(255, 255, 255, 0.4)'
                   }}
-                  onMouseDown={() => {
-                    memoLongPressTimer.current = setTimeout(() => {
-                      const newValue = !showMemoHeader
-                      setShowMemoHeader(newValue)
-                      localStorage.setItem('show_memo_header', String(newValue))
-                    }, 500)
-                  }}
-                  onMouseUp={() => {
-                    if (memoLongPressTimer.current) {
-                      clearTimeout(memoLongPressTimer.current)
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (memoLongPressTimer.current) {
-                      clearTimeout(memoLongPressTimer.current)
-                    }
-                  }}
-                  onTouchStart={() => {
-                    memoLongPressTimer.current = setTimeout(() => {
-                      const newValue = !showMemoHeader
-                      setShowMemoHeader(newValue)
-                      localStorage.setItem('show_memo_header', String(newValue))
-                    }, 500)
-                  }}
-                  onTouchEnd={() => {
-                    if (memoLongPressTimer.current) {
-                      clearTimeout(memoLongPressTimer.current)
-                    }
-                  }}
                 >
-                  {/* 背景图层：只要有memoBg就一定能看到 */}
+                  {/* 背景图层 */}
                   {memoBg && (
                     <img
                       src={memoBg}
@@ -506,12 +513,11 @@ const Desktop = () => {
                     />
                   )}
 
-                  {/* 顶部标题栏 - 可通过长按切换显示 */}
-                  {showMemoHeader && (
+                  {/* 顶部标题栏 - 模式0和1显示 */}
+                  {(memoDisplayMode === 0 || memoDisplayMode === 1) && (
                     <div
                       className="flex items-center justify-between px-3 py-2 border-b cursor-pointer transition-colors"
                       style={{
-                        // 有背景图时完全透明，不再叠加白底；无背景时保留浅灰分割线
                         backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.5)',
                         borderColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.3)'
                       }}
@@ -532,40 +538,42 @@ const Desktop = () => {
                     </div>
                   )}
 
-                  {/* 内容区域 */}
-                  <div
-                    className="flex-1 px-3 py-2 cursor-text"
-                    style={{
-                      // 有背景图时不再加任何底色，直接在图片上写字
-                      backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.5)'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (!isEditingMemo) {
-                        setIsEditingMemo(true)
-                        setTimeout(() => memoTextareaRef.current?.focus(), 0)
-                      }
-                    }}
-                  >
-                    {isEditingMemo ? (
-                      <textarea
-                        ref={memoTextareaRef}
-                        value={memoText}
-                        onChange={(e) => setMemoText(e.target.value)}
-                        onBlur={() => {
-                          setIsEditingMemo(false)
-                          localStorage.setItem('desktop_memo', memoText)
-                        }}
-                        className="w-full h-full text-xs text-gray-700 leading-relaxed resize-none bg-transparent outline-none"
-                        placeholder="今天要做的事情..."
-                      />
-                    ) : (
-                      <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {memoText}
-                      </div>
-                    )}
-                  </div>
+                  {/* 内容区域 - 模式0和2显示文字 */}
+                  {(memoDisplayMode === 0 || memoDisplayMode === 2) && (
+                    <div
+                      className="flex-1 px-3 py-2 cursor-text"
+                      style={{
+                        backgroundColor: memoBg ? 'transparent' : 'rgba(255, 255, 255, 0.5)'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!isEditingMemo) {
+                          setIsEditingMemo(true)
+                          setTimeout(() => memoTextareaRef.current?.focus(), 0)
+                        }
+                      }}
+                    >
+                      {isEditingMemo ? (
+                        <textarea
+                          ref={memoTextareaRef}
+                          value={memoText}
+                          onChange={(e) => setMemoText(e.target.value)}
+                          onBlur={() => {
+                            setIsEditingMemo(false)
+                            localStorage.setItem('desktop_memo', memoText)
+                          }}
+                          className="w-full h-full text-xs text-gray-700 leading-relaxed resize-none bg-transparent outline-none"
+                          placeholder="今天要做的事情..."
+                        />
+                      ) : (
+                        <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {memoText}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+                )}
               </div>
 
               {/* 左下角 - 播放进度组件 */}

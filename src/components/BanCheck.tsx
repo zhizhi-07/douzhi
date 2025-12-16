@@ -30,6 +30,33 @@ const BanCheck = ({ children }: BanCheckProps) => {
       setChecking(false)
       return
     }
+    
+    // 🔥 开发环境自动登录管理员账号
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    if (isDev) {
+      const autoLogin = async () => {
+        // 检查是否已登录
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          // 自动登录管理员账号
+          console.log('🔧 [DEV] 自动登录管理员账号...')
+          const { error } = await supabase.auth.signInWithPassword({
+            email: '2373922440@qq.com',
+            password: '2373922440'
+          })
+          if (error) {
+            console.error('🔧 [DEV] 自动登录失败:', error.message)
+          } else {
+            console.log('🔧 [DEV] 自动登录成功')
+            localStorage.setItem('auth_channel', 'supabase')
+          }
+        }
+        setChecking(false)
+      }
+      autoLogin()
+      return
+    }
+    
     const checkUserBan = async () => {
       try {
         // 检查使用的认证渠道

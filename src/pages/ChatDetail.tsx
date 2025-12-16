@@ -1284,8 +1284,29 @@ const ChatDetail = () => {
                             </div>
                           )}
 
-                          {/* 消息内容：特殊消息或文本气泡 */}
-                          {message.coupleSpaceInvite ||
+                          {/* 🔥 HTML消息检测 - 用iframe渲染 */}
+                          {(message.messageType === 'html' || 
+                            (message.content && (
+                              message.content.includes('<!DOCTYPE') || 
+                              message.content.includes('<html') ||
+                              message.content.includes('<body')
+                            ))
+                          ) ? (
+                            <div className="html-message-content">
+                              <iframe
+                                srcDoc={message.content || ''}
+                                style={{
+                                  width: '280px',
+                                  height: '420px',
+                                  border: 'none',
+                                  borderRadius: '12px',
+                                  background: '#fff'
+                                }}
+                                sandbox="allow-same-origin allow-scripts"
+                                title="HTML内容"
+                              />
+                            </div>
+                          ) : message.coupleSpaceInvite ||
                             message.messageType === 'intimatePay' ||
                             message.messageType === 'forwarded-chat' ||
                             message.messageType === 'emoji' ||

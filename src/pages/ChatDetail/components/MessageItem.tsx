@@ -2,6 +2,7 @@
  * 单个消息项组件
  */
 
+import { useEffect, useRef, memo } from 'react'
 import type { Message, Character } from '../../../types/chat'
 import Avatar from '../../../components/Avatar'
 import TransferCard from '../../../components/TransferCard'
@@ -26,11 +27,18 @@ const sanitizeHtml = (html: string): string => {
 
 // 检测内容是否包含HTML标签
 const containsHtml = (content: string): boolean => {
-  // 检测完整HTML文档或常见的HTML标签
+  if (!content) return false
+  // 检测完整HTML文档
   const isHtmlDoc = /<!DOCTYPE\s+html/i.test(content) || /<html[\s>]/i.test(content)
-  const hasHtmlTags = /<(head|body|div|style|span|p|br|img|a|table|form|input|button)[\s>\/]/i.test(content)
-  console.log('🔍 [containsHtml]', { isHtmlDoc, hasHtmlTags, contentStart: content.substring(0, 50) })
-  return isHtmlDoc || hasHtmlTags
+  // 检测HTML片段 - 包含常见标签并且有闭合标签
+  const hasHtmlTags = /<(div|section|article|nav|header|footer|main|aside|ul|ol|li|h[1-6]|p|span|a|em|strong|b|i|br|img|table|tr|td|th|form|input|button|style)[\s>\/]/i.test(content)
+  // 检查是否有闭合标签（说明是HTML而不是普通文本）
+  const hasClosingTags = /<\/(div|section|article|nav|header|footer|main|aside|ul|ol|li|h[1-6]|p|span|a|em|strong|b|i|table|tr|td|th|form|style)>/i.test(content)
+  const result = isHtmlDoc || (hasHtmlTags && hasClosingTags)
+  if (result) {
+    console.log('🔍 [containsHtml] 检测到HTML:', { isHtmlDoc, hasHtmlTags, hasClosingTags })
+  }
+  return result
 }
 
 interface MessageItemProps {
@@ -55,8 +63,6 @@ interface MessageItemProps {
   onEditOfflineRecord?: (message: Message) => void  // 新增：编辑线下记录
 }
 
-import { memo } from 'react'
-
 const MessageItemContent = ({
   message,
   character,
@@ -78,6 +84,54 @@ const MessageItemContent = ({
   onRejectMusicInvite,
   onEditOfflineRecord
 }: MessageItemProps) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  
+  // 🔥 强制检测HTML消息
+  const isHtmlContent = message.messageType === 'html' || 
+    (message.content && (
+      message.content.includes('<!DOCTYPE') ||
+      message.content.includes('<html') ||
+      /<(div|section|article|main|style)[\s>]/i.test(message.content)
+    ))
+  
+  // 🔥 调试：每次渲染都打印消息信息
+  console.log('📨 [MessageItem] 渲染消息:', {
+    id: message.id,
+    type: message.type,
+    messageType: message.messageType,
+    isHtmlContent,
+    contentStart: message.content?.substring(0, 80),
+    hasDoctype: message.content?.includes('<!DOCTYPE'),
+    hasHtml: message.content?.includes('<html')
+  })
+  
+  // 🔥 手动渲染HTML消息 - 绕过React条件渲染问题
+  useEffect(() => {
+    if (!containerRef.current || !isHtmlContent || !message.content) return
+    
+    // 查找容器内的消息区域（可能是.message-bubble或.html-message-content）
+    const container = containerRef.current
+    const existingIframe = container.querySelector('iframe')
+    
+    // 如果已经有iframe且内容正确，跳过
+    if (existingIframe && existingIframe.getAttribute('data-msg-id') === String(message.id)) {
+      return
+    }
+    
+    // 查找需要替换的元素
+    const bubble = container.querySelector('.message-bubble') || container.querySelector('.html-message-content')
+    if (bubble) {
+      console.log('🎯 [MessageItem] 强制渲染HTML消息:', message.id, message.content.substring(0, 50))
+      const iframe = document.createElement('iframe')
+      iframe.srcdoc = sanitizeHtml(message.content)
+      iframe.style.cssText = 'width:280px;height:420px;border:none;border-radius:12px;background:#fff'
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts')
+      iframe.setAttribute('data-msg-id', String(message.id))
+      bubble.innerHTML = ''
+      bubble.appendChild(iframe)
+    }
+  }, [message.id, message.content, isHtmlContent])
+  
   // 直接从 localStorage 读取时间戳设置（每次渲染时读取，确保实时生效）
   const hideTimestamp = localStorage.getItem('hide_message_timestamp') === 'true'
   const timestampInBubble = localStorage.getItem('timestamp_in_bubble') === 'true'
@@ -100,10 +154,15 @@ const MessageItemContent = ({
   }
 
   // 如果是普通文本消息（没有messageType），检查过滤后是否为空
+  // 🔥 但HTML内容不需要过滤检查
+  // 🔥 先检测是否是HTML内容
+  const isHtmlContentCheck = message.messageType === 'html' || containsHtml(message.content || '')
+  
   if (message.type !== 'system' &&
     !message.coupleSpaceInvite &&
     !message.messageType &&
-    message.content) {
+    message.content &&
+    !isHtmlContentCheck) {
     const filteredContent = filterSpecialTags(message.content)
     // 如果过滤后内容为空，不显示这条消息
     if (!filteredContent) {
@@ -193,9 +252,17 @@ const MessageItemContent = ({
     )
   }
 
+  // 🔥 提前检测HTML消息 - 使用containsHtml函数检测HTML片段
+  const isHtmlMessage = message.messageType === 'html' || containsHtml(message.content || '')
+  
+  if (isHtmlMessage) {
+    console.log('🎯 [MessageItem] 检测到HTML消息，使用iframe渲染:', message.id, message.content?.substring(0, 100))
+  }
+
   // 普通消息
   return (
     <div
+      ref={containerRef}
       className={'message-container flex items-start gap-3 my-3 message-enter ' + (message.type === 'sent' ? 'sent flex-row-reverse message-enter-right' : 'received flex-row message-enter-left')}
     >
       {/* 头像和时间 */}
@@ -214,7 +281,7 @@ const MessageItemContent = ({
       </div>
 
       {/* 消息内容 */}
-      <div className={'flex flex-col ' + (message.coupleSpaceInvite || containsHtml(message.content || '') ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+      <div className={'flex flex-col ' + (message.coupleSpaceInvite || isHtmlMessage ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
         {/* 引用消息 */}
         {message.quotedMessage && (
           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
@@ -232,7 +299,23 @@ const MessageItemContent = ({
         )}
 
         {/* 不同类型的消息 */}
-        {message.coupleSpaceInvite ? (
+        {/* 🔥 HTML消息 - 最高优先级，提前判断 */}
+        {isHtmlMessage ? (
+          <div className="html-message-content">
+            <iframe
+              srcDoc={sanitizeHtml(message.content || '')}
+              style={{
+                width: '280px',
+                height: '420px',
+                border: 'none',
+                borderRadius: '12px',
+                background: '#fff'
+              }}
+              sandbox="allow-same-origin allow-scripts"
+              title="HTML内容"
+            />
+          </div>
+        ) : message.coupleSpaceInvite ? (
           <CoupleSpaceInviteCard
             senderName={message.coupleSpaceInvite.senderName}
             senderAvatar={message.coupleSpaceInvite.senderAvatar}
@@ -306,40 +389,6 @@ const MessageItemContent = ({
               }))
             }}
           />
-        ) : containsHtml(message.content || '') ? (
-          // 🔥 HTML内容直接渲染，不用消息气泡包裹
-          (() => {
-            const htmlContent = message.content || ''
-            const isFullHtmlDoc = /<!DOCTYPE\s+html/i.test(htmlContent) || /<html[\s>]/i.test(htmlContent)
-            const safeHtml = sanitizeHtml(htmlContent)
-            console.log('🎯 [HTML渲染]', { isFullHtmlDoc, length: htmlContent.length })
-            
-            if (isFullHtmlDoc) {
-              return (
-                <div className="html-message-content">
-                  <iframe
-                    srcDoc={safeHtml}
-                    style={{
-                      width: '280px',
-                      height: '420px',
-                      border: 'none',
-                      borderRadius: '12px',
-                      background: '#000'
-                    }}
-                    sandbox="allow-same-origin"
-                    title="HTML内容"
-                  />
-                </div>
-              )
-            }
-            // 普通HTML片段
-            return (
-              <div 
-                className="html-message-content bg-white rounded-xl p-2 shadow-sm"
-                dangerouslySetInnerHTML={{ __html: safeHtml }}
-              />
-            )
-          })()
         ) : (
           <div
             className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
