@@ -11,7 +11,7 @@ import MemoryStorage from '../components/MemoryStorage'
 import OfflineBeautifySettings from './OfflineChat/OfflineBeautifySettings'
 import StatusBar from '../components/StatusBar'
 import { useChatBubbles } from '../hooks/useChatBubbles'
-import { saveMessages } from '../utils/simpleMessageManager'
+import { deleteMessage, updateMessage } from '../utils/simpleMessageManager'
 import { getDefaultExtensions, type OfflineExtension } from '../constants/defaultOfflineExtensions'
 
 const OfflineChat = () => {
@@ -42,8 +42,6 @@ const OfflineChat = () => {
   const [temperature, setTemperature] = useState<number>(0.7)
   const [showSettings, setShowSettings] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null)
-  const [editingMessageId, setEditingMessageId] = useState<number | string | null>(null)
-  const [editingContent, setEditingContent] = useState('')
   
   const [showMemoryStorage, setShowMemoryStorage] = useState(false)
   const [showAddPreset, setShowAddPreset] = useState(false)
@@ -106,28 +104,41 @@ const OfflineChat = () => {
     }, 100)
   }
 
-  // 删除消息
+  // 删除消息 - 🔥 使用 deleteMessage 从完整缓存中删除，避免分页后丢失历史消息
   const handleDeleteMessage = (messageId: number | string) => {
-    chatState.setMessages(prev => {
-      const newMessages = prev.filter(m => m.id !== messageId)
-      // 🔥 持久化保存到localStorage
-      saveMessages(id, newMessages)
-      return newMessages
-    })
+    // 先更新 React 状态（用于显示）
+    chatState.setMessages(prev => prev.filter(m => m.id !== messageId))
+    // 使用 deleteMessage 从完整缓存中删除
+    deleteMessage(id, messageId as number)
   }
 
-  // 编辑消息
+  // 编辑消息 - 🔥 使用 updateMessage 从完整缓存中更新
   const handleEditMessage = (messageId: number | string, newContent: string) => {
-    chatState.setMessages(prev => {
-      const newMessages = prev.map(m =>
-        m.id === messageId ? { ...m, content: newContent } : m
-      )
-      // 🔥 持久化保存到localStorage
-      saveMessages(id, newMessages)
-      return newMessages
-    })
-    setEditingMessageId(null)
-    setEditingContent('')
+    // 先更新 React 状态（用于显示）
+    chatState.setMessages(prev => prev.map(m =>
+      m.id === messageId ? { ...m, content: newContent } : m
+    ))
+    // 使用 updateMessage 从完整缓存中更新
+    const msgToUpdate = chatState.messages.find(m => m.id === messageId)
+    if (msgToUpdate) {
+      updateMessage(id, { ...msgToUpdate, content: newContent })
+    }
+  }
+
+  // 重回消息 - 删除该消息并重新生成
+  const handleRerollMessage = (messageId: number | string) => {
+    const messageIndex = offlineMessages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1) return
+    
+    // 先更新 React 状态
+    chatState.setMessages(prev => prev.filter(m => m.id !== messageId))
+    // 使用 deleteMessage 从完整缓存中删除
+    deleteMessage(id, messageId as number)
+    
+    // 重新触发AI回复
+    setTimeout(() => {
+      chatAI.handleAIReply('offline')
+    }, 100)
   }
 
   // 加载扩展条目列表（首次使用时自动初始化默认条目，并合并新默认项）
@@ -550,70 +561,17 @@ const OfflineChat = () => {
             </div>
           ) : (
             offlineMessages.map(message => (
-              <div key={message.id} className="group relative mb-2">
+              <div key={message.id} className="mb-2">
                 <OfflineMessageBubble
                   message={message}
                   characterName={chatState.character!.nickname || chatState.character!.realName}
                   characterAvatar={chatState.character!.avatar}
                   chatId={id}
                   onBranchSelect={setInputValue}
+                  onEdit={handleEditMessage}
+                  onDelete={handleDeleteMessage}
+                  onReroll={handleRerollMessage}
                 />
-
-                {/* 极简操作栏 - 仅悬浮显示 */}
-                <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                  {/* 编辑按钮 */}
-                   <button
-                      onClick={() => {
-                        setEditingMessageId(message.id)
-                        setEditingContent(message.content || '')
-                      }}
-                      className="p-1.5 text-gray-300 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-50"
-                      title="修订"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                    {/* 删除按钮 */}
-                    <button
-                      onClick={() => handleDeleteMessage(message.id)}
-                      className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-full hover:bg-gray-50"
-                      title="移除"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                </div>
-
-                {/* 原位编辑框 */}
-                {editingMessageId === message.id && (
-                  <div className="absolute inset-0 bg-white z-10 flex flex-col p-4 shadow-lg rounded-sm border border-gray-100">
-                    <textarea
-                      value={editingContent}
-                      onChange={(e) => setEditingContent(e.target.value)}
-                      className="w-full flex-1 bg-transparent text-gray-800 font-serif leading-loose resize-none focus:outline-none"
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-3 mt-3 pt-3 border-t border-gray-100">
-                      <button
-                        onClick={() => {
-                          setEditingMessageId(null)
-                          setEditingContent('')
-                        }}
-                        className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1"
-                      >
-                        取消
-                      </button>
-                      <button
-                        onClick={() => handleEditMessage(message.id, editingContent)}
-                        className="text-xs text-white bg-black px-4 py-1.5 rounded-sm hover:bg-gray-800 transition-colors"
-                      >
-                        保存修订
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             ))
           )}

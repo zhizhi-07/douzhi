@@ -146,24 +146,22 @@ export const useChatState = (chatId: string) => {
       // 🔥 只有在有新消息时才更新状态
       if (moreMessages.length > 0) {
         setMessagesState(prev => {
-          // 合并消息
+          // 合并消息：历史消息在前，当前消息在后
           const merged = [...moreMessages, ...prev]
           
-          // 🔥 消息去重：检查是否有重复的消息ID
-          const seen = new Map<number, Message>()
-          const deduplicated = merged.filter(msg => {
-            if (seen.has(msg.id)) {
-              // 如果ID重复，保留时间戳较新的消息
-              const existing = seen.get(msg.id)!
-              if (msg.timestamp > existing.timestamp) {
-                seen.set(msg.id, msg)
-                return true
-              }
-              return false
+          // 简化去重逻辑
+          const seenIds = new Set<number>()
+          const deduplicated: Message[] = []
+          
+          for (const msg of merged) {
+            if (!seenIds.has(msg.id)) {
+              seenIds.add(msg.id)
+              deduplicated.push(msg)
             }
-            seen.set(msg.id, msg)
-            return true
-          })
+          }
+          
+          // ⚠️ 注意：这里只更新显示状态，不要调用saveMessages！
+          // 缓存中的完整消息不应被分页后的消息覆盖
           
           console.log(`✅ [加载更多] 消息状态更新: ${prev.length} -> ${deduplicated.length}${merged.length !== deduplicated.length ? ` (去重: ${merged.length - deduplicated.length})` : ''}`)
           return deduplicated

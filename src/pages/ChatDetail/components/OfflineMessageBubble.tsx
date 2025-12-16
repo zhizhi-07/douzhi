@@ -14,6 +14,9 @@ interface OfflineMessageBubbleProps {
   characterAvatar?: string
   chatId?: string
   onBranchSelect?: (text: string) => void
+  onEdit?: (messageId: number | string, content: string) => void
+  onDelete?: (messageId: number | string) => void
+  onReroll?: (messageId: number | string) => void
 }
 
 interface StatusData {
@@ -125,9 +128,11 @@ const BranchOptions = ({ options, onSelect }: { options: string[], onSelect?: (t
   )
 }
 
-const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId, onBranchSelect }: OfflineMessageBubbleProps) => {
+const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId, onBranchSelect, onEdit, onDelete, onReroll }: OfflineMessageBubbleProps) => {
   const isUser = message.type === 'sent'
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
   
   // 解析内容
   const parsedContent = useMemo(() => {
@@ -194,6 +199,68 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
                {message.content}
              </div>
           </div>
+          
+          {/* 操作按钮区 - 框内底部 */}
+          <div className="px-6 pb-4 flex items-center justify-end gap-2">
+            <button
+              onClick={() => {
+                setEditContent(message.content || '')
+                setIsEditing(true)
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>编辑</span>
+            </button>
+            <button
+              onClick={() => onDelete?.(message.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>删除</span>
+            </button>
+          </div>
+          
+          {/* 编辑弹窗 */}
+          {isEditing && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col p-6 rounded-[24px]">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-serif text-gray-600">编辑内容</span>
+                <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="flex-1 w-full bg-gray-50 rounded-lg p-4 text-gray-800 font-serif leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-gray-200"
+                autoFocus
+              />
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    onEdit?.(message.id, editContent)
+                    setIsEditing(false)
+                  }}
+                  className="px-4 py-2 text-sm text-white bg-gray-800 rounded-lg hover:bg-black transition-colors"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* 底部装饰条 */}
           <div className="h-0.5 bg-gradient-to-l from-indigo-50 via-gray-100 to-white"></div>
@@ -395,6 +462,77 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
           {parsedContent.branchOptions && (
             <div className="px-6 pb-6">
               <BranchOptions options={parsedContent.branchOptions} onSelect={onBranchSelect} />
+            </div>
+          )}
+          
+          {/* 操作按钮区 - 框内底部 */}
+          <div className="px-6 pb-4 flex items-center justify-end gap-2">
+            <button
+              onClick={() => onReroll?.(message.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>重回</span>
+            </button>
+            <button
+              onClick={() => {
+                setEditContent(message.content || '')
+                setIsEditing(true)
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>编辑</span>
+            </button>
+            <button
+              onClick={() => onDelete?.(message.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>删除</span>
+            </button>
+          </div>
+          
+          {/* 编辑弹窗 */}
+          {isEditing && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col p-6 rounded-[24px]">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-serif text-gray-600">编辑内容</span>
+                <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="flex-1 w-full bg-gray-50 rounded-lg p-4 text-gray-800 font-serif leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-gray-200"
+                autoFocus
+              />
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    onEdit?.(message.id, editContent)
+                    setIsEditing(false)
+                  }}
+                  className="px-4 py-2 text-sm text-white bg-gray-800 rounded-lg hover:bg-black transition-colors"
+                >
+                  保存
+                </button>
+              </div>
             </div>
           )}
           
