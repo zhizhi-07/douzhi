@@ -231,9 +231,19 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
     let data: any
     try {
       data = JSON.parse(text)
-    } catch (e) {
+    } catch (e: any) {
       console.error('JSON 解析失败:', e)
-      throw new Error('文件格式错误，无法解析')
+      console.error('文件前500字符:', text.slice(0, 500))
+      console.error('文件后500字符:', text.slice(-500))
+      
+      // 🔥 尝试修复旧版导出的格式问题（缺少store名称）
+      // 检测是否是旧版格式：包含 {"keys": 但在错误位置
+      if (text.includes('"indexedDB"') && e.message?.includes('position')) {
+        console.log('🔧 检测到可能是旧版格式，尝试手动修复...')
+        throw new Error(`文件格式错误：这可能是旧版本导出的备份文件，格式不兼容。\n\n请使用当前版本重新导出数据。`)
+      }
+      
+      throw new Error(`文件格式错误，无法解析JSON: ${e.message}`)
     }
 
     // 🔥 3. 验证数据格式
