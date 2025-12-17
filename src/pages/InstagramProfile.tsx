@@ -298,11 +298,21 @@ ${charInfo.join('\n')}
                 {isLoading ? (
                   <div className="w-full h-full rounded-full bg-white/50 animate-pulse" />
                 ) : (
-                  <img
-                    src={character?.avatar || (npc?.avatar !== '/default-avatar.png' ? npc?.avatar : null) || userInfo.avatar || '/default-avatar.png'}
-                    alt="avatar"
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                  (() => {
+                    const avatarSrc = character?.avatar || (npc?.avatar && npc.avatar !== '/default-avatar.png' ? npc.avatar : null) || userInfo.avatar
+                    const displayName = npc?.name || character?.nickname || character?.realName || userInfo.nickname || userInfo.realName || '我'
+                    return avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt="avatar"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                        <span className="text-2xl font-medium text-gray-600">{displayName[0]}</span>
+                      </div>
+                    )
+                  })()
                 )}
               </div>
             </div>

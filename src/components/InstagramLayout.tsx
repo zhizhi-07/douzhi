@@ -59,13 +59,13 @@ const InstagramLayout = ({
       )}
 
       {/* 可滚动的内容区域 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 overflow-y-auto ${showTabBar ? 'pb-16' : ''}`}>
         {children}
       </div>
 
       {/* 底部Tab导航 */}
       {showTabBar && (
-        <div className="sticky bottom-0 z-10 bg-white border-t border-gray-100">
+        <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100">
           <div className="flex items-center justify-around py-2">
             {tabs.map(({ icon: Icon, path }) => (
               <button

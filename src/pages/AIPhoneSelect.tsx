@@ -104,7 +104,7 @@ const AIPhoneSelect = () => {
   }
 
   return (
-    <div className="min-h-screen font-serif bg-transparent">
+    <div className="h-screen overflow-y-auto font-serif bg-transparent">
       {/* 状态栏和导航栏容器 - Glassmorphism Header */}
       <div className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl border-b border-white/50 shadow-sm">
         <StatusBar />

@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Camera } from 'lucide-react'
-import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
+import { getUserInfo, getUserInfoWithAvatar, saveUserInfo, type UserInfo } from '../utils/userUtils'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
 
 interface InstagramEditProfileProps {
@@ -12,7 +12,25 @@ interface InstagramEditProfileProps {
 const InstagramEditProfile = ({ isOpen, onClose, onSave }: InstagramEditProfileProps) => {
   const [profile, setProfile] = useState<UserInfo>(getUserInfo())
   const [isLoading, setIsLoading] = useState(false)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 异步加载头像
+  useEffect(() => {
+    if (isOpen && !avatarLoaded) {
+      getUserInfoWithAvatar().then(info => {
+        setProfile(info)
+        setAvatarLoaded(true)
+      })
+    }
+  }, [isOpen, avatarLoaded])
+
+  // 关闭时重置状态
+  useEffect(() => {
+    if (!isOpen) {
+      setAvatarLoaded(false)
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -95,11 +113,17 @@ const InstagramEditProfile = ({ isOpen, onClose, onSave }: InstagramEditProfileP
           {/* 头像 */}
           <div className="flex flex-col items-center py-6 border-b border-gray-100 bg-white !bg-white" style={{ backgroundColor: '#ffffff' }}>
             <div className="relative">
-              <img
-                src={profile.avatar || '/default-avatar.png'}
-                alt="头像"
-                className="w-24 h-24 rounded-full object-cover ring-2 ring-gray-100"
-              />
+              {profile.avatar ? (
+                <img
+                  src={profile.avatar}
+                  alt="头像"
+                  className="w-24 h-24 rounded-full object-cover ring-2 ring-gray-100"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 ring-2 ring-gray-100 flex items-center justify-center">
+                  <span className="text-2xl font-medium text-gray-600">{(profile.nickname || profile.realName || '我')[0]}</span>
+                </div>
+              )}
               <button
                 onClick={handleAvatarClick}
                 disabled={isLoading}
