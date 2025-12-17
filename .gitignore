@@ -24,3 +24,54 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Git
+.git
+
+# Kiro
+.kiro
+
+# Test files
+test-*.html
+test-*.js
+
+# Documentation (not needed for deployment)
+docs/
+*.md
+!README.md
+
+# Development tools
+*.py
+*.bat
+*.sql
+bubble-editor.html
+fix-*.html
+fix-*.js
+migrate*.cjs
+migrate*.py
+check-*.cjs
+check-*.js
+dev-proxy.cjs
+dev-proxy.js
+recover-data.js
+replace_script.js
+add_categories.py
+
+# Chinese named files
+七年前的等待.html
+古早QQ示例.html
+检讨书示例.html
+桌面预设导入器.html
+气泡*.html
+气泡*.css
+气泡*.md
+zz气泡编辑.html
+xiaohongshu_template.html
+
+# Temp files
+temp_prompt.ts
+todo.md
+
+# Example/test JSON
+预设示例.json
+【MoM】*.json

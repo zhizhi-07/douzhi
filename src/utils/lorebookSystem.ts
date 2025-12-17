@@ -3,6 +3,8 @@
  * 基于关键词触发的知识库管理
  */
 
+import { characterService } from '../services/characterService'
+
 export interface LorebookEntry {
   id: string
   name: string
@@ -66,12 +68,39 @@ const STORAGE_KEY_GLOBAL_LOREBOOK = 'global_lorebook_id'
 class LorebookManager {
   /**
    * 获取所有世界书
+   * 自动清理已删除角色的关联
    */
   getAllLorebooks(): Lorebook[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_LOREBOOKS)
       if (data) {
-        return JSON.parse(data)
+        const lorebooks: Lorebook[] = JSON.parse(data)
+        
+        // 清理已删除角色的关联
+        let needsSave = false
+        const cleanedLorebooks = lorebooks.map(lb => {
+          if (!lb.character_ids || lb.character_ids.length === 0) return lb
+          
+          // 过滤掉已删除的角色ID
+          const validCharacterIds = lb.character_ids.filter(charId => {
+            const character = characterService.getById(charId)
+            return character !== null && character !== undefined
+          })
+          
+          // 如果有变化，标记需要保存
+          if (validCharacterIds.length !== lb.character_ids.length) {
+            needsSave = true
+            return { ...lb, character_ids: validCharacterIds }
+          }
+          return lb
+        })
+        
+        // 如果有清理，保存更新后的数据
+        if (needsSave) {
+          this.saveLorebooks(cleanedLorebooks)
+        }
+        
+        return cleanedLorebooks
       }
       return []
     } catch (error) {
