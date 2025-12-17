@@ -12,6 +12,7 @@ export interface Emoji {
   description: string
   addTime: string
   useCount: number
+  tag?: string  // 分类标签，如"可爱"、"小狗"等
 }
 
 const STORAGE_KEY = 'custom_emojis'
@@ -145,6 +146,68 @@ export async function addEmoji(emoji: Omit<Emoji, 'id' | 'addTime' | 'useCount'>
 }
 
 /**
+ * 批量添加表情包（带标签）
+ */
+export async function addEmojisWithTag(emojiDataList: Array<{url: string, name: string, description: string}>, tag: string): Promise<number> {
+  const emojis = await getEmojis()
+  const existingUrls = new Set(emojis.map(e => e.url))
+  let addedCount = 0
+  
+  for (let i = 0; i < emojiDataList.length; i++) {
+    const data = emojiDataList[i]
+    // 跳过已存在的URL
+    if (existingUrls.has(data.url)) continue
+    
+    const newEmoji: Emoji = {
+      id: Date.now() + i,
+      url: data.url,
+      name: data.name,
+      description: data.description,
+      addTime: new Date().toISOString(),
+      useCount: 0,
+      tag: tag || undefined
+    }
+    emojis.push(newEmoji)
+    existingUrls.add(data.url)
+    addedCount++
+  }
+  
+  await saveEmojis(emojis)
+  return addedCount
+}
+
+/**
+ * 获取所有标签
+ */
+export async function getAllTags(): Promise<string[]> {
+  const emojis = await getEmojis()
+  const tags = new Set<string>()
+  emojis.forEach(e => {
+    if (e.tag) tags.add(e.tag)
+  })
+  return Array.from(tags).sort()
+}
+
+/**
+ * 更新表情包标签
+ */
+export async function updateEmojiTag(id: number, tag: string | undefined): Promise<boolean> {
+  try {
+    const emojis = await getEmojis()
+    const emoji = emojis.find(e => e.id === id)
+    if (emoji) {
+      emoji.tag = tag
+      await saveEmojis(emojis)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('更新表情包标签失败:', error)
+    return false
+  }
+}
+
+/**
  * 删除表情包
  */
 export async function deleteEmoji(id: number): Promise<boolean> {
@@ -240,7 +303,8 @@ export async function importEmojis(
       name: item.name || item.title || `表情${index + 1}`,
       description: item.description || item.desc || item.name || item.title || `表情${index + 1}`,
       addTime: item.addTime || new Date().toISOString(),
-      useCount: item.useCount || 0
+      useCount: item.useCount || 0,
+      tag: item.tag || item.category || undefined  // 支持导入标签
     })).filter(e => e.url) // 过滤掉没有url的
     
     if (standardEmojis.length === 0) {

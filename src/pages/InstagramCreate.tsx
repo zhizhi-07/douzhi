@@ -124,14 +124,18 @@ const InstagramCreate = () => {
         const userPosts = (await getAllPostsAsync())
           .filter(p => p.npcId === 'user')
           .slice(0, 10)
-          .map(p => `[${formatTimeAgo(p.timestamp)}] ${p.content}`)
+          .map(p => `[${formatTimeAgo(p.timestamp)} | ${p.likes}赞] ${p.content}`)
 
         // 传入所有角色（包括公众人物），让AI能识别并让公众人物参与评论
         const allCharacters = await getAllCharacters()
         console.log(`🤖 开始生成评论... (角色数: ${allCharacters.length}, 图片数: ${selectedImages.length}, 标记好友: ${taggedIds.length})`)
         // 🔥 传入图片，让AI能看到图片内容
         // 如果没有文字只有图片，给AI一个提示
-        const contentForAI = caption.trim() || (selectedImages.length > 0 ? '[用户发布了图片]' : '')
+        let contentForAI = caption.trim() || (selectedImages.length > 0 ? '[用户发布了图片]' : '')
+        // 📍 添加位置信息让AI知道用户在哪里发帖
+        if (location) {
+          contentForAI += `\n[位置: ${location}]`
+        }
         // 🌟 传入被标记的好友，让AI知道用户标记了谁
         const result = await generateRealAIComments(postId, contentForAI, allCharacters, userPosts, undefined, selectedImages.length > 0 ? selectedImages : undefined, taggedIds)
 
@@ -481,14 +485,32 @@ const InstagramCreate = () => {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
-                {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区'].filter(loc =>
-                  loc.includes(locationSearch)
+                {/* 自定义位置输入 */}
+                {locationSearch.trim() && (
+                  <button
+                    onClick={() => {
+                      setLocation(locationSearch.trim())
+                      setShowLocationSearch(false)
+                      setLocationSearch('')
+                    }}
+                    className="w-full px-5 py-4 text-left border-b border-white/30 hover:bg-white/40 transition-colors group bg-blue-50/30"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Plus className="w-4 h-4 text-blue-400 group-hover:text-blue-500 stroke-[1.5]" />
+                      <span className="text-sm text-blue-500 group-hover:text-blue-600 tracking-wide">使用 "{locationSearch.trim()}"</span>
+                    </div>
+                  </button>
+                )}
+                {/* 预设位置列表 */}
+                {['北京市朝阳区', '上海市浦东新区', '广州市天河区', '深圳市南山区', '杭州市西湖区', '成都市锦江区', '武汉市武昌区', '南京市鼓楼区', '重庆市渝中区', '西安市雁塔区'].filter(loc =>
+                  !locationSearch || loc.includes(locationSearch)
                 ).map((loc, i) => (
                   <button
                     key={i}
                     onClick={() => {
                       setLocation(loc)
                       setShowLocationSearch(false)
+                      setLocationSearch('')
                     }}
                     className="w-full px-5 py-4 text-left border-b border-white/30 hover:bg-white/40 transition-colors group"
                   >

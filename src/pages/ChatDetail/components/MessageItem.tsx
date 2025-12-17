@@ -280,8 +280,15 @@ const MessageItemContent = ({
         )}
       </div>
 
-      {/* 消息内容 */}
-      <div className={'flex flex-col ' + (message.coupleSpaceInvite || isHtmlMessage ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+      {/* 消息内容 - 添加长按支持所有消息类型 */}
+      <div 
+        className={'flex flex-col ' + (message.coupleSpaceInvite || isHtmlMessage ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}
+        onTouchStart={(e) => onLongPressStart(message, e)}
+        onTouchEnd={onLongPressEnd}
+        onMouseDown={(e) => onLongPressStart(message, e)}
+        onMouseUp={onLongPressEnd}
+        onMouseLeave={onLongPressEnd}
+      >
         {/* 引用消息 */}
         {message.quotedMessage && (
           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (
@@ -401,11 +408,6 @@ const MessageItemContent = ({
                 ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
                 : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
             }}
-            onTouchStart={(e) => onLongPressStart(message, e)}
-            onTouchEnd={onLongPressEnd}
-            onMouseDown={(e) => onLongPressStart(message, e)}
-            onMouseUp={onLongPressEnd}
-            onMouseLeave={onLongPressEnd}
           >
             {(() => {
               const filteredContent = filterSpecialTags(message.content || '')

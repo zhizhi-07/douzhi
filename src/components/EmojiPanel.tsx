@@ -3,8 +3,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { getEmojis, incrementUseCount, addEmoji, importEmojis, clearCache } from '../utils/emojiStorage'
+import { getEmojis, incrementUseCount, addEmoji, importEmojis, clearCache, getAllTags, addEmojisWithTag } from '../utils/emojiStorage'
 import type { Emoji } from '../utils/emojiStorage'
+
+const LAST_TAB_KEY = 'emoji_panel_last_tab'
 
 interface EmojiPanelProps {
   show: boolean
@@ -14,12 +16,21 @@ interface EmojiPanelProps {
 
 const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
   const [emojis, setEmojis] = useState<Emoji[]>([])
-  const [activeTab, setActiveTab] = useState<'all' | 'frequent'>('all')
+  const [tags, setTags] = useState<string[]>([])
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    // 从localStorage读取上次选择的标签
+    return localStorage.getItem(LAST_TAB_KEY) || 'all'
+  })
   const [showImportMenu, setShowImportMenu] = useState(false)
   const [showDescDialog, setShowDescDialog] = useState(false)
+  const [showBatchImportDialog, setShowBatchImportDialog] = useState(false)
   const [pendingEmojiData, setPendingEmojiData] = useState<{url: string, name: string} | null>(null)
+  const [pendingBatchEmojis, setPendingBatchEmojis] = useState<Array<{url: string, name: string}>>([])
   const [emojiDescription, setEmojiDescription] = useState('')
+  const [batchTag, setBatchTag] = useState('')
+  const [batchDescription, setBatchDescription] = useState('')
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const batchImageInputRef = useRef<HTMLInputElement>(null)
   const jsonInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -29,6 +40,11 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     }
   }, [show])
 
+  // 记住用户选择的标签
+  useEffect(() => {
+    localStorage.setItem(LAST_TAB_KEY, activeTab)
+  }, [activeTab])
+
   const loadEmojis = async (forceReload = false) => {
     if (forceReload) {
       // 清除缓存，强制从存储读取
@@ -36,7 +52,10 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     }
     const loaded = await getEmojis()
     setEmojis(loaded)
-    console.log('📦 表情包加载完成，共', loaded.length, '个')
+    // 加载所有标签
+    const loadedTags = await getAllTags()
+    setTags(loadedTags)
+    console.log('📦 表情包加载完成，共', loaded.length, '个，标签:', loadedTags)
   }
 
   const handleSelectEmoji = async (emoji: Emoji) => {
@@ -143,7 +162,95 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     .sort((a, b) => b.useCount - a.useCount)
     .slice(0, 12)
 
-  const displayEmojis = activeTab === 'frequent' ? frequentEmojis : emojis
+  // 根据当前选中的标签过滤表情包
+  const getDisplayEmojis = () => {
+    if (activeTab === 'frequent') return frequentEmojis
+    if (activeTab === 'all') return emojis
+    // 按标签过滤
+    return emojis.filter(e => e.tag === activeTab)
+  }
+  const displayEmojis = getDisplayEmojis()
+
+  // 批量导入图片处理
+  const handleBatchImageImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (imageFiles.length === 0) {
+      alert('没有选择有效的图片文件')
+      return
+    }
+
+    // 读取所有图片
+    const readPromises = imageFiles.map(file => {
+      return new Promise<{url: string, name: string}>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          resolve({
+            url: event.target?.result as string,
+            name: file.name.replace(/\.[^/.]+$/, '')
+          })
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    })
+
+    Promise.all(readPromises).then(results => {
+      setPendingBatchEmojis(results)
+      setBatchTag('')
+      setBatchDescription('')
+      setShowBatchImportDialog(true)
+    }).catch(err => {
+      console.error('读取图片失败:', err)
+      alert('读取图片失败')
+    })
+
+    setShowImportMenu(false)
+  }
+
+  // 确认批量导入
+  const handleConfirmBatchImport = async () => {
+    if (pendingBatchEmojis.length === 0) return
+    
+    if (!batchTag.trim()) {
+      alert('请输入标签分类')
+      return
+    }
+    if (!batchDescription.trim()) {
+      alert('请输入表情包描述')
+      return
+    }
+
+    try {
+      // 为每个表情包添加相同的描述
+      const emojisWithDesc = pendingBatchEmojis.map(e => ({
+        ...e,
+        description: batchDescription.trim()
+      }))
+      
+      const addedCount = await addEmojisWithTag(emojisWithDesc, batchTag.trim())
+      console.log('✅ 批量导入成功:', addedCount, '个')
+      
+      await loadEmojis(true)
+      
+      // 切换到新导入的标签
+      setActiveTab(batchTag.trim())
+      
+      // 清理状态
+      setShowBatchImportDialog(false)
+      setPendingBatchEmojis([])
+      setBatchTag('')
+      setBatchDescription('')
+      if (batchImageInputRef.current) batchImageInputRef.current.value = ''
+      
+      alert(`✅ 成功导入 ${addedCount} 个表情包到 "${batchTag.trim()}" 分类！`)
+    } catch (error) {
+      console.error('❌ 批量导入失败:', error)
+      alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }
 
   if (!show) return null
 
@@ -159,31 +266,45 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
       <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[60vh] flex flex-col shadow-2xl">
         {/* 顶部标签栏 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <div className="flex gap-4">
+          <div className="flex gap-2 overflow-x-auto flex-1 mr-2 scrollbar-hide">
             <button
               onClick={() => setActiveTab('all')}
-              className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
+              className={`text-sm font-medium pb-1 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'all'
                   ? 'text-blue-500 border-blue-500'
                   : 'text-gray-400 border-transparent'
               }`}
             >
-              全部表情
+              全部
             </button>
             <button
               onClick={() => setActiveTab('frequent')}
-              className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
+              className={`text-sm font-medium pb-1 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'frequent'
                   ? 'text-blue-500 border-blue-500'
                   : 'text-gray-400 border-transparent'
               }`}
             >
-              常用表情
+              常用
             </button>
+            {/* 自定义标签 */}
+            {tags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setActiveTab(tag)}
+                className={`text-sm font-medium pb-1 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeTab === tag
+                    ? 'text-blue-500 border-blue-500'
+                    : 'text-gray-400 border-transparent'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 text-2xl w-8 h-8 flex items-center justify-center"
+            className="text-gray-400 text-2xl w-8 h-8 flex items-center justify-center flex-shrink-0"
           >
             ×
           </button>
@@ -258,7 +379,20 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
                 <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-sm font-medium">导入图片</span>
+                <span className="text-sm font-medium">导入单张图片</span>
+              </button>
+              <div className="border-t border-gray-200" />
+              <button
+                onClick={() => {
+                  batchImageInputRef.current?.click()
+                  setShowImportMenu(false)
+                }}
+                className="w-full px-6 py-3 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors flex items-center gap-3"
+              >
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span className="text-sm font-medium">批量导入（带标签）</span>
               </button>
               <div className="border-t border-gray-200" />
               <button
@@ -282,8 +416,15 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
           ref={imageInputRef}
           type="file"
           accept="image/*"
-          multiple
           onChange={handleImageImport}
+          className="hidden"
+        />
+        <input
+          ref={batchImageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleBatchImageImport}
           className="hidden"
         />
         <input
@@ -347,6 +488,112 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
                   className="flex-1 py-2 bg-slate-700 text-white rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
                 >
                   添加
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 批量导入对话框 */}
+        {showBatchImportDialog && pendingBatchEmojis.length > 0 && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-[60]"
+              onClick={() => {
+                setShowBatchImportDialog(false)
+                setPendingBatchEmojis([])
+                if (batchImageInputRef.current) batchImageInputRef.current.value = ''
+              }}
+            />
+            <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] bg-white rounded-3xl p-6 shadow-2xl max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">批量导入表情包</h2>
+              
+              {/* 预览图片网格 */}
+              <div className="mb-4">
+                <div className="text-sm text-gray-600 mb-2">已选择 {pendingBatchEmojis.length} 张图片</div>
+                <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto">
+                  {pendingBatchEmojis.slice(0, 10).map((emoji, idx) => (
+                    <img
+                      key={idx}
+                      src={emoji.url}
+                      alt={emoji.name}
+                      className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                    />
+                  ))}
+                  {pendingBatchEmojis.length > 10 && (
+                    <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">
+                      +{pendingBatchEmojis.length - 10}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* 标签输入 */}
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">
+                  分类标签 *
+                  <span className="text-xs text-gray-400 ml-2">（如：可爱、小狗、搞笑等）</span>
+                </label>
+                <input
+                  type="text"
+                  value={batchTag}
+                  onChange={(e) => setBatchTag(e.target.value)}
+                  placeholder="输入标签名称"
+                  className="w-full px-3 py-2 border rounded-lg"
+                  autoFocus
+                />
+                {/* 已有标签快捷选择 */}
+                {tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => setBatchTag(tag)}
+                        className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                          batchTag === tag
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 描述输入 */}
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">
+                  表情包描述 *
+                  <span className="text-xs text-gray-400 ml-2">（同一批次的表情包使用相同描述）</span>
+                </label>
+                <textarea
+                  value={batchDescription}
+                  onChange={(e) => setBatchDescription(e.target.value)}
+                  placeholder="例如：可爱的小狗表情、搞笑表情等..."
+                  className="w-full px-3 py-2 border rounded-lg h-20 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowBatchImportDialog(false)
+                    setPendingBatchEmojis([])
+                    setBatchTag('')
+                    setBatchDescription('')
+                    if (batchImageInputRef.current) batchImageInputRef.current.value = ''
+                  }}
+                  className="flex-1 py-2 bg-slate-50 text-slate-700 rounded-lg shadow-[0_2px_8px_rgba(148,163,184,0.15)] hover:shadow-[0_4px_12px_rgba(148,163,184,0.2)] active:shadow-[inset_0_1px_3px_rgba(148,163,184,0.2)] transition-all"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleConfirmBatchImport}
+                  className="flex-1 py-2 bg-purple-600 text-white rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
+                >
+                  导入
                 </button>
               </div>
             </div>

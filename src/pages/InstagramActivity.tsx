@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, X, Search, ArrowLeft } from 'lucide-react'
+import { MessageCircle, X, Search, ArrowLeft, RefreshCw } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
-import { getDMConversations, type DMConversation, saveDMConversations } from '../utils/instagramDM'
+import { getDMConversations, type DMConversation, saveDMConversations, preloadDMData } from '../utils/instagramDM'
 import { getAllCharacters } from '../utils/characterManager'
 import type { Character } from '../services/characterService'
+import { generateNPCDMs } from '../utils/forumDMGenerator'
 
 /**
  * 论坛私聊列表页面 - 文艺复古版
@@ -16,18 +17,61 @@ const InstagramActivity = () => {
   const [showNewChat, setShowNewChat] = useState(false)
   const [characters, setCharacters] = useState<Character[]>([])
   const [searchText, setSearchText] = useState('')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
-    setConversations(getDMConversations())
-    loadCharacters()
+    // 先预加载IndexedDB数据，再同步头像
+    preloadDMData().then(() => {
+      loadCharacters().then(() => {
+        syncConversationsWithCharacters()
+      })
+    })
   }, [])
+
+  // 同步会话头像与角色头像
+  const syncConversationsWithCharacters = async () => {
+    const convs = getDMConversations()
+    const chars = await getAllCharacters()
+    
+    let needsUpdate = false
+    const updatedConvs = convs.map(conv => {
+      // 查找匹配的角色
+      const char = chars.find(c => c.id === conv.id)
+      if (char && char.avatar && char.avatar !== conv.avatar) {
+        needsUpdate = true
+        return { ...conv, avatar: char.avatar }
+      }
+      return conv
+    })
+    
+    if (needsUpdate) {
+      saveDMConversations(updatedConvs)
+    }
+    setConversations(updatedConvs)
+  }
+
+  // 刷新私信 - 根据用户帖子生成NPC私信
+  const handleRefreshDMs = async () => {
+    if (isRefreshing) return
+    
+    setIsRefreshing(true)
+    try {
+      await generateNPCDMs()
+      // 重新加载会话列表并同步头像
+      await syncConversationsWithCharacters()
+    } catch (error) {
+      console.error('生成私信失败:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const loadCharacters = async () => {
     const chars = await getAllCharacters()
     setCharacters(chars)
   }
 
-  // 根据名字生成头像渐变色
+  // 根据名字生成头像背景色
   const getAvatarGradient = (name: string) => {
     const colors = ['#8C8C8C', '#5A5A5A', '#2C2C2C', '#D4D4D4', '#e5e5e5']
     const index = name.charCodeAt(0) % colors.length
@@ -89,7 +133,14 @@ const InstagramActivity = () => {
               <ArrowLeft className="w-5 h-5 text-gray-700 stroke-[2]" />
             </button>
             <h1 className="text-base font-bold text-gray-900 absolute left-1/2 -translate-x-1/2">私信</h1>
-            <div className="w-10" />
+            <button
+              onClick={handleRefreshDMs}
+              disabled={isRefreshing}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-50 -mr-2 transition-colors disabled:opacity-50"
+              title="刷新私信"
+            >
+              <RefreshCw className={`w-5 h-5 text-gray-700 stroke-[2] ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 

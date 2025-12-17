@@ -232,51 +232,6 @@ const WorldBook = () => {
                   )}
                   <span className="ml-auto opacity-60">预算 {lorebook.token_budget}</span>
                 </div>
-
-                {/* 菜单 */}
-                {showMenu === lorebook.id && (
-                  <div
-                    ref={menuRef}
-                    className="fixed bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-white/60 overflow-hidden z-[9999] min-w-[120px] animate-in fade-in zoom-in-95 duration-200"
-                    style={{
-                      top: `${menuPosition.top}px`,
-                      right: `${menuPosition.right}px`
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEdit(lorebook.id)
-                        setShowMenu(null)
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleExport(lorebook.id)
-                        setShowMenu(null)
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
-                    >
-                      导出
-                    </button>
-                    <div className="h-px bg-slate-100 mx-2 my-1" />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDelete(lorebook.id)
-                        setShowMenu(null)
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50/50 transition-colors font-sans"
-                    >
-                      删除
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -291,6 +246,54 @@ const WorldBook = () => {
             className="w-full bg-white/60 backdrop-blur-md text-slate-600 rounded-xl py-3 text-sm font-medium shadow-sm border border-white/60 hover:bg-white/80 active:scale-95 transition-all font-sans tracking-wide"
           >
             导入世界书
+          </button>
+        </div>
+      )}
+
+      {/* 菜单 - 页面根级别渲染，避免被其他卡片遮挡 */}
+      {showMenu && (
+        <div
+          ref={menuRef}
+          className="fixed bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/60 overflow-hidden min-w-[120px] animate-in fade-in zoom-in-95 duration-200"
+          style={{
+            zIndex: 99999,
+            top: menuPosition.top + 150 > window.innerHeight 
+              ? `${menuPosition.top - 180}px` 
+              : `${menuPosition.top}px`,
+            right: `${menuPosition.right}px`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleEdit(showMenu)
+              setShowMenu(null)
+            }}
+            className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
+          >
+            编辑
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleExport(showMenu)
+              setShowMenu(null)
+            }}
+            className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50/80 transition-colors font-sans"
+          >
+            导出
+          </button>
+          <div className="h-px bg-slate-100 mx-2 my-1" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDelete(showMenu)
+              setShowMenu(null)
+            }}
+            className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50/50 transition-colors font-sans"
+          >
+            删除
           </button>
         </div>
       )}

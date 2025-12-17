@@ -30,9 +30,22 @@ interface StatusData {
   lust?: string
 }
 
+// 清理时间标记（AI不应输出这些，但有时会误输出）
+const cleanTimeMarkers = (text: string): string => {
+  return text
+    .replace(/\s*\(\d+秒后\)/g, '')
+    .replace(/\s*\(\d+分钟后\)/g, '')
+    .replace(/\s*\[\d+:\d+[，,]距上条\d+小时(?:\d+分钟)?\]/g, '')
+    .replace(/\s*\[[^\]]*[，,]距上条\d+小时(?:\d+分钟)?\]/g, '')
+    .replace(/\s*\[[^\]]*[，,]隔了[一\d]+天\]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // 解析消息内容，提取状态和分支
 const parseMessageContent = (content: string) => {
-  let mainContent = content
+  // 🔥 首先清理时间标记
+  let mainContent = cleanTimeMarkers(content)
   let statusData: StatusData | null = null
   let branchOptions: string[] | null = null
 
@@ -499,9 +512,10 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
             </button>
           </div>
           
-          {/* 编辑弹窗 */}
+          {/* 编辑弹窗 - 固定定位确保可见 */}
           {isEditing && (
-            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col p-6 rounded-[24px]">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md max-h-[80vh] flex flex-col p-6 rounded-2xl shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-serif text-gray-600">编辑内容</span>
                 <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600">
@@ -513,7 +527,7 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="flex-1 w-full bg-gray-50 rounded-lg p-4 text-gray-800 font-serif leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-gray-200"
+                className="flex-1 w-full bg-gray-50 rounded-lg p-4 text-gray-800 font-serif leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 min-h-[200px]"
                 autoFocus
               />
               <div className="flex justify-end gap-3 mt-4">
@@ -533,6 +547,7 @@ const OfflineMessageBubble = ({ message, characterName, characterAvatar, chatId,
                   保存
                 </button>
               </div>
+            </div>
             </div>
           )}
           

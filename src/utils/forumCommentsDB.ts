@@ -276,5 +276,63 @@ export async function migrateFromLocalStorage(): Promise<void> {
   }
 }
 
+// 删除评论
+export async function deleteComment(commentId: string): Promise<void> {
+  try {
+    const db = await getDB()
+    await db.delete('comments', commentId)
+    console.log(`🗑️ 评论已删除: ${commentId}`)
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    throw error
+  }
+}
+
+// 删除回复
+export async function deleteReply(commentId: string, replyId: string): Promise<void> {
+  try {
+    const db = await getDB()
+    const comment = await db.get('comments', commentId)
+    
+    if (comment) {
+      comment.replies = comment.replies.filter(r => r.id !== replyId)
+      await db.put('comments', comment)
+      console.log(`🗑️ 回复已删除: ${replyId}`)
+    }
+  } catch (error) {
+    console.error('删除回复失败:', error)
+    throw error
+  }
+}
+
+// 批量删除评论
+export async function deleteComments(commentIds: string[]): Promise<void> {
+  try {
+    const db = await getDB()
+    for (const id of commentIds) {
+      await db.delete('comments', id)
+    }
+    console.log(`🗑️ 批量删除 ${commentIds.length} 条评论`)
+  } catch (error) {
+    console.error('批量删除评论失败:', error)
+    throw error
+  }
+}
+
+// 删除帖子的所有评论
+export async function deletePostComments(postId: string): Promise<void> {
+  try {
+    const db = await getDB()
+    const comments = await db.getAllFromIndex('comments', 'by-postId', postId)
+    for (const comment of comments) {
+      await db.delete('comments', comment.id)
+    }
+    console.log(`🗑️ 已删除帖子 ${postId} 的所有评论 (${comments.length} 条)`)
+  } catch (error) {
+    console.error('删除帖子评论失败:', error)
+    throw error
+  }
+}
+
 // 初始化时自动迁移
 migrateFromLocalStorage()

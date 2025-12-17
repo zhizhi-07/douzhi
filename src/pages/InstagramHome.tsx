@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle, Share2, PlusSquare, MoreHorizontal, X, Flame, RefreshCw } from 'lucide-react'
+import { Heart, MessageCircle, Share2, PlusSquare, MoreHorizontal, X, Flame, RefreshCw, Trash2 } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
-import { getAllPostsAsync, toggleLike, getNPCById, initForumData } from '../utils/forumNPC'
+import { getAllPostsAsync, toggleLike, getNPCById, initForumData, savePosts } from '../utils/forumNPC'
 import { getAllCharacters } from '../utils/characterManager'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import type { ForumPost } from '../utils/forumNPC'
 import type { Character } from '../services/characterService'
 import CommentContentRenderer from '../components/CommentContentRenderer'
 import { generateNPCPosts, generateHotTopics, checkAutoGeneratePosts } from '../utils/forumNPCPost'
+import { deletePostComments } from '../utils/forumCommentsDB'
 
 const InstagramHome = () => {
   const navigate = useNavigate()
@@ -28,6 +29,9 @@ const InstagramHome = () => {
   const [showHotTopics, setShowHotTopics] = useState(false)
   const [hotTopics, setHotTopics] = useState<string[]>([])
   const [isLoadingHotTopics, setIsLoadingHotTopics] = useState(false)
+  
+  // 帖子菜单状态
+  const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null)
 
   const formatTimeAgo = (timestamp: number | undefined): string => {
     if (!timestamp) return '刚刚'
@@ -296,9 +300,41 @@ const InstagramHome = () => {
                         </span>
                       </div>
                     </div>
-                    <button className="text-[#8C8C8C] hover:text-[#2C2C2C] transition-colors p-1 rounded-full hover:bg-white/30">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                    <div className="relative">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenMenuPostId(openMenuPostId === post.id ? null : post.id)
+                        }}
+                        className="text-[#8C8C8C] hover:text-[#2C2C2C] transition-colors p-1 rounded-full hover:bg-white/30"
+                      >
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+                      {openMenuPostId === post.id && (
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[120px] z-50">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (confirm('确定永久删除这条帖子吗？（帖子和评论都会被删除）')) {
+                                // 1. 删除帖子的所有评论（永久）
+                                await deletePostComments(post.id)
+                                // 2. 删除帖子本身（永久）
+                                const allPosts = await getAllPostsAsync()
+                                const newPosts = allPosts.filter((p: ForumPost) => p.id !== post.id)
+                                await savePosts(newPosts)
+                                // 3. 更新UI
+                                setPosts(prev => prev.filter(p => p.id !== post.id))
+                                setOpenMenuPostId(null)
+                              }
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            删除帖子
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Content */}

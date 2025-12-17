@@ -13,6 +13,7 @@ import StatusBar from '../components/StatusBar'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { deleteMessage, updateMessage } from '../utils/simpleMessageManager'
 import { getDefaultExtensions, type OfflineExtension } from '../constants/defaultOfflineExtensions'
+import type { Message } from '../types/chat'
 
 const OfflineChat = () => {
   const navigate = useNavigate()
@@ -40,6 +41,7 @@ const OfflineChat = () => {
   const [extensionList, setExtensionList] = useState<OfflineExtension[]>([])
   const [maxTokens, setMaxTokens] = useState<number>(3000)
   const [temperature, setTemperature] = useState<number>(0.7)
+  const [messageLimit, setMessageLimit] = useState<number>(20) // 线下模式消息条数设置
   const [showSettings, setShowSettings] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null)
   
@@ -47,6 +49,7 @@ const OfflineChat = () => {
   const [showAddPreset, setShowAddPreset] = useState(false)
   const [newPresetName, setNewPresetName] = useState('')
   const [newPresetContent, setNewPresetContent] = useState('')
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set()) // 🔥 折叠的章节索引
 
   // 自动滚动
   useEffect(() => {
@@ -86,6 +89,92 @@ const OfflineChat = () => {
     [chatState.messages]
   )
 
+  // 🔥 按章节分组消息（以 offline-summary 或 topic-start 为分隔）
+  const messageChapters = useMemo(() => {
+    const chapters: { title: string; messages: typeof offlineMessages; isSummary: boolean }[] = []
+    let currentChapter: typeof offlineMessages = []
+    let chapterTitle = '当前章节'
+    
+    offlineMessages.forEach((msg) => {
+      if (msg.messageType === 'offline-summary' || msg.messageType === 'topic-start') {
+        // 遇到总结/新话题标记，保存之前的章节
+        if (currentChapter.length > 0) {
+          chapters.push({ title: chapterTitle, messages: currentChapter, isSummary: false })
+        }
+        // 总结消息本身作为一个章节标记
+        chapters.push({ 
+          title: msg.offlineSummary?.title || '章节总结', 
+          messages: [msg], 
+          isSummary: true 
+        })
+        currentChapter = []
+        chapterTitle = `第 ${chapters.filter(c => !c.isSummary).length + 1} 章`
+      } else {
+        currentChapter.push(msg)
+      }
+    })
+    
+    // 添加最后一个章节
+    if (currentChapter.length > 0) {
+      chapters.push({ title: chapterTitle, messages: currentChapter, isSummary: false })
+    }
+    
+    return chapters
+  }, [offlineMessages])
+  
+  // 🔥 首次加载时，自动折叠所有旧章节（除了最后一个）
+  useEffect(() => {
+    if (messageChapters.length > 1) {
+      const toCollapse = new Set<number>()
+      // 折叠所有非总结章节，除了最后一个
+      messageChapters.forEach((chapter, idx) => {
+        if (!chapter.isSummary && idx < messageChapters.length - 1) {
+          toCollapse.add(idx)
+        }
+      })
+      setCollapsedChapters(toCollapse)
+    }
+  }, [messageChapters.length])
+  
+  // 🔥 开启新话题
+  const handleStartNewTopic = () => {
+    const topicMessage: Message = {
+      id: Date.now(),
+      type: 'system',
+      messageType: 'topic-start',
+      content: '─── 新章节开始 ───',
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      sceneMode: 'offline',
+      offlineSummary: {
+        title: `第 ${messageChapters.filter(c => !c.isSummary).length + 1} 章`,
+        summary: '新的故事开始...',
+        memoryId: `topic-${Date.now()}`
+      }
+    }
+    
+    // 添加新话题标记
+    chatState.setMessages(prev => [...prev, topicMessage])
+    
+    // 保存到缓存
+    import('../utils/simpleMessageManager').then(({ saveMessages }) => {
+      saveMessages(id, [...chatState.messages, topicMessage])
+    })
+  }
+  
+  // 切换章节折叠状态
+  const toggleChapterCollapse = (chapterIdx: number) => {
+    setCollapsedChapters(prev => {
+      const next = new Set(prev)
+      if (next.has(chapterIdx)) {
+        next.delete(chapterIdx)
+      } else {
+        next.add(chapterIdx)
+      }
+      return next
+    })
+  }
+
   const handleSend = async () => {
     if (!inputValue.trim() || chatAI.isAiTyping) return
 
@@ -93,6 +182,7 @@ const OfflineChat = () => {
     localStorage.setItem('offline-streaming', useStreaming.toString())
     localStorage.setItem('offline-max-tokens', maxTokens.toString())
     localStorage.setItem('offline-temperature', temperature.toString())
+    localStorage.setItem(`offline-message-limit-${id}`, messageLimit.toString())
 
     // 发送用户消息
     chatAI.handleSend(inputValue, setInputValue, null, undefined, 'offline')
@@ -130,32 +220,41 @@ const OfflineChat = () => {
     const messageIndex = offlineMessages.findIndex(m => m.id === messageId)
     if (messageIndex === -1) return
     
-    // 先更新 React 状态
-    chatState.setMessages(prev => prev.filter(m => m.id !== messageId))
-    // 使用 deleteMessage 从完整缓存中删除
-    deleteMessage(id, messageId as number)
+    // 🔥 先从 React 状态中删除
+    const newMessages = chatState.messages.filter(m => m.id !== messageId)
+    chatState.setMessages(newMessages)
     
-    // 重新触发AI回复
-    setTimeout(() => {
-      chatAI.handleAIReply('offline')
-    }, 100)
+    // 🔥 同步保存到缓存（使用 forceOverwrite 确保删除生效）
+    import('../utils/simpleMessageManager').then(({ saveMessages }) => {
+      saveMessages(id, newMessages, true)  // forceOverwrite=true
+      console.log('🗑️ 重回：已删除消息', messageId)
+      
+      // 🔥 删除完成后再触发AI回复
+      setTimeout(() => {
+        chatAI.handleAIReply('offline')
+      }, 50)
+    })
   }
 
   // 加载扩展条目列表（首次使用时自动初始化默认条目，并合并新默认项）
   const loadExtensions = useCallback(() => {
-    const saved = localStorage.getItem('offline-extensions')
     const defaults = getDefaultExtensions()
+    const saved = localStorage.getItem('offline-extensions')
+    // 🔥 读取已删除的默认预设列表
+    const deletedDefaults = JSON.parse(localStorage.getItem('offline-deleted-defaults') || '[]') as string[]
     
     if (saved) {
       try {
         const savedExtensions = JSON.parse(saved) as OfflineExtension[]
         
-        // 检查是否有新的默认预设未被包含，或已存在的默认条目需要更新内容
+        // 检查是否有新的默认预设未被包含（且未被用户删除过）
         let hasChanges = false
         const mergedExtensions = [...savedExtensions]
         
         defaults.forEach(defExt => {
           if (!defExt.isDefault) return
+          // 🔥 如果用户删除过这个默认预设，不要再添加回来
+          if (deletedDefaults.includes(defExt.name)) return
           
           const existingIndex = mergedExtensions.findIndex(e => e.name === defExt.name)
           
@@ -164,19 +263,8 @@ const OfflineChat = () => {
             mergedExtensions.push(defExt)
             hasChanges = true
             console.log(`📦 [线下模式] 添加新默认预设: ${defExt.name}`)
-          } else {
-            // 已存在的条目，检查内容是否需要更新
-            const existing = mergedExtensions[existingIndex]
-            if (existing.content !== defExt.content) {
-              // 🔥 强制更新默认条目的内容（保留用户的enabled状态）
-              mergedExtensions[existingIndex] = {
-                ...defExt,
-                enabled: existing.enabled  // 保留用户的开关状态
-              }
-              hasChanges = true
-              console.log(`📦 [线下模式] 更新默认预设内容: ${defExt.name}`)
-            }
           }
+          // 🔥 不再强制更新内容，尊重用户的修改
         })
         
         setExtensionList(mergedExtensions)
@@ -216,6 +304,12 @@ const OfflineChat = () => {
     const savedTemperature = localStorage.getItem('offline-temperature')
     if (savedTemperature) {
       setTemperature(parseFloat(savedTemperature))
+    }
+
+    // 🔥 加载线下模式消息条数设置
+    const savedMessageLimit = localStorage.getItem(`offline-message-limit-${id}`)
+    if (savedMessageLimit) {
+      setMessageLimit(parseInt(savedMessageLimit))
     }
 
     loadExtensions()
@@ -269,9 +363,61 @@ const OfflineChat = () => {
 
   // 删除条目
   const deleteExtension = (index: number) => {
+    const toDelete = extensionList[index]
+    
+    // 🔥 如果是默认预设，记录到已删除列表，防止刷新后恢复
+    if (toDelete.isDefault) {
+      const deletedDefaults = JSON.parse(localStorage.getItem('offline-deleted-defaults') || '[]') as string[]
+      if (!deletedDefaults.includes(toDelete.name)) {
+        deletedDefaults.push(toDelete.name)
+        localStorage.setItem('offline-deleted-defaults', JSON.stringify(deletedDefaults))
+      }
+    }
+    
     const updatedList = extensionList.filter((_, i) => i !== index)
     setExtensionList(updatedList)
     localStorage.setItem('offline-extensions', JSON.stringify(updatedList))
+  }
+  
+  
+  // 🔥 拖拽排序（鼠标+触摸兼容）
+  const [dragState, setDragState] = useState<{ dragging: boolean; index: number; startY: number; currentY: number } | null>(null)
+  
+  const handlePointerDown = (e: React.PointerEvent, index: number) => {
+    // 只响应拖拽手柄区域
+    const target = e.target as HTMLElement
+    if (!target.closest('.drag-handle')) return
+    
+    e.preventDefault()
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    setDragState({ dragging: true, index, startY: e.clientY, currentY: e.clientY })
+  }
+  
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragState?.dragging) return
+    
+    const deltaY = e.clientY - dragState.startY
+    const itemHeight = 40 // 大约每个条目高度
+    const moveSteps = Math.round(deltaY / itemHeight)
+    
+    if (moveSteps !== 0) {
+      const newIndex = Math.max(0, Math.min(extensionList.length - 1, dragState.index + moveSteps))
+      if (newIndex !== dragState.index) {
+        const newList = [...extensionList]
+        const [item] = newList.splice(dragState.index, 1)
+        newList.splice(newIndex, 0, item)
+        setExtensionList(newList)
+        setDragState({ ...dragState, index: newIndex, startY: e.clientY })
+      }
+    }
+    setDragState(prev => prev ? { ...prev, currentY: e.clientY } : null)
+  }
+  
+  const handlePointerUp = () => {
+    if (dragState?.dragging) {
+      localStorage.setItem('offline-extensions', JSON.stringify(extensionList))
+    }
+    setDragState(null)
   }
 
   // 气泡样式（与线上模式共享）
@@ -422,6 +568,28 @@ const OfflineChat = () => {
                         />
                       </div>
 
+                      {/* 消息条数 */}
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-500 mb-2 font-serif tracking-wide">
+                          <span>记忆</span>
+                          <span>{messageLimit === 0 ? '全部' : `${messageLimit} 条`}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={messageLimit}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value)
+                            setMessageLimit(value)
+                            localStorage.setItem(`offline-message-limit-${id}`, value.toString())
+                          }}
+                          className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-700"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">AI读取的历史消息数量，0=全部</p>
+                      </div>
+
                       {/* 预设管理 */}
                       <div>
                          <div className="flex items-center justify-between mb-2">
@@ -457,14 +625,37 @@ const OfflineChat = () => {
                             </div>
                          )}
 
-                         <div className="max-h-48 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-thumb-gray-200">
+                         <div 
+                           className="max-h-48 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-thumb-gray-200"
+                           onPointerMove={handlePointerMove}
+                           onPointerUp={handlePointerUp}
+                           onPointerLeave={handlePointerUp}
+                         >
                             {extensionList.map((ext, idx) => (
-                              <div key={idx} className="flex items-center justify-between group hover:bg-white p-2 rounded-lg transition-colors cursor-pointer" onClick={() => toggleExtension(idx)}>
-                                <div className="flex items-center gap-2.5 overflow-hidden">
-                                  <div className={`w-3 h-3 border border-gray-300 rounded-full flex items-center justify-center transition-all ${ext.enabled ? 'border-gray-800 bg-gray-800' : ''}`}>
+                              <div 
+                                key={idx} 
+                                className={`flex items-center justify-between group hover:bg-white p-2 rounded-lg transition-all ${dragState?.index === idx ? 'bg-blue-50 shadow-sm scale-[1.02]' : ''}`}
+                                onPointerDown={(e) => handlePointerDown(e, idx)}
+                              >
+                                <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                  {/* 拖拽手柄 */}
+                                  <div className="drag-handle flex flex-col items-center justify-center w-5 h-8 cursor-grab active:cursor-grabbing touch-none select-none">
+                                    <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                      <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                                      <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                      <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+                                    </svg>
+                                  </div>
+                                  <div 
+                                    className={`w-3 h-3 border border-gray-300 rounded-full flex items-center justify-center transition-all cursor-pointer ${ext.enabled ? 'border-gray-800 bg-gray-800' : ''}`}
+                                    onClick={() => toggleExtension(idx)}
+                                  >
                                     {ext.enabled && <svg className="w-2 h-2 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                                   </div>
-                                  <span className={`text-xs font-serif truncate transition-colors ${ext.enabled ? 'text-gray-800' : 'text-gray-400'}`}>{ext.name}</span>
+                                  <span 
+                                    className={`text-xs font-serif truncate transition-colors cursor-pointer ${ext.enabled ? 'text-gray-800' : 'text-gray-400'}`}
+                                    onClick={() => toggleExtension(idx)}
+                                  >{ext.name}</span>
                                 </div>
                                 <button 
                                   onClick={(e) => {
@@ -560,20 +751,92 @@ const OfflineChat = () => {
               </div>
             </div>
           ) : (
-            offlineMessages.map(message => (
-              <div key={message.id} className="mb-2">
-                <OfflineMessageBubble
-                  message={message}
-                  characterName={chatState.character!.nickname || chatState.character!.realName}
-                  characterAvatar={chatState.character!.avatar}
-                  chatId={id}
-                  onBranchSelect={setInputValue}
-                  onEdit={handleEditMessage}
-                  onDelete={handleDeleteMessage}
-                  onReroll={handleRerollMessage}
-                />
-              </div>
-            ))
+            <>
+              {/* 🔥 按章节渲染消息 */}
+              {messageChapters.map((chapter, chapterIdx) => {
+                const isCollapsed = collapsedChapters.has(chapterIdx)
+                const isLastChapter = chapterIdx === messageChapters.length - 1
+                
+                // 总结消息特殊渲染
+                if (chapter.isSummary) {
+                  return (
+                    <div key={`summary-${chapterIdx}`} className="my-6">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+                        <div className="px-4 py-2 bg-white/80 rounded-full border border-gray-100 shadow-sm">
+                          <span className="text-xs text-gray-500 font-serif tracking-wide">
+                            ✧ {chapter.title} ✧
+                          </span>
+                        </div>
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+                      </div>
+                    </div>
+                  )
+                }
+                
+                // 普通章节
+                return (
+                  <div key={`chapter-${chapterIdx}`} className="mb-4">
+                    {/* 章节折叠按钮（非最后一个章节才显示） */}
+                    {!isLastChapter && (
+                      <button
+                        onClick={() => toggleChapterCollapse(chapterIdx)}
+                        className="w-full py-2.5 px-4 mb-3 bg-white/60 hover:bg-white rounded-xl border border-gray-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <svg 
+                          className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        <span className="text-xs text-gray-500 font-serif tracking-wide">
+                          {isCollapsed ? `展开 ${chapter.title} (${chapter.messages.length} 条)` : `收起 ${chapter.title}`}
+                        </span>
+                      </button>
+                    )}
+                    
+                    {/* 章节内容 */}
+                    {(!isCollapsed || isLastChapter) && (
+                      <div className={`space-y-2 ${!isLastChapter ? 'opacity-90' : ''}`}>
+                        {chapter.messages.map(message => (
+                          <div key={message.id} className="mb-2">
+                            <OfflineMessageBubble
+                              message={message}
+                              characterName={chatState.character!.nickname || chatState.character!.realName}
+                              characterAvatar={chatState.character!.avatar}
+                              chatId={id}
+                              onBranchSelect={setInputValue}
+                              onEdit={handleEditMessage}
+                              onDelete={handleDeleteMessage}
+                              onReroll={handleRerollMessage}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              
+              {/* 🔥 开启新话题按钮 */}
+              {offlineMessages.length > 0 && (
+                <div className="mt-8 mb-4">
+                  <button
+                    onClick={handleStartNewTopic}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-gray-50 to-white hover:from-white hover:to-gray-50 rounded-2xl border border-dashed border-gray-200 hover:border-gray-300 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-xs text-gray-500 group-hover:text-gray-700 font-serif tracking-wide transition-colors">
+                      开启新章节
+                    </span>
+                  </button>
+                </div>
+              )}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>

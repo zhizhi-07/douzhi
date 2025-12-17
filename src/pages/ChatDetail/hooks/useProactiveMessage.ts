@@ -144,6 +144,7 @@ export const useProactiveMessage = ({
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
       let enableTheatreCards = false // 默认关闭
       let characterIndependence = false // 默认关闭
+      let htmlTheatreMode: 'off' | 'always' | 'smart' = 'off' // 小剧场模式
       let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
       
       if (chatSettingsRaw) {
@@ -151,6 +152,7 @@ export const useProactiveMessage = ({
           const parsed = JSON.parse(chatSettingsRaw)
           enableTheatreCards = parsed.enableTheatreCards ?? false
           characterIndependence = parsed.characterIndependence ?? false
+          htmlTheatreMode = parsed.htmlTheatreMode ?? 'off'
           
           // 🎭 读取面具设置
           if (parsed.useMask && parsed.maskId) {
@@ -172,7 +174,7 @@ export const useProactiveMessage = ({
       }
       
       // 使用主API生成消息
-      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards, characterIndependence, false, maskInfo)
+      const systemPrompt = await buildSystemPrompt(character, '用户', messages, enableTheatreCards, characterIndependence, false, maskInfo, htmlTheatreMode)
       // 使用用户设置的消息条数，而不是硬编码50条
       const recentMessages = getRecentMessages(messages, chatId)
       const apiMessages = convertToApiMessages(recentMessages)

@@ -26,6 +26,11 @@ const ScreenSettings = () => {
     return parseInt(localStorage.getItem('screen_bottom_offset') || '0')
   })
 
+  // 自适应桌面开关
+  const [adaptiveDesktop, setAdaptiveDesktop] = useState(() => {
+    return localStorage.getItem('adaptive_desktop') === 'true'
+  })
+
   // 保存设置
   useEffect(() => {
     localStorage.setItem('screen_top_offset', String(topOffset))
@@ -34,6 +39,12 @@ const ScreenSettings = () => {
     // 触发全局事件，让App重新渲染
     window.dispatchEvent(new CustomEvent('screenSettingsChanged'))
   }, [topOffset, bottomOffset])
+
+  // 保存自适应桌面设置
+  useEffect(() => {
+    localStorage.setItem('adaptive_desktop', String(adaptiveDesktop))
+    window.dispatchEvent(new CustomEvent('adaptiveDesktopChanged'))
+  }, [adaptiveDesktop])
 
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans">
@@ -119,6 +130,31 @@ const ScreenSettings = () => {
                 className="text-blue-500 hover:text-blue-600 font-sans"
               >重置</button>
               <span>+100</span>
+            </div>
+          </div>
+
+          {/* 自适应桌面 */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium text-slate-800">自适应桌面</h3>
+                <p className="text-xs text-slate-500 mt-0.5 font-light">开启后桌面图标使用流式布局，适配各种屏幕尺寸</p>
+              </div>
+              <button
+                onClick={() => {
+                  setAdaptiveDesktop(!adaptiveDesktop)
+                  playSystemSound()
+                }}
+                className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                  adaptiveDesktop ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                    adaptiveDesktop ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

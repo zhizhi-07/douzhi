@@ -42,6 +42,11 @@ export function setAIStatus(status: AIStatus): void {
     status.updatedAt = Date.now()
     localStorage.setItem(key, JSON.stringify(status))
     console.log('💫 AI状态已更新:', status)
+    
+    // 🔥 触发事件通知心声卡片更新
+    window.dispatchEvent(new CustomEvent('aiStatusUpdated', {
+      detail: { characterId: status.characterId, status }
+    }))
   } catch (error) {
     console.error('设置AI状态失败:', error)
   }
@@ -179,15 +184,38 @@ export function extractStatusFromReply(reply: string, characterId: string): AISt
   // 解析新格式：[状态:地点|服装:xxx|心理:xxx|动作:xxx]
   let location = ''
   let outfit = currentStatus?.outfit || ''
-  let mood = currentStatus?.mood || ''
+  let mood = '' // 🔥 心理必须每轮更新，不继承旧值
   let action = ''
+  
+  // 🔥 过滤函数：过滤掉"同上"等无效内容，以及前缀标签
+  const filterInvalid = (text: string): string => {
+    const invalidPatterns = ['同上', '不变', '同前', '无变化', '保持不变', '如上']
+    let trimmed = text.trim()
+    
+    // 🔥 过滤掉前缀标签（地点:、动作:等）
+    const prefixPatterns = ['地点:', '地点：', '动作:', '动作：', '服装:', '服装：', '心理:', '心理：']
+    for (const prefix of prefixPatterns) {
+      if (trimmed.startsWith(prefix)) {
+        trimmed = trimmed.slice(prefix.length).trim()
+      }
+    }
+    
+    for (const pattern of invalidPatterns) {
+      if (trimmed === pattern || trimmed.includes(pattern)) {
+        return ''
+      }
+    }
+    return trimmed
+  }
   
   // 按 | 分割
   const parts = fullContent.split('|')
   
   // 第一部分是地点
   if (parts.length > 0) {
-    location = parts[0].trim()
+    location = filterInvalid(parts[0])
+    // 如果地点被过滤了，用旧值
+    if (!location) location = currentStatus?.location || ''
   }
   
   // 解析其他部分
@@ -197,35 +225,44 @@ export function extractStatusFromReply(reply: string, characterId: string): AISt
     // 服装
     const outfitMatch = part.match(/^服装[:：](.+)$/)
     if (outfitMatch) {
-      outfit = outfitMatch[1].trim()
+      const newOutfit = filterInvalid(outfitMatch[1])
+      if (newOutfit) outfit = newOutfit
       continue
     }
     
-    // 心理
+    // 心理 - 🔥 必须有新内容
     const moodMatch = part.match(/^心理[:：](.+)$/)
     if (moodMatch) {
-      mood = moodMatch[1].trim()
+      mood = filterInvalid(moodMatch[1])
       continue
     }
     
     // 动作
     const actionMatch = part.match(/^动作[:：](.+)$/)
     if (actionMatch) {
-      action = actionMatch[1].trim()
+      const newAction = filterInvalid(actionMatch[1])
+      if (newAction) action = newAction
       continue
     }
     
     // 兼容旧格式：行程
     const scheduleMatch = part.match(/^行程[:：](.+)$/)
     if (scheduleMatch) {
-      action = scheduleMatch[1].trim()
+      const newAction = filterInvalid(scheduleMatch[1])
+      if (newAction) action = newAction
       continue
     }
   }
   
   // 如果没有动作，用整个内容作为动作（兼容旧格式）
   if (!action && parts.length === 1) {
-    action = fullContent
+    action = filterInvalid(fullContent)
+  }
+  
+  // 🔥 心理为空时，保留旧值但打印警告
+  if (!mood) {
+    console.warn('⚠️ [AI状态] 心理字段为空或无效，AI没有更新心声！')
+    mood = currentStatus?.mood || ''
   }
   
   return {

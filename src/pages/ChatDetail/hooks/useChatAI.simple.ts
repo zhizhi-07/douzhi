@@ -72,6 +72,7 @@ export const useSimpleChatAI = (
       const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
       let enableTheatreCards = false // 默认关闭
       let characterIndependence = false // 默认关闭
+      let htmlTheatreMode: 'off' | 'always' | 'smart' = 'off' // 小剧场模式
       let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
       
       if (chatSettingsRaw) {
@@ -79,6 +80,7 @@ export const useSimpleChatAI = (
           const parsed = JSON.parse(chatSettingsRaw)
           enableTheatreCards = parsed.enableTheatreCards ?? false
           characterIndependence = parsed.characterIndependence ?? false
+          htmlTheatreMode = parsed.htmlTheatreMode ?? 'off'
           
           // 🎭 读取面具设置
           if (parsed.useMask && parsed.maskId) {
@@ -99,7 +101,7 @@ export const useSimpleChatAI = (
         }
       }
       
-      const systemPrompt = await buildSystemPrompt(character, '用户', allMessages, enableTheatreCards, characterIndependence, false, maskInfo)
+      const systemPrompt = await buildSystemPrompt(character, '用户', allMessages, enableTheatreCards, characterIndependence, false, maskInfo, htmlTheatreMode)
       const apiResponse = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings,

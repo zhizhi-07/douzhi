@@ -2,6 +2,7 @@
 // 🔥 现在使用 IndexedDB 存储，解决 localStorage 配额限制
 
 import * as CharacterManager from '../utils/characterManager'
+import { forceReloadCharacters } from '../utils/characterManager'
 
 
 export interface Character {
@@ -80,6 +81,16 @@ export const characterService = {
   // 🔥 新增：检查是否已加载
   isLoaded: (): boolean => {
     return isLoaded
+  },
+
+  // 🔥🔥🔥 新增：强制重新加载角色（用于角色丢失恢复）
+  forceReload: async (): Promise<Character[]> => {
+    console.log('🔄 [characterService] 强制重新加载角色...')
+    const characters = await forceReloadCharacters()
+    charactersCache = characters || []
+    isLoaded = true
+    console.log(`✅ [characterService] 重新加载了 ${charactersCache.length} 个角色`)
+    return charactersCache
   },
 
   // 保存角色

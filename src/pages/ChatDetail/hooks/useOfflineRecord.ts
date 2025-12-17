@@ -68,7 +68,8 @@ export const useOfflineRecord = (
     
     const updatedMessages = messages.filter(m => m.id !== messageId)
     setMessages(updatedMessages)
-    saveMessages(chatId, updatedMessages)
+    // 🔥 关键：删除操作必须用 forceOverwrite=true，否则会被智能合并恢复
+    saveMessages(chatId, updatedMessages, true)
     console.log('🗑️ 线下记录已删除:', messageId)
     
     // 关闭对话框

@@ -12,6 +12,7 @@
 
 import type { ForumTopic } from '../types/forum'
 import { createPost, createComment, updatePost } from './forumManager'
+import { getInstagramSettings } from '../pages/InstagramSettings'
 
 // ==================== 类型定义 ====================
 
@@ -66,8 +67,22 @@ async function generateCompleteEcosystem(topic: ForumTopic): Promise<EcosystemDa
   
   const api = getConfiguredAPI()
   
-  const systemPrompt = `你是一个论坛生态系统生成器。根据话题一次性生成完整的讨论内容。
+  // 获取世界观设定
+  const instagramSettings = getInstagramSettings()
+  const worldview = instagramSettings.worldview?.trim() || ''
+  const worldviewPrompt = worldview ? `
 
+## 🌍 论坛世界观设定（非常重要！所有内容必须符合这个世界观）
+${worldview}
+
+**⚠️ 世界观规则：**
+- 所有帖子和评论都必须符合这个世界观
+- 用词、称呼、话题都要符合世界观设定
+- 帖子内容、语气都要与世界观一致
+` : ''
+
+  const systemPrompt = `你是一个论坛生态系统生成器。根据话题一次性生成完整的讨论内容。
+${worldviewPrompt}
 任务：
 1. 随机创造5-8个虚拟角色（不要用固定角色，每次都不同）
 2. 每个角色根据性格发一个帖子（100-300字）

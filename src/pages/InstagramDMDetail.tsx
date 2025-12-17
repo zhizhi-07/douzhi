@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MoreHorizontal, Phone, Mic, Smile, Play, Pause } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Phone, Mic, Smile, Play, Pause, Trash2, X, Check } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
-import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, sendVoiceFromUser, getDMConversations, type DMMessage } from '../utils/instagramDM'
+import { getDMMessages, getDMMessagesAsync, sendDMFromUser, sendDMToUser, markDMAsRead, sendEmojiFromUser, sendVoiceFromUser, getDMConversations, clearDMMessages, deleteDMMessages, preloadDMData, type DMMessage } from '../utils/instagramDM'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import EmojiPanel from '../components/EmojiPanel'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
@@ -37,6 +37,11 @@ const InstagramDMDetail = () => {
   // 播放中的语音ID
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null)
   const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // 菜单和选择模式
+  const [showMenu, setShowMenu] = useState(false)
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!npcId) return
@@ -54,6 +59,8 @@ const InstagramDMDetail = () => {
     }
 
     const loadData = async () => {
+      // 🔥 先预加载IndexedDB数据
+      await preloadDMData()
       // Load user info with avatar
       const info = await getUserInfoWithAvatar()
       setUserInfo(info)
@@ -142,13 +149,13 @@ const InstagramDMDetail = () => {
 
   // 🔥 构建论坛私聊专用提示词
   const buildDMSystemPrompt = async () => {
-    if (!character) return ''
-
     const userName = userInfo.realName || userInfo.nickname || '用户'
     const userNickname = userInfo.nickname || userInfo.realName || '用户'
-    const charName = character.nickname || character.realName
-    const personality = character.personality || '普通人'
-    const signature = (character as any).signature || ''
+    
+    // 如果是AI角色，使用角色人设
+    const charName = character?.nickname || character?.realName || npcName || '网友'
+    const personality = character?.personality || '普通网友，说话随意自然'
+    const signature = (character as any)?.signature || ''
 
     const now = new Date()
     const hour = now.getHours()
@@ -187,7 +194,7 @@ const InstagramDMDetail = () => {
 【你的人设】
 - 性格、说话方式：${personality}
 - 个性签名：${signature || '（暂无签名）'}
-${(character as any).isPublicFigure ? `
+${(character as any)?.isPublicFigure ? `
 **你是公众人物**：
 - 外在形象：${(character as any).publicPersona || '知名人物'}
 - 私聊时可以更真实` : ''}
@@ -205,9 +212,9 @@ ${userInfo.signature ? `- TA 的个性签名：${userInfo.signature}` : ''}
 ${emojiPrompt}${forumContextPrompt}`
   }
 
-  // AI主动回复
+  // AI主动回复（支持AI角色和NPC网友）
   const handleAIReply = async () => {
-    if (!npcId || !character) return
+    if (!npcId) return
     setIsAiReplying(true)
 
     try {
@@ -396,13 +403,53 @@ ${emojiPrompt}${forumContextPrompt}`
             </div>
           </div>
 
-          <div className="flex items-center gap-5 pr-1">
+          <div className="flex items-center gap-5 pr-1 relative">
             <button className="active:opacity-60 text-slate-900">
               <Phone className="w-[26px] h-[26px] stroke-[1.5]" />
             </button>
-            <button className="active:opacity-60 text-slate-900">
+            <button 
+              onClick={() => setShowMenu(!showMenu)}
+              className="active:opacity-60 text-slate-900"
+            >
               <MoreHorizontal className="w-[26px] h-[26px] stroke-[1.5]" />
             </button>
+            
+            {/* 下拉菜单 */}
+            {showMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-40">
+                  <button
+                    onClick={() => {
+                      setIsSelectMode(true)
+                      setShowMenu(false)
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                  >
+                    <Check className="w-5 h-5 text-gray-400" />
+                    选择消息删除
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('确定要清除全部聊天记录吗？此操作不可恢复！')) {
+                        if (npcId) {
+                          clearDMMessages(npcId)
+                          setMessages([])
+                        }
+                      }
+                      setShowMenu(false)
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-red-50 flex items-center gap-3"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    清除全部记录
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -439,6 +486,27 @@ ${emojiPrompt}${forumContextPrompt}`
                   )}
 
                   <div className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} group mb-4`}>
+                    {/* 选择模式的复选框 */}
+                    {isSelectMode && (
+                      <button
+                        onClick={() => {
+                          const newSet = new Set(selectedMsgIds)
+                          if (newSet.has(msg.id)) {
+                            newSet.delete(msg.id)
+                          } else {
+                            newSet.add(msg.id)
+                          }
+                          setSelectedMsgIds(newSet)
+                        }}
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-2 flex-shrink-0 self-center transition-all ${
+                          selectedMsgIds.has(msg.id) 
+                            ? 'bg-red-500 border-red-500' 
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {selectedMsgIds.has(msg.id) && <Check className="w-4 h-4 text-white" />}
+                      </button>
+                    )}
                     <div className={`flex max-w-[70%] ${msg.isFromUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
                       {/* 头像 */}
                       <div className="flex-shrink-0 w-8 h-8 mt-1">
@@ -472,9 +540,9 @@ ${emojiPrompt}${forumContextPrompt}`
                         {msg.type === 'voice' ? (
                           // 语音消息 - 紧凑版
                           <div
-                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-all active:scale-95 ${msg.isFromUser
-                              ? 'bg-[#3797F0] text-white rounded-[20px] rounded-tr-sm shadow-sm'
-                              : 'bg-white border border-gray-100 text-black rounded-[20px] rounded-tl-sm shadow-sm'
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-all active:scale-95 shadow-sm ${msg.isFromUser
+                              ? 'bg-[#5B6EF5] text-white rounded-[20px] rounded-tr-md'
+                              : 'bg-white border border-gray-100 text-gray-800 rounded-[20px] rounded-tl-md'
                             }`}
                             style={{ minWidth: '100px', maxWidth: '240px' }}
                             onClick={() => handlePlayVoice(msg.id, msg.voiceDuration || 1)}
@@ -522,15 +590,15 @@ ${emojiPrompt}${forumContextPrompt}`
                           />
                         ) : (
                           <div
-                            className={`px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap ${msg.isFromUser
-                              ? 'bg-[#3797F0] text-white rounded-[20px] rounded-tr-sm'
-                              : 'bg-[#EFEFEF] text-black rounded-[20px] rounded-tl-sm'
+                            className={`px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap shadow-sm ${msg.isFromUser
+                              ? 'bg-[#5B6EF5] text-white rounded-[20px] rounded-tr-md'
+                              : 'bg-white border border-gray-100 text-gray-800 rounded-[20px] rounded-tl-md'
                               }`}
                           >
                             <EmojiContentRenderer
                               content={msg.content}
                               emojiSize={18}
-                              className={msg.isFromUser ? 'text-white' : 'text-black'}
+                              className={msg.isFromUser ? 'text-white' : 'text-gray-800'}
                             />
                           </div>
                         )}
@@ -555,7 +623,7 @@ ${emojiPrompt}${forumContextPrompt}`
         {/* AI正在输入 */}
         {isAiReplying && (
           <div className="flex items-end gap-2 mt-4 ml-9">
-            <div className="bg-[#EFEFEF] px-4 py-3 rounded-[22px] rounded-bl-md">
+            <div className="bg-white border border-gray-100 shadow-sm px-4 py-3 rounded-[20px] rounded-tl-md">
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -568,49 +636,90 @@ ${emojiPrompt}${forumContextPrompt}`
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* 底部输入区域 */}
-      <div className="bg-white/70 backdrop-blur-xl px-4 py-3 safe-area-inset-bottom">
-        <div className="flex items-center gap-3">
-          <div className={`flex-1 rounded-full flex items-center px-4 py-2.5 min-h-[44px] ${
-            isVoiceMode ? 'bg-green-50 border border-green-200' : 'bg-[#EFEFEF]'
-          }`}>
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={isVoiceMode ? "输入语音内容..." : "发消息..."}
-              className="flex-1 bg-transparent outline-none text-[15px] text-slate-900 placeholder-gray-500"
-            />
-            {inputText.trim() ? (
-              <button
-                onClick={handleSend}
-                className={`ml-2 font-semibold text-sm transition-colors ${
-                  isVoiceMode ? 'text-green-600 hover:text-green-700' : 'text-[#3797F0] hover:text-blue-600'
-                }`}
-              >
-                {isVoiceMode ? '发送语音' : '发送'}
-              </button>
-            ) : (
-              <div className="flex items-center gap-3 ml-2">
-                {/* 语音模式切换按钮 - 在右边 */}
-                <button 
-                  onClick={() => setIsVoiceMode(!isVoiceMode)}
-                  className={`transition-colors ${isVoiceMode ? 'text-[#3797F0]' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                  <Mic className="w-6 h-6 stroke-[1.5]" />
-                </button>
-                <button
-                  onClick={() => setShowEmojiPanel(true)}
-                  className="text-gray-500 hover:text-gray-900"
-                >
-                  <Smile className="w-6 h-6 stroke-[1.5]" />
-                </button>
-              </div>
-            )}
+      {/* 底部输入区域 / 选择模式操作栏 */}
+      {isSelectMode ? (
+        <div className="bg-white border-t border-gray-100 px-4 py-3 safe-area-inset-bottom">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                setIsSelectMode(false)
+                setSelectedMsgIds(new Set())
+              }}
+              className="px-4 py-2 text-gray-600 font-medium"
+            >
+              <X className="w-5 h-5 inline mr-1" />
+              取消
+            </button>
+            <span className="text-sm text-gray-500">
+              已选择 {selectedMsgIds.size} 条
+            </span>
+            <button
+              onClick={() => {
+                if (selectedMsgIds.size > 0 && npcId) {
+                  if (confirm(`确定要删除选中的 ${selectedMsgIds.size} 条消息吗？`)) {
+                    const newMessages = deleteDMMessages(npcId, Array.from(selectedMsgIds))
+                    setMessages(newMessages)
+                    setSelectedMsgIds(new Set())
+                    setIsSelectMode(false)
+                  }
+                }
+              }}
+              disabled={selectedMsgIds.size === 0}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                selectedMsgIds.size > 0 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-200 text-gray-400'
+              }`}
+            >
+              <Trash2 className="w-5 h-5 inline mr-1" />
+              删除
+            </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white/70 backdrop-blur-xl px-4 py-3 safe-area-inset-bottom">
+          <div className="flex items-center gap-3">
+            <div className={`flex-1 rounded-full flex items-center px-4 py-2.5 min-h-[44px] ${
+              isVoiceMode ? 'bg-green-50 border border-green-200' : 'bg-[#EFEFEF]'
+            }`}>
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isVoiceMode ? "输入语音内容..." : "发消息..."}
+                className="flex-1 bg-transparent outline-none text-[15px] text-slate-900 placeholder-gray-500"
+              />
+              {inputText.trim() ? (
+                <button
+                  onClick={handleSend}
+                  className={`ml-2 font-semibold text-sm transition-colors ${
+                    isVoiceMode ? 'text-green-600 hover:text-green-700' : 'text-[#5B6EF5] hover:text-[#4A5BD4]'
+                  }`}
+                >
+                  {isVoiceMode ? '发送语音' : '发送'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 ml-2">
+                  {/* 语音模式切换按钮 - 在右边 */}
+                  <button 
+                    onClick={() => setIsVoiceMode(!isVoiceMode)}
+                    className={`transition-colors ${isVoiceMode ? 'text-[#5B6EF5]' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    <Mic className="w-6 h-6 stroke-[1.5]" />
+                  </button>
+                  <button
+                    onClick={() => setShowEmojiPanel(true)}
+                    className="text-gray-500 hover:text-gray-900"
+                  >
+                    <Smile className="w-6 h-6 stroke-[1.5]" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 表情包面板 */}
       <EmojiPanel

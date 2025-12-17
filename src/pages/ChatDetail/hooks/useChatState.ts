@@ -59,14 +59,22 @@ export const useChatState = (chatId: string) => {
     // 等待加载完成
     await characterService.waitForLoad()
     
-    const char = characterService.getById(chatId)
+    let char = characterService.getById(chatId)
+    
+    // 🔥🔥🔥 关键修复：如果角色不存在，尝试强制重新加载
+    if (!char) {
+      console.warn(`⚠️ 刷新角色时不存在，尝试强制重新加载，ID: ${chatId}`)
+      await characterService.forceReload()
+      char = characterService.getById(chatId)
+    }
+    
     if (char) {
       setCharacter(char)
       if (import.meta.env.DEV) {
         console.log('🔄 角色信息已刷新:', char.nickname || char.realName)
       }
     } else {
-      console.warn(`⚠️ 刷新角色失败，ID: ${chatId}`)
+      console.warn(`⚠️ 刷新角色失败（重新加载后仍不存在），ID: ${chatId}`)
     }
   }, [chatId])
   
@@ -306,14 +314,22 @@ export const useChatState = (chatId: string) => {
       
       if (!mounted) return // 组件已卸载，停止执行
       
-      const char = characterService.getById(chatId)
+      let char = characterService.getById(chatId)
+      
+      // 🔥🔥🔥 关键修复：如果角色不存在，尝试强制重新加载
+      if (!char) {
+        console.warn(`⚠️ 角色不存在，尝试强制重新加载，ID: ${chatId}`)
+        await characterService.forceReload()
+        char = characterService.getById(chatId)
+      }
+      
       if (char) {
         setCharacter(char)
         // if (import.meta.env.DEV) {
         //   console.log('✅ 角色加载成功:', char.nickname || char.realName)
         // }
       } else {
-        console.error(`❌ 角色不存在，ID: ${chatId}`)
+        console.error(`❌ 角色不存在（重新加载后仍不存在），ID: ${chatId}`)
         setError(`角色不存在: ${chatId}`)
       }
     }

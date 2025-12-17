@@ -5,6 +5,7 @@ import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import InstagramEditProfile from '../components/InstagramEditProfile'
 import { getNPCById, getAllPostsAsync } from '../utils/forumNPC'
+import { saveBackground, getBackground } from '../utils/backgroundStorage'
 import { getUserData, initUserData, followNPC, unfollowNPC, isFollowingNPC } from '../utils/forumUser'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import { getAllCharacters } from '../utils/characterManager'
@@ -54,11 +55,13 @@ const InstagramProfile = () => {
     const info = await getUserInfoWithAvatar()
     setUserInfo(info)
 
-    // 尝试读取壁纸
-    const savedWallpaper = localStorage.getItem(`profile-wallpaper-${userId || 'user'}`)
-    if (savedWallpaper) {
-      setWallpaper(savedWallpaper)
-    }
+    // 尝试读取壁纸（从IndexedDB）
+    const bgKey = `profile-wallpaper-${userId || 'user'}`
+    getBackground(bgKey).then(savedWallpaper => {
+      if (savedWallpaper) {
+        setWallpaper(savedWallpaper)
+      }
+    })
 
     // 尝试读取公众人物标签
     if (userId) {
@@ -218,16 +221,13 @@ ${charInfo.join('\n')}
     }
   }
 
-  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWallpaperChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const result = event.target?.result as string
-        setWallpaper(result)
-        localStorage.setItem(`profile-wallpaper-${userId || 'user'}`, result)
-      }
-      reader.readAsDataURL(file)
+      const bgKey = `profile-wallpaper-${userId || 'user'}`
+      // 保存到IndexedDB
+      const url = await saveBackground(bgKey, file)
+      setWallpaper(url)
     }
   }
 

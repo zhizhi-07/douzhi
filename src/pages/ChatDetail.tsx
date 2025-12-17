@@ -656,6 +656,80 @@ const ChatDetail = () => {
     const isUserMessage = message.type === 'sent'
     const originalMessageType = message.type === 'sent' ? 'sent' as const : 'received' as const
 
+    // 🔥 生成更详细的撤回内容描述，让AI能理解撤回了什么
+    const getRecalledContentDescription = (msg: Message): string => {
+      // 情侣空间邀请
+      if (msg.coupleSpaceInvite) {
+        return `[情侣空间邀请] 发起人:${msg.coupleSpaceInvite.senderName} 状态:${msg.coupleSpaceInvite.status}`
+      }
+      // 亲密付
+      if (msg.intimatePay) {
+        return `[亲密付邀请] 额度:${msg.intimatePay.monthlyLimit}元 状态:${msg.intimatePay.status}`
+      }
+      // 表情包
+      if (msg.emoji) {
+        return `[表情包] ${msg.emoji.name}: ${msg.emoji.description}`
+      }
+      // 小剧场
+      if (msg.theatre) {
+        return `[小剧场卡片] ${msg.theatre.templateName}: ${msg.theatre.rawData}`
+      }
+      // 中插HTML小剧场
+      if (msg.messageType === 'theatre-html') {
+        return `[中插HTML小剧场] ${msg.content?.substring(0, 100) || 'HTML卡片'}`
+      }
+      // 转账
+      if (msg.transfer) {
+        return `[转账] ${msg.transfer.amount}元 ${msg.transfer.message || ''} 状态:${msg.transfer.status}`
+      }
+      // 语音
+      if (msg.voiceText || msg.messageType === 'voice') {
+        return `[语音消息] ${msg.voiceText || '语音'} 时长:${msg.duration || 0}秒`
+      }
+      // 照片
+      if (msg.photoDescription || msg.messageType === 'photo') {
+        return `[照片] ${msg.photoDescription || '图片'}`
+      }
+      // 位置
+      if (msg.location) {
+        return `[位置] ${msg.location.name}: ${msg.location.address}`
+      }
+      // 音乐邀请
+      if (msg.musicInvite) {
+        return `[一起听邀请] ${msg.musicInvite.songTitle} - ${msg.musicInvite.songArtist}`
+      }
+      // 音乐分享
+      if (msg.musicShare) {
+        return `[音乐分享] ${msg.musicShare.songTitle} - ${msg.musicShare.songArtist}`
+      }
+      // 代付请求
+      if (msg.paymentRequest) {
+        return `[代付请求] ${msg.paymentRequest.itemName} ${msg.paymentRequest.amount}元`
+      }
+      // 商品卡片
+      if (msg.productCard) {
+        return `[商品] ${msg.productCard.name} ${msg.productCard.price}元`
+      }
+      // 帖子
+      if (msg.post) {
+        return `[帖子] ${msg.post.prompt || msg.post.content?.substring(0, 50)}`
+      }
+      // 拍一拍
+      if (msg.poke) {
+        return `[拍一拍] ${msg.poke.fromName}拍了拍${msg.poke.toName}${msg.poke.suffix || ''}`
+      }
+      // 购物车
+      if (msg.shoppingCart) {
+        return `[购物车] ${msg.shoppingCart.items.length}件商品 共${msg.shoppingCart.totalAmount}元`
+      }
+      // 名片
+      if (msg.contactCard) {
+        return `[名片] ${msg.contactCard.characterName}`
+      }
+      // 普通文本
+      return msg.content || '消息'
+    }
+
     // 从IndexedDB加载消息
     const messages = loadMessages(id || '')
     const updatedMessages = messages.map(msg =>
@@ -663,10 +737,12 @@ const ChatDetail = () => {
         ? {
           ...msg,
           isRecalled: true,
-          recalledContent: msg.content || msg.voiceText || msg.photoDescription || msg.location?.name || '特殊消息',
+          recalledContent: getRecalledContentDescription(msg),
           recallReason: '',
           originalType: originalMessageType,
           content: isUserMessage ? '你撤回了一条消息' : (chatState.character?.realName || '对方') + '撤回了一条消息',
+          // 🔥 添加AI可读内容，让AI知道撤回了什么
+          aiReadableContent: `[撤回消息] ${isUserMessage ? '用户' : chatState.character?.realName || '对方'}撤回了: ${getRecalledContentDescription(msg)}`,
           type: 'system' as const,
           messageType: 'system' as const
         }
@@ -1130,84 +1206,212 @@ const ChatDetail = () => {
 
                   // 🔥 忙碌/不回消息卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'busy') {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
                     return (
-                      <div key={message.id}>
-                        {shouldShow5MinTimestamp && (
-                          <div className="flex justify-center my-2">
-                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      <div 
+                        key={message.id}
+                        className="flex items-start gap-2"
+                      >
+                        {/* 多选复选框 */}
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </div>
                           </div>
                         )}
-                        <SpecialMessageRenderer
-                          message={message}
-                          characterId={chatState.character?.id || ''}
-                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                          characterAvatar={chatState.character?.avatar}
-                        />
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <SpecialMessageRenderer
+                            message={message}
+                            characterId={chatState.character?.id || ''}
+                            characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                            characterAvatar={chatState.character?.avatar}
+                          />
+                        </div>
                       </div>
                     )
                   }
 
                   // 🎭 中插HTML小剧场卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'theatre-html') {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
                     return (
-                      <div key={message.id}>
-                        {shouldShow5MinTimestamp && (
-                          <div className="flex justify-center my-2">
-                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      <div 
+                        key={message.id}
+                        className="flex items-start gap-2"
+                      >
+                        {/* 多选复选框 */}
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </div>
                           </div>
                         )}
-                        <SpecialMessageRenderer
-                          message={message}
-                          characterId={chatState.character?.id || ''}
-                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                          characterAvatar={chatState.character?.avatar}
-                        />
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <SpecialMessageRenderer
+                            message={message}
+                            characterId={chatState.character?.id || ''}
+                            characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                            characterAvatar={chatState.character?.avatar}
+                          />
+                        </div>
                       </div>
                     )
                   }
 
                   // 🎯 默契游戏结果卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'tacitGameResult' && message.tacitGameResult) {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
                     return (
-                      <div key={message.id}>
-                        {shouldShow5MinTimestamp && (
-                          <div className="flex justify-center my-2">
-                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      <div 
+                        key={message.id}
+                        className="flex items-start gap-2"
+                      >
+                        {/* 多选复选框 */}
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </div>
                           </div>
                         )}
-                        <SpecialMessageRenderer
-                          message={message}
-                          characterId={chatState.character?.id || ''}
-                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                          characterAvatar={chatState.character?.avatar}
-                        />
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <SpecialMessageRenderer
+                            message={message}
+                            characterId={chatState.character?.id || ''}
+                            characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                            characterAvatar={chatState.character?.avatar}
+                          />
+                        </div>
                       </div>
                     )
                   }
 
                   // 🛍️ 购买消息卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'purchase' && message.purchaseData) {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
                     return (
-                      <div key={message.id}>
-                        {shouldShow5MinTimestamp && (
-                          <div className="flex justify-center my-2">
-                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      <div 
+                        key={message.id}
+                        className="flex items-start gap-2"
+                      >
+                        {/* 多选复选框 */}
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </div>
                           </div>
                         )}
-                        <SpecialMessageRenderer
-                          message={message}
-                          characterId={chatState.character?.id || ''}
-                          characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
-                          characterAvatar={chatState.character?.avatar}
-                        />
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <SpecialMessageRenderer
+                            message={message}
+                            characterId={chatState.character?.id || ''}
+                            characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                            characterAvatar={chatState.character?.avatar}
+                          />
+                        </div>
                       </div>
                     )
                   }
@@ -1296,7 +1500,14 @@ const ChatDetail = () => {
                         />
                       </div>
 
-                      <div className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}>
+                      <div 
+                        className={'flex flex-col ' + (message.coupleSpaceInvite ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}
+                        onTouchStart={(e) => longPress.handleLongPressStart(message, e)}
+                        onTouchEnd={longPress.handleLongPressEnd}
+                        onMouseDown={(e) => longPress.handleLongPressStart(message, e)}
+                        onMouseUp={longPress.handleLongPressEnd}
+                        onMouseLeave={longPress.handleLongPressEnd}
+                      >
                         {/* 引用消息（显示在所有消息类型上方） */}
                         {message.quotedMessage && (
                           <div className={'mb-1.5 px-2.5 py-1.5 rounded max-w-full ' + (

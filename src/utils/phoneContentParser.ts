@@ -39,6 +39,7 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
     console.log(`📱 [手机解析] 处理段落${index}: ${type}, 总行数: ${lines.length}`)
     
     // 过滤掉标题行、示例行、提示行和空行
+    // 注意：不要过滤掉包含括号的行，因为群聊名称可能包含括号如"班级群 (4)"
     const dataLines = lines.slice(1).filter(l => {
       const trimmed = l.trim()
       return trimmed && 
@@ -50,9 +51,7 @@ export const parsePhoneContent = (text: string, characterId: string, characterNa
         !trimmed.startsWith('歌曲') && 
         !trimmed.startsWith('地点') &&
         !trimmed.includes('|||示例') &&
-        !trimmed.includes('继续生成') &&
-        !trimmed.includes('(') && 
-        !trimmed.includes('）')
+        !trimmed.includes('继续生成')
     })
     
     console.log(`📱 [手机解析] ${type} 有效数据行数: ${dataLines.length}`)

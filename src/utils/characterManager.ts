@@ -57,6 +57,15 @@ function restoreCharactersFromBackup(): Character[] | null {
 }
 
 /**
+ * 🔥 强制重新加载角色（清除缓存后从 IndexedDB 加载）
+ */
+export async function forceReloadCharacters(): Promise<Character[]> {
+  console.log('🔄 [角色管理] 强制重新加载角色...')
+  characterCache = null  // 清除缓存
+  return getAllCharacters()
+}
+
+/**
  * 获取所有角色（异步）
  * 🔥 增强：如果 IndexedDB 为空，尝试从备份恢复
  */
@@ -99,11 +108,14 @@ export async function getAllCharacters(): Promise<Character[]> {
 /**
  * 保存所有角色（异步）
  * 🔥 同时备份到 localStorage
+ * 🔥🔥🔥 关键修复：先更新缓存，再异步保存，防止竞态条件
  */
 export async function saveAllCharacters(characters: Character[]): Promise<void> {
+  // 🔥🔥🔥 关键：立即更新内存缓存，不等 IndexedDB
+  characterCache = characters
+  
   try {
     await IDB.setItem(IDB.STORES.CHARACTERS, 'all', characters)
-    characterCache = characters
     
     // 🔥 同时备份到 localStorage
     backupCharactersToLocalStorage(characters)
@@ -111,6 +123,9 @@ export async function saveAllCharacters(characters: Character[]): Promise<void> 
     console.log('✅ 角色数据已保存到 IndexedDB')
   } catch (error) {
     console.error('保存角色失败:', error)
+    // 🔥 即使 IndexedDB 失败，缓存已更新，至少当前会话不会丢失数据
+    // 同时尝试备份到 localStorage
+    backupCharactersToLocalStorage(characters)
     throw error
   }
 }

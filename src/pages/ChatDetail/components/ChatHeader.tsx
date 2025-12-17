@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import StatusBar from '../../../components/StatusBar'
 import { playSystemSound } from '../../../utils/soundManager'
-import { formatStatusShort } from '../../../utils/aiStatusManager'
+import { getAIStatus, AIStatus } from '../../../utils/aiStatusManager'
 
 interface ChatHeaderProps {
   characterName: string
@@ -24,27 +24,35 @@ interface ChatHeaderProps {
 
 const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClick, onStatusClick, topBarImage, customIcons = {}, topBarScale, topBarX, topBarY }: ChatHeaderProps) => {
   const navigate = useNavigate()
-  const [aiStatus, setAiStatus] = useState<string>('')
+  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null)
 
   // 获取AI状态
   useEffect(() => {
-    const updateStatus = async () => {
-      if (characterId && characterName) {
-        const { getOrCreateAIStatus } = await import('../../../utils/aiStatusManager')
-        const status = getOrCreateAIStatus(characterId, characterName)
-        setAiStatus(status ? formatStatusShort(status) : '在线')
+    const updateStatus = () => {
+      if (characterId) {
+        const status = getAIStatus(characterId)
+        setAiStatus(status)
       }
     }
 
     updateStatus()
 
-    // 每30秒检查一次状态
-    const interval = setInterval(() => {
-      updateStatus()
-    }, 30 * 1000)
+    // 每10秒检查一次状态
+    const interval = setInterval(updateStatus, 10000)
 
-    return () => clearInterval(interval)
-  }, [characterId, characterName])
+    // 监听状态更新事件
+    const handleStatusUpdate = (e: CustomEvent) => {
+      if (e.detail?.characterId === characterId) {
+        updateStatus()
+      }
+    }
+    window.addEventListener('aiStatusUpdated', handleStatusUpdate as EventListener)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('aiStatusUpdated', handleStatusUpdate as EventListener)
+    }
+  }, [characterId])
 
   const handleBack = () => {
     playSystemSound() // 🎵 统一使用通用点击音效
@@ -93,17 +101,19 @@ const ChatHeader = ({ characterName, characterId, isAiTyping, onBack, onMenuClic
           <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap truncate max-w-full">
             {characterName}
           </h1>
-          {/* 状态栏：绿色圆点 + 状态文字 - 可点击查看详情 */}
+          {/* 状态栏：绿色圆点 + 简短状态 - 可点击查看详情 */}
           <button
             onClick={() => {
               playSystemSound()
               onStatusClick?.()
             }}
-            className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 max-w-full btn-press-fast touch-ripple-effect px-2 py-0.5 rounded-full hover:bg-gray-100/50 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 btn-press-fast touch-ripple-effect px-2 py-0.5 rounded-full hover:bg-gray-100/50 transition-colors"
           >
             <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-            <span className="truncate">
-              {isAiTyping ? '正在输入...' : aiStatus}
+            <span className="truncate max-w-[120px]">
+              {isAiTyping ? '正在输入...' : (
+                aiStatus?.location || '在线'
+              )}
             </span>
           </button>
         </div>

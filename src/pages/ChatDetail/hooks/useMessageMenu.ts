@@ -26,7 +26,7 @@ export const useMessageMenu = (
    */
   const handleCopyMessage = useCallback(() => {
     if (!longPressedMessage) return
-    navigator.clipboard.writeText(longPressedMessage.content)
+    navigator.clipboard.writeText(longPressedMessage.content || '')
     console.log('已复制:', longPressedMessage.content)
     // TODO: 显示复制成功提示
   }, [longPressedMessage])
@@ -54,20 +54,16 @@ export const useMessageMenu = (
   
   /**
    * 撤回消息（直接撤回，不需要理由）
+   * 支持撤回所有类型的消息，除了已领取的转账
    */
   const handleRecallMessage = useCallback((onRecall: (message: Message) => void) => {
     if (!longPressedMessage) return
     
-    // 检查是否可以撤回
-    const canRecall = !longPressedMessage.transfer && 
-                     (!longPressedMessage.messageType ||
-                     longPressedMessage.messageType === 'text' ||
-                     longPressedMessage.messageType === 'voice' ||
-                     longPressedMessage.messageType === 'photo' ||
-                     longPressedMessage.messageType === 'location')
+    // 只有已领取的转账不能撤回
+    const isReceivedTransfer = longPressedMessage.transfer?.status === 'received'
     
-    if (!canRecall) {
-      alert('转账等特殊消息不支持撤回')
+    if (isReceivedTransfer) {
+      alert('已领取的转账不支持撤回')
       return
     }
     

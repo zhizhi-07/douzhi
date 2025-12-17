@@ -138,6 +138,20 @@ const Desktop = () => {
   const [timeX, setTimeX] = useState(0)
   const [timeY, setTimeY] = useState(0)
 
+  // 自适应桌面模式
+  const [adaptiveDesktop, setAdaptiveDesktop] = useState(() => {
+    return localStorage.getItem('adaptive_desktop') === 'true'
+  })
+
+  // 监听自适应桌面设置变化
+  useEffect(() => {
+    const handleAdaptiveChange = () => {
+      setAdaptiveDesktop(localStorage.getItem('adaptive_desktop') === 'true')
+    }
+    window.addEventListener('adaptiveDesktopChanged', handleAdaptiveChange)
+    return () => window.removeEventListener('adaptiveDesktopChanged', handleAdaptiveChange)
+  }, [])
+
   // 加载UI图标（时间背景等）
   useEffect(() => {
     const loadUIIcons = async () => {
@@ -373,7 +387,7 @@ const Desktop = () => {
             {/* ========== 第一页 ========== */}
             <div className="min-w-full h-full relative overflow-hidden">
               {/* 黄色 - 时间widget (顶部横条) */}
-              <div className="absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20">
+              <div className={adaptiveDesktop ? "w-[90%] mx-auto pt-[6%] z-20" : "absolute top-[6%] left-1/2 -translate-x-1/2 w-[90%] z-20"}>
                 <div
                   className="text-center p-6 rounded-3xl relative"
                   style={customIcons['desktop-time-bg'] ? {
@@ -396,71 +410,131 @@ const Desktop = () => {
                 </div>
               </div>
 
-              {/* 红色 - 音乐播放器 (左侧) */}
-              <div className="absolute z-10" style={{ top: '35%', left: '6%', width: '160px', height: '160px' }}>
-                <MusicPlayerCard
-                  currentSong={musicPlayer.currentSong ? {
-                    title: musicPlayer.currentSong.title,
-                    artist: musicPlayer.currentSong.artist,
-                    cover: musicPlayer.currentSong.cover
-                  } : undefined}
-                  isPlaying={musicPlayer.isPlaying}
-                  onTogglePlay={() => musicPlayer.togglePlay()}
-                  onNext={() => musicPlayer.next()}
-                  onClick={() => navigate('/music-player')}
-                />
-              </div>
+              {/* 自适应模式：保持原有布局，使用相对尺寸 */}
+              {adaptiveDesktop ? (
+                <>
+                  {/* 音乐播放器 - 使用vw单位自适应 */}
+                  <div className="absolute z-10" style={{ top: '35%', left: '6%', width: '38vw', height: '38vw', maxWidth: '160px', maxHeight: '160px' }}>
+                    <MusicPlayerCard
+                      currentSong={musicPlayer.currentSong ? {
+                        title: musicPlayer.currentSong.title,
+                        artist: musicPlayer.currentSong.artist,
+                        cover: musicPlayer.currentSong.cover
+                      } : undefined}
+                      isPlaying={musicPlayer.isPlaying}
+                      onTogglePlay={() => musicPlayer.togglePlay()}
+                      onNext={() => musicPlayer.next()}
+                      onClick={() => navigate('/music-player')}
+                    />
+                  </div>
 
-              {/* 绿色 - 应用图标 (分散布局) */}
-              {/* 右上区域 - 2x2网格 */}
-              <div className="absolute grid grid-cols-2 gap-4 z-10" style={{ top: '35%', right: '6%' }}>
-                {page1Apps.slice(0, 4).map((app) => {
-                  const isImageIcon = typeof app.icon === 'string'
-                  const customIcon = getCustomIcon(app.id)
-                  const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
+                  {/* 应用图标(2x2) - 使用较小的图标 */}
+                  <div className="absolute grid grid-cols-2 gap-3 z-10" style={{ top: '35%', right: '6%' }}>
+                    {page1Apps.slice(0, 4).map((app) => {
+                      const isImageIcon = typeof app.icon === 'string'
+                      const customIcon = getCustomIcon(app.id)
+                      const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
+                      return (
+                        <div key={app.id} className="flex flex-col items-center gap-1">
+                          {customIcon ? (
+                            <div
+                              className={`w-14 h-14 ${isPNG ? '' : 'rounded-2xl overflow-hidden'} cursor-pointer hover:scale-105 transition-transform`}
+                              onClick={(e) => handleAppClick(e, app)}
+                            >
+                              <img src={customIcon} alt={app.name} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
+                            </div>
+                          ) : isImageIcon ? (
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={(e) => handleAppClick(e, app)}>
+                              <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className={`w-14 h-14 ${app.color} rounded-2xl flex items-center justify-center border border-white/30 cursor-pointer hover:scale-105 transition-transform`} onClick={(e) => handleAppClick(e, app)}>
+                              {React.createElement(app.icon as React.ComponentType<any>, { className: "w-7 h-7 text-gray-300" })}
+                            </div>
+                          )}
+                          <span className="text-[10px] text-gray-700 text-center font-medium">{app.name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* 固定布局模式（原有逻辑） */}
+                  {/* 红色 - 音乐播放器 (左侧) */}
+                  <div className="absolute z-10" style={{ top: '35%', left: '6%', width: '160px', height: '160px' }}>
+                    <MusicPlayerCard
+                      currentSong={musicPlayer.currentSong ? {
+                        title: musicPlayer.currentSong.title,
+                        artist: musicPlayer.currentSong.artist,
+                        cover: musicPlayer.currentSong.cover
+                      } : undefined}
+                      isPlaying={musicPlayer.isPlaying}
+                      onTogglePlay={() => musicPlayer.togglePlay()}
+                      onNext={() => musicPlayer.next()}
+                      onClick={() => navigate('/music-player')}
+                    />
+                  </div>
 
-                  return (
-                    <div
-                      key={app.id}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      {customIcon ? (
-                        // PNG图标不包裹圆角，其他格式包裹圆角
+                  {/* 绿色 - 应用图标 (分散布局) */}
+                  {/* 右上区域 - 2x2网格 */}
+                  <div className="absolute grid grid-cols-2 gap-4 z-10" style={{ top: '35%', right: '6%' }}>
+                    {page1Apps.slice(0, 4).map((app) => {
+                      const isImageIcon = typeof app.icon === 'string'
+                      const customIcon = getCustomIcon(app.id)
+                      const isPNG = customIcon && (customIcon.includes('image/png') || customIcon.toLowerCase().endsWith('.png'))
+
+                      return (
                         <div
-                          className={`w-16 h-16 ${isPNG ? '' : 'rounded-2xl overflow-hidden'} cursor-pointer hover:scale-105 transition-transform`}
-                          style={{ backgroundColor: 'transparent' }}
-                          onClick={(e) => handleAppClick(e, app)}
+                          key={app.id}
+                          className="flex flex-col items-center gap-2"
                         >
-                          <img src={customIcon} alt={app.name} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
+                          {customIcon ? (
+                            // PNG图标不包裹圆角，其他格式包裹圆角
+                            <div
+                              className={`w-16 h-16 ${isPNG ? '' : 'rounded-2xl overflow-hidden'} cursor-pointer hover:scale-105 transition-transform`}
+                              style={{ backgroundColor: 'transparent' }}
+                              onClick={(e) => handleAppClick(e, app)}
+                            >
+                              <img src={customIcon} alt={app.name} className={`w-full h-full ${isPNG ? 'object-contain' : 'object-cover'}`} />
+                            </div>
+                          ) : isImageIcon ? (
+                            <div
+                              className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                              style={{ backgroundColor: 'transparent' }}
+                              onClick={(e) => handleAppClick(e, app)}
+                            >
+                              <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div
+                              className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30 cursor-pointer hover:scale-105 transition-transform`}
+                              onClick={(e) => handleAppClick(e, app)}
+                            >
+                              {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-700 text-center font-medium">
+                            {app.name}
+                          </span>
                         </div>
-                      ) : isImageIcon ? (
-                        <div
-                          className="w-16 h-16 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform"
-                          style={{ backgroundColor: 'transparent' }}
-                          onClick={(e) => handleAppClick(e, app)}
-                        >
-                          <img src={app.icon as string} alt={app.name} className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div
-                          className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center border border-white/30 cursor-pointer hover:scale-105 transition-transform`}
-                          onClick={(e) => handleAppClick(e, app)}
-                        >
-                          {React.createElement(app.icon as React.ComponentType<any>, { className: "w-8 h-8 text-gray-300" })}
-                        </div>
-                      )}
-                      <span className="text-xs text-gray-700 text-center font-medium">
-                        {app.name}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
 
               {/* 蓝色 - 备忘录widget (右下角) - 长按切换4种模式 */}
               <div 
                 className="absolute z-10" 
-                style={{ bottom: '13.5%', right: '6%', width: '150px', height: '140px' }}
+                style={{ 
+                  bottom: adaptiveDesktop ? '15%' : '13.5%', 
+                  right: '6%', 
+                  width: adaptiveDesktop ? '35vw' : '150px', 
+                  height: adaptiveDesktop ? '28vw' : '140px',
+                  maxWidth: adaptiveDesktop ? '150px' : undefined,
+                  maxHeight: adaptiveDesktop ? '120px' : undefined
+                }}
                 onMouseDown={() => {
                   memoLongPressTimer.current = setTimeout(() => {
                     const newMode = (memoDisplayMode + 1) % 4
@@ -577,7 +651,12 @@ const Desktop = () => {
               </div>
 
               {/* 左下角 - 播放进度组件 */}
-              <div className="absolute z-10 flex flex-col gap-2" style={{ bottom: '29%', left: '6%', width: '42%' }}>
+              <div className="absolute z-10 flex flex-col gap-2" style={{ 
+                bottom: adaptiveDesktop ? '30%' : '29%', 
+                left: '6%', 
+                width: adaptiveDesktop ? '38vw' : '42%',
+                maxWidth: adaptiveDesktop ? '160px' : undefined
+              }}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-600 truncate" style={{ maxWidth: '60%' }}>
                     {musicPlayer.currentSong ? musicPlayer.currentSong.title : '暂无播放'}

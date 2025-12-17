@@ -335,6 +335,52 @@ export function getTotalUnreadDM(): number {
   return conversations.reduce((sum, c) => sum + c.unreadCount, 0)
 }
 
+// 清除与某人的全部聊天记录（永久删除）
+export function clearDMMessages(npcId: string) {
+  // 清除缓存
+  delete messagesCache[npcId]
+  // 清除IndexedDB
+  IDB.removeItem(IDB.STORES.DM_MESSAGES, npcId)
+  
+  // 更新会话列表的最后消息
+  const conversations = getDMConversations()
+  const conv = conversations.find(c => c.id === npcId)
+  if (conv) {
+    conv.lastMessage = ''
+    conv.lastTime = ''
+    saveDMConversations(conversations)
+  }
+  
+  console.log(`🗑️ [私聊] 已清除与 ${npcId} 的全部聊天记录`)
+}
+
+// 删除指定的消息（永久删除）
+export function deleteDMMessages(npcId: string, messageIds: string[]) {
+  const currentMessages = getDMMessages(npcId)
+  const filteredMessages = currentMessages.filter(m => !messageIds.includes(m.id))
+  
+  // 更新缓存和IndexedDB
+  messagesCache[npcId] = filteredMessages
+  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, filteredMessages)
+  
+  // 更新会话列表的最后消息
+  const conversations = getDMConversations()
+  const conv = conversations.find(c => c.id === npcId)
+  if (conv && filteredMessages.length > 0) {
+    const lastMsg = filteredMessages[filteredMessages.length - 1]
+    conv.lastMessage = lastMsg.content
+    conv.lastTime = lastMsg.time
+    saveDMConversations(conversations)
+  } else if (conv) {
+    conv.lastMessage = ''
+    conv.lastTime = ''
+    saveDMConversations(conversations)
+  }
+  
+  console.log(`🗑️ [私聊] 已删除 ${messageIds.length} 条消息`)
+  return filteredMessages
+}
+
 // 发送语音消息（textContent是语音的文字内容，供AI理解）
 export function sendVoiceFromUser(
   npcId: string,

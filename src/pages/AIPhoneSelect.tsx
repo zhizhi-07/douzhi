@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { BackIcon } from '../components/Icons'
 import StatusBar from '../components/StatusBar'
 import AIPhoneModal from '../components/AIPhoneModal'
-import { getPhoneHistory, PhoneHistory } from '../utils/aiPhoneGenerator'
+import { getPhoneHistory, PhoneHistory, deletePhoneHistory } from '../utils/aiPhoneGenerator'
 import { backgroundGenerator, BackgroundTask } from '../utils/backgroundPhoneGenerator'
 import { characterService } from '../services/characterService'
 
@@ -216,36 +216,50 @@ const AIPhoneSelect = () => {
                   {isExpanded && history.length > 0 && (
                     <div className="ml-4 space-y-2 animate-in slide-in-from-top-2 duration-300">
                       {history.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => handleHistorySelect(item)}
                           className="w-full bg-white/40 backdrop-blur-sm rounded-xl p-3 border border-white/30 hover:bg-white/60 transition-all flex items-center gap-3 text-left shadow-sm group"
                         >
-                          <div className="w-10 h-10 rounded-lg bg-white/50 flex items-center justify-center border border-white/40 group-hover:scale-105 transition-transform">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
-                              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                              <line x1="12" y1="18" x2="12" y2="18"></line>
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-base font-medium text-gray-800">
-                              {new Date(item.timestamp).toLocaleString('zh-CN', {
-                                month: 'numeric',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                          <button
+                            onClick={() => handleHistorySelect(item)}
+                            className="flex-1 flex items-center gap-3"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-white/50 flex items-center justify-center border border-white/40 group-hover:scale-105 transition-transform">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12" y2="18"></line>
+                              </svg>
                             </div>
-                            <div className="text-xs text-gray-500 mt-0.5 opacity-80">
-                              点击查看此次记录
+                            <div className="flex-1">
+                              <div className="text-base font-medium text-gray-800">
+                                {new Date(item.timestamp).toLocaleString('zh-CN', {
+                                  month: 'numeric',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5 opacity-80">
+                                点击查看此次记录
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </button>
+                          {/* 删除按钮 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm('确定删除这条历史记录吗？')) {
+                                deletePhoneHistory(character.id, item.id)
+                                setRefreshKey(prev => prev + 1)
+                              }
+                            }}
+                            className="w-8 h-8 rounded-lg bg-red-50/80 hover:bg-red-100 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                             </svg>
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}

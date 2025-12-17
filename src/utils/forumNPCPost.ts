@@ -12,6 +12,7 @@ import { getUserInfo } from './userUtils'
 import { loadMessages } from './simpleMessageManager'
 import { callZhizhiApi } from '../services/zhizhiapi'
 import { getRandomMemes, getMemeSettings } from './memeRetrieval'
+import { getInstagramSettings } from '../pages/InstagramSettings'
 
 export interface NPCPostOptions {
   count: number              // 发帖数量 1-10
@@ -169,8 +170,22 @@ export async function generateNPCPosts(options: NPCPostOptions, useZhizhiAPI = f
 - 吐槽发疯：emo时刻、社死现场、奇葩经历、深夜emo、突然想到的事
 - 求助分享：求推荐、求吐槽、分享好物、避雷帖子、经验分享`
   
-  const prompt = `你是一个社区论坛的内容生成器。请生成**普通网友NPC**的帖子。
+  // 获取世界观设定
+  const instagramSettings = getInstagramSettings()
+  const worldview = instagramSettings.worldview?.trim() || ''
+  const worldviewPrompt = worldview ? `
+## 🌍 论坛世界观设定（非常重要！所有内容必须符合这个世界观）
+${worldview}
 
+**⚠️ 世界观规则：**
+- 所有帖子和评论都必须符合这个世界观
+- 用词、称呼、话题都要符合世界观设定
+- 帖子内容、语气都要与世界观一致
+
+` : ''
+
+  const prompt = `你是一个社区论坛的内容生成器。请生成**普通网友NPC**的帖子。
+${worldviewPrompt}
 ## 🎯 核心要求
 1. **只能NPC发帖**：所有帖子必须由下方NPC列表中的人发布
 2. **话题多样**：每条帖子话题必须不同，禁止重复套路

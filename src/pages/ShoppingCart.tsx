@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import { addMessage } from '../utils/simpleMessageManager'
 import { generateAutoLogistics } from '../services/autoLogistics'
+import { getBalance, setBalance, addTransaction, getIntimatePayRelations, type IntimatePayRelation } from '../utils/walletUtils'
 import type { Message } from '../types/chat'
 
 interface CartItem {
@@ -20,7 +21,8 @@ const ShoppingCart = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [intimatePayBalance, setIntimatePayBalance] = useState(0)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [allIntimatePays, setAllIntimatePays] = useState<IntimatePayRelation[]>([])
   const [isManageMode, setIsManageMode] = useState(false)
 
   // 从localStorage加载购物车
@@ -31,25 +33,19 @@ const ShoppingCart = () => {
     }
   }, [chatId])
 
-  // 加载亲密付余额
+  // 加载零钱余额和所有亲密付关系
   useEffect(() => {
-    if (chatId) {
-      const intimatePayData = localStorage.getItem(`intimate_pay_${chatId}`)
-      if (intimatePayData) {
-        try {
-          const data = JSON.parse(intimatePayData)
-          if (data.status === 'active') {
-            // 计算剩余额度
-            const used = data.usedAmount || 0
-            const remaining = data.monthlyLimit - used
-            setIntimatePayBalance(Math.max(0, remaining))
-          }
-        } catch (e) {
-          console.error('加载亲密付数据失败:', e)
-        }
-      }
-    }
-  }, [chatId])
+    // 加载零钱余额
+    setWalletBalance(getBalance())
+    
+    // 加载所有亲密付关系（AI给用户开通的）
+    const relations = getIntimatePayRelations()
+    const availableIntimatePays = relations.filter(r => 
+      r.type === 'character_to_user' && 
+      (r.monthlyLimit - r.usedAmount) > 0
+    )
+    setAllIntimatePays(availableIntimatePays)
+  }, [])
 
   // 保存购物车到localStorage
   useEffect(() => {
@@ -108,44 +104,6 @@ const ShoppingCart = () => {
       .reduce((sum, item) => sum + item.price * item.quantity, 0)
   }
 
-  // 结算 - 发送购物车卡片
-  const handleCheckout = () => {
-    if (selectedItems.size === 0) {
-      alert('请选择要购买的商品')
-      return
-    }
-
-    const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
-    const totalAmount = calculateTotal()
-
-    const cartMessage: Message = {
-      id: Date.now(),
-      type: 'sent',
-      content: `[购物车] 共${selectedCartItems.length}件商品`,
-      aiReadableContent: `用户发送了购物车，包含${selectedCartItems.length}件商品：
-${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.price})`).join('\n')}
-总金额：¥${totalAmount}
-
-这是用户想要购买的商品清单。你可以主动帮用户购买：[购买购物车:购物车ID]`,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-      messageType: 'shoppingCart',
-      shoppingCart: {
-        items: selectedCartItems,
-        totalAmount,
-        storeName: '在线商城'
-      }
-    }
-
-    if (chatId) {
-      addMessage(chatId, cartMessage)
-      // 清空已结算的商品
-      setCartItems(prev => prev.filter(item => !selectedItems.has(item.id)))
-      setSelectedItems(new Set())
-      navigate(`/chat/${chatId}`)
-    }
-  }
-
   // 请求AI代付
   const handleRequestAIPay = () => {
     const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
@@ -188,28 +146,35 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
     }
   }
 
-  // 使用亲密付
-  const handleUseIntimatePay = () => {
+  // 使用零钱支付
+  const handleUseWallet = () => {
     const totalAmount = calculateTotal()
 
-    if (intimatePayBalance < totalAmount) {
-      alert(`亲密付余额不足！当前余额：¥${intimatePayBalance}`)
+    if (walletBalance < totalAmount) {
+      alert(`零钱余额不足！当前余额：¥${walletBalance.toFixed(2)}`)
       return
     }
 
     const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
 
-    // 更新亲密付使用金额
-    const intimatePayData = JSON.parse(localStorage.getItem(`intimate_pay_${chatId}`) || '{}')
-    intimatePayData.usedAmount = (intimatePayData.usedAmount || 0) + totalAmount
-    localStorage.setItem(`intimate_pay_${chatId}`, JSON.stringify(intimatePayData))
+    // 扣除零钱余额
+    const newBalance = walletBalance - totalAmount
+    setBalance(newBalance)
+    setWalletBalance(newBalance)
+
+    // 记录交易
+    addTransaction({
+      type: 'intimate_pay', // 复用类型
+      amount: totalAmount.toFixed(2),
+      description: `购物消费 - ${selectedCartItems.map(i => i.name).join('、')}`
+    })
 
     // 发送购买成功消息
     const successMessage: Message = {
       id: Date.now(),
       type: 'system',
-      content: `使用亲密付购买成功 ¥${totalAmount}`,
-      aiReadableContent: `用户使用了你赠送的亲密付额度购买了商品，共花费 ¥${totalAmount}。你可以对此做出反应。`,
+      content: `零钱支付成功 ¥${totalAmount}`,
+      aiReadableContent: `用户使用零钱购买了商品，共花费 ¥${totalAmount}。`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
       messageType: 'system'
@@ -222,6 +187,177 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
       const messageId = successMessage.id
       setTimeout(async () => {
         try {
+          console.log('🚚 [自动物流] 开始为零钱支付商品生成物流...')
+          for (const item of selectedCartItems) {
+            const logistics = await generateAutoLogistics(
+              item.name,
+              item.price,
+              item.quantity
+            )
+            const logisticsKey = `${messageId}_${item.id}`
+            localStorage.setItem(`logistics_${chatId}_${logisticsKey}`, JSON.stringify(logistics))
+            console.log(`✅ [自动物流] ${item.name} 物流生成成功`)
+          }
+        } catch (error) {
+          console.error('❌ [自动物流] 生成失败:', error)
+        }
+      }, 1000)
+      
+      // 清空已购买的商品
+      setCartItems(prev => prev.filter(item => !selectedItems.has(item.id)))
+      setSelectedItems(new Set())
+      setShowPaymentModal(false)
+      navigate(`/chat/${chatId}`)
+    }
+  }
+
+  // 获取当前聊天角色名称
+  const getCurrentCharacterName = () => {
+    const contacts = JSON.parse(localStorage.getItem('contacts') || '[]')
+    const contact = contacts.find((c: { id: string }) => c.id === chatId)
+    return contact?.name || 'TA'
+  }
+
+  // 使用亲密付购买（自己买或送礼物）
+  const handleUseIntimatePay = (intimatePay: IntimatePayRelation, isGift: boolean) => {
+    const totalAmount = calculateTotal()
+    const remaining = intimatePay.monthlyLimit - intimatePay.usedAmount
+
+    if (remaining < totalAmount) {
+      alert(`亲密付额度不足！剩余额度：¥${remaining.toFixed(2)}`)
+      return
+    }
+
+    const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
+    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const userName = userInfo.nickname || '用户'
+    const currentCharacterName = getCurrentCharacterName()
+
+    // 更新亲密付已使用额度（通过IndexedDB）
+    import('../utils/walletUtils').then(({ getIntimatePayRelations: getRelations }) => {
+      const relations = getRelations()
+      const idx = relations.findIndex(r => r.characterId === intimatePay.characterId && r.type === 'character_to_user')
+      if (idx !== -1) {
+        relations[idx].usedAmount += totalAmount
+        import('../utils/indexedDBManager').then(({ setItem, STORES }) => {
+          setItem(STORES.WALLET, 'intimate_pay_relations', relations)
+        })
+      }
+    })
+
+    // 更新本地状态
+    setAllIntimatePays(prev => prev.map(r => 
+      r.characterId === intimatePay.characterId 
+        ? { ...r, usedAmount: r.usedAmount + totalAmount }
+        : r
+    ))
+
+    const itemsList = selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.price})`).join('\n')
+
+    if (isGift) {
+      // 送礼物模式 - 发送给当前聊天角色
+      const giftMessage: Message = {
+        id: Date.now(),
+        type: 'sent',
+        content: `[送你礼物] 共${selectedCartItems.length}件商品`,
+        aiReadableContent: `用户使用${intimatePay.characterName}的亲密付给你买了礼物！
+购买商品：
+${itemsList}
+总金额：¥${totalAmount}
+
+这是用户送给你的礼物（用${intimatePay.characterName}的亲密付支付），你可以对此表达感谢或惊喜。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'cartPaymentRequest',
+        cartPaymentRequest: {
+          cartId: `gift-${Date.now()}`,
+          items: selectedCartItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          totalAmount,
+          requesterName: userName,
+          status: 'paid',
+          payerName: `${userName}（使用${intimatePay.characterName}的亲密付）`,
+          isGift: true
+        }
+      }
+
+      if (chatId) {
+        addMessage(chatId, giftMessage)
+
+        // 如果亲密付开通者不是当前聊天对象，也通知亲密付开通者
+        if (intimatePay.characterId !== chatId) {
+          const notifyMessage: Message = {
+            id: Date.now() + 1,
+            type: 'system',
+            content: `用户使用你的亲密付给${currentCharacterName}买了礼物 ¥${totalAmount}`,
+            aiReadableContent: `用户使用了你给TA开通的亲密付额度，给${currentCharacterName}买了礼物！
+购买商品：
+${itemsList}
+总花费：¥${totalAmount}
+剩余额度：¥${(remaining - totalAmount).toFixed(2)}
+
+你可以对此做出反应，比如关心、吃醋、调侃等。`,
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now() + 1,
+            messageType: 'system'
+          }
+          addMessage(intimatePay.characterId, notifyMessage)
+        }
+      }
+    } else {
+      // 自己买模式 - 通知亲密付开通者
+      const successMessage: Message = {
+        id: Date.now(),
+        type: 'system',
+        content: `使用${intimatePay.characterName}的亲密付购买成功 ¥${totalAmount}`,
+        aiReadableContent: intimatePay.characterId === chatId 
+          ? `用户使用了你给TA开通的亲密付额度购买了商品！
+购买商品：
+${itemsList}
+总花费：¥${totalAmount}
+剩余额度：¥${(remaining - totalAmount).toFixed(2)}
+
+你可以对此做出反应，比如关心TA买了什么、调侃一下、或者表达开心。`
+          : `用户使用${intimatePay.characterName}的亲密付购买了商品，共花费 ¥${totalAmount}。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        messageType: 'system'
+      }
+
+      if (chatId) {
+        addMessage(chatId, successMessage)
+
+        // 如果亲密付开通者不是当前聊天对象，也通知亲密付开通者
+        if (intimatePay.characterId !== chatId) {
+          const notifyMessage: Message = {
+            id: Date.now() + 1,
+            type: 'system',
+            content: `用户使用你的亲密付购买了商品 ¥${totalAmount}`,
+            aiReadableContent: `用户使用了你给TA开通的亲密付额度购买了商品！
+购买商品：
+${itemsList}
+总花费：¥${totalAmount}
+剩余额度：¥${(remaining - totalAmount).toFixed(2)}
+
+你可以对此做出反应，比如关心TA买了什么、调侃一下。`,
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now() + 1,
+            messageType: 'system'
+          }
+          addMessage(intimatePay.characterId, notifyMessage)
+        }
+      }
+    }
+
+    // 🚚 为购物车中的每个商品自动生成物流
+    if (chatId) {
+      const messageId = Date.now()
+      setTimeout(async () => {
+        try {
           console.log('🚚 [自动物流] 开始为亲密付商品生成物流...')
           for (const item of selectedCartItems) {
             const logistics = await generateAutoLogistics(
@@ -229,7 +365,6 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
               item.price,
               item.quantity
             )
-            // 使用消息ID + 商品ID作为唯一标识
             const logisticsKey = `${messageId}_${item.id}`
             localStorage.setItem(`logistics_${chatId}_${logisticsKey}`, JSON.stringify(logistics))
             console.log(`✅ [自动物流] ${item.name} 物流生成成功`)
@@ -547,31 +682,69 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
               <div className="px-4 py-2 text-xs text-gray-400 font-medium">选择支付方式</div>
 
               <div className="divide-y divide-gray-50 pl-4">
-                {/* 亲密付 */}
-                {intimatePayBalance > 0 && (
-                  <button
-                    onClick={handleUseIntimatePay}
-                    className="w-full py-4 pr-4 flex items-center justify-between active:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#ff4d4f] flex items-center justify-center text-white shadow-sm">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <div className="text-[16px] font-medium text-gray-900">亲密付</div>
-                        <div className="text-xs text-gray-500 mt-0.5">剩余额度: ¥{intimatePayBalance}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded">推荐</span>
-                      <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                {/* 零钱支付 */}
+                <button
+                  onClick={handleUseWallet}
+                  disabled={walletBalance < totalAmount}
+                  className="w-full py-4 pr-4 flex items-center justify-between active:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#faad14] flex items-center justify-center text-white shadow-sm">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                  </button>
-                )}
+                    <div className="text-left">
+                      <div className="text-[16px] font-medium text-gray-900">零钱支付</div>
+                      <div className="text-xs text-gray-500 mt-0.5">余额: ¥{walletBalance.toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {walletBalance >= totalAmount && (
+                      <span className="text-xs text-[#faad14] bg-[#fffbe6] px-2 py-0.5 rounded">可用</span>
+                    )}
+                    <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* 所有可用的亲密付（自己买） */}
+                {allIntimatePays.map((ip) => {
+                  const remaining = ip.monthlyLimit - ip.usedAmount
+                  return (
+                    <button
+                      key={ip.id}
+                      onClick={() => handleUseIntimatePay(ip, false)}
+                      disabled={remaining < totalAmount}
+                      className="w-full py-4 pr-4 flex items-center justify-between active:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#ff4d4f] flex items-center justify-center text-white shadow-sm overflow-hidden">
+                          {ip.characterAvatar ? (
+                            <img src={ip.characterAvatar} alt={ip.characterName} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="text-[16px] font-medium text-gray-900">{ip.characterName}的亲密付</div>
+                          <div className="text-xs text-gray-500 mt-0.5">剩余额度: ¥{remaining.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {remaining >= totalAmount && (
+                          <span className="text-xs text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded">可用</span>
+                        )}
+                        <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  )
+                })}
 
                 {/* 请求AI代付 */}
                 <button
@@ -594,7 +767,10 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
                   </svg>
                 </button>
 
-                {/* 给AI购买 */}
+                {/* 赠送给AI - 分隔区域 */}
+                <div className="px-4 py-2 text-xs text-gray-400 font-medium bg-gray-50 -ml-4">赠送给{getCurrentCharacterName()}</div>
+
+                {/* 赠送给AI（不使用亲密付） */}
                 <button
                   onClick={handleBuyForAI}
                   className="w-full py-4 pr-4 flex items-center justify-between active:bg-gray-50 transition-colors"
@@ -606,14 +782,51 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
                       </svg>
                     </div>
                     <div className="text-left">
-                      <div className="text-[16px] font-medium text-gray-900">赠送给AI</div>
-                      <div className="text-xs text-gray-500 mt-0.5">作为礼物直接购买</div>
+                      <div className="text-[16px] font-medium text-gray-900">直接赠送</div>
+                      <div className="text-xs text-gray-500 mt-0.5">作为礼物购买给{getCurrentCharacterName()}</div>
                     </div>
                   </div>
                   <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
+
+                {/* 用亲密付赠送给AI */}
+                {allIntimatePays.map((ip) => {
+                  const remaining = ip.monthlyLimit - ip.usedAmount
+                  return (
+                    <button
+                      key={`gift-${ip.id}`}
+                      onClick={() => handleUseIntimatePay(ip, true)}
+                      disabled={remaining < totalAmount}
+                      className="w-full py-4 pr-4 flex items-center justify-between active:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff4d4f] to-[#52c41a] flex items-center justify-center text-white shadow-sm overflow-hidden">
+                          {ip.characterAvatar ? (
+                            <img src={ip.characterAvatar} alt={ip.characterName} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="text-[16px] font-medium text-gray-900">用{ip.characterName}的亲密付赠送</div>
+                          <div className="text-xs text-gray-500 mt-0.5">剩余额度: ¥{remaining.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {remaining >= totalAmount && (
+                          <span className="text-xs text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded">可用</span>
+                        )}
+                        <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 

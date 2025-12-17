@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import EmojiContentRenderer from '../components/EmojiContentRenderer'
 import { loadMoments, likeMoment, unlikeMoment, commentMoment, deleteMoment } from '../utils/momentsManager'
+import { saveBackground, getBackground } from '../utils/backgroundStorage'
 import { getUserInfo, getUserInfoWithAvatar } from '../utils/userUtils'
 import { playLikeSound } from '../utils/soundManager'
 import type { Moment } from '../types/moments'
@@ -17,9 +18,7 @@ export default function Moments() {
   const [showCommentInput, setShowCommentInput] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
   const [replyTo, setReplyTo] = useState<string>('')
-  const [coverImage, setCoverImage] = useState<string>(() => {
-    return localStorage.getItem('moments_cover_image') || ''
-  })
+  const [coverImage, setCoverImage] = useState<string>('')
 
   // 获取当前用户信息
   const userInfo = getUserInfo()
@@ -42,6 +41,13 @@ export default function Moments() {
       }
     }
     loadUserAvatar()
+    
+    // 从IndexedDB加载封面图片
+    getBackground('moments_cover').then(savedCover => {
+      if (savedCover) {
+        setCoverImage(savedCover)
+      }
+    })
 
     const handleMomentsUpdate = () => {
       const updatedMoments = loadMoments()
@@ -137,16 +143,12 @@ export default function Moments() {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const imageData = event.target?.result as string
-          setCoverImage(imageData)
-          localStorage.setItem('moments_cover_image', imageData)
-        }
-        reader.readAsDataURL(file)
+        // 保存到IndexedDB
+        const url = await saveBackground('moments_cover', file)
+        setCoverImage(url)
       }
     }
     input.click()
@@ -235,7 +237,7 @@ export default function Moments() {
 
         {/* 朋友圈动态列表 */}
         <div className="px-6 pt-16 pb-24 space-y-6">
-          {moments.length === 0 ? (
+          {moments.filter(m => !m.isDeleted).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-16 h-16 rounded-full bg-white/40 backdrop-blur-md flex items-center justify-center mb-4 shadow-sm">
                 <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +248,7 @@ export default function Moments() {
               <p className="text-[10px] text-slate-300 mt-2 font-light">记录生活的第一刻</p>
             </div>
           ) : (
-            moments.map((moment, index) => (
+            moments.filter(m => !m.isDeleted).map((moment, index) => (
               <div
                 key={moment.id}
                 className="pb-4 border-b border-slate-200/50 last:border-b-0"
@@ -309,15 +311,13 @@ export default function Moments() {
                             <span>{moment.location}</span>
                           </>
                         )}
-                        {/* 用户发的朋友圈可以删除 */}
-                        {(moment.userId === currentUser.id || moment.userId === 'user') && (
-                          <button
-                            onClick={() => handleDelete(moment.id)}
-                            className="text-slate-300 hover:text-red-400 transition-colors ml-2"
-                          >
-                            删除
-                          </button>
-                        )}
+                        {/* 所有朋友圈都可以删除（用户自己的和AI的） */}
+                        <button
+                          onClick={() => handleDelete(moment.id)}
+                          className="text-slate-300 hover:text-red-400 transition-colors ml-2"
+                        >
+                          删除
+                        </button>
                       </div>
 
                       {/* 操作按钮 */}

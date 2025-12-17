@@ -11,6 +11,9 @@ import { getCurrentAccountId } from './accountManager'
 const saveLocks = new Map<string, Promise<void>>()
 const saveQueue = new Map<string, Message[]>()
 
+// 🔥🔥🔥 addMessage 锁机制，防止竞态条件导致消息丢失
+const addMessageLocks = new Map<string, Promise<void>>()
+
 /**
  * 获取账号专属的聊天存储key
  * 主账号使用原有key，小号使用独立key
@@ -377,7 +380,34 @@ export async function loadMessagesPaginated(
     let allMessages = messageCache.get(storageKey)
 
     if (!allMessages) {
-      const loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
+      let loaded = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
+      
+      // 🔥🔥🔥 关键修复：如果 IndexedDB 数据很少，检查 localStorage 备份是否有更多数据
+      try {
+        const backupKey = `msg_backup_${storageKey}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          const backupMessages = parsed.messages as Message[] | undefined
+          
+          if (backupMessages && backupMessages.length > 0) {
+            if (!loaded || loaded.length < backupMessages.length) {
+              console.log(`🔄 [分页加载] localStorage 备份有更多消息: IndexedDB=${loaded?.length || 0}, 备份=${backupMessages.length}`)
+              // 合并数据
+              const mergedMap = new Map<number, Message>()
+              if (loaded) loaded.forEach(m => mergedMap.set(m.id, m))
+              backupMessages.forEach(m => mergedMap.set(m.id, m))
+              loaded = Array.from(mergedMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+              // 保存合并后的数据到 IndexedDB
+              await IDB.setItem(IDB.STORES.MESSAGES, storageKey, loaded)
+              console.log(`✅ [分页加载] 已从备份恢复并合并: ${loaded.length} 条消息`)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('检查 localStorage 备份失败:', e)
+      }
+      
       if (loaded && loaded.length > 0) {
         const fixedMessages = fixDuplicateMessageIds(loaded)
         messageCache.set(storageKey, fixedMessages)
@@ -797,91 +827,122 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
  * 添加一条消息（立即保存）
  * 如果消息已存在，则更新它
  * 
- * 🔥🔥🔥 关键修复：先确保消息已从 IndexedDB 加载，然后再添加新消息
+ * 🔥🔥🔥 关键修复：使用锁机制防止竞态条件导致消息丢失
  */
 export function addMessage(chatId: string, message: Message): void {
   console.log(`🔥 [addMessage] 开始: chatId=${chatId}, messageId=${message.id}`)
   
   const storageKey = getAccountChatKey(chatId)
   
-  // 🔥🔥🔥 关键修复：先异步确保消息已加载，防止缓存为空时丢失历史消息
-  ensureMessagesLoaded(chatId).then(loadedMessages => {
-    console.log(`🔥 [addMessage] 已加载消息数: ${loadedMessages.length}`)
-    
-    const existingIndex = loadedMessages.findIndex(m => m.id === message.id)
-    let newMessages: Message[]
-    
-    if (existingIndex !== -1) {
-      newMessages = [...loadedMessages]
-      newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
-      console.log(`🔥 [addMessage] 更新已有消息`)
-    } else {
-      newMessages = [...loadedMessages, message]
-      console.log(`🔥 [addMessage] 添加新消息，总数: ${newMessages.length}`)
-      window.dispatchEvent(new CustomEvent('new-message', {
-        detail: { chatId, message }
-      }))
+  // 🔥🔥🔥 关键修复：使用锁机制串行化操作，防止竞态
+  const doAdd = async (): Promise<void> => {
+    try {
+      // 🔥 关键：从缓存读取最新数据，而不是等待异步加载
+      // 这样可以避免竞态条件
+      let currentMessages = messageCache.get(storageKey)
+      
+      // 如果缓存为空，才需要异步加载
+      if (!currentMessages) {
+        currentMessages = await ensureMessagesLoaded(chatId)
+      }
+      
+      console.log(`🔥 [addMessage] 当前消息数: ${currentMessages.length}`)
+      
+      const existingIndex = currentMessages.findIndex(m => m.id === message.id)
+      let newMessages: Message[]
+      
+      if (existingIndex !== -1) {
+        newMessages = [...currentMessages]
+        newMessages[existingIndex] = { ...newMessages[existingIndex], ...message }
+        console.log(`🔥 [addMessage] 更新已有消息`)
+      } else {
+        newMessages = [...currentMessages, message]
+        console.log(`🔥 [addMessage] 添加新消息，总数: ${newMessages.length}`)
+        window.dispatchEvent(new CustomEvent('new-message', {
+          detail: { chatId, message }
+        }))
+      }
+      
+      // 立即更新缓存
+      messageCache.set(storageKey, newMessages)
+      
+      // 保存到IndexedDB
+      saveMessages(chatId, newMessages)
+      console.log(`🔥 [addMessage] 完成，总消息数: ${newMessages.length}`)
+    } catch (error) {
+      console.error('❌ [addMessage] 失败，尝试直接添加:', error)
+      // 降级：即使失败，也要确保新消息不丢失
+      const cachedMessages = messageCache.get(storageKey) || []
+      const newMessages = [...cachedMessages, message]
+      messageCache.set(storageKey, newMessages)
+      saveMessages(chatId, newMessages)
     }
-    
-    // 立即更新缓存
-    messageCache.set(storageKey, newMessages)
-    
-    // 保存到IndexedDB
-    saveMessages(chatId, newMessages)
-    console.log(`🔥 [addMessage] 完成，总消息数: ${newMessages.length}`)
-  }).catch(error => {
-    console.error('❤ [addMessage] 加载消息失败，尝试直接添加:', error)
-    // 降级：即使加载失败，也要确保新消息不丢失
-    const cachedMessages = messageCache.get(storageKey) || []
-    const newMessages = [...cachedMessages, message]
-    messageCache.set(storageKey, newMessages)
-    saveMessages(chatId, newMessages)
-  })
+  }
+  
+  // 🔥🔥🔥 串行化：等待前一个操作完成后再执行
+  const previousLock = addMessageLocks.get(storageKey) || Promise.resolve()
+  const currentLock = previousLock.then(doAdd).catch(() => doAdd())
+  addMessageLocks.set(storageKey, currentLock)
 }
 
 /**
  * 批量添加多条消息（避免竞态条件）
  * 用于一次性发送多张图片等场景
  * 
- * 🔥🔥🔥 关键修复：先确保消息已从 IndexedDB 加载
+ * 🔥🔥🔥 关键修复：使用锁机制防止竞态条件
  */
 export function addMessages(chatId: string, messagesToAdd: Message[]): void {
   if (messagesToAdd.length === 0) return
   
   const storageKey = getAccountChatKey(chatId)
   
-  // 🔥🔥🔥 关键修复：先异步确保消息已加载，防止缓存为空时丢失历史消息
-  ensureMessagesLoaded(chatId).then(loadedMessages => {
-    console.log(`🔥 [addMessages] 已加载消息数: ${loadedMessages.length}`)
-    
-    let updatedMessages = [...loadedMessages]
-    
-    for (const message of messagesToAdd) {
-      const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
-      if (existingIndex !== -1) {
-        updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
-      } else {
-        updatedMessages.push(message)
-        window.dispatchEvent(new CustomEvent('new-message', {
-          detail: { chatId, message }
-        }))
+  // 🔥🔥🔥 关键修复：使用锁机制串行化操作，防止竞态
+  const doAdd = async (): Promise<void> => {
+    try {
+      // 🔥 关键：从缓存读取最新数据
+      let currentMessages = messageCache.get(storageKey)
+      
+      // 如果缓存为空，才需要异步加载
+      if (!currentMessages) {
+        currentMessages = await ensureMessagesLoaded(chatId)
       }
+      
+      console.log(`🔥 [addMessages] 当前消息数: ${currentMessages.length}`)
+      
+      let updatedMessages = [...currentMessages]
+      
+      for (const message of messagesToAdd) {
+        const existingIndex = updatedMessages.findIndex(m => m.id === message.id)
+        if (existingIndex !== -1) {
+          updatedMessages[existingIndex] = { ...updatedMessages[existingIndex], ...message }
+        } else {
+          updatedMessages.push(message)
+          window.dispatchEvent(new CustomEvent('new-message', {
+            detail: { chatId, message }
+          }))
+        }
+      }
+      
+      // 立即更新缓存
+      messageCache.set(storageKey, updatedMessages)
+      
+      // 保存到IndexedDB
+      saveMessages(chatId, updatedMessages)
+      console.log(`✅ [addMessages] 批量保存成功: 新增${messagesToAdd.length}条，总共${updatedMessages.length}条`)
+    } catch (error) {
+      console.error('❌ [addMessages] 失败:', error)
+      // 降级处理
+      const cachedMessages = messageCache.get(storageKey) || []
+      const updatedMessages = [...cachedMessages, ...messagesToAdd]
+      messageCache.set(storageKey, updatedMessages)
+      saveMessages(chatId, updatedMessages)
     }
-    
-    // 立即更新缓存
-    messageCache.set(storageKey, updatedMessages)
-    
-    // 保存到IndexedDB
-    saveMessages(chatId, updatedMessages)
-    console.log(`✅ [addMessages] 批量保存成功: 新增${messagesToAdd.length}条，总共${updatedMessages.length}条`)
-  }).catch(error => {
-    console.error('❌ [addMessages] 加载消息失败:', error)
-    // 降级处理
-    const cachedMessages = messageCache.get(storageKey) || []
-    const updatedMessages = [...cachedMessages, ...messagesToAdd]
-    messageCache.set(storageKey, updatedMessages)
-    saveMessages(chatId, updatedMessages)
-  })
+  }
+  
+  // 🔥🔥🔥 串行化：等待前一个操作完成后再执行
+  const previousLock = addMessageLocks.get(storageKey) || Promise.resolve()
+  const currentLock = previousLock.then(doAdd).catch(() => doAdd())
+  addMessageLocks.set(storageKey, currentLock)
 }
 
 /**

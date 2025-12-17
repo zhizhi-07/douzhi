@@ -31,6 +31,7 @@ interface ChatSettingsData {
   enableTheatreCards: boolean  // 是否启用小剧场卡片功能（已废弃）
   hideTheatreHistory: boolean  // 是否隐藏小剧场历史记录（已废弃）
   enableHtmlTheatre: boolean  // 是否启用中插HTML小剧场
+  htmlTheatreMode: 'off' | 'always' | 'smart'  // 小剧场模式：关闭/每条必发/根据语境
   characterIndependence: boolean  // 角色独立：AI可以选择不立即回复
   useMask: boolean  // 是否使用面具
   maskId: string | null  // 当前使用的面具ID
@@ -65,6 +66,7 @@ const ChatSettings = () => {
         enableTheatreCards: data.enableTheatreCards ?? false,
         hideTheatreHistory: data.hideTheatreHistory ?? false,
         enableHtmlTheatre: data.enableHtmlTheatre ?? false,
+        htmlTheatreMode: data.htmlTheatreMode ?? 'off',
         characterIndependence: data.characterIndependence ?? false,
         useMask: data.useMask ?? false,
         maskId: data.maskId ?? null,
@@ -90,6 +92,7 @@ const ChatSettings = () => {
       enableTheatreCards: false,
       hideTheatreHistory: false,
       enableHtmlTheatre: false,
+      htmlTheatreMode: 'off',
       characterIndependence: false,
       useMask: false,
       maskId: null,
@@ -123,6 +126,7 @@ const ChatSettings = () => {
             enableTheatreCards: data.enableTheatreCards ?? false,
             hideTheatreHistory: data.hideTheatreHistory ?? false,
             enableHtmlTheatre: data.enableHtmlTheatre ?? false,
+            htmlTheatreMode: data.htmlTheatreMode ?? 'off',
             characterIndependence: data.characterIndependence ?? false,
             useMask: data.useMask ?? false,
             maskId: data.maskId ?? null,
@@ -153,6 +157,7 @@ const ChatSettings = () => {
       enableTheatreCards: false,
       hideTheatreHistory: false,
       enableHtmlTheatre: false,
+      htmlTheatreMode: 'off',
       characterIndependence: false,
       useMask: false,
       maskId: null,
@@ -719,23 +724,46 @@ const ChatSettings = () => {
           </div>
           
           {/* 中插HTML小剧场 */}
-          <div className="flex items-center justify-between py-2 border-t border-gray-100 pt-3 mt-3">
-            <div className="flex-1">
-              <div className="text-sm text-gray-900">中插HTML小剧场</div>
-              <div className="text-xs text-gray-400">开启后每条回复都会插入HTML卡片（便利贴、聊天截图、账单等）</div>
+          <div className="py-2 border-t border-gray-100 pt-3 mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
+                <div className="text-sm text-gray-900">中插HTML小剧场</div>
+                <div className="text-xs text-gray-400">AI回复时插入HTML卡片（便利贴、聊天截图、账单等）</div>
+              </div>
             </div>
-            <button
-              onClick={() => saveSettings({ ...settings, enableHtmlTheatre: !settings.enableHtmlTheatre })}
-              className="relative w-11 h-6 rounded-full transition-all"
-              style={{ backgroundColor: settings.enableHtmlTheatre ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
-            >
-              <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
-                  settings.enableHtmlTheatre ? 'translate-x-5' : 'translate-x-0'
+            {/* 三选项按钮组 */}
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => saveSettings({ ...settings, htmlTheatreMode: 'off', enableHtmlTheatre: false })}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                  settings.htmlTheatreMode === 'off'
+                    ? 'bg-slate-600 border-slate-600 text-white'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
-                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
-              />
-            </button>
+              >
+                关闭
+              </button>
+              <button
+                onClick={() => saveSettings({ ...settings, htmlTheatreMode: 'smart', enableHtmlTheatre: true })}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                  settings.htmlTheatreMode === 'smart'
+                    ? 'bg-slate-600 border-slate-600 text-white'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                根据语境
+              </button>
+              <button
+                onClick={() => saveSettings({ ...settings, htmlTheatreMode: 'always', enableHtmlTheatre: true })}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                  settings.htmlTheatreMode === 'always'
+                    ? 'bg-slate-600 border-slate-600 text-white'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                每条必发
+              </button>
+            </div>
           </div>
           
           {/* 允许角色不回消息 */}

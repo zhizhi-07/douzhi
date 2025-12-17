@@ -502,8 +502,14 @@ export const aiCameraOnHandler: CommandHandler = {
  * - [语音:xxx] (兼容旧格式)
  */
 export const voiceHandler: CommandHandler = {
-  pattern: /[\[【](?:([^说]+)说了(.+?)|([^的]+)的语音[:\：](.+?)|语音[:\：](.+?))[\]】]/,
+  pattern: /[\[【](?:([^说\|]+)说了([^\|\]】]+)|([^的\|]+)的语音[:\：]([^\]】]+)|语音[:\：]([^\]】]+))[\]】]/,
   handler: async (match, content, { setMessages, chatId, isBlocked }) => {
+    // 🔥 排除状态指令被误识别：如果匹配的内容包含"状态"开头，跳过
+    const fullMatch = match[0]
+    if (fullMatch.startsWith('[状态') || fullMatch.startsWith('【状态')) {
+      return { handled: false, skipTextMessage: false }
+    }
+    
     // 提取语音文本：根据匹配到的格式选择对应的捕获组
     const voiceText = match[2] || match[4] || match[5] || match[1]
 
@@ -3187,7 +3193,7 @@ ${personality ? `人设：${personality}` : ''}
           const authorPosts = (await getAllPostsAsync())
             .filter(p => p.npcId === npcId)
             .slice(0, 10)
-            .map(p => p.content.substring(0, 80))
+            .map(p => `[${p.likes}赞] ${p.content.substring(0, 80)}`)
           console.log(`📝 楼主历史帖子: ${authorPosts.length}条`)
 
           // 获取最近的聊天记录（让AI角色参与评论时有上下文）

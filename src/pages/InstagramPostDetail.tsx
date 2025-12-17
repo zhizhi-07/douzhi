@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Heart, MessageCircle, Send, X, Trash2, MoreHorizontal, Share2 } from 'lucide-react'
 import { getAllPostsAsync, toggleLike, getNPCById, savePosts } from '../utils/forumNPC'
-import { getPostComments, addReply, addComment } from '../utils/forumCommentsDB'
+import { getPostComments, addReply, addComment, deleteComments, deletePostComments } from '../utils/forumCommentsDB'
 import { getUserInfoWithAvatar, type UserInfo } from '../utils/userUtils'
 import { apiService } from '../services/apiService'
 import { getAllCharacters } from '../utils/characterManager'
 import { addMessage, loadMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 import { getRandomMemes, getMemeSettings } from '../utils/memeRetrieval'
+import { getInstagramSettings } from './InstagramSettings'
 import StatusBar from '../components/StatusBar'
 import CommentContentRenderer from '../components/CommentContentRenderer'
 import type { ForumPost } from '../utils/forumNPC'
@@ -26,6 +27,9 @@ const InstagramPostDetail = () => {
   const [characters, setCharacters] = useState<any[]>([])
   const [userInfo, setUserInfo] = useState<UserInfo>({ nickname: '', realName: '' })
   const commentsEndRef = useRef<HTMLDivElement>(null)
+  const [showMenu, setShowMenu] = useState(false)
+  const [deleteMode, setDeleteMode] = useState(false)
+  const [selectedComments, setSelectedComments] = useState<Set<string>>(new Set())
 
   // 获取NPC的真实头像（优先从角色获取）
   const getRealAvatar = (npcId: string, npcAvatar?: string): string => {
@@ -288,8 +292,22 @@ ${aiCharactersWithChat.map(a => {
         }
       }
 
-      const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
+      // 获取世界观设定
+      const instagramSettings = getInstagramSettings()
+      const worldview = instagramSettings.worldview?.trim() || ''
+      const worldviewPrompt = worldview ? `
+## 🌍 论坛世界观设定（非常重要！所有内容必须符合这个世界观）
+${worldview}
 
+**⚠️ 世界观规则：**
+- 所有NPC网友和AI角色的评论都必须符合这个世界观
+- 用词、称呼、话题都要符合世界观设定
+- 评论内容、语气、表情都要与世界观一致
+
+` : ''
+
+      const prompt = `你是帖子评论区的导演，用户刚刚在评论区互动了，请生成后续的评论生态。
+${worldviewPrompt}
 ## 📱 帖子内容
 楼主「${userInfo.nickname || '我'}」发帖：
 ${post.content}
@@ -583,24 +601,45 @@ ${aiCharacterPrompt}${memesPrompt}
           </button>
           <h1 className="text-sm font-bold text-gray-900 uppercase tracking-wide">帖子</h1>
           <div className="flex items-center gap-2">
-            {post.npcId === 'user' && (
-              <button
-                onClick={async () => {
-                  if (confirm('确认移除此篇？')) {
-                    const posts = await getAllPostsAsync()
-                    const newPosts = posts.filter((p: ForumPost) => p.id !== postId)
-                    await savePosts(newPosts)
-                    navigate(-1)
-                  }
-                }}
-                className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-gray-50"
-              >
-                <Trash2 className="w-5 h-5 stroke-[1.5]" />
-              </button>
-            )}
-            <button className="text-black hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-50 -mr-2">
-              <MoreHorizontal className="w-6 h-6 stroke-[1.5]" />
+            <button
+              onClick={async () => {
+                if (confirm('确定永久删除这条帖子吗？（帖子和评论都会被删除）')) {
+                  // 永久删除评论
+                  await deletePostComments(postId!)
+                  // 永久删除帖子
+                  const posts = await getAllPostsAsync()
+                  const newPosts = posts.filter((p: ForumPost) => p.id !== postId)
+                  await savePosts(newPosts)
+                  navigate(-1)
+                }
+              }}
+              className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-gray-50"
+            >
+              <Trash2 className="w-5 h-5 stroke-[1.5]" />
             </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="text-black hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-50 -mr-2"
+              >
+                <MoreHorizontal className="w-6 h-6 stroke-[1.5]" />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-50">
+                  <button
+                    onClick={() => {
+                      setDeleteMode(!deleteMode)
+                      setShowMenu(false)
+                      setSelectedComments(new Set())
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deleteMode ? '退出删除模式' : '删除评论'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -705,6 +744,29 @@ ${aiCharacterPrompt}${memesPrompt}
                   <div key={comment.id} className="group">
                     {/* 主楼评论 */}
                     <div className="flex items-start gap-3">
+                      {/* 删除模式下显示复选框 */}
+                      {deleteMode && (
+                        <button
+                          onClick={() => {
+                            const newSet = new Set(selectedComments)
+                            if (newSet.has(comment.id)) {
+                              newSet.delete(comment.id)
+                            } else {
+                              newSet.add(comment.id)
+                            }
+                            setSelectedComments(newSet)
+                          }}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1.5 transition-colors ${
+                            selectedComments.has(comment.id) ? 'bg-red-500 border-red-500' : 'border-gray-300'
+                          }`}
+                        >
+                          {selectedComments.has(comment.id) && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                       {comment.authorAvatar && comment.authorAvatar !== '/default-avatar.png' ? (
                         <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full object-cover shrink-0 bg-gray-100" />
                       ) : (
@@ -772,8 +834,48 @@ ${aiCharacterPrompt}${memesPrompt}
         </div>
       </div>
 
+      {/* 删除模式下的底部操作栏 */}
+      {deleteMode && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 z-30 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            已选择 {selectedComments.size} 条评论
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                // 全选/取消全选
+                if (selectedComments.size === comments.length) {
+                  setSelectedComments(new Set())
+                } else {
+                  setSelectedComments(new Set(comments.map(c => c.id)))
+                }
+              }}
+              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              {selectedComments.size === comments.length ? '取消全选' : '全选'}
+            </button>
+            <button
+              onClick={async () => {
+                if (selectedComments.size === 0) return
+                if (confirm(`确定删除 ${selectedComments.size} 条评论吗？`)) {
+                  await deleteComments(Array.from(selectedComments))
+                  setComments(prev => prev.filter(c => !selectedComments.has(c.id)))
+                  setSelectedComments(new Set())
+                  setDeleteMode(false)
+                }
+              }}
+              disabled={selectedComments.size === 0}
+              className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              删除
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 底部评论输入框 */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
+      {!deleteMode && <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
         {/* 待发送列表预览 */}
         {pendingReplies.length > 0 && (
           <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -836,7 +938,7 @@ ${aiCharacterPrompt}${memesPrompt}
             发布
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

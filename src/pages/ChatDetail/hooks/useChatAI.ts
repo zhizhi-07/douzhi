@@ -239,6 +239,7 @@ export const useChatAI = (
       let enableTheatreCardsForPrompt = false // 默认关闭
       let characterIndependenceEnabled = false // 默认关闭
       let enableHtmlTheatreForPrompt = false // 中插HTML小剧场，默认关闭
+      let htmlTheatreModeForPrompt: 'off' | 'always' | 'smart' = 'off' // 小剧场模式
       let maskInfo: { nickname: string; realName?: string; signature?: string; persona?: string } | undefined = undefined
       
       if (chatSettingsRaw) {
@@ -247,6 +248,7 @@ export const useChatAI = (
           enableTheatreCardsForPrompt = parsed.enableTheatreCards ?? false
           characterIndependenceEnabled = parsed.characterIndependence ?? false
           enableHtmlTheatreForPrompt = parsed.enableHtmlTheatre ?? false
+          htmlTheatreModeForPrompt = parsed.htmlTheatreMode ?? 'off'
           
           // 🎭 读取面具设置
           if (parsed.useMask && parsed.maskId) {
@@ -277,7 +279,7 @@ export const useChatAI = (
           // 🔥 线下模式也传递面具信息
           systemPrompt = await buildOfflinePrompt(character, userName, maskInfo)
         } else {
-          systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo)
+          systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo, htmlTheatreModeForPrompt)
         }
         console.log('🔥🔥🔥 [useChatAI] 系统提示词构建完成，长度:', systemPrompt.length)
       } catch (err) {
@@ -469,7 +471,17 @@ export const useChatAI = (
       // 从 IndexedDB 读取所有消息，而不是从缓存读取
       const { ensureMessagesLoaded } = await import('../../../utils/simpleMessageManager')
       const currentMessages = await ensureMessagesLoaded(chatId)
-      const recentMessages = getRecentMessages(currentMessages, chatId)
+      
+      // 🔥 线下模式使用独立的消息条数设置
+      let messageLimit: number | undefined = undefined
+      if (currentSceneMode === 'offline') {
+        const savedLimit = localStorage.getItem(`offline-message-limit-${chatId}`)
+        if (savedLimit) {
+          messageLimit = parseInt(savedLimit)
+          console.log(`📊 [线下模式] 使用独立消息条数设置: ${messageLimit === 0 ? '全部' : messageLimit + '条'}`)
+        }
+      }
+      const recentMessages = getRecentMessages(currentMessages, chatId, messageLimit)
       
       // 🎭 读取"隐藏小剧场历史"设置
       const chatSettingsForHistory = localStorage.getItem(`chat_settings_${chatId}`)

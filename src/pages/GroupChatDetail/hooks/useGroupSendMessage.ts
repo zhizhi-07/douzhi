@@ -108,20 +108,16 @@ export const useGroupSendMessage = ({
 
     // 🔥 使用 queueMicrotask 异步保存，完全不阻塞
     queueMicrotask(() => {
-      // 直接操作缓存，不触发事件
-      groupChatManager.addMessage(groupId, {
-        userId: 'user',
-        userName: '我',
-        userAvatar: getMemberAvatar('user'),
-        content: trimmedText,
-        type: 'text',
-        timestamp: now,
-        quotedMessage: currentQuote ? {
-          id: currentQuote.id,
-          content: currentQuote.content,
-          userName: currentQuote.userName
-        } : undefined
-      }, true)  // silent = true
+      // 🔥 关键修复：直接将已创建的消息对象添加到缓存，而不是调用 addMessage 生成新ID
+      // 这样可以确保 UI 和缓存中的消息 ID 一致，避免重复
+      const existingMessages = groupChatManager.getMessages(groupId)
+      
+      // 检查是否已存在（防止重复添加）
+      if (!existingMessages.some(m => m.id === newMsg.id)) {
+        existingMessages.push(newMsg)
+        // 🔥 使用静默模式保存，不触发事件，避免重复渲染导致卡顿
+        groupChatManager.replaceAllMessages(groupId, existingMessages, false, true)
+      }
       
       console.log('✅ [发送完成]', uniqueId)
     })

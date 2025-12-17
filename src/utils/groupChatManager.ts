@@ -557,7 +557,8 @@ class GroupChatManager {
 
   // 🔥 替换所有消息（用于重新生成AI回复）
   // forceOverwrite: true 时直接覆盖，不合并（用于删除消息的场景如"重回"）
-  replaceAllMessages(groupId: string, messages: GroupMessage[], forceOverwrite: boolean = false): void {
+  // silent: true 时不触发事件，用于用户发送消息等场景
+  replaceAllMessages(groupId: string, messages: GroupMessage[], forceOverwrite: boolean = false, silent: boolean = false): void {
     // 🔥 关键修复：直接更新缓存并保存，不再异步合并，避免并发冲突
     const validMessages = messages.filter(m => m && m.id)  // 过滤无效消息
     messagesCache.set(groupId, validMessages)
@@ -583,14 +584,17 @@ class GroupChatManager {
       })
     }
     
-    // 触发更新事件
-    window.dispatchEvent(new Event('storage'))
-    
-    // 🔥 触发消息保存事件（用于通知和未读标记）
-    if (messages.length > 0) {
-      window.dispatchEvent(new CustomEvent('chat-message-saved', {
-        detail: { chatId: groupId, messageType: 'group' }
-      }))
+    // 🔥 静默模式不触发事件，避免用户发送消息时重复渲染
+    if (!silent) {
+      // 触发更新事件
+      window.dispatchEvent(new Event('storage'))
+      
+      // 🔥 触发消息保存事件（用于通知和未读标记）
+      if (messages.length > 0) {
+        window.dispatchEvent(new CustomEvent('chat-message-saved', {
+          detail: { chatId: groupId, messageType: 'group' }
+        }))
+      }
     }
   }
 
