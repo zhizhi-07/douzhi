@@ -42,6 +42,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   if (!displayContent && !message.messageType) return null
   if (!displayContent && message.messageType === 'text') return null
 
+  // 检测内容是否包含HTML代码（世界书卡片等）
+  const isHtmlContent = (content: string) => {
+    // 检测是否以<div或<span等HTML标签开头（允许前面有空白）
+    const trimmed = content.trim()
+    return /^<(div|span|section|article|table|ul|ol|p|h[1-6])\s/i.test(trimmed)
+  }
+
   // 格式化文本：优化段落显示
   const formatText = (text: string) => {
     // 将文本按换行符分割成段落
@@ -65,6 +72,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </React.Fragment>
       )
     }).filter(Boolean)
+  }
+
+  // 如果是HTML内容，渲染为卡片
+  if (isHtmlContent(displayContent)) {
+    return (
+      <div
+        className="break-words cursor-pointer message-press"
+        onTouchStart={(e) => onLongPressStart(message, e)}
+        onTouchEnd={onLongPressEnd}
+        onMouseDown={(e) => onLongPressStart(message, e)}
+        onMouseUp={onLongPressEnd}
+        onMouseLeave={onLongPressEnd}
+      >
+        <div 
+          dangerouslySetInnerHTML={{ __html: displayContent }}
+          style={{ maxWidth: '280px' }}
+        />
+      </div>
+    )
   }
 
   return (
