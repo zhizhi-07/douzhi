@@ -46,6 +46,7 @@ import OfflineSummaryCard from './ChatDetail/components/OfflineSummaryCard'
 import { useChatBubbles } from '../hooks/useChatBubbles'
 import { MessageBubble } from './ChatDetail/components/MessageBubble'
 import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRenderer'
+import CheckInCard from '../components/CheckInCard'
 import { playLoadMoreSound, playSystemSound } from '../utils/soundManager'
 import { blacklistManager } from '../utils/blacklistManager'
 
@@ -337,6 +338,22 @@ const ChatDetail = () => {
 
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
   const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
+
+  // 清理宠物领养标记（不自动触发AI回复，让用户自己决定）
+  useEffect(() => {
+    if (!id) return
+    const pendingAdoption = localStorage.getItem('pending_pet_adoption')
+    if (pendingAdoption) {
+      try {
+        const data = JSON.parse(pendingAdoption)
+        if (data.characterId === id) {
+          localStorage.removeItem('pending_pet_adoption')
+        }
+      } catch (e) {
+        localStorage.removeItem('pending_pet_adoption')
+      }
+    }
+  }, [id])
 
   // 判定对错功能
   const judgment = useJudgment(id, chatState.character, chatState.messages, chatState.setMessages)
@@ -1363,6 +1380,60 @@ const ChatDetail = () => {
                     )
                   }
 
+                  // 🐾 宠物领养卡片（用 SpecialMessageRenderer 渲染）
+                  if ((message as any).petAdoption) {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
+                    return (
+                      <div 
+                        key={message.id}
+                        className="flex items-start gap-2"
+                      >
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <SpecialMessageRenderer
+                            message={message}
+                            characterId={chatState.character?.id || ''}
+                            characterName={chatState.character?.nickname || chatState.character?.realName || '对方'}
+                            characterAvatar={chatState.character?.avatar}
+                            onAcceptInvite={() => {}}
+                            onRejectInvite={() => {}}
+                            onUpdateIntimatePayStatus={() => {}}
+                            onViewForwardedChat={() => {}}
+                          />
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // 🛍️ 购买消息卡片（用 SpecialMessageRenderer 渲染）
                   if (message.messageType === 'purchase' && message.purchaseData) {
                     const isSelectable = multiSelect.isMessageSelectable(message)
@@ -1557,6 +1628,7 @@ const ChatDetail = () => {
                               />
                             </div>
                           ) : message.coupleSpaceInvite ||
+                            (message as any).petAdoption ||
                             message.messageType === 'intimatePay' ||
                             message.messageType === 'forwarded-chat' ||
                             message.messageType === 'emoji' ||
@@ -1733,6 +1805,8 @@ const ChatDetail = () => {
                               onRespondToAppeal={judgment.startRespondToAppeal}
                               isJudging={judgment.isJudging}
                             />
+                          ) : message.messageType === 'checkIn' && message.checkIn ? (
+                            <CheckInCard message={message} />
                           ) : (
                             <MessageBubble
                               message={message}

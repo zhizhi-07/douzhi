@@ -1,168 +1,210 @@
-/**
- * 情侣空间主页 - Redesigned (No Emoji & Preview Mode)
- */
-
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import StatusBar from '../components/StatusBar'
-import {
-  getCoupleSpaceRelation,
-  cancelCoupleSpaceInvite,
-  endCoupleSpaceRelation,
-  getCoupleSpacePrivacy,
-  setCoupleSpacePrivacy,
-  type CoupleSpaceRelation
-} from '../utils/coupleSpaceUtils'
-import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
-import { addMessage } from '../utils/simpleMessageManager'
-import { getUserAvatar } from '../utils/avatarStorage'
+import { getCoupleSpaceRelation, CoupleSpaceRelation } from '../utils/coupleSpaceUtils'
+import { getCheckInStats } from '../utils/coupleSpaceCheckInUtils'
 import { characterService } from '../services/characterService'
+import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 
-// 预设背景主题
-const THEMES = [
-  { id: 'pink', bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)', accent: '#ff6b6b', glass: 'rgba(255, 255, 255, 0.3)' },
-  { id: 'blue', bg: 'linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)', accent: '#5ca0f2', glass: 'rgba(255, 255, 255, 0.4)' },
-  { id: 'cream', bg: 'linear-gradient(to top, #f3e7e9 0%, #e3eeff 99%, #e3eeff 100%)', accent: '#868f96', glass: 'rgba(255, 255, 255, 0.5)' },
-  { id: 'night', bg: 'linear-gradient(to top, #30cfd0 0%, #330867 100%)', accent: '#30cfd0', glass: 'rgba(0, 0, 0, 0.3)' },
-]
+// 心情图标映射
+const MOOD_IMAGES: Record<string, string> = {
+  happy: '/moods/开心.png',
+  love: '/moods/心动.png',
+  awkward: '/moods/无语尴尬.png',
+  calm: '/moods/平静.png',
+  sad: '/moods/伤心.png',
+  angry: '/moods/生气.png',
+}
 
-// SVG 图标组件
+// -----------------------------------------------------------------------------
+// Icons (Brown color, Grid Menu uses filled style)
+// -----------------------------------------------------------------------------
 const Icons = {
-  Sparkle: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" /></svg>
+  Home: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z" />
+    </svg>
   ),
-  Heart: ({ className, fill = "currentColor" }: { className?: string, fill?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={fill === 'none' ? 2 : 0}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
-  ),
-  Camera: ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+  Shop: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z" />
+    </svg>
   ),
   Calendar: ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" />
+    </svg>
   ),
-  Message: ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+  Star: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+    </svg>
   ),
-  Cloud: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 19C21.54 19 24 16.54 24 13.5C24 10.73 21.95 8.45 19.29 8.06C18.83 4.6 15.87 2 12.25 2C8.14 2 4.72 5.03 4.13 9.04C1.74 9.61 0 11.75 0 14.25C0 17.56 2.69 20 6 20H18.5V19Z" /></svg>
+  Bell: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+    </svg>
   ),
-  Lips: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12,13.5C16.5,13.5 19,11 21,10C21.5,9.75 22,9.5 22.5,9.5C23.3,9.5 24,10.2 24,11C24,11.4 23.8,11.8 23.5,12C22,13 18.5,16 12,16C5.5,16 2,13 0.5,12C0.2,11.8 0,11.4 0,11C0,10.2 0.7,9.5 1.5,9.5C2,9.5 2.5,9.75 3,10C5,11 7.5,13.5 12,13.5M12,11C9.5,11 7,9.5 5,8.5C4.5,8.25 4,8 3.5,8C2.7,8 2,8.7 2,9.5C2,9.9 2.2,10.3 2.5,10.5C4.5,11.5 8,13.5 12,13.5C16,13.5 19.5,11.5 21.5,10.5C21.8,10.3 22,9.9 22,9.5C22,8.7 21.3,8 20.5,8C20,8 19.5,8.25 19,8.5C17,9.5 14.5,11 12,11Z" /></svg>
+  Settings: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+    </svg>
   ),
-  Smile: ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+  QnA: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9h-2v2H9v-2H7v-2h2V7h2v2h2v2zm-3 8H8v-2h2v2zm6-12V3.5L18.5 9H14z" />
+    </svg>
   ),
-  User: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>
+  HeartFilled: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+    </svg>
+  ),
+  ChatDots: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-9 9H9V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z" />
+    </svg>
+  ),
+  // Grid Menu Icons (FILLED style - no strokes)
+  Book: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z" />
+    </svg>
+  ),
+  Album: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+    </svg>
+  ),
+  Flower: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 22c4.97 0 9-4.03 9-9-4.97 0-9 4.03-9 9zM5.6 10.25c0 1.38 1.12 2.5 2.5 2.5.53 0 1.01-.16 1.42-.44l-.02.19c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5l-.02-.19c.4.28.89.44 1.42.44 1.38 0 2.5-1.12 2.5-2.5 0-1-.59-1.85-1.43-2.25.84-.4 1.43-1.25 1.43-2.25 0-1.38-1.12-2.5-2.5-2.5-.53 0-1.01.16-1.42.44l.02-.19C14.5 3.62 13.38 2.5 12 2.5S9.5 3.62 9.5 5l.02.19c-.4-.28-.89-.44-1.42-.44-1.38 0-2.5 1.12-2.5 2.5 0 1 .59 1.85 1.43 2.25-.84.4-1.43 1.25-1.43 2.25zM12 5.5c1.38 0 2.5 1.12 2.5 2.5s-1.12 2.5-2.5 2.5S9.5 9.38 9.5 8s1.12-2.5 2.5-2.5zM3 13c0 4.97 4.03 9 9 9 0-4.97-4.03-9-9-9z" />
+    </svg>
+  ),
+  PeriodCalendar: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z" />
+      <circle cx="12" cy="14" r="3" />
+    </svg>
+  ),
+  Close: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+    </svg>
+  ),
+  Fire: ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
+    </svg>
   )
 }
+
+// -----------------------------------------------------------------------------
+// Component Implementation
+// -----------------------------------------------------------------------------
 
 const CoupleSpace = () => {
   const navigate = useNavigate()
   const [relation, setRelation] = useState<CoupleSpaceRelation | null>(null)
-  const [privacyMode, setPrivacyMode] = useState<'public' | 'private'>('public')
-  const [themeIndex, setThemeIndex] = useState(0)
-  const [isPreviewMode, setIsPreviewMode] = useState(false) // 预览模式状态
-  const [photos, setPhotos] = useState<CoupleAlbumPhoto[]>([]) // 相册照片
-  const [latestMessage, setLatestMessage] = useState<CoupleMessage | null>(null) // 最新留言
+  const [daysCount, setDaysCount] = useState(0)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [characterAvatar, setCharacterAvatar] = useState('')
+  const [coverImage, setCoverImage] = useState('')
+  const [photos, setPhotos] = useState<CoupleAlbumPhoto[]>([])
+  const [latestMessage, setLatestMessage] = useState<CoupleMessage | null>(null)
+  const [petStatus, setPetStatus] = useState<'none' | 'naming' | 'waitingAI' | 'egg' | 'hatched'>('none')
+  const [petName, setPetName] = useState('')
+  const [checkInStreak, setCheckInStreak] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  // 互动动画状态
-  const [interactions, setInteractions] = useState<{ id: number, type: 'heart' | 'kiss', x: number, y: number }[]>([])
-  // 用户头像（异步加载）
-  const [userAvatar, setUserAvatar] = useState<string>('')
-
-  // 连续平滑滚动逻辑 - 用 setInterval 更可靠
   useEffect(() => {
-    const cardWidth = 128
-    const gap = 16
-    const oneSetWidth = (cardWidth + gap) * 4
-
-    const intervalId = setInterval(() => {
-      const container = carouselRef.current
-      if (!container) return
-      if (container.matches(':hover')) return
-
-      container.scrollLeft += 0.5
-
-      if (container.scrollLeft >= oneSetWidth) {
-        container.scrollLeft -= oneSetWidth
-      }
-    }, 16) // 约60fps
-
-    return () => clearInterval(intervalId)
+    loadData()
+    loadPhotos()
+    loadMessages()
+    loadPetData()
+    // Load check-in stats
+    getCheckInStats().then(stats => setCheckInStreak(stats.currentStreak))
+    const savedCover = localStorage.getItem('couple_space_cover')
+    if (savedCover) {
+      setCoverImage(savedCover)
+    }
   }, [])
 
-  // 加载用户头像
-  const loadUserAvatar = async () => {
-    try {
-      const saved = localStorage.getItem('user_info')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        // 如果是 base64，直接用
-        if (parsed.avatar && parsed.avatar.startsWith('data:')) {
-          setUserAvatar(parsed.avatar)
-          console.log('✅ [情侣空间] 从 localStorage 加载头像')
-          return
-        }
-        // 如果是旧的标记，从 IndexedDB 加载
-        if (parsed.avatar === 'indexeddb://user_avatar') {
-          const avatar = await getUserAvatar()
-          if (avatar) {
-            setUserAvatar(avatar)
-            console.log('✅ [情侣空间] 从 IndexedDB 加载头像')
-          }
-        }
-      }
-    } catch (e) {
-      console.error('头像加载失败:', e)
+  const loadPetData = () => {
+    const saved = localStorage.getItem('couple_pet_data')
+    if (saved) {
+      const data = JSON.parse(saved)
+      setPetStatus(data.status || 'none')
+      setPetName(data.name || '')
     }
   }
 
+  // Auto-scrolling carousel logic - smooth infinite scroll
   useEffect(() => {
-    loadRelation()
-    loadUserAvatar()
-    const handleVisibilityChange = () => { if (!document.hidden) loadRelation() }
-    const handleUserInfoUpdate = () => { loadRelation(); loadUserAvatar() }
+    let animationId: number
+    let lastTime = 0
+    const speed = 30 // pixels per second
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', loadRelation)
-    window.addEventListener('storage', handleUserInfoUpdate)
-    window.addEventListener('userInfoUpdated', handleUserInfoUpdate)
+    const animate = (currentTime: number) => {
+      const container = carouselRef.current
+      if (!container) {
+        animationId = requestAnimationFrame(animate)
+        return
+      }
 
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', loadRelation)
-      window.removeEventListener('storage', handleUserInfoUpdate)
-      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate)
+      if (lastTime === 0) lastTime = currentTime
+      const deltaTime = (currentTime - lastTime) / 1000
+      lastTime = currentTime
+
+      // Don't scroll if hovering
+      if (!container.matches(':hover')) {
+        container.scrollLeft += speed * deltaTime
+
+        // Calculate one set width based on actual rendered elements
+        const cardWidth = 144 + 16 // w-36 (144px) + gap-4 (16px)
+        const oneSetWidth = cardWidth * 4
+
+        // Seamless loop - reset when we've scrolled past the first set
+        if (container.scrollLeft >= oneSetWidth) {
+          container.scrollLeft = container.scrollLeft - oneSetWidth
+        }
+      }
+
+      animationId = requestAnimationFrame(animate)
     }
+
+    animationId = requestAnimationFrame(animate)
+
+    return () => cancelAnimationFrame(animationId)
   }, [])
 
-  const loadRelation = async () => {
-    const rel = getCoupleSpaceRelation()
-    
-    // 🔥 等待角色数据加载完成，然后获取最新头像
-    if (rel && rel.characterId) {
-      await characterService.waitForLoad() // 确保数据已加载
-      const character = characterService.getById(rel.characterId)
-      if (character?.avatar) {
-        rel.characterAvatar = character.avatar
-        // 🔥 同时更新 localStorage，避免下次刷新又变回旧的
-        localStorage.setItem('couple_space_relation', JSON.stringify(rel))
-        console.log('✅ [情侣空间] 已同步最新角色头像')
-      }
-    }
-    
-    setRelation(rel)
-    setPrivacyMode(getCoupleSpacePrivacy())
-    // 加载相册照片
+  const loadPhotos = async () => {
     try {
       const allPhotos = await getCouplePhotos()
-      setPhotos(allPhotos)
+      setPhotos(allPhotos.slice(0, 6)) // Show max 6 recent photos
     } catch (error) {
       console.error('加载相册失败:', error)
     }
-    // 加载最新留言
+  }
+
+  const loadData = async () => {
+    const rel = getCoupleSpaceRelation()
+    if (rel) {
+      if (rel.characterId) {
+        await characterService.waitForLoad()
+        const char = characterService.getById(rel.characterId)
+        if (char?.avatar) {
+          rel.characterAvatar = char.avatar
+          setCharacterAvatar(char.avatar)
+        }
+      }
+      setRelation(rel)
+      const start = rel.acceptedAt || rel.createdAt
+      const diff = Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24))
+      setDaysCount(diff)
+    }
+  }
+
+  const loadMessages = () => {
     try {
       const messages = getCoupleMessages()
       if (messages.length > 0) {
@@ -173,466 +215,204 @@ const CoupleSpace = () => {
     }
   }
 
-  // 触发互动动画
-  const triggerInteraction = (type: 'heart' | 'kiss', e: React.MouseEvent) => {
-    const id = Date.now()
-    const rect = (e.target as HTMLElement).getBoundingClientRect()
-    const x = rect.left + rect.width / 2
-    const y = rect.top
-
-    setInteractions(prev => [...prev, { id, type, x, y }])
-    setTimeout(() => {
-      setInteractions(prev => prev.filter(i => i.id !== id))
-    }, 1000)
-  }
-
-  const handleEndRelation = async () => {
-    console.log('🔥 [情侣空间] 点击解除关系，当前relation:', relation)
-    if (confirm('确定要解除情侣空间关系吗？\n\n注意：照片、留言、纪念日等内容会保留，下次重新绑定后可以恢复。')) {
-      console.log('🔥 [情侣空间] 用户确认解除')
-      const success = await endCoupleSpaceRelation()
-      console.log('🔥 [情侣空间] endCoupleSpaceRelation结果:', success)
-      if (success) {
-        if (relation?.characterId) {
-          addMessage(relation.characterId, {
-            id: Date.now(),
-            type: 'system',
-            content: '你解除了情侣空间关系',
-            aiReadableContent: '用户解除了情侣空间关系',
-            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-            timestamp: Date.now(),
-            messageType: 'system'
-          })
-        }
-        loadRelation()
-        alert('✅ 情侣空间已解除')
-      } else {
-        alert('❌ 解除失败，请尝试使用底部的"强制清除缓存"按钮')
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        setCoverImage(result)
+        localStorage.setItem('couple_space_cover', result)
       }
+      reader.readAsDataURL(file)
     }
   }
 
-  // 预览数据 - 去除诡异头像
-  const mockRelation: CoupleSpaceRelation = {
-    id: 'mock_relation',
-    userId: 'user',
-    characterId: 'preview_char',
-    characterName: '我的恋人',
-    characterAvatar: '', // 空头像，将显示默认SVG
-    status: 'active',
-    sender: 'user', // 添加必需的sender属性
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 520, // 520天前
-    acceptedAt: Date.now() - 1000 * 60 * 60 * 24 * 520,
-  }
+  // ---------------------------------------------------------------------------
+  // Sub-components
+  // ---------------------------------------------------------------------------
 
-  // 决定使用真实数据还是预览数据
-  const activeRelation = isPreviewMode ? mockRelation : relation
-  const isConnected = activeRelation && activeRelation.status === 'active'
-  const isPending = activeRelation && activeRelation.status === 'pending'
+  const TopBar = () => (
+    <div className="absolute top-0 left-0 w-full z-10 pt-[env(safe-area-inset-top)]">
+      <div className="px-4 py-3 flex items-center justify-between">
+        {/* Left: Character Status */}
+        <div className="flex items-center gap-2 bg-[#f8f5f2] rounded-full pl-1 pr-3 py-1 shadow-sm border border-[#e6e1db] ml-12">
+          <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-white">
+             {characterAvatar ? (
+               <img src={characterAvatar} alt="char" className="w-full h-full object-cover" />
+             ) : (
+               <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">AI</div>
+             )}
+          </div>
+          <span className="text-sm font-medium text-gray-700">{relation?.characterName || 'AI伴侣'}</span>
+        </div>
 
-  const currentTheme = THEMES[themeIndex]
-  const daysCount = activeRelation ? Math.floor((Date.now() - (activeRelation.acceptedAt || activeRelation.createdAt)) / (1000 * 60 * 60 * 24)) : 0
-
-  // 获取用户头像：只用从 IndexedDB 加载的（过滤掉旧的标记）
-  const relationAvatar = activeRelation?.userAvatar
-  const displayUserAvatar = (relationAvatar && relationAvatar.startsWith('data:')) ? relationAvatar : userAvatar
-
-  return (
-    <div className="h-screen flex flex-col relative overflow-hidden transition-all duration-500 soft-page-enter" style={{ background: currentTheme.bg }}>
-
-      {/* 背景装饰 */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <Icons.Sparkle className="absolute top-10 left-10 text-white w-6 h-6 opacity-30 animate-pulse" />
-        <Icons.Sparkle className="absolute top-40 right-20 text-white w-4 h-4 opacity-20 animate-bounce" />
-        <Icons.Cloud className="absolute bottom-32 left-1/3 text-white w-12 h-12 opacity-20" />
-      </div>
-
-      {/* 顶部栏 (透明) */}
-      <div className="relative z-10">
-        <StatusBar />
-        <div className="flex items-center justify-between px-5 py-4">
-          <button
-            onClick={() => navigate('/discover')}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="text-white font-medium opacity-90 tracking-widest text-sm">LOVER SPACE</div>
-          {!isPreviewMode && isConnected ? (
-            <div className="flex items-center gap-2">
-              {/* 添加纪念日 */}
-              <button
-                onClick={() => navigate('/couple-anniversary')}
-                className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-white transition-all"
-              >
-                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              {/* 解除情侣空间 */}
-              <button
-                onClick={handleEndRelation}
-                className="w-10 h-10 flex items-center justify-center text-white/50 hover:text-red-400 transition-all"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <div className="w-10 h-10" />
-          )}
+        {/* Right: Days Counter - 简单文字 */}
+        <div className="flex items-center gap-1.5">
+          <Icons.HeartFilled className="w-5 h-5 text-[#ff6b6b]" />
+          <span className="font-bold text-lg text-[#5d4037]">在一起 {daysCount} 天</span>
         </div>
       </div>
+    </div>
+  )
 
-      {/* 主内容区域 */}
-      <div className="flex-1 overflow-y-auto px-0 pt-2 pb-20 relative z-10 hide-scrollbar">
+  const RoomView = () => (
+    <div className="w-full h-full bg-gradient-to-b from-pink-50 via-purple-50 to-indigo-100 relative flex flex-col">
+      {/* Back Button */}
+      <div className="absolute top-4 left-4 z-30 pt-[env(safe-area-inset-top)]">
+        <button 
+          onClick={() => navigate('/')}
+          className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm shadow-sm flex items-center justify-center text-[#8b7355] hover:bg-white transition-colors"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      </div>
 
-        {isPreviewMode && (
-          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg mb-4 text-sm font-medium flex items-center justify-between shadow-sm mx-4">
-            <span>👀 当前为预览模式</span>
-            <button onClick={() => setIsPreviewMode(false)} className="text-xs underline">退出预览</button>
-          </div>
-        )}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col justify-center pt-20 pb-24">
+        {/* Title */}
+        <div className="px-6 mb-6">
+          <h2 className="text-white/90 font-serif text-2xl tracking-wider italic drop-shadow-sm">Sweet Moments</h2>
+        </div>
 
-        {!isConnected && !isPending && !isPreviewMode ? (
-          // 未开通状态 - 美化版
-          <div className="flex flex-col items-center justify-center min-h-[70vh] text-white space-y-8 animate-fade-in px-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/20 rounded-full blur-xl"></div>
-              <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-2xl relative z-10 border border-white/30">
-                <Icons.Heart className="w-16 h-16 text-white drop-shadow-md" fill="currentColor" />
-              </div>
-            </div>
-
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold tracking-wide drop-shadow-sm">开启情侣空间</h2>
-              <p className="opacity-90 font-light tracking-wider">与 AI 恋人建立专属的亲密连接</p>
-            </div>
-
-            <div className="space-y-4 w-full max-w-xs">
-              <div className="text-center text-white/60 text-xs mb-8">
-                可以在聊天页面向 AI 发起邀请<br />
-                对方接受后即可开启
-              </div>
-
-              {/* 如果有pending邀请，显示取消邀请按钮；否则显示预览效果 */}
-              {relation && relation.status === 'pending' ? (
-                <button
-                  onClick={async () => {
-                    if (confirm('确定取消邀请吗？')) {
-                      await cancelCoupleSpaceInvite()
-                      loadRelation()
-                    }
-                  }}
-                  className="w-full py-4 rounded-2xl bg-red-500/90 text-white font-bold shadow-lg hover:bg-red-600 hover:scale-105 transition-all flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  取消邀请
-                </button>
-              ) : (
-                <button
-                  onClick={() => setIsPreviewMode(true)}
-                  className="w-full py-4 rounded-2xl bg-white/90 text-gray-800 font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-2"
-                >
-                  <Icons.Sparkle className="w-5 h-5 text-yellow-500" />
-                  预览效果
-                </button>
-              )}
-
-              {/* 强制清除按钮（用于清除缓存残留） */}
-              <button
-                onClick={() => {
-                  if (confirm('⚠️ 强制清除所有情侣空间数据？\n\n如果点击情侣空间没反应，可能有缓存残留，点击此按钮清除。')) {
-                    localStorage.removeItem('couple_space_relation')
-                    localStorage.removeItem('couple_photos')
-                    localStorage.removeItem('couple_messages')
-                    localStorage.removeItem('couple_anniversaries')
-                    localStorage.removeItem('couple_space_privacy')
-                    alert('✅ 已清除所有情侣空间数据')
-                    loadRelation()
-                  }
-                }}
-                className="w-full py-2 text-white/50 text-xs hover:text-white/70 transition-colors underline"
-              >
-                清除缓存残留
-              </button>
-            </div>
-          </div>
-        ) : isPending && !isPreviewMode ? (
-          // 等待状态 - 美化版
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-10 text-center shadow-2xl mt-20 mx-4 animate-fade-in">
-            <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <Icons.Heart className="w-10 h-10 text-pink-500" />
-            </div>
-            {relation?.sender === 'character' ? (
-              // AI发起的邀请
-              <div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">收到邀请</h2>
-                <p className="text-gray-500 text-sm mb-8">{relation?.characterName} 向你发送了情侣空间邀请<br />请在聊天中回应</p>
-                <button
-                  onClick={async () => { if (confirm('清除此邀请?')) { await endCoupleSpaceRelation(); loadRelation() } }}
-                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-                >
-                  清除邀请
-                </button>
-              </div>
-            ) : (
-              // 用户发起的邀请
-              <div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">等待回应中...</h2>
-                <p className="text-gray-500 text-sm mb-8">已向 {relation?.characterName} 发送了爱的邀请<br />请耐心等待对方的答复</p>
-                <button
-                  onClick={async () => { if (confirm('取消邀请?')) { await cancelCoupleSpaceInvite(); loadRelation() } }}
-                  className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
-                >
-                  取消邀请
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          // 已连接状态 (或预览模式)
-          <div className="animate-slide-up flex flex-col h-full">
-            {/* 隐私模式切换按钮 */}
-            {!isPreviewMode && (
-              <div className="flex justify-center gap-2 mb-4 px-4">
-                <button
-                  onClick={() => {
-                    setPrivacyMode('public')
-                    setCoupleSpacePrivacy('public')
-                  }}
-                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                    privacyMode === 'public'
-                      ? 'bg-white text-gray-800 shadow-lg'
-                      : 'bg-white/20 text-white hover:bg-white/30'
-                  }`}
-                >
-                  🌍 公开
-                </button>
-                <button
-                  onClick={() => {
-                    setPrivacyMode('private')
-                    setCoupleSpacePrivacy('private')
-                  }}
-                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                    privacyMode === 'private'
-                      ? 'bg-white text-gray-800 shadow-lg'
-                      : 'bg-white/20 text-white hover:bg-white/30'
-                  }`}
-                >
-                  🔒 私密
-                </button>
-              </div>
-            )}
-            
-            {/* 1. 头部大卡片：恋爱天数 & 头像 */}
-            <div className="relative mt-4 mb-10 px-4 shrink-0">
-              <div className="text-center text-white mb-8 drop-shadow-md">
-                <div className="text-sm tracking-[0.3em] opacity-90 mb-1 uppercase">We have been together for</div>
-                <div className="text-[64px] leading-none font-serif font-bold flex items-center justify-center gap-2">
-                  <span>{daysCount}</span>
-                  <span className="text-lg self-end mb-3 opacity-80 font-sans font-normal tracking-widest">DAYS</span>
-                </div>
-              </div>
-
-              <div className="flex justify-center items-center gap-8 relative">
-                {/* 连接线 */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-1 bg-white/30 rounded-full blur-[1px]"></div>
-
-                {/* 我 */}
-                <div className="flex flex-col items-center z-10">
-                  <div className="w-20 h-20 rounded-full p-1 bg-white/30 backdrop-blur-sm shadow-lg relative group flex items-center justify-center">
-                    <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-gray-200 flex items-center justify-center">
-                      {displayUserAvatar ? (
-                        <img src={displayUserAvatar} className="w-full h-full object-cover" alt="Me" />
-                      ) : (
-                        <Icons.User className="w-10 h-10 text-gray-400" />)
-                      }
-                    </div>
-                    <div className="absolute -bottom-5 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">我</div>
-                  </div>
-                </div>
-
-                {/* 爱心 */}
-                <div className="z-20 animate-pulse">
-                  <div className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-red-500">
-                    <Icons.Heart className="w-6 h-6" fill="currentColor" />
-                  </div>
-                </div>
-
-                {/* Ta */}
-                <div className="flex flex-col items-center z-10">
-                  <div className="w-20 h-20 rounded-full p-1 bg-white/30 backdrop-blur-sm shadow-lg relative group flex items-center justify-center">
-                    <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-gray-200 flex items-center justify-center">
-                      {activeRelation?.characterAvatar ? (
-                        <img src={activeRelation?.characterAvatar} className="w-full h-full object-cover" alt="Ta" />
-                      ) : (
-                        <Icons.User className="w-10 h-10 text-gray-400" />
-                      )}
-                    </div>
-                    <div className="absolute -bottom-5 bg-white text-xs px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">{activeRelation?.characterName}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. 横向滚动相册 (Carousel) */}
-            <div className="mb-8 shrink-0">
-              <div className="px-6 mb-3">
-                <h3 className="text-white font-serif text-xl tracking-wider opacity-90 italic">Sweet Moments</h3>
-              </div>
-
-              <div ref={carouselRef} className="flex overflow-x-auto pb-8 px-6 hide-scrollbar gap-4">
-                {/* 第一组：4个卡片（照片优先，不足补占位符） */}
-                {[0, 1, 2, 3].map((i) => {
-                  const photo = photos[i]
-                  const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
-                  if (photo) {
-                    return (
-                      <div
-                        key={photo.id}
-                        onClick={() => !isPreviewMode && navigate('/couple-album')}
-                        className="shrink-0 w-32 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer"
-                        style={{ transform: `rotate(${rotation}deg)` }}
-                      >
-                        {photo.imageUrl ? (
-                          <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
-                            <Icons.Heart className="w-8 h-8 text-pink-300" />
-                          </div>
-                        )}
-                      </div>
-                    )
-                  } else {
-                    return (
-                      <div
-                        key={`upload-${i}`}
-                        onClick={() => !isPreviewMode && navigate('/couple-album')}
-                        className="shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200"
-                        style={{ transform: `rotate(${rotation}deg)` }}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                          <Icons.Camera className="w-5 h-5" />
-                        </div>
-                        <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
-                      </div>
-                    )
-                  }
-                })}
-
-                {/* 第二组（副本）：完全复制第一组 */}
-                {[0, 1, 2, 3].map((i) => {
-                  const photo = photos[i]
-                  const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
-                  if (photo) {
-                    return (
-                      <div
-                        key={`copy-${photo.id}`}
-                        onClick={() => !isPreviewMode && navigate('/couple-album')}
-                        className="shrink-0 w-32 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer"
-                        style={{ transform: `rotate(${rotation}deg)` }}
-                      >
-                        {photo.imageUrl ? (
-                          <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
-                            <Icons.Heart className="w-8 h-8 text-pink-300" />
-                          </div>
-                        )}
-                      </div>
-                    )
-                  } else {
-                    return (
-                      <div
-                        key={`upload-copy-${i}`}
-                        onClick={() => !isPreviewMode && navigate('/couple-album')}
-                        className="shrink-0 w-32 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200"
-                        style={{ transform: `rotate(${rotation}deg)` }}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                          <Icons.Camera className="w-5 h-5" />
-                        </div>
-                        <div className="text-gray-400 text-[10px] font-medium">上传更多照片</div>
-                      </div>
-                    )
-                  }
-                })}
-              </div>
-            </div>
-
-            {/* 4. 底部装饰：堆叠便利贴 - 点击跳转到留言板 */}
-            <div
-              className="relative mx-6 mb-8 mt-6 cursor-pointer h-48"
-              onClick={() => !isPreviewMode && navigate('/couple-message-board')}
-            >
-              {/* 堆叠的便利贴效果 */}
-              <div className="relative w-full h-full">
-                {/* 第4层 - 最底部 */}
+        {/* Horizontal Scrolling Carousel */}
+        <div 
+          ref={carouselRef} 
+          className="flex overflow-x-auto pb-6 px-6 hide-scrollbar gap-4"
+        >
+          {/* First set: photos + upload placeholder */}
+          {[0, 1, 2, 3].map((i) => {
+            const photo = photos[i]
+            const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
+            if (photo) {
+              return (
                 <div
-                  className="absolute top-8 left-4 w-[85%] h-40 bg-gradient-to-br from-purple-100 to-purple-200 shadow-md transform -rotate-3 transition-all duration-300 rounded-sm"
-                  style={{
-                    zIndex: 1,
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                  }}
-                />
-
-                {/* 第3层 */}
-                <div
-                  className="absolute top-6 left-2 w-[90%] h-40 bg-gradient-to-br from-green-100 to-emerald-200 shadow-md transform rotate-2 transition-all duration-300 rounded-sm"
-                  style={{
-                    zIndex: 2,
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.12)'
-                  }}
-                />
-
-                {/* 第2层 */}
-                <div
-                  className="absolute top-4 left-6 w-[92%] h-40 bg-gradient-to-br from-pink-100 to-pink-200 shadow-lg transform -rotate-1 transition-all duration-300 rounded-sm"
-                  style={{
-                    zIndex: 3,
-                    boxShadow: '0 6px 10px rgba(0,0,0,0.15)'
-                  }}
-                />
-
-                {/* 第1层 - 最顶部（主内容） */}
-                <div
-                  className="absolute top-0 left-8 w-[95%] h-44 bg-gradient-to-br from-yellow-50 to-yellow-100 shadow-xl transform rotate-1 hover:rotate-0 hover:scale-105 transition-all duration-300 rounded-sm group"
-                  style={{
-                    zIndex: 4,
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
-                  }}
+                  key={photo.id}
+                  onClick={() => navigate('/couple-album')}
+                  className="shrink-0 w-36 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer rounded-sm"
+                  style={{ transform: `rotate(${rotation}deg)` }}
                 >
-                  {/* 磁带效果 */}
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 bg-white/60 backdrop-blur-sm border border-gray-200 shadow-sm rounded-sm"></div>
-
-                  {/* 内容区域 */}
-                  <div className="p-6 h-full flex flex-col justify-between">
-                    <div className="font-handwriting text-gray-700 leading-relaxed text-base">
-                      "{latestMessage?.content || '遇见你是我这辈子最幸运的事。'}"
+                  {photo.imageUrl ? (
+                    <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
+                      <Icons.HeartFilled className="w-8 h-8 text-pink-300" />
                     </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs text-gray-400">点击查看更多留言</div>
-                      <div className="text-xs text-gray-500 font-medium">
-                        —— {latestMessage?.characterName || activeRelation?.characterName}
-                      </div>
-                    </div>
+                  )}
+                </div>
+              )
+            } else {
+              return (
+                <div
+                  key={`upload-${i}`}
+                  onClick={() => navigate('/couple-album')}
+                  className="shrink-0 w-36 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-sm"
+                  style={{ transform: `rotate(${rotation}deg)` }}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                    <Icons.Album className="w-5 h-5" />
                   </div>
+                  <div className="text-gray-400 text-[10px] font-medium">上传照片</div>
+                </div>
+              )
+            }
+          })}
+          {/* Second set: duplicate for infinite scroll effect */}
+          {[0, 1, 2, 3].map((i) => {
+            const photo = photos[i]
+            const rotation = (i % 2 === 0 ? 1 : -1) * (i % 3 + 1)
+            if (photo) {
+              return (
+                <div
+                  key={`copy-${photo.id}`}
+                  onClick={() => navigate('/couple-album')}
+                  className="shrink-0 w-36 aspect-square bg-white/90 p-1.5 pb-5 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer rounded-sm"
+                  style={{ transform: `rotate(${rotation}deg)` }}
+                >
+                  {photo.imageUrl ? (
+                    <img src={photo.imageUrl} alt={photo.description} className="w-full h-full object-cover rounded-sm" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 rounded-sm flex items-center justify-center">
+                      <Icons.HeartFilled className="w-8 h-8 text-pink-300" />
+                    </div>
+                  )}
+                </div>
+              )
+            } else {
+              return (
+                <div
+                  key={`upload-copy-${i}`}
+                  onClick={() => navigate('/couple-album')}
+                  className="shrink-0 w-36 aspect-square bg-white/90 p-2 pb-6 shadow-lg hover:rotate-0 transition-transform duration-300 cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-sm"
+                  style={{ transform: `rotate(${rotation}deg)` }}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                    <Icons.Album className="w-5 h-5" />
+                  </div>
+                  <div className="text-gray-400 text-[10px] font-medium">上传照片</div>
+                </div>
+              )
+            }
+          })}
+        </div>
 
-                  {/* 装饰性胶带（左上角） */}
-                  <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/30 backdrop-blur-sm transform rotate-45 opacity-50"></div>
+        {/* 3. 心情日记便利贴 */}
+        <div 
+          className="relative mx-6 mb-8 mt-2 h-44 cursor-pointer"
+          onClick={() => navigate('/couple-message-board')}
+        >
+           {/* Layer 1 (Bottom) */}
+           <div className="absolute top-4 left-2 w-[92%] h-36 bg-[#fff8e1] rounded-lg shadow-sm transform -rotate-3 border border-[#f5e6ca]"></div>
+           {/* Layer 2 (Middle) */}
+           <div className="absolute top-2 left-4 w-[92%] h-36 bg-[#e1f5fe] rounded-lg shadow-sm transform rotate-2 border border-[#b3e5fc]"></div>
+           {/* Layer 3 (Top - Main Content) */}
+           <div className="absolute top-0 left-3 w-[94%] h-40 bg-white rounded-lg shadow-md transform -rotate-1 hover:rotate-0 hover:scale-[1.02] transition-all duration-300 border border-[#e0e0e0] group p-4 flex flex-col justify-between">
+              {/* Tape Decoration */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-6 bg-white/40 backdrop-blur-sm border border-gray-100 shadow-sm opacity-60"></div>
+              
+              {/* 内容区域 - 左边心情图标，右边文字 */}
+              <div className="flex gap-3 items-start flex-1">
+                {/* 心情图标 */}
+                {latestMessage?.mood && MOOD_IMAGES[latestMessage.mood] && (
+                  <div className="shrink-0">
+                    <img 
+                      src={MOOD_IMAGES[latestMessage.mood]} 
+                      alt="mood" 
+                      className="w-12 h-12 object-contain"
+                    />
+                  </div>
+                )}
+                {/* 日记内容 */}
+                <div className="flex-1 font-serif text-[#5d4037]/80 leading-relaxed text-sm italic line-clamp-3">
+                  "{latestMessage?.content || '记录今天的心情...'}"
                 </div>
               </div>
-            </div>
+              
+              <div className="flex justify-between items-end border-t border-[#f5f5f5] pt-2 mt-2">
+                 <div className="text-[10px] text-gray-400">点击查看更多</div>
+                 <div className="flex items-center gap-1.5">
+                   <div className="w-5 h-5 rounded-full bg-gray-100 overflow-hidden">
+                     {latestMessage?.characterName === '我' ? (
+                       <div className="w-full h-full bg-gray-300 flex items-center justify-center text-[8px] text-white">我</div>
+                     ) : characterAvatar ? (
+                       <img src={characterAvatar} alt="avatar" className="w-full h-full object-cover" />
+                     ) : (
+                       <div className="w-full h-full bg-gray-200" />
+                     )}
+                   </div>
+                   <span className="text-xs font-bold text-[#8b7355]">
+                     {latestMessage?.characterName || relation?.characterName || 'AI伴侣'}
+                   </span>
+                 </div>
+              </div>
 
+              {/* Corner Fold Effect */}
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-gradient-to-tl from-gray-200 to-white transform shadow-sm rounded-tl-sm"></div>
+           </div>
+        </div>
 
-          </div>
-        )}
       </div>
 
       <style>{`
@@ -643,27 +423,215 @@ const CoupleSpace = () => {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
-        }
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.5s ease-out forwards;
-        }
-        .font-serif {
-          font-family: 'Times New Roman', serif;
-        }
-        .font-handwriting {
-          font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
-        }
       `}</style>
+    </div>
+  )
+
+  const BottomNav = () => (
+    <div className="absolute bottom-0 left-0 w-full bg-white rounded-t-[30px] shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)] z-20">
+      <div className="flex justify-around items-center h-20 px-6">
+        {/* Q&A */}
+        <button className="flex flex-col items-center gap-1 text-[#8b7355] opacity-60 hover:opacity-100 transition-opacity">
+          <div className="w-8 h-8 rounded-xl border-2 border-[#8b7355] flex items-center justify-center bg-white">
+            <Icons.QnA className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold tracking-wide">占位</span>
+        </button>
+
+        {/* Couple Space (Center) */}
+        <button 
+          onClick={() => setIsMenuOpen(true)}
+          className="flex flex-col items-center gap-1 transform -translate-y-1"
+        >
+          <div className="w-12 h-12 rounded-full bg-[#fceee9] border-2 border-[#8b7355] flex items-center justify-center shadow-sm">
+            <Icons.HeartFilled className="w-6 h-6 text-[#ffb7b2]" />
+          </div>
+          <span className="text-xs font-bold tracking-wide text-[#8b7355]">情侣空间</span>
+        </button>
+
+        {/* Chat */}
+        <button 
+           onClick={() => relation?.characterId && navigate(`/chat/${relation.characterId}`)}
+           className="flex flex-col items-center gap-1 text-[#8b7355] opacity-60 hover:opacity-100 transition-opacity"
+        >
+          <div className="w-10 h-8 rounded-xl border-2 border-[#8b7355] flex items-center justify-center bg-white">
+             <Icons.ChatDots className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold tracking-wide">聊天</span>
+        </button>
+      </div>
+    </div>
+  )
+
+  const SpaceMenuOverlay = () => {
+    if (!isMenuOpen) return null
+
+    return (
+      <div className="absolute inset-0 z-50 flex flex-col bg-[#fffbf5] animate-fade-in font-sans">
+        {/* Header - Uploadable Background Area (Curved) */}
+        <div className="relative w-full h-[35%]">
+           {/* The Curved Container */}
+           <div className="absolute inset-0 overflow-hidden" 
+                style={{ borderRadius: '0 0 50% 50% / 0 0 20% 20%' }}>
+              <div className="w-full h-full bg-[#ffeff2] relative border-b-2 border-[#c9b8a8]">
+                 {coverImage ? (
+                   <img src={coverImage} alt="cover" className="w-full h-full object-cover" />
+                 ) : (
+                   <div className="w-full h-full flex flex-col items-center justify-center text-[#c9b8a8] gap-2">
+                      <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#c9b8a8]/50 flex items-center justify-center">
+                        <Icons.Album className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-medium">点击上传背景</span>
+                   </div>
+                 )}
+                 {/* File Input */}
+                 <input 
+                   type="file" 
+                   accept="image/*" 
+                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                   onChange={handleImageUpload}
+                 />
+              </div>
+           </div>
+           
+           {/* Title Overlay (Bottom of header) */}
+           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20 bg-white/80 px-4 py-1.5 rounded-full backdrop-blur-sm shadow-sm border border-[#c9b8a8]/30">
+             <Icons.HeartFilled className="w-5 h-5 text-[#ffb7b2]" />
+             <span className="text-lg font-bold text-[#8b7355] tracking-widest">情侣空间</span>
+           </div>
+        </div>
+
+        {/* Menu Content */}
+        <div className="flex-1 px-5 overflow-y-auto pb-20 pt-6 relative z-10">
+          {/* Grid Menu (No borders, just icon + text) */}
+          <div className="grid grid-cols-4 gap-6 mb-8">
+             {[
+               { name: '心情日记', icon: Icons.Book, route: '/couple-message-board', color: '#e8f5e9' },
+               { name: '恋爱相册', icon: Icons.Album, route: '/couple-album', color: '#fff3e0' },
+               { name: '纪念日', icon: Icons.Flower, route: '/couple-anniversary', color: '#fce4ec' },
+               { name: '经期记录', icon: Icons.PeriodCalendar, route: '/couple-period', color: '#ffebee' }
+             ].map((item, idx) => (
+               <div key={idx} className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => item.route && navigate(item.route)}>
+                 <div 
+                   className="w-14 h-14 rounded-full flex items-center justify-center transition-all group-active:scale-95"
+                   style={{ backgroundColor: item.color }}
+                 >
+                   <item.icon className="w-7 h-7 text-[#8b7355]" />
+                 </div>
+                 <span className="text-xs text-[#8b7355] font-bold tracking-wide">{item.name}</span>
+               </div>
+             ))}
+          </div>
+
+          {/* Cards Grid (Light brown borders) */}
+          <div className="grid grid-cols-2 gap-4">
+             {/* Card 1 - 心情日记 */}
+             <div 
+               onClick={() => navigate('/couple-message-board')}
+               className="bg-white border-2 border-[#c9b8a8]/60 rounded-2xl p-4 shadow-sm relative h-28 flex flex-col justify-between overflow-hidden group active:scale-[0.98] transition-transform cursor-pointer"
+             >
+               <div className="flex flex-col z-10">
+                 <span className="text-sm font-bold text-[#8b7355]">心情日记</span>
+                 <span className="text-xs text-gray-500 mt-1">
+                   {latestMessage?.mood ? `今日: ${latestMessage.mood === 'happy' ? '开心' : latestMessage.mood === 'love' ? '心动' : latestMessage.mood === 'calm' ? '平静' : latestMessage.mood === 'sad' ? '难过' : latestMessage.mood === 'angry' ? '生气' : '无语'}` : '记录今天的心情'}
+                 </span>
+               </div>
+               <div className="absolute right-[-10px] bottom-[-10px] opacity-80">
+                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center rotate-[-12deg]">
+                    <Icons.Book className="w-8 h-8 text-green-300" />
+                  </div>
+               </div>
+             </div>
+             
+             {/* Card 2 - Couple Pet */}
+             <div 
+               onClick={() => navigate('/couple-pet')}
+               className="bg-white border-2 border-[#c9b8a8]/60 rounded-2xl p-4 shadow-sm relative h-28 flex flex-col justify-between overflow-hidden group active:scale-[0.98] transition-transform cursor-pointer"
+             >
+               <div className="flex flex-col z-10">
+                 <span className="text-sm font-bold text-[#8b7355]">我的宠物</span>
+                 <span className="text-xs text-gray-500 mt-1">
+                   {petStatus === 'none' ? '去领养一只吧' : 
+                    petStatus === 'naming' || petStatus === 'waitingAI' ? '领养中...' :
+                    petName || '小蛋蛋'}
+                 </span>
+               </div>
+               <div className="absolute right-1 bottom-1">
+                  <div className="w-12 h-14 bg-orange-50 rotate-[10deg] flex items-center justify-center rounded-lg">
+                    {petStatus === 'none' ? (
+                      <svg viewBox="0 0 24 24" className="w-7 h-7 text-orange-300" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v8M8 12h8" />
+                      </svg>
+                    ) : petStatus === 'egg' || petStatus === 'naming' || petStatus === 'waitingAI' ? (
+                      <svg viewBox="0 0 60 75" className="w-8 h-10">
+                        <defs><radialGradient id="eggG" cx="30%" cy="30%" r="70%"><stop offset="0%" stopColor="#fff9f0" /><stop offset="100%" stopColor="#f3e5d8" /></radialGradient></defs>
+                        <path d="M30 5 C 50 5, 58 30, 58 45 C 58 65, 45 72, 30 72 C 15 72, 2 65, 2 45 C 2 30, 10 5, 30 5 Z" fill="url(#eggG)" stroke="#d7ccc8" strokeWidth="1.5" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 200 200" className="w-10 h-10">
+                        <circle cx="100" cy="110" r="55" fill="#fff" stroke="#8b7355" strokeWidth="3" />
+                        <path d="M55 75 Q 35 25, 70 55 Z" fill="#fff" stroke="#8b7355" strokeWidth="2" />
+                        <path d="M145 75 Q 165 25, 130 55 Z" fill="#fff" stroke="#8b7355" strokeWidth="2" />
+                        <circle cx="85" cy="105" r="4" fill="#5d4037" />
+                        <circle cx="115" cy="105" r="4" fill="#5d4037" />
+                        <path d="M95 118 Q100 123, 105 118" fill="none" stroke="#5d4037" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </div>
+               </div>
+             </div>
+
+             {/* Card 3 - 情侣打卡 */}
+             <div 
+               onClick={() => navigate('/couple-check-in')}
+               className="bg-white border-2 border-[#c9b8a8]/60 rounded-2xl p-4 shadow-sm relative h-28 flex flex-col justify-between overflow-hidden group active:scale-[0.98] transition-transform cursor-pointer"
+             >
+               <div className="flex flex-col z-10">
+                 <span className="text-sm font-bold text-[#8b7355]">情侣打卡</span>
+                 <span className="text-xs text-gray-500 mt-1">已连续 {checkInStreak} 天</span>
+               </div>
+               <div className="absolute right-[-5px] bottom-[-5px]">
+                  <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center rotate-[15deg]">
+                    <Icons.Fire className="w-8 h-8 text-orange-400" />
+                  </div>
+               </div>
+             </div>
+
+             {/* Card 4 - 占位 */}
+             <div className="bg-white border-2 border-[#c9b8a8]/60 rounded-2xl p-4 shadow-sm relative h-28 flex flex-col justify-between overflow-hidden group active:scale-[0.98] transition-transform opacity-50">
+               <div className="flex flex-col z-10">
+                 <span className="text-sm font-bold text-[#8b7355]">占位</span>
+                 <span className="text-xs text-gray-500 mt-1">敬请期待</span>
+               </div>
+               <div className="absolute right-[-5px] bottom-[-5px]">
+                  <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center">
+                     <Icons.HeartFilled className="w-8 h-8 text-gray-300" />
+                  </div>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Close Button - 放在右上角避免挡住头像 */}
+        <div className="absolute top-6 right-6 z-50 pt-[env(safe-area-inset-top)]">
+           <button 
+             onClick={() => setIsMenuOpen(false)}
+             className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-[#c9b8a8] flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+           >
+             <Icons.Close className="w-5 h-5 text-[#8b7355]" />
+           </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-screen w-full relative overflow-hidden font-sans">
+      <TopBar />
+      <RoomView />
+      <BottomNav />
+      <SpaceMenuOverlay />
     </div>
   )
 }

@@ -18,6 +18,9 @@ interface AvatarRecord {
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
+// 🔥 内存缓存，避免重复读取 IndexedDB
+const avatarCache = new Map<string, string | null>()
+
 /**
  * 打开数据库连接
  */
@@ -58,6 +61,9 @@ export async function saveAvatar(type: AvatarType, id: string, data: string): Pr
     const db = await openDB()
     const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
+    // 🔥 更新缓存
+    avatarCache.set(key, data)
+    
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
@@ -94,6 +100,11 @@ export async function getAvatar(type: AvatarType, id: string = ''): Promise<stri
     const db = await openDB()
     const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
+    // 🔥 优先从内存缓存读取
+    if (avatarCache.has(key)) {
+      return avatarCache.get(key) || null
+    }
+    
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readonly')
       const store = transaction.objectStore(STORE_NAME)
@@ -103,8 +114,11 @@ export async function getAvatar(type: AvatarType, id: string = ''): Promise<stri
         const record = request.result as AvatarRecord | undefined
         if (record) {
           console.log(`✅ [头像存储] 读取成功: ${key}`)
+          // 🔥 存入缓存
+          avatarCache.set(key, record.data)
           resolve(record.data)
         } else {
+          avatarCache.set(key, null)
           resolve(null)
         }
       }
@@ -127,6 +141,9 @@ export async function deleteAvatar(type: AvatarType, id: string = ''): Promise<b
   try {
     const db = await openDB()
     const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
+    
+    // 🔥 删除缓存
+    avatarCache.delete(key)
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')

@@ -23,6 +23,8 @@ import EmojiDrawCard from '../../../components/EmojiDrawCard'
 import GuessResultCard from '../../../components/GuessResultCard'
 import TacitDrawingCard from '../../../components/TacitDrawingCard'
 import ContactCardMessage from '../../../components/ContactCardMessage'
+import PetAdoptionCard from '../../../components/PetAdoptionCard'
+import CheckInCard from '../../../components/CheckInCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -87,6 +89,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onRejectCartPayment,
   onEmojiDrawGuessResult
 }) => {
+  // 情侣打卡卡片
+  if (message.messageType === 'checkIn' && message.checkIn) {
+    return <CheckInCard message={message} />
+  }
+
   // 红包
   if ((message.messageType as any) === 'redPacket' && (message as any).redPacket) {
     return (
@@ -693,6 +700,90 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         message={message}
         currentCharacterId={characterId}
         currentCharacterName={characterName}
+      />
+    )
+  }
+
+  // 宠物领养卡片
+  if ((message as any).petAdoption) {
+    const adoption = (message as any).petAdoption
+    return (
+      <PetAdoptionCard
+        userProposal={adoption.userProposal}
+        userGender={adoption.userGender || '男'}
+        aiProposal={adoption.aiProposal}
+        aiGender={adoption.aiGender}
+        status={adoption.status}
+        isSent={message.type === 'sent'}
+        guardianName={characterName}
+        onConfirm={(finalName, finalGender) => {
+          // 更新宠物数据
+          const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+          petData.status = 'egg'
+          petData.name = finalName
+          petData.gender = finalGender
+          petData.createdAt = Date.now()
+          localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+          
+          // 更新消息状态（通过saveMessages）
+          import('../../../utils/simpleMessageManager').then(({ loadMessages, saveMessages }) => {
+            const messages = loadMessages(characterId)
+            const updatedMessages = messages.map((m: any) => {
+              if (m.id === message.id && m.petAdoption) {
+                return { ...m, petAdoption: { ...m.petAdoption, status: 'confirmed' } }
+              }
+              return m
+            })
+            saveMessages(characterId, updatedMessages)
+            window.location.reload()
+          })
+        }}
+        onDispute={(newName, newGender) => {
+          // 用户表示异议，发送新的协商消息给AI
+          const genderText = newGender === '女' ? '女宝宝' : '男宝宝'
+          const now = Date.now()
+          const disputeMessage = {
+            id: now,
+            type: 'sent',
+            content: '[宠物命名异议]',
+            timestamp: now,
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            aiReadableContent: `[宠物命名异议] 我不太满意你提议的名字「${adoption.aiProposal}」，我觉得应该叫「${newName}」，是个${genderText}。你觉得怎么样？
+如果你同意，请用 [接受领养:${newName}:${newGender}] 回复
+如果你有其他想法，请用 [接受领养:你想的名字:性别] 格式回复你的新提议`,
+            petAdoption: {
+              userProposal: newName,
+              userGender: newGender,
+              aiProposal: adoption.aiProposal,
+              aiGender: adoption.aiGender,
+              status: 'pending'
+            }
+          }
+          
+          // 更新当前消息状态为pending（重新协商）
+          import('../../../utils/simpleMessageManager').then(({ loadMessages, saveMessages, addMessage }) => {
+            const messages = loadMessages(characterId)
+            const updatedMessages = messages.map((m: any) => {
+              if (m.id === message.id && m.petAdoption) {
+                return { ...m, petAdoption: { ...m.petAdoption, status: 'disputed' } }
+              }
+              return m
+            })
+            saveMessages(characterId, updatedMessages)
+            
+            // 添加新的异议消息
+            addMessage(characterId, disputeMessage as any)
+            
+            // 更新本地宠物数据
+            const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+            petData.userProposal = newName
+            petData.userGender = newGender
+            petData.status = 'waitingAI'
+            localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+            
+            window.location.reload()
+          })
+        }}
       />
     )
   }

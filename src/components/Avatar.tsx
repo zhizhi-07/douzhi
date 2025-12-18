@@ -7,6 +7,36 @@
 import React, { useState, useEffect } from 'react'
 import { getCurrentUserInfoWithAvatar } from '../utils/userUtils'
 
+// 🔥 模块级缓存：避免每个 Avatar 实例都从 IndexedDB 读取头像
+let cachedUserAvatar: string | undefined = undefined
+let avatarLoadPromise: Promise<string | undefined> | null = null
+
+// 获取缓存的用户头像（带去重）
+async function getCachedUserAvatar(): Promise<string | undefined> {
+  if (cachedUserAvatar !== undefined) {
+    return cachedUserAvatar
+  }
+  
+  // 防止并发请求
+  if (avatarLoadPromise) {
+    return avatarLoadPromise
+  }
+  
+  avatarLoadPromise = getCurrentUserInfoWithAvatar().then(info => {
+    cachedUserAvatar = info.avatar
+    avatarLoadPromise = null
+    return cachedUserAvatar
+  })
+  
+  return avatarLoadPromise
+}
+
+// 清除缓存（切换账号/面具时调用）
+function clearUserAvatarCache() {
+  cachedUserAvatar = undefined
+  avatarLoadPromise = null
+}
+
 interface AvatarProps {
   type: 'sent' | 'received'
   avatar?: string
@@ -109,15 +139,16 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
           }
         }
         
-        // 没有面具，使用正常头像
-        const info = await getCurrentUserInfoWithAvatar()
-        setUserAvatar(info.avatar)
+        // 🔥 使用缓存获取用户头像，避免重复读取 IndexedDB
+        const avatar = await getCachedUserAvatar()
+        setUserAvatar(avatar)
       }
       
       loadAvatar()
       
-      // 监听账号切换事件和面具切换事件，重新加载头像
+      // 监听账号切换事件和面具切换事件，清除缓存并重新加载头像
       const handleAvatarReload = () => {
+        clearUserAvatarCache()  // 🔥 清除缓存
         loadAvatar()
       }
       window.addEventListener('accountSwitched', handleAvatarReload)

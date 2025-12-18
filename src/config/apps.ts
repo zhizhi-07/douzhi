@@ -6,7 +6,8 @@ import {
   BookIcon,
   DecorationIcon,
   MemoryIcon,
-  InstagramIcon
+  InstagramIcon,
+  HeartIcon
 } from '../components/Icons'
 import { AppItem } from '../components/AppGrid'
 
@@ -20,11 +21,11 @@ export const page1Apps: AppItem[] = [
     route: '/wechat' 
   },
   { 
-    id: 'preset', 
-    name: '预设', 
-    icon: SettingsIcon, 
+    id: 'couple-space', 
+    name: '情侣空间', 
+    icon: HeartIcon, 
     color: 'glass-card', 
-    route: '/preset' 
+    route: '/couple-space' 
   },
   { 
     id: 'worldbook', 

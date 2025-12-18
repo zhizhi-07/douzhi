@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
 import {
   ChatIcon, MusicIcon, ForumIcon, DecorationIcon, SettingsIcon,
-  BookIcon, MemoryIcon, PhoneIcon, CalendarIcon, ImageIcon, GameIcon
+  BookIcon, MemoryIcon, PhoneIcon, CalendarIcon, ImageIcon, GameIcon, HeartIcon
 } from '../components/Icons'
 import {
   saveUIIcon,
@@ -65,7 +65,7 @@ const iconNameMap: Record<string, string> = {
   'chat-input-bg': '输入框背景',
   // 桌面应用图标 (第一页)
   'wechat-app': '微信',
-  'preset': '预设',
+  'couple-space': '情侣空间',
   'worldbook': '世界书',
   'music-app': '音乐',
   'customize': '系统设置',
@@ -300,7 +300,7 @@ const GlobalDecoration = () => {
       const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality)
       const result = URL.createObjectURL(compressedBlob)
 
-      const desktopAppIds = ['wechat-app', 'preset', 'worldbook', 'music-app', 'customize', 'decoration', 'instagram', 'aiphone', 'api-config', 'global-memory', 'desktop-calendar', 'desktop-theater', 'homeland', 'desktop-game']
+      const desktopAppIds = ['wechat-app', 'couple-space', 'worldbook', 'music-app', 'customize', 'decoration', 'instagram', 'aiphone', 'api-config', 'global-memory', 'desktop-calendar', 'desktop-theater', 'homeland', 'desktop-game']
       const backgroundIds = ['desktop-wallpaper', 'wechat-wallpaper']
 
       if (backgroundIds.includes(currentEditingIcon)) {
@@ -775,7 +775,7 @@ const GlobalDecoration = () => {
       <div className="px-3 grid grid-cols-4 gap-x-2 gap-y-2 content-start desktop-bg-area">
         {[
           { id: 'wechat-app', label: '微信', icon: <ChatIcon className="w-5 h-5 text-green-500" /> },
-          { id: 'preset', label: '预设', icon: <SettingsIcon className="w-5 h-5 text-slate-500" /> },
+          { id: 'couple-space', label: '情侣空间', icon: <HeartIcon className="w-5 h-5 text-pink-500" /> },
           { id: 'worldbook', label: '世界书', icon: <BookIcon className="w-5 h-5 text-amber-600" /> },
           { id: 'music-app', label: '音乐', icon: <MusicIcon className="w-5 h-5 text-pink-500" /> },
           { id: 'customize', label: '系统设置', icon: <SettingsIcon className="w-5 h-5 text-blue-500" /> },

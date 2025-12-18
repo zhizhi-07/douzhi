@@ -340,9 +340,9 @@ const PaymentRequest = () => {
       type: messageType,
       content: `[${isOrderMode ? '外卖' : '代付'}] ${itemNames}，共 ¥${totalPrice.toFixed(2)}`,
       aiReadableContent: isOrderMode 
-        ? `[用户给你点外卖] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}，支付方式：${
-            paymentMethod === 'intimate' ? '使用你的亲密付' : '用户自己支付'
-          }`
+        ? `[收到外卖] 用户给你点了外卖！商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}。${
+            paymentMethod === 'intimate' ? '用户使用了你给TA开通的亲密付支付' : '用户自己掏钱请你吃的'
+          }，你应该感谢用户的心意！`
         : `[用户发起代付请求] 商品：${itemNames}，总金额：¥${totalPrice.toFixed(2)}${note ? `，备注：${note}` : ''}，需要你确认代付`,
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       timestamp: baseTimestamp,

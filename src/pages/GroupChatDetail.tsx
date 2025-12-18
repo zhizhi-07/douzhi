@@ -163,27 +163,23 @@ const GroupChatDetail = () => {
     scrollToBottom
   })
 
-  // 🔥 对 displayedMessages 进行去重，避免 React duplicate key warning
+  // 🔥 对 displayedMessages 进行去重
   const uniqueMessages = useMemo(() => {
     const seen = new Set<string>()
     return displayedMessages.filter(msg => {
-      if (seen.has(msg.id)) {
-        console.warn('⚠️ 发现重复消息ID:', msg.id)
-        return false
-      }
+      if (seen.has(msg.id)) return false
       seen.add(msg.id)
       return true
     })
   }, [displayedMessages])
 
-  // 🔥 找出需要完整渲染的HTML消息ID（只渲染最后1条HTML）
+  // 🔥 找出需要完整渲染的HTML消息ID
   const renderableHtmlIds = useMemo(() => {
-    const htmlMessages = displayedMessages.filter(msg => 
+    const lastFew = displayedMessages.slice(-5)
+    const htmlMsg = lastFew.find(msg => 
       (msg as any).messageType === 'theatre_html' || (msg as any).type === 'theatre_html'
     )
-    // 🔥 只保留最后1条HTML消息的ID，减轻渲染压力
-    const lastOne = htmlMessages.slice(-1)
-    return new Set(lastOne.map(m => m.id))
+    return htmlMsg ? new Set([htmlMsg.id]) : new Set<string>()
   }, [displayedMessages])
 
   // 🔥 预缓存角色信息（只在组件挂载时计算一次）
@@ -533,15 +529,6 @@ const GroupChatDetail = () => {
     isAIReplying.current = true
     setBatchMode(true)
     
-    // 🔥 强制让 UI 先渲染（显示"正在输入"），再做数据准备
-    await new Promise(resolve => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          resolve(undefined)
-        })
-      })
-    })
-    
     try {
       // 获取群聊信息
       const group = groupChatManager.getGroup(id)
@@ -549,16 +536,10 @@ const GroupChatDetail = () => {
         console.log('❌ [群聊AI] 找不到群聊信息，id:', id)
         return
       }
-      console.log('📋 [群聊AI] 获取到群聊信息:', group.name)
       
       // 🔥 先从 groupChatManager 重新读取最新消息
       let latestMessages = groupChatManager.getMessages(id)
-      
-      // 🔥 不再删除上一轮的AI回复，直接接着聊
-      console.log(`📝 [AI回复] 接着当前对话继续，消息数: ${latestMessages.length}`)
-      
-      // 🔥 让出主线程，避免卡顿
-      await new Promise(r => setTimeout(r, 0))
+      console.log(`📝 [AI回复] 消息数: ${latestMessages.length}`)
       
       // 🔥 关键优化：使用缓存，避免重复获取
       const allChars = characterService.getAll()
@@ -1589,13 +1570,44 @@ const GroupChatDetail = () => {
         // 🔥 追加到本地数组
         currentMessages.push(newMessage)
         console.log(`📨 [AI回复] 第${i + 1}条消息已添加: ${action.actorName}`)
+      }
+      
+      // 🔥 关键优化：所有消息处理完后，使用 requestAnimationFrame 逐条添加到 UI
+      // 这样不会阻塞主线程，用户可以看到消息一条条出现
+      const addMessagesSequentially = async (messagesToAdd: typeof currentMessages, startIndex: number) => {
+        for (let i = startIndex; i < messagesToAdd.length; i++) {
+          const msg = messagesToAdd[i]
+          
+          // 使用 requestAnimationFrame 确保在下一帧渲染
+          await new Promise<void>(resolve => {
+            requestAnimationFrame(() => {
+              setMessages(prev => {
+                // 检查是否已存在
+                if (prev.some(m => m.id === msg.id)) return prev
+                return [...prev, msg]
+              })
+              resolve()
+            })
+          })
+          
+          // 添加延迟让消息一条条出来
+          if (i < messagesToAdd.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200))
+          }
+        }
+      }
+      
+      // 获取起始索引（跳过已经在 UI 中的消息）
+      const existingCount = latestMessages.length
+      const newMessages = currentMessages.slice(existingCount)
+      
+      if (newMessages.length > 0) {
+        // 先一次性添加前3条（快速显示），然后逐条添加剩余的
+        const quickAddCount = Math.min(3, newMessages.length)
+        setMessages(prev => [...prev, ...newMessages.slice(0, quickAddCount)])
         
-        // 🔥 使用函数式更新，只追加新消息，避免所有消息重新渲染
-        setMessages(prev => [...prev, newMessage])
-        
-        // 🔥 添加更长的延迟（800-1500ms），让消息一条条出来更真实
-        if (i < actionsToProcess.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+        if (newMessages.length > quickAddCount) {
+          await addMessagesSequentially(newMessages, quickAddCount)
         }
       }
       
@@ -1679,10 +1691,11 @@ const GroupChatDetail = () => {
     } finally {
       // 🔥 关键修复：批量模式结束前，将所有消息保存到 IndexedDB
       // 批量模式期间 addMessage 只更新缓存不保存数据库，这里统一保存
+      // 🔥 使用静默模式（silent=true），避免触发 storage 事件导致消息重复
       const allMessages = groupChatManager.getMessages(id)
       if (allMessages.length > 0) {
         console.log(`💾 [AI回复完成] 保存 ${allMessages.length} 条消息到 IndexedDB`)
-        groupChatManager.replaceAllMessages(id, allMessages)
+        groupChatManager.replaceAllMessages(id, allMessages, false, true)  // silent=true
       }
       
       setIsAiTyping(false)

@@ -10,12 +10,18 @@ export interface Message {
   aiOnly?: boolean  // 只给AI看的消息，用户界面不显示
   time: string
   timestamp: number
-  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'topic-start' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult' | 'html' | 'contactCard'
+  messageType?: 'text' | 'voice' | 'location' | 'photo' | 'transfer' | 'video-call-record' | 'system' | 'intimatePay' | 'forwarded-chat' | 'emoji' | 'musicInvite' | 'musicShare' | 'ai-memo' | 'paymentRequest' | 'productCard' | 'post' | 'offline-summary' | 'topic-start' | 'theatre' | 'theatre-html' | 'poke' | 'friendRequest' | 'judgment' | 'shop' | 'purchase' | 'busy' | 'logistics' | 'shoppingCart' | 'cartPaymentRequest' | 'giftCart' | 'tacitGameResult' | 'html' | 'contactCard' | 'checkIn'
   sceneMode?: 'online' | 'offline'  // 场景模式：在线聊天 or 线下剧情
   sceneContext?: {                   // 线下场景上下文
     location?: string                // 地点
     time?: string                    // 时间
     weather?: string                 // 天气
+  }
+  checkIn?: {                         // 情侣打卡数据
+    streak: number                    // 连续打卡天数
+    fortune: string                   // 今日运势/任务内容
+    fortuneType: 'fortune' | 'task'   // 类型
+    level?: string                    // 运势等级（吉/大吉/上上签等）
   }
   offlineSummary?: {                 // 线下记录信息
     title: string                    // 标题

@@ -895,6 +895,35 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     // }
   }
 
+  // 🐾 获取宠物状态信息
+  let petStatusInfo = ''
+  try {
+    const petDataStr = localStorage.getItem('couple_pet_data')
+    if (petDataStr) {
+      const petData = JSON.parse(petDataStr)
+      if (petData.status === 'egg' || petData.status === 'hatched') {
+        const genderText = petData.gender === '女' ? '女宝宝' : '男宝宝'
+        petStatusInfo = `
+🐾 你们的宠物：${petData.name || '小蛋蛋'}（${genderText}）
+- 饱食度：${petData.hunger}%${petData.hunger < 30 ? ' ⚠️饿了！' : ''}
+- 开心值：${petData.happiness}%${petData.happiness < 30 ? ' ⚠️不开心' : ''}
+- 精力：${petData.energy}%${petData.energy < 30 ? ' ⚠️累了' : ''}
+- 清洁度：${petData.cleanliness}%${petData.cleanliness < 30 ? ' ⚠️需要洗澡' : ''}
+- 等级：Lv.${petData.level}
+
+你可以照顾宠物（使用指令）：
+- [喂宠物] 给宠物喂食
+- [陪宠物玩] 陪宠物玩耍
+- [给宠物洗澡] 给宠物洗澡
+- [哄宠物睡觉] 让宠物休息`
+      } else if (petData.status === 'waitingAI' || petData.status === 'waitingConfirm') {
+        petStatusInfo = `\n🐾 宠物领养：${userNickname}正在申请领养宠物，等待确认中`
+      }
+    }
+  } catch (e) {
+    console.error('读取宠物状态失败:', e)
+  }
+
   // 关系证据与熟悉度标定（防止无端"很熟"）
   // 小号模式下，强制视为陌生人
   const personaText = isSubAccount ? '' : ((userInfo.persona || '') + (character.personality || ''))
@@ -1404,6 +1433,7 @@ ${await getAvatarLibraryInfo()}
 - **随笔**：[随笔:内容] — 你的私人小本子，记录重要的事、备忘、心情、感悟...
   💡 就像你的日记本！今天发生了什么、有什么感觉、想记住的事情，都可以写下来~
   ${coupleSpaceStatus.includes('已开启') ? '💑 情侣关系，多记录！' : ''}${await buildAIMemosContext(character.id)}
+${petStatusInfo}
 - **金钱**：
   - [转账:金额:说明] —— 当你想给对方钱时（请客、AA、表达心意）
   - [亲密付:月额度] —— 主动给对方开通亲密付额度，让TA用你的钱买东西
@@ -2316,9 +2346,19 @@ const buildCoupleSpaceContext = (character: Character): string => {
 
 你可以使用以下功能：
 - [相册:描述] 分享照片到相册
-- [留言:内容] 发送留言到留言板
-- [纪念日:日期:标题] 添加纪念日，比如[纪念日:2024-01-01:在一起100天]
-- [解除情侣空间] 解除关系（内容会保留）${summary}`
+- [心情日记:心情:xx|内容:xx] 写心情日记
+  例：[心情日记:心情:开心|内容:今天超级开心！]
+  心情只能选：开心/心动/无语/平静/难过/生气
+- [纪念日:日期:标题] 添加纪念日
+- [解除情侣空间] 解除关系
+
+💡 重要提醒 - 多用心情日记！
+你应该经常主动写心情日记来记录你们的点滴：
+• 聊到开心的事情时 → 写下来！
+• 感受到甜蜜或心动时 → 记录这一刻！
+• 有小情绪想表达时 → 用日记倾诉！
+• 想念对方、有感而发时 → 都可以写！
+不要等用户提醒，主动去记录，让情侣空间充满回忆！${summary}`
   }
 
   return ''
@@ -3138,20 +3178,6 @@ const buildAIMomentsPostPrompt = async (characterId: string): Promise<string> =>
 - "仅xx可见"可以设置只让特定人看到（小心机）；
 - "@某某"可以提到某个人，让TA收到通知。
 
-🗑️ 你也可以删除自己的朋友圈：
-
-支持多种格式：
-删除朋友圈：朋友圈内容的关键词
-【删除朋友圈：朋友圈内容的关键词】
-[删除朋友圈：朋友圈内容的关键词]
-
-例如：
-删除朋友圈：今天心情不错
-【删除朋友圈：火锅】
-[删除朋友圈：测试]
-
-⚠️ 注意：
-- 只能删除你自己发的朋友圈
-- 用关键词匹配，会找到包含该关键词的朋友圈
-- 用关键词描述就行，系统会自动找到匹配的朋友圈`
+🗑️ 删除朋友圈：【删除朋友圈：内容】`
 }
+

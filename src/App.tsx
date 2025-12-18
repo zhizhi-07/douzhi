@@ -30,6 +30,9 @@ import CoupleSpace from './pages/CoupleSpace'
 import CoupleAlbum from './pages/CoupleAlbum'
 import CoupleAnniversary from './pages/CoupleAnniversary'
 import CoupleMessageBoard from './pages/CoupleMessageBoard'
+import CouplePeriod from './pages/CouplePeriod'
+import CouplePet from './pages/CouplePet'
+import CoupleCheckIn from './pages/CoupleCheckIn'
 import { emergencyCleanup } from './utils/emergencyCleanup'
 import Wallet from './pages/Wallet'
 import WalletTransactions from './pages/WalletTransactions'
@@ -630,6 +633,9 @@ function App() {
           <Route path="/couple-album" element={<CoupleAlbum />} />
           <Route path="/couple-anniversary" element={<CoupleAnniversary />} />
           <Route path="/couple-message-board" element={<CoupleMessageBoard />} />
+          <Route path="/couple-pet" element={<CouplePet />} />
+          <Route path="/couple-check-in" element={<CoupleCheckIn />} />
+          <Route path="/couple-period" element={<CouplePeriod />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/wallet/transactions" element={<WalletTransactions />} />
           <Route path="/wallet/cards" element={<WalletCards />} />

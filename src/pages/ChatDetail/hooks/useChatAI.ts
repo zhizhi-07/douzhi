@@ -1565,6 +1565,19 @@ export const useChatAI = (
                   skipTextMessage = true
                 }
                 
+                // 🐾 处理系统提示消息（如宠物喂养提醒）
+                if (result.systemMessage) {
+                  const sysMsg: Message = {
+                    ...createMessage(result.systemMessage.content, 'system'),
+                    messageType: 'system'
+                  }
+                  // 保存系统消息
+                  const currentMsgs = loadMessages(chatId)
+                  saveMessages(chatId, [...currentMsgs, sysMsg])
+                  setMessages(prev => [...prev, sysMsg])
+                  console.log(`🐾 [系统消息] ${result.systemMessage.content}`)
+                }
+                
                 // 特殊处理引用指令
                 if ('quotedMsg' in result) {
                   // 🔥 修复：只有当找到被引用的消息时才更新 quotedMsg，避免覆盖继承的引用

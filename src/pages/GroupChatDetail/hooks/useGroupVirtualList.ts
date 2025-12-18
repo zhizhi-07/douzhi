@@ -9,7 +9,7 @@ import type { GroupMessage } from '../../../utils/groupChatManager'
 const ITEM_HEIGHT_ESTIMATE = 100  // 预估消息高度
 const BUFFER_SIZE = 20             // 🔥 增大缓冲区，减少白屏
 const SCROLL_DEBOUNCE = 16         // 滚动防抖延迟
-const MAX_RENDER_ALL = 100         // 🔥 消息数小于这个值时直接渲染全部
+const MAX_RENDER_ALL = 300         // 🔥 提高阈值，避免虚拟滚动计算开销导致卡顿
 
 interface VirtualListResult {
   displayedMessages: GroupMessage[]
@@ -227,14 +227,10 @@ export const useGroupVirtualList = (
     prevMessageCountRef.current = allMessages.length
   }, [allMessages.length, isNearBottom, visibleRange])
   
-  // 计算要显示的消息和虚拟样式
-  const displayedMessages = useMemo(() => {
-    // 🔥 消息数量较少时直接渲染全部，避免闪烁
-    if (allMessages.length <= MAX_RENDER_ALL) {
-      return allMessages
-    }
-    return allMessages.slice(visibleRange.start, visibleRange.end)
-  }, [allMessages, visibleRange])
+  // 🔥 极简模式：消息少于阈值时直接返回，不做任何计算
+  const displayedMessages = allMessages.length <= MAX_RENDER_ALL 
+    ? allMessages 
+    : allMessages.slice(visibleRange.start, visibleRange.end)
   
   const virtualStyle = useMemo(() => {
     // 🔥 消息数量较少时不使用虚拟滚动

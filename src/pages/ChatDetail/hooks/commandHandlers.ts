@@ -68,6 +68,10 @@ export interface CommandResult {
   quotedMsg?: Message['quotedMessage']
   messageContent?: string
   skipTextMessage?: boolean  // 跳过发送文本消息
+  systemMessage?: {  // 系统提示消息
+    content: string
+    messageType: 'system'
+  }
 }
 
 /**
@@ -1041,38 +1045,65 @@ export const coupleSpacePhotoHandler: CommandHandler = {
 }
 
 /**
- * 情侣空间：发留言
+ * 情侣空间：心情日记
+ * 格式：[心情日记:心情:xx|内容:xx] 或 [留言:心情:xx|内容:xx]
+ * 心情可选：开心/心动/无语/平静/难过/生气
  */
 export const coupleSpaceMessageHandler: CommandHandler = {
-  pattern: /[\[【]留言[:\：]\s*(.+?)[\]】]/,
+  pattern: /[\[【](?:心情日记|留言)[:\：]\s*(.+?)[\]】]/,
   handler: async (match, content, { character, setMessages, chatId }) => {
     if (!character) return { handled: false }
 
     // 检查是否有活跃的情侣空间
     const relation = getCoupleSpaceRelation()
     if (relation && relation.status === 'active' && relation.characterId === character.id) {
-      const messageContent = match[1].trim()
+      const rawContent = match[1].trim()
+      
+      const moodMap: Record<string, string> = {
+        '开心': 'happy', '心动': 'love', '无语': 'awkward',
+        '平静': 'calm', '难过': 'sad', '生气': 'angry'
+      }
+      
+      let mood = 'calm' // 默认平静
+      let messageContent = rawContent
+      
+      // 格式1: 心情:xx|内容:xx
+      const format1 = rawContent.match(/心情[:\：]\s*(开心|心动|无语|平静|难过|生气)\s*[|\|]\s*内容[:\：]\s*(.+)$/i)
+      // 格式2: 开心:内容 (旧格式兼容)
+      const format2 = rawContent.match(/^(开心|心动|无语|平静|难过|生气)[:\：]\s*(.+)$/)
+      
+      if (format1) {
+        mood = moodMap[format1[1]] || 'calm'
+        messageContent = format1[2].trim()
+      } else if (format2) {
+        mood = moodMap[format2[1]] || 'calm'
+        messageContent = format2[2].trim()
+      }
 
-      // 添加留言
+      // 添加留言（带心情）
+      const charName = character.nickname || character.realName
       addCoupleMessage(
         character.id,
-        character.nickname || character.realName,
-        messageContent
+        charName,
+        messageContent,
+        mood
       )
 
-      // 添加系统提示
-      const charName = character.nickname || character.realName
+      // 添加系统提示（显示心情和内容）
+      const moodLabel = Object.entries(moodMap).find(([_, v]) => v === mood)?.[0] || '平静'
       const systemMsg = createMessageObj('system', {
-        content: `${charName}在留言中写到${messageContent}`,
-        aiReadableContent: `${charName}在情侣空间的留言板留言：${messageContent}`,
+        content: `${charName}更新了心情日记（${moodLabel}）：${messageContent}`,
+        aiReadableContent: `${charName}刚刚更新了心情日记，心情是${moodLabel}，内容是：${messageContent}`,
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
 
-      console.log(`💌 已添加留言到情侣空间: ${messageContent}`)
+      console.log(`💌 已添加心情日记: ${moodLabel} - ${messageContent}`)
+      
+      // 只显示系统消息，不发送原始文本，清空剩余内容防止循环
+      return { handled: true, skipTextMessage: true, remainingText: '' }
     }
 
-    // 继续发送文本消息（不移除指令）
     return { handled: false }
   }
 }
@@ -4126,9 +4157,279 @@ export const addContactCardFriendHandler: CommandHandler = {
 }
 
 /**
+ * 接受宠物领养处理器
+ * 格式：[接受领养:名字:性别] 例如 [接受领养:小花:女]
+ */
+export const acceptPetAdoptionHandler: CommandHandler = {
+  pattern: /[\[【]接受领养[:\：]([^:\：\]】]+)[:\：]?(男|女)?[\]】]/,
+  handler: async (match, content, { setMessages, chatId, messages }) => {
+    const aiProposal = match[1]?.trim()
+    const aiGender = match[2] as '男' | '女' | undefined
+
+    if (!aiProposal) {
+      return { handled: false }
+    }
+
+    console.log('🐾 [接受领养] AI提议:', aiProposal, '性别:', aiGender)
+
+    // 查找并更新宠物领养消息
+    const adoptionMsg = messages?.slice().reverse().find(
+      msg => (msg as any).petAdoption?.status === 'pending'
+    )
+
+    if (adoptionMsg) {
+      setMessages(prev => {
+        let originalAdoption: any = null
+        
+        // 1. 更新原消息为 processed
+        const updated = prev.map(msg => {
+          if (msg.id === adoptionMsg.id && (msg as any).petAdoption) {
+            originalAdoption = (msg as any).petAdoption
+            return {
+              ...msg,
+              petAdoption: {
+                ...(msg as any).petAdoption,
+                status: 'processed'
+              }
+            }
+          }
+          return msg
+        })
+
+        // 2. 如果找到了原消息，插入一条新的AI回复消息（携带accepted卡片）
+        if (originalAdoption) {
+          const newAiMsgId = Date.now()
+          const aiCardMsg = {
+            id: newAiMsgId,
+            type: 'received', // 标记为AI发送的消息
+            content: '', // 卡片消息内容可为空
+            timestamp: newAiMsgId,
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            petAdoption: {
+              userProposal: originalAdoption.userProposal,
+              userGender: originalAdoption.userGender,
+              aiProposal,
+              aiGender: aiGender || originalAdoption.userGender,
+              status: 'accepted'
+            }
+          }
+          // 将新消息插入到列表末尾
+          updated.push(aiCardMsg as any)
+        }
+
+        if (chatId) {
+          saveMessages(chatId, updated)
+        }
+        return updated
+      })
+
+      // 更新宠物数据
+      const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+      petData.aiProposal = aiProposal
+      petData.aiGender = aiGender
+      petData.status = 'waitingConfirm'
+      localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+    }
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false
+    }
+  }
+}
+
+/**
+ * 拒绝宠物领养处理器
+ * 格式：[拒绝领养]
+ */
+export const rejectPetAdoptionHandler: CommandHandler = {
+  pattern: /[\[【]拒绝领养[\]】]/,
+  handler: async (match, content, { setMessages, chatId, messages }) => {
+    console.log('🐾 [拒绝领养] AI拒绝了领养')
+
+    // 查找并更新宠物领养消息
+    const adoptionMsg = messages?.slice().reverse().find(
+      msg => (msg as any).petAdoption?.status === 'pending'
+    )
+
+    if (adoptionMsg) {
+      setMessages(prev => {
+        const updated = prev.map(msg => {
+          if (msg.id === adoptionMsg.id && (msg as any).petAdoption) {
+            return {
+              ...msg,
+              petAdoption: {
+                ...(msg as any).petAdoption,
+                status: 'rejected'
+              }
+            }
+          }
+          return msg
+        })
+        if (chatId) {
+          saveMessages(chatId, updated)
+        }
+        return updated
+      })
+
+      // 重置宠物数据
+      localStorage.setItem('couple_pet_data', JSON.stringify({
+        status: 'none',
+        name: '',
+        userProposal: '',
+        aiProposal: '',
+        hunger: 80,
+        happiness: 80,
+        energy: 90,
+        cleanliness: 85,
+        level: 1,
+        exp: 0
+      }))
+    }
+
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false
+    }
+  }
+}
+
+/**
+ * AI喂宠物处理器
+ * 格式：[喂宠物]
+ */
+export const feedPetHandler: CommandHandler = {
+  pattern: /[\[【]喂宠物[\]】]/,
+  handler: async (match, content) => {
+    console.log('🐾 [喂宠物] AI正在喂宠物')
+    
+    const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+    if (petData.status === 'egg' || petData.status === 'hatched') {
+      petData.hunger = Math.min(100, (petData.hunger || 0) + 30)
+      petData.happiness = Math.min(100, (petData.happiness || 0) + 5)
+      localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false,
+      systemMessage: {
+        content: `🍖 喂食成功！${petData.name || '宠物'}饱食度+30`,
+        messageType: 'system' as const
+      }
+    }
+  }
+}
+
+/**
+ * AI陪宠物玩处理器
+ * 格式：[陪宠物玩]
+ */
+export const playWithPetHandler: CommandHandler = {
+  pattern: /[\[【]陪宠物玩[\]】]/,
+  handler: async (match, content) => {
+    console.log('🐾 [陪宠物玩] AI正在陪宠物玩')
+    
+    const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+    if (petData.status === 'egg' || petData.status === 'hatched') {
+      petData.happiness = Math.min(100, (petData.happiness || 0) + 25)
+      petData.energy = Math.max(0, (petData.energy || 100) - 15)
+      petData.exp = (petData.exp || 0) + 10
+      // 升级检查
+      if (petData.exp >= petData.level * 100) {
+        petData.level = (petData.level || 1) + 1
+        petData.exp = 0
+      }
+      localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false,
+      systemMessage: {
+        content: `🎾 玩耍成功！${petData.name || '宠物'}开心值+25，经验+10`,
+        messageType: 'system' as const
+      }
+    }
+  }
+}
+
+/**
+ * AI给宠物洗澡处理器
+ * 格式：[给宠物洗澡]
+ */
+export const bathPetHandler: CommandHandler = {
+  pattern: /[\[【]给宠物洗澡[\]】]/,
+  handler: async (match, content) => {
+    console.log('🐾 [给宠物洗澡] AI正在给宠物洗澡')
+    
+    const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+    if (petData.status === 'egg' || petData.status === 'hatched') {
+      petData.cleanliness = 100
+      petData.happiness = Math.min(100, (petData.happiness || 0) + 10)
+      localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false,
+      systemMessage: {
+        content: `🛁 洗澡成功！${petData.name || '宠物'}清洁度恢复满值`,
+        messageType: 'system' as const
+      }
+    }
+  }
+}
+
+/**
+ * AI哄宠物睡觉处理器
+ * 格式：[哄宠物睡觉]
+ */
+export const sleepPetHandler: CommandHandler = {
+  pattern: /[\[【]哄宠物睡觉[\]】]/,
+  handler: async (match, content) => {
+    console.log('🐾 [哄宠物睡觉] AI正在哄宠物睡觉')
+    
+    const petData = JSON.parse(localStorage.getItem('couple_pet_data') || '{}')
+    if (petData.status === 'egg' || petData.status === 'hatched') {
+      petData.energy = 100
+      petData.happiness = Math.min(100, (petData.happiness || 0) + 5)
+      localStorage.setItem('couple_pet_data', JSON.stringify(petData))
+    }
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: false,
+      systemMessage: {
+        content: `😴 休息成功！${petData.name || '宠物'}精力恢复满值`,
+        messageType: 'system' as const
+      }
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
+  acceptPetAdoptionHandler,  // 接受宠物领养
+  rejectPetAdoptionHandler,  // 拒绝宠物领养
+  feedPetHandler,  // AI喂宠物
+  playWithPetHandler,  // AI陪宠物玩
+  bathPetHandler,  // AI给宠物洗澡
+  sleepPetHandler,  // AI哄宠物睡觉
   transferHandler,
   receiveTransferHandler,
   rejectTransferHandler,

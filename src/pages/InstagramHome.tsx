@@ -297,6 +297,10 @@ const InstagramHome = () => {
                         </div>
                         <span className="text-[10px] text-[#8C8C8C] tracking-wider font-sans opacity-80">
                           {formatTimeAgo(post.timestamp)} {post.location && `· ${post.location}`}
+                          {/* 显示是否标记了用户 */}
+                          {post.taggedUsers?.includes('user') && (
+                            <span className="ml-1 text-blue-500 font-medium">· @了你</span>
+                          )}
                         </span>
                       </div>
                     </div>

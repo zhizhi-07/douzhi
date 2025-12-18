@@ -114,7 +114,7 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[calc(80vh-env(safe-area-inset-bottom))] overflow-hidden flex flex-col">
         {/* 标题栏 */}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -236,7 +236,7 @@ const OfflineRecordDialog: React.FC<OfflineRecordDialogProps> = ({
         </div>
 
         {/* 底部按钮 */}
-        <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+        <div className="px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-200 flex gap-3">
           {/* 🔥 编辑模式下显示删除按钮 */}
           {editingMessage && onDelete && (
             <button

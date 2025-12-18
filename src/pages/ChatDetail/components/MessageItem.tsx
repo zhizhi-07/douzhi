@@ -1,5 +1,6 @@
 /**
  * 单个消息项组件
+ * @updated 2024-12-18 21:56 - checkIn card fix
  */
 
 import { useEffect, useRef, memo } from 'react'
@@ -15,6 +16,7 @@ import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import MusicInviteCard from '../../../components/MusicInviteCard'
 import PostCard from '../../../components/PostCard'
 import ShopCard from '../../../components/ShopCard'
+import CheckInCard from '../../../components/CheckInCard'
 import OfflineSummaryCard from './OfflineSummaryCard'
 
 // 安全过滤HTML：移除危险标签和属性
@@ -94,16 +96,6 @@ const MessageItemContent = ({
       /<(div|section|article|main|style)[\s>]/i.test(message.content)
     ))
   
-  // 🔥 调试：每次渲染都打印消息信息
-  console.log('📨 [MessageItem] 渲染消息:', {
-    id: message.id,
-    type: message.type,
-    messageType: message.messageType,
-    isHtmlContent,
-    contentStart: message.content?.substring(0, 80),
-    hasDoctype: message.content?.includes('<!DOCTYPE'),
-    hasHtml: message.content?.includes('<html')
-  })
   
   // 🔥 手动渲染HTML消息 - 绕过React条件渲染问题
   useEffect(() => {
@@ -173,6 +165,15 @@ const MessageItemContent = ({
   // 如果有messageType但content为空，允许渲染（特殊消息类型如帖子）
   if (message.messageType && !message.content) {
     console.log('🎯 [MessageItem] 特殊消息类型:', message.messageType, message)
+  }
+
+  // 🔥 情侣打卡卡片 - 提前处理
+  if (message.messageType === 'checkIn' && message.checkIn) {
+    return (
+      <div className={'flex gap-2 my-2 ' + (message.type === 'sent' ? 'justify-end' : 'justify-start')}>
+        <CheckInCard message={message} />
+      </div>
+    )
   }
 
   // 系统消息

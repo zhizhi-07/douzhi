@@ -7,10 +7,10 @@ import { useCallback, useRef } from 'react'
 import { groupChatManager, type GroupMessage } from '../../../utils/groupChatManager'
 
 // 获取成员头像（缓存）
-let cachedUserAvatar: string | null = null
+let cachedUserAvatar: string = ''
 const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
-    if (cachedUserAvatar !== null) return cachedUserAvatar
+    if (cachedUserAvatar) return cachedUserAvatar
     try {
       const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
       cachedUserAvatar = userInfo.avatar || ''
@@ -97,37 +97,26 @@ export const useGroupSendMessage = ({
       } : undefined
     }
 
-    // 🔥 直接更新 UI
-    setMessages(prev => {
-      // 检查是否已存在（防止重复）
-      if (prev.some(m => m.id === uniqueId)) {
-        return prev
-      }
-      return [...prev, newMsg]
-    })
-
-    // 🔥 使用 queueMicrotask 异步保存，完全不阻塞
-    queueMicrotask(() => {
-      // 🔥 关键修复：直接将已创建的消息对象添加到缓存，而不是调用 addMessage 生成新ID
-      // 这样可以确保 UI 和缓存中的消息 ID 一致，避免重复
-      const existingMessages = groupChatManager.getMessages(groupId)
-      
-      // 检查是否已存在（防止重复添加）
-      if (!existingMessages.some(m => m.id === newMsg.id)) {
-        existingMessages.push(newMsg)
-        // 🔥 使用静默模式保存，不触发事件，避免重复渲染导致卡顿
-        groupChatManager.replaceAllMessages(groupId, existingMessages, false, true)
-      }
-      
-      console.log('✅ [发送完成]', uniqueId)
-    })
+    // 🔥 立即更新 UI（只追加新消息，不替换整个数组）
+    setMessages(prev => [...prev, newMsg])
     
-    // 🔥 不再强制滚动，让虚拟列表自动处理
-    // 延迟清除标志
+    // 🔥 添加到缓存
+    const existingMessages = groupChatManager.getMessages(groupId)
+    if (!existingMessages.some(m => m.id === newMsg.id)) {
+      existingMessages.push(newMsg)
+    }
+    
+    // 🔥 异步保存到 IndexedDB（完全后台）
     setTimeout(() => {
-      isSendingRef.current = false
-      isSendingMessage = false
-    }, 100)
+      import('../../../utils/indexedDBManager').then(IDB => {
+        IDB.setItem(IDB.STORES.MESSAGES, `group_${groupId}`, existingMessages)
+      })
+      console.log('✅ [发送完成]', uniqueId)
+    }, 0)
+    
+    // 🔥 立即清除标志
+    isSendingRef.current = false
+    isSendingMessage = false
   }, [groupId, isAiTyping, setMessages, setInputText, setQuotedMessage, scrollToBottom])
 
   return {

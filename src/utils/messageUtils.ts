@@ -374,6 +374,7 @@ export const convertToApiMessages = (
       const importantKeywords = [
         '亲密付',
         '情侣空间',
+        '心情日记',
         '拒绝了',
         '驳回',
         '修改了',
@@ -453,8 +454,16 @@ export const convertToApiMessages = (
       }
     }
 
-    // 代付消息转换为AI可读格式
+    // 代付/外卖消息转换为AI可读格式
     if (msg.messageType === 'paymentRequest' && msg.paymentRequest) {
+      // 🔥 优先使用 aiReadableContent（包含正确的上下文描述）
+      if (msg.aiReadableContent) {
+        return {
+          role: msg.type === 'sent' ? 'user' as const : 'assistant' as const,
+          content: msg.aiReadableContent + timeInterval
+        }
+      }
+      
       const isUserSent = msg.type === 'sent'
       // 🔥 检查是否已过期（15分钟有效期）
       const PAYMENT_EXPIRY_MS = 15 * 60 * 1000
@@ -468,9 +477,21 @@ export const convertToApiMessages = (
         : msg.paymentRequest.status === 'paid' ? '已支付'
           : '已拒绝'
 
-      const paymentInfo = isUserSent
-        ? `[用户请求你代付：${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
-        : `[你请求用户代付：${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
+      // 🔥 区分外卖和代付：检查 content 是否包含 [外卖]
+      const isFood = msg.content?.includes('[外卖]')
+      
+      let paymentInfo: string
+      if (isFood) {
+        // 外卖消息
+        paymentInfo = isUserSent
+          ? `[收到外卖] 用户给你点了外卖：${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，用户请你吃的！`
+          : `[你给用户点外卖] ${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，状态：${statusText}`
+      } else {
+        // 代付消息
+        paymentInfo = isUserSent
+          ? `[用户请求你代付：${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
+          : `[你请求用户代付：${msg.paymentRequest.itemName}，金额￥${msg.paymentRequest.amount.toFixed(2)}，备注：${msg.paymentRequest.note || '无'}，状态：${statusText}]`
+      }
 
       return {
         role: isUserSent ? 'user' as const : 'assistant' as const,

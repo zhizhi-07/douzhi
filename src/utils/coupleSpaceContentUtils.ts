@@ -3,6 +3,7 @@
  */
 
 import { savePhotoToDB, getAllPhotosFromDB, type PhotoRecord } from './couplePhotosDB'
+import { getPeriodData, getDayStatus } from './couplePeriodUtils'
 
 export interface CoupleAlbumPhoto {
   id: string
@@ -20,6 +21,7 @@ export interface CoupleMessage {
   characterId: string
   characterName: string
   content: string
+  mood?: string
   timestamp: number
   createdAt: number
 }
@@ -204,7 +206,8 @@ export const deleteCouplePhoto = async (photoId: string): Promise<boolean> => {
 export const addCoupleMessage = (
   characterId: string,
   characterName: string,
-  content: string
+  content: string,
+  mood?: string
 ): CoupleMessage => {
   const messages = getCoupleMessages()
   
@@ -213,6 +216,7 @@ export const addCoupleMessage = (
     characterId,
     characterName,
     content,
+    mood,
     timestamp: Date.now(),
     createdAt: Date.now()
   }
@@ -365,21 +369,7 @@ export const getCoupleSpaceContentSummary = (characterId: string): string => {
     })
   }
   
-  // 所有留言（按时间倒序）
-  if (messages.length > 0) {
-    summary += '\n💌 留言板：\n'
-    messages.forEach(msg => {
-      const datetime = new Date(msg.timestamp).toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-      const author = msg.characterName === '我' ? '用户' : msg.characterName
-      summary += `  - ${datetime} ${author} 留言：${msg.content}\n`
-    })
-  }
+  // 心情日记不在这里显示，AI通过聊天记录中的系统消息可见
   
   // 所有纪念日
   if (anniversaries.length > 0) {
@@ -389,6 +379,27 @@ export const getCoupleSpaceContentSummary = (characterId: string): string => {
       const statusText = daysUntil < 0 ? `已过${Math.abs(daysUntil)}天` : daysUntil === 0 ? '就是今天' : `还有${daysUntil}天`
       summary += `  - ${ann.date} ${ann.title}（${statusText}）${ann.description ? ` - ${ann.description}` : ''}\n`
     })
+  }
+  
+  // 经期状态
+  const periodData = getPeriodData()
+  if (periodData.records.length > 0) {
+    const todayStr = new Date().toISOString().split('T')[0]
+    const status = getDayStatus(todayStr, periodData)
+    
+    summary += '\n🩸 经期记录：\n'
+    if (status.type === 'period') {
+      summary += `  - 今天是经期第 ${status.dayIndex} 天（请给予更多关心和照顾，注意她的身体状况）\n`
+    } else if (status.type === 'ovulation') {
+      summary += `  - 今天是排卵日\n`
+    } else if (status.type === 'fertile') {
+      summary += `  - 今天是易孕期\n`
+    } else if (status.type === 'safe') {
+      summary += `  - 今天是安全期\n`
+    }
+    
+    const lastRecord = periodData.records[0]
+    summary += `  - 最近一次经期开始于：${lastRecord.startDate}\n`
   }
   
   return summary

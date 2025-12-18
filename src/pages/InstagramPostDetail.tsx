@@ -678,6 +678,9 @@ ${aiCharacterPrompt}${memesPrompt}
                 </div>
                 <span className="text-xs text-gray-400">
                   {formatTimeAgo(post.timestamp)}
+                  {post.taggedUsers?.includes('user') && (
+                    <span className="ml-1 text-blue-500 font-medium">· @了你</span>
+                  )}
                 </span>
               </div>
             </div>
