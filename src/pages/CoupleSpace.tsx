@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getCoupleSpaceRelation, CoupleSpaceRelation } from '../utils/coupleSpaceUtils'
 import { getCheckInStats } from '../utils/coupleSpaceCheckInUtils'
+import { getUserInfoWithAvatar } from '../utils/userUtils'
 import { characterService } from '../services/characterService'
 import { getCouplePhotos, getCoupleMessages, type CoupleAlbumPhoto, type CoupleMessage } from '../utils/coupleSpaceContentUtils'
 
@@ -105,6 +106,7 @@ const Icons = {
 const CoupleSpace = () => {
   const navigate = useNavigate()
   const [relation, setRelation] = useState<CoupleSpaceRelation | null>(null)
+  const [userAvatar, setUserAvatar] = useState('')
   const [daysCount, setDaysCount] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [characterAvatar, setCharacterAvatar] = useState('')
@@ -121,6 +123,8 @@ const CoupleSpace = () => {
     loadPhotos()
     loadMessages()
     loadPetData()
+    // Load user avatar
+    getUserInfoWithAvatar().then(info => setUserAvatar(info.avatar || ''))
     // Load check-in stats
     getCheckInStats().then(stats => setCheckInStreak(stats.currentStreak))
     const savedCover = localStorage.getItem('couple_space_cover')
@@ -272,15 +276,38 @@ const CoupleSpace = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col justify-center pt-20 pb-24">
-        {/* Title */}
-        <div className="px-6 mb-6">
-          <h2 className="text-white/90 font-serif text-2xl tracking-wider italic drop-shadow-sm">Sweet Moments</h2>
+        {/* 头像 + 在一起多少天 */}
+        <div className="flex flex-col items-center justify-center gap-3 mb-6">
+          {/* 头像区域 - 重叠效果 */}
+          <div className="flex items-center justify-center">
+            {/* 用户头像 */}
+            <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-4 border-white shadow-lg z-10">
+              {userAvatar ? (
+                <img src={userAvatar} alt="me" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs bg-[#f5f5f5]">我</div>
+              )}
+            </div>
+            {/* AI头像 - 左移重叠 */}
+            <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-4 border-white shadow-lg -ml-5">
+              {characterAvatar ? (
+                <img src={characterAvatar} alt="char" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs bg-[#f5f5f5]">AI</div>
+              )}
+            </div>
+          </div>
+          {/* 文字 */}
+          <div className="flex flex-col items-center">
+            <span className="text-sm text-[#8b7355] font-medium">我们在一起</span>
+            <span className="font-bold text-3xl text-[#5d4037] font-serif">{daysCount} <span className="text-base font-normal">天</span></span>
+          </div>
         </div>
 
         {/* Horizontal Scrolling Carousel */}
         <div 
           ref={carouselRef} 
-          className="flex overflow-x-auto pb-6 px-6 hide-scrollbar gap-4"
+          className="flex overflow-x-auto pb-6 px-6 hide-scrollbar gap-4 mt-6"
         >
           {/* First set: photos + upload placeholder */}
           {[0, 1, 2, 3].map((i) => {
@@ -360,7 +387,7 @@ const CoupleSpace = () => {
 
         {/* 3. 心情日记便利贴 */}
         <div 
-          className="relative mx-6 mb-8 mt-2 h-44 cursor-pointer"
+          className="relative mx-6 mb-8 mt-14 h-44 cursor-pointer"
           onClick={() => navigate('/couple-message-board')}
         >
            {/* Layer 1 (Bottom) */}
@@ -628,7 +655,6 @@ const CoupleSpace = () => {
 
   return (
     <div className="h-screen w-full relative overflow-hidden font-sans">
-      <TopBar />
       <RoomView />
       <BottomNav />
       <SpaceMenuOverlay />
