@@ -576,15 +576,28 @@ export async function getMessageCount(chatId: string): Promise<number> {
     // 🔥 使用账号专属的存储key
     const storageKey = getAccountChatKey(chatId)
     
-    // 先检查缓存
-    const cached = messageCache.get(storageKey)
-    if (cached) {
-      return cached.length
+    // 🔥🔥🔥 关键修复：直接从IndexedDB读取，不依赖缓存
+    // 因为缓存可能还没加载完成
+    let count = 0
+    
+    // 1. 先从IndexedDB读取
+    const idbMessages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
+    if (idbMessages && idbMessages.length > 0) {
+      count = idbMessages.length
+      // 🔥 同时更新缓存，确保后续操作能读到数据
+      if (!messageCache.has(storageKey)) {
+        messageCache.set(storageKey, idbMessages)
+        console.log(`🔥 [getMessageCount] 从IndexedDB加载并缓存: ${storageKey}, ${count}条`)
+      }
     }
-
-    // 从IndexedDB读取
-    const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
-    return messages ? messages.length : 0
+    
+    // 2. 检查缓存是否有更多数据
+    const cached = messageCache.get(storageKey)
+    if (cached && cached.length > count) {
+      count = cached.length
+    }
+    
+    return count
   } catch (error) {
     console.error('获取消息数量失败:', error)
     return 0
