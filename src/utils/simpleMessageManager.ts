@@ -162,7 +162,7 @@ async function preloadMessages() {
         console.warn('⚠️ [预加载] IndexedDB getAllKeys 超时')
       }
       if (import.meta.env.DEV) {
-        console.log(`📦 预加载消息: ${allKeys.length} 个聊天`)
+        console.log(`📦 预加载消息: ${allKeys.length} 个聊天`, allKeys)
       }
       
       // 🔥 关键修复：合并 IndexedDB keys 和 localStorage 备份 keys
@@ -222,7 +222,17 @@ async function preloadMessages() {
         if (messages) {
           // 修复重复ID
           const fixedMessages = fixDuplicateMessageIds(messages)
+          // 🔥🔥🔥 关键修复：使用 chatId 作为缓存key（与loadMessages保持一致）
+          // chatId 就是 storageKey（主账号情况下）
           messageCache.set(chatId, fixedMessages)
+          
+          // 🔥🔥🔥 同时更新 localStorage 备份，确保下次能恢复
+          try {
+            const backupKey = `msg_backup_${chatId}`
+            localStorage.setItem(backupKey, JSON.stringify({ messages: fixedMessages, timestamp: Date.now() }))
+          } catch (e) {
+            // 静默处理
+          }
           
           // 如果修复了ID，保存回数据库（异步执行，不阻塞）
           // 🔥 使用安全保存，防止覆盖更多数据
@@ -255,6 +265,33 @@ async function preloadMessages() {
 
 // 启动时预加载
 preloadMessages()
+
+// 🔥🔥🔥 紧急修复：导出强制恢复函数，供外部调用
+export async function forceRecoverFromIndexedDB(): Promise<void> {
+  console.log('🔥 [紧急恢复] 开始从IndexedDB强制恢复所有消息...')
+  try {
+    const allKeys = await IDB.getAllKeys(IDB.STORES.MESSAGES)
+    console.log(`🔥 [紧急恢复] 发现 ${allKeys.length} 个聊天`)
+    
+    for (const key of allKeys) {
+      const messages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, key)
+      if (messages && messages.length > 0) {
+        messageCache.set(key, messages)
+        // 同步到localStorage备份
+        try {
+          const backupKey = `msg_backup_${key}`
+          localStorage.setItem(backupKey, JSON.stringify({ messages, timestamp: Date.now() }))
+        } catch (e) {
+          // localStorage满了，忽略
+        }
+        console.log(`✅ [紧急恢复] ${key}: ${messages.length} 条消息`)
+      }
+    }
+    console.log('🔥 [紧急恢复] 完成')
+  } catch (e) {
+    console.error('❌ [紧急恢复] 失败:', e)
+  }
+}
 
 // 🔥 页面卸载时的保护机制
 if (typeof window !== 'undefined') {
@@ -369,9 +406,10 @@ export function loadMessages(chatId: string): Message[] {
     let messages = messageCache.get(storageKey)
 
     if (!messages) {
-      // 🔥 关键修复：缓存未命中时，立即尝试从localStorage备份恢复
-      // 这解决了手机端刷新时IndexedDB预加载失败导致的消息丢失
+      // 🔥🔥🔥 紧急修复：缓存未命中时，立即触发IndexedDB异步加载
+      // 同时从localStorage备份恢复，确保不丢数据
       
+      // 1. 先尝试从localStorage备份恢复（同步）
       try {
         const backupKey = `msg_backup_${storageKey}`
         const backup = localStorage.getItem(backupKey)
@@ -379,7 +417,6 @@ export function loadMessages(chatId: string): Message[] {
         if (backup) {
           const parsed = JSON.parse(backup)
           
-          // 🔥 备份永久有效，不再删除
           if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
             messages = parsed.messages as Message[]
             messageCache.set(storageKey, messages)
@@ -389,6 +426,32 @@ export function loadMessages(chatId: string): Message[] {
       } catch (e) {
         // 静默处理
       }
+      
+      // 2. 🔥🔥🔥 关键修复：异步从IndexedDB加载并合并（不阻塞UI）
+      // 这确保即使预加载失败，数据也能在后台恢复
+      (async () => {
+        try {
+          const idbMessages = await IDB.getItem<Message[]>(IDB.STORES.MESSAGES, storageKey)
+          if (idbMessages && idbMessages.length > 0) {
+            const cached = messageCache.get(storageKey) || []
+            // 合并数据
+            const mergedMap = new Map<number, Message>()
+            cached.forEach(m => { if (m && m.id != null) mergedMap.set(m.id, m) })
+            idbMessages.forEach(m => { if (m && m.id != null) mergedMap.set(m.id, m) })
+            const merged = Array.from(mergedMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            
+            if (merged.length > cached.length) {
+              messageCache.set(storageKey, merged)
+              // 同步到localStorage备份
+              const backupKey = `msg_backup_${storageKey}`
+              localStorage.setItem(backupKey, JSON.stringify({ messages: merged, timestamp: Date.now() }))
+              console.log(`🔥 [loadMessages] IndexedDB异步恢复: ${merged.length}条消息 (原缓存${cached.length}条)`)
+            }
+          }
+        } catch (e) {
+          console.error('IndexedDB异步加载失败:', e)
+        }
+      })()
       
       // 如果还是没有，返回空数组
       if (!messages) {

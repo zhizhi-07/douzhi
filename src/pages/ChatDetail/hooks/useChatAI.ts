@@ -1829,17 +1829,15 @@ export const useChatAI = (
       const actualLastAIIndex = prev.length - 1 - lastAIIndex
       
       // 从最后一条AI消息往前找，删除这一轮AI的所有消息
-      // 直到遇到用户消息或到达消息开头
+      // 直到遇到非AI消息（用户消息或系统消息）或到达消息开头
       let deleteFromIndex = actualLastAIIndex
       for (let i = actualLastAIIndex - 1; i >= 0; i--) {
-        if (prev[i].type === 'sent') {
-          // 遇到用户消息，停止
+        if (prev[i].type !== 'received') {
+          // 遇到非AI消息（用户消息或系统消息），停止
           break
         }
-        if (prev[i].type === 'received') {
-          // 是AI消息，继续往前删除
-          deleteFromIndex = i
-        }
+        // 是AI消息，继续往前删除
+        deleteFromIndex = i
       }
       
       const newMessages = prev.slice(0, deleteFromIndex)

@@ -2,12 +2,17 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
 import { characterService } from '../services/characterService'
-import { loadMessages } from '../utils/simpleMessageManager'
+import { loadMessages, saveMessages, forceRecoverFromIndexedDB } from '../utils/simpleMessageManager'
 import { getUnreadCount } from '../utils/unreadMessages'
 import { groupChatManager } from '../utils/groupChatManager'
-import { loadChatList, saveChatList } from '../utils/chatListManager'
+import { loadChatList, saveChatList, clearChatListCache } from '../utils/chatListManager'
 import { playSystemSound } from '../utils/soundManager'
-import { saveMessages } from '../utils/simpleMessageManager'
+
+// 🔥🔥🔥 紧急修复：启动时强制从IndexedDB恢复数据
+clearChatListCache()
+forceRecoverFromIndexedDB()
+// 🔥 清除sessionStorage旧缓存，防止加载过期数据
+sessionStorage.removeItem('__preloaded_chatlist__')
 
 interface Chat {
   id: string
