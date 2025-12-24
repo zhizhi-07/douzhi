@@ -99,6 +99,7 @@ const GroupChatDetail = () => {
     viewingRecalledMessage,
     setViewingRecalledMessage,
     handleLongPressStart,
+    handleLongPressMove,
     handleLongPressEnd,
     handleRecallMessage,
     handleDeleteMessage,
@@ -545,6 +546,18 @@ const GroupChatDetail = () => {
       const allChars = characterService.getAll()
       const charMap = new Map(allChars.map(c => [c.id, c]))
       
+      // 🔥 先收集所有角色的基础名字，用于检测重名
+      const baseNameCount = new Map<string, number>()
+      group.memberIds.forEach(memberId => {
+        if (memberId === 'user') return
+        const char = charMap.get(memberId)
+        const baseName = char?.realName || char?.nickname || '未知'
+        baseNameCount.set(baseName, (baseNameCount.get(baseName) || 0) + 1)
+      })
+      
+      // 🔥 记录每个重名名字已使用的次数，用于生成唯一标识
+      const baseNameUsed = new Map<string, number>()
+      
       const members: GroupMember[] = group.memberIds.map(memberId => {
         const memberDetail = group.members?.find(m => m.id === memberId)
         
@@ -573,9 +586,28 @@ const GroupChatDetail = () => {
             charAliases.push(stripped)
           }
         })
+        
+        // 🔥 处理重名：如果有多个角色同名，使用 nickname 或添加序号区分
+        let baseName = char?.realName || char?.nickname || '未知'
+        const count = baseNameCount.get(baseName) || 1
+        if (count > 1) {
+          // 有重名，尝试用不同的名字区分
+          const usedCount = baseNameUsed.get(baseName) || 0
+          baseNameUsed.set(baseName, usedCount + 1)
+          
+          // 如果 nickname 和 realName 不同，优先用组合名
+          if (char?.nickname && char?.realName && char.nickname !== char.realName) {
+            baseName = `${char.realName}(${char.nickname})`
+          } else {
+            // 否则添加序号
+            baseName = `${baseName}#${usedCount + 1}`
+          }
+          console.log(`⚠️ [重名处理] 角色 ${memberId} 重名，使用唯一名: ${baseName}`)
+        }
+        
         return {
           id: memberId,
-          name: char?.realName || char?.nickname || '未知',
+          name: baseName,
           description: char?.personality || '',
           type: 'character',
           role: memberDetail?.role,
@@ -1570,44 +1602,17 @@ const GroupChatDetail = () => {
         // 🔥 追加到本地数组
         currentMessages.push(newMessage)
         console.log(`📨 [AI回复] 第${i + 1}条消息已添加: ${action.actorName}`)
-      }
-      
-      // 🔥 关键优化：所有消息处理完后，使用 requestAnimationFrame 逐条添加到 UI
-      // 这样不会阻塞主线程，用户可以看到消息一条条出现
-      const addMessagesSequentially = async (messagesToAdd: typeof currentMessages, startIndex: number) => {
-        for (let i = startIndex; i < messagesToAdd.length; i++) {
-          const msg = messagesToAdd[i]
-          
-          // 使用 requestAnimationFrame 确保在下一帧渲染
-          await new Promise<void>(resolve => {
-            requestAnimationFrame(() => {
-              setMessages(prev => {
-                // 检查是否已存在
-                if (prev.some(m => m.id === msg.id)) return prev
-                return [...prev, msg]
-              })
-              resolve()
-            })
-          })
-          
-          // 添加延迟让消息一条条出来
-          if (i < messagesToAdd.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200))
-          }
-        }
-      }
-      
-      // 获取起始索引（跳过已经在 UI 中的消息）
-      const existingCount = latestMessages.length
-      const newMessages = currentMessages.slice(existingCount)
-      
-      if (newMessages.length > 0) {
-        // 先一次性添加前3条（快速显示），然后逐条添加剩余的
-        const quickAddCount = Math.min(3, newMessages.length)
-        setMessages(prev => [...prev, ...newMessages.slice(0, quickAddCount)])
         
-        if (newMessages.length > quickAddCount) {
-          await addMessagesSequentially(newMessages, quickAddCount)
+        // 🔥 立即更新UI，让用户看到消息一条条出现
+        setMessages(prev => {
+          // 检查是否已存在
+          if (prev.some(m => m.id === newMessage.id)) return prev
+          return [...prev, newMessage]
+        })
+        
+        // 🔥 添加小延迟，让消息有“打字”感觉
+        if (i < actionsToProcess.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 300))
         }
       }
       
@@ -1985,7 +1990,8 @@ const GroupChatDetail = () => {
               // 🔥 使用缓存的用户信息
               baseName = cachedUserInfo.nickname || cachedUserInfo.realName || '我'
             } else {
-              baseName = char?.nickname || char?.realName || msg.userName
+              // 🔥 优先使用消息中存储的名字（已处理过重名），避免重名角色混淆
+              baseName = msg.userName || char?.nickname || char?.realName || '未知'
             }
 
             let roleLabel: string | undefined
@@ -2016,6 +2022,7 @@ const GroupChatDetail = () => {
                   isSent={isSent}
                   displayName={displayName}
                   onLongPressStart={handleLongPressStart}
+                  onLongPressMove={handleLongPressMove}
                   onLongPressEnd={handleLongPressEnd}
                   onQuoteMessage={(msg) => {
                     setQuotedMessage(msg)

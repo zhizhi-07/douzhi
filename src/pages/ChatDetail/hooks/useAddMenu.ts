@@ -24,7 +24,8 @@ export const useAddMenu = (
   onOpenEnvelope?: () => void,
   onOpenJudgment?: () => void,
   onOpenLogistics?: () => void,
-  onOpenContactCard?: () => void
+  onOpenContactCard?: () => void,
+  onOpenGomoku?: () => void
 ) => {
   const [showAddMenu, setShowAddMenu] = useState(false)
   
@@ -246,6 +247,17 @@ export const useAddMenu = (
     }
   }, [onOpenContactCard])
 
+  /**
+   * 五子棋
+   */
+  const handleSelectGomoku = useCallback(() => {
+    console.log('⚫ 点击五子棋按钮')
+    setShowAddMenu(false)
+    if (onOpenGomoku) {
+      onOpenGomoku()
+    }
+  }, [onOpenGomoku])
+
   return {
     showAddMenu,
     setShowAddMenu,
@@ -270,7 +282,8 @@ export const useAddMenu = (
       handleSelectEnvelope,
       handleSelectJudgment,
       handleSelectLogistics,
-      handleSelectContactCard
+      handleSelectContactCard,
+      handleSelectGomoku
     }
   }
 }

@@ -59,6 +59,10 @@ votes 字段表示每个 AI 心目中想投给谁（可以为空字符串表示�
 `;
 
   try {
+    console.log('--- AI Werewolf Generation Start ---');
+    console.log('System Prompt:', systemPrompt);
+    console.log('User Prompt: 请生成本轮发言剧本。');
+
     const response = await callZhizhiApi(
       [
         { role: 'system', content: systemPrompt },
@@ -69,6 +73,9 @@ votes 字段表示每个 AI 心目中想投给谁（可以为空字符串表示�
         max_tokens: 4000
       }
     );
+
+    console.log('AI Response:', response);
+    console.log('--- AI Werewolf Generation End ---');
 
     // 尝试提取 JSON
     const jsonMatch = response.match(/\{[\s\S]*\}/);

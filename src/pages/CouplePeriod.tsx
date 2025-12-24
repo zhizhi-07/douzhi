@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
 import { 
   getPeriodData, 
   savePeriodData, 
@@ -229,7 +230,8 @@ const CouplePeriod = () => {
       />
 
       {/* Top Bar */}
-      <div className="pt-[env(safe-area-inset-top)] relative z-20 shrink-0 bg-[#fffbf5]">
+      <div className="relative z-20 shrink-0 bg-[#fffbf5]">
+        <StatusBar />
         <div className="px-4 h-14 flex items-center justify-between">
           <button 
             onClick={() => navigate(-1)} 

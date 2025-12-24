@@ -9,13 +9,29 @@ import { getEmojis, type Emoji } from '../utils/emojiStorage'
 interface Props {
   content: string
   className?: string
-  emojiSize?: number // 表情包大小，默认 24px
+  emojiSize?: number // 表情包大小，不传则使用用户设置
 }
 
 // 全局表情包缓存
 let globalEmojiCache: Emoji[] | null = null
 
-export default function EmojiContentRenderer({ content, className = '', emojiSize = 24 }: Props) {
+// 🔥 获取用户设置的表情包大小
+export function getGlobalEmojiSize(): number {
+  const saved = localStorage.getItem('ai_emoji_size')
+  return saved ? parseInt(saved, 10) : 80 // 默认80px
+}
+
+// 🔥 表情包大小变化事件
+export const EMOJI_SIZE_CHANGE_EVENT = 'emoji-size-change'
+
+// 触发大小变化事件
+export function emitEmojiSizeChange(size: number) {
+  window.dispatchEvent(new CustomEvent(EMOJI_SIZE_CHANGE_EVENT, { detail: size }))
+}
+
+export default function EmojiContentRenderer({ content, className = '', emojiSize }: Props) {
+  // 如果没有传入emojiSize，使用用户设置的全局大小
+  const actualSize = emojiSize ?? getGlobalEmojiSize()
   const [emojis, setEmojis] = useState<Emoji[]>(globalEmojiCache || [])
 
   // 加载表情包列表
@@ -63,8 +79,8 @@ export default function EmojiContentRenderer({ content, className = '', emojiSiz
             alt={emoji.description}
             title={emoji.description}
             style={{ 
-              width: emojiSize, 
-              height: emojiSize, 
+              width: actualSize, 
+              height: actualSize, 
               display: 'inline-block',
               verticalAlign: 'middle',
               margin: '0 2px',
@@ -90,7 +106,7 @@ export default function EmojiContentRenderer({ content, className = '', emojiSiz
     }
 
     return parts.length > 0 ? parts : content
-  }, [content, emojis, emojiSize])
+  }, [content, emojis, actualSize])
 
   return <span className={className}>{renderedContent}</span>
 }

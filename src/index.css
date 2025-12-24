@@ -1056,3 +1056,43 @@ img[class*="rounded-full"]:active {
   animation: none !important;
   transition: none !important;
 }
+
+/* 自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* 线性遮罩渐变 */
+.mask-linear-fade {
+  mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
+}
+
+/* ==========================================================================
+   聊天气泡样式 - 支持用户自定义CSS覆盖
+   ========================================================================== */
+
+/* 发送方气泡默认样式 */
+.message-bubble-sent {
+  background-color: #95ec69;
+  border-radius: 18px 18px 4px 18px;
+}
+
+/* 接收方气泡默认样式 */
+.message-bubble-received {
+  border-radius: 18px 18px 18px 4px;
+}

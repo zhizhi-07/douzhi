@@ -395,9 +395,30 @@ export async function triggerAIMomentsInteraction(newMoment: Moment): Promise<vo
   
   console.log(`🎬 朋友圈发布，准备让AI导演编排互动场景...`)
   console.log(`📱 朋友圈发布者: ${newMoment.userName} (ID: ${newMoment.userId})`)
+  console.log(`🔒 隐私设置: ${newMoment.privacy || 'public'}`)
   
-  // 不再过滤发布者，因为发布者可以回复评论
-  const characters = allCharacters
+  // 🔥 根据隐私设置或用户选中的圈子过滤可参与互动的角色
+  let characters = allCharacters
+  
+  // 优先检查用户选中的圈子
+  const selectedCircleId = localStorage.getItem('moments_selected_circle')
+  if (selectedCircleId) {
+    // 动态导入避免循环依赖
+    const { getMomentsGroup } = await import('../momentsGroupManager')
+    const selectedGroup = getMomentsGroup(selectedCircleId)
+    if (selectedGroup) {
+      characters = allCharacters.filter(c => selectedGroup.characterIds.includes(c.id))
+      console.log(`🔵 用户选中圈子「${selectedGroup.name}」，只触发圈子内角色: ${characters.map(c => c.realName).join('、')}`)
+    }
+  } else if (newMoment.privacy === 'private') {
+    // 仅自己可见，不触发AI互动
+    console.log(`🔒 朋友圈仅自己可见，不触发AI互动`)
+    return
+  } else if ((newMoment.privacy === 'selected' || newMoment.privacy === 'group') && newMoment.visibleTo && newMoment.visibleTo.length > 0) {
+    // 部分可见或分组可见，只让可见的角色参与
+    characters = allCharacters.filter(c => newMoment.visibleTo!.includes(c.id))
+    console.log(`👥 分组/部分可见模式，可见角色: ${characters.map(c => c.realName).join('、')}`)
+  }
   
   if (characters.length === 0) {
     console.warn('⚠️ 没有AI角色可以互动')

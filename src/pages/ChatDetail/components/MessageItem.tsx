@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef, memo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Message, Character } from '../../../types/chat'
 import Avatar from '../../../components/Avatar'
 import TransferCard from '../../../components/TransferCard'
@@ -48,6 +49,7 @@ interface MessageItemProps {
   character: Character
   chatId?: string
   onLongPressStart: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
+  onLongPressMove?: (e: React.TouchEvent | React.MouseEvent) => void
   onLongPressEnd: () => void
   onViewRecalledMessage: (message: Message) => void
   onViewCallRecord: (message: Message) => void
@@ -70,6 +72,7 @@ const MessageItemContent = ({
   character,
   chatId,
   onLongPressStart,
+  onLongPressMove,
   onLongPressEnd,
   onViewRecalledMessage,
   onViewCallRecord,
@@ -87,6 +90,7 @@ const MessageItemContent = ({
   onEditOfflineRecord
 }: MessageItemProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
   
   // 🔥 强制检测HTML消息
   const isHtmlContent = message.messageType === 'html' || 
@@ -285,8 +289,10 @@ const MessageItemContent = ({
       <div 
         className={'flex flex-col ' + (message.coupleSpaceInvite || isHtmlMessage ? '' : 'max-w-[70%] ') + (message.type === 'sent' ? 'items-end' : 'items-start')}
         onTouchStart={(e) => onLongPressStart(message, e)}
+        onTouchMove={onLongPressMove}
         onTouchEnd={onLongPressEnd}
         onMouseDown={(e) => onLongPressStart(message, e)}
+        onMouseMove={onLongPressMove}
         onMouseUp={onLongPressEnd}
         onMouseLeave={onLongPressEnd}
       >
@@ -345,8 +351,11 @@ const MessageItemContent = ({
         ) : message.messageType === 'transfer' ? (
           <TransferCard
             message={message}
-            onReceive={onReceiveTransfer}
-            onReject={onRejectTransfer}
+            onClick={() => {
+              navigate(`/chat/${chatId}/transfer/${message.id}`, {
+                state: { characterName: character?.nickname || character?.realName || '对方' }
+              })
+            }}
           />
         ) : message.messageType === 'voice' ? (
           <VoiceCard
@@ -401,14 +410,9 @@ const MessageItemContent = ({
           <div
             className={'message-bubble px-3 py-2 break-words cursor-pointer message-press ' + (
               message.type === 'sent'
-                ? 'shadow-sm mr-2'
-                : 'bg-white text-gray-900 shadow-sm ml-2'
+                ? 'message-bubble-sent shadow-sm mr-2'
+                : 'message-bubble-received bg-white text-gray-900 shadow-sm ml-2'
             )}
-            style={{
-              borderRadius: message.type === 'sent'
-                ? '18px 18px 4px 18px'  // 水滴形状：右下角小圆角
-                : '18px 18px 18px 4px'  // 水滴形状：左下角小圆角
-            }}
           >
             {(() => {
               const filteredContent = filterSpecialTags(message.content || '')

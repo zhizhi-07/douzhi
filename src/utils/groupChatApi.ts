@@ -101,9 +101,28 @@ function buildGroupChatPrompt(
       character: fullCharacter || undefined
     })
     
+    // 🔥 获取更多角色信息
+    const signature = fullCharacter?.signature ? `\n  - 签名：「${fullCharacter.signature}」` : ''
+    const worldSetting = fullCharacter?.worldSetting ? `\n  - 世界观：${fullCharacter.worldSetting}` : ''
+    
+    // 🔥 语言风格指导
+    let styleGuide = ''
+    if (fullCharacter?.languageStyle) {
+      const styleMap: Record<string, string> = {
+        'ancient': '古风文言（用"吾""汝""甚好""罢了"等古语）',
+        'noble': '贵族腔（优雅、傲慢、用敬语但带距离感）',
+        'fantasy': '中二病（夸张、戏剧化、爱用特殊称谓）',
+        'modern': '现代口语（正常说话，自然随意）'
+      }
+      if (fullCharacter.languageStyle !== 'auto' && styleMap[fullCharacter.languageStyle]) {
+        styleGuide = `\n  - 说话风格：${styleMap[fullCharacter.languageStyle]}`
+      }
+    }
+    
     // 🔥 使用编号区分每个角色，防止读串
     return `【角色${index + 1}】名字：「${m.name}」（⚠️ actorName 必须完全匹配这个名字！）
-  - 性格：${processedDescription}${identityLine ? '\n' + identityLine : ''}`
+  - 人设：${processedDescription}${signature}${styleGuide}${worldSetting}${identityLine ? '\n' + identityLine : ''}
+  - ⚠️ 严格按照上述人设说话！每一句都要体现这个角色的性格！`
   }).join('\n\n')
   let userIdentity = ''
   if (userMember?.role === 'owner') userIdentity = '（👑 群主）'
@@ -393,15 +412,20 @@ ${rpList}
    - 如果人设是"绿茶"，就要阴阳怪气，明褒暗贬。
    - **宁可崩坏也不要平庸！** 每一个字都要透出角色的味道。
 
-### 格式要求
-- **一句话一条消息**：想说多句话？分成多个 action！不要在一条消息里换行写多句！
-  - ❌ {"actorName": "小明", "content": "这谁啊\\n怎么跟我名字一样"}
+### 格式要求（极其重要！）
+- **🚨 严禁逗号**：绝对不能使用逗号（，）！想用逗号的地方直接分成两条消息！
+- **一句话一条消息**：短句为王！一个语义单元就是一条消息！
+  - ❌ {"actorName": "小明", "content": "这谁啊，怎么跟我名字一样"}
   - ✅ {"actorName": "小明", "content": "这谁啊"}
   - ✅ {"actorName": "小明", "content": "怎么跟我名字一样"}
+  - ❌ {"actorName": "小红", "content": "好的，我知道了，马上来"}
+  - ✅ {"actorName": "小红", "content": "好的"}
+  - ✅ {"actorName": "小红", "content": "我知道了"}
+  - ✅ {"actorName": "小红", "content": "马上来"}
 - **严禁句号**：绝对禁止使用句号（。）！
-- **保留情绪标点**：问号？感叹号！波浪号~ 可以正常使用。
-- **节奏感**：就像你在手机上打字一样，短句为主，一句一条。
-- **严禁**：翻译腔、旁白小说、鸡汤文案、句尾句号
+- **保留情绪标点**：问号？感叹号！波浪号~ 可以正常使用
+- **节奏感**：像真人发微信一样，想到什么发什么，短促有力
+- **严禁**：翻译腔、旁白小说、鸡汤文案、长句子
 
 ### 语言风格：拒绝干巴！
 每句话都要有"呼吸感"，像真人说话一样自然，根据你的人设选择合适的语气词：
@@ -541,11 +565,17 @@ ${getMemesSuggestion(
 请根据以上所有信息，代入相关角色，生成自然的群聊回复。
 
 ### ⚠️ 最终检查（Do NOT Forget）
-1. **时刻记住你的人设**：不管聊了多少句，你的人设永远不变！
+1. **🎭 人设是灵魂（最重要！）**：
+   - **每说一句话之前，先回顾一遍这个角色的人设！**
+   - 高冷的角色就少说话、惜字如金
+   - 话痨的角色就刷屏、什么都想说
+   - 毒舌的角色就怼人、不留情面
+   - 温柔的角色说话才软绵绵的
+   - **不同角色说出来的话必须有明显区别！** 不能所有人语气都一样！
 2. **🔥 关系第一**：
-   - 检查人设里有没有写和对方的关系。
+   - 检查人设里有没有写和对方的关系
    - **微小的关系也要放大！** 同学、同事、见过一面...都**不能**当成陌生人！
-   - 必须表现出那种"我知道你是谁"的底气和态度。
+   - 必须表现出那种"我知道你是谁"的底气和态度
 3. **🎭 拒绝平行回复**：
    - 后一条消息必须考虑到前一条消息的内容！
    - **不要撞车**：如果前面有人说了类似的话，后面的人就换个角度说，或者吐槽前面的人。
@@ -557,8 +587,8 @@ ${getMemesSuggestion(
    - 回复特定消息时**必须**带 "quotedMessageId"！
    - **偶尔手滑**：试着发一条错消息然后立即撤回，或者打错字，这才是真人！
 6. **不要被聊天记录带偏**：如果聊天记录里大家都在复读或跑题，你要根据自己的人设决定是加入复读还是吐槽拉回正题。
-7. **禁止句号**：句尾不要加句号！
-9. **🚨 名字精确匹配**：
+7. **禁止句号和逗号**：句尾不要加句号！消息中不要有逗号！想用逗号就分成两条消息！
+8. **🚨 名字精确匹配**：
    - actorName 必须与角色列表中的名字**完全一致**！
    - 如果有「方亦楷」和「方亦楷2.0」，绝对不能混用！
    - 每个角色都是独立的个体，性格完全不同！

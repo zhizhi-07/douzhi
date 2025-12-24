@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { Message } from '../../../types/chat'
 import { saveMessages } from '../../../utils/simpleMessageManager'
 
@@ -8,6 +8,30 @@ export const useMusicInvite = (
   characterId?: string
 ) => {
   const [showMusicInviteSelector, setShowMusicInviteSelector] = useState(false)
+
+  // 监听结束一起听事件
+  useEffect(() => {
+    const handleEndListening = (e: Event) => {
+      const { characterId: endCharId, songTitle, duration } = (e as CustomEvent).detail
+      // 只在当前聊天窗口添加消息
+      if (endCharId === characterId) {
+        const systemMsg: Message = {
+          id: Date.now() + Math.random(),
+          type: 'system',
+          content: `一起听已结束，共听了 ${duration || '一段时间'}`,
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now()
+        }
+        setMessages(prev => {
+          const updated = [...prev, systemMsg]
+          saveMessages(chatId, updated)
+          return updated
+        })
+      }
+    }
+    window.addEventListener('end-listening-together', handleEndListening)
+    return () => window.removeEventListener('end-listening-together', handleEndListening)
+  }, [chatId, characterId, setMessages])
 
   // 发送一起听邀请
   const sendMusicInvite = useCallback((songTitle: string, songArtist: string, songCover?: string) => {

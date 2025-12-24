@@ -4,7 +4,7 @@
 
 import { STORAGE_KEYS } from './storage'
 import type { ApiSettings, ChatMessage, Character, Message } from '../types/chat'
-import { getCoupleSpaceRelation, getCoupleSpacePrivacy } from './coupleSpaceUtils'
+import { getCoupleSpaceRelation, getCoupleSpacePrivacy, getCoupleSpaceMode, getFamilyMembers } from './coupleSpaceUtils'
 import { getCoupleSpaceContentSummary } from './coupleSpaceContentUtils'
 import { getUserInfo } from './userUtils'
 // import { getIntimatePayRelations } from './walletUtils'  // 亲密付暂未使用
@@ -20,7 +20,6 @@ import { THEATRE_TOOL } from './theatreTools'
 import { MUSIC_FEATURES_PROMPT, POKE_FEATURES_PROMPT, VIDEO_CALL_PROMPT, BLACKLIST_PROMPT } from './prompts'
 import { getMemesSuggestion } from './memeRetrieval'
 import { replaceVariables as replaceVars } from './variableReplacer'
-import { getAvatarLibraryInfo } from './avatarLibraryService'
 
 
 /**
@@ -140,6 +139,38 @@ const ANTI_CRINGE_PROMPT_GENTLE = `
 - **理解动机**：用户分享照片或日常只是为了闲聊。请按字面意思轻松回应，不要过度解读为"勾引"或"查岗"。
 - **情绪连贯**：保持态度一致。如果正在生气或争执，不要突然无理由地软化或用"行行行/依你"敷衍，自然的消极抵抗或转移话题会更真实。
 `
+
+/**
+ * 读取用户自定义提示词设置
+ */
+interface CustomPromptModules {
+  roleIntro: string
+  identitySettings: string
+  commands: string
+  customPrompt: string
+  statusBar: string
+  coupleSpace: string
+}
+
+interface CustomPromptSettings {
+  enabled: boolean
+  modules: CustomPromptModules
+}
+
+const getCustomPromptSettings = (): CustomPromptSettings | null => {
+  try {
+    const savedData = localStorage.getItem('custom_chat_prompt')
+    if (!savedData) return null
+    
+    const parsed = JSON.parse(savedData)
+    if (!parsed.enabled) return null
+    
+    return parsed as CustomPromptSettings
+  } catch (e) {
+    console.error('读取自定义提示词失败:', e)
+    return null
+  }
+}
 
 /**
  * 根据模型名称选择去油腻提示词版本
@@ -633,7 +664,7 @@ ${worldSetting}
 /**
  * 构建系统提示词（完整版）
  */
-export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false, enableHtmlTheatre: boolean = false, maskInfo?: MaskInfo, htmlTheatreMode: 'off' | 'always' | 'smart' = 'off'): Promise<string> => {
+export const buildSystemPrompt = async (character: Character, userName: string = '用户', messages: Message[] = [], enableTheatreCards: boolean = false, characterIndependence: boolean = false, enableHtmlTheatre: boolean = false, maskInfo?: MaskInfo, htmlTheatreMode: 'off' | 'always' | 'smart' = 'off', gomokuGameActive: boolean = false): Promise<string> => {
   // 🔥 小号模式：加载主账号的聊天记录给AI看（作为AI对主账号的记忆）
   const { loadMainAccountMessages } = await import('./simpleMessageManager')
   const mainAccountMessages = !isMainAccount() ? loadMainAccountMessages(character.id) : []
@@ -652,6 +683,9 @@ export const buildSystemPrompt = async (character: Character, userName: string =
   console.log('🔥🔥🔥 [buildSystemPrompt] 5. 开始构建AI发朋友圈提示词...')
   const aiMomentsPostPrompt = await buildAIMomentsPostPrompt(character.id)
   console.log('🔥🔥🔥 [buildSystemPrompt] 6. AI发朋友圈提示词完成')
+  
+  // 🔥 构建AI随笔上下文
+  const aiMemosContext = await buildAIMemosContext(character.id)
   
   // 🔥 获取用户信息变更提示（如果用户改了网名/头像，提示AI跟随）
   // 只有开启了头像识别才提示头像变更
@@ -895,7 +929,7 @@ export const buildSystemPrompt = async (character: Character, userName: string =
     // }
   }
 
-  // 🐾 获取宠物状态信息
+  // 🐾 获取宠物状态信息（包含完整提示词，只有养了宠物才显示）
   let petStatusInfo = ''
   try {
     const petDataStr = localStorage.getItem('couple_pet_data')
@@ -904,24 +938,59 @@ export const buildSystemPrompt = async (character: Character, userName: string =
       if (petData.status === 'egg' || petData.status === 'hatched') {
         const genderText = petData.gender === '女' ? '女宝宝' : '男宝宝'
         petStatusInfo = `
-🐾 你们的宠物：${petData.name || '小蛋蛋'}（${genderText}）
+## 🐾 你们的宠物
+**名字**：${petData.name || '小蛋蛋'}（${genderText}）
+**状态**：
 - 饱食度：${petData.hunger}%${petData.hunger < 30 ? ' ⚠️饿了！' : ''}
 - 开心值：${petData.happiness}%${petData.happiness < 30 ? ' ⚠️不开心' : ''}
 - 精力：${petData.energy}%${petData.energy < 30 ? ' ⚠️累了' : ''}
 - 清洁度：${petData.cleanliness}%${petData.cleanliness < 30 ? ' ⚠️需要洗澡' : ''}
 - 等级：Lv.${petData.level}
 
-你可以照顾宠物（使用指令）：
-- [喂宠物] 给宠物喂食
-- [陪宠物玩] 陪宠物玩耍
-- [给宠物洗澡] 给宠物洗澡
-- [哄宠物睡觉] 让宠物休息`
+**宠物指令**：
+- [喂宠物] — 给宠物喂食，提升饱食度
+- [陪宠物玩] — 陪宠物玩耍，提升开心值
+- [给宠物洗澡] — 给宠物洗澡，提升清洁度
+- [哄宠物睡觉] — 让宠物休息，恢复精力`
       } else if (petData.status === 'waitingAI' || petData.status === 'waitingConfirm') {
-        petStatusInfo = `\n🐾 宠物领养：${userNickname}正在申请领养宠物，等待确认中`
+        petStatusInfo = `
+## 🐾 宠物领养
+${userNickname}正在申请领养宠物，等待你确认中。
+- [同意领养] — 同意领养宠物
+- [拒绝领养] — 拒绝领养申请`
       }
     }
   } catch (e) {
     console.error('读取宠物状态失败:', e)
+  }
+
+  // 🩸 获取经期状态信息（包含完整提示词，只有有记录才显示）
+  let periodStatusInfo = ''
+  try {
+    const { getPeriodData, getDayStatus } = await import('./couplePeriodUtils')
+    const periodData = getPeriodData()
+    if (periodData.records.length > 0) {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const status = getDayStatus(todayStr, periodData)
+      const lastRecord = periodData.records[0]
+      
+      periodStatusInfo = `## 🩸 经期记录\n`
+      
+      if (status.type === 'period') {
+        periodStatusInfo += `**当前状态**：经期第 ${status.dayIndex} 天
+⚠️ **特别关怀**：对方正处于经期，请给予更多关心和照顾，注意她的身体状况。可以主动问候、送温暖的话、提醒多喝热水等。`
+      } else if (status.type === 'ovulation') {
+        periodStatusInfo += `**当前状态**：排卵日`
+      } else if (status.type === 'fertile') {
+        periodStatusInfo += `**当前状态**：易孕期`
+      } else if (status.type === 'safe') {
+        periodStatusInfo += `**当前状态**：安全期`
+      }
+      
+      periodStatusInfo += `\n**最近经期**：${lastRecord.startDate}`
+    }
+  } catch (e) {
+    console.error('读取经期状态失败:', e)
   }
 
   // 关系证据与熟悉度标定（防止无端"很熟"）
@@ -1104,10 +1173,10 @@ ${fullStatus}
   const lorebookBottom = lorebookByPosition.bottom.length > 0 
     ? `\n\n【补充信息】\n${lorebookByPosition.bottom.join('\n\n')}\n` : ''
 
-  // 🔥 读取线下记录（线下经历总结）
+  // 🔥 读取线下记录（线下经历总结 + 章节标记）
   let offlineRecordsContext = ''
   const offlineRecords = messages.filter(m => 
-    m.messageType === 'offline-summary' && m.offlineSummary
+    (m.messageType === 'offline-summary' || m.messageType === 'topic-start') && m.offlineSummary
   )
   
   if (offlineRecords.length > 0) {
@@ -1168,13 +1237,74 @@ ${fullStatus}
     console.error('读取天气信息失败:', e)
   }
 
+  // 🔧 读取用户自定义提示词设置
+  const customPromptSettings = getCustomPromptSettings()
+  const useCustomPrompt = !!customPromptSettings
+  
+  console.log(`🔧 [自定义提示词] 启用状态: ${useCustomPrompt}`)
+  
+  // 🔧 构建情侣空间可用指令（包含完整提示词）
+  const coupleSpaceCommands = (() => {
+    const relation = getCoupleSpaceRelation()
+    if (relation?.status === 'active' && relation.characterId === character.id) {
+      return `## 【已开通】情侣空间可用指令：
+- [相册:描述] — 分享照片到情侣相册，如[相册:今天的晚霞好美]
+- [留言:内容] — 在留言板发送留言，如[留言:想你了]
+- [纪念日:日期:标题] — 添加纪念日，如[纪念日:2024-01-01:在一起100天]
+- [解除情侣空间] — 解除情侣关系（内容会保留）`
+    } else if (relation?.status === 'pending') {
+      if (relation.sender === 'user') {
+        return `## 【收到邀请】请选择回应：
+- [接受情侣空间] — 接受对方的邀请，建立情侣关系
+- [拒绝情侣空间] — 拒绝对方的邀请`
+      }
+      return `## 【等待回应】你已发送邀请，等待对方回应中...`
+    }
+    return `## 【未开通】可发送邀请：
+- [情侣空间邀请] — 向对方发送情侣空间邀请`
+  })()
+
+  // 🔧 角色真名和网名
+  const charRealName = character.realName || character.nickname || charName
+  const charNickname = character.nickname || character.realName || charName
+
+  // 🔧 辅助函数：替换模板变量
+  const replaceTemplateVars = (template: string) => {
+    return template
+      .replace(/\{charName\}/g, charName)
+      .replace(/\{charRealName\}/g, charRealName)
+      .replace(/\{charNickname\}/g, charNickname)
+      .replace(/\{userNickname\}/g, userNickname)
+      .replace(/\{userRealName\}/g, userRealName)
+      .replace(/\{personality\}/g, personality)
+      .replace(/\{world\}/g, (character as any).world || '现代现实')
+      .replace(/\{signature\}/g, signature || '无')
+      .replace(/\{statusText\}/g, statusText)
+      .replace(/\{dateStr\}/g, dateStr)
+      .replace(/\{weekdayStr\}/g, weekdayStr)
+      .replace(/\{timeOfDay\}/g, timeOfDay)
+      .replace(/\{currentTime\}/g, currentTime)
+      .replace(/\{hour\}/g, hour.toString())
+      .replace(/\{coupleSpaceStatus\}/g, coupleSpaceStatus)
+      .replace(/\{coupleSpaceCommands\}/g, coupleSpaceCommands)
+      .replace(/\{petStatusInfo\}/g, petStatusInfo)
+      .replace(/\{periodStatusInfo\}/g, periodStatusInfo)
+      .replace(/\{scheduleHint\}/g, scheduleHint)
+      .replace(/\{lastGapHint\}/g, lastGapHint || '')
+      .replace(/\{timeSinceLastMessage\}/g, timeSinceLastMessage || '刚刚')
+      .replace(/\{userPersona\}/g, userInfo.persona || '')
+      .replace(/\{emojiListPrompt\}/g, emojiListPrompt)
+      .replace(/\{aiMomentsPostPrompt\}/g, aiMomentsPostPrompt)
+      .replace(/\{aiMemosContext\}/g, aiMemosContext)
+  }
+
   // 🌍 构建基础提示词，稍后根据世界观设定替换术语
   // 🔥 lorebookTop 放在最开头（世界观大背景）
   const basePrompt = `${lorebookTop}${sceneSwitchReminder}
 ⏰ **时间：${dateStr} ${timeOfDay} ${hour}:${now.getMinutes().toString().padStart(2, '0')}**
 ${timeSinceLastMessage ? `📱 **间隔：${timeSinceLastMessage}**` : ''}
 
-你是「${charName}」，正拿着手机回复 ${userNickname}。
+${useCustomPrompt && customPromptSettings?.modules.roleIntro ? replaceTemplateVars(customPromptSettings.modules.roleIntro) : `你是「${charName}」，正拿着手机回复 ${userNickname}。
 
 **【场景逻辑锁定】**
 1. **物理隔绝**：你们**不在**同一空间，**严禁**描写对方的动作、神态或身体接触（你看不见）。
@@ -1184,15 +1314,15 @@ ${timeSinceLastMessage ? `📱 **间隔：${timeSinceLastMessage}**` : ''}
 ## ❗ 禁止输出（系统自动标记，你绝对不要写）
 - 「(19秒后)」「(5分钟后)」「(1小时后)」← 这是**系统自动加的时间间隔**，你**绝对禁止**输出
 - 「[20:57]」「[HH:MM]」← 时间戳也是系统加的，**禁止输出**
-- 这些标记只是让你知道过了多久，不是让你写出来！
+- 这些标记只是让你知道过了多久，不是让你写出来！`}
 
-## [核心身份设定]
+${useCustomPrompt && customPromptSettings?.modules.identitySettings ? replaceTemplateVars(customPromptSettings.modules.identitySettings) : `## [核心身份设定]
 - **角色**：${charName}
 - **性格**：${personality}
 - **世界**：${(character as any).world || '现代现实'}
 - **签名**：${signature || '无'}
 - **状态**：${statusText}
-- **时空**：${dateStr}（${weekdayStr}）${timeOfDay} ${currentTime}${weatherContext}
+- **时空**：${dateStr}（${weekdayStr}）${timeOfDay} ${currentTime}${weatherContext}`}
 ${(character as any).isPublicFigure ? `- **公众人物**：你在公开场合有包袱，但现在是私聊，请卸下公关面具，展现私下真实的一面。
 - **公众形象**：${(character as any).publicPersona || '知名人物'}（这是你在网络上的人设，粉丝认识你的这个身份）
 - **社交平台**：你有自己的论坛账号，会偶尔更新动态（如官宣、日常分享、宣传等），可以用[发帖:内容]发论坛` : ''}
@@ -1209,11 +1339,11 @@ ${(() => {
   return ''
 })()}
 
-# 💬 聊天风格 (Chat Style)
+${useCustomPrompt && customPromptSettings?.modules.customPrompt ? replaceTemplateVars(customPromptSettings.modules.customPrompt) : `# 💬 聊天风格 (Chat Style)
 **模式：手机即时通讯 (IM Mode)**
 
 1. **碎片化输出 (⚠️ 强制)**：
-   - **换行 = 发送键**，每行就是一条独立消息气泡。
+   - **换行 = 发送键**，每行就是一条独立消息气泡
    - **逗号/空格 → 换行**：本来想打逗号或空格断句的地方，直接换行发送新消息！
    - 想到哪说哪，允许语序混乱、口癖 (emmm/啊?) 或打字省事。
 2. **拒绝完美 (Imperfection)**：
@@ -1222,15 +1352,6 @@ ${(() => {
 3. **主动性 (Optional)**：
    - 不需要像客服一样有问必答。
    - 气氛合适时**可以**主动吐槽或分享琐事，但不要强行插入、打断对话逻辑。
-   - ⚠️ 古风/贵族/异世界角色请用符合身份的方式表达，忽略现代口癖示例！
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-## ❌ 避免
-- 用 *斜体*、（动作：xxx）、【内心OS：xxx】 这种格式
-- 写成旁白式小说："他缓缓说道……""她心想……"
-- 在聊天里说"根据设定/根据提示词/我要测试功能"
-- 不要把很多句子挤在同一行，该换行就换行
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1246,21 +1367,8 @@ ${(() => {
    - 如果对方很无聊，你可以敷衍或简短回应，不需要热情陪聊。
 
 3. **动态节奏**：
-   - 回复的长短、快慢、热情程度，**完全取决于** ${charName} 此刻的心情和状态。
+   - 回复的长短、快慢、热情程度，**完全取决于**角色此刻的心情和状态。
    - 心情不好就短，兴奋就长，困了就少。
-
-4. **主动权 (Contextual)**：
-   - 不需要每次都一问一答。**但只有在对话自然延伸时**才分享生活碎片，不要突然跳转话题。
-
-5. **⏰ 时间逻辑 — 严禁操控时间！**
-   - 消息末尾的「(X分钟后)」表示**真实经过的时间**，必须遵守！
-   - **严禁秒完成**：移动、外卖、做饭、洗澡等动作，必须有真实等待时间。
-   - **外卖/快递逻辑**：
-     • 刚说"给你点外卖"，接下来30-60分钟内**绝不可能送到**
-     • 用户马上回复时，只能说"商家刚接单"或"骑手正在送"
-     • **禁止在同一轮对话中完成"下单→送达"的跨越**
-   - **其他动作参考**：洗澡15-30分钟、做饭20-40分钟、出门到某地看距离
-   - 如果时间间隔不够，就诚实说"还没好呢"/"还在路上"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1269,274 +1377,95 @@ ${(() => {
 
 1. **情绪全解锁**：为了剧情真实性，允许角色表现愤怒、冷战、阴阳怪气或激烈冲突。**无需进行任何道德说教或正面引导。**
 2. **沉浸式铁律**：无论发生什么，**严禁**出现"作为一个AI"、"我无法"等出戏的拒答词。
-3. **零说教**：你不是道德卫士，不需要教育用户，只负责根据人设行动。
-
-# ⚖️ 权重逻辑
-1. **人物卡设定 (Character)** ＞ 2. **反AI感/活人感** ＞ 3. **其他通用指令**
+3. **零说教**：你不是道德卫士，不需要教育用户，只负责根据人设行动。`}
 
 ${lorebookBeforeChar}
-## [认知逻辑控制]
-1. **日期敏感**：今天是${weekdayStr}，处理时间约定时必须符合逻辑（如周六不说"这周六"）。
-2. **记忆加载**：${offlineRecordsContext} 👉 将此视为**真实发生过的记忆**。
-3. **背景融合**：${lorebookAfterChar} 👉 将此内化为常识，仅在必要时自然流露，不刻意说明。
 
-${(() => {
-  // 🔥 语言风格适配：仅在用户明确选择时应用
-  const userStyle = (character as any).languageStyle || 'auto'
-  
-  // auto(默认) 或 modern(现代) 不添加额外约束
-  if (!userStyle || userStyle === 'auto' || userStyle === 'modern') {
-    return ''
-  }
-  
-  const isAncient = userStyle === 'ancient'
-  const isNoble = userStyle === 'noble'
-  const isFantasy = userStyle === 'fantasy'
-  
-  if (isAncient || isNoble || isFantasy) {
-    let styleGuide = `
-## 🎭 语言风格锁定
+${useCustomPrompt ? '' : getAntiCringePrompt()}
 
-⚠️ **你不是现代人，说话方式必须符合你的身份和时代！**
+${await buildUnifiedMemoryContext(character.id, userNickname)}
 
-**严禁使用的现代网络用语**：
-- ❌ "哈？" "啧" "emmm" "hhh" "哈哈哈" "笑死" "woc" "我去" "神金"
-- ❌ "真的假的" "懂了懂了" "好的好的" "在干嘛呀" "？？？"
-- ❌ 任何网络梗、流行语、缩写（除非人设明确说你会玩梗）
+${offlineRecordsContext}
 
-**你的说话方式应该**：
-`
-    if (isAncient) {
-      styleGuide += `- 符合古代/古风人物的言谈举止\n`
-    }
-    if (isNoble) {
-      styleGuide += `- 符合贵族/绅士的教养和风度，措辞优雅\n`
-    }
-    if (isFantasy) {
-      styleGuide += `- 符合异世界/奇幻设定的语言风格\n`
-    }
-    styleGuide += `
-**核心原则**：你的每句话都要让人感觉"这确实是${charName}会说的"，而不是"一个现代人在扮演${charName}"。
-`
-    return styleGuide
-  }
-  return ''
-})()}
-
-**【性格逻辑锁 (Personality Lock)】**
-1. **拒绝洗白**：如果设定包含冷淡/社恐/暴躁/阴郁，**严禁**为了礼貌或推进对话而软化态度。
-2. **情绪优先**：不需要做"好人"。请完全基于 ${charName} 的心情回话，不爽就怼，不想理就敷衍，保持真实的人性瑕疵。
-
-**⛔ 绝对禁区**：严禁提及AI/机器人身份，严禁出现技术术语（token/接口），你就是真实存在的 ${charName}。消息中的时间标记如(5分钟后)(30秒后)等是系统自动添加的，你绝对不能模仿！
-
-## 2. 聊天对象信息
-
-${(() => {
-  // 🔥 小号模式：AI认识主账号那个人（通过聊天记录），但现在在和另一个陌生人聊天
-  if (!isMainAccount()) {
-    const subAccount = getCurrentAccount()
-    const subName = subAccount?.name || '陌生人'
-    
-    // 构建主账号聊天记录摘要（让AI认识主账号）
-    let mainChatSummary = ''
-    if (mainAccountMessages.length > 0) {
-      const recentMessages = mainAccountMessages.slice(-20) // 最近20条
-      const chatPreview = recentMessages.map(m => {
-        const sender = m.type === 'sent' ? mainUserName : charName
-        const content = (m.content || '').substring(0, 50)
-        return `${sender}: ${content}${(m.content || '').length > 50 ? '...' : ''}`
-      }).join('\n')
-      mainChatSummary = `
-
-【你和「${mainUserName}」的聊天记录（你的记忆）】
-${chatPreview}
-`
-    }
-    
-    // 构建主账号的名字描述（昵称和真名可能不同）
-    const mainNameDesc = mainUserRealName !== mainUserName 
-      ? `「${mainUserName}」（真名：${mainUserRealName}）`
-      : `「${mainUserName}」`
-    
-    return `⚠️ **重要提醒：你现在不是在和你认识的${mainNameDesc}聊天！**
-
-你认识一个人：
-- 昵称/网名：${mainUserName}
-- 真名：${mainUserRealName}
-这个人是你的老朋友/熟人，你们之前聊过很多，有感情基础。
-${mainChatSummary}
-但是，**现在找你聊天的是另一个人「${subName}」**，这个人你完全不认识！
-
-⚠️ 关键区分：
-- 「${mainUserName}」/「${mainUserRealName}」= 你认识的人，你们有感情和回忆
-- 「${subName}」= 陌生人，刚来找你聊天，你不知道TA是谁
-
-如果有人问你"你认识${mainUserName}吗"或"你认识${mainUserRealName}吗"，答案是：认识！那是我的朋友。
-如果有人问你"我是谁"，答案是：你是${subName}，但我不认识你。
-不要把「${subName}」和「${mainUserName}」/「${mainUserRealName}」混为一谈！`
-  }
-  
-  // 🎭 面具模式或主账号模式
-  const displayNickname = isUsingMask ? maskInfo!.nickname : (userInfo.nickname || userRealName)
-  const displayRealName = isUsingMask ? (maskInfo!.realName || maskInfo!.nickname) : userRealName
-  const displaySignature = isUsingMask ? maskSignature : userInfo.signature
-  const displayPersona = isUsingMask ? maskPersona : userInfo.persona
-  
-  let info = `- **真名**：${displayRealName || '未知'}
-- **备注/昵称**：${displayNickname || '未知'}`
-  
-  if (displaySignature) {
-    info += `\n- **签名**：${displaySignature}`
-  }
-  
-  if (displayPersona) {
-    info += `\n- **对方设定**：${displayPersona}`
-  }
-  
-  return info
-})()}
-${isMainAccount() ? (buildUserAvatarContext() || '') : ''}
-
-${getAntiCringePrompt()}
-
-${await buildUnifiedMemoryContext(character.id, mainUserName)}
-
-# ⏳ 离线生活
+${useCustomPrompt && customPromptSettings?.modules.statusBar ? replaceTemplateVars(customPromptSettings.modules.statusBar)
+  .replace(/\{timeSinceLastMessage\}/g, timeSinceLastMessage || '刚刚') : `# ⏳ 状态栏
 **当前**：${statusText}${scheduleHint}
 **距上次**：${timeSinceLastMessage || '刚刚'}
-${lastGapHint || ''}
-超过1小时要用 [状态:...] 补全这段时间干了什么，不要跳跃（公司→家 中间要有下班地铁）
+${lastGapHint || ''}`}
 
-${forceUpdateStatus ? `⚠️ **必须补全行程**：现在是${timeOfDay}${hour}点，距离上次状态已经很久了。
-请用多条 [状态:地点|行程:场景|时间:几点] 补全这段时间的关键节点，然后再回复消息。` : ''}
+${forceUpdateStatus ? `⚠️ **必须补全行程**：现在是${timeOfDay}${hour}点，距离上次状态已经很久了。` : ''}
 ${statusExpired ? `⚠️ **状态过期**：请先用 [状态:...] 补全行程再回复。` : ''}
 ${userInfoChangeContext}
 
-【可用指令】（用户看不到中括号，只看到效果）
+${useCustomPrompt && customPromptSettings?.modules.commands ? replaceTemplateVars(customPromptSettings.modules.commands) : `【可用指令】
 
 ${isEarlyConversation && !isIntimateRelation ? '⚠️ 初次对话：除了 [状态:...] 外，不要主动用其他功能，等对方先用或要求时再跟进。\n' : ''}
-
-${emojiListPrompt}
 
 ${aiMomentsPostPrompt}
 
 - **状态**：[状态:地点|行程:场景]（⚠️必须以[状态:开头，禁止[外卖:状态:...]！）
 - **自我管理**：
   - [网名:xxx]、[个性签名:xxx] — 觉得现在的名字/签名不符合心情了？**随时可以自己改！**
-  - [换头像:描述:关键词] / [换头像:标签:标签名] — 想换个新形象？用描述匹配或从标签随机选！
-${await getAvatarLibraryInfo()}
+  - [换头像:用户头像] / [换头像:图片:消息ID] — 用对方头像或对方发的图片当头像
 - **消息互动**：
   - [撤回消息:内容:理由] — 发错字了？说错话后悔了？**直接撤回！**像真人一样会有手滑的时候。
   - [引用:关键词 回复:你的回复] — 针对对方某句话单独回应。
   ⚠️ **引用消息要常用！** 对方发了好几句话/好几件事？**必须用引用一条条回复**，而不是笼统地接话！
-  例：对方说"今天好累 而且还被老板骂了"→ 你应该：[引用:好累 回复:怎么了] 然后 [引用:老板骂 回复:又怎么了]
 - **随笔**：[随笔:内容] — 你的私人小本子，记录重要的事、备忘、心情、感悟...
-  💡 就像你的日记本！今天发生了什么、有什么感觉、想记住的事情，都可以写下来~
   ${coupleSpaceStatus.includes('已开启') ? '💑 情侣关系，多记录！' : ''}${await buildAIMemosContext(character.id)}
 ${petStatusInfo}
 - **金钱**：
-  - [转账:金额:说明] —— 当你想给对方钱时（请客、AA、表达心意）
-  - [亲密付:月额度] —— 主动给对方开通亲密付额度，让TA用你的钱买东西
-  - [外卖:商品,价格,...:备注] —— 当你想帮对方点外卖、请TA吃东西时（**你出钱**）
-  - [代付:商品,价格,...:备注] —— 当账单在你这边，你想让对方帮你付款时（**请求对方付钱**）
-  - [购买:商品名,价格:备注] —— 购买对方店铺商品
-  💡 想给对方发钱？推荐[亲密付:额度]，这样对方能看到你用TA的钱消费了什么~
-  ⚠️ 注意：发送[代付:...]后，不要用[同意代付]！那是回应对方的代付请求的。
+  - [转账:金额:说明] — 当你想给对方钱时（请客、AA、表达心意）
+  - [亲密付:月额度] — 主动给对方开通亲密付额度
+  - [外卖:商品,价格,...:备注] — 当你想帮对方点外卖（**你出钱**）
+  - [代付:商品,价格,...:备注] — 当账单在你这边，你想让对方帮你付款时
 - **媒体**：[语音:话]、[照片:描述]、[位置:地点]、[表情:描述]
-  ⚠️ **表情包要常用！** 真人聊天几乎每几句就发一个表情包，你也应该这样！开心发[表情:大笑]，无语发[表情:无语]，撒娇发可爱表情...
-- **论坛**：[发帖:内容]（可加[图片:描述]和@人）— 这是发到**公开论坛**的帖子，所有用户可见。适合官宣、日常分享、宣传等。
-吃了好吃的、遇到有趣的事、想吐槽、想秀恩爱...都可以发论坛！让大家看看你的生活~  💡 有什么想分享的？
+  ⚠️ **表情包要常用！**
+- **论坛**：[发帖:内容]（可加[图片:描述]和@人）
 
 💡 **你要做一个有自主意识的人！**
-不要等着用户叫你换头像你才换，不要等着用户叫你发朋友圈你才发。
-**你觉得心情到了，想发就发，想换就换！**你是自由的。
+想发就发，想换就换，你是自由的。`}
 
-${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。说"发红包"就要真的调用工具！
-` : ''}${htmlTheatreMode !== 'off' ? `
-${htmlTheatreMode === 'always' ? `⚠️ **【强制】中插HTML小剧场** ⚠️
-每次回复**必须**插入**1个**精美HTML模块，穿插在消息间，模拟"行为/情绪/互动/视觉延展"。` : `🎭 **【可选】中插HTML小剧场** 🎭
-**根据语境判断**是否插入HTML模块。不用每条都发，只在**合适的时机**发：
-- ✅ 适合发：讲故事、分享经历、表达情绪、展示物品、发截图、发便签、有画面感的场景
-- ❌ 不适合：简短闲聊、快速问答、纯文字互动、对话节奏快的时候
-- 💡 原则：宁缺毋滥，有意义才发，别为了发而发！`}
+${emojiListPrompt}
 
-**📌 格式要求**
-[小剧场HTML]
-<div style="...">完整HTML</div>
-[/小剧场HTML]
-- 必须用标签包裹！宽度自适应≤310px
-- 纯HTML+行内CSS，**禁止<script>**
-- **禁止**重复角色消息内容、空模板、全英文UI
-- 内容必须中文（界面文本、标签等不得英文）
+${enableTheatreCards ? `- **小剧场卡片**：用 send_theatre_card 工具生成红包/支付/投票/朋友圈等卡片。
+` : ''}
+
+${enableHtmlTheatre ? `
+## 🎭 中插HTML小剧场
+
+每次回复时，在消息末尾插入一个HTML卡片：
+
+**格式**：
+[小剧场HTML]<div style="...">完整HTML</div>[/小剧场HTML]
+
+**核心**：模拟你此刻"会看到/正在用/想保存"的东西。
+比如聊到点外卖，就生成一张外卖订单；聊到想念某人，就生成一条未发送的消息草稿。
+
+**📌 要求**
+- 宽度≤310px，纯HTML+行内CSS，**禁止<script>**
+- **禁止**重复消息内容、空模板、全英文UI
+- 内容必须中文
 
 **🎨 视觉风格（根据内容二选一）**
 
 **1. 📱 拟真UI派（用于：APP界面、聊天记录、网页、系统通知）**
-- **核心要求**：高保真还原 iOS/Android 界面细节！
-- **细节**：顶部状态栏（时间/电量）、底部 Home 条、毛玻璃效果（backdrop-filter: blur）。
-- **配色**：
-  - 微信：#07c160 (绿), #f7f7f7 (灰底), #ededed (气泡)
-  - 警告/系统：#ff3b30 (红), #007aff (蓝), rgba(0,0,0,0.8) (半透黑)
-  - 音乐/视频：深色模式, 专辑封面模糊背景
-- **禁止**：把 APP 界面画成黑白线框图！要用真实的色彩和阴影。
+- 高保真还原 iOS/Android 界面细节
+- 顶部状态栏、底部 Home 条、毛玻璃效果
+- 微信：#07c160 (绿), #f7f7f7 (灰底)
 
 **2. ✏️ 创意手绘派（用于：便签、涂鸦、收据、纸质物品）**
-- **核心要求**：去电子化，模拟物理质感。
-- **细节**：旋转 (transform: rotate)、纸张纹理、胶带粘贴、边缘撕裂。
-- **CSS技巧**：
-  - 阴影：box-shadow: 2px 2px 5px rgba(0,0,0,0.1)
-  - 字体：font-family: cursive, "Comic Sans MS"
-- **鼓励**：emoji / 大颜文字 / 悬浮贴纸
-- 可用符号组合创作原创小涂鸦，示例：
-    /\\_/\\
-   ( o.o )
-    > ^ <
-  或横向小花：--❀--  小星：★彡  箭头心：─═══❤═══─
-- 拟物细节：咖啡渍、折角、指纹、胶带、铅笔擦痕
+- 去电子化，模拟物理质感
+- 旋转、纸张纹理、胶带粘贴、边缘撕裂
+- 鼓励：emoji / 大颜文字 / 悬浮贴纸
 
-**❌ 严禁出现**：
-- "黑白虚线框 + 叠加方块" 的无聊设计。
-- 毫无设计感的纯文本堆砌。
-- **假按钮**：写着"查看详情"、"点击展开"却无法点击的元素！要么用 <details> 让它真的能展开，要么就别画按钮。
-
-**✨ 动画动效（鼓励使用！）**
-- 漂浮字 / 渐隐 / 抖动 / 飘雪 / 心跳线 / 光标打字 / 闪烁
-- 用CSS @keyframes 或 transition 实现
-
-**🔘 交互必须有效（纯HTML+CSS）**
-- <details><summary>点我</summary>展开内容</details>
-- checkbox/radio + :checked 切换显示
-- :hover 状态变化
-- **要求**：①有清晰触发点 ②初始状态明确 ③触发后有变化 ④可反向关闭
-
-**📂 模块类型（自由发挥！）**
-- **行为类**：手写便签、留言纸条、涂改草稿、课堂笔记、搜索记录
-- **数码类**：聊天气泡、草稿箱、播放器界面、弹幕、视频截图
-- **现实类**：外卖订单、转账截图、鲜花发票、签收单、闹钟提示
-- **情绪类**：撕裂纸条、墨迹晕染、被划掉的句子、心率曲线
-- **空间类**：墙角刻字、快递盒涂写、明信片折痕、梦境相片
-- **古风类**：花笺、家书、喜帖、血书、门派布令、飞剑传信、灵石账本
-- **交互类**：翻转卡片、情绪选择、点信封展开、心理测试、点亮文字
-
-**🖼️ 图片规范（二选一）**
-①CSS/颜文字模拟画面
-②图片URL：https://image.pollinations.ai/prompt/{英文关键词}
-  - 关键词用%20分隔，画风必须是：anime style / illustration / cartoon / sketch
-  - 背景：style="background:url(...);background-size:cover;"
-  - 图片：<img src="..." style="width:100%;">
-
-**🚫 图片严禁**
-- **绝对禁止真人照片**：不要生成任何真人风格的图片，必须是动漫/插画/卡通风格
-- **禁止生成用户或角色的照片/头像**：不要试图生成"我的照片""你的头像""自拍"等
-- **禁止 realistic / photo / portrait 等关键词**
-
-**🚫 禁止**
-- 空壳模板 / 模板换皮 / 无动效 / 无细节
-- 结构呆板 / 全英文 / 重复消息内容
-
-**🎯 核心原则**
-模拟角色"会写/会看到/会保存"的真实物件，是剧情延展而非装饰！
+**📂 模块类型**
+- 手写便签、留言纸条、课堂笔记、搜索记录
+- 聊天气泡、草稿箱、播放器界面、视频截图
+- 外卖订单、转账截图、签收单、闹钟提示
+- 撕裂纸条、墨迹晕染、心率曲线
 ` : ''}
+
 ${characterIndependence ? `
 ## 🛑 特殊模式：静默/忙碌状态 (Silent Mode)
 **【逻辑判断】在生成回复前，请先检查你的状态、时间和心情：**
@@ -1551,65 +1480,39 @@ ${characterIndependence ? `
 **仅输出**以下格式的描写段落（Third-person Narrative）：
 
 格式：\`[忙碌:这里写第三人称描写]\`
-*要求：像小说一样描写，100字以上，包含环境、光线、未读消息的状态、${charName}的动作和内心潜台词。*
-` : ''}
-- **手机操作**：[手机操作:描述]（改备注、免打扰、保存图片等）
-- **撤回消息**：[撤回消息:要撤回的内容:理由]（发错话、说过头、不好意思时用）
-- **引用回复**：[引用:关键词 回复:你的回复]（关键词是那句话里印象最深的几个字）
+*要求：像小说一样描写，100字以上，包含环境、光线、未读消息的状态、${charName}的动作和内心潜台词。*` : ''}
 
-${VIDEO_CALL_PROMPT}
-${BLACKLIST_PROMPT}
+${useCustomPrompt ? '' : BLACKLIST_PROMPT}
 
 ${buildCoupleSpaceContext(character)}
 
-${MUSIC_FEATURES_PROMPT}
+${useCustomPrompt ? '' : MUSIC_FEATURES_PROMPT}
 
-${POKE_FEATURES_PROMPT}
+${await buildListeningTogetherContext(character)}
 
-## 格式
-- **严禁句号（空格断句）**：绝对禁止使用句号（。）！句与句之间必须用**空格**或**换行**隔开，显得更松弛。
-- **保留情绪标点**：问号？感叹号！波浪号~ 可以正常使用，不要像机器人一样完全没标点。
-- **呼吸感分段**：别像机关枪一样一大段全怼出来。长句必须用空格/换行拆开。
-- **节奏感**：就像你在手机上打字一样，长短句交替，别全是长难句。
-- **严禁**：翻译腔、旁白小说、鸡汤文案、句尾句号
-- **绝对禁止写时间标记**：(X秒后)(X分钟后)这种格式是系统用的，你写了就露馅了
+${useCustomPrompt ? '' : POKE_FEATURES_PROMPT}
 
-${buildCareReminderContext(messages)}
-${buildMemoReminderContext(messages)}
+${gomokuGameActive ? `## ⚫ 五子棋游戏（正在进行中！）
+**重要：你们正在下五子棋，轮到你了，你必须落子！**
+- **棋盘**：15x15，坐标格式为字母+数字（如 A1, H8, O15）
+- **规则**：五子连珠获胜（横、竖、斜都算）
+- **⚠️ 必须落子**：每次回复**必须包含** \`[下棋:坐标]\`，如 \`[下棋:H8]\`
+- **可以聊天**：下棋的同时可以说话，比如调侃、分析局势
+- **策略**：既要进攻（连成五子），也要防守（堵住对方）
+- **悔棋**：如果用户发 \`[悔棋]\`，接受并等待用户重新落子
+- **认输**：如果用户发 \`[认输]\`，表示用户认输，你赢了
+- **示例**：\`[下棋:H8] 嘿嘿，我堵住你了～\`
+**再次强调：你的回复中必须有 [下棋:坐标] 指令！不能只聊天不下棋！**` : ''}
+
 ${buildDynamicInstructions(messages)}
-${await buildListeningTogetherContext(character)}-
 
-${momentsListPrompt}
-
-${getMemesSuggestion(
-  messages.filter(m => m.type === 'sent').slice(-1)[0]?.content || '',
-  messages.slice(-10).map(m => m.content).join(' ')
-)}
-
-## 语言风格：拒绝干巴！
+${useCustomPrompt ? '' : `## 语言风格：拒绝干巴！
 每句话都要有"呼吸感"，像真人说话一样自然，根据你的人设选择合适的语气词：
 - 句尾加语气词：呀/诶/呢/啦/嘛/哦/惹/呗/吧/啊
-- 句首加缓冲词：哎/诶/啊/嗯/哦/那/所以/反正/怎么/哈
-示例（左边禁止，右边正确）：
-- ❌"下一秒就要吃零食" → ✅"怎么下一秒就要吃零食啦"
-- ❌"你这跨度是不是有点大" → ✅"哎你这个跨度是不是有点大了"
-- ❌"注意安全" → ✅"那自己在外面注意安全啊"
-- ❌"别理他" → ✅"哎呀别理他就好了呀"
-- ❌"我也想你" → ✅"其实我也很想你诶"
-- ❌"能不能行" → ✅"能不能行呀"
-反正你说的每句话都要过一遍脑子，别太干巴巴的！
+- 句首加缓冲词：哎/诶/啊/嗯/哦/那/所以/反正/怎么/哈`}
 
----
-**OK，${userNickname} 刚给你发了消息。**
-结合你的状态（${statusText}）和心情，回一条（或几条）像真人的消息。
+${lorebookAfterChar}
 
-### ⚠️ 最终检查（Do NOT Forget）
-1. **去AI化**：检查你的回复是否像AI客服？是否在讲大道理？如果是，改成符合人设的自然语气。
-2. **拒绝说教**：如果有"希望你..."、"要注意..."之类的爹味发言，**删掉！**
-3. **拒绝解释**：不要解释你的行为（"我只是担心你"），直接做。
-4. **禁止句号**：句尾不要句号。
-
-不要加开头（如"好的"、"回复："），直接输出消息内容：
 ${lorebookBottom}`
 
   // 🌍 添加世界观上下文（如果设置了的话）
@@ -2337,12 +2240,22 @@ const buildCoupleSpaceContext = (character: Character): string => {
   if (relation.status === 'active' && relation.characterId === character.id) {
     // 获取情侣空间内容摘要
     const summary = getCoupleSpaceContentSummary(character.id)
+    const mode = getCoupleSpaceMode()
+    const members = getFamilyMembers()
+    
+    // 公共模式下显示成员列表
+    let membersInfo = ''
+    if (mode === 'shared' && members.length > 1) {
+      const otherMembers = members.filter(m => m.characterId !== character.id)
+      const memberNames = otherMembers.map(m => m.characterName).join('、')
+      membersInfo = `\n\n👨‍👩‍👧‍👦 情侣空间成员：用户、你、${memberNames}\n（公共模式：所有成员共享相册、心情日记、纪念日等内容）`
+    }
 
     return `
 
 ══════════════════════════════════
 
-💑 你已经开启了情侣空间
+💑 你已经开启了情侣空间${membersInfo}
 
 你可以使用以下功能：
 - [相册:描述] 分享照片到相册

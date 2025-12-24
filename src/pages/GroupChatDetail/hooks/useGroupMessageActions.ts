@@ -26,12 +26,28 @@ export const useGroupMessageActions = (
   // 查看撤回的消息
   const [viewingRecalledMessage, setViewingRecalledMessage] = useState<GroupMessage | null>(null)
   
-  // 长按计时器
+  // 长按计时器和移动检测
   const longPressTimer = useRef<number | null>(null)
+  const startPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const isMovedRef = useRef(false)
+  const MOVE_THRESHOLD = 10 // 移动阈值（像素）
 
   // 长按开始
   const handleLongPressStart = useCallback((msg: GroupMessage, event?: React.MouseEvent | React.TouchEvent) => {
+    // 记录初始位置
+    if (event) {
+      if ('touches' in event && event.touches[0]) {
+        startPositionRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }
+      } else if ('clientX' in event) {
+        startPositionRef.current = { x: event.clientX, y: event.clientY }
+      }
+    }
+    isMovedRef.current = false
+
     longPressTimer.current = window.setTimeout(() => {
+      // 如果已经移动过，不触发长按
+      if (isMovedRef.current) return
+
       let x = 0, y = 0
       if (event) {
         if ('touches' in event && event.touches[0]) {
@@ -46,7 +62,36 @@ export const useGroupMessageActions = (
       setMenuMessage(msg)
       setMenuPosition({ x, y })
       setShowMessageMenu(true)
-    }, 500)
+    }, 600) // 延迟从500ms改为600ms
+  }, [])
+
+  // 长按移动检测
+  const handleLongPressMove = useCallback((event?: React.MouseEvent | React.TouchEvent) => {
+    if (!startPositionRef.current || !longPressTimer.current) return
+
+    let clientX = 0, clientY = 0
+    if (event) {
+      if ('touches' in event && event.touches[0]) {
+        clientX = event.touches[0].clientX
+        clientY = event.touches[0].clientY
+      } else if ('clientX' in event) {
+        clientX = event.clientX
+        clientY = event.clientY
+      }
+    }
+
+    // 计算移动距离
+    const deltaX = Math.abs(clientX - startPositionRef.current.x)
+    const deltaY = Math.abs(clientY - startPositionRef.current.y)
+
+    // 如果移动超过阈值，取消长按计时器
+    if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+      isMovedRef.current = true
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+    }
   }, [])
 
   // 长按结束
@@ -55,6 +100,8 @@ export const useGroupMessageActions = (
       clearTimeout(longPressTimer.current)
       longPressTimer.current = null
     }
+    startPositionRef.current = null
+    isMovedRef.current = false
   }, [])
 
   // 撤回消息
@@ -149,6 +196,7 @@ export const useGroupMessageActions = (
     closeViewingRecalled,
     // 操作
     handleLongPressStart,
+    handleLongPressMove,
     handleLongPressEnd,
     handleRecallMessage,
     handleDeleteMessage,

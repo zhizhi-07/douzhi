@@ -36,6 +36,7 @@ import { correctAIMessageFormat } from '../utils/formatCorrector'
 import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame, useLogistics } from './ChatDetail/hooks'
 import LogisticsModal from '../components/LogisticsModal'
 import ContactCardSelector from '../components/ContactCardSelector'
+import GomokuGame from '../components/GomokuGame'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
@@ -49,6 +50,21 @@ import { SpecialMessageRenderer } from './ChatDetail/components/SpecialMessageRe
 import CheckInCard from '../components/CheckInCard'
 import { playLoadMoreSound, playSystemSound } from '../utils/soundManager'
 import { blacklistManager } from '../utils/blacklistManager'
+
+// 检测消息是否只包含五子棋指令（应该隐藏）
+const isGomokuOnlyMessage = (content?: string): boolean => {
+  if (!content) return false
+  // 移除五子棋相关指令后检查是否还有其他内容
+  const cleaned = content
+    .replace(/[\[【]五子棋[\]】]/g, '')
+    .replace(/[\[【]下棋[:\：][A-Oa-o]\d{1,2}[\]】]/g, '')
+    .replace(/[\[【]悔棋[\]】]/g, '')
+    .replace(/[\[【]认输[\]】]/g, '')
+    .replace(/[\[【]五子棋[:\：]重新开始[\]】]/g, '')
+    .trim()
+  // 如果清理后没有内容，说明这条消息只包含五子棋指令
+  return cleaned.length === 0
+}
 
 const ChatDetail = () => {
   const navigate = useNavigate()
@@ -68,7 +84,8 @@ const ChatDetail = () => {
     false, // chatAI.isAiTyping will be set later
     chatState.hasMoreMessages,
     chatState.isLoadingMessages,
-    chatState.loadMoreMessages
+    chatState.loadMoreMessages,
+    id // 🔥 传入chatId，确保切换聊天时重新滚动到底部
   )
 
   // 记录加载更多前的滚动位置，用于保持视口不跳动
@@ -132,6 +149,20 @@ const ChatDetail = () => {
 
   // 📇 名片选择器状态
   const [showContactCardSelector, setShowContactCardSelector] = useState(false)
+
+  // ⚫ 五子棋游戏状态
+  const [showGomokuGame, setShowGomokuGame] = useState(false)
+  const [gomokuAIMove, setGomokuAIMove] = useState<string | undefined>(undefined)
+
+  // 监听AI五子棋落子事件
+  useEffect(() => {
+    const handleAIMove = (e: CustomEvent<{ position: string }>) => {
+      console.log('⚫ [五子棋] 收到AI落子:', e.detail.position)
+      setGomokuAIMove(e.detail.position)
+    }
+    window.addEventListener('gomoku-ai-move', handleAIMove as EventListener)
+    return () => window.removeEventListener('gomoku-ai-move', handleAIMove as EventListener)
+  }, [])
 
   // 检测拉黑状态 & 好友申请状态
   useEffect(() => {
@@ -337,7 +368,7 @@ const ChatDetail = () => {
   // 组件卸载时保存可能会用过时的React状态覆盖最新的备份
 
   const videoCall = useVideoCall(id || '', chatState.character, chatState.messages, chatState.setMessages)
-  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall)
+  const chatAI = useChatAI(id || '', chatState.character, chatState.messages, chatState.setMessages, chatState.setError, videoCall.receiveIncomingCall, chatState.refreshCharacter, videoCall.endCall, showGomokuGame)
 
   // 清理宠物领养标记（不自动触发AI回复，让用户自己决定）
   useEffect(() => {
@@ -550,11 +581,18 @@ const ChatDetail = () => {
     () => navigate(`/envelope?characterId=${id}`),  // 信封
     () => judgment.setShowJudgmentModal(true),  // 判定对错
     () => logistics.openLogistics(),  // 物流
-    () => setShowContactCardSelector(true)  // 名片
+    () => setShowContactCardSelector(true),  // 名片
+    () => setShowGomokuGame(true)  // 五子棋
   )
 
   // 多选模式
-  const multiSelect = useMultiSelect(id || '', chatState.messages, chatState.setMessages)
+  const multiSelect = useMultiSelect(
+    id || '',
+    chatState.messages,
+    chatState.setMessages,
+    chatState.character?.nickname || chatState.character?.realName,
+    chatState.character?.avatar
+  )
 
   // 处理转发确认
   const handleForwardConfirm = useCallback((targetCharacterId: string) => {
@@ -1000,10 +1038,11 @@ const ChatDetail = () => {
           <LoadingSkeleton />
         ) : shouldUseVirtualization ? (
           <VirtualMessageList
-            messages={chatState.messages.filter(m => m.sceneMode !== 'offline')}
+            messages={chatState.messages.filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))}
             character={character}
             isAiTyping={chatAI.isAiTyping}
             onMessageLongPress={longPress.handleLongPressStart}
+            onMessageLongPressMove={longPress.handleLongPressMove}
             onMessageLongPressEnd={longPress.handleLongPressEnd}
             onViewRecalledMessage={modals.setViewingRecalledMessage}
             onViewCallRecord={modals.setViewingCallRecord}
@@ -1104,10 +1143,10 @@ const ChatDetail = () => {
             )}
 
             {chatState.messages
-              .filter(m => m.sceneMode !== 'offline')  // 🔥 过滤掉线下模式的消息
+              .filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))  // 🔥 过滤掉线下模式和五子棋指令消息
               .map((message, index) => {
                 // 获取过滤后的消息列表用于计算时间戳
-                const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline')
+                const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))
                 // 判断是否需要显示时间戳（两条消息间隔超过5分钟就显示）
                 const prevMsg = visibleMessages[index - 1]
                 let shouldShow5MinTimestamp = false
@@ -1179,26 +1218,61 @@ const ChatDetail = () => {
 
                   // 视频通话记录
                   if (message.messageType === 'video-call-record' && message.videoCallRecord) {
+                    const isSelectable = multiSelect.isMessageSelectable(message)
+                    const isSelected = multiSelect.selectedMessageIds.has(message.id)
                     return (
-                      <div key={message.id}>
-                        {shouldShow5MinTimestamp && (
-                          <div className="flex justify-center my-2">
-                            <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
-                              <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                      <div key={message.id} className="flex items-start gap-2">
+                        {/* 多选复选框 */}
+                        {multiSelect.isMultiSelectMode && (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0 mt-4"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              isSelectable && multiSelect.toggleMessageSelection(message.id)
+                            }}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${!isSelectable
+                              ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-400 bg-white cursor-pointer active:scale-90'
+                              }`}>
+                              {isSelected && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </div>
                           </div>
                         )}
-                        <div className="flex justify-center my-1">
-                          <div
-                            className="bg-white/80 backdrop-blur-sm rounded-[32px] p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
-                            onClick={() => modals.setViewingCallRecord(message)}
-                          >
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
-                                <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                              </svg>
-                              <span>{message.content}</span>
+                        <div className="flex-1">
+                          {shouldShow5MinTimestamp && (
+                            <div className="flex justify-center my-2">
+                              <div className="bg-gray-400/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                                <div className="text-xs text-gray-500">{timestamp5MinText}</div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex justify-center my-1">
+                            <div
+                              className="bg-white/80 backdrop-blur-sm rounded-[32px] p-3 border border-gray-200/50 shadow-sm cursor-pointer hover:bg-white transition-colors"
+                              onClick={() => {
+                                if (multiSelect.isMultiSelectMode) {
+                                  isSelectable && multiSelect.toggleMessageSelection(message.id)
+                                } else {
+                                  modals.setViewingCallRecord(message)
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2 text-sm text-gray-700">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <rect x="2" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
+                                  <path d="M18 10l4-2v8l-4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                </svg>
+                                <span>{message.content}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1894,6 +1968,17 @@ const ChatDetail = () => {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {/* 收藏按钮 */}
+              <button
+                onClick={multiSelect.favoriteSelectedMessages}
+                disabled={multiSelect.selectedMessageIds.size === 0}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${multiSelect.selectedMessageIds.size > 0
+                  ? 'bg-amber-500 text-white hover:bg-amber-600 active:scale-95'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                收藏
+              </button>
               {/* 转发按钮 */}
               <button
                 onClick={multiSelect.openForwardModal}
@@ -1923,7 +2008,30 @@ const ChatDetail = () => {
 
       {/* 底部输入栏 - 毛玻璃效果 */}
       {!multiSelect.isMultiSelectMode && (
-        <div className="relative bg-transparent">
+        <div className="chat-bottombar relative" style={(() => {
+          try {
+            const saved = localStorage.getItem('chat_custom_css')
+            if (saved) {
+              const data = JSON.parse(saved)
+              if (data.custom?.bottomBar) {
+                const styleObj: Record<string, string> = {}
+                data.custom.bottomBar.split(';').forEach((rule: string) => {
+                  const colonIndex = rule.indexOf(':')
+                  if (colonIndex > 0) {
+                    const key = rule.substring(0, colonIndex).trim()
+                    const value = rule.substring(colonIndex + 1).trim().replace(/!important/gi, '').trim()
+                    if (key && value) {
+                      const camelKey = key.replace(/-([a-z])/g, (_: string, letter: string) => letter.toUpperCase())
+                      styleObj[camelKey] = value
+                    }
+                  }
+                })
+                if (Object.keys(styleObj).length > 0) return styleObj
+              }
+            }
+          } catch {}
+          return undefined
+        })()}>
           {/* 底栏装饰背景 */}
           {(customIcons['chat-bottombar-bg'] || chatDecorations.bottomBar) && (
             <div
@@ -1995,13 +2103,13 @@ const ChatDetail = () => {
             </div>
           )}
 
-          <div className="relative z-10 px-2 py-2 flex items-center gap-1">
+          <div className="chat-input-row relative z-10 px-2 py-2 flex items-center gap-1">
             <button
               onClick={() => {
                 playSystemSound() // 🎵 统一使用系统点击音效
                 addMenu.setShowAddMenu(true)
               }}
-              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
+              className="chat-add-btn w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
             >
               {(customIcons['chat-add-btn'] || chatDecorations.plusButton) ? (
                 <img src={customIcons['chat-add-btn'] || chatDecorations.plusButton!} alt="加号" className="w-8 h-8 object-contain" />
@@ -2012,12 +2120,36 @@ const ChatDetail = () => {
               )}
             </button>
             <div
-              className="flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0"
-              style={customIcons['chat-input-bg'] ? {
-                backgroundImage: `url(${customIcons['chat-input-bg']})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              } : {}}
+              className="chat-input-box flex-1 flex items-center bg-white/30 backdrop-blur-xl rounded-full px-4 py-2 min-w-0"
+              style={(() => {
+                const baseStyle = customIcons['chat-input-bg'] ? {
+                  backgroundImage: `url(${customIcons['chat-input-bg']})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                } : {}
+                try {
+                  const saved = localStorage.getItem('chat_custom_css')
+                  if (saved) {
+                    const data = JSON.parse(saved)
+                    if (data.custom?.inputBox) {
+                      const styleObj: Record<string, string> = { ...baseStyle }
+                      data.custom.inputBox.split(';').forEach((rule: string) => {
+                        const colonIndex = rule.indexOf(':')
+                        if (colonIndex > 0) {
+                          const key = rule.substring(0, colonIndex).trim()
+                          const value = rule.substring(colonIndex + 1).trim().replace(/!important/gi, '').trim()
+                          if (key && value) {
+                            const camelKey = key.replace(/-([a-z])/g, (_: string, letter: string) => letter.toUpperCase())
+                            styleObj[camelKey] = value
+                          }
+                        }
+                      })
+                      return styleObj
+                    }
+                  }
+                } catch {}
+                return baseStyle
+              })()}
             >
               <input
                 type="text"
@@ -2027,14 +2159,14 @@ const ChatDetail = () => {
                 placeholder="发送消息"
                 className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-sm min-w-0"
                 style={{
-                  transform: 'translateZ(0)', // 🚀 GPU加速
+                  transform: 'translateZ(0)',
                   willChange: 'contents'
                 }}
               />
             </div>
             <button
               onClick={() => emoji.setShowEmojiPanel(true)}
-              className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
+              className="chat-emoji-btn w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
             >
               {customIcons['chat-emoji'] ? (
                 <img src={customIcons['chat-emoji']} alt="表情" className="w-8 h-8 object-contain" />
@@ -2056,7 +2188,31 @@ const ChatDetail = () => {
                 <button
                   onClick={() => chatAI.handleSend(chatState.inputValue, chatState.setInputValue, modals.quotedMessage, () => modals.setQuotedMessage(null))}
                   disabled={chatAI.isAiTyping}
-                  className="w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
+                  className="chat-send-btn w-9 h-9 flex items-center justify-center ios-button bg-gray-900 text-white rounded-full shadow-lg disabled:opacity-50 ios-spring btn-press-fast flex-shrink-0"
+                  style={(() => {
+                    try {
+                      const saved = localStorage.getItem('chat_custom_css')
+                      if (saved) {
+                        const data = JSON.parse(saved)
+                        if (data.custom?.sendButton) {
+                          const styleObj: Record<string, string> = {}
+                          data.custom.sendButton.split(';').forEach((rule: string) => {
+                            const colonIndex = rule.indexOf(':')
+                            if (colonIndex > 0) {
+                              const key = rule.substring(0, colonIndex).trim()
+                              const value = rule.substring(colonIndex + 1).trim().replace(/!important/gi, '').trim()
+                              if (key && value) {
+                                const camelKey = key.replace(/-([a-z])/g, (_: string, letter: string) => letter.toUpperCase())
+                                styleObj[camelKey] = value
+                              }
+                            }
+                          })
+                          if (Object.keys(styleObj).length > 0) return styleObj
+                        }
+                      }
+                    } catch {}
+                    return undefined
+                  })()}
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -2067,7 +2223,7 @@ const ChatDetail = () => {
               <button
                 onClick={() => chatAI.handleAIReply()}
                 disabled={chatAI.isAiTyping || (!!tacitGame.gameType && !tacitGame.hasSent)}
-                className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
+                className="chat-ai-btn w-9 h-9 flex items-center justify-center ios-button text-gray-700 disabled:opacity-50 btn-press-fast touch-ripple-effect flex-shrink-0"
                 style={customIcons['chat-ai'] ? { background: 'transparent' } : {}}
               >
                 {chatAI.isAiTyping ? (
@@ -2117,6 +2273,7 @@ const ChatDetail = () => {
         onSelectTacitGame={tacitGame.openGameSelect}
         onSelectLogistics={addMenu.handlers.handleSelectLogistics}
         onSelectContactCard={addMenu.handlers.handleSelectContactCard}
+        onSelectGomoku={addMenu.handlers.handleSelectGomoku}
         hasCoupleSpaceActive={coupleSpace.hasCoupleSpace}
         customIcons={customIcons}
       />
@@ -2127,6 +2284,63 @@ const ChatDetail = () => {
         onClose={() => setShowContactCardSelector(false)}
         onSelect={handleSendContactCard}
         currentCharacterId={id || ''}
+      />
+
+      {/* 五子棋游戏 */}
+      <GomokuGame
+        isOpen={showGomokuGame}
+        onClose={() => {
+          setShowGomokuGame(false)
+          setGomokuAIMove(undefined)
+        }}
+        onSendMove={(moveText) => {
+          // 发送下棋消息（隐藏消息，不显示在聊天列表，但AI能看到）
+          const now = Date.now()
+          const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          const msg: Message = {
+            id: now,
+            type: 'sent',
+            messageType: 'gomoku',  // 特殊类型，用于隐藏
+            content: moveText,
+            time: timeStr,
+            timestamp: now,
+            aiReadableContent: `[五子棋] ${moveText}`
+          }
+          chatState.setMessages(prev => {
+            const updated = [...prev, msg]
+            if (id) saveMessages(id, updated)
+            return updated
+          })
+          // 不自动触发AI回复，让用户自己发消息触发
+        }}
+        onGameEnd={(userWin) => {
+          // 游戏结束，发送结果卡片
+          const now = Date.now()
+          const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          const resultMsg: Message = {
+            id: now,
+            type: 'system',
+            messageType: 'gomokuResult',
+            content: userWin ? '五子棋对弈 - 你赢了！' : '五子棋对弈 - 你输了',
+            time: timeStr,
+            timestamp: now,
+            gomokuResult: {
+              userWin,
+              userName: '你',
+              aiName: chatState.character?.nickname || chatState.character?.realName || 'AI',
+              aiAvatar: chatState.character?.avatar
+            }
+          }
+          chatState.setMessages(prev => {
+            const updated = [...prev, resultMsg]
+            if (id) saveMessages(id, updated)
+            return updated
+          })
+        }}
+        aiMove={gomokuAIMove}
+        onAIMoveProcessed={() => setGomokuAIMove(undefined)}
+        characterName={chatState.character?.nickname || chatState.character?.realName}
+        characterAvatar={chatState.character?.avatar}
       />
 
       {/* 物流弹窗 */}

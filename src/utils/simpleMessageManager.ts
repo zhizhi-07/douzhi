@@ -742,6 +742,20 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
     if (forceOverwrite) {
       messageCache.set(storageKey, messages)
       console.log(`🔥 [saveMessages] 强制覆盖模式: storageKey=${storageKey}, count=${messages.length}`)
+      
+      // 🔥🔥🔥 关键修复：强制覆盖模式下，必须同步更新 localStorage 备份
+      // 否则页面刷新时会从旧备份恢复被删除的消息
+      try {
+        const backupKey = `msg_backup_${storageKey}`
+        const backup = {
+          messages: messages,
+          timestamp: Date.now()
+        }
+        localStorage.setItem(backupKey, JSON.stringify(backup))
+        console.log(`🔥 [saveMessages] 已同步更新 localStorage 备份`)
+      } catch (e) {
+        console.warn('更新 localStorage 备份失败:', e)
+      }
     }
     
     // 获取缓存中的消息
@@ -777,8 +791,9 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
     }
     
     // 🔥🔥🔥 关键修复：始终合并缓存和传入的消息，防止丢失任何消息 🔥🔥🔥
+    // 🔥🔥🔥 但是！强制覆盖模式下跳过合并，否则被删除的消息会被合并回来
     let finalMessages = messages
-    if (cachedMessages && cachedMessages.length > 0) {
+    if (!forceOverwrite && cachedMessages && cachedMessages.length > 0) {
       // 🔥 始终合并，而不是只在缓存更多时合并
       const mergedMap = new Map<number, Message>()
       

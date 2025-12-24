@@ -10,7 +10,8 @@ import {
   acceptCoupleSpaceInvite, 
   rejectCoupleSpaceInvite, 
   createCoupleSpaceInvite,
-  endCoupleSpaceRelation 
+  endCoupleSpaceRelation,
+  isMemberInFamily
 } from '../../../utils/coupleSpaceUtils'
 import { addCouplePhoto, addCoupleMessage, addCoupleAnniversary } from '../../../utils/coupleSpaceContentUtils'
 import { addMessage as saveMessage } from '../../../utils/simpleMessageManager'
@@ -38,9 +39,34 @@ export const useCoupleSpace = (
       sender: relation?.sender
     })
     
-    // 如果已经是活跃状态，显示快捷菜单
-    if (relation?.status === 'active' && relation.characterId === chatId) {
-      setShowMenu(true)
+    // 如果已经是活跃状态
+    if (relation?.status === 'active') {
+      // 当前角色已在空间中，显示快捷菜单
+      if (isMemberInFamily(chatId)) {
+        setShowMenu(true)
+        return
+      }
+      
+      // 当前角色不在空间中，发送邀请卡片（需要AI同意）
+      const sendInvite = confirm(`你已经有一个情侣空间了。\n\n要邀请 ${character.nickname || character.realName} 加入吗？`)
+      if (!sendInvite) return
+      
+      // 发送邀请卡片（和创建情侣空间邀请一样的逻辑）
+      const newMessage: Message = {
+        id: Date.now(),
+        type: 'sent',
+        content: '情侣空间邀请',
+        aiReadableContent: `[系统消息] 用户邀请你加入TA的情侣空间，等待你回应。你可以用 [同意情侣空间] 接受加入，或用 [拒绝情侣空间] 拒绝。`,
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        coupleSpaceInvite: {
+          status: 'pending',
+          senderName: '我',
+          senderAvatar: undefined,
+          isJoinInvite: true  // 标记这是加入邀请，不是创建邀请
+        }
+      }
+      saveMessage(chatId, newMessage)
       return
     }
 

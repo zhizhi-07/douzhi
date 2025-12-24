@@ -181,9 +181,40 @@ const InstagramActivity = () => {
                   {/* 信息 */}
                   <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-gray-900">{conv.name}</span>
-                      <span className="text-xs text-gray-400 font-medium">{conv.lastTime}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-bold text-gray-900 truncate">{conv.name}</span>
+                        {/* 蓝V认证标识 - 仅商务合作 */}
+                        {(conv.tag === 'business' || conv.tag === 'goodsSelection') && (
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="#1D9BF0"/>
+                            <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 font-medium shrink-0">{conv.lastTime}</span>
                     </div>
+                    {/* 品牌信息 - 仅商务合作 */}
+                    {conv.tag === 'business' && conv.brandName && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-medium">
+                          {conv.brandCategory || '品牌'}
+                        </span>
+                        <span className="text-[10px] text-gray-500">{conv.brandName}</span>
+                        {conv.cooperationType && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded">
+                            {conv.cooperationType}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {conv.tag === 'goodsSelection' && conv.brandName && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-600 rounded font-medium">
+                          好物优选
+                        </span>
+                        <span className="text-[10px] text-gray-500">{conv.brandCategory} · {conv.brandName}</span>
+                      </div>
+                    )}
                     <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
                       {conv.lastMessage || '开始聊天...'}
                     </p>

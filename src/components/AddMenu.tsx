@@ -37,6 +37,7 @@ interface AddMenuProps {
   onSelectTacitGame: () => void
   onSelectLogistics: () => void
   onSelectContactCard: () => void
+  onSelectGomoku: () => void
   hasCoupleSpaceActive?: boolean
   customIcons?: Record<string, string>
 }
@@ -67,6 +68,7 @@ const AddMenu = ({
   onSelectTacitGame,
   onSelectLogistics,
   onSelectContactCard,
+  onSelectGomoku,
   customIcons = {}
 }: AddMenuProps) => {
   if (!isOpen) return null
@@ -220,6 +222,13 @@ const AddMenu = ({
       label: '名片',
       onClick: onSelectContactCard,
       iconId: 'menu-contact-card'
+    },
+    // 五子棋（第24个）
+    {
+      icon: <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/><circle cx="16" cy="8" r="2" stroke="currentColor" strokeWidth="1.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="16" r="2" stroke="currentColor" strokeWidth="1.5"/><circle cx="16" cy="16" r="2" fill="currentColor"/></svg>,
+      label: '五子棋',
+      onClick: onSelectGomoku,
+      iconId: 'menu-gomoku'
     },
   ]
 

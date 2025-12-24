@@ -9,7 +9,9 @@ import StatusBar from '../components/StatusBar'
 import { blacklistManager } from '../utils/blacklistManager'
 import { 
   setChatWallpaper, 
-  createCustomWallpaper
+  createCustomWallpaper,
+  clearChatWallpaper,
+  hasChatWallpaper
 } from '../utils/wallpaperManager'
 import BubbleSettings from './ChatSettings/BubbleSettings'
 import AvatarFrameSettings from './ChatSettings/AvatarFrameSettings'
@@ -43,6 +45,11 @@ interface ChatSettingsData {
     enabled: boolean  // 是否启用AI主动发消息
     mode: 'fixed' | 'thinking'  // 模式：fixed=固定时间必发，thinking=AI思考是否发
     interval: number  // 时间间隔（分钟）
+  }
+  messageDelay: {
+    enabled: boolean  // 是否启用消息延迟
+    minDelay: number  // 最小延迟（秒）
+    maxDelay: number  // 最大延迟（秒）
   }
 }
 
@@ -78,6 +85,11 @@ const ChatSettings = () => {
           enabled: false,
           mode: 'thinking',
           interval: 5
+        },
+        messageDelay: data.messageDelay ?? {
+          enabled: false,
+          minDelay: 1,
+          maxDelay: 3
         }
       }
     }
@@ -104,6 +116,11 @@ const ChatSettings = () => {
         enabled: false,
         mode: 'thinking',
         interval: 5
+      },
+      messageDelay: {
+        enabled: false,
+        minDelay: 1,
+        maxDelay: 3
       }
     }
   }
@@ -138,6 +155,11 @@ const ChatSettings = () => {
               enabled: false,
               mode: 'thinking',
               interval: 5
+            },
+            messageDelay: data.messageDelay ?? {
+              enabled: false,
+              minDelay: 1,
+              maxDelay: 3
             }
           }
         } catch (e) {
@@ -169,6 +191,11 @@ const ChatSettings = () => {
         enabled: false,
         mode: 'thinking',
         interval: 5
+      },
+      messageDelay: {
+        enabled: false,
+        minDelay: 1,
+        maxDelay: 3
       }
     }
   })
@@ -183,6 +210,7 @@ const ChatSettings = () => {
   const [pokeSuffix, setPokeSuffix] = useState('')
   const [languageStyle, setLanguageStyle] = useState<'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto'>('auto')
   const [masks, setMasks] = useState<Mask[]>([])
+  const [hasWallpaper, setHasWallpaper] = useState(false)
   
   // 加载面具列表
   useEffect(() => {
@@ -199,6 +227,9 @@ const ChatSettings = () => {
       // 🔥 修复：使用 character_ 前缀，与 useChatAI.ts 中的检查保持一致
       const blocked = blacklistManager.isBlockedByMe('user', `character_${id}`)
       setIsBlocked(blocked)
+      
+      // 检查是否有自定义壁纸
+      setHasWallpaper(hasChatWallpaper(id))
       
       // 加载角色信息
       const loadCharacter = async () => {
@@ -348,6 +379,7 @@ const ChatSettings = () => {
       if (success) {
         // 触发自定义事件通知聊天页面更新背景
         window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
+        setHasWallpaper(true)
         alert('壁纸已设置！')
       } else {
         alert('壁纸保存失败：IndexedDB存储失败，请重试')
@@ -355,6 +387,20 @@ const ChatSettings = () => {
     } catch (error) {
       console.error('壁纸保存失败:', error)
       alert('图片处理失败，请重试')
+    }
+  }
+  
+  // 恢复默认壁纸
+  const handleRestoreDefaultWallpaper = async () => {
+    if (!id) return
+    
+    const success = await clearChatWallpaper(id)
+    if (success) {
+      setHasWallpaper(false)
+      window.dispatchEvent(new CustomEvent('chatWallpaperChanged', { detail: { chatId: id } }))
+      alert('已恢复默认壁纸')
+    } else {
+      alert('恢复失败，请重试')
     }
   }
   
@@ -785,6 +831,103 @@ const ChatSettings = () => {
               />
             </button>
           </div>
+          
+          {/* 消息延迟 */}
+          <div className="flex items-center justify-between py-2 border-t border-gray-100 pt-3 mt-3">
+            <div className="flex-1">
+              <div className="text-sm text-gray-900">消息延迟</div>
+              <div className="text-xs text-gray-400">模拟真实聊天，AI回复前有打字延迟</div>
+            </div>
+            <button
+              onClick={() => {
+                const newSettings = { 
+                  ...settings, 
+                  messageDelay: {
+                    ...settings.messageDelay,
+                    enabled: !settings.messageDelay.enabled
+                  }
+                }
+                saveSettings(newSettings)
+              }}
+              className="relative w-11 h-6 rounded-full transition-all"
+              style={{ backgroundColor: settings.messageDelay.enabled ? 'var(--switch-active-color, #475569)' : '#e2e8f0' }}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 ${
+                  settings.messageDelay.enabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+                style={{ backgroundColor: 'var(--switch-knob-color, #ffffff)' }}
+              />
+            </button>
+          </div>
+          
+          {settings.messageDelay.enabled && (
+            <div className="pt-3 space-y-3">
+              {/* 延迟范围 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-600">延迟范围</span>
+                  <span className="text-xs font-medium text-gray-900">{settings.messageDelay.minDelay}-{settings.messageDelay.maxDelay}秒</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-8">最小</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.5"
+                    value={settings.messageDelay.minDelay}
+                    onChange={(e) => {
+                      const minVal = parseFloat(e.target.value)
+                      const newSettings = { 
+                        ...settings, 
+                        messageDelay: {
+                          ...settings.messageDelay,
+                          minDelay: minVal,
+                          maxDelay: Math.max(minVal, settings.messageDelay.maxDelay)
+                        }
+                      }
+                      saveSettings(newSettings)
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-gray-400 w-8">最大</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={settings.messageDelay.maxDelay}
+                    onChange={(e) => {
+                      const maxVal = parseFloat(e.target.value)
+                      const newSettings = { 
+                        ...settings, 
+                        messageDelay: {
+                          ...settings.messageDelay,
+                          minDelay: Math.min(settings.messageDelay.minDelay, maxVal),
+                          maxDelay: maxVal
+                        }
+                      }
+                      saveSettings(newSettings)
+                    }}
+                    className="flex-1 h-2 bg-gray-200 rounded-[24px] appearance-none cursor-pointer accent-black"
+                  />
+                </div>
+              </div>
+              
+              {/* 说明 */}
+              <div className="p-3 bg-blue-50 rounded-[32px] border border-blue-200">
+                <div className="flex items-start gap-2 text-blue-600 text-xs">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>AI回复前会随机等待{settings.messageDelay.minDelay}-{settings.messageDelay.maxDelay}秒，更像真人聊天</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* AI 记忆 */}
@@ -1094,16 +1237,33 @@ const ChatSettings = () => {
         )}
         
         {/* 壁纸设置 */}
-        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-between active:scale-[0.98] transition-transform"
-          >
-            <span className="text-sm text-gray-600">聊天壁纸</span>
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+        <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-slate-700">聊天壁纸</div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {hasWallpaper ? '已设置自定义壁纸' : '使用默认壁纸'}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 text-sm font-medium rounded-full active:scale-[0.98] transition-transform"
+            >
+              上传壁纸
+            </button>
+            {hasWallpaper && (
+              <button 
+                onClick={handleRestoreDefaultWallpaper}
+                className="flex-1 py-2.5 px-4 bg-slate-600 text-white text-sm font-medium rounded-full active:scale-[0.98] transition-transform"
+              >
+                恢复默认
+              </button>
+            )}
+          </div>
+          
           <input
             ref={fileInputRef}
             type="file"

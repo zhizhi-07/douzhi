@@ -4,6 +4,7 @@ import { Message } from '../../../types/chat'
 interface MessageBubbleProps {
   message: Message
   onLongPressStart: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
+  onLongPressMove?: (e: React.TouchEvent | React.MouseEvent) => void
   onLongPressEnd: () => void
 }
 
@@ -14,6 +15,7 @@ interface MessageBubbleProps {
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   onLongPressStart,
+  onLongPressMove,
   onLongPressEnd
 }) => {
   // 读取时间戳设置
@@ -80,8 +82,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div
         className="break-words cursor-pointer message-press"
         onTouchStart={(e) => onLongPressStart(message, e)}
+        onTouchMove={onLongPressMove}
         onTouchEnd={onLongPressEnd}
         onMouseDown={(e) => onLongPressStart(message, e)}
+        onMouseMove={onLongPressMove}
         onMouseUp={onLongPressEnd}
         onMouseLeave={onLongPressEnd}
       >
@@ -97,8 +101,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <div
       className="message-bubble px-2.5 py-1.5 break-words cursor-pointer message-press text-sm"
       onTouchStart={(e) => onLongPressStart(message, e)}
+      onTouchMove={onLongPressMove}
       onTouchEnd={onLongPressEnd}
       onMouseDown={(e) => onLongPressStart(message, e)}
+      onMouseMove={onLongPressMove}
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}
     >

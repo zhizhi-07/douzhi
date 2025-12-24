@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Message } from '../../../types/chat'
+import { getGlobalEmojiSize, EMOJI_SIZE_CHANGE_EVENT } from '../../../components/EmojiContentRenderer'
 import CoupleSpaceInviteCard from '../../../components/CoupleSpaceInviteCard'
 import IntimatePayInviteCard from '../../../components/IntimatePayInviteCard'
 import ForwardedChatCard from '../../../components/ForwardedChatCard'
@@ -25,6 +27,7 @@ import TacitDrawingCard from '../../../components/TacitDrawingCard'
 import ContactCardMessage from '../../../components/ContactCardMessage'
 import PetAdoptionCard from '../../../components/PetAdoptionCard'
 import CheckInCard from '../../../components/CheckInCard'
+import GomokuResultCard from '../../../components/GomokuResultCard'
 
 interface SpecialMessageRendererProps {
   message: Message
@@ -89,6 +92,22 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
   onRejectCartPayment,
   onEmojiDrawGuessResult
 }) => {
+  const navigate = useNavigate()
+  const { id: currentChatId } = useParams()
+
+  // 🔥 监听表情包大小变化，实时更新
+  const [emojiSize, setEmojiSize] = useState(getGlobalEmojiSize)
+  
+  useEffect(() => {
+    const handleSizeChange = (e: CustomEvent) => {
+      setEmojiSize(e.detail)
+    }
+    window.addEventListener(EMOJI_SIZE_CHANGE_EVENT, handleSizeChange as EventListener)
+    return () => {
+      window.removeEventListener(EMOJI_SIZE_CHANGE_EVENT, handleSizeChange as EventListener)
+    }
+  }, [])
+
   // 情侣打卡卡片
   if (message.messageType === 'checkIn' && message.checkIn) {
     return <CheckInCard message={message} />
@@ -192,7 +211,8 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
         <img
           src={message.emoji.url}
           alt={message.emoji.description}
-          className="rounded-lg max-w-[160px] max-h-[160px] object-contain"
+          className="rounded-lg object-contain transition-all duration-200"
+          style={{ maxWidth: emojiSize, maxHeight: emojiSize }}
         />
       </div>
     )
@@ -203,8 +223,11 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
     return (
       <TransferCard
         message={message}
-        onReceive={onReceiveTransfer}
-        onReject={onRejectTransfer}
+        onClick={() => {
+          navigate(`/chat/${currentChatId}/transfer/${message.id}`, {
+            state: { characterName }
+          })
+        }}
       />
     )
   }
@@ -689,6 +712,21 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
             )}
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // 五子棋结果卡片
+  if (message.messageType === 'gomokuResult' && message.gomokuResult) {
+    return (
+      <div className="flex justify-center my-2">
+        <GomokuResultCard
+          userWin={message.gomokuResult.userWin}
+          userName={message.gomokuResult.userName}
+          userAvatar={message.gomokuResult.userAvatar}
+          aiName={message.gomokuResult.aiName}
+          aiAvatar={message.gomokuResult.aiAvatar}
+        />
       </div>
     )
   }

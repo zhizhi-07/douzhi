@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
 import { ArrowLeft, Utensils, Gamepad2, Bath, Moon, Heart, Zap, Sparkles, Send, X, Trash2, MessageCircle, Info, Cookie, Milk, Beef } from 'lucide-react'
-import { getCoupleSpaceRelation } from '../utils/coupleSpaceUtils'
-import { addMessage } from '../utils/simpleMessageManager'
+import { getCoupleSpaceRelation, getCoupleSpaceMode, getFamilyMembers } from '../utils/coupleSpaceUtils'
+import { getCurrentUserName } from '../utils/userUtils'
+import { addMessage, loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
 
 // -----------------------------------------------------------------------------
@@ -128,8 +130,19 @@ const CouplePet = () => {
     loadData()
   }, [])
 
+  // 根据模式获取宠物存储key
+  const getPetStorageKey = () => {
+    const mode = getCoupleSpaceMode()
+    const relation = getCoupleSpaceRelation()
+    if (mode === 'independent' && relation?.characterId) {
+      return `couple_pet_data_${relation.characterId}`
+    }
+    return 'couple_pet_data'  // 公共模式共享
+  }
+
   const loadData = () => {
-    const saved = localStorage.getItem('couple_pet_data')
+    const storageKey = getPetStorageKey()
+    const saved = localStorage.getItem(storageKey)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (!parsed.birthday && parsed.createdAt) {
@@ -146,7 +159,8 @@ const CouplePet = () => {
 
   const savePet = (newPet: PetData) => {
     setPet(newPet)
-    localStorage.setItem('couple_pet_data', JSON.stringify(newPet))
+    const storageKey = getPetStorageKey()
+    localStorage.setItem(storageKey, JSON.stringify(newPet))
   }
 
   // 弃养宠物
@@ -344,12 +358,38 @@ const CouplePet = () => {
     )
   }
 
+  // 公共模式下通知其他成员
+  const notifyPetAction = (action: string) => {
+    const mode = getCoupleSpaceMode()
+    if (mode !== 'shared') return
+    
+    const userName = getCurrentUserName()
+    const allMembers = getFamilyMembers()
+    const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    const timestamp = Date.now()
+    
+    allMembers.forEach(member => {
+      const memberMessages = loadMessages(member.characterId)
+      const notifyMsg = {
+        id: timestamp,
+        type: 'system' as const,
+        content: `${userName}${action}了宠物${pet.name}`,
+        aiReadableContent: `（情侣空间通知）${userName}刚刚${action}了你们的宠物「${pet.name}」`,
+        time: timeStr,
+        timestamp,
+        messageType: 'system' as const
+      }
+      saveMessages(member.characterId, [...memberMessages, notifyMsg])
+    })
+  }
+
   // 互动操作
   const handleFeed = () => {
     if (mood === 'sleeping' || pet.status !== 'egg') return
     setMood('eating')
     const newPet = { ...pet, hunger: Math.min(100, pet.hunger + 20), exp: pet.exp + 5 }
     savePet(newPet)
+    notifyPetAction('喂食')
     setTimeout(() => setMood('happy'), 1500)
     setTimeout(() => setMood('normal'), 4000)
   }
@@ -359,6 +399,7 @@ const CouplePet = () => {
     setMood('happy')
     const newPet = { ...pet, happiness: Math.min(100, pet.happiness + 15), energy: Math.max(0, pet.energy - 10), exp: pet.exp + 10 }
     savePet(newPet)
+    notifyPetAction('陪玩')
     setTimeout(() => setMood('normal'), 3000)
   }
 
@@ -367,6 +408,7 @@ const CouplePet = () => {
     setMood('happy')
     const newPet = { ...pet, cleanliness: 100, exp: pet.exp + 5 }
     savePet(newPet)
+    notifyPetAction('清洁')
     setTimeout(() => setMood('normal'), 2000)
   }
 
@@ -378,6 +420,7 @@ const CouplePet = () => {
       setMood('sleeping')
       const newPet = { ...pet, energy: 100 }
       savePet(newPet)
+      notifyPetAction('哄睡')
     }
   }
 
@@ -932,7 +975,8 @@ const CouplePet = () => {
   return (
     <div className="h-screen w-full bg-[#fffbf5] relative flex flex-col font-sans overflow-hidden select-none">
       {/* Top Bar */}
-      <div className="pt-[env(safe-area-inset-top)] shrink-0 z-30">
+      <div className="shrink-0 z-30">
+        <StatusBar />
         <div className="px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}

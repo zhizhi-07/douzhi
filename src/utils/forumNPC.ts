@@ -71,31 +71,121 @@ async function savePostsToDB(posts: ForumPost[]): Promise<void> {
     // 只保留最近的帖子
     const recentPosts = posts.slice(0, MAX_POSTS)
     
-    // 先清空，再写入（用两个事务确保顺序）
+    // 🔥 使用单个事务完成清空和写入，保证原子性
+    // 如果写入失败，清空也会回滚
     await new Promise<void>((resolve, reject) => {
-      const clearTx = db.transaction(POSTS_STORE, 'readwrite')
-      const clearStore = clearTx.objectStore(POSTS_STORE)
-      clearStore.clear()
-      clearTx.oncomplete = () => resolve()
-      clearTx.onerror = () => reject(clearTx.error)
-    })
-    
-    // 写入新数据
-    await new Promise<void>((resolve, reject) => {
-      const writeTx = db.transaction(POSTS_STORE, 'readwrite')
-      const writeStore = writeTx.objectStore(POSTS_STORE)
+      const tx = db.transaction(POSTS_STORE, 'readwrite')
+      const store = tx.objectStore(POSTS_STORE)
+      
+      // 先清空
+      store.clear()
+      
+      // 再写入所有帖子
       for (const post of recentPosts) {
-        writeStore.put(post)
+        try {
+          store.put(post)
+        } catch (putError) {
+          console.warn(`⚠️ 帖子写入失败 (${post.id}):`, putError)
+          // 继续写入其他帖子，不中断
+        }
       }
-      writeTx.oncomplete = () => resolve()
-      writeTx.onerror = () => reject(writeTx.error)
+      
+      tx.oncomplete = () => {
+        // 更新缓存
+        postsCache = recentPosts
+        console.log(`💾 已保存 ${recentPosts.length} 条帖子到IndexedDB`)
+        resolve()
+      }
+      
+      tx.onerror = () => {
+        console.error('❌ 帖子保存事务失败:', tx.error)
+        reject(tx.error)
+      }
+      
+      tx.onabort = () => {
+        console.error('❌ 帖子保存事务被中止:', tx.error)
+        // 🔥 事务中止时，尝试恢复缓存
+        // 不清空postsCache，保留旧数据
+        reject(tx.error)
+      }
     })
-    
-    // 更新缓存
-    postsCache = recentPosts
-    console.log(`💾 已保存 ${recentPosts.length} 条帖子到IndexedDB`)
   } catch (e) {
-    console.error('保存帖子到IndexedDB失败:', e)
+    console.error('❌ 保存帖子到IndexedDB失败:', e)
+    // 🔥 失败时不清空缓存，让用户至少能看到旧数据
+  }
+}
+
+// 🔥 安全添加单个帖子（不清空所有数据）
+async function addSinglePost(post: ForumPost): Promise<boolean> {
+  try {
+    const db = await openDB()
+    
+    return new Promise((resolve) => {
+      const tx = db.transaction(POSTS_STORE, 'readwrite')
+      const store = tx.objectStore(POSTS_STORE)
+      
+      const request = store.put(post)
+      
+      request.onsuccess = () => {
+        // 更新缓存
+        if (postsCache) {
+          // 检查是否已存在
+          const existingIndex = postsCache.findIndex(p => p.id === post.id)
+          if (existingIndex >= 0) {
+            postsCache[existingIndex] = post
+          } else {
+            postsCache.unshift(post)
+          }
+          // 保持排序
+          postsCache.sort((a, b) => b.timestamp - a.timestamp)
+          // 限制数量
+          if (postsCache.length > MAX_POSTS) {
+            postsCache = postsCache.slice(0, MAX_POSTS)
+          }
+        }
+        console.log(`✅ 帖子已添加: ${post.id}`)
+        resolve(true)
+      }
+      
+      request.onerror = () => {
+        console.error(`❌ 添加帖子失败: ${post.id}`, request.error)
+        resolve(false)
+      }
+    })
+  } catch (e) {
+    console.error('❌ 添加帖子异常:', e)
+    return false
+  }
+}
+
+// 🔥 安全删除单个帖子
+async function deleteSinglePost(postId: string): Promise<boolean> {
+  try {
+    const db = await openDB()
+    
+    return new Promise((resolve) => {
+      const tx = db.transaction(POSTS_STORE, 'readwrite')
+      const store = tx.objectStore(POSTS_STORE)
+      
+      const request = store.delete(postId)
+      
+      request.onsuccess = () => {
+        // 更新缓存
+        if (postsCache) {
+          postsCache = postsCache.filter(p => p.id !== postId)
+        }
+        console.log(`✅ 帖子已删除: ${postId}`)
+        resolve(true)
+      }
+      
+      request.onerror = () => {
+        console.error(`❌ 删除帖子失败: ${postId}`, request.error)
+        resolve(false)
+      }
+    })
+  } catch (e) {
+    console.error('❌ 删除帖子异常:', e)
+    return false
   }
 }
 
@@ -305,6 +395,9 @@ export async function savePosts(posts: ForumPost[]): Promise<void> {
 export function savePostsSync(posts: ForumPost[]) {
   savePosts(posts).catch(e => console.error('保存帖子失败:', e))
 }
+
+// 🔥 导出安全的单个帖子操作函数
+export { addSinglePost, deleteSinglePost }
 
 // 生成默认帖子（已禁用，返回空数组）
 function generateDefaultPosts(): ForumPost[] {

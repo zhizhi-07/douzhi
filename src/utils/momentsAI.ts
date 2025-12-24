@@ -20,6 +20,7 @@ import { publishMoment } from './momentsManager'
 import { apiService } from '../services/apiService'
 import { characterService } from '../services/characterService'
 import { getRecentChatHistory, formatChatContext } from './momentsAI/dataCollector'
+import { getCharacterGroup } from './momentsGroupManager'
 
 /**
  * 获取当前API配置
@@ -165,7 +166,10 @@ ${chatContext}
     try {
       const result = JSON.parse(jsonStr)
       
-      // 发布朋友圈
+      // 获取角色所属的圈子
+      const characterGroup = getCharacterGroup(characterId)
+      
+      // 发布朋友圈 - 如果角色在圈子里，只对圈子成员可见
       const moment = publishMoment(
         {
           id: characterId,
@@ -174,10 +178,17 @@ ${chatContext}
         },
         result.content,
         [],
-        result.location
+        result.location,
+        undefined,  // mentions
+        characterGroup ? 'group' : 'public',  // privacy
+        characterGroup?.characterIds,  // visibleTo
+        characterGroup?.id  // groupId
       )
 
       console.log(`📱 ${character.realName} 发布了朋友圈:`, result.content)
+      if (characterGroup) {
+        console.log(`🔒 圈子可见: ${characterGroup.name}`)
+      }
       console.log(`💭 情感基调: ${result.emotion}`)
       if (result.location) {
         console.log(`📍 位置: ${result.location}`)

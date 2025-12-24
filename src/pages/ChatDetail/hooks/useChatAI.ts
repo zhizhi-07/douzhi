@@ -47,7 +47,8 @@ export const useChatAI = (
   setError: (error: string | null) => void,
   onVideoCallRequest?: () => void,
   refreshCharacter?: () => void,
-  onEndCall?: () => void
+  onEndCall?: () => void,
+  gomokuGameActive: boolean = false
 ) => {
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -147,14 +148,9 @@ export const useChatAI = (
         }
       }
       
-      // 🔥 先保存到存储，再更新React状态
-      // 这样即使组件卸载，消息也能正确保存
-      const currentMessages = loadMessages(chatId)
-      const newMessages = [...currentMessages, userMessage]
-      saveMessages(chatId, newMessages)
-      
-      // 更新React状态
-      setMessages(prev => [...prev, userMessage])
+      // 🔥 使用 addMessage 保存（带锁机制，防止竞态条件）
+      saveMessageToStorage(chatId, userMessage)
+      // 不再手动更新React状态，saveMessageToStorage 会触发 new-message 事件
       setInputValue('')
       if (clearQuote) clearQuote()
       
@@ -279,7 +275,7 @@ export const useChatAI = (
           // 🔥 线下模式也传递面具信息
           systemPrompt = await buildOfflinePrompt(character, userName, maskInfo)
         } else {
-          systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo, htmlTheatreModeForPrompt)
+          systemPrompt = await buildSystemPrompt(character, userName, messages, enableTheatreCardsForPrompt, characterIndependenceEnabled, enableHtmlTheatreForPrompt, maskInfo, htmlTheatreModeForPrompt, gomokuGameActive)
         }
         console.log('🔥🔥🔥 [useChatAI] 系统提示词构建完成，长度:', systemPrompt.length)
       } catch (err) {
@@ -1040,11 +1036,9 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 🔥 先保存到存储，再更新React状态
-          const currentMsgs = loadMessages(chatId)
-          saveMessages(chatId, [...currentMsgs, systemMessage])
-          setMessages(prev => [...prev, systemMessage])
-          console.log(`💾 [AI发朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
+          // 🔥 使用 addMessage 保存（带锁机制，防止竞态）
+          saveMessageToStorage(chatId, systemMessage)
+          console.log(`💾 [AI发朋友圈] 系统消息已保存: ${systemContent}`)
           
           // 记录到AI互动记忆（重要！让AI记得自己发过朋友圈）
           const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
@@ -1095,11 +1089,9 @@ export const useChatAI = (
           // 延迟300ms后添加系统消息
           await new Promise(resolve => setTimeout(resolve, 300))
           
-          // 🔥 先保存到存储，再更新React状态
-          const currentMsgs2 = loadMessages(chatId)
-          saveMessages(chatId, [...currentMsgs2, systemMessage])
-          setMessages(prev => [...prev, systemMessage])
-          console.log(`💾 [AI删除朋友圈] 系统消息已保存到IndexedDB: ${systemContent}`)
+          // 🔥 使用 addMessage 保存（带锁机制，防止竞态）
+          saveMessageToStorage(chatId, systemMessage)
+          console.log(`💾 [AI删除朋友圈] 系统消息已保存: ${systemContent}`)
           
           // 记录到AI互动记忆
           const { recordAIInteraction } = await import('../../../utils/aiInteractionMemory')
@@ -1391,11 +1383,9 @@ export const useChatAI = (
             // 延迟300ms后添加系统消息
             await new Promise(resolve => setTimeout(resolve, 300))
             
-            // 🔥 先保存到存储，再更新React状态
-            const currentMsgs3 = loadMessages(chatId)
-            saveMessages(chatId, [...currentMsgs3, systemMessage])
-            setMessages(prev => [...prev, systemMessage])
-            console.log(`💾 [朋友圈互动] 系统消息已保存到IndexedDB: ${systemContent}`)
+            // 🔥 使用 addMessage 保存（带锁机制，防止竞态）
+            saveMessageToStorage(chatId, systemMessage)
+            console.log(`💾 [朋友圈互动] 系统消息已保存: ${systemContent}`)
             
             // 🔥 只在线上模式显示通知弹窗，线下模式不显示
             if (currentSceneMode !== 'offline') {
@@ -1500,6 +1490,26 @@ export const useChatAI = (
       let aiMessagesList: string[]
       console.log('🔥🔥🔥 [消息处理] cleanedMessage:', cleanedMessage.substring(0, 100))
       
+      // 🔥 读取消息延迟设置
+      let messageDelayConfig = { enabled: false, minDelay: 1, maxDelay: 3 }
+      if (chatSettingsRaw) {
+        try {
+          const parsed = JSON.parse(chatSettingsRaw)
+          if (parsed.messageDelay) {
+            messageDelayConfig = parsed.messageDelay
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      
+      // 🔥 第一条消息前的延迟（模拟打字中）
+      if (messageDelayConfig.enabled) {
+        const firstDelay = messageDelayConfig.minDelay + Math.random() * (messageDelayConfig.maxDelay - messageDelayConfig.minDelay)
+        console.log(`⏱️ [消息延迟] 第一条消息前延迟 ${firstDelay.toFixed(1)} 秒`)
+        await new Promise(resolve => setTimeout(resolve, firstDelay * 1000))
+      }
+      
       // 🔥 非流式模式空回复检查
       if (!cleanedMessage || !cleanedMessage.trim()) {
         console.warn('⚠️ [非流式] AI返回空回复')
@@ -1571,10 +1581,8 @@ export const useChatAI = (
                     ...createMessage(result.systemMessage.content, 'system'),
                     messageType: 'system'
                   }
-                  // 保存系统消息
-                  const currentMsgs = loadMessages(chatId)
-                  saveMessages(chatId, [...currentMsgs, sysMsg])
-                  setMessages(prev => [...prev, sysMsg])
+                  // 🔥 使用 addMessage 保存（带锁机制，防止竞态）
+                  saveMessageToStorage(chatId, sysMsg)
                   console.log(`🐾 [系统消息] ${result.systemMessage.content}`)
                 }
                 
@@ -1634,21 +1642,22 @@ export const useChatAI = (
             console.log('🚫 消息已标记为被拉黑状态')
           }
           
-          // 🔥 修复：移除不合理的语音延迟逻辑
-          // 之前的逻辑会让每条消息发送前等待1-8秒，导致"打字速度变慢"
-          // 语音播放应该在消息显示后异步进行，不应该阻塞消息发送
-          const messageDelay = 300 // 统一使用较短的默认延迟
-          await new Promise(resolve => setTimeout(resolve, messageDelay))
+          // 🔥 多条消息之间的延迟
+          let msgDelay = 300 // 默认300ms
+          if (messageDelayConfig.enabled && i > 0) {
+            // 后续消息使用配置的延迟（稍短一点，因为第一条已经等过了）
+            msgDelay = (messageDelayConfig.minDelay * 0.5 + Math.random() * (messageDelayConfig.maxDelay - messageDelayConfig.minDelay) * 0.5) * 1000
+            console.log(`⏱️ [消息延迟] 第${i+1}条消息延迟 ${(msgDelay/1000).toFixed(1)} 秒`)
+          }
+          await new Promise(resolve => setTimeout(resolve, msgDelay))
           
-          // 🔥 关键修复：先保存到存储，再更新React状态
-          // 这样即使用户离开页面（组件卸载），消息也能正确保存
-          const currentMessages = loadMessages(chatId)
-          const updatedMessages = [...currentMessages, aiMessage]
-          console.log(`📱 [useChatAI] 保存消息, 当前消息数=${currentMessages.length}, 新AI消息id=${aiMessage.id}`)
-          saveMessages(chatId, updatedMessages)
+          // 🔥🔥🔥 关键修复：使用 addMessage（带锁机制）防止多条消息保存时的竞态条件
+          // 之前的问题：多条AI消息快速保存时，loadMessages 可能读到旧数据，导致消息丢失
+          console.log(`📱 [useChatAI] 保存AI消息, id=${aiMessage.id}`)
+          saveMessageToStorage(chatId, aiMessage)
           
-          // 更新React状态（如果组件还在）
-          setMessages(prev => [...prev, aiMessage])
+          // 🔥 不再手动更新React状态，saveMessageToStorage 会触发 new-message 事件
+          // useChatState 监听该事件并自动更新状态，避免重复添加
           
           // 播放消息通知音效
           playMessageNotifySound()

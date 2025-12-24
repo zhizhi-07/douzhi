@@ -52,7 +52,7 @@ interface ChatSummary {
  * 获取角色的最近聊天记录摘要（用于编排关系，不能公开透露）
  * 同时读取微信聊天和论坛私聊，标注来源
  */
-function getRecentChatSummary(characterId: string, limit: number = 20): ChatSummary {
+function getRecentChatSummary(characterId: string, characterName: string, userName: string, limit: number = 20): ChatSummary {
   const allMessages: { source: string; sender: string; content: string; timestamp: number }[] = []
   
   try {
@@ -63,9 +63,10 @@ function getRecentChatSummary(characterId: string, limit: number = 20): ChatSumm
         .filter((m: Message) => !m.messageType || m.messageType === 'text')
         .slice(-limit)
         .forEach((m: Message) => {
+          // 🔥 修复：用具体名字标识发送者，避免AI混淆谁说的话
           allMessages.push({
             source: '微信',
-            sender: m.type === 'sent' ? '用户' : 'AI',
+            sender: m.type === 'sent' ? `${userName}（用户）` : `${characterName}（你）`,
             content: m.content?.substring(0, 50) || '',
             timestamp: m.timestamp || 0
           })
@@ -81,9 +82,10 @@ function getRecentChatSummary(characterId: string, limit: number = 20): ChatSumm
         .filter(m => m.type === 'text')
         .slice(-limit)
         .forEach(m => {
+          // 🔥 修复：用具体名字标识发送者
           allMessages.push({
             source: '论坛',
-            sender: m.isFromUser ? '用户' : 'AI',
+            sender: m.isFromUser ? `${userName}（用户）` : `${characterName}（你）`,
             content: m.content?.substring(0, 50) || '',
             timestamp: m.timestamp || 0
           })
@@ -98,8 +100,8 @@ function getRecentChatSummary(characterId: string, limit: number = 20): ChatSumm
   const recentMessages = allMessages.slice(0, limit)
   
   // 找到AI最后回复和用户最后回复的时间
-  const aiMessages = allMessages.filter(m => m.sender === 'AI')
-  const userMessages = allMessages.filter(m => m.sender === '用户')
+  const aiMessages = allMessages.filter(m => m.sender.includes('（你）'))
+  const userMessages = allMessages.filter(m => m.sender.includes('（用户）'))
   const aiLastReplyTime = aiMessages.length > 0 ? aiMessages[0].timestamp : null
   const userLastReplyTime = userMessages.length > 0 ? userMessages[0].timestamp : null
   
@@ -134,7 +136,8 @@ function buildActorsForPrompt(characters: Character[], userName: string = '用�
         userInfo
       })
       // 获取最近聊天记录（用于编排关系）- 至少20条
-      const chatSummary = getRecentChatSummary(c.id, 20)
+      // 🔥 传入角色名和用户名，让AI能清楚区分谁说的话
+      const chatSummary = getRecentChatSummary(c.id, charName, userName, 20)
       
       return {
         id: c.id,

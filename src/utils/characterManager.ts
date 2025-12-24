@@ -6,6 +6,7 @@
 
 import type { Character } from '../services/characterService'
 import * as IDB from './indexedDBManager'
+import { getCoupleSpaceRelation, endCoupleSpaceRelation, removeFamilyMember, isMemberInFamily } from './coupleSpaceUtils'
 
 // 内存缓存
 let characterCache: Character[] | null = null
@@ -205,7 +206,26 @@ export async function deleteCharacter(id: string): Promise<void> {
     console.log(`✅ 已删除 localStorage 键: ${key}`)
   })
   
-  // 5. 触发事件通知聊天列表刷新
+  // 5. 清理情侣空间关系（如果该角色有关联的情侣空间）
+  try {
+    const relation = getCoupleSpaceRelation()
+    if (relation) {
+      // 检查是否是主角色
+      if (relation.characterId === id) {
+        await endCoupleSpaceRelation()
+        console.log(`✅ 已清理角色 ${id} 的情侣空间关系`)
+      } 
+      // 检查是否在多成员列表中
+      else if (isMemberInFamily(id)) {
+        await removeFamilyMember(id)
+        console.log(`✅ 已从情侣空间移除成员 ${id}`)
+      }
+    }
+  } catch (error) {
+    console.error('清理情侣空间关系失败:', error)
+  }
+  
+  // 6. 触发事件通知聊天列表刷新
   window.dispatchEvent(new Event('character-deleted'))
   window.dispatchEvent(new Event('storage'))
   

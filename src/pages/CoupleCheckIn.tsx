@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
 import { 
   getCheckInStats, 
   doCheckIn, 
@@ -216,7 +217,9 @@ const CoupleCheckIn = () => {
       <style>{shakeKeyframes}</style>
       
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#fffbf5]/90 backdrop-blur-sm px-4 py-3 flex items-center justify-between border-b border-[#ebdccb]">
+      <div className="sticky top-0 z-10 bg-[#fffbf5]/90 backdrop-blur-sm border-b border-[#ebdccb]">
+        <StatusBar />
+        <div className="px-4 py-3 flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-[#8b7355]">
           <Icons.Back className="w-6 h-6" />
         </button>
@@ -229,6 +232,7 @@ const CoupleCheckIn = () => {
            <span className="text-lg font-bold text-[#8b7355]">情侣打卡</span>
         </div>
         <div className="w-10" />
+        </div>
       </div>
 
       <div className="p-5 flex flex-col gap-6">

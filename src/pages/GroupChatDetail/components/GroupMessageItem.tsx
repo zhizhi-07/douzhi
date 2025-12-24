@@ -13,6 +13,7 @@ interface GroupMessageItemProps {
   isSent: boolean
   displayName: string
   onLongPressStart: (msg: GroupMessage, e: React.TouchEvent | React.MouseEvent) => void
+  onLongPressMove?: (e: React.TouchEvent | React.MouseEvent) => void
   onLongPressEnd: () => void
   onQuoteMessage: (msg: GroupMessage) => void
   onOpenRedPacket: (messageId: number) => void
@@ -37,6 +38,7 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
   isSent,
   displayName,
   onLongPressStart,
+  onLongPressMove,
   onLongPressEnd,
   onQuoteMessage,
   onOpenRedPacket,
@@ -125,8 +127,10 @@ const GroupMessageItem: React.FC<GroupMessageItemProps> = ({
         
         <div
           onTouchStart={(e) => onLongPressStart(msg, e)}
+          onTouchMove={onLongPressMove}
           onTouchEnd={onLongPressEnd}
           onMouseDown={(e) => onLongPressStart(msg, e)}
+          onMouseMove={onLongPressMove}
           onMouseUp={onLongPressEnd}
           onMouseLeave={onLongPressEnd}
         >

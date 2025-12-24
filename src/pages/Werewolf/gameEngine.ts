@@ -12,7 +12,32 @@ export interface SelectedCharacter {
   id: string;
   name: string;
   avatar: string;
+  isNPC?: boolean;
 }
+
+// NPC名字池
+const NPC_NAMES = [
+  '路人甲', '路人乙', '路人丙', '路人丁', '路人戊',
+  '小明', '小红', '小刚', '小丽', '小华',
+  '阿强', '阿珍', '阿杰', '阿美', '阿龙'
+];
+
+// 生成NPC角色
+export const generateNPCs = (count: number, excludeNames: string[]): SelectedCharacter[] => {
+  const availableNames = NPC_NAMES.filter(n => !excludeNames.includes(n));
+  const npcs: SelectedCharacter[] = [];
+  
+  for (let i = 0; i < count && i < availableNames.length; i++) {
+    npcs.push({
+      id: `npc_${i}_${Date.now()}`,
+      name: availableNames[i],
+      avatar: '', // NPC不使用头像，在UI中显示名字首字
+      isNPC: true
+    });
+  }
+  
+  return npcs;
+};
 
 export const initializeGameWithCharacters = (
   selectedCharacters: SelectedCharacter[],
@@ -33,7 +58,7 @@ export const initializeGameWithCharacters = (
   players.push({
     id: 'user',
     name: userName || '我',
-    avatar: userAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
+    avatar: userAvatar, // 如果为空，就让UI层去渲染首字，而不是强制使用DiceBear
     role: roles[0],
     isAlive: true,
     isUser: true
@@ -44,7 +69,7 @@ export const initializeGameWithCharacters = (
     players.push({
       id: char.id,
       name: char.name,
-      avatar: char.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${char.name}`,
+      avatar: char.avatar || '', // 移除DiceBear回退，强制使用空字符串以触发首字头像
       role: roles[index + 1],
       isAlive: true,
       isUser: false

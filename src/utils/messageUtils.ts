@@ -225,8 +225,8 @@ export const convertToApiMessages = (
       return true
     }
     
-    // 🔥 线上模式：过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结
-    if (msg.sceneMode === 'offline' && msg.messageType !== 'offline-summary') {
+    // 🔥 线上模式：过滤掉原始线下对话（sceneMode === 'offline'），只保留线下总结和章节标记
+    if (msg.sceneMode === 'offline' && msg.messageType !== 'offline-summary' && msg.messageType !== 'topic-start') {
       console.log('🚫 [线上模式] 跳过线下对话:', msg.content?.substring(0, 30))
       return false
     }

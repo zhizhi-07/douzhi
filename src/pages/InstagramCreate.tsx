@@ -5,7 +5,7 @@ import StatusBar from '../components/StatusBar'
 import InstagramLayout from '../components/InstagramLayout'
 import { getAllCharacters } from '../utils/characterManager'
 import { incrementPosts, incrementFollowers } from '../utils/forumUser'
-import { getAllPosts, getAllPostsAsync, savePosts, getAllNPCs, saveNPCs } from '../utils/forumNPC'
+import { getAllPostsAsync, savePosts, getAllNPCs, saveNPCs, addSinglePost } from '../utils/forumNPC'
 import { generateRealAIComments } from '../utils/forumAIComments'
 import { getPostComments } from '../utils/forumCommentsDB'
 import { sendDMToUser } from '../utils/instagramDM'
@@ -74,7 +74,6 @@ const InstagramCreate = () => {
     }
 
     // 创建用户帖子
-    const posts = await getAllPostsAsync()
     const postId = `user-post-${Date.now()}`
     const newPost = {
       id: postId,
@@ -92,8 +91,12 @@ const InstagramCreate = () => {
       music: music || undefined
     }
 
-    posts.unshift(newPost)
-    await savePosts(posts)
+    // 🔥 使用安全的单帖子添加函数，不会清空所有数据
+    const success = await addSinglePost(newPost)
+    if (!success) {
+      alert('发帖失败，请重试')
+      return
+    }
 
     // 更新用户统计
     incrementPosts()

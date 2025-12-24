@@ -9,9 +9,11 @@ export const useScrollControl = (
   isAiTyping: boolean,
   hasMoreMessages: boolean,
   isLoadingMessages: boolean,
-  loadMoreMessages: () => void
+  loadMoreMessages: () => void,
+  chatId?: string
 ) => {
   const isInitialLoadRef = useRef(true)
+  const currentChatIdRef = useRef(chatId)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const isNearBottomRef = useRef(true)
   const previousMessageCountRef = useRef(messages.length)
@@ -63,6 +65,15 @@ export const useScrollControl = (
       container.scrollTop = targetScrollTop
     }
   }, [])
+
+  // 🔥 聊天ID变化时重置初始加载标记
+  useEffect(() => {
+    if (chatId && chatId !== currentChatIdRef.current) {
+      console.log('📜 [滚动] 聊天ID变化，重置初始加载标记', { old: currentChatIdRef.current, new: chatId })
+      isInitialLoadRef.current = true
+      currentChatIdRef.current = chatId
+    }
+  }, [chatId])
 
   // 初始加载时立即跳到底部
   useEffect(() => {
@@ -134,20 +145,24 @@ export const useScrollControl = (
       requestAnimationFrame(() => {
         forceScrollToBottom()
         
-        // 🔥 再次延迟滚动，确保"加载更多"按钮渲染后滚动位置正确
+        // 🔥 多次延迟滚动，确保各种异步内容渲染后滚动位置正确
         setTimeout(() => {
           forceScrollToBottom()
           
-          // 显示容器
-          container.style.visibility = 'visible'
-          container.classList.add('enable-smooth')
-          
-          // 标记初始化完成
-          isInitialLoadRef.current = false
-          console.log('📜 [初始化] 完成，启用加载更多检测')
+          setTimeout(() => {
+            forceScrollToBottom()
+            
+            // 显示容器
+            container.style.visibility = 'visible'
+            container.classList.add('enable-smooth')
+            
+            // 标记初始化完成
+            isInitialLoadRef.current = false
+            console.log('📜 [初始化] 完成，启用加载更多检测')
+          }, 150)
         }, 100)
       })
-    }, 50)
+    }, 80)
     
     return () => clearTimeout(scrollTimer)
   }, [messages.length]) // 🔥 只依赖消息数量，避免频繁触发

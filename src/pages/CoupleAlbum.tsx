@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
 import { getCouplePhotos, addCouplePhoto, deleteCouplePhoto, type CoupleAlbumPhoto } from '../utils/coupleSpaceContentUtils'
 import { getCoupleSpaceRelation } from '../utils/coupleSpaceUtils'
 import { compressImage } from '../utils/imageCompression'
@@ -137,7 +138,8 @@ const CoupleAlbum = () => {
   return (
     <div className="h-screen flex flex-col bg-[#fffbf5] font-sans text-[#5d4037]">
       {/* Header */}
-      <div className="pt-[env(safe-area-inset-top)] bg-[#fffbf5] z-10">
+      <div className="bg-[#fffbf5] z-10">
+        <StatusBar />
         <div className="flex items-center justify-between px-4 h-14">
           <button 
             onClick={() => navigate('/couple-space')}

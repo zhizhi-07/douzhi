@@ -4,6 +4,7 @@
 
 import { savePhotoToDB, getAllPhotosFromDB, type PhotoRecord } from './couplePhotosDB'
 import { getPeriodData, getDayStatus } from './couplePeriodUtils'
+import { getCoupleSpaceMode } from './coupleSpaceUtils'
 
 export interface CoupleAlbumPhoto {
   id: string
@@ -144,10 +145,13 @@ export const getCouplePhotos = async (characterId?: string): Promise<CoupleAlbum
     // 4. 按时间倒序排序
     allPhotos.sort((a, b) => b.timestamp - a.timestamp)
 
-    // 5. 按角色过滤
-    if (characterId) {
-      allPhotos = allPhotos.filter(p => p.characterId === characterId)
+    // 5. 根据模式决定是否按角色过滤
+    const mode = getCoupleSpaceMode()
+    if (mode === 'independent' && characterId) {
+      // 独立模式：只返回指定角色的照片和用户上传的
+      allPhotos = allPhotos.filter(p => p.characterId === characterId || p.uploaderName === '我')
     }
+    // 公共模式：返回所有照片
     
     return allPhotos
   } catch (error) {
@@ -165,9 +169,11 @@ export const getCouplePhotosSync = (characterId?: string): CoupleAlbumPhoto[] =>
     if (!data) return []
     
     const photos: CoupleAlbumPhoto[] = JSON.parse(data)
+    const mode = getCoupleSpaceMode()
     
-    if (characterId) {
-      return photos.filter(p => p.characterId === characterId)
+    // 独立模式：只返回指定角色的照片和用户上传的
+    if (mode === 'independent' && characterId) {
+      return photos.filter(p => p.characterId === characterId || p.uploaderName === '我')
     }
     
     return photos
@@ -233,9 +239,12 @@ export const getCoupleMessages = (characterId?: string): CoupleMessage[] => {
     if (!data) return []
     
     const messages: CoupleMessage[] = JSON.parse(data)
+    const mode = getCoupleSpaceMode()
     
-    if (characterId) {
-      return messages.filter(m => m.characterId === characterId)
+    // 独立模式：只返回指定角色的留言
+    // 公共模式：返回所有留言
+    if (mode === 'independent' && characterId) {
+      return messages.filter(m => m.characterId === characterId || m.characterName === '我')
     }
     
     return messages
@@ -293,8 +302,11 @@ export const getCoupleAnniversaries = (characterId?: string): CoupleAnniversary[
     if (!data) return []
     
     const anniversaries: CoupleAnniversary[] = JSON.parse(data)
+    const mode = getCoupleSpaceMode()
     
-    if (characterId) {
+    // 独立模式：只返回指定角色的纪念日
+    // 公共模式：返回所有纪念日
+    if (mode === 'independent' && characterId) {
       return anniversaries.filter(a => a.characterId === characterId)
     }
     
@@ -369,7 +381,7 @@ export const getCoupleSpaceContentSummary = (characterId: string): string => {
     })
   }
   
-  // 心情日记不在这里显示，AI通过聊天记录中的系统消息可见
+  // 心情日记通过系统提示让AI知道，不在这里单独列出
   
   // 所有纪念日
   if (anniversaries.length > 0) {

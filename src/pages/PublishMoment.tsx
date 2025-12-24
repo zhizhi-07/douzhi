@@ -13,6 +13,7 @@ import { characterService } from '../services/characterService'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import type { Message } from '../types/chat'
+import { loadMomentsGroups, type MomentsGroup } from '../utils/momentsGroupManager'
 
 export default function PublishMoment() {
   const navigate = useNavigate()
@@ -22,9 +23,19 @@ export default function PublishMoment() {
   const [showLocationInput, setShowLocationInput] = useState(false)
   const [showMentionSelect, setShowMentionSelect] = useState(false)
   const [mentions, setMentions] = useState<string[]>([])
-  const [showPrivacySelect, setShowPrivacySelect] = useState(false)
-  const [privacy, setPrivacy] = useState<'public' | 'private' | 'selected'>('public')  // public=公开, private=仅自己, selected=部分可见
-  const [visibleTo, setVisibleTo] = useState<string[]>([])  // 可见的人ID列表
+  // 从localStorage读取预选的圈子ID
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
+    // 优先读取专门传过来的ID（如果有的话）
+    const savedForPublish = localStorage.getItem('publish_moment_circle_id')
+    if (savedForPublish) {
+      localStorage.removeItem('publish_moment_circle_id')  // 读取后清除
+      return savedForPublish
+    }
+    // 否则读取当前全局选中的圈子
+    return localStorage.getItem('moments_selected_circle') || ''
+  })
+  const [groups, setGroups] = useState<MomentsGroup[]>(loadMomentsGroups())
+  const [showGroupSelect, setShowGroupSelect] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const allCharacters = characterService.getAll()
@@ -71,6 +82,18 @@ export default function PublishMoment() {
     setImages(prev => prev.filter(img => img.id !== imageId))
   }
 
+  // 圈子选择处理
+  const handleGroupSelect = (groupId: string) => {
+    setSelectedGroupId(groupId)
+    // 同步更新朋友圈的圈子选择状态，这样返回后能看到发布的动态
+    if (groupId) {
+      localStorage.setItem('moments_selected_circle', groupId)
+    } else {
+      localStorage.removeItem('moments_selected_circle')
+    }
+    setShowGroupSelect(false)
+  }
+
   const handlePublish = async () => {
     if (!content.trim() && images.length === 0) {
       alert('请输入内容或选择图片')
@@ -78,14 +101,29 @@ export default function PublishMoment() {
     }
 
     try {
+      // 简化：选了圈子就只对圈子里的人可见，没选就公开
+      let finalVisibleTo: string[] = []
+      let finalGroupId: string | undefined = undefined
+      let finalPrivacy: 'public' | 'private' | 'selected' | 'group' = 'public'
+      
+      if (selectedGroupId) {
+        const group = groups.find(g => g.id === selectedGroupId)
+        if (group) {
+          finalVisibleTo = group.characterIds
+          finalGroupId = selectedGroupId
+          finalPrivacy = 'group'
+        }
+      }
+      
       const newMoment = await publishMoment(
         currentUser,
         content.trim(),
         images,
         location.trim() || undefined,
         mentions.length > 0 ? mentions : undefined,
-        privacy,
-        visibleTo.length > 0 ? visibleTo : undefined
+        finalPrivacy,
+        finalVisibleTo.length > 0 ? finalVisibleTo : undefined,
+        finalGroupId
       )
 
       const momentText = content.trim() || '[纯图片]'
@@ -93,7 +131,12 @@ export default function PublishMoment() {
       const locationText = location.trim() ? ` 📍${location.trim()}` : ''
       const mentionsText = mentions.length > 0 ? ` @${mentions.join(' @')}` : ''
 
-      allCharacters.forEach(char => {
+      // 只通知可见的角色
+      const visibleCharacters = finalVisibleTo.length > 0
+        ? allCharacters.filter(c => finalVisibleTo.includes(c.id))
+        : allCharacters
+      
+      visibleCharacters.forEach(char => {
         const chatId = char.id
         const messages = loadMessages(chatId)
         const momentMsg: Message = {
@@ -107,6 +150,8 @@ export default function PublishMoment() {
         messages.push(momentMsg)
         saveMessages(chatId, messages)
       })
+      
+      console.log(`📱 朋友圈可见范围: ${finalVisibleTo.length > 0 ? `${visibleCharacters.length}人` : '所有人'}`)
 
       triggerAIMomentsInteraction(newMoment)
       navigate('/moments')
@@ -239,78 +284,6 @@ export default function PublishMoment() {
                 )}
               </div>
             )}
-
-            {/* 隐私设置 */}
-            {showPrivacySelect && (
-              <div className="animate-in slide-in-from-top-2 duration-200">
-                <div className="text-xs text-slate-400 mb-3 font-medium tracking-widest uppercase">谁可以看</div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <button
-                    onClick={() => { setPrivacy('public'); setVisibleTo([]) }}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'public'
-                        ? 'bg-slate-800 text-white shadow-md'
-                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
-                      }`}
-                  >
-                    🌐 公开
-                  </button>
-                  <button
-                    onClick={() => setPrivacy('selected')}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'selected'
-                        ? 'bg-slate-800 text-white shadow-md'
-                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
-                      }`}
-                  >
-                    👥 部分可见
-                  </button>
-                  <button
-                    onClick={() => { setPrivacy('private'); setVisibleTo([]) }}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${privacy === 'private'
-                        ? 'bg-slate-800 text-white shadow-md'
-                        : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
-                      }`}
-                  >
-                    🔒 仅自己
-                  </button>
-                </div>
-                {/* 部分可见时选择可见的人 */}
-                {privacy === 'selected' && (
-                  <div className="mt-3">
-                    <div className="text-xs text-slate-400 mb-2">选择可见的人</div>
-                    <div className="flex flex-wrap gap-2">
-                      {allCharacters.map(char => (
-                        <button
-                          key={char.id}
-                          onClick={() => {
-                            if (visibleTo.includes(char.id)) {
-                              setVisibleTo(prev => prev.filter(id => id !== char.id))
-                            } else {
-                              setVisibleTo(prev => [...prev, char.id])
-                            }
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${visibleTo.includes(char.id)
-                              ? 'bg-green-500 text-white shadow-md'
-                              : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-white/40'
-                            }`}
-                        >
-                          {char.avatar?.startsWith('data:') || char.avatar?.startsWith('http') ? (
-                            <img src={char.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                          ) : (
-                            <span>{char.avatar || '👤'}</span>
-                          )}
-                          {char.realName}
-                        </button>
-                      ))}
-                    </div>
-                    {visibleTo.length > 0 && (
-                      <div className="mt-2 text-xs text-slate-500">
-                        已选 {visibleTo.length} 人可见
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -326,6 +299,23 @@ export default function PublishMoment() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="text-sm font-medium">图片</span>
+          </button>
+
+          {/* 圈子按钮 */}
+          <button
+            onClick={() => {
+              setGroups(loadMomentsGroups())
+              setShowGroupSelect(true)
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${selectedGroupId
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
+              }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span>{selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name || '圈子' : '圈子'}</span>
           </button>
 
           <button
@@ -354,19 +344,6 @@ export default function PublishMoment() {
             </svg>
             <span>提醒</span>
           </button>
-
-          <button
-            onClick={() => setShowPrivacySelect(!showPrivacySelect)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all border shadow-sm active:scale-95 flex-shrink-0 ${showPrivacySelect || privacy !== 'public'
-                ? 'bg-slate-100 text-slate-700 border-slate-200'
-                : 'bg-white/50 text-slate-600 hover:bg-white/80 border-white/40'
-              }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <span>{privacy === 'public' ? '公开' : privacy === 'private' ? '仅自己' : '部分可见'}</span>
-          </button>
         </div>
       </div>
 
@@ -379,6 +356,93 @@ export default function PublishMoment() {
         onChange={handleImageSelect}
         className="hidden"
       />
+
+      {/* 圈子选择弹窗 */}
+      {showGroupSelect && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowGroupSelect(false)}
+          />
+          <div className="relative w-full max-h-[60vh] bg-white rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+            <div className="p-4 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-800">选择圈子</h3>
+                <button
+                  onClick={() => setShowGroupSelect(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">选择后只有圈子里的人能看到这条朋友圈</p>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(60vh-80px)] p-4 space-y-2">
+              <div className="space-y-2">
+                {/* 公开选项 */}
+                <button
+                  onClick={() => handleGroupSelect('')}
+                  className={`w-full p-4 rounded-xl flex items-center justify-between transition-all ${!selectedGroupId
+                      ? 'bg-slate-800 text-white shadow-md transform scale-[1.02]'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-100'
+                    }`}
+                >
+                  <div className="flex flex-col items-start gap-0.5">
+                    <div className="text-sm font-semibold">公开</div>
+                    <div className={`text-xs ${!selectedGroupId ? 'text-slate-300' : 'text-slate-400'}`}>所有人可见</div>
+                  </div>
+                  {!selectedGroupId && (
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+
+                <div className="h-px bg-slate-100 my-2" />
+
+                {/* 圈子列表 */}
+                {groups.length > 0 ? (
+                  groups.map(group => (
+                    <button
+                      key={group.id}
+                      onClick={() => handleGroupSelect(group.id)}
+                      className={`w-full p-4 rounded-xl flex items-center justify-between transition-all ${selectedGroupId === group.id
+                          ? 'bg-slate-800 text-white shadow-md transform scale-[1.02]'
+                          : 'bg-white hover:bg-slate-50 border border-slate-100'
+                        }`}
+                    >
+                      <div className="flex-1 flex flex-col items-start gap-0.5 min-w-0">
+                        <div className={`text-sm font-semibold ${selectedGroupId === group.id ? 'text-white' : 'text-slate-700'}`}>
+                          {group.name}
+                        </div>
+                        <div className={`text-xs truncate w-full text-left ${selectedGroupId === group.id ? 'text-slate-300' : 'text-slate-400'}`}>
+                          {group.characterIds.map(id => {
+                            const char = allCharacters.find(c => c.id === id)
+                            return char?.realName || id
+                          }).join('、')}
+                        </div>
+                      </div>
+                      {selectedGroupId === group.id && (
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-slate-400">
+                    <p className="text-sm">暂无圈子</p>
+                    <p className="text-xs mt-1">请先在朋友圈页面创建圈子</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

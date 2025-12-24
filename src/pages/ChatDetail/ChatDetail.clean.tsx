@@ -76,13 +76,29 @@ const ChatDetail = () => {
   // 初始加载时直接跳到底部
   useEffect(() => {
     if (isInitialLoadRef.current && chatState.messages.length > 0) {
-      setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
-          scrollContainerRef.current.classList.add('enable-smooth')
+      const container = scrollContainerRef.current
+      if (!container) return
+      
+      // 先隐藏，避免闪烁
+      container.style.visibility = 'hidden'
+      
+      const scrollToEnd = () => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
         }
-      }, 0)
-      isInitialLoadRef.current = false
+      }
+      
+      // 等待DOM渲染完成后滚动
+      requestAnimationFrame(() => {
+        scrollToEnd()
+        // 再延迟一次确保图片等异步内容加载
+        setTimeout(() => {
+          scrollToEnd()
+          container.style.visibility = 'visible'
+          container.classList.add('enable-smooth')
+          isInitialLoadRef.current = false
+        }, 100)
+      })
     }
   }, [chatState.messages])
   
@@ -164,11 +180,16 @@ const ChatDetail = () => {
   
   const character = chatState.character
   
+  // 调试：检查角色头像
+  console.log('🖼️ [ChatDetail] character.avatar:', character.avatar ? character.avatar.substring(0, 50) + '...' : '无')
+  
   return (
     <div className="h-screen flex flex-col bg-[#f5f7fa]">
       {/* 头部导航栏 */}
       <ChatHeader
         characterName={character.nickname || character.realName}
+        characterId={character.id}
+        characterAvatar={character.avatar}
         isAiTyping={chatAI.isAiTyping}
       />
       

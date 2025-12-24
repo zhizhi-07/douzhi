@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { BackIcon } from '../../components/Icons';
 import { 
   initializeGameWithCharacters, 
-  checkGameOver
+  checkGameOver,
+  generateNPCs
 } from './gameEngine';
 import { 
   GameState, 
@@ -13,6 +14,7 @@ import {
 } from './types';
 import { generateDayDiscussions } from './aiService';
 import { characterService, Character } from '../../services/characterService';
+import { getUserInfoWithAvatar } from '../../utils/userUtils';
 
 // 游戏阶段
 type GameStage = 'character_select' | 'dealing' | 'playing';
@@ -77,14 +79,11 @@ const WerewolfGame = () => {
       
       // 获取用户头像
       try {
-        const savedUserInfo = localStorage.getItem('userInfo');
-        if (savedUserInfo) {
-          const info = JSON.parse(savedUserInfo);
-          setUserInfo({
-            name: info.realName || info.nickname || '我',
-            avatar: info.avatar || ''
-          });
-        }
+        const info = await getUserInfoWithAvatar();
+        setUserInfo({
+          name: info.realName || info.nickname || '我',
+          avatar: info.avatar || ''
+        });
       } catch (e) {
         console.error('获取用户信息失败', e);
       }
@@ -156,14 +155,25 @@ const WerewolfGame = () => {
 
   // 开始游戏
   const startGame = () => {
-    if (selectedCharacters.length !== 5) return;
+    if (selectedCharacters.length < 1) return;
+    
+    // 将选择的角色转换为游戏角色
+    const gameCharacters = selectedCharacters.map(c => ({
+      id: c.id,
+      name: c.realName,
+      avatar: c.avatar || ''
+    }));
+    
+    // 如果不足5人，用NPC补充
+    const npcCount = 5 - gameCharacters.length;
+    if (npcCount > 0) {
+      const existingNames = gameCharacters.map(c => c.name);
+      const npcs = generateNPCs(npcCount, existingNames);
+      gameCharacters.push(...npcs);
+    }
     
     const newGame = initializeGameWithCharacters(
-      selectedCharacters.map(c => ({
-        id: c.id,
-        name: c.realName,
-        avatar: c.avatar || ''
-      })),
+      gameCharacters,
       userInfo.name,
       userInfo.avatar
     );
@@ -180,38 +190,54 @@ const WerewolfGame = () => {
   // --- 角色选择界面 ---
   if (stage === 'character_select') {
     return (
-      <div className="h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 text-white flex flex-col">
+      <div className="h-screen bg-[#0a0a0a] text-gray-200 flex flex-col relative overflow-hidden">
+        {/* 背景纹理 */}
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none" />
+        
         {/* 顶部 */}
-        <div className="p-4 flex items-center border-b border-white/10">
+        <div className="p-4 flex items-center border-b border-white/5 bg-black/20 backdrop-blur-sm z-10">
           <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white mr-4">
             <BackIcon />
           </button>
           <div>
             <h1 className="text-xl font-bold">🐺 狼人杀</h1>
-            <p className="text-xs text-gray-400">选择5位角色一起玩</p>
+            <p className="text-xs text-gray-400">选择1-5位角色，其余NPC补位</p>
           </div>
         </div>
 
         {/* 已选择的角色 */}
-        <div className="p-4 bg-black/30">
-          <div className="text-sm text-gray-400 mb-2">已选择 ({selectedCharacters.length}/5)</div>
-          <div className="flex gap-3 min-h-[60px]">
+        <div className="p-6 bg-[#111]/80 backdrop-blur-md border-b border-white/5 z-10">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 flex justify-between items-center">
+            <span>Selected Team ({selectedCharacters.length}/5)</span>
+            {selectedCharacters.length > 0 && (
+              <span className="text-amber-500/80 text-[10px]">点击头像移除</span>
+            )}
+          </div>
+          <div className="flex gap-4 min-h-[70px] overflow-x-auto pb-2 scrollbar-hide">
             {selectedCharacters.map(char => (
               <div 
                 key={char.id} 
                 onClick={() => toggleCharacter(char)}
-                className="relative cursor-pointer"
+                className="relative cursor-pointer group flex-shrink-0"
               >
-                <img 
-                  src={char.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${char.realName}`} 
-                  className="w-12 h-12 rounded-full border-2 border-purple-500"
-                />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-xs">×</div>
+                <div className="w-14 h-14 rounded-full border border-amber-500/30 p-0.5 group-hover:border-red-500/50 transition-colors">
+                  {char.avatar ? (
+                    <img 
+                      src={char.avatar} 
+                      className="w-full h-full rounded-full object-cover grayscale-[30%]"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-300 font-bold text-lg">
+                      {char.realName.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-900/90 text-red-200 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity border border-red-500/30">×</div>
               </div>
             ))}
             {Array(5 - selectedCharacters.length).fill(0).map((_, i) => (
-              <div key={i} className="w-12 h-12 rounded-full border-2 border-dashed border-gray-600 flex items-center justify-center text-gray-600">
-                ?
+              <div key={i} className="w-14 h-14 rounded-full border border-dashed border-white/10 flex items-center justify-center text-gray-700 bg-white/5 flex-shrink-0">
+                <span className="text-xl opacity-20">?</span>
               </div>
             ))}
           </div>
@@ -226,24 +252,41 @@ const WerewolfGame = () => {
               <div className="text-sm mt-2">先去聊天页面创建一些角色吧~</div>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 pb-20">
               {availableCharacters.map(char => {
                 const isSelected = selectedCharacters.find(c => c.id === char.id);
                 return (
                   <div 
                     key={char.id}
                     onClick={() => toggleCharacter(char)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all
+                    className={`p-3 rounded-lg border cursor-pointer transition-all duration-300 group relative overflow-hidden
                       ${isSelected 
-                        ? 'bg-purple-500/20 border-purple-500' 
-                        : 'bg-white/5 border-white/10 hover:bg-white/10'}
+                        ? 'bg-amber-900/10 border-amber-500/50 shadow-[0_0_15px_-3px_rgba(245,158,11,0.1)]' 
+                        : 'bg-[#161616] border-white/5 hover:border-white/20 hover:bg-[#1a1a1a]'}
                     `}
                   >
-                    <img 
-                      src={char.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${char.realName}`}
-                      className="w-full aspect-square rounded-lg object-cover mb-2"
-                    />
-                    <div className="text-sm font-medium truncate text-center">{char.realName}</div>
+                    <div className="relative aspect-square mb-3 overflow-hidden rounded-md bg-[#0a0a0a]">
+                      {char.avatar ? (
+                        <img 
+                          src={char.avatar}
+                          className={`w-full h-full object-cover transition-all duration-500
+                            ${isSelected ? 'grayscale-0 scale-105' : 'grayscale-[40%] group-hover:grayscale-0 group-hover:scale-105'}
+                          `}
+                        />
+                      ) : (
+                        <div className={`w-full h-full flex items-center justify-center text-gray-300 font-bold text-4xl transition-all duration-500 bg-gradient-to-br from-gray-800 to-gray-900
+                          ${isSelected ? 'text-amber-500' : 'group-hover:text-gray-200'}
+                        `}>
+                          {char.realName.charAt(0)}
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-amber-500/10 pointer-events-none" />
+                      )}
+                    </div>
+                    <div className={`text-sm font-medium truncate text-center transition-colors
+                      ${isSelected ? 'text-amber-500' : 'text-gray-400 group-hover:text-gray-200'}
+                    `}>{char.realName}</div>
                   </div>
                 );
               })}
@@ -252,17 +295,19 @@ const WerewolfGame = () => {
         </div>
 
         {/* 开始按钮 */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/5 bg-[#0a0a0a]/90 backdrop-blur-md z-20">
           <button
             onClick={startGame}
-            disabled={selectedCharacters.length !== 5}
-            className={`w-full py-4 rounded-xl font-bold text-lg transition-all
-              ${selectedCharacters.length === 5
-                ? 'bg-gradient-to-r from-purple-600 to-red-600 hover:from-purple-500 hover:to-red-500'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'}
+            disabled={selectedCharacters.length < 1}
+            className={`w-full py-4 rounded-lg font-bold text-lg transition-all tracking-wider
+              ${selectedCharacters.length >= 1
+                ? 'bg-[#8B0000] hover:bg-[#A00000] text-red-50 shadow-lg shadow-red-900/20'
+                : 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed border border-white/5'}
             `}
           >
-            {selectedCharacters.length === 5 ? '🎮 开始游戏' : `还需选择 ${5 - selectedCharacters.length} 位角色`}
+            {selectedCharacters.length >= 1 
+              ? `🐺 开始狩猎${selectedCharacters.length < 5 ? ` (${5 - selectedCharacters.length} NPC)` : ''}` 
+              : '选择祭品...'}
           </button>
         </div>
       </div>
@@ -272,45 +317,51 @@ const WerewolfGame = () => {
   // --- 发牌动画界面 ---
   if (stage === 'dealing') {
     return (
-      <div className="h-screen bg-black flex flex-col items-center justify-center">
-        <div className="text-center">
-          {dealingStep === 0 && <div className="text-2xl text-gray-400">准备中...</div>}
+      <div className="h-screen bg-[#0a0a0a] flex flex-col items-center justify-center relative overflow-hidden">
+        {/* 背景纹理 */}
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none" />
+        
+        <div className="text-center z-10">
+          {dealingStep === 0 && <div className="text-2xl text-gray-400 font-serif tracking-widest">准备中...</div>}
           
           {dealingStep === 1 && (
             <div className="animate-pulse">
-              <div className="text-6xl mb-4">🃏</div>
-              <div className="text-xl text-gray-300">正在洗牌...</div>
+              <div className="text-6xl mb-6 opacity-80">🃏</div>
+              <div className="text-xl text-gray-400 font-serif tracking-widest">正在洗牌...</div>
             </div>
           )}
           
           {dealingStep === 2 && (
             <div className="animate-bounce">
-              <div className="text-6xl mb-4">🎴</div>
-              <div className="text-xl text-gray-300">正在发牌...</div>
+              <div className="text-6xl mb-6 opacity-80">🎴</div>
+              <div className="text-xl text-gray-400 font-serif tracking-widest">正在发牌...</div>
             </div>
           )}
           
           {dealingStep === 3 && (
             <div>
-              <div className="text-6xl mb-4 animate-spin">❓</div>
-              <div className="text-xl text-gray-300">请查看你的身份...</div>
+              <div className="text-6xl mb-6 animate-spin opacity-80">❓</div>
+              <div className="text-xl text-gray-400 font-serif tracking-widest">请查看你的身份...</div>
             </div>
           )}
           
           {dealingStep === 4 && userRole && (
             <div className="animate-fade-in">
-              <div className="w-64 h-80 mx-auto bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border-2 border-white/20 shadow-2xl flex flex-col items-center justify-center p-6">
-                <div className="text-7xl mb-4">
+              <div className="w-64 h-80 mx-auto bg-[#1a1a1a] rounded-xl border border-amber-500/30 shadow-[0_0_30px_-5px_rgba(245,158,11,0.15)] flex flex-col items-center justify-center p-6 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+                
+                <div className="text-7xl mb-6 scale-110 drop-shadow-lg">
                   {ROLE_INFO[userRole].emoji}
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">
+                <div className="text-3xl font-bold text-gray-100 mb-3 tracking-wide font-serif border-b border-white/10 pb-2 px-4">
                   {ROLE_INFO[userRole].name}
                 </div>
-                <div className="text-sm text-gray-400 text-center">
+                <div className="text-sm text-gray-400 text-center leading-relaxed">
                   {ROLE_INFO[userRole].desc}
                 </div>
               </div>
-              <div className="mt-6 text-gray-500 text-sm">游戏即将开始...</div>
+              <div className="mt-8 text-gray-500 text-xs tracking-[0.2em] uppercase">Game Starting...</div>
             </div>
           )}
         </div>
@@ -319,7 +370,7 @@ const WerewolfGame = () => {
   }
 
   // --- 游戏主界面 ---
-  if (!gameState) return <div className="bg-black h-screen text-white flex items-center justify-center">加载中...</div>;
+  if (!gameState) return <div className="bg-[#0a0a0a] h-screen text-white flex items-center justify-center">加载中...</div>;
 
   const user = gameState.players.find(p => p.isUser)!;
 
@@ -605,18 +656,18 @@ const WerewolfGame = () => {
   };
 
   return (
-    <div className="h-screen bg-[#1a1a1a] text-gray-200 flex flex-col overflow-hidden relative">
+    <div className="h-screen bg-[#0a0a0a] text-gray-200 flex flex-col overflow-hidden relative">
       {/* 氛围背景 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-red-900/20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none" />
       
       {/* 顶部栏 */}
-      <div className="relative z-10 p-4 flex justify-between items-center bg-black/40 backdrop-blur-sm">
-        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white">
+      <div className="relative z-10 p-4 flex justify-between items-center bg-[#111]/80 backdrop-blur-md border-b border-white/5 shadow-sm">
+        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white transition-colors">
           <BackIcon />
         </button>
         <div className="flex flex-col items-center">
-          <div className="text-lg font-bold text-red-500">🐺 狼人杀</div>
-          <div className="text-xs text-gray-500">{getPhaseTitle()} · 第 {gameState.day} 天</div>
+          <div className="text-lg font-bold text-gray-200 tracking-wider">🐺 狼人杀</div>
+          <div className="text-[10px] text-amber-500/80 uppercase tracking-widest mt-0.5">{getPhaseTitle()} · DAY {gameState.day}</div>
         </div>
         <div className="w-8" />
       </div>
@@ -625,20 +676,20 @@ const WerewolfGame = () => {
       <div className="flex-1 relative flex flex-col">
         {/* 夜晚遮罩 - 非交互时显示 */}
         {gameState.phase === 'night' && !nightPrompt && (
-          <div className="absolute inset-0 z-20 bg-black/90 flex items-center justify-center animate-fade-in pointer-events-none">
+          <div className="absolute inset-0 z-20 bg-[#050505]/95 flex items-center justify-center animate-fade-in pointer-events-none">
             <div className="text-center">
-              <div className="text-6xl mb-4">🌙</div>
-              <div className="text-2xl text-purple-400 animate-pulse">天黑请闭眼...</div>
+              <div className="text-6xl mb-6 opacity-60">🌙</div>
+              <div className="text-2xl text-blue-900/80 font-serif tracking-[0.2em] animate-pulse">Night is falling...</div>
             </div>
           </div>
         )}
 
         {/* 夜晚交互界面 */}
         {gameState.phase === 'night' && nightPrompt && (
-          <div className="absolute inset-0 z-40 bg-black/95 flex flex-col">
-            <div className="text-center pt-8 pb-4">
-              <div className="text-3xl mb-2">{nightPrompt.title}</div>
-              <div className="text-gray-400">{nightPrompt.desc}</div>
+          <div className="absolute inset-0 z-40 bg-[#0a0a0a]/98 flex flex-col">
+            <div className="text-center pt-10 pb-6">
+              <div className="text-3xl mb-2 font-serif text-gray-100">{nightPrompt.title}</div>
+              <div className="text-gray-500 text-sm tracking-wide">{nightPrompt.desc}</div>
             </div>
             
             {/* 预言家结果 */}
@@ -649,7 +700,7 @@ const WerewolfGame = () => {
                 <div className={`text-xl ${seerResult.isWolf ? 'text-red-500' : 'text-green-500'}`}>
                   {seerResult.isWolf ? '是狼人！' : '是好人'}
                 </div>
-                <button onClick={confirmSeerResult} className="mt-8 px-8 py-3 bg-purple-600 rounded-lg font-bold">
+                <button onClick={confirmSeerResult} className="mt-8 px-8 py-3 bg-amber-700 hover:bg-amber-600 text-white rounded-lg font-bold transition-all shadow-lg shadow-amber-900/20">
                   我知道了
                 </button>
               </div>
@@ -666,10 +717,16 @@ const WerewolfGame = () => {
                       ${selectedTarget === player.id ? 'bg-red-500/30 ring-2 ring-red-500' : 'bg-white/5 hover:bg-white/10'}
                     `}
                   >
-                    <img 
-                      src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`}
-                      className="w-14 h-14 rounded-full border-2 border-gray-600"
-                    />
+                    {player.avatar ? (
+                      <img 
+                        src={player.avatar}
+                        className="w-14 h-14 rounded-full border-2 border-gray-600 object-cover"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full border-2 border-gray-600 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-300 font-bold text-lg">
+                        {player.name.charAt(0)}
+                      </div>
+                    )}
                     <span className="text-sm mt-2 text-gray-300">{player.name}</span>
                     {user.role === 'werewolf' && player.role === 'werewolf' && (
                       <span className="text-xs text-red-400">狼队友</span>
@@ -726,13 +783,22 @@ const WerewolfGame = () => {
                   `}
                 >
                   <div className="relative">
-                    <img 
-                      src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} 
-                      className={`w-14 h-14 rounded-full border-2 bg-gray-800 object-cover shadow-lg
+                    {player.avatar ? (
+                      <img 
+                        src={player.avatar} 
+                        className={`w-14 h-14 rounded-full border-2 bg-gray-800 object-cover shadow-lg
+                          ${selectedTarget === player.id ? 'border-amber-400 ring-2 ring-amber-400/50' : 
+                            player.role === 'werewolf' && user.role === 'werewolf' ? 'border-red-500' : 'border-gray-600'}
+                        `}
+                      />
+                    ) : (
+                      <div className={`w-14 h-14 rounded-full border-2 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-300 font-bold text-lg shadow-lg
                         ${selectedTarget === player.id ? 'border-amber-400 ring-2 ring-amber-400/50' : 
                           player.role === 'werewolf' && user.role === 'werewolf' ? 'border-red-500' : 'border-gray-600'}
-                      `}
-                    />
+                      `}>
+                        {player.name.charAt(0)}
+                      </div>
+                    )}
                     {!player.isAlive && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-full text-red-500 text-xs font-bold">
                         出局
@@ -749,21 +815,25 @@ const WerewolfGame = () => {
         </div>
 
         {/* 底部控制区 */}
-        <div className="h-[45%] bg-black/80 backdrop-blur-md border-t border-white/10 p-4 flex flex-col z-30">
-          {/* 日志区域 */}
-          <div className="flex-1 overflow-y-auto mb-3 space-y-2.5 scrollbar-hide">
-            {displayLog.map((log, i) => (
-              <div key={i} className="flex gap-2.5 animate-fade-in items-start">
+        <div className="h-[30%] min-h-[140px] max-h-[200px] bg-[#0a0a0a]/90 backdrop-blur-md border-t border-white/5 p-3 flex flex-col z-30">
+          {/* 日志区域 - 紧凑显示 */}
+          <div className="flex-1 overflow-y-auto mb-2 space-y-1.5 scrollbar-hide">
+            {displayLog.slice(-6).map((log, i) => (
+              <div key={i} className="flex gap-2 animate-fade-in items-center">
                 {log.speaker.avatar ? (
-                  <img src={log.speaker.avatar} className="w-7 h-7 rounded-full border border-white/10 mt-0.5 object-cover" />
+                  <img src={log.speaker.avatar} className="w-5 h-5 rounded-full border border-white/10 object-cover flex-shrink-0" />
+                ) : log.speaker.id === 'judge' ? (
+                  <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px] flex-shrink-0">⚖️</div>
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-purple-500/30 flex items-center justify-center text-xs">⚖️</div>
-                )}
-                <div className="flex-1">
-                  <span className="text-xs text-amber-500/80 mb-0.5 block">{log.speaker.name}</span>
-                  <div className={`rounded-lg p-2 text-sm leading-relaxed ${log.speaker.isUser ? 'bg-green-500/20 text-green-100' : 'bg-white/5 text-gray-200'}`}>
-                    {log.content}
+                  <div className="w-5 h-5 rounded-full bg-gray-800 border border-white/10 flex items-center justify-center text-gray-400 text-[10px] font-bold flex-shrink-0">
+                    {log.speaker.name.charAt(0)}
                   </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] text-amber-500/70 mr-1.5">{log.speaker.name}:</span>
+                  <span className={`text-xs ${log.speaker.isUser ? 'text-amber-200' : 'text-gray-400'}`}>
+                    {log.content.length > 50 ? log.content.slice(0, 50) + '...' : log.content}
+                  </span>
                 </div>
               </div>
             ))}
@@ -779,12 +849,12 @@ const WerewolfGame = () => {
                 onChange={(e) => setUserSpeech(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleUserSpeak()}
                 placeholder="输入你的发言..."
-                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                className="flex-1 bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors"
               />
               <button 
                 onClick={handleUserSpeak}
                 disabled={!userSpeech.trim()}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-bold transition-all"
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-600 disabled:bg-[#1a1a1a] disabled:text-gray-600 rounded-lg font-bold text-amber-50 transition-all border border-white/5"
               >
                 发言
               </button>
@@ -792,20 +862,26 @@ const WerewolfGame = () => {
           )}
 
           {/* 玩家状态 & 操作栏 */}
-          <div className="flex items-center justify-between border-t border-white/10 pt-3">
+          <div className="flex items-center justify-between border-t border-white/5 pt-3">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <img 
-                  src={user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User'} 
-                  className="w-11 h-11 rounded-full border-2 border-amber-500 object-cover" 
-                />
-                <div className="absolute -bottom-1 -right-1 text-base">
+                {user.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    className="w-11 h-11 rounded-full border-2 border-amber-500/50 object-cover" 
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-full border-2 border-amber-500/50 bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-300 font-bold text-lg">
+                    {user.name.charAt(0)}
+                  </div>
+                )}
+                <div className="absolute -bottom-1 -right-1 text-base drop-shadow-md">
                   {ROLE_INFO[user.role].emoji}
                 </div>
               </div>
               <div>
-                <div className="font-bold text-amber-500 text-sm">{ROLE_INFO[user.role].name}</div>
-                <div className="text-xs text-gray-400">{user.isAlive ? '存活' : '已出局'}</div>
+                <div className="font-bold text-amber-500 text-sm tracking-wide">{ROLE_INFO[user.role].name}</div>
+                <div className="text-xs text-gray-500">{user.isAlive ? '存活' : '已出局'}</div>
               </div>
             </div>
             
@@ -813,7 +889,7 @@ const WerewolfGame = () => {
               {gameState.phase === 'setup' && (
                 <button 
                   onClick={startNight}
-                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-red-600 hover:from-purple-500 hover:to-red-500 text-white rounded-lg font-bold transition-all"
+                  className="px-5 py-2 bg-[#8B0000] hover:bg-[#A00000] text-red-50 rounded-lg font-bold transition-all shadow-lg shadow-red-900/20 border border-white/5"
                 >
                   开始游戏
                 </button>
@@ -822,10 +898,10 @@ const WerewolfGame = () => {
                 <button 
                   onClick={handleVote}
                   disabled={!selectedTarget}
-                  className={`px-5 py-2 rounded-lg font-bold transition-all
+                  className={`px-5 py-2 rounded-lg font-bold transition-all border border-white/5
                     ${selectedTarget 
-                      ? 'bg-amber-600 hover:bg-amber-500 text-white' 
-                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'}
+                      ? 'bg-amber-700 hover:bg-amber-600 text-amber-50 shadow-lg shadow-amber-900/20' 
+                      : 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'}
                   `}
                 >
                   确认投票
@@ -838,15 +914,15 @@ const WerewolfGame = () => {
 
       {/* 游戏结束弹窗 */}
       {checkGameOver(gameState.players) && (
-        <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center animate-fade-in">
-          <div className="text-7xl mb-4 animate-bounce">
+        <div className="absolute inset-0 z-50 bg-[#0a0a0a]/98 flex flex-col items-center justify-center animate-fade-in">
+          <div className="text-7xl mb-6 animate-bounce drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
             {checkGameOver(gameState.players) === 'werewolf' ? '🐺' : '🎉'}
           </div>
-          <div className={`text-3xl font-bold mb-2 ${checkGameOver(gameState.players) === 'werewolf' ? 'text-red-500' : 'text-amber-400'}`}>
-            {checkGameOver(gameState.players) === 'werewolf' ? '狼人获胜' : '好人获胜'}
+          <div className={`text-4xl font-bold mb-3 font-serif tracking-widest ${checkGameOver(gameState.players) === 'werewolf' ? 'text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]'}`}>
+            {checkGameOver(gameState.players) === 'werewolf' ? 'WEREWOLF WIN' : 'VILLAGER WIN'}
           </div>
-          <div className="text-gray-400 mb-8">
-            {checkGameOver(gameState.players) === 'werewolf' ? '黑夜吞噬了一切...' : '正义终将战胜邪恶！'}
+          <div className="text-gray-500 mb-10 tracking-widest text-sm uppercase">
+            {checkGameOver(gameState.players) === 'werewolf' ? 'The darkness consumes all...' : 'Light pierces through the shadows'}
           </div>
           <button 
             onClick={() => {
@@ -862,9 +938,9 @@ const WerewolfGame = () => {
               setHasUserSpoken(false);
               setUserSpeech('');
             }}
-            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-red-600 hover:from-purple-500 hover:to-red-500 text-white rounded-full font-bold transition-all"
+            className="px-8 py-3 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-gray-200 border border-white/10 rounded-lg font-bold transition-all tracking-widest uppercase text-sm hover:border-white/30"
           >
-            再来一局
+            Play Again
           </button>
         </div>
       )}

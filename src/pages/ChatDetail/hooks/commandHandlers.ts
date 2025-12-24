@@ -14,8 +14,11 @@ import {
   rejectCoupleSpaceInvite,
   getCoupleSpaceRelation,
   createCoupleSpaceInvite,
+  addFamilyMember,
   endCoupleSpaceRelation,
-  getCoupleSpacePrivacy
+  getCoupleSpacePrivacy,
+  getCoupleSpaceMode,
+  getFamilyMembers
 } from '../../../utils/coupleSpaceUtils'
 import { getEmojis } from '../../../utils/emojiStorage'
 import { addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
@@ -805,10 +808,30 @@ export const recallHandler: CommandHandler = {
  */
 export const coupleSpaceAcceptHandler: CommandHandler = {
   pattern: /[\[【](?:接受|同意)情侣空间[\]】]|[\[【]情侣空间[:\：]\s*(?:接受|同意)[\]】]/,
-  handler: async (match, content, { setMessages, character, chatId }) => {
+  handler: async (match, content, { setMessages, character, chatId, messages }) => {
     if (!character) return { handled: false }
 
-    const success = await acceptCoupleSpaceInvite(character.id)
+    // 查找最近的待处理邀请卡片，检查是否是加入邀请
+    const pendingInvite = messages?.slice().reverse().find(
+      msg => msg.coupleSpaceInvite?.status === 'pending'
+    )
+    const isJoinInvite = pendingInvite?.coupleSpaceInvite?.isJoinInvite === true
+
+    let success = false
+    
+    if (isJoinInvite) {
+      // 加入已有情侣空间
+      success = await addFamilyMember(
+        character.id,
+        character.nickname || character.realName,
+        character.avatar
+      )
+      console.log('💕 [情侣空间] 加入邀请处理结果:', success)
+    } else {
+      // 创建新情侣空间
+      success = await acceptCoupleSpaceInvite(character.id)
+      console.log('💕 [情侣空间] 创建邀请处理结果:', success)
+    }
 
     if (success) {
       // 更新邀请卡片状态
@@ -825,12 +848,43 @@ export const coupleSpaceAcceptHandler: CommandHandler = {
       })
 
       // 添加系统消息
+      const characterName = character.nickname || character.realName
+      const userName = getCurrentUserName()
+      const mode = getCoupleSpaceMode()
+      const allMembers = getFamilyMembers()
+      const memberNames = allMembers.map(m => m.characterName).join('、')
+      
       const systemMsg = createMessageObj('system', {
-        content: `${character.nickname || character.realName} 接受了你的情侣空间邀请`,
-        aiReadableContent: `${character.nickname || character.realName} 接受了你的情侣空间邀请，你们现在可以使用情侣空间的相册、留言板、纪念日等功能了`,
+        content: isJoinInvite 
+          ? `${characterName} 加入了你的情侣空间`
+          : `${characterName} 接受了你的情侣空间邀请`,
+        aiReadableContent: isJoinInvite
+          ? `你已经成功加入情侣空间！情侣空间成员有：${userName}、${memberNames}。${mode === 'shared' ? '这是公共模式，所有成员共享相册、心情日记、宠物等内容。' : ''}`
+          : `${characterName} 接受了你的情侣空间邀请，你们现在可以使用情侣空间的相册、留言板、纪念日等功能了`,
         type: 'system'
       })
       await addMessage(systemMsg, setMessages, chatId)
+      
+      // 公共模式下，通知其他成员有新成员加入
+      if (mode === 'shared' && isJoinInvite) {
+        const otherMembers = allMembers.filter(m => m.characterId !== character.id)
+        const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+        const timestamp = Date.now()
+        
+        otherMembers.forEach(member => {
+          const memberMessages = require('../../../utils/simpleMessageManager').loadMessages(member.characterId)
+          const notifyMsg = {
+            id: timestamp,
+            type: 'system' as const,
+            content: `${characterName} 加入了情侣空间`,
+            aiReadableContent: `（情侣空间通知）${characterName} 加入了你们的情侣空间，现在成员有：${userName}、${allMembers.map(m => m.characterName).join('、')}`,
+            time: timeStr,
+            timestamp,
+            messageType: 'system' as const
+          }
+          require('../../../utils/simpleMessageManager').saveMessages(member.characterId, [...memberMessages, notifyMsg])
+        })
+      }
     }
 
     const remainingText = content.replace(match[0], '').trim()
@@ -4421,6 +4475,30 @@ export const sleepPetHandler: CommandHandler = {
 }
 
 /**
+ * 五子棋下棋处理器
+ * 格式：[下棋:A1] 或 [下棋:B5]
+ */
+export const gomokuMoveHandler: CommandHandler = {
+  pattern: /[\[【]下棋[:\：]([A-Oa-o]\d{1,2})[\]】]/,
+  handler: async (match, content, { setMessages, chatId }) => {
+    const position = match[1].toUpperCase()
+    console.log(`⚫ [五子棋] AI落子: ${position}`)
+    
+    // 触发五子棋组件更新
+    window.dispatchEvent(new CustomEvent('gomoku-ai-move', {
+      detail: { position }
+    }))
+    
+    const remainingText = content.replace(match[0], '').trim()
+    return {
+      handled: true,
+      remainingText,
+      skipTextMessage: !remainingText  // 如果有其他话要说，不跳过
+    }
+  }
+}
+
+/**
  * 所有指令处理器
  */
 export const commandHandlers: CommandHandler[] = [
@@ -4491,5 +4569,6 @@ export const commandHandlers: CommandHandler[] = [
   phoneOperationHandler,  // 手机操作（通用格式）
   judgmentResponseHandler,  // 判定回应
   aiAppealHandler,  // AI上诉
-  addContactCardFriendHandler  // AI添加名片好友
+  addContactCardFriendHandler,  // AI添加名片好友
+  gomokuMoveHandler  // 五子棋下棋
 ]

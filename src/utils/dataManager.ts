@@ -271,12 +271,26 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
     if (backupType === 'chat') {
       onProgress?.('清空旧数据...', 20)
       
-      // 🔥 先保存用户登录信息，防止丢失（这些信息必须保留！）
-      const savedUserInfo = localStorage.getItem('user_info')
-      const savedApiConfig = localStorage.getItem('api_config')
-      const savedInviteCode = localStorage.getItem('invite_code')
-      const savedDeviceId = localStorage.getItem('device_id')
-      console.log('💾 保存用户登录信息...')
+      // 🔥🔥🔥 关键：保存所有必须保留的配置（不仅仅是登录信息）
+      const keysToPreserve = [
+        'user_info',
+        'api_config', 
+        'invite_code',
+        'device_id',
+        'api_key',           // API密钥
+        'api_base_url',      // API地址
+        'api_model',         // API模型
+        'gemini_api_key',    // Gemini API
+        'openai_api_key',    // OpenAI API
+        'claude_api_key',    // Claude API
+        'show_status_bar',   // 状态栏设置
+      ]
+      
+      const savedConfigs: Record<string, string | null> = {}
+      keysToPreserve.forEach(key => {
+        savedConfigs[key] = localStorage.getItem(key)
+      })
+      console.log('💾 保存关键配置...', Object.keys(savedConfigs).filter(k => savedConfigs[k] !== null))
       
       console.log('🗑️ 清空旧的 localStorage...')
       localStorage.clear()
@@ -304,23 +318,17 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
         console.log(`✅ localStorage 导入完成，成功 ${successCount} 项，跳过 ${failCount} 项`)
       }
       
-      // 🔥 必须恢复用户登录信息（不管备份里有没有）
-      if (savedUserInfo) {
-        localStorage.setItem('user_info', savedUserInfo)
-        console.log('✅ 恢复用户登录信息')
-      }
-      if (savedApiConfig) {
-        localStorage.setItem('api_config', savedApiConfig)
-        console.log('✅ 恢复 API 配置')
-      }
-      if (savedInviteCode) {
-        localStorage.setItem('invite_code', savedInviteCode)
-        console.log('✅ 恢复邀请码')
-      }
-      if (savedDeviceId) {
-        localStorage.setItem('device_id', savedDeviceId)
-        console.log('✅ 恢复设备ID')
-      }
+      // 🔥🔥🔥 必须恢复所有关键配置（不管备份里有没有）
+      console.log('🔄 恢复关键配置...')
+      let restoredCount = 0
+      keysToPreserve.forEach(key => {
+        const value = savedConfigs[key]
+        if (value !== null) {
+          localStorage.setItem(key, value)
+          restoredCount++
+        }
+      })
+      console.log(`✅ 已恢复 ${restoredCount} 项关键配置`)
     } else {
       console.log('📦 美化数据导入，跳过 localStorage')
     }
@@ -663,6 +671,12 @@ const DB_VERSIONS: Record<string, number> = {
 async function importIndexedDB(dbName: string, data: Record<string, any>): Promise<void> {
   console.log(`  🔓 正在导入数据库: ${dbName}`)
   
+  // 🔥 数据验证：检查数据是否有效
+  if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+    console.warn(`  ⚠️ ${dbName}: 数据为空或无效，跳过`)
+    return
+  }
+  
   // 🔥 获取正确的版本号
   const version = DB_VERSIONS[dbName] || 1
   console.log(`  📌 使用版本号: ${version}`)
@@ -670,7 +684,7 @@ async function importIndexedDB(dbName: string, data: Record<string, any>): Promi
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       console.error(`  ❌ 打开数据库超时: ${dbName}，跳过`)
-      resolve()
+      resolve() // 超时不报错，继续导入其他数据库
     }, 30000) // 30秒超时
     
     // 🔥 使用正确的版本号打开数据库

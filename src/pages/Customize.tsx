@@ -100,6 +100,26 @@ const Customize = () => {
       ]
     },
     {
+      title: 'AI设置',
+      enTitle: 'AI SETTINGS',
+      items: [
+        {
+          id: 'custom-prompt',
+          name: '自定义提示词',
+          enName: 'Custom Prompt',
+          description: '修改私聊系统提示词',
+          route: '/custom-prompt',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          ),
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-50'
+        }
+      ]
+    },
+    {
       title: '数据管理',
       enTitle: 'DATA MANAGEMENT',
       items: [

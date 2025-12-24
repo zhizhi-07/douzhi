@@ -27,6 +27,41 @@ const ChatInput = ({
   onShowAddMenu
 }: ChatInputProps) => {
   const { customIcons } = useCustomIcons()
+  
+  // 读取自定义底栏CSS
+  const customStyles = (() => {
+    try {
+      const saved = localStorage.getItem('chat_custom_css')
+      if (saved) {
+        const data = JSON.parse(saved)
+        const parseCSS = (cssStr: string) => {
+          const styleObj: Record<string, string> = {}
+          cssStr.split(';').forEach((rule: string) => {
+            const colonIndex = rule.indexOf(':')
+            if (colonIndex > 0) {
+              const key = rule.substring(0, colonIndex).trim()
+              const value = rule.substring(colonIndex + 1).trim().replace(/!important/gi, '').trim()
+              if (key && value) {
+                const camelKey = key.replace(/-([a-z])/g, (_: string, letter: string) => letter.toUpperCase())
+                styleObj[camelKey] = value
+              }
+            }
+          })
+          return Object.keys(styleObj).length > 0 ? styleObj : null
+        }
+        const result = {
+          bottomBar: data.custom?.bottomBar ? parseCSS(data.custom.bottomBar) : null,
+          inputBox: data.custom?.inputBox ? parseCSS(data.custom.inputBox) : null,
+          sendButton: data.custom?.sendButton ? parseCSS(data.custom.sendButton) : null
+        }
+        console.log('🎨 [ChatInput] 解析后样式:', result)
+        return result
+      }
+    } catch (e) {
+      console.error('解析底栏CSS失败:', e)
+    }
+    return { bottomBar: null, inputBox: null, sendButton: null }
+  })()
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -38,8 +73,9 @@ const ChatInput = ({
     }
   }
 
+  console.log('🎨 [ChatInput] 渲染时底栏style:', customStyles.bottomBar)
   return (
-    <div className="bg-transparent">
+    <div className="chat-bottombar" style={customStyles.bottomBar || undefined}>
       {/* 引用消息预览 */}
       {quotedMessage && (
         <div className="px-3 pt-2 pb-1">
@@ -88,7 +124,8 @@ const ChatInput = ({
             onChange={(e) => onInputChange(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="发送消息"
-            className="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+            className="chat-input-box flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+            style={customStyles.inputBox || undefined}
             disabled={isAiTyping}
           />
         </div>
@@ -109,7 +146,8 @@ const ChatInput = ({
           <button
             onClick={onSend}
             disabled={isAiTyping}
-            className={`w-10 h-10 flex items-center justify-center ios-button rounded-full disabled:opacity-50 ios-spring btn-press-fast overflow-hidden ${customIcons['chat-send'] ? '' : 'bg-gray-900 text-white shadow-lg'}`}
+            className={`chat-send-btn w-10 h-10 flex items-center justify-center ios-button rounded-full disabled:opacity-50 ios-spring btn-press-fast overflow-hidden ${customIcons['chat-send'] ? '' : 'bg-gray-900 text-white shadow-lg'}`}
+            style={customStyles.sendButton || undefined}
           >
             {customIcons['chat-send'] ? (
               <img src={customIcons['chat-send']} alt="send" className="w-full h-full object-cover" />

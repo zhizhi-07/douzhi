@@ -1,15 +1,18 @@
 /**
  * 多选模式Hook
- * 用于批量操作消息（删除、转发等）
+ * 用于批量操作消息（删除、转发、收藏等）
  */
 
 import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
+import { addFavorite } from '../../../utils/favoriteManager'
 
 export const useMultiSelect = (
   chatId: string,
   messages: Message[],
-  setMessages: (fn: (prev: Message[]) => Message[]) => void
+  setMessages: (fn: (prev: Message[]) => Message[]) => void,
+  characterName?: string,
+  characterAvatar?: string
 ) => {
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set())
@@ -153,6 +156,31 @@ export const useMultiSelect = (
     setShowForwardModal(false)
   }, [])
 
+  /**
+   * 收藏选中的消息
+   */
+  const favoriteSelectedMessages = useCallback(() => {
+    if (selectedMessageIds.size === 0) {
+      alert('请先选择要收藏的消息')
+      return
+    }
+
+    const selectedMessages = messages.filter(m => selectedMessageIds.has(m.id))
+    
+    // 按时间排序
+    selectedMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    
+    addFavorite(
+      chatId,
+      characterName || '未知',
+      characterAvatar,
+      selectedMessages
+    )
+    
+    alert(`已收藏 ${selectedMessages.length} 条消息`)
+    exitMultiSelectMode()
+  }, [selectedMessageIds, messages, chatId, characterName, characterAvatar, exitMultiSelectMode])
+
   return {
     isMultiSelectMode,
     selectedMessageIds,
@@ -166,6 +194,7 @@ export const useMultiSelect = (
     deselectAll,
     getSelectedMessages,
     openForwardModal,
-    closeForwardModal
+    closeForwardModal,
+    favoriteSelectedMessages
   }
 }

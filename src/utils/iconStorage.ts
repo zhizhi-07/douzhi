@@ -118,6 +118,8 @@ export const deleteUIIcon = async (iconId: string): Promise<void> => {
     
     request.onsuccess = () => {
       console.log(`✅ UI图标已删除: ${iconId}`)
+      // 触发图标变化事件
+      window.dispatchEvent(new Event('iconChanged'))
       resolve()
     }
     request.onerror = () => reject(request.error)

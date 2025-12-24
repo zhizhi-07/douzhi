@@ -95,8 +95,9 @@ export async function publishMoment(
   images: MomentImage[] = [],
   location?: string,
   mentions?: string[],
-  privacy: 'public' | 'private' | 'selected' = 'public',
-  visibleTo?: string[]
+  privacy: 'public' | 'private' | 'selected' | 'group' = 'public',
+  visibleTo?: string[],
+  groupId?: string
 ): Promise<Moment> {
   const newMoment: Moment = {
     id: Date.now().toString(),
@@ -111,7 +112,8 @@ export async function publishMoment(
     createdAt: Date.now(),
     mentions,
     privacy,
-    visibleTo: privacy === 'selected' ? visibleTo : undefined
+    visibleTo: privacy === 'selected' ? visibleTo : (privacy === 'group' && groupId ? visibleTo : undefined),
+    groupId: privacy === 'group' ? groupId : undefined
   }
   
   console.log('📱 准备发布朋友圈:', content.substring(0, 20) || '[纯图片]')

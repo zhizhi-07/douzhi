@@ -4,14 +4,15 @@
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import StatusBar from '../components/StatusBar'
 import { 
   getCoupleMessages, 
   addCoupleMessage, 
   deleteCoupleMessage,
   type CoupleMessage 
 } from '../utils/coupleSpaceContentUtils'
-import { getCoupleSpaceRelation, type CoupleSpaceRelation } from '../utils/coupleSpaceUtils'
-import { getUserInfo } from '../utils/userUtils'
+import { getCoupleSpaceRelation, getFamilyMembers, getCoupleSpaceMode, type CoupleSpaceRelation, type FamilyMember } from '../utils/coupleSpaceUtils'
+import { getUserInfo, getCurrentUserName } from '../utils/userUtils'
 import { loadMessages as loadChatMessages, saveMessages as saveChatMessages } from '../utils/simpleMessageManager'
 
 // Common icons (brown style)
@@ -61,6 +62,7 @@ const CoupleMessageBoard = () => {
   const [messageContent, setMessageContent] = useState('')
   const [selectedMood, setSelectedMood] = useState('happy')
   const [relation, setRelation] = useState<CoupleSpaceRelation | null>(null)
+  const [members, setMembers] = useState<FamilyMember[]>([])
   const [selectedMessage, setSelectedMessage] = useState<CoupleMessage | null>(null) // For detail view
   const [showAllRecords, setShowAllRecords] = useState(false) // For all records view
   const userInfo = getUserInfo()
@@ -68,7 +70,15 @@ const CoupleMessageBoard = () => {
   useEffect(() => {
     loadMessages()
     setRelation(getCoupleSpaceRelation())
+    setMembers(getFamilyMembers())
   }, [])
+
+  // 根据角色名获取头像
+  const getMemberAvatar = (characterName: string): string | undefined => {
+    if (characterName === '我') return userInfo.avatar
+    const member = members.find(m => m.characterName === characterName)
+    return member?.characterAvatar
+  }
 
   const loadMessages = () => {
     const all = getCoupleMessages()
@@ -126,17 +136,41 @@ const CoupleMessageBoard = () => {
     )
 
     // 添加系统消息到聊天记录，让AI知道用户更新了心情
-    const chatMessages = loadChatMessages(relation.characterId)
-    const systemMsg = {
-      id: Date.now().toString(),
-      type: 'system' as const,
-      content: `用户更新了心情日记（${moodLabel}）`,
-      aiReadableContent: `用户刚刚更新了心情日记，心情是${moodLabel}，内容是：${messageContent.trim()}`,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-      messageType: 'system' as const
+    const mode = getCoupleSpaceMode()
+    const userName = getCurrentUserName()
+    const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    const timestamp = Date.now()
+    
+    if (mode === 'shared') {
+      // 公共模式：通知所有成员
+      const allMembers = getFamilyMembers()
+      allMembers.forEach(member => {
+        const chatMessages = loadChatMessages(member.characterId)
+        const systemMsg = {
+          id: timestamp,
+          type: 'system' as const,
+          content: `${userName}更新了心情日记（${moodLabel}）`,
+          aiReadableContent: `（情侣空间通知）${userName}刚刚更新了心情日记，心情是${moodLabel}，内容是：${messageContent.trim()}`,
+          time: timeStr,
+          timestamp,
+          messageType: 'system' as const
+        }
+        saveChatMessages(member.characterId, [...chatMessages, systemMsg])
+      })
+    } else {
+      // 独立模式：只通知当前角色
+      const chatMessages = loadChatMessages(relation.characterId)
+      const systemMsg = {
+        id: timestamp,
+        type: 'system' as const,
+        content: `${userName}更新了心情日记（${moodLabel}）`,
+        aiReadableContent: `${userName}刚刚更新了心情日记，心情是${moodLabel}，内容是：${messageContent.trim()}`,
+        time: timeStr,
+        timestamp,
+        messageType: 'system' as const
+      }
+      saveChatMessages(relation.characterId, [...chatMessages, systemMsg])
     }
-    saveChatMessages(relation.characterId, [...chatMessages, systemMsg])
 
     setMessageContent('')
     setSelectedMood('happy')
@@ -152,7 +186,7 @@ const CoupleMessageBoard = () => {
     }
   }
 
-  // Render Calendar Cell - 每天显示两行：用户的心情 + AI的心情
+  // Render Calendar Cell - 公共模式显示所有成员心情，独立模式显示用户+当前AI
   const renderCalendarDay = (date: Date | null, idx: number) => {
     // 即使是空日期也要占位
     if (!date) return <div key={`empty-${idx}`} className="w-full min-h-[110px]" />
@@ -164,14 +198,31 @@ const CoupleMessageBoard = () => {
              mDate.getFullYear() === date.getFullYear()
     })
 
-    // 分开用户和AI的消息
-    const userMsg = dayMessages.find(m => m.characterName === '我')
-    const aiMsg = dayMessages.find(m => m.characterName !== '我')
+    const mode = getCoupleSpaceMode()
     
+    // 用户的消息（每天只取最新一条）
+    const userMsg = dayMessages.find(m => m.characterName === '我')
     const userMood = userMsg ? MOODS.find(m => m.id === userMsg.mood) || MOODS[0] : null
-    const aiMood = aiMsg ? MOODS.find(m => m.id === aiMsg.mood) || MOODS[0] : null
+    
+    // 公共模式：每个成员每天只显示一条心情（按人数延伸）
+    // 独立模式：只显示当前AI的
+    let aiMessages: CoupleMessage[] = []
+    if (mode === 'shared') {
+      // 按成员分组，每人只取最新一条
+      const memberMap = new Map<string, CoupleMessage>()
+      dayMessages.filter(m => m.characterName !== '我').forEach(m => {
+        if (!memberMap.has(m.characterName)) {
+          memberMap.set(m.characterName, m)
+        }
+      })
+      aiMessages = Array.from(memberMap.values())
+    } else {
+      // 独立模式只取第一个AI的
+      const firstAi = dayMessages.find(m => m.characterName !== '我')
+      if (firstAi) aiMessages = [firstAi]
+    }
 
-    const hasContent = userMsg || aiMsg
+    const hasContent = userMsg || aiMessages.length > 0
     const isToday = date.getDate() === new Date().getDate() && date.getMonth() === new Date().getMonth() && date.getFullYear() === new Date().getFullYear()
 
     return (
@@ -180,7 +231,7 @@ const CoupleMessageBoard = () => {
         className="w-full min-h-[110px] flex flex-col items-center py-1 relative cursor-pointer group"
         onClick={() => {
           if (userMsg) setSelectedMessage(userMsg)
-          else if (aiMsg) setSelectedMessage(aiMsg)
+          else if (aiMessages[0]) setSelectedMessage(aiMessages[0])
         }}
       >
         {/* 椭圆心情容器 (包含日期和心情) - 宽宽圆圆的样子 */}
@@ -205,7 +256,7 @@ const CoupleMessageBoard = () => {
               {date.getDate()}
             </div>
 
-            {/* 心情图标列表 - 点击各自的图标查看对应日记 */}
+            {/* 心情图标列表 - 支持多人 */}
             <div className="flex flex-col items-center gap-0.5">
               {/* 用户心情 */}
               {userMood?.image && (
@@ -220,18 +271,23 @@ const CoupleMessageBoard = () => {
                 />
               )}
               
-              {/* AI心情 */}
-              {aiMood?.image && (
-                <img 
-                  src={aiMood.image} 
-                  alt={aiMood.label} 
-                  className="w-9 h-9 object-contain cursor-pointer hover:scale-110 transition-transform"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (aiMsg) setSelectedMessage(aiMsg)
-                  }}
-                />
-              )}
+              {/* 所有AI成员的心情 */}
+              {aiMessages.map((aiMsg) => {
+                const aiMood = MOODS.find(m => m.id === aiMsg.mood) || MOODS[0]
+                return aiMood?.image ? (
+                  <img 
+                    key={aiMsg.id}
+                    src={aiMood.image} 
+                    alt={aiMood.label} 
+                    title={aiMsg.characterName}
+                    className="w-9 h-9 object-contain cursor-pointer hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedMessage(aiMsg)
+                    }}
+                  />
+                ) : null
+              })}
             </div>
           </div>
         ) : (
@@ -305,10 +361,12 @@ const CoupleMessageBoard = () => {
             <div className="relative z-10 flex items-center justify-between pt-4 border-t border-[#eee]">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-white shadow-sm">
-                   {selectedMessage.characterName === '我' ? (
-                      userInfo.avatar ? <img src={userInfo.avatar} className="w-full h-full object-cover" /> : null
+                   {getMemberAvatar(selectedMessage.characterName) ? (
+                      <img src={getMemberAvatar(selectedMessage.characterName)} className="w-full h-full object-cover" />
                    ) : (
-                      relation?.characterAvatar ? <img src={relation.characterAvatar} className="w-full h-full object-cover" /> : null
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                        {selectedMessage.characterName?.charAt(0)}
+                      </div>
                    )}
                 </div>
                 <span className="text-xs font-bold text-[#8b7355]">
@@ -328,7 +386,8 @@ const CoupleMessageBoard = () => {
       )}
 
       {/* Main Page Header */}
-      <div className="pt-[env(safe-area-inset-top)] bg-[#fffbf5] z-10 shrink-0">
+      <div className="bg-[#fffbf5] z-10 shrink-0">
+        <StatusBar />
         <div className="flex items-center justify-between px-4 h-14">
           <button 
             onClick={() => navigate('/couple-space')}

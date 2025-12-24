@@ -3,10 +3,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { getEmojis, incrementUseCount, addEmoji, importEmojis, clearCache, getAllTags, addEmojisWithTag } from '../utils/emojiStorage'
+import { getEmojis, incrementUseCount, addEmoji, clearCache, getAllTags, addEmojisWithTag } from '../utils/emojiStorage'
+import { emitEmojiSizeChange } from './EmojiContentRenderer'
 import type { Emoji } from '../utils/emojiStorage'
 
 const LAST_TAB_KEY = 'emoji_panel_last_tab'
+const EMOJI_SIZE_KEY = 'ai_emoji_size' // 表情包大小设置
 
 interface EmojiPanelProps {
   show: boolean
@@ -27,8 +29,17 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
   const [pendingEmojiData, setPendingEmojiData] = useState<{url: string, name: string} | null>(null)
   const [pendingBatchEmojis, setPendingBatchEmojis] = useState<Array<{url: string, name: string}>>([])
   const [emojiDescription, setEmojiDescription] = useState('')
+  const [singleEmojiTag, setSingleEmojiTag] = useState('')
   const [batchTag, setBatchTag] = useState('')
   const [batchDescription, setBatchDescription] = useState('')
+  const [showSizeSlider, setShowSizeSlider] = useState(false)
+  const [emojiSize, setEmojiSize] = useState(() => {
+    const saved = localStorage.getItem(EMOJI_SIZE_KEY)
+    return saved ? parseInt(saved, 10) : 80 // 默认80px
+  })
+  const [showJsonTagDialog, setShowJsonTagDialog] = useState(false)
+  const [pendingJsonEmojis, setPendingJsonEmojis] = useState<Array<{url: string, name: string, description: string}>>([])  
+  const [jsonTag, setJsonTag] = useState('')
   const imageInputRef = useRef<HTMLInputElement>(null)
   const batchImageInputRef = useRef<HTMLInputElement>(null)
   const jsonInputRef = useRef<HTMLInputElement>(null)
@@ -86,6 +97,7 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
       // 保存待处理的表情包数据，显示描述输入对话框
       setPendingEmojiData({ url, name })
       setEmojiDescription('')
+      setSingleEmojiTag('')
       setShowDescDialog(true)
     }
     reader.readAsDataURL(file)
@@ -103,34 +115,48 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     }
 
     try {
-      const newEmoji = await addEmoji({
-        url: pendingEmojiData.url,
-        name: pendingEmojiData.name,
-        description: emojiDescription.trim()
-      })
-      console.log('✅ 表情包添加成功:', newEmoji)
+      const tag = singleEmojiTag.trim() || undefined
+      
+      // 使用带标签的添加方式
+      if (tag) {
+        await addEmojisWithTag([{
+          url: pendingEmojiData.url,
+          name: pendingEmojiData.name,
+          description: emojiDescription.trim()
+        }], tag)
+      } else {
+        await addEmoji({
+          url: pendingEmojiData.url,
+          name: pendingEmojiData.name,
+          description: emojiDescription.trim()
+        })
+      }
+      console.log('✅ 表情包添加成功')
       
       // 重新加载表情包列表
-      await loadEmojis()
+      await loadEmojis(true)
       
-      // 验证是否真的保存了
-      const allEmojis = await getEmojis()
-      console.log('📦 当前所有表情包数量:', allEmojis.length)
+      // 如果有标签，切换到该标签
+      if (tag) {
+        setActiveTab(tag)
+      }
       
       // 清理状态
       setShowDescDialog(false)
       setPendingEmojiData(null)
       setEmojiDescription('')
+      setSingleEmojiTag('')
       if (imageInputRef.current) imageInputRef.current.value = ''
       
-      alert(`✅ 表情包添加成功！\n当前共有 ${allEmojis.length} 个表情包`)
+      const allEmojis = await getEmojis()
+      alert(`✅ 表情包添加成功${tag ? `到 "${tag}" 分类` : ''}！\n当前共有 ${allEmojis.length} 个表情包`)
     } catch (error) {
       console.error('❌ 添加表情包失败:', error)
       alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
   }
 
-  // 导入JSON
+  // 导入JSON - 先解析，再让用户选择标签
   const handleJsonImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -139,22 +165,71 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     reader.onload = async (event) => {
       const content = event.target?.result as string
       try {
-        const result = await importEmojis(content, false)
+        const parsed = JSON.parse(content)
+        let emojiList: Array<{url: string, name: string, description: string}> = []
         
-        if (result.success) {
-          alert(result.message)
-          await loadEmojis()
-        } else {
-          alert(result.message)
+        if (Array.isArray(parsed)) {
+          emojiList = parsed.filter(item => item.url).map(item => ({
+            url: item.url,
+            name: item.name || '',
+            description: item.description || item.name || ''
+          }))
+        } else if (parsed.emojis && Array.isArray(parsed.emojis)) {
+          emojiList = parsed.emojis.filter((item: any) => item.url).map((item: any) => ({
+            url: item.url,
+            name: item.name || '',
+            description: item.description || item.name || ''
+          }))
         }
+        
+        if (emojiList.length === 0) {
+          alert('JSON文件中没有找到有效的表情包数据')
+          return
+        }
+        
+        // 保存解析结果，显示标签选择对话框
+        setPendingJsonEmojis(emojiList)
+        setJsonTag('')
+        setShowJsonTagDialog(true)
       } catch (error) {
-        alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
+        alert(`JSON解析失败：${error instanceof Error ? error.message : '格式错误'}`)
       }
     }
     reader.readAsText(file)
 
     setShowImportMenu(false)
     if (jsonInputRef.current) jsonInputRef.current.value = ''
+  }
+
+  // 确认JSON导入（带标签）
+  const handleConfirmJsonImport = async () => {
+    if (pendingJsonEmojis.length === 0) return
+    
+    try {
+      const tag = jsonTag.trim() || undefined
+      const addedCount = await addEmojisWithTag(
+        pendingJsonEmojis,
+        tag || ''
+      )
+      
+      console.log('✅ JSON导入成功:', addedCount, '个')
+      await loadEmojis(true)
+      
+      // 如果有标签，切换到该标签
+      if (tag) {
+        setActiveTab(tag)
+      }
+      
+      // 清理状态
+      setShowJsonTagDialog(false)
+      setPendingJsonEmojis([])
+      setJsonTag('')
+      
+      alert(`✅ 成功导入 ${addedCount} 个表情包${tag ? `到 "${tag}" 分类` : ''}！`)
+    } catch (error) {
+      console.error('❌ JSON导入失败:', error)
+      alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
+    }
   }
 
   const frequentEmojis = emojis
@@ -250,6 +325,37 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
       console.error('❌ 批量导入失败:', error)
       alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
+  }
+
+  // 大小调整滑块 - 独立显示，不依赖面板是否打开
+  if (showSizeSlider && !show) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl p-4 shadow-2xl border-t border-gray-200">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 whitespace-nowrap">表情包大小</span>
+          <input
+            type="range"
+            min="40"
+            max="200"
+            value={emojiSize}
+            onChange={(e) => {
+              const newSize = parseInt(e.target.value, 10)
+              setEmojiSize(newSize)
+              localStorage.setItem(EMOJI_SIZE_KEY, String(newSize))
+              emitEmojiSizeChange(newSize) // 🔥 触发实时更新
+            }}
+            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
+          <span className="text-sm font-medium text-purple-600 w-14 text-right">{emojiSize}px</span>
+          <button
+            onClick={() => setShowSizeSlider(false)}
+            className="ml-2 px-3 py-1 bg-purple-500 text-white text-sm rounded-lg"
+          >
+            完成
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!show) return null
@@ -384,15 +490,16 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
               <div className="border-t border-gray-200" />
               <button
                 onClick={() => {
-                  batchImageInputRef.current?.click()
                   setShowImportMenu(false)
+                  setShowSizeSlider(true)
+                  onClose() // 关闭表情包面板，让用户能看到聊天
                 }}
                 className="w-full px-6 py-3 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors flex items-center gap-3"
               >
                 <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                 </svg>
-                <span className="text-sm font-medium">批量导入（带标签）</span>
+                <span className="text-sm font-medium">调整表情包大小</span>
               </button>
               <div className="border-t border-gray-200" />
               <button
@@ -466,10 +573,42 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
                 <textarea
                   value={emojiDescription}
                   onChange={(e) => setEmojiDescription(e.target.value)}
-                  placeholder="例如：大笑、哭泣、尴尬、疑惑、点赞等...\n这个描述会帮助AI理解何时使用这个表情"
-                  className="w-full px-3 py-2 border rounded-lg h-24 resize-none"
+                  placeholder="例如：大笑、哭泣、尴尬、疑惑、点赞等..."
+                  className="w-full px-3 py-2 border rounded-lg h-20 resize-none"
                   autoFocus
                 />
+              </div>
+
+              {/* 标签选择 */}
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">
+                  分类标签
+                  <span className="text-xs text-gray-400 ml-2">（可选）</span>
+                </label>
+                <input
+                  type="text"
+                  value={singleEmojiTag}
+                  onChange={(e) => setSingleEmojiTag(e.target.value)}
+                  placeholder="输入或选择标签"
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+                {tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => setSingleEmojiTag(tag)}
+                        className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                          singleEmojiTag === tag
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -488,6 +627,83 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
                   className="flex-1 py-2 bg-slate-700 text-white rounded-lg shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
                 >
                   添加
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+
+        {/* JSON导入标签选择对话框 */}
+        {showJsonTagDialog && pendingJsonEmojis.length > 0 && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-[60]"
+              onClick={() => {
+                setShowJsonTagDialog(false)
+                setPendingJsonEmojis([])
+              }}
+            />
+            <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] bg-white rounded-3xl p-6 shadow-2xl max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">导入JSON表情包</h2>
+              
+              {/* 预览数量 */}
+              <div className="mb-4 p-3 bg-green-50 rounded-xl">
+                <div className="text-sm text-green-700">
+                  ✅ 已解析 <span className="font-bold">{pendingJsonEmojis.length}</span> 个表情包
+                </div>
+              </div>
+              
+              {/* 标签输入 */}
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">
+                  分类标签
+                  <span className="text-xs text-gray-400 ml-2">（可选，留空则不分类）</span>
+                </label>
+                <input
+                  type="text"
+                  value={jsonTag}
+                  onChange={(e) => setJsonTag(e.target.value)}
+                  placeholder="输入标签名称"
+                  className="w-full px-3 py-2 border rounded-lg"
+                  autoFocus
+                />
+                {/* 已有标签快捷选择 */}
+                {tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => setJsonTag(tag)}
+                        className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                          jsonTag === tag
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowJsonTagDialog(false)
+                    setPendingJsonEmojis([])
+                    setJsonTag('')
+                  }}
+                  className="flex-1 py-2 bg-slate-50 text-slate-700 rounded-lg"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleConfirmJsonImport}
+                  className="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium"
+                >
+                  导入
                 </button>
               </div>
             </div>

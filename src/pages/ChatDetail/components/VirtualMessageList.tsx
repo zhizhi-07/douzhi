@@ -14,6 +14,7 @@ interface VirtualMessageListProps {
   chatId?: string
   isAiTyping: boolean
   onMessageLongPress: (message: Message, e: React.TouchEvent | React.MouseEvent) => void
+  onMessageLongPressMove?: (e: React.TouchEvent | React.MouseEvent) => void
   onMessageLongPressEnd: () => void
   onViewRecalledMessage: (message: Message) => void
   onViewCallRecord: (message: Message) => void
@@ -43,6 +44,7 @@ const VirtualMessageList = ({
   chatId,
   isAiTyping,
   onMessageLongPress,
+  onMessageLongPressMove,
   onMessageLongPressEnd,
   onViewRecalledMessage,
   onViewCallRecord,
@@ -264,6 +266,7 @@ const VirtualMessageList = ({
           character={character}
           chatId={chatId}
           onLongPressStart={onMessageLongPress}
+          onLongPressMove={onMessageLongPressMove}
           onLongPressEnd={onMessageLongPressEnd}
           onViewRecalledMessage={onViewRecalledMessage}
           onViewCallRecord={onViewCallRecord}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMusicPlayer } from '../context/MusicPlayerContext'
 import StatusBar from '../components/StatusBar'
@@ -8,18 +8,8 @@ import DynamicIsland from '../components/DynamicIsland'
 import { characterService } from '../services/characterService'
 import { getUserInfoWithAvatar } from '../utils/userUtils'
 import { getAllUIIcons } from '../utils/iconStorage'
-import { Shuffle, Repeat, Repeat1, ListOrdered } from 'lucide-react'
-
-interface Song {
-  id: number
-  title: string
-  artist: string
-  album: string
-  duration: number
-  cover: string
-  audioUrl?: string
-  lyrics?: string
-}
+import { Shuffle, Repeat, Repeat1, ListOrdered, Upload, Music, FileText, Image, X } from 'lucide-react'
+import { getAllSongs, saveSong, deleteSong as deleteStoredSong, migrateFromLocalStorage, Song } from '../utils/musicStorage'
 
 const MusicPlayer = () => {
   const navigate = useNavigate()
@@ -35,6 +25,21 @@ const MusicPlayer = () => {
   const [customBackground, setCustomBackground] = useState<string>('')
   const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image')
   const [userAvatar, setUserAvatar] = useState<string>('')
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    artist: '',
+    audioFile: null as File | null,
+    lyricsFile: null as File | null,
+    coverFile: null as File | null,
+    audioPreview: '',
+    coverPreview: '',
+    audioUrl: '' // 链接上传
+  })
+  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
+  const audioInputRef = useRef<HTMLInputElement>(null)
+  const lyricsInputRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   // 加载用户头像
   useEffect(() => {
@@ -147,14 +152,25 @@ const MusicPlayer = () => {
     }
   }, [])
 
-  const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
-  const playlist: Song[] = customSongs
+  const [playlist, setPlaylist] = useState<Song[]>([])
 
+  // 加载歌曲列表（从 IndexedDB + 链接歌曲）
   useEffect(() => {
-    if (playlist.length > 0 && !musicPlayer.currentSong) {
-      musicPlayer.setPlaylist(playlist)
-      musicPlayer.setCurrentSong(playlist[0], 0)
+    const loadSongs = async () => {
+      // 先迁移旧数据
+      await migrateFromLocalStorage()
+      // 加载 IndexedDB 歌曲
+      const songs = await getAllSongs()
+      // 加载链接歌曲
+      const urlSongs = JSON.parse(localStorage.getItem('customSongs_url') || '[]')
+      const allSongs = [...songs, ...urlSongs]
+      setPlaylist(allSongs)
+      if (allSongs.length > 0 && !musicPlayer.currentSong) {
+        musicPlayer.setPlaylist(allSongs)
+        musicPlayer.setCurrentSong(allSongs[0], 0)
+      }
     }
+    loadSongs()
   }, [])
 
   const currentSong = musicPlayer.currentSong || playlist[0] || {
@@ -173,11 +189,14 @@ const MusicPlayer = () => {
   const parseLyricsWithTime = (lyricsText?: string): Array<{ time: number; text: string }> => {
     if (!lyricsText) return []
     const parsed = lyricsText.split('\n').map(line => {
-      const match = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/)
+      // 支持多种格式: [01:23.45], [01:23.456], [01:23:45], [01:23]
+      const match = line.match(/\[(\d+):(\d+)(?:[.:](\d+))?\](.*)/)
       if (match) {
         const minutes = parseInt(match[1])
         const seconds = parseInt(match[2])
-        const milliseconds = parseInt(match[3])
+        const ms = match[3] ? parseInt(match[3]) : 0
+        // 处理毫秒：如果是2位就院10，3位就除100
+        const milliseconds = match[3] ? (match[3].length === 2 ? ms * 10 : ms) : 0
         const text = match[4].trim()
         const time = minutes * 60 + seconds + milliseconds / 1000
         return { time, text }
@@ -202,27 +221,196 @@ const MusicPlayer = () => {
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => musicPlayer.seek(parseFloat(e.target.value))
   const selectSong = (index: number) => {
     musicPlayer.setCurrentSong(playlist[index], index)
-    musicPlayer.play()
+    // 等待音频加载后再播放
+    setTimeout(() => {
+      musicPlayer.play()
+    }, 100)
     setShowPlaylist(false)
   }
 
-  const deleteSong = (e: React.MouseEvent, index: number) => {
+  const handleDeleteSong = async (e: React.MouseEvent, index: number) => {
     e.stopPropagation()
     if (!confirm('确定要删除这首歌吗？')) return
-    const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
-    customSongs.splice(index, 1)
-    localStorage.setItem('customSongs', JSON.stringify(customSongs))
+    const songToDelete = playlist[index]
+    
+    // 判断是IndexedDB歌曲还是URL歌曲
+    const urlSongs = JSON.parse(localStorage.getItem('customSongs_url') || '[]')
+    const isUrlSong = urlSongs.some((s: any) => s.id === songToDelete.id)
+    
+    if (isUrlSong) {
+      // 从 localStorage 删除
+      const newUrlSongs = urlSongs.filter((s: any) => s.id !== songToDelete.id)
+      localStorage.setItem('customSongs_url', JSON.stringify(newUrlSongs))
+    } else {
+      // 从 IndexedDB 删除
+      await deleteStoredSong(songToDelete.id)
+    }
+    
+    const newPlaylist = playlist.filter((_, i) => i !== index)
+    setPlaylist(newPlaylist)
     if (index === currentSongIndex) {
-      if (customSongs.length > 0) {
-        const nextIndex = index < customSongs.length ? index : 0
-        musicPlayer.setCurrentSong(customSongs[nextIndex], nextIndex)
+      if (newPlaylist.length > 0) {
+        const nextIndex = index < newPlaylist.length ? index : 0
+        musicPlayer.setCurrentSong(newPlaylist[nextIndex], nextIndex)
       } else {
         musicPlayer.pause()
       }
     } else if (index < currentSongIndex) {
       musicPlayer.setCurrentSong(currentSong!, currentSongIndex - 1)
     }
-    window.location.reload()
+    musicPlayer.setPlaylist(newPlaylist)
+  }
+
+  // 处理上传歌曲
+  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      // 尝试从文件名提取歌名和歌手
+      const fileName = file.name.replace(/\.[^/.]+$/, '')
+      const parts = fileName.split(' - ')
+      setUploadForm(prev => ({
+        ...prev,
+        audioFile: file,
+        audioPreview: url,
+        title: prev.title || (parts.length > 1 ? parts[0] : fileName),
+        artist: prev.artist || (parts.length > 1 ? parts[1] : '')
+      }))
+    }
+  }
+
+  const handleLyricsSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadForm(prev => ({ ...prev, lyricsFile: file }))
+    }
+  }
+
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setUploadForm(prev => ({ ...prev, coverFile: file, coverPreview: url }))
+    }
+  }
+
+  const handleUploadSong = async () => {
+    // 文件上传模式
+    if (uploadMode === 'file') {
+      if (!uploadForm.audioFile || !uploadForm.title.trim()) {
+        alert('请上传歌曲文件并填写歌名')
+        return
+      }
+    } else {
+      // 链接上传模式
+      if (!uploadForm.audioUrl.trim() || !uploadForm.title.trim()) {
+        alert('请填写音频链接和歌名')
+        return
+      }
+    }
+
+    // 读取歌词文件为文本
+    const readFileAsText = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsText(file)
+      })
+    }
+
+    // 读取封面为base64（封面图片小，用base64没问题）
+    const readFileAsBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    }
+
+    try {
+      let lyricsText = ''
+      let coverBase64 = ''
+
+      if (uploadForm.lyricsFile) {
+        lyricsText = await readFileAsText(uploadForm.lyricsFile)
+      }
+
+      if (uploadForm.coverFile) {
+        coverBase64 = await readFileAsBase64(uploadForm.coverFile)
+      }
+
+      const songId = Date.now()
+      const defaultCover = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23667" width="300" height="300"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="60" fill="%23fff"%3E🎵%3C/text%3E%3C/svg%3E'
+
+      if (uploadMode === 'file' && uploadForm.audioFile) {
+        // 文件上传 - 保存到 IndexedDB
+        const audioUrl = URL.createObjectURL(uploadForm.audioFile)
+        const audio = new Audio(audioUrl)
+        await new Promise(resolve => {
+          audio.onloadedmetadata = resolve
+        })
+
+        await saveSong({
+          id: songId,
+          title: uploadForm.title.trim(),
+          artist: uploadForm.artist.trim() || '未知歌手',
+          album: '',
+          duration: audio.duration,
+          cover: coverBase64 || defaultCover,
+          audioBlob: uploadForm.audioFile,
+          lyrics: lyricsText
+        })
+      } else {
+        // 链接上传 - 保存到 localStorage（链接不占空间）
+        const audio = new Audio(uploadForm.audioUrl.trim())
+        await new Promise((resolve, reject) => {
+          audio.onloadedmetadata = resolve
+          audio.onerror = () => reject(new Error('无法加载音频链接'))
+          setTimeout(() => reject(new Error('加载超时')), 10000)
+        })
+
+        const customSongs = JSON.parse(localStorage.getItem('customSongs_url') || '[]')
+        customSongs.push({
+          id: songId,
+          title: uploadForm.title.trim(),
+          artist: uploadForm.artist.trim() || '未知歌手',
+          album: '',
+          duration: audio.duration,
+          cover: coverBase64 || defaultCover,
+          audioUrl: uploadForm.audioUrl.trim(),
+          lyrics: lyricsText
+        })
+        localStorage.setItem('customSongs_url', JSON.stringify(customSongs))
+      }
+
+      // 重新加载歌曲列表
+      const songs = await getAllSongs()
+      // 合并链接歌曲
+      const urlSongs = JSON.parse(localStorage.getItem('customSongs_url') || '[]')
+      const allSongs = [...songs, ...urlSongs]
+      setPlaylist(allSongs)
+      musicPlayer.setPlaylist(allSongs)
+
+      // 重置表单
+      setUploadForm({
+        title: '',
+        artist: '',
+        audioFile: null,
+        lyricsFile: null,
+        coverFile: null,
+        audioPreview: '',
+        coverPreview: '',
+        audioUrl: ''
+      })
+      setShowUploadModal(false)
+
+      alert('上传成功！')
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert('上传失败，请重试')
+    }
   }
 
   useEffect(() => {
@@ -291,7 +479,7 @@ const MusicPlayer = () => {
                       <div className={`font-medium text-[15px] truncate ${index === currentSongIndex ? 'text-red-400' : 'text-white'}`}>{song.title}</div>
                       <div className="text-[12px] text-white/40 truncate mt-0.5">{song.artist}</div>
                     </div>
-                    <button onClick={(e) => deleteSong(e, index)} className="p-2 text-white/20 hover:text-red-400">
+                    <button onClick={(e) => handleDeleteSong(e, index)} className="p-2 text-white/20 hover:text-red-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -328,7 +516,7 @@ const MusicPlayer = () => {
               {/* 一起听 - 胶囊悬浮显示 */}
               {listeningTogether && (
                 <div className="mt-20 flex items-center justify-center animate-fade-in-up">
-                  <div className="flex items-center gap-[-8px] bg-black/20 backdrop-blur-md pl-1 pr-4 py-1.5 rounded-full border border-white/10">
+                  <div className="flex items-center gap-[-8px] bg-black/20 backdrop-blur-md pl-1 pr-3 py-1.5 rounded-full border border-white/10">
                     <div className="flex items-center -space-x-3">
                       <div className="w-10 h-10 rounded-full border-2 border-white/80 shadow-lg overflow-hidden relative z-10">
                         <img src={userAvatar} alt="Me" className="w-full h-full object-cover bg-gray-300" />
@@ -341,6 +529,27 @@ const MusicPlayer = () => {
                       <span className="text-[10px] text-white/60 leading-none mb-1">一起听</span>
                       <span className="text-xs font-bold text-white leading-none font-mono tracking-wide">{listeningDuration}</span>
                     </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const data = listeningTogether
+                        localStorage.removeItem('listening_together')
+                        setListeningTogether(null)
+                        setListeningDuration('')
+                        // 派发结束一起听事件，通知聊天系统
+                        window.dispatchEvent(new CustomEvent('end-listening-together', {
+                          detail: {
+                            characterId: data?.characterId,
+                            songTitle: data?.songTitle,
+                            songArtist: data?.songArtist,
+                            duration: listeningDuration
+                          }
+                        }))
+                      }}
+                      className="ml-3 w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5 text-white" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -377,8 +586,8 @@ const MusicPlayer = () => {
             <button onClick={() => setIsLiked(!isLiked)} className={`${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}>
               <svg className={`w-7 h-7 ${isLiked ? 'fill-current' : ''}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
             </button>
-            <button className="text-gray-500 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <button onClick={() => setShowUploadModal(true)} className="text-gray-500 hover:text-gray-700">
+              <Upload className="w-6 h-6" strokeWidth={1.5} />
             </button>
             <button className="text-gray-500 hover:text-gray-700">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -440,6 +649,186 @@ const MusicPlayer = () => {
             </button>
           </div>
         </div>
+
+        {/* 上传歌曲弹窗 */}
+        {showUploadModal && (
+          <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowUploadModal(false)}>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div 
+              className="relative w-full bg-white rounded-t-[20px] max-h-[85vh] overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3" />
+              
+              {/* 标题栏 */}
+              <div className="px-6 py-4 flex items-center justify-between border-b border-gray-100">
+                <button onClick={() => setShowUploadModal(false)} className="text-gray-400">
+                  <X className="w-6 h-6" />
+                </button>
+                <h2 className="text-lg font-semibold">上传歌曲</h2>
+                <button 
+                  onClick={handleUploadSong}
+                  className="text-blue-500 font-medium"
+                >
+                  完成
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(85vh-80px)]">
+                {/* 上传模式切换 */}
+                <div className="flex bg-gray-100 rounded-xl p-1">
+                  <button
+                    onClick={() => setUploadMode('file')}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      uploadMode === 'file' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    }`}
+                  >
+                    本地文件
+                  </button>
+                  <button
+                    onClick={() => setUploadMode('url')}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      uploadMode === 'url' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    }`}
+                  >
+                    链接上传
+                  </button>
+                </div>
+
+                {/* 歌曲来源 */}
+                {uploadMode === 'file' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      歌曲文件 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={audioInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => audioInputRef.current?.click()}
+                      className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-3 ${
+                        uploadForm.audioFile 
+                          ? 'border-green-300 bg-green-50 text-green-700' 
+                          : 'border-gray-200 hover:border-gray-300 text-gray-500'
+                      }`}
+                    >
+                      <Music className="w-6 h-6" />
+                      <span className="text-sm">
+                        {uploadForm.audioFile ? uploadForm.audioFile.name : '点击选择音频文件'}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      音频链接 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={uploadForm.audioUrl}
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, audioUrl: e.target.value }))}
+                      placeholder="请输入音频直链 (mp3/m4a/wav等)"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">支持 mp3、m4a、wav 等格式的直链</p>
+                  </div>
+                )}
+
+                {/* 歌名输入 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    歌名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.title}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="请输入歌名"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                  />
+                </div>
+
+                {/* 歌手输入 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">歌手</label>
+                  <input
+                    type="text"
+                    value={uploadForm.artist}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, artist: e.target.value }))}
+                    placeholder="请输入歌手名"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                  />
+                </div>
+
+                {/* 封面上传 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">封面图片（可选）</label>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => coverInputRef.current?.click()}
+                    className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors ${
+                      uploadForm.coverFile 
+                        ? 'border-green-300 bg-green-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {uploadForm.coverPreview ? (
+                      <div className="flex items-center gap-3">
+                        <img src={uploadForm.coverPreview} alt="封面预览" className="w-16 h-16 rounded-lg object-cover" />
+                        <span className="text-sm text-green-700">已选择封面</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-3 text-gray-500">
+                        <Image className="w-6 h-6" />
+                        <span className="text-sm">点击选择封面图片</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+
+                {/* 歌词上传 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">歌词文件（可选，.lrc格式）</label>
+                  <input
+                    ref={lyricsInputRef}
+                    type="file"
+                    accept=".lrc,.txt"
+                    onChange={handleLyricsSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => lyricsInputRef.current?.click()}
+                    className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-3 ${
+                      uploadForm.lyricsFile 
+                        ? 'border-green-300 bg-green-50 text-green-700' 
+                        : 'border-gray-200 hover:border-gray-300 text-gray-500'
+                    }`}
+                  >
+                    <FileText className="w-6 h-6" />
+                    <span className="text-sm">
+                      {uploadForm.lyricsFile ? uploadForm.lyricsFile.name : '点击选择歌词文件'}
+                    </span>
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-400 text-center pt-2">
+                  支持 MP3、WAV、FLAC 等常见音频格式<br/>
+                  歌词支持 .lrc 格式（带时间轴）
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </>

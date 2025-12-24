@@ -65,6 +65,31 @@ const WALLPAPER_KEY_PREFIX = 'chat_wallpaper_'
 const WALLPAPER_IMAGE_PREFIX = 'wallpaper_img_'
 
 /**
+ * 清除聊天壁纸（恢复默认）
+ */
+export async function clearChatWallpaper(chatId: string): Promise<boolean> {
+  try {
+    // 删除localStorage中的壁纸元数据
+    localStorage.removeItem(WALLPAPER_KEY_PREFIX + chatId)
+    
+    // 删除IndexedDB中的自定义图片
+    const imageKey = WALLPAPER_IMAGE_PREFIX + chatId
+    try {
+      const { deleteFromIndexedDB } = await import('./unifiedStorage')
+      await deleteFromIndexedDB('IMAGES', imageKey)
+    } catch (e) {
+      // 图片可能不存在，忽略错误
+      console.log('清除壁纸图片:', e)
+    }
+    
+    return true
+  } catch (error) {
+    console.error('清除壁纸失败:', error)
+    return false
+  }
+}
+
+/**
  * 检查是否有用户设置的聊天壁纸
  */
 export function hasChatWallpaper(chatId: string): boolean {

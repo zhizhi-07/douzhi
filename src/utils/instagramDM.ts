@@ -25,6 +25,11 @@ export interface DMConversation {
   lastTime: string
   unreadCount: number
   updatedAt: number
+  // 标签系统
+  tag?: 'fan' | 'business' | 'goodsSelection' | 'curious' | 'flirt' | 'hater' | 'random'  // 粉丝/商务合作/好物优选/好奇/搭讪/杠精/随机
+  brandName?: string  // 品牌名称（商务合作时）
+  brandCategory?: string  // 品牌类目（美妆/服饰/数码等）
+  cooperationType?: string  // 合作类型（产品置换/付费推广/长期合作等）
 }
 
 // 内存缓存
@@ -153,7 +158,14 @@ export function sendDMToUser(
   npcId: string, 
   npcName: string, 
   npcAvatar: string | undefined, 
-  content: string
+  content: string,
+  // 品牌方信息（可选）
+  brandInfo?: {
+    tag?: 'business' | 'goodsSelection'
+    brandName?: string
+    brandCategory?: string
+    cooperationType?: string
+  }
 ) {
   const now = Date.now()
   const time = new Date().toLocaleTimeString('zh-CN', {
@@ -187,6 +199,13 @@ export function sendDMToUser(
     conversations[existingIndex].lastTime = time
     conversations[existingIndex].unreadCount += 1
     conversations[existingIndex].updatedAt = now
+    // 更新品牌信息（如果有）
+    if (brandInfo) {
+      conversations[existingIndex].tag = brandInfo.tag
+      conversations[existingIndex].brandName = brandInfo.brandName
+      conversations[existingIndex].brandCategory = brandInfo.brandCategory
+      conversations[existingIndex].cooperationType = brandInfo.cooperationType
+    }
   } else {
     conversations.push({
       id: npcId,
@@ -195,7 +214,14 @@ export function sendDMToUser(
       lastMessage: content,
       lastTime: time,
       unreadCount: 1,
-      updatedAt: now
+      updatedAt: now,
+      // 品牌信息
+      ...(brandInfo && {
+        tag: brandInfo.tag,
+        brandName: brandInfo.brandName,
+        brandCategory: brandInfo.brandCategory,
+        cooperationType: brandInfo.cooperationType
+      })
     })
   }
   

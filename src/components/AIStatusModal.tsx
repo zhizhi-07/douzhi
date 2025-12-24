@@ -24,7 +24,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
     <>
       {/* 🔥 从顶部滑下的状态详情卡片 */}
       <div
-        className="fixed top-[60px] right-4 z-50 w-80 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)] modal-slide-down transition-all duration-300"
+        className="ai-status-modal fixed top-[60px] right-4 z-50 w-80 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)] modal-slide-down transition-all duration-300"
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.7)',
           backdropFilter: 'blur(20px) saturate(180%)',
@@ -67,7 +67,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
         {/* 当前状态 - 4个维度 */}
         <div className="space-y-3">
           {/* 服装 */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-pink-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+          <div className="ai-status-outfit relative overflow-hidden rounded-xl bg-gradient-to-br from-pink-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-pink-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-pink-100/50 transition-colors duration-500"></div>
             <div className="flex flex-col gap-2 relative z-10">
               <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
           </div>
 
           {/* 心理 */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+          <div className="ai-status-mood relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-purple-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-100/50 transition-colors duration-500"></div>
             <div className="flex flex-col gap-2 relative z-10">
               <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
           </div>
 
           {/* 行程/地点 */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+          <div className="ai-status-location relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-100/50 transition-colors duration-500"></div>
             <div className="flex flex-col gap-2 relative z-10">
               <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ const AIStatusModal: React.FC<AIStatusModalProps> = ({
           </div>
 
           {/* 动作 */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
+          <div className="ai-status-action relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50/60 to-white/20 p-4 border border-white/60 shadow-sm group hover:shadow-md transition-all duration-500">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-100/30 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-100/50 transition-colors duration-500"></div>
             <div className="flex flex-col gap-2 relative z-10">
               <div className="flex items-center gap-2">

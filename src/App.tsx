@@ -26,15 +26,17 @@ import OfflineChat from './pages/OfflineChat'
 import ChatSettings from './pages/ChatSettings'
 import MemorySummary from './pages/MemorySummary'
 import MemoryViewer from './pages/MemoryViewer'
-import CoupleSpace from './pages/CoupleSpace'
+import CoupleSpace from './pages/CoupleSpace/index'
 import CoupleAlbum from './pages/CoupleAlbum'
 import CoupleAnniversary from './pages/CoupleAnniversary'
 import CoupleMessageBoard from './pages/CoupleMessageBoard'
 import CouplePeriod from './pages/CouplePeriod'
 import CouplePet from './pages/CouplePet'
 import CoupleCheckIn from './pages/CoupleCheckIn'
+import CoupleSpaceSettings from './pages/CoupleSpaceSettings'
 import { emergencyCleanup } from './utils/emergencyCleanup'
 import Wallet from './pages/Wallet'
+import Favorites from './pages/Favorites'
 import WalletTransactions from './pages/WalletTransactions'
 import WalletCards from './pages/WalletCards'
 import IntimatePayDetail from './pages/IntimatePayDetail'
@@ -48,6 +50,7 @@ import UploadSong from './pages/UploadSong'
 import MusicDecoration from './pages/MusicDecoration'
 import DecorationHub from './pages/DecorationHub'
 import GlobalDecoration from './pages/GlobalDecoration'
+import ChatCSSDecoration from './pages/ChatCSSDecoration'
 import GlobalColors from './pages/GlobalColors'
 import Customize from './pages/Customize'
 import DataManager from './pages/DataManager'
@@ -95,6 +98,8 @@ import Landlord from './pages/Landlord'
 import AITwoAIChat from './pages/AITwoAIChat'
 import WerewolfGame from './pages/Werewolf'
 import Calendar from './pages/Calendar'
+import RoleSwap from './pages/RoleSwap'
+import RoleSwapWorld from './pages/RoleSwapWorld'
 import AISchedule from './pages/AISchedule'
 import AIScheduleSelect from './pages/AIScheduleSelect'
 import ScreenSettings from './pages/ScreenSettings'
@@ -103,10 +108,12 @@ import AvatarLibrary from './pages/AvatarLibrary'
 import SwitchAccount from './pages/SwitchAccount'
 import Weather from './pages/Weather'
 import ChatHistorySearch from './pages/ChatHistorySearch'
+import TransferDetail from './pages/TransferDetail'
 import Envelope from './pages/Envelope'
 import Auth from './pages/Auth'
 import Admin from './pages/Admin'
 import CloudAccount from './pages/CloudAccount'
+import CustomPromptSettings from './pages/CustomPromptSettings'
 import BanCheck from './components/BanCheck'
 import InviteCodeCheck from './components/InviteCodeCheck'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
@@ -327,6 +334,31 @@ function App() {
 
     // 🎵 初始化音效系统，预加载常用音效
     initSoundSystem()
+
+    // 🎨 初始化聊天CSS自定义样式
+    const savedCSS = localStorage.getItem('chat_custom_css')
+    if (savedCSS) {
+      try {
+        const data = JSON.parse(savedCSS)
+        let cssText = data.custom?.freeCSS || ''
+        // 添加状态弹窗CSS
+        if (data.custom?.statusModal) cssText += '\n' + data.custom.statusModal
+        // 添加转账卡片CSS
+        if (data.custom?.transferCard) cssText += '\n' + data.custom.transferCard
+        // 添加全局气泡CSS
+        if (data.custom?.globalBubble) cssText += '\n' + data.custom.globalBubble
+        
+        if (cssText) {
+          const style = document.createElement('style')
+          style.id = 'chat-custom-css'
+          style.textContent = cssText
+          document.head.appendChild(style)
+          console.log('✅ 聊天CSS样式已加载:', cssText)
+        }
+      } catch (e) {
+        console.error('❌ 加载聊天CSS失败:', e)
+      }
+    }
 
     // 🔥 初始化API配置，确保当前API设置是最新的
     import('./services/apiService').then(({ apiService }) => {
@@ -629,6 +661,7 @@ function App() {
           <Route path="/chat/:id/memory-viewer" element={<MemoryViewer />} />
           <Route path="/chat/:id/memory-summary" element={<MemorySummary />} />
           <Route path="/chat/:id/history" element={<ChatHistorySearch />} />
+          <Route path="/chat/:chatId/transfer/:messageId" element={<TransferDetail />} />
           <Route path="/couple-space" element={<CoupleSpace />} />
           <Route path="/couple-album" element={<CoupleAlbum />} />
           <Route path="/couple-anniversary" element={<CoupleAnniversary />} />
@@ -636,7 +669,9 @@ function App() {
           <Route path="/couple-pet" element={<CouplePet />} />
           <Route path="/couple-check-in" element={<CoupleCheckIn />} />
           <Route path="/couple-period" element={<CouplePeriod />} />
+          <Route path="/couple-space-settings" element={<CoupleSpaceSettings />} />
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/favorites" element={<Favorites />} />
           <Route path="/wallet/transactions" element={<WalletTransactions />} />
           <Route path="/wallet/cards" element={<WalletCards />} />
           <Route path="/wallet/intimate-pay/:characterId" element={<IntimatePayDetail />} />
@@ -648,6 +683,7 @@ function App() {
           <Route path="/decoration/music" element={<MusicDecoration />} />
           <Route path="/decoration/global" element={<GlobalDecoration />} />
           <Route path="/decoration/colors" element={<GlobalColors />} />
+          <Route path="/decoration/chat-css" element={<ChatCSSDecoration />} />
           <Route path="/customize" element={<Customize />} />
           <Route path="/data-manager" element={<DataManager />} />
           <Route path="/statusbar-customize" element={<StatusBarCustomize />} />
@@ -691,6 +727,8 @@ function App() {
           <Route path="/theatre" element={<TheatreApp />} />
           <Route path="/game-list" element={<GameList />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/role-swap" element={<RoleSwap />} />
+          <Route path="/role-swap-chat/:id" element={<RoleSwapWorld />} />
           <Route path="/landlord" element={<Landlord />} />
           <Route path="/ai-chat" element={<AITwoAIChat />} />
           <Route path="/werewolf" element={<WerewolfGame />} />
@@ -703,6 +741,7 @@ function App() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/cloud-account" element={<CloudAccount />} />
+          <Route path="/custom-prompt" element={<CustomPromptSettings />} />
           {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
         </Routes>
       </ContactsProvider>
