@@ -14,7 +14,8 @@ interface MenuPosition {
 }
 
 // 移动阈值（像素），超过此距离取消长按
-const MOVE_THRESHOLD = 10
+// 手机屏幕上需要较大阈值避免滑动时误触发
+const MOVE_THRESHOLD = 15
 
 export const useLongPress = (
   onLongPress: (message: Message, position: MenuPosition) => void,

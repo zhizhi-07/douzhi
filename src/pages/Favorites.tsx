@@ -9,6 +9,7 @@ import StatusBar from '../components/StatusBar'
 import { getFavorites, deleteFavorite, formatMessageContent, type FavoriteItem } from '../utils/favoriteManager'
 import { getUserInfo } from '../utils/userUtils'
 import type { Message } from '../types/chat'
+import TheatreMessage from '../components/TheatreMessage'
 
 const Favorites = () => {
   const navigate = useNavigate()
@@ -78,6 +79,7 @@ const Favorites = () => {
   const renderMessage = (msg: Message, fav: FavoriteItem, showTimestamp: boolean) => {
     const isSent = msg.type === 'sent'
     const isSystem = msg.type === 'system'
+    const isTheatre = msg.messageType === 'theatre' && msg.theatre
 
     return (
       <div className="w-full">
@@ -97,9 +99,44 @@ const Favorites = () => {
               {formatMessageContent(msg)}
             </span>
           </div>
+        ) : isTheatre ? (
+          /* 小剧场消息 - 直接渲染卡片，不放在气泡里 */
+          <div className={`flex items-start gap-3 my-3 ${isSent ? 'flex-row-reverse' : 'flex-row'}`}>
+              {/* 头像 */}
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
+                {isSent ? (
+                  userAvatar ? (
+                    <img src={userAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-500">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    </div>
+                  )
+                ) : (
+                  fav.characterAvatar ? (
+                    <img src={fav.characterAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-400 to-purple-400">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    </div>
+                  )
+                )}
+              </div>
+              {/* 小剧场卡片 */}
+              <div className="max-w-[75%]">
+                <TheatreMessage message={msg} />
+                <div className={`text-[10px] text-gray-400 mt-1 ${isSent ? 'text-right mr-1' : 'text-left ml-1'}`}>
+                  {msg.time}
+                </div>
+              </div>
+          </div>
         ) : (
           /* 普通消息 */
-          <div className={`flex items-end gap-2 mb-3 ${isSent ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={`flex items-start gap-3 my-3 ${isSent ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* 头像 */}
             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
               {isSent ? (
