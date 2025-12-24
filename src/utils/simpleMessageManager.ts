@@ -297,51 +297,16 @@ export async function forceRecoverFromIndexedDB(): Promise<void> {
 if (typeof window !== 'undefined') {
   // 监听页面卸载事件
   window.addEventListener('beforeunload', () => {
-    // beforeunload事件中必须使用同步操作，避免console.log
-    // 将所有缓存的消息同步保存到localStorage作为备份
-    messageCache.forEach((messages, storageKey) => {
-      if (messages && messages.length > 0) {
-        try {
-          const backupKey = `msg_backup_${storageKey}`
-          // 清理消息，确保可以序列化
-          const cleanMessages = messages.map(msg => ({
-            ...msg,
-            // 移除可能导致序列化失败的属性
-            nativeEvent: undefined,
-            event: undefined
-          }))
-          const backup = {
-            messages: cleanMessages,
-            timestamp: Date.now()
-          }
-          const backupStr = JSON.stringify(backup)
-          localStorage.setItem(backupKey, backupStr)
-        } catch (e) {
-          // beforeunload中不能使用console.error，静默失败
-        }
-      }
-    })
+    // 🔥🔥🔥 关键修复：不再在beforeunload时备份缓存到localStorage
+    // 因为缓存可能只有分页加载的30条消息，会覆盖掉完整数据！
+    // IndexedDB本身就是持久化存储，不需要额外备份
   })
   
-  // 监听页面可见性变化，在页面隐藏时保存
+  // 监听页面可见性变化
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // 🔥🔥🔥 关键修复：只备份到 localStorage，不直接写入 IndexedDB
-      // 直接调用 IDB.setItem 会绕过 saveMessages 的合并保护逻辑，导致数据丢失！
-      messageCache.forEach((messages, storageKey) => {
-        if (messages && messages.length > 0) {
-          try {
-            const backupKey = `msg_backup_${storageKey}`
-            const backup = {
-              messages: messages,
-              timestamp: Date.now()
-            }
-            localStorage.setItem(backupKey, JSON.stringify(backup))
-          } catch (e) {
-            // localStorage 满了，静默失败
-          }
-        }
-      })
+      // 🔥🔥🔥 关键修复：不再备份到localStorage
+      // 分页加载的缓存只有30条，如果备份会导致数据丢失
     }
   })
 }

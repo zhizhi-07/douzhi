@@ -1815,42 +1815,44 @@ export const useChatAI = (
 
   /**
    * 重新生成AI回复
-   * 使用更长的延迟确保状态更新完成
+   * 🔥🔥🔥 关键修复：从IndexedDB读取完整消息列表，而不是使用React状态（可能只有30条分页数据）
    */
-  const handleRegenerate = useCallback(() => {
-    setMessages(prev => {
-      // 从后往前找到最后一条AI消息
-      const lastAIIndex = [...prev].reverse().findIndex(msg => msg.type === 'received')
-      if (lastAIIndex === -1) {
-        setError('没有可重新生成的AI回复')
-        return prev
+  const handleRegenerate = useCallback(async () => {
+    // 🔥🔥🔥 关键修复：先从IndexedDB读取完整消息列表
+    const fullMessages = loadMessages(chatId)
+    
+    // 从后往前找到最后一条AI消息
+    const lastAIIndex = [...fullMessages].reverse().findIndex(msg => msg.type === 'received')
+    if (lastAIIndex === -1) {
+      setError('没有可重新生成的AI回复')
+      return
+    }
+    
+    const actualLastAIIndex = fullMessages.length - 1 - lastAIIndex
+    
+    // 从最后一条AI消息往前找，删除这一轮AI的所有消息
+    // 直到遇到非AI消息（用户消息或系统消息）或到达消息开头
+    let deleteFromIndex = actualLastAIIndex
+    for (let i = actualLastAIIndex - 1; i >= 0; i--) {
+      if (fullMessages[i].type !== 'received') {
+        // 遇到非AI消息（用户消息或系统消息），停止
+        break
       }
-      
-      const actualLastAIIndex = prev.length - 1 - lastAIIndex
-      
-      // 从最后一条AI消息往前找，删除这一轮AI的所有消息
-      // 直到遇到非AI消息（用户消息或系统消息）或到达消息开头
-      let deleteFromIndex = actualLastAIIndex
-      for (let i = actualLastAIIndex - 1; i >= 0; i--) {
-        if (prev[i].type !== 'received') {
-          // 遇到非AI消息（用户消息或系统消息），停止
-          break
-        }
-        // 是AI消息，继续往前删除
-        deleteFromIndex = i
-      }
-      
-      const newMessages = prev.slice(0, deleteFromIndex)
-      const deletedCount = prev.length - newMessages.length
-      console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${prev.length - 1} 的 ${deletedCount} 条消息`)
-      
-      // 🔥 真正从 IndexedDB 删除（覆盖保存整个消息列表）
-      // 使用 forceOverwrite=true 跳过智能合并，防止被删的消息恢复
-      console.log(`💾 覆盖保存消息列表: chatId=${chatId}, 剩余=${newMessages.length}条`)
-      saveMessages(chatId, newMessages, true)
-      
-      return newMessages
-    })
+      // 是AI消息，继续往前删除
+      deleteFromIndex = i
+    }
+    
+    const newMessages = fullMessages.slice(0, deleteFromIndex)
+    const deletedCount = fullMessages.length - newMessages.length
+    console.log(`🔄 重回：删除从索引 ${deleteFromIndex} 到 ${fullMessages.length - 1} 的 ${deletedCount} 条消息（完整列表共${fullMessages.length}条）`)
+    
+    // 🔥 真正从 IndexedDB 删除（覆盖保存整个消息列表）
+    // 使用 forceOverwrite=true 跳过智能合并，防止被删的消息恢复
+    console.log(`💾 覆盖保存消息列表: chatId=${chatId}, 剩余=${newMessages.length}条`)
+    saveMessages(chatId, newMessages, true)
+    
+    // 更新React状态
+    setMessages(newMessages)
     
     // 🔥 使用更长的延迟（300ms）确保 React 状态更新完成
     setTimeout(() => {
