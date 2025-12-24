@@ -1,10 +1,10 @@
 /**
  * 长按检测Hook
  * 负责：长按消息的检测和处理，记录菜单位置
- * 优化：添加移动距离检测，滑动时不触发长按
+ * 优化：使用全局事件监听检测移动/滚动，解决滑动时误触发问题
  */
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import type { Message } from '../../../types/chat'
 import { playLongPressSound } from '../../../utils/soundManager'
 
@@ -14,16 +14,57 @@ interface MenuPosition {
 }
 
 // 移动阈值（像素），超过此距离取消长按
-// 手机屏幕上需要较大阈值避免滑动时误触发
-const MOVE_THRESHOLD = 15
+const MOVE_THRESHOLD = 8
 
 export const useLongPress = (
   onLongPress: (message: Message, position: MenuPosition) => void,
-  delay: number = 600 // 默认延迟从500ms改为600ms，更不容易误触
+  delay: number = 500
 ) => {
   const longPressTimerRef = useRef<number | null>(null)
   const startPositionRef = useRef<{ x: number; y: number } | null>(null)
-  const isMovedRef = useRef(false)
+  const pendingMessageRef = useRef<{ message: Message; x: number; y: number } | null>(null)
+  
+  // 取消长按的函数
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    startPositionRef.current = null
+    pendingMessageRef.current = null
+  }, [])
+  
+  // 全局 touchmove 监听 - 检测任何移动都取消长按
+  useEffect(() => {
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (!startPositionRef.current || !longPressTimerRef.current) return
+      
+      const touch = e.touches[0]
+      if (!touch) return
+      
+      const deltaX = Math.abs(touch.clientX - startPositionRef.current.x)
+      const deltaY = Math.abs(touch.clientY - startPositionRef.current.y)
+      
+      // 任何移动超过阈值就取消
+      if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+        cancelLongPress()
+      }
+    }
+    
+    // 滚动时也取消长按
+    const handleScroll = () => {
+      cancelLongPress()
+    }
+    
+    // 使用 passive: false 确保能检测到移动
+    document.addEventListener('touchmove', handleGlobalTouchMove, { passive: true })
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true })
+    
+    return () => {
+      document.removeEventListener('touchmove', handleGlobalTouchMove)
+      document.removeEventListener('scroll', handleScroll, { capture: true })
+    }
+  }, [cancelLongPress])
   
   /**
    * 长按开始
@@ -38,24 +79,26 @@ export const useLongPress = (
     
     // 记录初始位置
     startPositionRef.current = { x: clientX, y: clientY }
-    isMovedRef.current = false
+    pendingMessageRef.current = { message, x: clientX, y: clientY }
     
     longPressTimerRef.current = window.setTimeout(() => {
-      // 如果已经移动过，不触发长按
-      if (isMovedRef.current) {
-        return
+      if (pendingMessageRef.current) {
+        playLongPressSound()
+        onLongPress(pendingMessageRef.current.message, { 
+          x: pendingMessageRef.current.x, 
+          y: pendingMessageRef.current.y 
+        })
+        // 振动反馈
+        if (navigator.vibrate) {
+          navigator.vibrate(50)
+        }
       }
-      playLongPressSound() // 🎵 播放长按音效
-      onLongPress(message, { x: clientX, y: clientY })
-      // 振动反馈
-      if (navigator.vibrate) {
-        navigator.vibrate(50)
-      }
+      cancelLongPress()
     }, delay)
-  }, [onLongPress, delay])
+  }, [onLongPress, delay, cancelLongPress])
   
   /**
-   * 长按移动检测
+   * 长按移动检测（保留作为备用）
    */
   const handleLongPressMove = useCallback((
     event: React.TouchEvent | React.MouseEvent
@@ -64,34 +107,25 @@ export const useLongPress = (
       return
     }
     
-    const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
-    const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
+    const clientX = 'touches' in event ? event.touches[0]?.clientX : event.clientX
+    const clientY = 'touches' in event ? event.touches[0]?.clientY : event.clientY
     
-    // 计算移动距离
+    if (clientX === undefined || clientY === undefined) return
+    
     const deltaX = Math.abs(clientX - startPositionRef.current.x)
     const deltaY = Math.abs(clientY - startPositionRef.current.y)
     
-    // 如果移动超过阈值，取消长按计时器
     if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
-      isMovedRef.current = true
-      if (longPressTimerRef.current) {
-        window.clearTimeout(longPressTimerRef.current)
-        longPressTimerRef.current = null
-      }
+      cancelLongPress()
     }
-  }, [])
+  }, [cancelLongPress])
   
   /**
    * 长按结束
    */
   const handleLongPressEnd = useCallback(() => {
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-    startPositionRef.current = null
-    isMovedRef.current = false
-  }, [])
+    cancelLongPress()
+  }, [cancelLongPress])
   
   return {
     handleLongPressStart,
