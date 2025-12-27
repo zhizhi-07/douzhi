@@ -216,24 +216,26 @@ const OfflineChat = () => {
   }
 
   // 重回消息 - 删除该消息并重新生成
-  const handleRerollMessage = (messageId: number | string) => {
+  const handleRerollMessage = async (messageId: number | string) => {
     const messageIndex = offlineMessages.findIndex(m => m.id === messageId)
     if (messageIndex === -1) return
     
-    // 🔥 先从 React 状态中删除
-    const newMessages = chatState.messages.filter(m => m.id !== messageId)
+    // 🔥🔥🔥 关键修复：从IndexedDB读取完整消息列表，而不是使用React状态（可能只有30条分页数据）
+    const { loadMessages, saveMessages } = await import('../utils/simpleMessageManager')
+    const fullMessages = loadMessages(id)
+    const newMessages = fullMessages.filter(m => m.id !== messageId)
+    
+    // 更新React状态
     chatState.setMessages(newMessages)
     
     // 🔥 同步保存到缓存（使用 forceOverwrite 确保删除生效）
-    import('../utils/simpleMessageManager').then(({ saveMessages }) => {
-      saveMessages(id, newMessages, true)  // forceOverwrite=true
-      console.log('🗑️ 重回：已删除消息', messageId)
-      
-      // 🔥 删除完成后再触发AI回复
-      setTimeout(() => {
-        chatAI.handleAIReply('offline')
-      }, 50)
-    })
+    saveMessages(id, newMessages, true)  // forceOverwrite=true
+    console.log(`🗑️ 重回：已删除消息 ${messageId}（完整列表共${fullMessages.length}条，删除后${newMessages.length}条）`)
+    
+    // 🔥 删除完成后再触发AI回复
+    setTimeout(() => {
+      chatAI.handleAIReply('offline')
+    }, 50)
   }
 
   // 加载扩展条目列表（首次使用时自动初始化默认条目，并合并新默认项）

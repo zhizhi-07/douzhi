@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react'
 import type { Message } from '../../../types/chat'
-import { saveMessages } from '../../../utils/simpleMessageManager'
+import { saveMessages, ensureMessagesLoaded } from '../../../utils/simpleMessageManager'
 
 export const useOfflineRecord = (
   chatId: string | undefined,
@@ -63,19 +63,23 @@ export const useOfflineRecord = (
   }, [messages, setMessages, editingOfflineRecord, chatId, characterName])
 
   // 🔥 删除线下记录
-  const handleDeleteOfflineRecord = useCallback((messageId: number) => {
+  const handleDeleteOfflineRecord = useCallback(async (messageId: number) => {
     if (!chatId) return
     
-    const updatedMessages = messages.filter(m => m.id !== messageId)
+    // 🔥🔥🔥 关键修复：从IndexedDB读取完整消息列表，而不是使用React状态（可能只有30条分页数据）
+    const fullMessages = await ensureMessagesLoaded(chatId)
+    const updatedMessages = fullMessages.filter(m => m.id !== messageId)
+    
+    // 更新React状态
     setMessages(updatedMessages)
     // 🔥 关键：删除操作必须用 forceOverwrite=true，否则会被智能合并恢复
     saveMessages(chatId, updatedMessages, true)
-    console.log('🗑️ 线下记录已删除:', messageId)
+    console.log(`🗑️ 线下记录已删除: ${messageId}（完整列表共${fullMessages.length}条，删除后${updatedMessages.length}条）`)
     
     // 关闭对话框
     setShowOfflineRecordDialog(false)
     setEditingOfflineRecord(null)
-  }, [messages, setMessages, chatId])
+  }, [setMessages, chatId])
 
   return {
     showOfflineRecordDialog,
