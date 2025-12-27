@@ -133,11 +133,11 @@ export function emergencyCleanup(): void {
     const value = localStorage.getItem(key) || ''
     const size = value.length * 2
     
-    // 清理所有备份、旧消息、大文件
+    // 清理旧消息、大文件
+    // 🔥🔥🔥 关键修复：不再删除 msg_backup_！这是数据恢复的最后手段
     if (key.startsWith('chat_messages_') || 
         key.startsWith('group_messages_') ||
-        key.startsWith('msg_backup_') ||
-        size > 200 * 1024) { // 超过200KB的都清理
+        (size > 200 * 1024 && !key.startsWith('msg_backup_'))) { // 超过200KB的清理，但不删除消息备份
       totalCleaned += size
       keysToRemove.push(key)
     }

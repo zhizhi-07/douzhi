@@ -96,7 +96,7 @@ export const judgeGuess = async (
 
 /**
  * 本地简单判定（作为降级方案）
- * 从所有AI回复中找到最可能的猜测
+ * 从所有AI回复中找到最可能的猜测（取最后一个像猜测的内容）
  */
 const localJudge = (topic: string, aiReply: string): JudgeResult => {
   const normalizedTopic = topic.toLowerCase().trim()
@@ -114,14 +114,15 @@ const localJudge = (topic: string, aiReply: string): JudgeResult => {
   // 按行分割，逐行检查（AI可能发多条消息）
   const lines = aiReply.split('\n').filter(l => l.trim().length > 0)
   
+  // 🔥 收集所有可能的猜测，最后取最后一个
+  const allGuesses: string[] = []
+  
   // 常见猜测模式
   const patterns = [
     /(?:我猜|应该是|是不是|猜是|看起来像|这是|像是|好像是)[：:]?\s*([^\s，。！？,\.!\?\n]+)/gi,
     /(?:猜|答案)[：:]?\s*([^\s，。！？,\.!\?\n]+)/gi,
     /^([一二三四五六七八九十\d]*[只个条头匹朵棵])?(.{1,6})$/,  // 简短名词（如"一只猫"、"猫"）
   ]
-  
-  let bestGuess = ''
   
   // 先用模式匹配
   for (const line of lines) {
@@ -140,7 +141,8 @@ const localJudge = (topic: string, aiReply: string): JudgeResult => {
               confidence: 85
             }
           }
-          if (!bestGuess) bestGuess = guess
+          // 🔥 收集所有猜测，而不是只取第一个
+          allGuesses.push(guess)
         }
       }
     }
@@ -161,9 +163,13 @@ const localJudge = (topic: string, aiReply: string): JudgeResult => {
           confidence: 80
         }
       }
-      if (!bestGuess && cleanGuess.length >= 1) bestGuess = trimmed
+      // 🔥 收集所有猜测
+      if (cleanGuess.length >= 1) allGuesses.push(trimmed)
     }
   }
+  
+  // 🔥 取最后一个猜测（AI最新的猜测更可能是答案）
+  const bestGuess = allGuesses.length > 0 ? allGuesses[allGuesses.length - 1] : ''
   
   // 没找到匹配
   return {

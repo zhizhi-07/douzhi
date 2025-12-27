@@ -167,7 +167,6 @@ export interface CustomStreamer {
 class LiveStreamService {
   private streams: LiveStream[] = []
   private customStreamers: CustomStreamer[] = []
-  private isInitialized = false
   private initPromise: Promise<void> | null = null
 
   constructor() {
@@ -520,23 +519,55 @@ class LiveStreamService {
       }
     }
 
-    const prompt = `你是直播主播"${stream.streamerName}"。
-${personality ? `你的人设：${personality}` : ''}
-当前正在直播：${stream.title}
+    const prompt = `你正在模拟一整个直播间的场景，需要扮演主播和多个观众。
 
-有观众发了一条弹幕：${userMessage}
+【主播信息】
+- 主播名：${stream.streamerName}
+${personality ? `- 人设：${personality}` : ''}
+- 直播标题：${stream.title}
+- 当前观众：${stream.viewers}人
 
-请用主播的身份回复这条弹幕，要求：
-1. 符合主播人设
-2. 自然亲切，像真实主播
-3. 15-40字左右
-4. 只返回回复内容，不要其他`
+【用户（我）的互动】
+${userMessage}
 
+【输出格式】你需要输出多个角色的内容，用以下格式：
+
+1. 主播说话：[主播]说话内容
+2. 观众弹幕：[弹幕:观众名]弹幕内容
+3. 观众回复：[回复:观众名,被回复人]回复内容
+4. 观众送礼：[送礼:观众名,礼物名,数量]
+5. 主播发福袋：[福袋:钻石数量,弹幕:参与口令]
+6. 主播上架商品：[上架:商品名,价格:金额]
+7. 旁白描述：[旁白:场景描述]
+
+【示例输出】
+[弹幕:小明同学]主播好可爱啊！
+[回复:路人甲,小明同学]确实，关注了
+[送礼:土豪哥,小心心,10]
+[主播]哇谢谢土豪哥的小心心！
+[回复:主播,小明同学]谢谢夸奖，你也超可爱～
+[弹幕:小红]主播今天穿的好好看
+[旁白:主播害羞地摸了摸头发]
+[福袋:100钻石,弹幕:主播最棒]
+
+【要求】
+1. 主播要回应用户（我）的弹幕和礼物
+2. 同时生成2-5条其他观众的弹幕，营造直播间氛围
+3. 增加观众之间的互动（使用[回复]指令），形成"楼中楼"效果
+4. 偶尔有观众送小礼物（小心心、棒棒糖等）
+5. 主播说话要符合人设，自然亲切
+6. 适当使用福袋、上架商品增加互动`
+
+    console.log('=== AI主播系统 ===')
+    console.log('【输入给AI的提示词】\n', prompt)
+    
     try {
       const content = await callZhizhiApi(
         [{ role: 'user', content: prompt }],
-        { temperature: 0.8, max_tokens: 100 }
+        { temperature: 0.85, max_tokens: 300 }
       )
+      console.log('【AI输出的回复】\n', content)
+      console.log('==================')
       return content || '谢谢宝子的支持~'
     } catch (e) {
       console.error('生成主播回复失败:', e)

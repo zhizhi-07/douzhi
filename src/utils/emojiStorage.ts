@@ -20,6 +20,17 @@ const STORAGE_KEY = 'custom_emojis'
 // 用于缓存数据，减少IndexedDB访问
 let emojiCache: Emoji[] | null = null
 
+// ID计数器，确保唯一性
+let idCounter = 0
+
+/**
+ * 生成唯一ID
+ */
+function generateUniqueId(): number {
+  idCounter++
+  return Date.now() * 1000 + idCounter
+}
+
 /**
  * 清除缓存，强制下次从存储重新读取
  */
@@ -134,7 +145,7 @@ export async function addEmoji(emoji: Omit<Emoji, 'id' | 'addTime' | 'useCount'>
   const emojis = await getEmojis()
   const newEmoji: Emoji = {
     ...emoji,
-    id: Date.now(),
+    id: generateUniqueId(),
     addTime: new Date().toISOString(),
     useCount: 0
   }
@@ -159,7 +170,7 @@ export async function addEmojisWithTag(emojiDataList: Array<{url: string, name: 
     if (existingUrls.has(data.url)) continue
     
     const newEmoji: Emoji = {
-      id: Date.now() + i,
+      id: generateUniqueId(),
       url: data.url,
       name: data.name,
       description: data.description,
@@ -298,7 +309,7 @@ export async function importEmojis(
     
     // 转换为标准格式
     const standardEmojis: Emoji[] = emojisToImport.map((item, index) => ({
-      id: item.id || Date.now() + index,
+      id: item.id || generateUniqueId(),
       url: item.url || item.file || item.image || item.src || '',
       name: item.name || item.title || `表情${index + 1}`,
       description: item.description || item.desc || item.name || item.title || `表情${index + 1}`,

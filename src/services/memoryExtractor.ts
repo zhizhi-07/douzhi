@@ -126,7 +126,30 @@ function buildExtractionPrompt(turns: DialogueTurn[], characterName: string, use
     const userText = turn.userMessages.join('\n')
     return `【第${index + 1}轮对话】\n${userName}: ${userText}\n${characterName}: ${turn.aiReply}`
   }).join('\n\n')
+  
+  // 计算时间范围
+  const timestamps = turns.map(t => t.timestamp).filter(t => t > 0)
+  let timeRange = '未知'
+  if (timestamps.length > 0) {
+    const startTime = new Date(Math.min(...timestamps)).toLocaleString('zh-CN')
+    const endTime = new Date(Math.max(...timestamps)).toLocaleString('zh-CN')
+    timeRange = `${startTime} 至 ${endTime}`
+  }
+  
+  // 检查是否启用自定义提示词
+  const enableCustomPrompt = localStorage.getItem('memory_custom_prompt_enabled') === 'true'
+  const customTemplate = localStorage.getItem('memory_custom_prompt_template')
+  
+  if (enableCustomPrompt && customTemplate) {
+    // 使用用户自定义的提示词模板
+    return customTemplate
+      .replace(/\{characterName\}/g, characterName)
+      .replace(/\{userName\}/g, userName)
+      .replace(/\{timeRange\}/g, timeRange)
+      .replace(/\{dialogueText\}/g, dialogueText)
+  }
 
+  // 默认提示词
   return `提取记忆，严格输出JSON。
 
 角色：${characterName}

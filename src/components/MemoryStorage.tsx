@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { Message } from '../types/chat'
 import { generateAISummaryWithMeta } from '../utils/subApiManager'
 import { saveMessages } from '../utils/simpleMessageManager'
+import { memoryManager } from '../utils/memorySystem'
 
 interface MemoryItem {
   id: string
@@ -138,6 +139,18 @@ const MemoryStorage: React.FC<MemoryStorageProps> = ({
     }
 
     saveMemories([...memories, newMemory])
+    
+    // 🔥🔥🔥 同时保存到 memorySystem 中，让记忆管理页面能看到
+    if (characterId) {
+      const system = memoryManager.getSystem(characterId)
+      system.addMemory(
+        'event',  // 线下记录作为事件类型
+        `[线下记录] ${memoryTitle}\n${generatedSummary || '暂无总结'}`,
+        7,  // 较高的重要度
+        memoryTags.split(',').map(tag => tag.trim()).filter(Boolean)
+      )
+      console.log('✅ 线下记录已同步到记忆系统')
+    }
     
     // 🔥 同时在线上聊天中创建一条线下记录消息
     if (allMessages && onUpdateMessages) {

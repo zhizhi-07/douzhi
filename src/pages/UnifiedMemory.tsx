@@ -36,6 +36,31 @@ const UnifiedMemory = () => {
   const [editTitle, setEditTitle] = useState('')
   const [editSummary, setEditSummary] = useState('')
   
+  // 自定义提示词设置
+  const [enableCustomPrompt, setEnableCustomPrompt] = useState(() => {
+    return localStorage.getItem('memory_custom_prompt_enabled') === 'true'
+  })
+  const [customPromptTemplate, setCustomPromptTemplate] = useState(() => {
+    return localStorage.getItem('memory_custom_prompt_template') || `提取记忆，严格输出JSON。
+
+角色：{characterName}
+对方：{userName}
+时间范围：{timeRange}
+
+对话：
+{dialogueText}
+
+要求：
+- title：6字以内标题
+- summary：50-80字总结
+- tags：2-4个关键词
+- emotionalTone：positive/neutral/negative
+- facts：长期有效的事实，没有就[]
+
+⚠️ 只输出JSON，不要任何其他文字：
+{"title":"标题","summary":"总结","tags":["标签"],"emotionalTone":"neutral","facts":[]}`
+  })
+  
   // 添加记忆表单
   const [newMemory, setNewMemory] = useState<{
     characterId: string
@@ -67,6 +92,10 @@ const UnifiedMemory = () => {
       await loadMemories()
       // 加载当前阈值设置
       setThresholdValue(interactionCounter.getThreshold())
+      // 加载自定义提示词设置
+      setEnableCustomPrompt(localStorage.getItem('memory_custom_prompt_enabled') === 'true')
+      const savedTemplate = localStorage.getItem('memory_custom_prompt_template')
+      if (savedTemplate) setCustomPromptTemplate(savedTemplate)
     }
     init()
   }, [])
@@ -830,7 +859,7 @@ const UnifiedMemory = () => {
       {/* 🔥 设置弹窗 - 极简杂志风（中文为主） */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setShowSettingsModal(false)}>
-          <div className="bg-white w-full max-w-sm p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100" onClick={e => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-md p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-8">
               <h3 className="text-2xl font-serif text-gray-900 mb-2">记忆提取设置</h3>
               <p className="text-[10px] text-gray-300 tracking-[0.2em] uppercase font-serif">SETTINGS</p>
@@ -859,6 +888,70 @@ const UnifiedMemory = () => {
                 1 TURN = 1 AI REPLY
               </p>
             </div>
+            
+            {/* 分隔线 */}
+            <div className="border-t border-gray-100 my-6"></div>
+            
+            {/* 自定义提示词设置 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-gray-700">自定义总结提示词</span>
+                  <p className="text-[10px] text-gray-400 mt-1">开启后使用您自定义的提示词提取记忆</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const newValue = !enableCustomPrompt
+                    setEnableCustomPrompt(newValue)
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${enableCustomPrompt ? 'bg-gray-900' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enableCustomPrompt ? 'translate-x-5' : ''}`}></span>
+                </button>
+              </div>
+              
+              {enableCustomPrompt && (
+                <div className="space-y-3 pt-2">
+                  <p className="text-[10px] text-gray-400">
+                    可用变量：<code className="bg-gray-100 px-1 rounded text-gray-600">{'{characterName}'}</code> 角色名、
+                    <code className="bg-gray-100 px-1 rounded text-gray-600">{'{userName}'}</code> 用户名、
+                    <code className="bg-gray-100 px-1 rounded text-gray-600">{'{timeRange}'}</code> 时间范围、
+                    <code className="bg-gray-100 px-1 rounded text-gray-600">{'{dialogueText}'}</code> 对话内容
+                  </p>
+                  <textarea
+                    value={customPromptTemplate}
+                    onChange={e => setCustomPromptTemplate(e.target.value)}
+                    className="w-full h-48 px-3 py-2 text-xs font-mono bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 resize-none"
+                    placeholder="输入自定义提示词模板..."
+                  />
+                  <button
+                    onClick={() => {
+                      setCustomPromptTemplate(`提取记忆，严格输出JSON。
+
+角色：{characterName}
+对方：{userName}
+时间范围：{timeRange}
+
+对话：
+{dialogueText}
+
+要求：
+- title：6字以内标题
+- summary：50-80字总结
+- tags：2-4个关键词
+- emotionalTone：positive/neutral/negative
+- facts：长期有效的事实，没有就[]
+
+⚠️ 只输出JSON，不要任何其他文字：
+{"title":"标题","summary":"总结","tags":["标签"],"emotionalTone":"neutral","facts":[]}`)
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
+                  >
+                    恢复默认模板
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-4 mt-8">
               <button
@@ -870,6 +963,11 @@ const UnifiedMemory = () => {
               <button
                 onClick={() => {
                   interactionCounter.setThreshold(thresholdValue)
+                  // 保存自定义提示词设置
+                  localStorage.setItem('memory_custom_prompt_enabled', enableCustomPrompt ? 'true' : 'false')
+                  if (enableCustomPrompt) {
+                    localStorage.setItem('memory_custom_prompt_template', customPromptTemplate)
+                  }
                   setShowSettingsModal(false)
                 }}
                 className="flex-1 py-3 bg-gray-900 text-white text-xs tracking-[0.1em] hover:bg-black transition-colors"

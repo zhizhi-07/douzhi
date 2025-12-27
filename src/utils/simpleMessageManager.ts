@@ -766,6 +766,7 @@ function cleanMessageForStorage(message: Message): Message {
  * 保存消息（立即更新缓存和IndexedDB）
  * 🔥 增强版：添加并发控制和数据保护
  * 🔥 关键修复：防止分页加载后的不完整列表覆盖完整列表
+ * 🔥🔥🔥 2024-12修复：先从IndexedDB同步完整数据到缓存，防止分页数据覆盖
  */
 export function saveMessages(chatId: string, messages: Message[], forceOverwrite: boolean = false): void {
   try {
@@ -781,6 +782,16 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
     
     // 🔥🔥🔥 强制覆盖模式：先更新缓存，用于删除/重回等场景
     if (forceOverwrite) {
+      // 🔥🔥🔥 关键保护：即使是强制覆盖，也要检查是否有异常数据丢失
+      const existingCache = messageCache.get(storageKey)
+      if (existingCache && existingCache.length > 0) {
+        // 如果传入的消息数量比缓存少很多（超过50%），发出警告
+        if (messages.length < existingCache.length * 0.3 && existingCache.length > 20) {
+          console.error(`❌ [saveMessages] 危险！强制覆盖可能导致大量数据丢失: 传入=${messages.length}, 缓存=${existingCache.length}`)
+          // 🔥 不阻止操作，但记录详细日志
+          console.error(`❌ [saveMessages] 调用栈:`, new Error().stack)
+        }
+      }
       messageCache.set(storageKey, messages)
       console.log(`🔥 [saveMessages] 强制覆盖模式: storageKey=${storageKey}, count=${messages.length}`)
       
@@ -796,6 +807,29 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
         console.log(`🔥 [saveMessages] 已同步更新 localStorage 备份`)
       } catch (e) {
         console.warn('更新 localStorage 备份失败:', e)
+      }
+    }
+    
+    // 🔥🔥🔥 2024-12 关键修复：非forceOverwrite模式下，先从localStorage备份同步完整数据到缓存
+    // 防止分页加载后的不完整缓存导致数据丢失
+    if (!forceOverwrite) {
+      try {
+        const backupKey = `msg_backup_${storageKey}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          const backupMessages = parsed.messages as Message[] | undefined
+          if (backupMessages && backupMessages.length > 0) {
+            const currentCache = messageCache.get(storageKey)
+            // 如果备份比缓存多，说明缓存可能是分页数据，需要先恢复完整数据
+            if (!currentCache || backupMessages.length > currentCache.length) {
+              console.log(`🔄 [saveMessages] 从备份恢复完整缓存: 备份=${backupMessages.length}, 当前缓存=${currentCache?.length || 0}`)
+              messageCache.set(storageKey, backupMessages)
+            }
+          }
+        }
+      } catch (e) {
+        // 静默处理
       }
     }
     
@@ -924,6 +958,18 @@ export function saveMessages(chatId: string, messages: Message[], forceOverwrite
           console.log(`✅ [IndexedDB] 保存成功: storageKey=${storageKey}, count=${messagesToSave.length}`)
         }
         
+        // 🔥🔥🔥 2024-12 关键修复：保存成功后同步更新 localStorage 备份
+        // 确保备份始终是最新的完整数据
+        try {
+          const backupKey = `msg_backup_${storageKey}`
+          localStorage.setItem(backupKey, JSON.stringify({
+            messages: messagesToSave,
+            timestamp: Date.now()
+          }))
+        } catch (e) {
+          // localStorage可能满了，静默处理
+        }
+        
         // 🔥 检查是否有队列中的消息需要保存
         const queuedMessages = saveQueue.get(storageKey)
         if (queuedMessages) {
@@ -979,6 +1025,25 @@ export function addMessage(chatId: string, message: Message): void {
   // 🔥🔥🔥 关键修复：使用锁机制串行化操作，防止竞态
   const doAdd = async (): Promise<void> => {
     try {
+      // 🔥🔥🔥 2024-12 关键修复：先从localStorage备份恢复完整缓存，防止分页数据丢失
+      try {
+        const backupKey = `msg_backup_${storageKey}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          const backupMessages = parsed.messages as Message[] | undefined
+          if (backupMessages && backupMessages.length > 0) {
+            const currentCache = messageCache.get(storageKey)
+            if (!currentCache || backupMessages.length > currentCache.length) {
+              console.log(`🔄 [addMessage] 从备份恢复完整缓存: 备份=${backupMessages.length}, 当前=${currentCache?.length || 0}`)
+              messageCache.set(storageKey, backupMessages)
+            }
+          }
+        }
+      } catch (e) {
+        // 静默处理
+      }
+      
       // 🔥 关键：从缓存读取最新数据，而不是等待异步加载
       // 这样可以避免竞态条件
       let currentMessages = messageCache.get(storageKey)
@@ -1041,6 +1106,25 @@ export function addMessages(chatId: string, messagesToAdd: Message[]): void {
   // 🔥🔥🔥 关键修复：使用锁机制串行化操作，防止竞态
   const doAdd = async (): Promise<void> => {
     try {
+      // 🔥🔥🔥 2024-12 关键修复：先从localStorage备份恢复完整缓存，防止分页数据丢失
+      try {
+        const backupKey = `msg_backup_${storageKey}`
+        const backup = localStorage.getItem(backupKey)
+        if (backup) {
+          const parsed = JSON.parse(backup)
+          const backupMessages = parsed.messages as Message[] | undefined
+          if (backupMessages && backupMessages.length > 0) {
+            const currentCache = messageCache.get(storageKey)
+            if (!currentCache || backupMessages.length > currentCache.length) {
+              console.log(`🔄 [addMessages] 从备份恢复完整缓存: 备份=${backupMessages.length}, 当前=${currentCache?.length || 0}`)
+              messageCache.set(storageKey, backupMessages)
+            }
+          }
+        }
+      } catch (e) {
+        // 静默处理
+      }
+      
       // 🔥 关键：从缓存读取最新数据
       let currentMessages = messageCache.get(storageKey)
       

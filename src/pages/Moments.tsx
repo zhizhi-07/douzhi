@@ -54,6 +54,9 @@ export default function Moments() {
   useEffect(() => {
     const loadedMoments = loadMoments()
     setMoments(loadedMoments)
+    
+    // 🔥 初始化加载圈子列表（修复白屏问题）
+    setGroups(loadMomentsGroups())
 
     // 异步加载用户头像
     const loadUserAvatar = async () => {

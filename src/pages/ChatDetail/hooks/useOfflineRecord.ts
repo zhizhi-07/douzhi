@@ -8,14 +8,16 @@ import { saveMessages, ensureMessagesLoaded } from '../../../utils/simpleMessage
 
 export const useOfflineRecord = (
   chatId: string | undefined,
-  messages: Message[],
+  _messages: Message[], // 🔥 不再使用React状态，改用ensureMessagesLoaded从IndexedDB读取完整数据
   setMessages: (messages: Message[]) => void,
   characterName?: string // 角色名称，用于记忆计数
 ) => {
   const [showOfflineRecordDialog, setShowOfflineRecordDialog] = useState(false)
   const [editingOfflineRecord, setEditingOfflineRecord] = useState<Message | null>(null)
 
-  const handleSaveOfflineRecord = useCallback((title: string, summary: string, timestamp: number) => {
+  const handleSaveOfflineRecord = useCallback(async (title: string, summary: string, timestamp: number) => {
+    if (!chatId) return
+    
     const offlineSummaryMessage: Message = {
       id: editingOfflineRecord ? editingOfflineRecord.id : Date.now(),
       type: 'system',
@@ -32,23 +34,26 @@ export const useOfflineRecord = (
       aiReadableContent: `[系统记录：线下经历 - ${title}]\n总结：${summary}`
     }
 
+    // 🔥🔥🔥 关键修复：从IndexedDB读取完整消息列表，而不是使用React状态（可能只有30条分页数据）
+    const fullMessages = await ensureMessagesLoaded(chatId)
+    
     if (editingOfflineRecord) {
       // 编辑模式
-      const updatedMessages = messages.map(m =>
+      const updatedMessages = fullMessages.map(m =>
         m.id === editingOfflineRecord.id ? offlineSummaryMessage : m
       ).sort((a, b) => a.timestamp - b.timestamp)
       
       setMessages(updatedMessages)
-      if (chatId) saveMessages(chatId, updatedMessages)
-      console.log('✅ 线下记录已更新')
+      saveMessages(chatId, updatedMessages)
+      console.log(`✅ 线下记录已更新（完整列表共${fullMessages.length}条）`)
     } else {
       // 新建模式
-      const updatedMessages = [...messages, offlineSummaryMessage]
+      const updatedMessages = [...fullMessages, offlineSummaryMessage]
         .sort((a, b) => a.timestamp - b.timestamp)
       
       setMessages(updatedMessages)
-      if (chatId) saveMessages(chatId, updatedMessages)
-      console.log('✅ 线下记录已添加')
+      saveMessages(chatId, updatedMessages)
+      console.log(`✅ 线下记录已添加（完整列表共${fullMessages.length}条，添加后${updatedMessages.length}条）`)
       
       // 🧠 为该角色增加记忆计数（仅新建时）
       if (chatId && characterName) {
@@ -60,7 +65,7 @@ export const useOfflineRecord = (
 
     setShowOfflineRecordDialog(false)
     setEditingOfflineRecord(null)
-  }, [messages, setMessages, editingOfflineRecord, chatId, characterName])
+  }, [setMessages, editingOfflineRecord, chatId, characterName])
 
   // 🔥 删除线下记录
   const handleDeleteOfflineRecord = useCallback(async (messageId: number) => {

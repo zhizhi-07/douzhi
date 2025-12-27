@@ -587,29 +587,33 @@ export function clearMessageBackups(): { count: number; freedSize: number; freed
 
 /**
  * 紧急清理 - 释放最大空间
+ * 🔥🔥🔥 关键修复：不再删除消息备份和消息数据！
  */
 export async function emergencyCleanup(): Promise<void> {
   console.warn('🚨 执行紧急清理...')
   
-  // 0. 🔥 首先清理消息备份（这是最大的空间占用者）
-  clearMessageBackups()
+  // 🔥🔥🔥 不再删除消息备份！这是数据恢复的最后手段
+  // clearMessageBackups() // 已禁用，防止数据丢失
+  console.log('⚠️ 跳过消息备份清理，保护用户聊天数据')
   
-  // 1. 清理 localStorage 中的大数据
+  // 1. 清理 localStorage 中的大数据（但保护消息备份）
   const ls = analyzeLocalStorage()
   ls.items.forEach(item => {
-    // 清理超过 100KB 的项目（但保留关键设置）
-    const criticalKeys = ['user_info', 'characters', 'chat_list', 'api_config', 'app_settings']
+    // 🔥 保护消息备份和关键设置
+    const criticalKeys = ['user_info', 'characters', 'chat_list', 'api_config', 'app_settings', 'msg_backup_']
     if (item.size > 100 * 1024 && !criticalKeys.some(k => item.key.includes(k))) {
       localStorage.removeItem(item.key)
       console.log(`  🗑️ 已删除: ${item.key} (${item.sizeStr})`)
     }
   })
 
-  // 2. 清理 IndexedDB 中的大数据
+  // 2. 只清理表情包，不删除消息！
   await clearEmojis()
-  await cleanupOldMessages(50) // 只保留最近50条
+  // 🔥🔥🔥 不再清理消息！用户的聊天记录是核心数据
+  // await cleanupOldMessages(50) // 已禁用，防止数据丢失
+  console.log('⚠️ 跳过消息清理，保护用户聊天数据')
   
-  console.log('✅ 紧急清理完成，请刷新页面')
+  console.log('✅ 紧急清理完成（已保护聊天数据），请刷新页面')
 }
 
 // 暴露到全局

@@ -15,9 +15,25 @@ interface Message {
     giftCount?: number;
     isSystem?: boolean;
     isEntrance?: boolean;
-    userLevel?: number;
     fanBadge?: { name: string; level: number; color: string };
     isRoomAdmin?: boolean;
+    isReply?: boolean;
+    replyTo?: string;
+    replyToUser?: string;
+}
+
+interface DanmakuItem {
+    id: string;
+    text: string;
+    user: string;
+    top: number;
+    duration: number;
+    color: string;
+    isEntrance?: boolean;
+    entranceType?: EntranceEffect;
+    isStreamer?: boolean;
+    isReply?: boolean;
+    replyToUser?: string;
 }
 
 interface FloatingHeart {
@@ -53,13 +69,14 @@ const LiveRoom = () => {
     const [stream, setStream] = useState<LiveStream | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [liked, setLiked] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [isFollowed, setIsFollowed] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
     const [showGiftPanel, setShowGiftPanel] = useState(false);
-    // 弹幕列表
-    const [danmakuList, setDanmakuList] = useState<{id: string, text: string, user: string, top: number, duration: number, color: string, isEntrance?: boolean, entranceType?: EntranceEffect}[]>([]);
+    // 弹幕列表（用于视觉渲染）
+    const [danmakuList, setDanmakuList] = useState<DanmakuItem[]>([]);
+    // 弹幕历史缓冲区（用于AI上下文，保留最近100条）
+    const [messageHistory, setMessageHistory] = useState<Message[]>([]);
     
     // 旁白状态
     const [narration, setNarration] = useState<string>('');
@@ -77,16 +94,20 @@ const LiveRoom = () => {
     const [showFanClubPanel, setShowFanClubPanel] = useState(false);
     
     // 用户直播数据
-    const [userLevel, setUserLevel] = useState(1);
     const [isRoomAdmin, setIsRoomAdmin] = useState(false);
     
     // 入场特效
     const [entranceEffect, setEntranceEffect] = useState<{show: boolean, type: EntranceEffect, userName: string}>({show: false, type: 'normal', userName: ''});
     
-    // 福袋和购物车
-    const [showCart, setShowCart] = useState(false);
-    const [redPacketTimer, setRedPacketTimer] = useState(600); // 10分钟倒计时
-    const [showRedPacket, setShowRedPacket] = useState(false);
+    // AI直播系统状态
+    const [pendingMessages, setPendingMessages] = useState<{type: 'danmaku' | 'gift', content: string, giftName?: string, giftIcon?: string}[]>([]);
+    const [isAIResponding, setIsAIResponding] = useState(false);
+    
+    // AI主播发出的福袋和购物车
+    const [activeLuckyBag, setActiveLuckyBag] = useState<{diamonds: number, requirement: string, endTime: number} | null>(null);
+    const [showLuckyBagModal, setShowLuckyBagModal] = useState(false);
+    const [shoppingCart, setShoppingCart] = useState<{id: string, name: string, price: number, image?: string}[]>([]);
+    const [showShoppingCart, setShowShoppingCart] = useState(false);
     const [showRecharge, setShowRecharge] = useState(false);
     const [walletBalance, setWalletBalance] = useState(0);
     const [intimacyPayRelation, setIntimacyPayRelation] = useState<IntimatePayRelation | null>(null);
@@ -99,13 +120,17 @@ const LiveRoom = () => {
     const giftTimerRef = useRef<NodeJS.Timeout | null>(null);
     const effectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // 福袋倒计时
+    // 福袋倒计时（AI发起的福袋）
     useEffect(() => {
+        if (!activeLuckyBag) return;
         const timer = setInterval(() => {
-            setRedPacketTimer(prev => prev > 0 ? prev - 1 : 600);
+            const remaining = activeLuckyBag.endTime - Date.now();
+            if (remaining <= 0) {
+                setActiveLuckyBag(null);
+            }
         }, 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [activeLuckyBag]);
 
     // 格式化时间 mm:ss
     const formatTime = (seconds: number) => {
@@ -127,8 +152,6 @@ const LiveRoom = () => {
                     liveStreamService.addViewer(id);
                     
                     // 加载用户直播数据
-                    const userData = liveStreamService.getUserLiveData();
-                    setUserLevel(userData.odiumLevel);
                     setIsRoomAdmin(liveStreamService.isRoomAdmin(streamData.streamerId));
                     
                     // 加载粉丝团信息
@@ -148,7 +171,7 @@ const LiveRoom = () => {
                     }
                     
                     // 触发入场特效
-                    triggerEntranceEffect(userData, membership);
+                    triggerEntranceEffect(membership);
                     
                     loadInitialComments();
                     setNarration(streamData.description || '');
@@ -172,7 +195,7 @@ const LiveRoom = () => {
     }, [id]);
 
     // 触发入场特效
-    const triggerEntranceEffect = (_userData: any, membership: FanClubMembership | null | undefined) => {
+    const triggerEntranceEffect = (membership: FanClubMembership | null | undefined) => {
         const userName = userInfo.nickname || '我';
         let effectType: EntranceEffect = 'normal';
         
@@ -261,43 +284,34 @@ const LiveRoom = () => {
         }
     };
 
-    // 添加弹幕到屏幕
+    // 添加弹幕到屏幕和历史记录
     const addDanmaku = (msg: Message) => {
-        const newDanmaku = {
+        const newDanmaku: DanmakuItem = {
             id: `danmaku_${msg.id}_${Date.now()}`,
             text: msg.isGift ? `${msg.giftIcon} ${msg.giftName}` : msg.text,
             user: msg.user,
             top: 15 + Math.random() * 40, // 15% - 55% 区域，避开顶部信息和底部
             duration: 8 + Math.random() * 4, // 8-12s
-            color: msg.isStreamer ? '#ff69b4' : (msg.isGift ? '#fbbf24' : '#ffffff')
+            color: msg.isStreamer ? '#ff69b4' : (msg.isGift ? '#fbbf24' : '#ffffff'),
+            isStreamer: msg.isStreamer,
+            isReply: msg.isReply,
+            replyToUser: msg.replyToUser
         };
         
+        // 更新视觉弹幕列表
         setDanmakuList(prev => [...prev, newDanmaku]);
         
-        // 动画结束后清理
+        // 更新历史记录（用于AI上下文）
+        setMessageHistory(prev => {
+            const newHistory = [...prev, msg];
+            return newHistory.slice(-100); // 只保留最近100条
+        });
+        
+        // 动画结束后清理视觉弹幕
         setTimeout(() => {
             setDanmakuList(prev => prev.filter(d => d.id !== newDanmaku.id));
         }, newDanmaku.duration * 1000);
     };
-
-    // 刷新直播内容
-    // const handleRefresh = async () => {
-    //     if (!id || isRefreshing) return;
-    //     setIsRefreshing(true);
-    //     try {
-    //         await liveStreamService.initialize(true);
-    //         const streamData = liveStreamService.getStream(id);
-    //         if (streamData) {
-    //             setStream(streamData);
-    //             setDanmakuList([]); // 清空弹幕
-    //             loadInitialComments();
-    //         }
-    //     } catch (e) {
-    //         console.error('刷新失败:', e);
-    //     } finally {
-    //         setIsRefreshing(false);
-    //     }
-    // };
 
     const handleLike = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -376,56 +390,262 @@ const LiveRoom = () => {
         if (stream) {
             liveStreamService.recordGiftSent(stream.streamerId, gift.price);
             // 更新本地状态
-            const userData = liveStreamService.getUserLiveData();
-            setUserLevel(userData.odiumLevel);
             const membership = liveStreamService.getFanClubMembership(stream.streamerId);
             if (membership) setFanClub(membership);
         }
         
-        if (Math.random() > 0.6) {
-            setTimeout(async () => {
-                const reply = await liveStreamService.generateStreamerReply(id, `${userName} 送了 ${gift.name}`);
-                const replyMsg: Message = {
-                    id: `streamer_${Date.now()}`,
-                    user: stream.streamerName,
-                    text: reply,
-                    isStreamer: true
-                };
-                addDanmaku(replyMsg);
-                // 更新旁白
-                setNarration(`${stream.streamerName} 看到礼物后露出了开心的笑容`);
-            }, 2000);
-        }
+        // 累积礼物消息，等待用户点击发送按钮触发AI
+        setPendingMessages(prev => [...prev, { 
+            type: 'gift', 
+            content: userName, 
+            giftName: gift.name, 
+            giftIcon: gift.icon 
+        }]);
         
         setShowGiftPanel(false);
     };
 
-    const handleSendMessage = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && inputValue.trim() && id && stream) {
-            const userName = userInfo.nickname || '我';
-            const msgText = inputValue.trim();
-            
-            const newMessage: Message = {
-                id: `msg_${Date.now()}`,
-                user: userName,
-                text: msgText
-            };
-            addDanmaku(newMessage);
-            setInputValue('');
-            
-            setTimeout(async () => {
-                const reply = await liveStreamService.generateStreamerReply(id, msgText);
-                const replyMsg: Message = {
-                    id: `streamer_${Date.now()}`,
-                    user: stream.streamerName,
-                    text: reply,
-                    isStreamer: true
-                };
-                addDanmaku(replyMsg);
-                // 更新旁白
-                setNarration(`${stream.streamerName} 看着弹幕，认真地回复了观众`);
-            }, 2000);
+    // 发送弹幕 - 不立即触发AI，只是累积
+    const handleSendDanmaku = (e?: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e && e.key !== 'Enter') return;
+        if (!inputValue.trim() || !id || !stream) return;
+        
+        const userName = userInfo.nickname || '我';
+        const msgText = inputValue.trim();
+        
+        const newMessage: Message = {
+            id: `msg_${Date.now()}`,
+            user: userName,
+            text: msgText
+        };
+        addDanmaku(newMessage);
+        
+        // 累积消息，等待用户点击发送按钮触发AI
+        setPendingMessages(prev => [...prev, { type: 'danmaku', content: `${userName}: ${msgText}` }]);
+        setInputValue('');
+    };
+    
+    // 触发AI主播回复 - 处理所有累积的消息
+    const triggerAIResponse = async () => {
+        console.log('🎬 点击发送按钮，准备触发AI...');
+        console.log('pendingMessages:', pendingMessages);
+        
+        if (!id || !stream || pendingMessages.length === 0 || isAIResponding) {
+            console.log('❌ 条件不满足，不触发AI', { id, stream: !!stream, pendingMessages: pendingMessages.length, isAIResponding });
+            return;
         }
+        
+        setIsAIResponding(true);
+        
+        // 构建用户消息摘要
+        const userMessages = pendingMessages.map(m => {
+            if (m.type === 'gift') {
+                return `[礼物] ${m.content} 送了 ${m.giftName}`;
+            }
+            return `[弹幕] ${m.content}`;
+        }).join('\n');
+        
+        // 构建当前直播间状态
+        let liveRoomStatus = '';
+        
+        // 福袋状态
+        if (activeLuckyBag) {
+            const remainingSeconds = Math.max(0, Math.floor((activeLuckyBag.endTime - Date.now()) / 1000));
+            liveRoomStatus += `【当前福袋】${activeLuckyBag.diamonds}钻石，参与口令「${activeLuckyBag.requirement}」，剩余${Math.floor(remainingSeconds / 60)}分${remainingSeconds % 60}秒\n`;
+        } else {
+            liveRoomStatus += `【当前福袋】无\n`;
+        }
+        
+        // 购物车商品
+        if (shoppingCart.length > 0) {
+            liveRoomStatus += `【已上架商品】${shoppingCart.map(p => `${p.name}(¥${p.price})`).join('、')}\n`;
+        } else {
+            liveRoomStatus += `【已上架商品】无\n`;
+        }
+        
+        // 最近弹幕（包括NPC和用户的所有弹幕，使用历史记录避免消失）
+        if (messageHistory.length > 0) {
+            const recentDanmaku = messageHistory.slice(-50).map(m => {
+                if (m.isGift) {
+                    return `${m.user}: 送出了 ${m.giftName} x${m.giftCount || 1}`;
+                }
+                if (m.isReply && m.replyToUser) {
+                    return `${m.user} 回复 ${m.replyToUser}: ${m.text}`;
+                }
+                return `${m.user}: ${m.text}`;
+            }).join('\n');
+            liveRoomStatus += `【最近弹幕】\n${recentDanmaku}\n`;
+        }
+        
+        // 最近主播消息 (从历史记录中提取)
+        const recentStreamerMsgs = messageHistory.filter(m => m.isStreamer).slice(-3);
+        if (recentStreamerMsgs.length > 0) {
+            const recentMsg = recentStreamerMsgs.map(m => m.text).join(' / ');
+            liveRoomStatus += `【主播最近说】${recentMsg}\n`;
+        }
+        
+        // 合并成完整的消息
+        const fullMessage = `${liveRoomStatus}\n【用户互动】\n${userMessages}`;
+        
+        console.log('📤 发送给AI的完整信息:\n', fullMessage);
+        
+        // 清空累积消息
+        setPendingMessages([]);
+        
+        try {
+            // 调用AI获取主播回复
+            const reply = await liveStreamService.generateStreamerReply(id, fullMessage);
+            
+            console.log('📥 收到AI回复，开始解析指令...');
+            
+            // 解析AI回复中的指令
+            parseAndExecuteAICommands(reply);
+            
+        } catch (error) {
+            console.error('AI响应失败:', error);
+        } finally {
+            setIsAIResponding(false);
+        }
+    };
+    
+    // 解析并执行AI直播间的指令（包括主播和观众）
+    const parseAndExecuteAICommands = (reply: string) => {
+        if (!stream) return;
+        
+        const lines = reply.split('\n').filter(l => l.trim());
+        let delay = 0;
+        
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            
+            // 解析主播说话: [主播]内容
+            const streamerMatch = trimmed.match(/\[主播\](.+)/);
+            if (streamerMatch) {
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `streamer_${Date.now()}`,
+                        user: stream.streamerName,
+                        text: streamerMatch[1],
+                        isStreamer: true
+                    });
+                }, delay);
+                delay += 800;
+                return;
+            }
+            
+            // 解析回复互动: [回复:发送者,被回复人]内容
+            const replyMatch = trimmed.match(/\[回复[：:]([^,，]+)[,，]([^,，\]]+)\](.+)/);
+            if (replyMatch) {
+                let sender = replyMatch[1];
+                const target = replyMatch[2];
+                const content = replyMatch[3];
+                let isStreamer = false;
+
+                // 如果发送者是"主播"，替换为实际主播名
+                if (sender === '主播') {
+                    sender = stream.streamerName;
+                    isStreamer = true;
+                }
+
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `reply_${Date.now()}_${Math.random()}`,
+                        user: sender,
+                        text: content,
+                        isStreamer: isStreamer,
+                        isReply: true,
+                        replyToUser: target
+                    });
+                }, delay);
+                delay += 600;
+                return;
+            }
+            
+            // 解析观众弹幕: [弹幕:观众名]内容
+            const danmakuMatch = trimmed.match(/\[弹幕[：:]([^\]]+)\](.+)/);
+            if (danmakuMatch) {
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `viewer_${Date.now()}_${Math.random()}`,
+                        user: danmakuMatch[1],
+                        text: danmakuMatch[2]
+                    });
+                }, delay);
+                delay += 500;
+                return;
+            }
+            
+            // 解析观众送礼: [送礼:观众名,礼物名,数量]
+            const giftMatch = trimmed.match(/\[送礼[：:]([^,，]+)[,，]([^,，]+)[,，](\d+)\]/);
+            if (giftMatch) {
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `gift_${Date.now()}_${Math.random()}`,
+                        user: giftMatch[1],
+                        text: `送出了 ${giftMatch[2]} x${giftMatch[3]}`,
+                        isGift: true,
+                        giftName: giftMatch[2],
+                        giftCount: parseInt(giftMatch[3])
+                    });
+                }, delay);
+                delay += 600;
+                return;
+            }
+            
+            // 解析福袋: [福袋:钻石数,弹幕:口令]
+            const luckyBagMatch = trimmed.match(/\[福袋[：:](\d+)(?:钻石)?[,，]弹幕[：:]([^\]]+)\]/);
+            if (luckyBagMatch) {
+                const diamonds = parseInt(luckyBagMatch[1]);
+                const requirement = luckyBagMatch[2];
+                setActiveLuckyBag({
+                    diamonds,
+                    requirement,
+                    endTime: Date.now() + 5 * 60 * 1000
+                });
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `system_lucky_${Date.now()}`,
+                        user: '系统',
+                        text: `🎁 ${stream.streamerName} 发起了福袋！${diamonds}钻石`,
+                        isSystem: true
+                    });
+                }, delay);
+                delay += 500;
+                return;
+            }
+            
+            // 解析上架商品: [上架:商品名,价格:金额]
+            const cartMatch = trimmed.match(/\[上架[：:]([^,，]+)[,，]价格[：:](\d+)\]/);
+            if (cartMatch) {
+                const productName = cartMatch[1];
+                const price = parseInt(cartMatch[2]);
+                setShoppingCart(prev => [...prev, {
+                    id: `product_${Date.now()}`,
+                    name: productName,
+                    price
+                }]);
+                setTimeout(() => {
+                    addDanmaku({
+                        id: `system_cart_${Date.now()}`,
+                        user: '系统',
+                        text: `🛒 上架商品：${productName} ¥${price}`,
+                        isSystem: true
+                    });
+                }, delay);
+                delay += 500;
+                return;
+            }
+            
+            // 解析旁白: [旁白:内容]
+            const narrationMatch = trimmed.match(/\[旁白[：:]([^\]]+)\]/);
+            if (narrationMatch) {
+                setTimeout(() => {
+                    setNarration(narrationMatch[1]);
+                }, delay);
+                delay += 300;
+                return;
+            }
+        });
     };
 
     const handleFollow = (e: React.MouseEvent) => {
@@ -571,116 +791,142 @@ const LiveRoom = () => {
                 <p className="text-[10px] text-white font-mono">ID: {stream.streamerId.slice(-6)}</p>
             </div>
 
-            {/* 福袋入口 - 悬浮在左侧 */}
-            <div className="absolute top-48 left-3 z-30 pointer-events-auto">
-                <div className="relative">
-                    <button 
-                        onClick={() => setShowRedPacket(true)}
-                        className="w-11 h-14 bg-gradient-to-b from-[#ff4d4d] to-[#cc0000] rounded-xl flex flex-col items-center justify-center shadow-xl border border-red-300/30 active:scale-95 transition-transform"
-                    >
-                        <svg className="w-5 h-5 text-yellow-200" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20 7h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zM10 4h4v3h-4V4zm6 11h-3v3h-2v-3H8v-2h3v-3h2v3h3v2z"/>
-                        </svg>
-                        <span className="text-[9px] text-yellow-100 font-bold mt-0.5">{formatTime(redPacketTimer)}</span>
-                    </button>
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping"></div>
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-300 rounded-full"></div>
+            {/* AI主播发起的福袋 - 悬浮在左侧，点击打开参与界面 */}
+            {activeLuckyBag && (
+                <div className="absolute top-48 left-3 z-30 pointer-events-auto">
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowLuckyBagModal(true)}
+                            className="w-14 bg-gradient-to-b from-[#ff4d4d] to-[#cc0000] rounded-xl flex flex-col items-center justify-center shadow-xl border border-red-300/30 p-2 active:scale-95 transition-transform"
+                        >
+                            <svg className="w-5 h-5 text-yellow-200" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20 7h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zM10 4h4v3h-4V4zm6 11h-3v3h-2v-3H8v-2h3v-3h2v3h3v2z"/>
+                            </svg>
+                            <span className="text-[10px] text-yellow-100 font-bold mt-1">
+                                {formatTime(Math.max(0, Math.floor((activeLuckyBag.endTime - Date.now()) / 1000)))}
+                            </span>
+                            <span className="text-[8px] text-white/80 mt-0.5">{activeLuckyBag.diamonds}💎</span>
+                        </button>
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping"></div>
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-300 rounded-full"></div>
+                    </div>
                 </div>
-            </div>
-
-            {/* 福袋弹窗 */}
-            {showRedPacket && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowRedPacket(false)}>
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            )}
+            
+            {/* 福袋参与弹窗 - 使用你原来的UI样式 */}
+            {showLuckyBagModal && activeLuckyBag && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowLuckyBagModal(false)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
                     <div 
-                        className="relative w-[280px] animate-slide-up"
+                        className="relative w-full bg-white rounded-t-[20px] overflow-hidden animate-slide-up flex flex-col max-h-[70vh]"
                         onClick={e => e.stopPropagation()}
                     >
-                        {/* 福袋主体 */}
-                        <div className="bg-gradient-to-b from-[#ff4d4d] to-[#cc0000] rounded-2xl p-6 pt-8 text-center border border-red-300/30 shadow-2xl">
-                            {/* 顶部装饰 */}
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-20 h-8 bg-gradient-to-b from-[#ffcc00] to-[#ff9900] rounded-t-xl border-2 border-yellow-300/50"></div>
+                        {/* 顶部粉色渐变背景 */}
+                        <div className="absolute top-0 left-0 w-full h-[120px] bg-gradient-to-b from-[#fff0f5] to-white z-0 pointer-events-none" />
+
+                        {/* 标题栏 */}
+                        <div className="relative z-10 flex flex-col items-center pt-4 pb-2">
+                            <h3 className="text-[17px] font-bold text-gray-900">福袋</h3>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                {Math.floor(stream.viewers * 0.3) + 650}人已参加
+                            </p>
                             
-                            <h3 className="text-xl font-bold text-yellow-100 mb-2">主播福袋</h3>
-                            <p className="text-sm text-white/80 mb-4">{stream.streamerName} 的专属福利</p>
-                            
-                            {/* 奖励内容 */}
-                            <div className="bg-black/20 rounded-xl p-4 mb-4">
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                    <svg className="w-6 h-6 text-yellow-300" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z"/>
+                            {/* 问号图标 */}
+                            <button className="absolute top-4 right-4 text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* 主要内容区 */}
+                        <div className="relative z-10 px-4 pt-4 pb-6">
+                            {/* 倒计时和奖品卡片 */}
+                            <div className="flex items-center justify-between mb-8 px-4">
+                                {/* 左侧：倒计时 */}
+                                <div className="flex flex-col">
+                                    <div className="text-[36px] font-bold text-[#fe2c55] font-din leading-none tracking-tight tabular-nums">
+                                        {formatTime(Math.max(0, Math.floor((activeLuckyBag.endTime - Date.now()) / 1000)))}
+                                    </div>
+                                    <div className="text-[11px] text-[#fe2c55] mt-1 font-medium">倒计时</div>
+                                </div>
+                                
+                                {/* 中间分割线 */}
+                                <div className="w-[1px] h-10 bg-gray-100 mx-6"></div>
+
+                                {/* 右侧：奖品信息 */}
+                                <div className="flex flex-col items-end flex-1">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-[13px] text-gray-900 font-bold">总</span>
+                                        <span className="text-[20px] text-gray-900 font-bold font-din">{activeLuckyBag.diamonds}</span>
+                                        <span className="text-[13px] text-gray-900 font-bold">钻石</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-400 mt-0.5">1个福袋</div>
+                                </div>
+                            </div>
+
+                            {/* 额外说明 */}
+                            <div className="flex items-center justify-between mb-6 px-1">
+                                <span className="text-[11px] text-[#ff2c55]/80">此福袋额外附赠</span>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[11px] text-gray-500">抖音支付/月付礼包</span>
+                                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <span className="text-2xl font-bold text-yellow-300">100-500</span>
-                                    <span className="text-yellow-100">钻石</span>
-                                </div>
-                                <p className="text-[11px] text-white/60">随机获得钻石奖励</p>
-                            </div>
-                            
-                            {/* 倒计时 */}
-                            <div className="mb-4">
-                                <p className="text-xs text-white/60 mb-1">开奖倒计时</p>
-                                <div className="text-3xl font-bold text-yellow-100 font-mono">
-                                    {formatTime(redPacketTimer)}
                                 </div>
                             </div>
-                            
+
                             {/* 参与条件 */}
-                            <div className="bg-white/10 rounded-lg p-3 mb-4 text-left">
-                                <p className="text-xs text-white/80 mb-2">参与条件：</p>
-                                <div className="flex items-center gap-2 text-xs text-white/60">
-                                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                                    </svg>
-                                    <span>关注主播</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-white/60 mt-1">
-                                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                                    </svg>
-                                    <span>发送1条弹幕</span>
+                            <div className="bg-white rounded-xl mb-6">
+                                <h4 className="text-[14px] font-bold text-gray-900 mb-3">参与条件</h4>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[13px] text-gray-600">发送评论：{activeLuckyBag.requirement}</p>
+                                    <span className="text-[11px] text-[#fe2c55] bg-[#fe2c55]/5 px-2 py-0.5 rounded-full font-medium">未达成</span>
                                 </div>
                             </div>
-                            
-                            {/* 参与按钮 */}
+
+                            {/* 底部按钮 */}
                             <button 
-                                className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-white font-bold text-base shadow-lg active:scale-95 transition-transform"
+                                className="w-full py-3 bg-[#fe2c55] rounded-full text-white font-bold text-[16px] shadow-md active:scale-[0.98] transition-transform mb-3"
                                 onClick={() => {
-                                    setShowRedPacket(false);
-                                    // 模拟参与成功
+                                    // 发送参与弹幕
+                                    const userName = userInfo.nickname || '我';
+                                    const newMessage: Message = {
+                                        id: `msg_${Date.now()}`,
+                                        user: userName,
+                                        text: activeLuckyBag.requirement
+                                    };
+                                    addDanmaku(newMessage);
+                                    setPendingMessages(prev => [...prev, { type: 'danmaku', content: `${userName}: ${activeLuckyBag.requirement}` }]);
+                                    setShowLuckyBagModal(false);
                                 }}
                             >
-                                立即参与
+                                去发表评论
                             </button>
-                            
-                            <p className="text-[10px] text-white/40 mt-3">已有 {Math.floor(stream.viewers * 0.3)} 人参与</p>
+
+                            {/* 底部反诈提示 */}
+                            <div className="text-center">
+                                <p className="text-[9px] text-gray-300 scale-90 origin-bottom">
+                                    国家反诈中心x抖音提醒 | 凡以返利诱导消费的,请谨慎辨别以防诈骗
+                                </p>
+                            </div>
                         </div>
-                        
-                        {/* 关闭按钮 */}
-                        <button 
-                            onClick={() => setShowRedPacket(false)}
-                            className="absolute -top-2 -right-2 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center"
-                        >
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
                     </div>
                 </div>
             )}
 
-
-            {/* 购物车面板 */}
-            {showCart && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowCart(false)}>
+            {/* AI主播上架的购物车面板 */}
+            {showShoppingCart && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowShoppingCart(false)}>
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
                     <div 
-                        className="relative w-full max-w-md bg-[#f5f5f5] rounded-t-2xl p-0 h-[60vh] animate-slide-up overflow-hidden flex flex-col"
+                        className="relative w-full max-w-md bg-[#f5f5f5] rounded-t-2xl p-0 max-h-[60vh] animate-slide-up overflow-hidden flex flex-col"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* 顶部标题 */}
                         <div className="bg-white p-3 flex items-center justify-between border-b border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-800">全部商品 (12)</h3>
-                            <button onClick={() => setShowCart(false)} className="text-gray-400">
+                            <h3 className="text-sm font-bold text-gray-800">{stream.streamerName}的小店 ({shoppingCart.length})</h3>
+                            <button onClick={() => setShowShoppingCart(false)} className="text-gray-400">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -689,51 +935,53 @@ const LiveRoom = () => {
                         
                         {/* 商品列表 */}
                         <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#f5f5f5]">
-                            {[1, 2, 3, 4, 5].map((item) => (
-                                <div key={item} className="bg-white rounded-xl p-2.5 flex gap-3 shadow-sm relative overflow-hidden">
-                                    {/* 讲解中标签 */}
-                                    {item === 1 && (
-                                        <div className="absolute top-0 right-0 bg-[#ff2c55] text-white text-[9px] px-2 py-0.5 rounded-bl-lg font-medium animate-pulse">
-                                            讲解中
-                                        </div>
-                                    )}
-                                    
-                                    {/* 商品图 */}
-                                    <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex-shrink-0 relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-br-lg font-medium">
-                                            {item}
-                                        </div>
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* 信息 */}
-                                    <div className="flex-1 flex flex-col justify-between">
-                                        <div>
-                                            <h4 className="text-xs font-bold text-gray-800 line-clamp-2">
-                                                {['潮流宽松T恤夏季新款', '丝绒雾面哑光口红', '最新款智能手机Pro Max', '透气运动跑步鞋', '时尚百搭斜挎包'][item - 1]}
-                                            </h4>
-                                            <div className="flex gap-1 mt-1">
-                                                <span className="text-[9px] text-[#ff2c55] border border-[#ff2c55] px-1 rounded">秒杀</span>
-                                                <span className="text-[9px] text-gray-500 border border-gray-200 px-1 rounded">包邮</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-end justify-between">
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="text-xs text-[#ff2c55] font-bold">¥</span>
-                                                <span className="text-lg text-[#ff2c55] font-bold leading-none">{[99, 199, 5999, 299, 399][item - 1]}</span>
-                                                <span className="text-[10px] text-gray-400 line-through decoration-gray-400">¥{[199, 299, 6999, 499, 699][item - 1]}</span>
-                                            </div>
-                                            <button className="bg-gradient-to-r from-[#ff6b00] to-[#ff2c55] text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg shadow-orange-500/20 active:scale-95 transition-transform">
-                                                去抢购
-                                            </button>
-                                        </div>
-                                    </div>
+                            {shoppingCart.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <p className="text-gray-400 text-sm">主播还没上架商品哦~</p>
                                 </div>
-                            ))}
+                            ) : (
+                                shoppingCart.map((item, index) => (
+                                    <div key={item.id} className="bg-white rounded-xl p-2.5 flex gap-3 shadow-sm relative overflow-hidden">
+                                        {/* 最新上架标签 */}
+                                        {index === shoppingCart.length - 1 && (
+                                            <div className="absolute top-0 right-0 bg-[#ff2c55] text-white text-[9px] px-2 py-0.5 rounded-bl-lg font-medium animate-pulse">
+                                                刚上架
+                                            </div>
+                                        )}
+                                        
+                                        {/* 商品图 */}
+                                        <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex-shrink-0 relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-br-lg font-medium">
+                                                {index + 1}
+                                            </div>
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 信息 */}
+                                        <div className="flex-1 flex flex-col justify-between">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-gray-800 line-clamp-2">{item.name}</h4>
+                                                <div className="flex gap-1 mt-1">
+                                                    <span className="text-[9px] text-[#ff2c55] border border-[#ff2c55] px-1 rounded">直播价</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-end justify-between">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-xs text-[#ff2c55] font-bold">¥</span>
+                                                    <span className="text-lg text-[#ff2c55] font-bold leading-none">{item.price}</span>
+                                                </div>
+                                                <button className="bg-gradient-to-r from-[#ff6b00] to-[#ff2c55] text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg shadow-orange-500/20 active:scale-95 transition-transform">
+                                                    去抢购
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -755,15 +1003,35 @@ const LiveRoom = () => {
                 {danmakuList.map(d => (
                     <div 
                         key={d.id}
-                        className="absolute animate-danmaku px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm border border-white/5 flex items-center space-x-2"
+                        className={`absolute animate-danmaku px-4 py-1 rounded-full backdrop-blur-sm border flex items-center space-x-2 ${
+                            d.isStreamer
+                                ? 'bg-[#ff2c55]/80 border-[#ff2c55]/50 z-20' // 主播弹幕（包括回复）
+                                : d.isReply 
+                                    ? 'bg-blue-500/30 border-blue-400/40 z-10' // 观众回复
+                                    : 'bg-black/20 border-white/5' // 普通弹幕
+                        }`}
                         style={{ 
                             top: `${d.top}%`, 
                             animationDuration: `${d.duration}s`,
                             left: '100%',
                         }}
                     >
-                        <span className="text-xs text-white/70 font-medium whitespace-nowrap">{d.user}:</span>
-                        <span className="text-sm font-medium whitespace-nowrap shadow-sm" style={{ color: d.color }}>{d.text}</span>
+                        {d.isStreamer && (
+                            <span className="bg-white text-[#ff2c55] text-[9px] px-1 rounded-sm font-bold mr-1">主播</span>
+                        )}
+                        <span className={`text-xs font-medium whitespace-nowrap ${
+                            d.isStreamer 
+                                ? 'text-white' 
+                                : d.isReply ? 'text-blue-100' : 'text-white/70'
+                        }`}>
+                            {d.user}
+                            {d.isReply && d.replyToUser && (
+                                <span className={`${d.isStreamer ? 'text-white/80' : 'text-white/50'} text-[10px] mx-1`}>
+                                    ▶ {d.replyToUser}
+                                </span>
+                            )}:
+                        </span>
+                        <span className="text-sm font-medium whitespace-nowrap shadow-sm" style={{ color: d.isStreamer ? 'white' : d.color }}>{d.text}</span>
                     </div>
                 ))}
             </div>
@@ -816,35 +1084,213 @@ const LiveRoom = () => {
                 </div>
             )}
 
-            {/* 全屏特效 */}
+            {/* 全屏特效 - 豪华版 */}
             {fullScreenEffect && (
-                <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
+                    {/* 背景遮罩 */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/30 animate-pulse" />
+                    
                     {fullScreenEffect === 'rocket' && (
-                        <div className="animate-rocket filter drop-shadow-[0_0_50px_rgba(59,130,246,0.6)]">
-                            <svg className="w-32 h-32 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12.75 3.03c3.94.48 7.16 3.7 7.64 7.64a.75.75 0 01-1.48.23 6.749 6.749 0 00-6.15-6.15.75.75 0 01.23-1.48c-.15-.01-.15-.01-.24-.24zm-9.5 9.5a.75.75 0 01-.23 1.48 8.749 8.749 0 007.64 7.64.75.75 0 01-.23 1.48c-4.94-.48-8.89-4.43-9.37-9.37a.75.75 0 011.48-.23c.01.15.01.15.24.24-.15.01-.15.01-.24-.24a.75.75 0 01.71-.76z"/>
-                            </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {/* 背景星空粒子 */}
+                            <div className="absolute inset-0">
+                                {[...Array(30)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute w-1 h-1 bg-blue-300 rounded-full animate-twinkle"
+                                        style={{
+                                            left: `${Math.random() * 100}%`,
+                                            top: `${Math.random() * 100}%`,
+                                            animationDelay: `${Math.random() * 2}s`,
+                                            animationDuration: `${1 + Math.random()}s`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            
+                            {/* 火箭尾焰 */}
+                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-[60%] bg-gradient-to-t from-orange-500 via-yellow-400 to-transparent opacity-60 blur-xl animate-pulse" />
+                            
+                            {/* 火箭主体 */}
+                            <div className="relative animate-rocket-fly">
+                                {/* 光环 */}
+                                <div className="absolute -inset-8 rounded-full bg-gradient-to-r from-blue-500/30 via-cyan-400/20 to-blue-500/30 blur-2xl animate-pulse" />
+                                <div className="absolute -inset-4 rounded-full border-2 border-cyan-400/40 animate-spin-slow" />
+                                
+                                {/* 火箭SVG */}
+                                <div className="relative z-10 text-8xl filter drop-shadow-[0_0_30px_rgba(59,130,246,0.8)]">
+                                    🚀
+                                </div>
+                                
+                                {/* 火焰尾迹 */}
+                                <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+                                    <div className="w-8 h-12 bg-gradient-to-b from-orange-400 to-transparent rounded-full blur-md animate-pulse" />
+                                    <div className="w-6 h-8 bg-gradient-to-b from-yellow-300 to-transparent rounded-full blur-sm animate-pulse" style={{animationDelay: '0.1s'}} />
+                                </div>
+                            </div>
+                            
+                            {/* 文字 */}
+                            <div className="absolute bottom-20 left-0 right-0 text-center">
+                                <p className="text-2xl font-bold text-cyan-300 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)] animate-bounce">
+                                    🔥 火箭升空 🔥
+                                </p>
+                            </div>
                         </div>
                     )}
+                    
                     {fullScreenEffect === 'crown' && (
-                        <div className="relative animate-crown">
-                            <svg className="w-28 h-28 text-yellow-400 animate-crown-shine filter drop-shadow-[0_0_30px_rgba(234,179,8,0.6)]" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/>
-                            </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {/* 金色粒子雨 */}
+                            <div className="absolute inset-0 overflow-hidden">
+                                {[...Array(40)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute w-2 h-2 animate-fall-particle"
+                                        style={{
+                                            left: `${Math.random() * 100}%`,
+                                            animationDelay: `${Math.random() * 2}s`,
+                                            animationDuration: `${2 + Math.random() * 2}s`
+                                        }}
+                                    >
+                                        <div className="w-full h-full bg-gradient-to-b from-yellow-300 to-orange-400 rounded-full blur-[1px]" />
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 皇冠主体 */}
+                            <div className="relative animate-crown-entrance">
+                                {/* 多层光环 */}
+                                <div className="absolute -inset-16 rounded-full bg-gradient-radial from-yellow-400/40 via-orange-300/20 to-transparent blur-3xl" />
+                                <div className="absolute -inset-12 rounded-full border border-yellow-400/30 animate-ping" style={{animationDuration: '2s'}} />
+                                <div className="absolute -inset-8 rounded-full border-2 border-yellow-300/50 animate-pulse" />
+                                
+                                {/* 射线 */}
+                                {[...Array(8)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute top-1/2 left-1/2 w-1 h-32 bg-gradient-to-t from-yellow-400/60 to-transparent origin-bottom"
+                                        style={{
+                                            transform: `translate(-50%, -100%) rotate(${i * 45}deg)`,
+                                        }}
+                                    />
+                                ))}
+                                
+                                {/* 皇冠emoji */}
+                                <div className="relative z-10 text-[100px] filter drop-shadow-[0_0_40px_rgba(234,179,8,0.9)] animate-bounce-slow">
+                                    👑
+                                </div>
+                            </div>
+                            
+                            {/* 文字 */}
+                            <div className="absolute bottom-20 left-0 right-0 text-center">
+                                <p className="text-2xl font-bold bg-gradient-to-r from-yellow-300 via-orange-400 to-yellow-300 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(234,179,8,0.8)] animate-pulse">
+                                    ✨ 王者驾到 ✨
+                                </p>
+                            </div>
                         </div>
                     )}
+                    
                     {fullScreenEffect === 'castle' && (
-                        <div className="animate-castle filter drop-shadow-[0_0_60px_rgba(168,85,247,0.6)]">
-                            <svg className="w-32 h-32 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M21 10h-2V4h1V2H4v2h1v6H3v2h1v10h6v-4a2 2 0 114 0v4h6V12h1v-2zM8 12v-2h8v2H8zm0 6v-4h2v4H8zm6 0v-4h2v4h-2z"/>
-                            </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {/* 魔法粒子 */}
+                            <div className="absolute inset-0">
+                                {[...Array(50)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute animate-float-random"
+                                        style={{
+                                            left: `${Math.random() * 100}%`,
+                                            top: `${Math.random() * 100}%`,
+                                            animationDelay: `${Math.random() * 3}s`,
+                                            animationDuration: `${3 + Math.random() * 2}s`
+                                        }}
+                                    >
+                                        <div className="w-3 h-3 bg-purple-400 rounded-full blur-sm opacity-60" />
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 城堡主体 */}
+                            <div className="relative animate-castle-rise">
+                                {/* 魔法光环 */}
+                                <div className="absolute -inset-20 rounded-full bg-gradient-radial from-purple-500/30 via-pink-400/20 to-transparent blur-3xl animate-pulse" />
+                                <div className="absolute -inset-12 rounded-full border border-purple-400/40 animate-spin-slow" style={{animationDuration: '8s'}} />
+                                
+                                {/* 魔法圈 */}
+                                <div className="absolute -inset-16 rounded-full border-2 border-dashed border-purple-300/40 animate-spin-slow" style={{animationDuration: '12s', animationDirection: 'reverse'}} />
+                                
+                                {/* 城堡emoji */}
+                                <div className="relative z-10 text-[90px] filter drop-shadow-[0_0_50px_rgba(168,85,247,0.9)]">
+                                    🏰
+                                </div>
+                                
+                                {/* 烟花效果 */}
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl animate-bounce">🎆</div>
+                            </div>
+                            
+                            {/* 文字 */}
+                            <div className="absolute bottom-20 left-0 right-0 text-center">
+                                <p className="text-2xl font-bold bg-gradient-to-r from-purple-300 via-pink-400 to-purple-300 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(168,85,247,0.8)] animate-pulse">
+                                    🎪 梦幻城堡 🎪
+                                </p>
+                            </div>
                         </div>
                     )}
+                    
                     {fullScreenEffect === 'galaxy' && (
-                        <div className="animate-galaxy filter drop-shadow-[0_0_80px_rgba(139,92,246,0.8)]">
-                            <svg className="w-36 h-36 text-violet-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                            </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {/* 星云背景 */}
+                            <div className="absolute inset-0 bg-gradient-radial from-violet-900/50 via-purple-900/30 to-transparent" />
+                            
+                            {/* 星星粒子 */}
+                            <div className="absolute inset-0">
+                                {[...Array(60)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute rounded-full animate-twinkle"
+                                        style={{
+                                            width: `${1 + Math.random() * 3}px`,
+                                            height: `${1 + Math.random() * 3}px`,
+                                            left: `${Math.random() * 100}%`,
+                                            top: `${Math.random() * 100}%`,
+                                            backgroundColor: ['#fff', '#a78bfa', '#c4b5fd', '#818cf8'][Math.floor(Math.random() * 4)],
+                                            animationDelay: `${Math.random() * 2}s`,
+                                            animationDuration: `${0.5 + Math.random()}s`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            
+                            {/* 星系主体 */}
+                            <div className="relative animate-galaxy-spin">
+                                {/* 星系光环 */}
+                                <div className="absolute -inset-24 rounded-full bg-gradient-conic from-violet-500/40 via-purple-400/20 via-pink-400/30 to-violet-500/40 blur-3xl animate-spin-slow" style={{animationDuration: '6s'}} />
+                                
+                                {/* 轨道环 */}
+                                <div className="absolute -inset-20 rounded-full border border-violet-400/30 animate-spin-slow" style={{animationDuration: '10s'}} />
+                                <div className="absolute -inset-14 rounded-full border border-purple-400/40 animate-spin-slow" style={{animationDuration: '8s', animationDirection: 'reverse'}} />
+                                <div className="absolute -inset-8 rounded-full border-2 border-violet-300/50 animate-spin-slow" style={{animationDuration: '6s'}} />
+                                
+                                {/* 小行星 */}
+                                <div className="absolute -inset-16 animate-spin-slow" style={{animationDuration: '4s'}}>
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 text-2xl">⭐</div>
+                                </div>
+                                <div className="absolute -inset-12 animate-spin-slow" style={{animationDuration: '3s', animationDirection: 'reverse'}}>
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-xl">💫</div>
+                                </div>
+                                
+                                {/* 星系核心 */}
+                                <div className="relative z-10 text-[100px] filter drop-shadow-[0_0_60px_rgba(139,92,246,1)] animate-pulse">
+                                    🌌
+                                </div>
+                            </div>
+                            
+                            {/* 文字 */}
+                            <div className="absolute bottom-20 left-0 right-0 text-center">
+                                <p className="text-2xl font-bold bg-gradient-to-r from-violet-300 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(139,92,246,0.8)] animate-pulse">
+                                    🌟 浩瀚星河 🌟
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -861,40 +1307,45 @@ const LiveRoom = () => {
                 </div>
             )}
 
-            {/* Bottom Controls Area - 仅保留输入框和按钮 */}
+            {/* Bottom Controls Area - 新版AI直播交互 */}
             <div className="absolute bottom-0 left-0 w-full z-20 p-4 pb-8 pointer-events-auto bg-gradient-to-t from-black/80 to-transparent">
+                {/* 待发送消息提示 */}
+                {pendingMessages.length > 0 && (
+                    <div className="mb-3 flex items-center justify-center">
+                        <div className="bg-white/10 backdrop-blur-md rounded-full px-3 py-1 flex items-center gap-2">
+                            <span className="text-xs text-white/70">{pendingMessages.length} 条消息待发送</span>
+                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                        </div>
+                    </div>
+                )}
+                
                 <div className="flex items-center justify-between">
-                    <div className="flex-1 mr-4">
+                    <div className="flex-1 mr-3">
                         <input
                             type="text"
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={handleSendMessage}
+                            onKeyDown={handleSendDanmaku}
                             placeholder="发送弹幕..."
                             className="w-full h-10 bg-white/10 backdrop-blur-md border border-white/10 rounded-full px-4 text-white text-sm font-light placeholder-white/50 focus:outline-none focus:bg-black/40 focus:border-white/30 transition-all"
                         />
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        {/* 购物车 - 移到底部 */}
-                        <button 
-                            onClick={() => setShowCart(true)}
-                            className="relative p-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95"
-                        >
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                            </svg>
-                            <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-[#ff2c55] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                                12
-                            </div>
-                        </button>
-
-                        {/* Share */}
-                        <button className="p-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                            </svg>
-                        </button>
+                        {/* 购物车 - 只有AI主播上架商品后才显示 */}
+                        {shoppingCart.length > 0 && (
+                            <button 
+                                onClick={() => setShowShoppingCart(true)}
+                                className="relative p-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95"
+                            >
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                                </svg>
+                                <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-[#ff2c55] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                                    {shoppingCart.length}
+                                </div>
+                            </button>
+                        )}
                         
                         {/* Gift Button */}
                         <button 
@@ -914,6 +1365,26 @@ const LiveRoom = () => {
                             <svg className={`w-6 h-6 ${liked ? 'fill-current' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                             </svg>
+                        </button>
+                        
+                        {/* 发送按钮 - 触发AI主播回复 */}
+                        <button
+                            onClick={triggerAIResponse}
+                            disabled={pendingMessages.length === 0 || isAIResponding}
+                            className={`px-4 py-2 rounded-full font-medium text-sm transition-all active:scale-95 ${
+                                pendingMessages.length > 0 && !isAIResponding
+                                    ? 'bg-gradient-to-r from-[#ff2c55] to-[#ff6b81] text-white shadow-lg shadow-pink-500/30'
+                                    : 'bg-white/10 text-white/40'
+                            }`}
+                        >
+                            {isAIResponding ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>回复中</span>
+                                </div>
+                            ) : (
+                                '发送'
+                            )}
                         </button>
                     </div>
                 </div>

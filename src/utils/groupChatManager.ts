@@ -561,6 +561,18 @@ class GroupChatManager {
   replaceAllMessages(groupId: string, messages: GroupMessage[], forceOverwrite: boolean = false, silent: boolean = false): void {
     // 🔥 关键修复：直接更新缓存并保存，不再异步合并，避免并发冲突
     const validMessages = messages.filter(m => m && m.id)  // 过滤无效消息
+    
+    // 🔥🔥🔥 关键修复：防止用空数组或少量数据覆盖完整数据
+    const currentCache = messagesCache.get(groupId) || []
+    if (validMessages.length === 0 && currentCache.length > 0) {
+      console.warn(`⚠️ [replaceAllMessages] 阻止用空数组覆盖 ${currentCache.length} 条消息`)
+      return
+    }
+    // 🔥 如果传入的消息数量明显少于缓存，且不是强制覆盖模式，发出警告
+    if (!forceOverwrite && validMessages.length < currentCache.length * 0.5 && currentCache.length > 10) {
+      console.warn(`⚠️ [replaceAllMessages] 警告：传入${validMessages.length}条，缓存有${currentCache.length}条，可能丢失数据`)
+    }
+    
     messagesCache.set(groupId, validMessages)
     
     const storageKey = `group_${groupId}`

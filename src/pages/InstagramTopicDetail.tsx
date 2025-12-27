@@ -1015,7 +1015,7 @@ ${recentMessages || '(刚开始聊天)'}${userInput ? `\n${userName}: ${userInpu
     <InstagramLayout showHeader={false} showTabBar={false}>
       <div className="min-h-screen bg-white soft-page-enter">
         {/* 顶部导航 */}
-        <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm soft-fade-in">
+        <div className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm soft-fade-in safe-area-top">
             <StatusBar />
             <div className="flex items-center justify-between px-4 py-2">
                 <button

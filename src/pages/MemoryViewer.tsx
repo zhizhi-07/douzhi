@@ -335,12 +335,12 @@ const MemoryViewer = () => {
         <>
           {/* 遮罩 */}
           <div
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/50 z-[100]"
             onClick={() => setShowAddModal(false)}
           />
           
-          {/* 弹窗 */}
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 z-50 max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+          {/* 弹窗 - 使用更高的z-index确保不被遮挡 */}
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 z-[101] max-w-md mx-auto max-h-[80vh] overflow-y-auto" data-modal-container>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">添加记忆</h2>
             
             {/* 记忆类型 */}

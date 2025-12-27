@@ -36,47 +36,10 @@ export function emergencyCleanup() {
     safeToDelete.push(`meme_library_data (${(size/1024).toFixed(1)}KB)`)
   }
   
-  // 4. 清理旧的消息备份（只保留最近7天的）
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000)
-  const backupKeys = Object.keys(localStorage).filter(key => key.startsWith('msg_backup_'))
-  
-  for (const key of backupKeys) {
-    try {
-      const backup = localStorage.getItem(key)
-      if (backup) {
-        const parsed = JSON.parse(backup)
-        if (parsed.timestamp && parsed.timestamp < sevenDaysAgo) {
-          const size = new Blob([backup]).size
-          localStorage.removeItem(key)
-          totalFreed += size
-          safeToDelete.push(`${key} (${(size/1024).toFixed(1)}KB) - 7天前的备份`)
-        }
-      }
-    } catch (e) {
-      // 解析失败的备份直接删除
-      const backup = localStorage.getItem(key)
-      if (backup) {
-        const size = new Blob([backup]).size
-        localStorage.removeItem(key)
-        totalFreed += size
-        safeToDelete.push(`${key} (${(size/1024).toFixed(1)}KB) - 损坏的备份`)
-      }
-    }
-  }
-  
-  // 5. 清理过大的单个备份（超过100KB）
-  const remainingBackups = Object.keys(localStorage).filter(key => key.startsWith('msg_backup_'))
-  for (const key of remainingBackups) {
-    const backup = localStorage.getItem(key)
-    if (backup) {
-      const size = new Blob([backup]).size
-      if (size > 100 * 1024) { // 100KB
-        localStorage.removeItem(key)
-        totalFreed += size
-        safeToDelete.push(`${key} (${(size/1024).toFixed(1)}KB) - 过大的备份`)
-      }
-    }
-  }
+  // 🔥🔥🔥 关键修复：不再删除消息备份！
+  // 消息备份是数据恢复的最后手段，绝对不能删除
+  // 之前的逻辑会删除7天前的备份和超过100KB的备份，导致用户数据丢失
+  console.log('⚠️ [emergencyCleanup] 跳过消息备份清理，保护用户数据')
   
   // 6. 清理壁纸缓存
   const wallpaperKeys = Object.keys(localStorage).filter(key => 

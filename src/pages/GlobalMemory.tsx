@@ -27,6 +27,31 @@ const GlobalMemoryPage = () => {
   const [editingMemory, setEditingMemory] = useState<UnifiedMemory | null>(null)
   const [editSummary, setEditSummary] = useState('')
   const [editTitle, setEditTitle] = useState('')
+  
+  // 自定义提示词设置
+  const [enableCustomPrompt, setEnableCustomPrompt] = useState(() => {
+    return localStorage.getItem('memory_custom_prompt_enabled') === 'true'
+  })
+  const [customPromptTemplate, setCustomPromptTemplate] = useState(() => {
+    return localStorage.getItem('memory_custom_prompt_template') || `提取记忆，严格输出JSON。
+
+角色：{characterName}
+对方：{userName}
+时间范围：{timeRange}
+
+对话：
+{dialogueText}
+
+要求：
+- title：6字以内标题
+- summary：50-80字总结
+- tags：2-4个关键词
+- emotionalTone：positive/neutral/negative
+- facts：长期有效的事实，没有就[]
+
+⚠️ 只输出JSON，不要任何其他文字：
+{"title":"标题","summary":"总结","tags":["标签"],"emotionalTone":"neutral","facts":[]}`
+  })
 
   // 手动提取记忆
   const handleExtractMemory = async () => {
@@ -69,6 +94,10 @@ const GlobalMemoryPage = () => {
     setPendingCount(getPendingExtractionCount())
     // 🔥 加载当前阈值设置
     setThresholdValue(interactionCounter.getThreshold())
+    // 加载自定义提示词设置
+    setEnableCustomPrompt(localStorage.getItem('memory_custom_prompt_enabled') === 'true')
+    const savedTemplate = localStorage.getItem('memory_custom_prompt_template')
+    if (savedTemplate) setCustomPromptTemplate(savedTemplate)
   }, [])
   
   // 🔥 启动时自动重试待提取任务
@@ -433,24 +462,94 @@ const GlobalMemoryPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowThresholdModal(false)}>
           <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-2">记忆提取设置</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              这是<span className="font-medium text-orange-600">全局设置</span>，影响所有AI角色。每过设定的轮数后，系统会自动提取记忆。
-            </p>
-            <p className="text-xs text-gray-400 mb-4">
-              一轮 = 一次AI回复，包括私聊、论坛评论、群聊等所有互动。
-            </p>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm text-gray-600">每</span>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={thresholdValue}
-                onChange={e => setThresholdValue(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">轮提取一次记忆</span>
+            
+            {/* 提取频率设置 */}
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-2">
+                这是<span className="font-medium text-orange-600">全局设置</span>，影响所有AI角色。
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                一轮 = 一次AI回复，包括私聊、论坛评论、群聊等所有互动。
+              </p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">每</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={thresholdValue}
+                  onChange={e => setThresholdValue(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600">轮提取一次记忆</span>
+              </div>
             </div>
+            
+            {/* 分隔线 */}
+            <div className="border-t border-gray-200 my-4"></div>
+            
+            {/* 自定义提示词设置 */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">自定义总结提示词</span>
+                <button
+                  onClick={() => {
+                    const newValue = !enableCustomPrompt
+                    setEnableCustomPrompt(newValue)
+                    localStorage.setItem('memory_custom_prompt_enabled', newValue ? 'true' : 'false')
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${enableCustomPrompt ? 'bg-blue-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enableCustomPrompt ? 'translate-x-5' : ''}`}></span>
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">
+                开启后，系统将使用您自定义的提示词来提取记忆总结。
+              </p>
+              
+              {enableCustomPrompt && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">
+                    可用变量：<code className="bg-gray-100 px-1 rounded">{'{characterName}'}</code> 角色名、
+                    <code className="bg-gray-100 px-1 rounded">{'{userName}'}</code> 用户名、
+                    <code className="bg-gray-100 px-1 rounded">{'{timeRange}'}</code> 时间范围、
+                    <code className="bg-gray-100 px-1 rounded">{'{dialogueText}'}</code> 对话内容
+                  </p>
+                  <textarea
+                    value={customPromptTemplate}
+                    onChange={e => setCustomPromptTemplate(e.target.value)}
+                    className="w-full h-48 px-3 py-2 text-xs font-mono border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="输入自定义提示词模板..."
+                  />
+                  <button
+                    onClick={() => {
+                      setCustomPromptTemplate(`提取记忆，严格输出JSON。
+
+角色：{characterName}
+对方：{userName}
+时间范围：{timeRange}
+
+对话：
+{dialogueText}
+
+要求：
+- title：6字以内标题
+- summary：50-80字总结
+- tags：2-4个关键词
+- emotionalTone：positive/neutral/negative
+- facts：长期有效的事实，没有就[]
+
+⚠️ 只输出JSON，不要任何其他文字：
+{"title":"标题","summary":"总结","tags":["标签"],"emotionalTone":"neutral","facts":[]}`)
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    恢复默认模板
+                  </button>
+                </div>
+              )}
+            </div>
+            
             <div className="flex gap-3">
               <button
                 onClick={() => setShowThresholdModal(false)}
@@ -461,6 +560,11 @@ const GlobalMemoryPage = () => {
               <button
                 onClick={() => {
                   interactionCounter.setThreshold(thresholdValue)
+                  // 保存自定义提示词
+                  localStorage.setItem('memory_custom_prompt_enabled', enableCustomPrompt ? 'true' : 'false')
+                  if (enableCustomPrompt) {
+                    localStorage.setItem('memory_custom_prompt_template', customPromptTemplate)
+                  }
                   setShowThresholdModal(false)
                 }}
                 className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium active:scale-95 transition-transform"
