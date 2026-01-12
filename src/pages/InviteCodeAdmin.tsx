@@ -18,6 +18,7 @@ const ADMIN_PASSWORDS: Record<string, string> = {
   '荷包蛋最可爱！': '荷包蛋最可爱！',
   '小艾大小姐我们喜欢你！': '小艾大小姐我们喜欢你！',
   '豆汁': 'douzhi1112',
+  'zhizhi': 'zhizhi',
 }
 
 const InviteCodeAdmin = () => {
@@ -169,6 +170,18 @@ const InviteCodeAdmin = () => {
       <div className="max-w-2xl mx-auto p-4 pb-20">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold">邀请码管理</h1>
+          <button
+            onClick={() => {
+              localStorage.removeItem('invite_admin_authed')
+              localStorage.removeItem('invite_admin_name')
+              setIsAuthed(false)
+              setAdminName('')
+              setCodes([])
+            }}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            切换账号
+          </button>
         </div>
 
         <div className="flex gap-3 mb-4">
