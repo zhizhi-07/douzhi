@@ -10,10 +10,9 @@ import { supabase, checkBanned } from '../lib/supabase'
 import { downloadBackup } from '../services/cloudSyncService'
 import { cfSignIn, cfSignUp, cfGetUser, getAuthChannel } from '../services/cloudflareAuthService'
 import { getDeviceId } from '../utils/deviceId'
-import { ChevronRight, Zap } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 type AuthMode = 'login' | 'register'
-type AuthChannel = 'supabase' | 'cloudflare'
 
 const Auth = () => {
   const navigate = useNavigate()
@@ -24,7 +23,6 @@ const Auth = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(true)
-  const [channel, setChannel] = useState<AuthChannel>('supabase')
 
   // 检查是否已登录
   useEffect(() => {
@@ -59,11 +57,9 @@ const Auth = () => {
 
   // Supabase 登录/注册
   const handleSupabaseAuth = async () => {
-    // 获取设备ID
     const deviceId = await getDeviceId()
     
     if (mode === 'register') {
-      // 先检查设备是否被封禁
       const { data: bannedDevice } = await supabase
         .from('banned_devices')
         .select('device_id, banned_reason')
@@ -74,7 +70,6 @@ const Auth = () => {
         throw new Error(`此设备已被清理，无法注册新账号`)
       }
       
-      // 检查设备是否已经注册过账号
       const { data: existingUser } = await supabase
         .from('user_status')
         .select('email')
@@ -96,7 +91,7 @@ const Auth = () => {
         await supabase.from('user_status').insert({
           user_id: data.user.id,
           email: data.user.email,
-          device_id: deviceId,  // 保存设备ID
+          device_id: deviceId,
           is_banned: false,
           created_at: new Date().toISOString(),
         })
@@ -160,24 +155,20 @@ const Auth = () => {
         }
       }
 
-      if (channel === 'cloudflare') {
-        await handleCloudflareAuth()
-      } else {
-        await handleSupabaseAuth()
-      }
+      // 默认使用Supabase
+      await handleSupabaseAuth()
     } catch (e: any) {
       console.error(e)
       const errMsg = e.message || ''
       
-      // 检测网络错误
       if (errMsg.includes('fetch') || errMsg.includes('network') || errMsg.includes('Failed') || errMsg.includes('timeout')) {
-        setError('网络连接失败，请尝试切换线路')
+        setError('网络连接失败，请稍后重试')
       } else if (errMsg.includes('Invalid login')) {
         setError('账号或密码错误')
       } else if (errMsg.includes('User already registered')) {
         setError('该邮箱已注册')
       } else {
-        setError(errMsg || '登录失败，请尝试切换线路')
+        setError(errMsg || '操作失败，请重试')
       }
       setLoading(false)
     }
@@ -187,12 +178,10 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-      {/* 背景装饰 */}
       <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-200/20 rounded-full blur-[100px]" />
 
       <div className="w-full max-w-sm relative z-10 animate-fade-in-up">
-        {/* Logo区域 */}
         <div className="text-center mb-12">
           <div className="w-24 h-24 mx-auto mb-6 hover:scale-105 duration-500 transition-transform">
             <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
@@ -201,7 +190,6 @@ const Auth = () => {
           <p className="text-xs text-[#86868b] tracking-wider uppercase">DOUZHI</p>
         </div>
 
-        {/* 极简表单 */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="group relative">
@@ -227,18 +215,16 @@ const Auth = () => {
             </div>
 
             {mode === 'register' && (
-              <>
-                <div className="group relative animate-fade-in">
-                  <input
-                    type="password"
-                    placeholder="确认密码"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-white/50 backdrop-blur-xl border-none text-[#1d1d1f] placeholder:text-[#86868b] text-[15px] px-5 py-4 rounded-2xl focus:ring-0 focus:bg-white transition-all shadow-sm group-hover:shadow-md outline-none"
-                    required
-                  />
-                </div>
-              </>
+              <div className="group relative animate-fade-in">
+                <input
+                  type="password"
+                  placeholder="确认密码"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-white/50 backdrop-blur-xl border-none text-[#1d1d1f] placeholder:text-[#86868b] text-[15px] px-5 py-4 rounded-2xl focus:ring-0 focus:bg-white transition-all shadow-sm group-hover:shadow-md outline-none"
+                  required
+                />
+              </div>
             )}
           </div>
 
@@ -247,42 +233,6 @@ const Auth = () => {
               {error}
             </div>
           )}
-
-          {/* 渠道选择 - 暂时隐藏，默认使用国际线路 */}
-          {/* 如需启用，取消下方注释 */}
-          {/*
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setChannel('supabase')
-                setError('')
-              }}
-              className={`flex-1 py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-all ${
-                channel === 'supabase'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              🌍 国际线路
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setChannel('cloudflare')
-                setError('')
-              }}
-              className={`flex-1 py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-all ${
-                channel === 'cloudflare'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              <Zap className="w-4 h-4" />
-              国内线路
-            </button>
-          </div>
-          */}
 
           <button
             type="submit"
@@ -300,7 +250,6 @@ const Auth = () => {
           </button>
         </form>
 
-        {/* 切换模式 */}
         <div className="mt-8 text-center space-y-3">
           <button
             onClick={() => {

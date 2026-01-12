@@ -116,6 +116,7 @@ import CloudAccount from './pages/CloudAccount'
 import CustomPromptSettings from './pages/CustomPromptSettings'
 import BanCheck from './components/BanCheck'
 import InviteCodeCheck from './components/InviteCodeCheck'
+import InviteCodeAdmin from './pages/InviteCodeAdmin'
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
@@ -742,11 +743,17 @@ function App() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/cloud-account" element={<CloudAccount />} />
           <Route path="/custom-prompt" element={<CustomPromptSettings />} />
+          <Route path="/invite-admin" element={<InviteCodeAdmin />} />
           {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
         </Routes>
       </ContactsProvider>
     </div>
   )
+
+  // 管理员页面不需要邀请码验证
+  if (location.pathname === '/invite-admin') {
+    return <InviteCodeAdmin />
+  }
 
   return (
     <InviteCodeCheck>
