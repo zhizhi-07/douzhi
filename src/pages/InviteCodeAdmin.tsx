@@ -165,8 +165,8 @@ const InviteCodeAdmin = () => {
   const unboundCount = codes.filter(c => c.status === 'unbound').length
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] p-4 overflow-y-auto">
-      <div className="max-w-2xl mx-auto pb-8">
+    <div className="h-screen bg-[#F5F5F7] overflow-y-scroll" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="max-w-2xl mx-auto p-4 pb-20">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold">邀请码管理</h1>
         </div>
