@@ -8,14 +8,35 @@ import { Copy, Trash2, Unlock, Plus, Lock } from 'lucide-react'
 import { InviteCode } from '../types/inviteCode'
 import * as inviteCodeStore from '../services/inviteCodeStore'
 
-// 管理员密码
-const ADMIN_PASSWORD = 'douzhi1112'
+// 管理员密码列表（每个管理员有自己的密码）
+const ADMIN_PASSWORDS: Record<string, string> = {
+  '雪无尘': '雪无尘',
+  'sule1029': 'sule1029',
+  '韧啫喱': '韧啫喱',
+  '泮个终于': '泮个终于',
+  'zhizhiiloveu': 'zhizhiiloveu',
+  '荷包蛋最可爱！': '荷包蛋最可爱！',
+  '小艾大小姐我们喜欢你！': '小艾大小姐我们喜欢你！',
+  '豆汁': 'douzhi1112',
+}
 
 const InviteCodeAdmin = () => {
   const [isAuthed, setIsAuthed] = useState(() => {
-    return localStorage.getItem('invite_admin_authed') === 'true'
+    // 检查保存的管理员名称是否还在有效密码列表中
+    const savedName = localStorage.getItem('invite_admin_name') || ''
+    const isValid = localStorage.getItem('invite_admin_authed') === 'true' && 
+                    Object.keys(ADMIN_PASSWORDS).includes(savedName)
+    if (!isValid) {
+      localStorage.removeItem('invite_admin_authed')
+      localStorage.removeItem('invite_admin_name')
+    }
+    return isValid
+  })
+  const [adminName, setAdminName] = useState(() => {
+    return localStorage.getItem('invite_admin_name') || ''
   })
   const [password, setPassword] = useState('')
+  const [prefix, setPrefix] = useState('') // 邀请码前缀
   const [error, setError] = useState('')
   const [codes, setCodes] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(false)
@@ -29,8 +50,13 @@ const InviteCodeAdmin = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === ADMIN_PASSWORD) {
+    // 检查密码是否匹配任一管理员
+    const matchedAdmin = Object.entries(ADMIN_PASSWORDS).find(([, pwd]) => pwd === password)
+    if (matchedAdmin) {
+      const [name] = matchedAdmin
       localStorage.setItem('invite_admin_authed', 'true')
+      localStorage.setItem('invite_admin_name', name)
+      setAdminName(name)
       setIsAuthed(true)
     } else {
       setError('密码错误')
@@ -39,23 +65,54 @@ const InviteCodeAdmin = () => {
 
   const loadCodes = async () => {
     setLoading(true)
-    const allCodes = await inviteCodeStore.getAllCodes()
-    setCodes(allCodes)
+    // 只加载当前管理员创建的邀请码
+    const myCodes = await inviteCodeStore.getAllCodes(adminName)
+    setCodes(myCodes)
     setLoading(false)
   }
 
   const handleGenerate = async () => {
     setGenerating(true)
-    const newCode = await inviteCodeStore.createCode()
+    // 创建时记录管理员名称，支持前缀
+    const newCode = await inviteCodeStore.createCode(adminName, prefix.trim() || undefined)
     if (newCode) {
       setCodes([newCode, ...codes])
     }
     setGenerating(false)
   }
 
-  const handleCopy = (code: string) => {
-    navigator.clipboard.writeText(code)
-    alert('已复制')
+  const handleCopy = async (code: string) => {
+    try {
+      // 优先使用 Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(code)
+        alert('已复制')
+        return
+      }
+      
+      // 兼容方案：使用 textarea
+      const textArea = document.createElement('textarea')
+      textArea.value = code
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-9999px'
+      textArea.style.top = '0'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      const success = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      
+      if (success) {
+        alert('已复制')
+      } else {
+        // 如果还是失败，显示邀请码让用户手动复制
+        prompt('请手动复制邀请码:', code)
+      }
+    } catch {
+      // 最后的兜底方案
+      prompt('请手动复制邀请码:', code)
+    }
   }
 
   const handleUnbind = async (id: string) => {
@@ -110,7 +167,9 @@ const InviteCodeAdmin = () => {
   return (
     <div className="min-h-screen bg-[#F5F5F7] p-4">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-xl font-semibold mb-4">邀请码管理</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-semibold">邀请码管理</h1>
+        </div>
 
         <div className="flex gap-3 mb-4">
           <div className="flex-1 bg-green-50 rounded-xl p-3 text-center">
@@ -127,20 +186,30 @@ const InviteCodeAdmin = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="w-full bg-black text-white py-3 rounded-xl mb-4 flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {generating ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <Plus className="w-5 h-5" />
-              生成新邀请码
-            </>
-          )}
-        </button>
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            placeholder="前缀（可选）"
+            value={prefix}
+            onChange={e => setPrefix(e.target.value)}
+            className="flex-1 bg-white px-4 py-3 rounded-xl outline-none text-sm"
+            maxLength={10}
+          />
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {generating ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                生成邀请码
+              </>
+            )}
+          </button>
+        </div>
 
         {loading ? (
           <div className="text-center py-8 text-gray-500">加载中...</div>

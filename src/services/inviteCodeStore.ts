@@ -37,12 +37,19 @@ function rowToInviteCode(row: InviteCodeRow): InviteCode {
   };
 }
 
-// 获取所有邀请码
-export async function getAllCodes(): Promise<InviteCode[]> {
-  const { data, error } = await supabase
+// 获取所有邀请码（可按管理员筛选）
+export async function getAllCodes(adminName?: string): Promise<InviteCode[]> {
+  let query = supabase
     .from('invite_codes')
     .select('*')
     .order('created_at', { ascending: false });
+
+  // 如果指定了管理员，只返回该管理员创建的
+  if (adminName) {
+    query = query.eq('created_by', adminName);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('获取邀请码失败:', error);
@@ -68,16 +75,18 @@ export async function getByCode(code: string): Promise<InviteCode | null> {
 }
 
 // 创建新邀请码
-export async function createCode(note?: string): Promise<InviteCode | null> {
-  const code = generateUniqueCode();
+export async function createCode(adminName: string, prefix?: string): Promise<InviteCode | null> {
+  // 生成邀请码，如果有前缀则加上
+  const randomPart = generateUniqueCode();
+  const code = prefix ? `${prefix.toUpperCase()}-${randomPart}` : randomPart;
   
   const { data, error } = await supabase
     .from('invite_codes')
     .insert({
       code,
       status: 'unbound',
-      created_by: 'admin',
-      note: note || null
+      created_by: adminName,
+      note: null
     })
     .select()
     .single();
