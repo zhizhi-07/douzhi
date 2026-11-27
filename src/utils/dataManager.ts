@@ -131,8 +131,7 @@ export async function exportChatData(onProgress?: ProgressCallback): Promise<voi
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key) {
-        // 跳过消息备份（这些数据在 IndexedDB 里有）
-        if (key.startsWith('msg_backup_')) continue
+        // Include recovery copies: a failed database write may exist only here.
         localStorageData[key] = localStorage.getItem(key) || ''
       }
     }
@@ -172,7 +171,7 @@ export async function exportChatData(onProgress?: ProgressCallback): Promise<voi
         console.log(`📦 流式导出: ${dbName}`)
         
         // 🔥 聊天数据导出时清理 base64 图片/音频，大幅减少文件大小
-        const dbChunks = await exportIndexedDBStreaming(dbName, true)
+        const dbChunks = await exportIndexedDBStreaming(dbName, false)
         if (dbChunks && dbChunks.length > 0) {
           if (exportedCount > 0) chunks.push(',')
           chunks.push(`"${dbName}":`)
@@ -402,7 +401,7 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('msg_backup_')) {
+      if (backupType === 'chat' && key && key.startsWith('msg_backup_') && !Object.prototype.hasOwnProperty.call(data.localStorage || {}, key)) {
         keysToRemove.push(key)
       }
     }

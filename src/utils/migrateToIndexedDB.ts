@@ -4,6 +4,7 @@
  */
 
 import * as IDB from './indexedDBManager'
+import { mergeMessages } from './mergeMessages'
 
 const MIGRATION_KEY = 'indexeddb_migration_completed'
 const MIGRATION_VERSION = '1.0'
@@ -111,7 +112,9 @@ async function migrateMessages(): Promise<number> {
   }
 
   if (messageItems.length > 0) {
-    await IDB.setItems(IDB.STORES.MESSAGES, messageItems)
+    for (const { key, value } of messageItems) {
+      await IDB.updateItem(IDB.STORES.MESSAGES, key, (current: any) => mergeMessages(value, current || []))
+    }
   }
 
   return count

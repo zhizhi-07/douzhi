@@ -83,7 +83,7 @@ const GroupChatDetail = () => {
     scrollToBottom,
     resetVirtualList,
     isNearBottom
-  } = useGroupVirtualList(messages)
+  } = useGroupVirtualList(messages, !isLoadingMessages && bubbleCssLoaded)
   
   // 🎨 使用自定义图标 Hook
   const { chatDecorations, customIcons, topBarAdjust } = useGroupCustomIcons()
@@ -205,6 +205,9 @@ const GroupChatDetail = () => {
   useEffect(() => {
     if (!id) return
     
+    let cancelled = false
+    setIsLoadingMessages(true)
+    setMessages([])
     // 🔥 重置虚拟列表状态
     resetVirtualList()
     
@@ -229,11 +232,11 @@ const GroupChatDetail = () => {
         // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
         const allMsgs = await groupChatManager.loadMessagesAsync(id)
         console.log(`📦 GroupChatDetail 加载消息: ${id}, 总数=${allMsgs.length}`)
-        setMessages(allMsgs)
+        if (!cancelled) setMessages(allMsgs)
       } catch (error) {
         console.error('加载消息失败:', error)
       } finally {
-        setIsLoadingMessages(false)
+        if (!cancelled) setIsLoadingMessages(false)
       }
       // 🔥 滚动由 callback ref 自动处理，这里不需要手动滚动
     }
@@ -258,7 +261,7 @@ const GroupChatDetail = () => {
     }
     
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+    return () => { cancelled = true; window.removeEventListener('storage', handleStorageChange) }
   }, [id, resetVirtualList])
 
   // 获取当前群聊信息，用于渲染成员头衔/角色
@@ -1769,7 +1772,7 @@ const GroupChatDetail = () => {
       <div 
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 pb-2 -webkit-overflow-scrolling-touch"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{ WebkitOverflowScrolling: 'touch', overflowAnchor: 'none' }}
       >
         {/* 虚拟列表顶部占位 */}
         {virtualStyle.paddingTop > 0 && (
@@ -1803,7 +1806,7 @@ const GroupChatDetail = () => {
             if (msg.type === 'system' || msg.isRecalled) {
               const isRecalledWithContent = msg.isRecalled && (msg as any).recalledContent
               return (
-                <div key={msg.id}>
+                <div key={msg.id} data-message-id={msg.id} style={{ display: 'flow-root' }}>
                   {shouldShowTimestamp && msg.timestamp && (
                     <div className="flex justify-center my-3">
                       <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
@@ -1833,7 +1836,7 @@ const GroupChatDetail = () => {
               // 只渲染最后3条HTML，旧的HTML显示简化版
               if (!renderableHtmlIds.has(msg.id)) {
                 return (
-                  <div className="flex justify-center my-2" data-message-id={msg.id}>
+                  <div key={msg.id} className="flex justify-center my-2" data-message-id={msg.id}>
                     <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
                       小剧场
                     </span>
@@ -2002,7 +2005,7 @@ const GroupChatDetail = () => {
             const displayName = [baseName, roleLabel, titleLabel].filter(Boolean).join(' ')
             
             return (
-              <div key={msg.id} data-message-id={msg.id}>
+              <div key={msg.id} data-message-id={msg.id} style={{ display: 'flow-root' }}>
                 {/* 时间戳 */}
                 {shouldShowTimestamp && msg.timestamp && (
                   <div className="flex justify-center my-3">

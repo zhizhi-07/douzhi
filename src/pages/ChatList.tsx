@@ -10,7 +10,7 @@ import { playSystemSound } from '../utils/soundManager'
 
 // 🔥🔥🔥 紧急修复：启动时强制从IndexedDB恢复数据
 clearChatListCache()
-forceRecoverFromIndexedDB()
+forceRecoverFromIndexedDB().catch(error => console.error('加载聊天缓存失败:', error))
 // 🔥 清除sessionStorage旧缓存，防止加载过期数据
 sessionStorage.removeItem('__preloaded_chatlist__')
 

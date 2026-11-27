@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Link, Routes, Route, useLocation } from 'react-router-dom'
 import { getAllUIIcons } from './utils/iconStorage'
 import DynamicIsland from './components/DynamicIsland'
 import { useMusicPlayer } from './context/MusicPlayerContext'
@@ -10,124 +10,128 @@ import { playSystemSound, initSoundSystem } from './utils/soundManager'
 import { migrateFromLocalStorage } from './utils/unifiedStorage'
 import { initCoupleSpaceStorage } from './utils/coupleSpaceUtils'
 import { startActivityTracker } from './services/activityTracker'
-import Desktop from './pages/Desktop'
-import ChatList from './pages/ChatList'
-import Contacts from './pages/Contacts'
-import Discover from './pages/Discover'
-import Me from './pages/Me'
-import CreateCharacter from './pages/CreateCharacter'
-import CharacterDetail from './pages/CharacterDetail'
-import ApiList from './pages/ApiList'
-import AddApi from './pages/AddApi'
-import EditApi from './pages/EditApi'
-import EditSummaryApi from './pages/EditSummaryApi'
-import ChatDetail from './pages/ChatDetail'
-import OfflineChat from './pages/OfflineChat'
-import ChatSettings from './pages/ChatSettings'
-import MemorySummary from './pages/MemorySummary'
-import MemoryViewer from './pages/MemoryViewer'
-import CoupleSpace from './pages/CoupleSpace/index'
-import CoupleAlbum from './pages/CoupleAlbum'
-import CoupleAnniversary from './pages/CoupleAnniversary'
-import CoupleMessageBoard from './pages/CoupleMessageBoard'
-import CouplePeriod from './pages/CouplePeriod'
-import CouplePet from './pages/CouplePet'
-import CoupleCheckIn from './pages/CoupleCheckIn'
-import CoupleSpaceSettings from './pages/CoupleSpaceSettings'
-import { emergencyCleanup } from './utils/emergencyCleanup'
-import Wallet from './pages/Wallet'
-import Favorites from './pages/Favorites'
-import WalletTransactions from './pages/WalletTransactions'
-import WalletCards from './pages/WalletCards'
-import IntimatePayDetail from './pages/IntimatePayDetail'
-import Moments from './pages/Moments'
-import PublishMoment from './pages/PublishMoment'
-import EmojiManagement from './pages/EmojiManagement'
-import UserProfile from './pages/UserProfile'
-import MusicPlayer from './pages/MusicPlayer'
-import MusicSearch from './pages/MusicSearch'
-import UploadSong from './pages/UploadSong'
-import MusicDecoration from './pages/MusicDecoration'
-import DecorationHub from './pages/DecorationHub'
-import GlobalDecoration from './pages/GlobalDecoration'
-import ChatCSSDecoration from './pages/ChatCSSDecoration'
-import GlobalColors from './pages/GlobalColors'
-import Customize from './pages/Customize'
-import DataManager from './pages/DataManager'
-import StatusBarCustomize from './pages/StatusBarCustomize'
-import FontCustomizer from './pages/FontCustomizer'
-import BackgroundCustomizer from './pages/BackgroundCustomizer'
-import SoundCustomizer from './pages/SoundCustomizer'
+const Desktop = lazy(() => import('./pages/Desktop'))
+const ChatList = lazy(() => import('./pages/ChatList'))
+const Contacts = lazy(() => import('./pages/Contacts'))
+const Discover = lazy(() => import('./pages/Discover'))
+const Me = lazy(() => import('./pages/Me'))
+const CreateCharacter = lazy(() => import('./pages/CreateCharacter'))
+const CharacterDetail = lazy(() => import('./pages/CharacterDetail'))
+const ApiList = lazy(() => import('./pages/ApiList'))
+const AddApi = lazy(() => import('./pages/AddApi'))
+const EditApi = lazy(() => import('./pages/EditApi'))
+const EditSummaryApi = lazy(() => import('./pages/EditSummaryApi'))
+const ChatDetail = lazy(() => import('./pages/ChatDetail'))
+const OfflineChat = lazy(() => import('./pages/OfflineChat'))
+const ChatSettings = lazy(() => import('./pages/ChatSettings'))
+const MemorySummary = lazy(() => import('./pages/MemorySummary'))
+const MemoryViewer = lazy(() => import('./pages/MemoryViewer'))
+const CoupleSpace = lazy(() => import('./pages/CoupleSpace/index'))
+const CoupleAlbum = lazy(() => import('./pages/CoupleAlbum'))
+const CoupleAnniversary = lazy(() => import('./pages/CoupleAnniversary'))
+const CoupleMessageBoard = lazy(() => import('./pages/CoupleMessageBoard'))
+const CouplePeriod = lazy(() => import('./pages/CouplePeriod'))
+const CouplePet = lazy(() => import('./pages/CouplePet'))
+const CoupleCheckIn = lazy(() => import('./pages/CoupleCheckIn'))
+const CoupleSpaceSettings = lazy(() => import('./pages/CoupleSpaceSettings'))
+const Wallet = lazy(() => import('./pages/Wallet'))
+const Favorites = lazy(() => import('./pages/Favorites'))
+const WalletTransactions = lazy(() => import('./pages/WalletTransactions'))
+const WalletCards = lazy(() => import('./pages/WalletCards'))
+const IntimatePayDetail = lazy(() => import('./pages/IntimatePayDetail'))
+const Moments = lazy(() => import('./pages/Moments'))
+const PublishMoment = lazy(() => import('./pages/PublishMoment'))
+const EmojiManagement = lazy(() => import('./pages/EmojiManagement'))
+const UserProfile = lazy(() => import('./pages/UserProfile'))
+const MusicPlayer = lazy(() => import('./pages/MusicPlayer'))
+const MusicSearch = lazy(() => import('./pages/MusicSearch'))
+const UploadSong = lazy(() => import('./pages/UploadSong'))
+const MusicDecoration = lazy(() => import('./pages/MusicDecoration'))
+const DecorationHub = lazy(() => import('./pages/DecorationHub'))
+const GlobalDecoration = lazy(() => import('./pages/GlobalDecoration'))
+const ChatCSSDecoration = lazy(() => import('./pages/ChatCSSDecoration'))
+const GlobalColors = lazy(() => import('./pages/GlobalColors'))
+const Customize = lazy(() => import('./pages/Customize'))
+const DataManager = lazy(() => import('./pages/DataManager'))
+const StatusBarCustomize = lazy(() => import('./pages/StatusBarCustomize'))
+const FontCustomizer = lazy(() => import('./pages/FontCustomizer'))
+const BackgroundCustomizer = lazy(() => import('./pages/BackgroundCustomizer'))
+const SoundCustomizer = lazy(() => import('./pages/SoundCustomizer'))
 // import IconCustomizer from './pages/IconCustomizer' // 已整合到GlobalDecoration
-import GroupChatDetail from './pages/GroupChatDetail'
-import GroupChatSettings from './pages/GroupChatSettings'
-import VoiceSettings from './pages/VoiceSettings'
-import WorldBook from './pages/WorldBook'
-import EditWorldBook from './pages/EditWorldBook'
-import PresetManager from './pages/PresetManager'
-import EditPreset from './pages/EditPreset'
-import Forum from './pages/Forum'
-import ForumPostDetail from './pages/ForumPostDetail'
-import ForumProfile from './pages/ForumProfile'
-import CharacterProfile from './pages/CharacterProfile'
-import MomentDetail from './pages/MomentDetail'
-import ForumMessages from './pages/ForumMessages'
-import ForumTopics from './pages/ForumTopics'
-import ForumTopicDetail from './pages/ForumTopicDetail'
-import InstagramHome from './pages/InstagramHome'
-import InstagramProfile from './pages/InstagramProfile'
-import InstagramSearch from './pages/InstagramSearch'
-import InstagramActivity from './pages/InstagramActivity'
-import InstagramCreate from './pages/InstagramCreate'
-import InstagramPostDetail from './pages/InstagramPostDetail'
-import InstagramDMDetail from './pages/InstagramDMDetail'
-import InstagramSettings from './pages/InstagramSettings'
-import InstagramTopicDetail from './pages/InstagramTopicDetail'
-import Map from './pages/Map'
-import LocationHistory from './pages/LocationHistory'
-import PaymentRequest from './pages/PaymentRequest'
-import OnlineShopping from './pages/OnlineShopping'
-import ShoppingCart from './pages/ShoppingCart'
-import AIPhoneSelect from './pages/AIPhoneSelect'
-import GlobalMemory from './pages/GlobalMemory'
-import UnifiedMemory from './pages/UnifiedMemory'
-import BubbleEditor from './pages/BubbleEditor'
-import TheatreApp from './pages/TheatreApp'
-import GameList from './pages/GameList'
-import Landlord from './pages/Landlord'
-import AITwoAIChat from './pages/AITwoAIChat'
-import WerewolfGame from './pages/Werewolf'
-import Calendar from './pages/Calendar'
-import RoleSwap from './pages/RoleSwap'
-import RoleSwapWorld from './pages/RoleSwapWorld'
-import AISchedule from './pages/AISchedule'
-import AIScheduleSelect from './pages/AIScheduleSelect'
-import ScreenSettings from './pages/ScreenSettings'
-import MemeLibrary from './pages/MemeLibrary'
-import AvatarLibrary from './pages/AvatarLibrary'
-import SwitchAccount from './pages/SwitchAccount'
-import Weather from './pages/Weather'
-import ChatHistorySearch from './pages/ChatHistorySearch'
-import TransferDetail from './pages/TransferDetail'
-import Envelope from './pages/Envelope'
-import Auth from './pages/Auth'
-import Admin from './pages/Admin'
-import CloudAccount from './pages/CloudAccount'
-import CustomPromptSettings from './pages/CustomPromptSettings'
+const GroupChatDetail = lazy(() => import('./pages/GroupChatDetail'))
+const GroupChatSettings = lazy(() => import('./pages/GroupChatSettings'))
+const VoiceSettings = lazy(() => import('./pages/VoiceSettings'))
+const WorldBook = lazy(() => import('./pages/WorldBook'))
+const EditWorldBook = lazy(() => import('./pages/EditWorldBook'))
+const PresetManager = lazy(() => import('./pages/PresetManager'))
+const EditPreset = lazy(() => import('./pages/EditPreset'))
+const Forum = lazy(() => import('./pages/Forum'))
+const ForumPostDetail = lazy(() => import('./pages/ForumPostDetail'))
+const ForumProfile = lazy(() => import('./pages/ForumProfile'))
+const CharacterProfile = lazy(() => import('./pages/CharacterProfile'))
+const MomentDetail = lazy(() => import('./pages/MomentDetail'))
+const ForumMessages = lazy(() => import('./pages/ForumMessages'))
+const ForumTopics = lazy(() => import('./pages/ForumTopics'))
+const ForumTopicDetail = lazy(() => import('./pages/ForumTopicDetail'))
+const InstagramHome = lazy(() => import('./pages/InstagramHome'))
+const InstagramProfile = lazy(() => import('./pages/InstagramProfile'))
+const InstagramSearch = lazy(() => import('./pages/InstagramSearch'))
+const InstagramActivity = lazy(() => import('./pages/InstagramActivity'))
+const InstagramCreate = lazy(() => import('./pages/InstagramCreate'))
+const InstagramPostDetail = lazy(() => import('./pages/InstagramPostDetail'))
+const InstagramDMDetail = lazy(() => import('./pages/InstagramDMDetail'))
+const InstagramSettings = lazy(() => import('./pages/InstagramSettings'))
+const InstagramTopicDetail = lazy(() => import('./pages/InstagramTopicDetail'))
+const Map = lazy(() => import('./pages/Map'))
+const LocationHistory = lazy(() => import('./pages/LocationHistory'))
+const PaymentRequest = lazy(() => import('./pages/PaymentRequest'))
+const OnlineShopping = lazy(() => import('./pages/OnlineShopping'))
+const ShoppingCart = lazy(() => import('./pages/ShoppingCart'))
+const AIPhoneSelect = lazy(() => import('./pages/AIPhoneSelect'))
+const GlobalMemory = lazy(() => import('./pages/GlobalMemory'))
+const UnifiedMemory = lazy(() => import('./pages/UnifiedMemory'))
+const BubbleEditor = lazy(() => import('./pages/BubbleEditor'))
+const TheatreApp = lazy(() => import('./pages/TheatreApp'))
+const GameList = lazy(() => import('./pages/GameList'))
+const Landlord = lazy(() => import('./pages/Landlord'))
+const AITwoAIChat = lazy(() => import('./pages/AITwoAIChat'))
+const WerewolfGame = lazy(() => import('./pages/Werewolf'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const RoleSwap = lazy(() => import('./pages/RoleSwap'))
+const RoleSwapWorld = lazy(() => import('./pages/RoleSwapWorld'))
+const AISchedule = lazy(() => import('./pages/AISchedule'))
+const AIScheduleSelect = lazy(() => import('./pages/AIScheduleSelect'))
+const ScreenSettings = lazy(() => import('./pages/ScreenSettings'))
+const MemeLibrary = lazy(() => import('./pages/MemeLibrary'))
+const AvatarLibrary = lazy(() => import('./pages/AvatarLibrary'))
+const SwitchAccount = lazy(() => import('./pages/SwitchAccount'))
+const Weather = lazy(() => import('./pages/Weather'))
+const ChatHistorySearch = lazy(() => import('./pages/ChatHistorySearch'))
+const TransferDetail = lazy(() => import('./pages/TransferDetail'))
+const Envelope = lazy(() => import('./pages/Envelope'))
+const Auth = lazy(() => import('./pages/Auth'))
+const Admin = lazy(() => import('./pages/Admin'))
+const CloudAccount = lazy(() => import('./pages/CloudAccount'))
+const CustomPromptSettings = lazy(() => import('./pages/CustomPromptSettings'))
 import BanCheck from './components/BanCheck'
-import InviteCodeCheck from './components/InviteCodeCheck'
-import InviteCodeAdmin from './pages/InviteCodeAdmin'
+const InviteCodeAdmin = lazy(() => import('./pages/InviteCodeAdmin'))
 // import Homeland from './pages/Homeland/index' // 暂时隐藏家园功能
 import SimpleNotificationListener from './components/SimpleNotificationListener'
 import GlobalMessageMonitor from './components/GlobalMessageMonitor'
 import GlobalProactiveMessageManager from './components/GlobalProactiveMessageManager'
 import { ContactsProvider } from './context/ContactsContext'
 import MainLayout from './components/MainLayout'
-import LiveBroadcast from './pages/LiveBroadcast'
-import LiveRoom from './pages/LiveRoom'
+const LiveBroadcast = lazy(() => import('./pages/LiveBroadcast'))
+const LiveRoom = lazy(() => import('./pages/LiveRoom'))
 
 function App() {
   const location = useLocation()
+  const [storageError, setStorageError] = useState(false)
+  useEffect(() => {
+    const onError = () => setStorageError(true)
+    window.addEventListener('message-save-error', onError)
+    return () => window.removeEventListener('message-save-error', onError)
+  }, [])
   const musicPlayer = useMusicPlayer()
   const [globalBackground, setGlobalBackground] = useState<string>('')
   const [screenOffsets, setScreenOffsets] = useState({
@@ -254,12 +258,6 @@ function App() {
       console.error('❌ 迁移失败:', err)
     })
 
-    // 紧急清理localStorage空间（如果满了）
-    try {
-      emergencyCleanup()
-    } catch (e) {
-      console.error('紧急清理失败:', e)
-    }
 
     // 初始化情侣空间存储（从IndexedDB加载数据到缓存）
     initCoupleSpaceStorage().catch(err => {
@@ -630,6 +628,7 @@ function App() {
         <SimpleNotificationListener />
         <GlobalMessageMonitor />
         <GlobalProactiveMessageManager />
+        <Suspense fallback={<div role="status" className="p-6 text-center text-gray-500">加载中...</div>}>
         <Routes>
           <Route path="/" element={<Desktop />} />
 
@@ -746,21 +745,24 @@ function App() {
           <Route path="/invite-admin" element={<InviteCodeAdmin />} />
           {/* <Route path="/homeland" element={<Homeland />} /> 暂时隐藏家园功能 */}
         </Routes>
+        </Suspense>
       </ContactsProvider>
     </div>
   )
 
   // 管理员页面不需要邀请码验证
   if (location.pathname === '/invite-admin') {
-    return <InviteCodeAdmin />
+    return <Suspense fallback={<div role="status">加载中...</div>}><InviteCodeAdmin /></Suspense>
   }
 
   return (
-    <InviteCodeCheck>
-      <BanCheck>
-        {renderContent()}
-      </BanCheck>
-    </InviteCodeCheck>
+    <BanCheck>
+      {storageError && <div role="alert" className="fixed top-0 inset-x-0 z-[9999] bg-red-700 text-white p-3 text-sm">
+        聊天记录保存失败。请勿刷新或关闭页面，请先到数据管理导出备份。
+        <Link className="underline ml-2" to="/data-manager">导出备份</Link>
+      </div>}
+      {renderContent()}
+    </BanCheck>
   )
 }
 

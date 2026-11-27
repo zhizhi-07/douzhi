@@ -1,3 +1,4 @@
+import { nextMessageId } from '../utils/messageId'
 /**
  * 用户信息编辑页面
  */
@@ -177,7 +178,7 @@ const UserProfile = () => {
         const messages = loadMessages(char.id)
         const now = Date.now()
         const aiOnlyMessage: Message = {
-          id: now * 10000 + Math.floor(Math.random() * 10000),
+          id: nextMessageId(),
           type: 'system',
           content: changeText,
           aiReadableContent: `【用户信息变更】${changeText}`,

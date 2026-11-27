@@ -20,7 +20,7 @@ import {
   StatusRecord
 } from '../../../utils/messageUtils'
 import { getScheduleHistory } from '../../../utils/aiScheduleHistory'
-import { loadMessages, addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
+import { loadMessages, ensureMessagesLoaded, deleteMessage, addMessage as saveMessageToStorage, saveMessages } from '../../../utils/simpleMessageManager'
 import { showNotification } from '../../../utils/simpleNotificationManager'
 import { Logger } from '../../../utils/logger'
 import { commandHandlers } from './commandHandlers'
@@ -830,8 +830,7 @@ export const useChatAI = (
             if (!aiReply || aiReply.trim().length === 0) {
               console.warn('⚠️ [流式] AI返回空回复')
               // 🔥 从缓存中也删除临时消息（防止刷新后显示空消息）
-              const msgsWithoutTemp = loadMessages(chatId).filter(m => m.id !== tempMessageId)
-              saveMessages(chatId, msgsWithoutTemp, true) // forceOverwrite=true 确保删除生效
+              deleteMessage(chatId, tempMessageId)
               // 删除React状态中的临时消息
               setMessages(prev => prev.filter(m => m.id !== tempMessageId))
               // 设置错误提示（弹窗形式，不占用消息位置）
@@ -888,8 +887,7 @@ export const useChatAI = (
           } catch (streamError) {
             console.error('❌ [流式] 流式处理错误:', streamError)
             // 🔥 从缓存中也删除临时消息
-            const msgsWithoutTemp = loadMessages(chatId).filter(m => m.id !== tempMessageId)
-            saveMessages(chatId, msgsWithoutTemp, true)
+              deleteMessage(chatId, tempMessageId)
             setMessages(prev => prev.filter(m => m.id !== tempMessageId))
             throw streamError
           }
@@ -1819,7 +1817,7 @@ export const useChatAI = (
    */
   const handleRegenerate = useCallback(async () => {
     // 🔥🔥🔥 关键修复：先从IndexedDB读取完整消息列表
-    const fullMessages = loadMessages(chatId)
+    const fullMessages = await ensureMessagesLoaded(chatId)
     
     // 从后往前找到最后一条AI消息
     const lastAIIndex = [...fullMessages].reverse().findIndex(msg => msg.type === 'received')
@@ -1849,7 +1847,7 @@ export const useChatAI = (
     // 🔥 真正从 IndexedDB 删除（覆盖保存整个消息列表）
     // 使用 forceOverwrite=true 跳过智能合并，防止被删的消息恢复
     console.log(`💾 覆盖保存消息列表: chatId=${chatId}, 剩余=${newMessages.length}条`)
-    saveMessages(chatId, newMessages, true)
+    await saveMessages(chatId, newMessages, true)
     
     // 更新React状态
     setMessages(newMessages)

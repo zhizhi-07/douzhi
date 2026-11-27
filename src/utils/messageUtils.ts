@@ -1,3 +1,4 @@
+import { nextMessageId } from './messageId'
 /**
  * 消息处理工具函数
  */
@@ -36,7 +37,6 @@ export const getMessageLimitSetting = (chatId: string): number => {
 }
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
-let messageIdCounter = 0
 
 /**
  * 格式化消息的绝对时间戳
@@ -139,7 +139,7 @@ export const createMessage = (
 ): Message => {
   const now = Date.now()
   // 组合时间戳和计数器，确保ID唯一
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   
   // 🔥 检测忙碌指令：[忙碌:场景描述] 或 【忙碌:场景描述】
   // 使用 [\s\S] 来匹配包括换行符在内的所有字符
@@ -180,7 +180,7 @@ export const createMessage = (
 export const createSystemMessage = (content: string): Message => {
   const now = Date.now()
   // 使用计数器确保ID唯一
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type: 'system',
@@ -792,7 +792,7 @@ export const addNotificationToChat = (characterId: string, content: string): voi
 
   // 创建通知消息
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   const notificationMsg: Message = {
     id: uniqueId,
     type: 'system',
