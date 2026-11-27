@@ -26,7 +26,6 @@ const getMemberAvatar = (userId: string): string => {
 }
 
 // 🔥 表情包消息ID计数器
-let emojiMsgIdCounter = 0
 
 export const useGroupEmoji = (
   groupId: string | undefined,
@@ -34,7 +33,6 @@ export const useGroupEmoji = (
   scrollToBottom: () => void
 ) => {
   // 表情面板状态
-  const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   
   // 语音播放状态
   const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null)
@@ -49,47 +47,12 @@ export const useGroupEmoji = (
     
     isSendingRef.current = true
     
-    // 🔥 生成唯一ID
-    const now = Date.now()
-    const uniqueId = `msg_${now}_emoji_${++emojiMsgIdCounter}`
-    
-    // 🔥 创建消息对象
-    const newMsg: GroupMessage = {
-      id: uniqueId,
-      groupId,
-      userId: 'user',
-      userName: '我',
-      userAvatar: getMemberAvatar('user'),
-      content: emoji.description,
-      type: 'emoji',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: now,
-      emojiUrl: emoji.url,
-      emojiDescription: emoji.description
-    }
-    
-    // 🔥 立即更新 UI
-    setMessages(prev => {
-      if (prev.some(m => m.id === uniqueId)) return prev
-      return [...prev, newMsg]
-    })
-    
-    // 🔥 异步保存到数据库（silent模式）
-    queueMicrotask(() => {
-      groupChatManager.addMessage(groupId, {
-        userId: 'user',
-        userName: '我',
-        userAvatar: getMemberAvatar('user'),
-        content: emoji.description,
-        type: 'emoji',
-        timestamp: now,
-        emojiUrl: emoji.url,
-        emojiDescription: emoji.description
-      }, true)  // silent = true
-      
-      console.log('✅ [表情包发送完成]', uniqueId)
-    })
-    
+    const newMsg = groupChatManager.addMessage(groupId, {
+      userId: 'user', userName: '我', userAvatar: getMemberAvatar('user'),
+      content: emoji.description, type: 'emoji', emojiUrl: emoji.url, emojiDescription: emoji.description
+    }, true)
+    setMessages(previous => [...previous, newMsg])
+
     // 🔥 不再强制滚动，让虚拟列表自动处理
     setTimeout(() => {
       isSendingRef.current = false
@@ -116,8 +79,6 @@ export const useGroupEmoji = (
 
   return {
     // 表情面板
-    showEmojiPanel,
-    setShowEmojiPanel,
     handleSelectEmoji,
     
     // 语音

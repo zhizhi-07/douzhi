@@ -9,7 +9,7 @@ import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
 import { generateGroupChatSummary } from '../utils/groupChatSummary'
 import { groupChatManager, type GroupMessage, setBatchMode } from '../utils/groupChatManager'
 import { characterService } from '../services/characterService'
-import EmojiPanel from '../components/EmojiPanel'
+import EmojiPicker, { type EmojiPickerHandle } from '../components/EmojiPicker'
 import { getEmojis } from '../utils/emojiStorage'
 import { getUserInfo } from '../utils/userUtils'
 import { useChatBubbles } from '../hooks/useChatBubbles'
@@ -56,6 +56,7 @@ const getMemberAvatar = (userId: string): string => {
 // ... (rest of the code remains the same)
 
 const GroupChatDetail = () => {
+  const emojiPickerRef = useRef<EmojiPickerHandle>(null)
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [messages, setMessages] = useState<GroupMessage[]>([])
@@ -144,8 +145,6 @@ const GroupChatDetail = () => {
   
   // 😊 表情和语音 Hook
   const {
-    showEmojiPanel,
-    setShowEmojiPanel,
     handleSelectEmoji,
     playingVoiceId,
     showVoiceTextMap,
@@ -2094,7 +2093,7 @@ const GroupChatDetail = () => {
           onAIReply={handleAIReply}
           onCancelQuote={() => setQuotedMessage(null)}
           onOpenAddMenu={() => setShowAddMenu(true)}
-          onOpenEmojiPanel={() => setShowEmojiPanel(true)}
+          onOpenEmojiPanel={() => emojiPickerRef.current?.open()}
         />
       </>
 
@@ -2124,11 +2123,7 @@ const GroupChatDetail = () => {
       />
 
       {/* 表情包面板 */}
-      <EmojiPanel
-        show={showEmojiPanel}
-        onClose={() => setShowEmojiPanel(false)}
-        onSelect={handleSelectEmoji}
-      />
+      <EmojiPicker ref={emojiPickerRef} onSelect={handleSelectEmoji} />
 
       {/* 添加菜单 */}
       <GroupAddMenu

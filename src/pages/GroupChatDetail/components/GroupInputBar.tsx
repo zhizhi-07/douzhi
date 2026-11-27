@@ -103,7 +103,7 @@ const GroupInputBar: React.FC<GroupInputBarProps> = ({
           />
         </div>
         <button 
-          onClick={onOpenEmojiPanel}
+          onClick={onOpenEmojiPanel} aria-label="打开表情包"
           className="w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
         >
           {customIcons['chat-emoji'] ? (
