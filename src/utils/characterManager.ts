@@ -19,15 +19,9 @@ const BACKUP_KEY = 'characters_backup'
  */
 function backupCharactersToLocalStorage(characters: Character[]): void {
   try {
-    // 简化角色数据，移除大型字段以节省空间
-    const simplified = characters.map(c => ({
-      ...c,
-      // 保留头像URL，但如果是base64则截断
-      avatar: c.avatar?.startsWith('data:') ? c.avatar.substring(0, 100) + '...[truncated]' : c.avatar
-    }))
-    
+    // 保留完整头像；空间不足时报告备份失败，不生成损坏的截断URL。
     const backup = {
-      characters: simplified,
+      characters,
       timestamp: Date.now()
     }
     localStorage.setItem(BACKUP_KEY, JSON.stringify(backup))
@@ -109,14 +103,12 @@ export async function getAllCharacters(): Promise<Character[]> {
 /**
  * 保存所有角色（异步）
  * 🔥 同时备份到 localStorage
- * 🔥🔥🔥 关键修复：先更新缓存，再异步保存，防止竞态条件
+ * 事务提交后才更新缓存，避免把未落盘角色显示为已保存。
  */
 export async function saveAllCharacters(characters: Character[]): Promise<void> {
-  // 🔥🔥🔥 关键：立即更新内存缓存，不等 IndexedDB
-  characterCache = characters
-  
   try {
     await IDB.setItem(IDB.STORES.CHARACTERS, 'all', characters)
+    characterCache = characters
     
     // 🔥 同时备份到 localStorage
     backupCharactersToLocalStorage(characters)
@@ -124,9 +116,6 @@ export async function saveAllCharacters(characters: Character[]): Promise<void> 
     console.log('✅ 角色数据已保存到 IndexedDB')
   } catch (error) {
     console.error('保存角色失败:', error)
-    // 🔥 即使 IndexedDB 失败，缓存已更新，至少当前会话不会丢失数据
-    // 同时尝试备份到 localStorage
-    backupCharactersToLocalStorage(characters)
     throw error
   }
 }
@@ -135,9 +124,14 @@ export async function saveAllCharacters(characters: Character[]): Promise<void> 
  * 添加角色
  */
 export async function addCharacter(character: Character): Promise<void> {
-  const characters = await getAllCharacters()
-  characters.push(character)
-  await saveAllCharacters(characters)
+  const saved = await IDB.updateItem<Character[]>(IDB.STORES.CHARACTERS, 'all', current => {
+    if (current !== null && !Array.isArray(current)) throw new Error('角色存储格式错误，请先恢复备份')
+    const characters = current || []
+    if (characters.some(existing => existing.id === character.id)) throw new Error('角色ID重复')
+    return [...characters, character]
+  })
+  characterCache = saved
+  backupCharactersToLocalStorage(saved)
 }
 
 /**

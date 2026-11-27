@@ -4,9 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import StatusBar from '../components/StatusBar'
-import { exportChatData, exportStyleData, importAllData, clearAllData } from '../utils/dataManager'
+import { exportChatData, exportStyleData, importAllData, clearAllData, hasPendingImport, restoreInterruptedImport } from '../utils/dataManager'
 import { analyzeLocalStorage, analyzeIndexedDB, cleanupOldMessages, clearEmojis, clearImages, clearMessageBackups, emergencyCleanup, restoreFromBackups, restoreCharactersFromBackup } from '../utils/storageDiagnostic'
 
 interface StorageInfo {
@@ -17,11 +15,7 @@ interface StorageInfo {
 }
 
 const DataManager = () => {
-  const navigate = useNavigate()
-  const [showStatusBar] = useState(() => {
-    const saved = localStorage.getItem('show_status_bar')
-    return saved !== 'false'
-  })
+  const [pendingImport, setPendingImport] = useState(false)
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [showStorageDetail, setShowStorageDetail] = useState(false)
@@ -60,6 +54,7 @@ const DataManager = () => {
 
   useEffect(() => {
     loadStorageInfo()
+    hasPendingImport().then(setPendingImport).catch(error => alert(String(error)))
   }, [])
 
   function formatSize(bytes: number): string {
@@ -80,7 +75,7 @@ const DataManager = () => {
     } catch (error) {
       setProgress(null)
       console.error('导出聊天数据失败:', error)
-      alert('❌ 导出失败，请重试')
+      alert('❌ 导出失败：' + (error instanceof Error ? error.message : String(error)))
     }
   }
 
@@ -117,7 +112,7 @@ const DataManager = () => {
         alert(`❌ 文件太大 (${sizeMB.toFixed(1)} MB)
 
 文件超过800MB，可能导致浏览器崩溃。
-请使用新的导出功能重新导出数据。`)
+请先保留原备份；当前浏览器不适合一次导入此体积的数据，不要因此清空现有数据。`)
         return
       }
       
@@ -126,12 +121,13 @@ const DataManager = () => {
         const confirmed = window.confirm(`⚠️ 文件较大 (${sizeMB.toFixed(1)} MB)
 
 导入可能需要较长时间，期间请勿关闭页面。
-建议：导入成功后，使用新版本重新导出，文件会小很多。
+导入前会保存恢复快照，需要额外存储空间；请先关闭其他豆织标签页。
 
 是否继续导入？`)
         if (!confirmed) return
       }
       
+      if (!window.confirm('导入会替换备份对应的数据，并先保存恢复快照。请关闭其他豆织标签页；确认已妥善保管原备份后继续。')) return
       try {
         setProgress({ stage: '开始导入...', percent: 5 })
         
@@ -145,7 +141,7 @@ const DataManager = () => {
         
         // 🔥 延迟刷新，让用户看到成功提示
         setTimeout(() => {
-          window.location.reload()
+          window.location.assign('/')
         }, 1000)
         
       } catch (error: any) {
@@ -156,7 +152,7 @@ const DataManager = () => {
         if (error.message?.includes('内存')) {
           alert('❌ 内存不足！请关闭其他标签页后重试')
         } else if (error.message?.includes('数据库')) {
-          alert('❌ 数据库错误！请刷新页面后重试')  
+          alert('❌ ' + error.message)
         } else {
           alert(`❌ 导入失败: ${error.message || '未知错误'}`)
         }
@@ -170,12 +166,15 @@ const DataManager = () => {
     if (window.confirm('⚠️ 确定要清除所有数据吗？此操作不可恢复！\n\n建议先导出数据备份。')) {
       if (window.confirm('🚨 最后确认：真的要清除所有数据吗？')) {
         try {
-          await clearAllData()
+          setProgress({ stage: '正在清除，若连接被占用请关闭其他豆织标签页...', percent: 5 })
+          await clearAllData((stage, percent) => setProgress({ stage, percent }))
+          setProgress(null)
           alert('✅ 所有数据已清除！页面即将刷新')
-          window.location.reload()
+          window.location.assign('/')
         } catch (error) {
           console.error('清除数据失败:', error)
-          alert('❌ 清除失败，请重试')
+          setProgress(null)
+          alert('❌ 清除尚未完成：' + (error instanceof Error ? error.message : String(error)))
         }
       }
     }
@@ -183,8 +182,17 @@ const DataManager = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#f2f4f6] relative overflow-hidden font-sans soft-page-enter">
-      {showStatusBar && <StatusBar />}
 
+      {pendingImport && <div role="alert" className="p-4 bg-red-50 text-red-700">
+        上一次导入未完成。原数据快照仍保留，请勿清除站点数据。
+        <button className="underline ml-2" onClick={async () => {
+          try {
+            await restoreInterruptedImport((stage, percent) => setProgress({ stage, percent }))
+            alert('原数据已恢复')
+            window.location.assign('/')
+          } catch (error) { setProgress(null); alert(String(error)) }
+        }}>恢复导入前数据</button>
+      </div>}
       {/* 🔥 进度条覆盖层 */}
       {progress && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -213,7 +221,7 @@ const DataManager = () => {
       <div className="relative z-10 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/customize')}
+            onClick={() => window.location.assign('/customize')}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/40 backdrop-blur-md border border-white/50 text-slate-600 hover:bg-white/60 transition-all shadow-sm"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,7 +345,7 @@ const DataManager = () => {
                   setProgress(null)
                   if (result.restoredCount > 0) {
                     alert(`✅ 恢复成功！\n\n恢复了 ${result.restoredCount} 个聊天\n共 ${result.totalMessages} 条消息\n\n页面将自动刷新...`)
-                    setTimeout(() => window.location.reload(), 1000)
+                    setTimeout(() => window.location.assign('/'), 1000)
                   } else {
                     alert('ℹ️ 没有需要恢复的数据\n\nIndexedDB中的数据已是最新，或没有找到备份文件')
                   }
@@ -372,7 +380,7 @@ const DataManager = () => {
                   setProgress(null)
                   if (result.success) {
                     alert(`✅ 恢复成功！\n\n恢复了 ${result.restoredCount} 个联系人\n\n页面将自动刷新...`)
-                    setTimeout(() => window.location.reload(), 1000)
+                    setTimeout(() => window.location.assign('/'), 1000)
                   } else {
                     alert('ℹ️ 没有需要恢复的联系人\n\nIndexedDB中的数据已是最新，或没有找到备份文件')
                   }

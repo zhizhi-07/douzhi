@@ -1,3 +1,4 @@
+import { OWNED_DATABASES } from './backupSchema'
 /**
  * 存储诊断工具
  * 帮助诊断和清理存储空间问题
@@ -47,19 +48,7 @@ export async function analyzeIndexedDB(): Promise<{
   }>
   totalEstimatedSize: string
 }> {
-  const knownDBs = [
-    'simple-chat-messages',
-    'moments-storage', 
-    'characters-db',
-    'AppStorage',
-    'EmojiDB',
-    'ChatListDB',
-    'IconDB',
-    'BackgroundDB',
-    'CouplePhotosDB',
-    'ForumCommentsDB',
-    'InstagramDMDB'
-  ]
+  const knownDBs = OWNED_DATABASES
 
   const databases: Array<{
     name: string
@@ -105,7 +94,7 @@ async function analyzeDatabase(dbName: string): Promise<{
 } | null> {
   return new Promise((resolve) => {
     const request = indexedDB.open(dbName)
-
+    request.onupgradeneeded = event => { if (event.oldVersion === 0) request.transaction!.abort() }
     request.onerror = () => resolve(null)
 
     request.onsuccess = async () => {

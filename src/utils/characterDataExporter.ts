@@ -359,7 +359,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
     
     // 移除id让save方法自动生成
     const { id, ...characterData } = newCharacter
-    const savedCharacter = characterService.save(characterData as any)
+    const savedCharacter = await characterService.save(characterData as any)
     console.log('✅ 角色已创建:', savedCharacter.id, savedCharacter.realName)
     
     const newId = savedCharacter.id

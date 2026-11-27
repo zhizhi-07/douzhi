@@ -94,21 +94,16 @@ export const characterService = {
   },
 
   // 保存角色
-  save: (character: Omit<Character, 'id' | 'createdAt'>): Character => {
+  save: async (character: Omit<Character, 'id' | 'createdAt'>): Promise<Character> => {
+    if (!character.realName?.trim()) throw new Error('角色真实名字不能为空')
+    await initCharacters()
     const newCharacter: Character = {
-      id: Date.now().toString(),
-      ...character,
-      createdAt: new Date().toISOString()
+      ...character, realName: character.realName.trim(),
+      id: crypto.randomUUID(), createdAt: new Date().toISOString()
     }
-    
-    if (!charactersCache) charactersCache = []
-    charactersCache.push(newCharacter)
-    
-    // 🔥 只保存到IndexedDB，不用localStorage
-    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
-      console.error('保存角色失败:', e)
-    )
-    
+    // Publish only after the database transaction has committed.
+    await CharacterManager.addCharacter(newCharacter)
+    charactersCache = await CharacterManager.getAllCharacters()
     return newCharacter
   },
 
