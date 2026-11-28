@@ -107,7 +107,7 @@ export const createMask = async (data: {
   
   // 如果有头像，保存到IndexedDB
   if (data.avatar && data.avatar.startsWith('data:')) {
-    await saveMaskAvatar(maskId, data.avatar)
+    (await saveMaskAvatar(maskId, data.avatar)) || (() => { throw new Error('头像保存失败，资料未更新') })()
   }
   
   const newMask: Mask = {
@@ -138,7 +138,7 @@ export const updateMask = async (maskId: string, updates: Partial<Mask>): Promis
   
   // 如果更新头像，保存到IndexedDB
   if (updates.avatar && updates.avatar.startsWith('data:')) {
-    await saveMaskAvatar(maskId, updates.avatar)
+    (await saveMaskAvatar(maskId, updates.avatar)) || (() => { throw new Error('头像保存失败，资料未更新') })()
     updates.avatar = `indexeddb:mask_${maskId}`
   }
   

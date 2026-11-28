@@ -164,7 +164,7 @@ export const useGroupMessageActions = (
     
     const currentMessages = groupChatManager.getMessages(groupId)
     const updatedMessages = currentMessages.filter(m => m.id !== menuMessage.id)
-    groupChatManager.replaceAllMessages(groupId, updatedMessages)
+    groupChatManager.replaceAllMessages(groupId, updatedMessages, true)
     
     setShowMessageMenu(false)
     setMenuMessage(null)

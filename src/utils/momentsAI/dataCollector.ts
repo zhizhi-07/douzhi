@@ -1,3 +1,4 @@
+import { canViewMoment } from '../momentVisibility'
 /**
  * 数据收集器
  * 负责收集角色信息、聊天记录、朋友圈历史等数据供AI分析
@@ -7,7 +8,6 @@ import type { CharacterInfo } from '../../types/momentsAI'
 import type { Message } from '../../types/chat'
 import { loadMoments } from '../momentsManager'
 import { loadMessages } from '../simpleMessageManager'
-import { getRecentAIInteractions } from '../aiInteractionMemory'
 import { extractNPCsFromPersonality, type NPCInfo } from '../npcExtractor'
 
 /**
@@ -33,7 +33,7 @@ export function formatChatContext(messages: Message[]): string {
   }
   
   const formatted = messages.slice(-10).map(msg => {
-    const sender = msg.type === 'sent' ? 'AI' : '用户'
+    const sender = msg.type === 'sent' ? '用户' : 'AI'
     const time = new Date(msg.timestamp).toLocaleDateString()
     return `[${time}] ${sender}: ${msg.content}`
   }).join('\n')
@@ -60,8 +60,8 @@ export function collectCharactersInfo(characters: any[]): CharacterInfo[] {
 /**
  * 格式化朋友圈历史供AI阅读
  */
-export function formatMomentsHistory(): string {
-  const moments = loadMoments().slice(0, 10)
+export function formatMomentsHistory(characterIds: string[] = []): string {
+  const moments = loadMoments().filter(m => characterIds.length ? characterIds.every(id => canViewMoment(m, id)) : (!m.privacy || m.privacy === 'public')).slice(0, 10)
   
   if (moments.length === 0) {
     return '还没有朋友圈历史'
@@ -91,7 +91,7 @@ export function formatMomentsHistory(): string {
  * 获取AI互动记忆（供AI导演参考）
  */
 export function formatAIMemory(): string {
-  return getRecentAIInteractions(30)
+  return '' // Shared interaction logs can contain private-circle content; use authorized moment history instead.
 }
 
 /**

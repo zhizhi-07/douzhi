@@ -1,3 +1,4 @@
+import { safeHtmlDocument, HTML_SANDBOX } from '../../../utils/safeHtmlDocument'
 /**
  * 单个消息项组件
  * @updated 2024-12-18 21:56 - checkIn card fix
@@ -317,7 +318,7 @@ const MessageItemContent = ({
         {isHtmlMessage ? (
           <div className="html-message-content">
             <iframe
-              srcDoc={sanitizeHtml(message.content || '')}
+              srcDoc={safeHtmlDocument(sanitizeHtml(message.content || ''))}
               style={{
                 width: '280px',
                 height: '420px',
@@ -325,7 +326,7 @@ const MessageItemContent = ({
                 borderRadius: '12px',
                 background: '#fff'
               }}
-              sandbox="allow-same-origin allow-scripts"
+              sandbox={HTML_SANDBOX} referrerPolicy="no-referrer"
               title="HTML内容"
             />
           </div>

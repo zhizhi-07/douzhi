@@ -37,6 +37,21 @@ let conversationsCache: DMConversation[] | null = null
 let messagesCache: Record<string, DMMessage[]> = {}
 let preloadPromise: Promise<void> | null = null
 
+function mergeDM<T extends { id: string }>(older: T[], newer: T[]): T[] {
+  return [...new Map([...older, ...newer].map(item => [item.id, item])).values()]
+}
+function persistDMMessages(npcId: string, snapshot: DMMessage[]): void {
+  const incoming = structuredClone(snapshot)
+  void IDB.updateItem<DMMessage[]>(IDB.STORES.DM_MESSAGES, npcId,
+    current => mergeDM(current || [], incoming)).then(saved => {
+      messagesCache[npcId] = mergeDM(saved, messagesCache[npcId] || [])
+      window.dispatchEvent(new CustomEvent('dm-messages-loaded', { detail: { npcId } }))
+    }).catch(error => {
+      console.error('私信未保存:', error)
+      window.dispatchEvent(new CustomEvent('message-save-error', { detail: { chatId: npcId } }))
+    })
+}
+
 // 🔥 预加载私聊数据
 export async function preloadDMData(): Promise<void> {
   if (preloadPromise) return preloadPromise
@@ -46,7 +61,7 @@ export async function preloadDMData(): Promise<void> {
       // 加载会话列表
       const convData = await IDB.getItem<DMConversation[]>(IDB.STORES.DM_CONVERSATIONS, 'all')
       if (convData) {
-        conversationsCache = convData
+        conversationsCache = mergeDM(convData, conversationsCache || [])
         console.log('📦 [私聊] 预加载会话:', convData.length, '个')
       }
       
@@ -55,7 +70,7 @@ export async function preloadDMData(): Promise<void> {
       for (const npcId of allKeys) {
         const msgData = await IDB.getItem<DMMessage[]>(IDB.STORES.DM_MESSAGES, npcId)
         if (msgData) {
-          messagesCache[npcId] = msgData
+          messagesCache[npcId] = mergeDM(msgData, messagesCache[npcId] || [])
         }
       }
       console.log('📦 [私聊] 预加载消息:', Object.keys(messagesCache).length, '个会话')
@@ -80,8 +95,9 @@ export function getDMConversations(): DMConversation[] {
     if (oldData) {
       conversationsCache = JSON.parse(oldData)
       // 迁移到IndexedDB
-      IDB.setItem(IDB.STORES.DM_CONVERSATIONS, 'all', conversationsCache)
-      localStorage.removeItem('instagram_dm_conversations')
+      IDB.updateItem<DMConversation[]>(IDB.STORES.DM_CONVERSATIONS, 'all', current => mergeDM(current || [], conversationsCache || [])).then(() => {
+        if (localStorage.getItem('instagram_dm_conversations') === oldData) localStorage.removeItem('instagram_dm_conversations')
+      }).catch(console.error)
       console.log('📦 私聊会话已迁移到IndexedDB')
     }
   } catch {}
@@ -97,7 +113,7 @@ export function getDMConversations(): DMConversation[] {
 // 保存会话列表
 export function saveDMConversations(conversations: DMConversation[]) {
   conversationsCache = conversations
-  IDB.setItem(IDB.STORES.DM_CONVERSATIONS, 'all', conversations).catch(e => {
+  IDB.updateItem<DMConversation[]>(IDB.STORES.DM_CONVERSATIONS, 'all', current => mergeDM(current || [], conversations)).catch(e => {
     console.error('保存私聊会话失败:', e)
   })
 }
@@ -116,18 +132,19 @@ export function getDMMessages(npcId: string): DMMessage[] {
       const allOld = JSON.parse(oldData) as Record<string, DMMessage[]>
       messagesCache = allOld
       // 迁移到IndexedDB
-      for (const id in allOld) {
-        IDB.setItem(IDB.STORES.DM_MESSAGES, id, allOld[id])
-      }
-      localStorage.removeItem('instagram_dm_messages')
+      Promise.all(Object.entries(allOld).map(([id, items]) =>
+        IDB.updateItem<DMMessage[]>(IDB.STORES.DM_MESSAGES, id, current => mergeDM(current || [], items))
+      )).then(() => {
+        if (localStorage.getItem('instagram_dm_messages') === oldData) localStorage.removeItem('instagram_dm_messages')
+      }).catch(console.error)
       console.log('📦 私聊消息已迁移到IndexedDB')
     }
   } catch {}
   
   // 异步从IndexedDB加载（不阻塞，但更新缓存）
   IDB.getItem<DMMessage[]>(IDB.STORES.DM_MESSAGES, npcId).then(data => {
-    if (data && !messagesCache[npcId]) {
-      messagesCache[npcId] = data
+    if (data) {
+      messagesCache[npcId] = mergeDM(data, messagesCache[npcId] || [])
       // 🔥 触发事件通知界面更新
       window.dispatchEvent(new CustomEvent('dm-messages-loaded', { detail: { npcId } }))
     }
@@ -188,7 +205,7 @@ export function sendDMToUser(
   const currentMessages = getDMMessages(npcId)
   currentMessages.push(message)
   messagesCache[npcId] = currentMessages
-  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
+  persistDMMessages(npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()
@@ -263,7 +280,7 @@ export function sendEmojiFromUser(
   const currentMessages = getDMMessages(npcId)
   currentMessages.push(message)
   messagesCache[npcId] = currentMessages
-  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
+  persistDMMessages(npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()
@@ -318,7 +335,7 @@ export function sendDMFromUser(
   const currentMessages = getDMMessages(npcId)
   currentMessages.push(message)
   messagesCache[npcId] = currentMessages
-  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
+  persistDMMessages(npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()
@@ -438,7 +455,7 @@ export function sendVoiceFromUser(
   const currentMessages = getDMMessages(npcId)
   currentMessages.push(message)
   messagesCache[npcId] = currentMessages
-  IDB.setItem(IDB.STORES.DM_MESSAGES, npcId, currentMessages)
+  persistDMMessages(npcId, currentMessages)
   
   // 更新会话列表
   const conversations = getDMConversations()

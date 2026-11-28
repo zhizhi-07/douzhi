@@ -82,7 +82,7 @@ const InstagramEditProfile = ({ isOpen, onClose, onSave }: InstagramEditProfileP
       signature: profile.signature?.trim() || ''
     }
 
-    saveUserInfo(finalProfile)
+    try { await saveUserInfo(finalProfile) } catch { alert('保存失败，原资料未更改，请备份后重试'); return }
     onSave()
     onClose()
   }

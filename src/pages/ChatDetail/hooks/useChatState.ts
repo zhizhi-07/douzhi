@@ -3,12 +3,13 @@
  * 负责：角色信息、消息列表、输入框、错误状态等
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Character, Message } from '../../../types/chat'
 import { characterService } from '../../../services/characterService'
-import { ensureMessagesLoaded, loadMessagesPaginated, getMessageCount, loadMessages } from '../../../utils/simpleMessageManager'
+import { ensureMessagesLoaded, loadMessagesPaginated, loadMessages } from '../../../utils/simpleMessageManager'
 import { clearUnread } from '../../../utils/simpleNotificationManager'
 import { getCurrentAccountId } from '../../../utils/accountManager'
+import { mergeMessages } from '../../../utils/mergeMessages'
 
 export const useChatState = (chatId: string) => {
   // 角色信息
@@ -19,6 +20,10 @@ export const useChatState = (chatId: string) => {
 
   // 🔥 当前账号ID（用于监听账号切换）
   const [accountId, setAccountId] = useState(() => getCurrentAccountId())
+
+  const activeContext = useRef('')
+  activeContext.current = `${chatId}:${accountId}`
+  const loadRequest = useRef(0)
 
   // 🔥 分页加载状态
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
@@ -84,42 +89,27 @@ export const useChatState = (chatId: string) => {
    */
   const loadChatMessagesInitial = async () => {
     if (!chatId) return
-
+    const context = activeContext.current
+    const request = ++loadRequest.current
+    const isCurrent = () => activeContext.current === context && loadRequest.current === request
     setIsLoadingMessages(true)
-
+    setMessagesState([])
+    setHasMoreMessages(false)
+    setCurrentOffset(0)
+    setTotalMessageCount(0)
     try {
-      // 🔥 关键修复：先确保消息已预加载，防止返回空数组
-      await ensureMessagesLoaded(chatId)
-      
-      // 获取总数
-      const total = await getMessageCount(chatId)
-      setTotalMessageCount(total)
-
-      // 🔥 分页加载优化：初次只加载30条，避免卡顿
-      const INITIAL_LOAD_COUNT = 30
-      const { messages: initialMessages, hasMore } = await loadMessagesPaginated(
-        chatId,
-        Math.min(INITIAL_LOAD_COUNT, total), // 加载30条或全部（如果少于30条）
-        0
-      )
-
-      // console.log(`📨 [分页加载] 初次加载: chatId=${chatId}, 加载=${initialMessages.length}/${total}, 还有更多=${hasMore}`)
-
-      // 🔥 关键修复：只有当加载到消息时才设置状态，防止空数组覆盖
-      if (initialMessages.length > 0 || total === 0) {
-        setMessagesState(initialMessages)
-        setHasMoreMessages(hasMore)
-        setCurrentOffset(initialMessages.length)
-      } else {
-        console.warn(`⚠️ [分页加载] 加载到空数组但总数不为0，不更新状态`)
-      }
-
-      // 清除未读数
+      const result = await loadMessagesPaginated(chatId, 30)
+      if (!isCurrent()) return
+      setMessagesState(previous => mergeMessages(result.messages, previous))
+      setTotalMessageCount(result.total)
+      setHasMoreMessages(result.hasMore)
+      setCurrentOffset(result.messages.length)
       clearUnread(chatId)
     } catch (error) {
+      if (isCurrent()) setError('聊天记录加载失败，原数据未删除，请重试')
       console.error('加载消息失败:', error)
     } finally {
-      setIsLoadingMessages(false)
+      if (isCurrent()) setIsLoadingMessages(false)
     }
   }
 
@@ -132,6 +122,7 @@ export const useChatState = (chatId: string) => {
       return
     }
 
+    const context = activeContext.current
     console.log('📥 [加载更多] 开始加载...', { chatId, currentOffset, hasMoreMessages })
     setIsLoadingMessages(true)
 
@@ -143,6 +134,7 @@ export const useChatState = (chatId: string) => {
         currentOffset
       )
 
+      if (activeContext.current !== context) return
       console.log(`📨 [加载更多] 加载完成:`, {
         chatId,
         新增消息数: moreMessages.length,
@@ -190,11 +182,12 @@ export const useChatState = (chatId: string) => {
       console.error('❌ [加载更多] 失败:', error)
       // 🔥 关键修复：捕获异常时保持现有消息列表不变
       // 不调用 setMessagesState，消息列表保持原样
+      if (activeContext.current !== context) return
       setError('加载历史消息失败，请重试')
       // 3秒后自动清除错误提示
       setTimeout(() => setError(null), 3000)
     } finally {
-      setIsLoadingMessages(false)
+      if (activeContext.current === context) setIsLoadingMessages(false)
     }
   }, [chatId, hasMoreMessages, isLoadingMessages, currentOffset])
 
@@ -304,6 +297,9 @@ export const useChatState = (chatId: string) => {
 
     // 🔥 防止重复加载
     let mounted = true
+    setCharacter(null)
+    setInputValue('')
+    setError(null)
 
     // console.log(`📂 [useChatState] 加载消息: chatId=${chatId}, accountId=${accountId}`)
 
@@ -323,6 +319,7 @@ export const useChatState = (chatId: string) => {
         char = characterService.getById(chatId)
       }
       
+      if (!mounted) return
       if (char) {
         setCharacter(char)
         // if (import.meta.env.DEV) {
@@ -343,6 +340,7 @@ export const useChatState = (chatId: string) => {
 
     return () => {
       mounted = false // 清理标记
+      loadRequest.current++
     }
   }, [chatId, accountId]) // 移除 loadChatMessagesInitial 依赖，避免循环
   

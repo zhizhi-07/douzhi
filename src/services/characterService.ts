@@ -94,67 +94,33 @@ export const characterService = {
   },
 
   // 保存角色
-  save: (character: Omit<Character, 'id' | 'createdAt'>): Character => {
+  save: async (character: Omit<Character, 'id' | 'createdAt'>): Promise<Character> => {
+    if (!character.realName?.trim()) throw new Error('角色真实名字不能为空')
+    await initCharacters()
     const newCharacter: Character = {
-      id: Date.now().toString(),
-      ...character,
-      createdAt: new Date().toISOString()
+      ...character, realName: character.realName.trim(),
+      id: crypto.randomUUID(), createdAt: new Date().toISOString()
     }
-    
-    if (!charactersCache) charactersCache = []
-    charactersCache.push(newCharacter)
-    
-    // 🔥 只保存到IndexedDB，不用localStorage
-    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
-      console.error('保存角色失败:', e)
-    )
-    
+    // Publish only after the database transaction has committed.
+    await CharacterManager.addCharacter(newCharacter)
+    charactersCache = await CharacterManager.getAllCharacters()
     return newCharacter
   },
 
   // 删除角色
-  delete: (id: string): void => {
-    if (!charactersCache) return
-    charactersCache = charactersCache.filter(c => c.id !== id)
-    
-    // 🔥 只保存到IndexedDB
-    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
-      console.error('删除角色失败:', e)
-    )
+  delete: async (id: string): Promise<void> => {
+    await initCharacters()
+    await CharacterManager.deleteCharacter(id)
+    charactersCache = await CharacterManager.getAllCharacters()
   },
 
-  // 更新角色
-  update: (id: string, updates: Partial<Character>): Character | null => {
-    if (!charactersCache) return null
-    const index = charactersCache.findIndex(c => c.id === id)
-    
-    if (index === -1) return null
-    
-    charactersCache[index] = { ...charactersCache[index], ...updates }
-    
-    // 🔥 只保存到IndexedDB
-    CharacterManager.saveAllCharacters(charactersCache).catch(e => 
-      console.error('更新角色失败:', e)
-    )
-    
-    // 🔥 如果更新了头像，同步更新情侣空间
-    if (updates.avatar) {
-      try {
-        const relationData = localStorage.getItem('couple_space_relation')
-        if (relationData) {
-          const relation = JSON.parse(relationData)
-          if (relation && relation.characterId === id && relation.status === 'active') {
-            relation.characterAvatar = updates.avatar
-            localStorage.setItem('couple_space_relation', JSON.stringify(relation))
-            console.log('✅ [角色更新] 已同步更新情侣空间头像')
-          }
-        }
-      } catch (e) {
-        console.error('同步情侣空间头像失败:', e)
-      }
-    }
-    
-    return charactersCache[index]
+  // 只有持久化成功后才发布变更。
+  update: async (id: string, updates: Partial<Character>): Promise<Character | null> => {
+    await initCharacters()
+    const updated = await CharacterManager.updateCharacter(id, updates)
+    charactersCache = await CharacterManager.getAllCharacters()
+    if (updated) window.dispatchEvent(new CustomEvent('character-updated', { detail: { characterId: id } }))
+    return updated
   },
 
   // 根据ID获取角色

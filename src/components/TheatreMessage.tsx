@@ -1,3 +1,4 @@
+import SafeHtml from './SafeHtml'
 import { Message } from '../types/chat'
 import { useEffect, useRef } from 'react'
 
@@ -4352,10 +4353,7 @@ export default function TheatreMessage({ message }: TheatreMessageProps) {
         }
       `}</style>
       <div className="my-4 w-full max-w-[280px] sm:max-w-[320px]" ref={containerRef}>
-        <div 
-          className="theatre-content"
-          dangerouslySetInnerHTML={{ __html: message.theatre.htmlContent }}
-        />
+        <SafeHtml className="theatre-content" html={message.theatre.htmlContent} />
       </div>
     </>
   )

@@ -173,14 +173,16 @@ export async function addReply(
   
   try {
     const db = await getDB()
-    const comment = await db.get('comments', commentId)
+    const tx = db.transaction('comments', 'readwrite')
+    const comment = await tx.store.get(commentId)
     
     if (!comment) {
       throw new Error('评论不存在')
     }
     
     comment.replies.push(newReply)
-    await db.put('comments', comment)
+    await tx.store.put(comment)
+    await tx.done
     
     return newReply
   } catch (error) {
@@ -193,13 +195,15 @@ export async function addReply(
 export async function toggleCommentLike(commentId: string): Promise<void> {
   try {
     const db = await getDB()
-    const comment = await db.get('comments', commentId)
+    const tx = db.transaction('comments', 'readwrite')
+    const comment = await tx.store.get(commentId)
     
     if (comment) {
       comment.isLiked = !comment.isLiked
       comment.likes = comment.isLiked ? comment.likes + 1 : comment.likes - 1
-      await db.put('comments', comment)
+      await tx.store.put(comment)
     }
+    await tx.done
   } catch (error) {
     console.error('点赞评论失败:', error)
   }
@@ -209,16 +213,18 @@ export async function toggleCommentLike(commentId: string): Promise<void> {
 export async function toggleReplyLike(commentId: string, replyId: string): Promise<void> {
   try {
     const db = await getDB()
-    const comment = await db.get('comments', commentId)
+    const tx = db.transaction('comments', 'readwrite')
+    const comment = await tx.store.get(commentId)
     
     if (comment) {
       const reply = comment.replies.find(r => r.id === replyId)
       if (reply) {
         reply.isLiked = !reply.isLiked
         reply.likes = reply.isLiked ? reply.likes + 1 : reply.likes - 1
-        await db.put('comments', comment)
+        await tx.store.put(comment)
       }
     }
+    await tx.done
   } catch (error) {
     console.error('点赞回复失败:', error)
   }
@@ -226,20 +232,15 @@ export async function toggleReplyLike(commentId: string, replyId: string): Promi
 
 // 更新评论时间显示
 export async function updateCommentTimes(): Promise<void> {
-  try {
-    const db = await getDB()
-    const comments = await db.getAll('comments')
-    
-    for (const comment of comments) {
-      comment.time = formatTime(comment.timestamp)
-      comment.replies.forEach(reply => {
-        reply.time = formatTime(reply.timestamp)
-      })
-      await db.put('comments', comment)
-    }
-  } catch (error) {
-    console.error('更新评论时间失败:', error)
+  const db = await getDB()
+  const tx = db.transaction('comments', 'readwrite')
+  const comments = await tx.store.getAll()
+  for (const comment of comments) {
+    comment.time = formatTime(comment.timestamp)
+    comment.replies.forEach(reply => { reply.time = formatTime(reply.timestamp) })
+    await tx.store.put(comment)
   }
+  await tx.done
 }
 
 // 从localStorage迁移数据到IndexedDB（仅首次运行）
@@ -260,6 +261,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
     }
     
     const oldComments: Comment[] = JSON.parse(oldData)
+    if (!Array.isArray(oldComments) || oldComments.some(c => typeof c.authorId !== 'string' || !Array.isArray(c.replies))) return
     console.log(`📦 开始迁移 ${oldComments.length} 条评论到IndexedDB...`)
     
     const db = await getDB()
@@ -292,13 +294,15 @@ export async function deleteComment(commentId: string): Promise<void> {
 export async function deleteReply(commentId: string, replyId: string): Promise<void> {
   try {
     const db = await getDB()
-    const comment = await db.get('comments', commentId)
+    const tx = db.transaction('comments', 'readwrite')
+    const comment = await tx.store.get(commentId)
     
     if (comment) {
       comment.replies = comment.replies.filter(r => r.id !== replyId)
-      await db.put('comments', comment)
+      await tx.store.put(comment)
       console.log(`🗑️ 回复已删除: ${replyId}`)
     }
+    await tx.done
   } catch (error) {
     console.error('删除回复失败:', error)
     throw error

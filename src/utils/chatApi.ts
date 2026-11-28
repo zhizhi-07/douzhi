@@ -1,3 +1,4 @@
+import { canViewMoment } from './momentVisibility'
 /**
  * AI聊天API调用服务
  */
@@ -1396,6 +1397,7 @@ ${lastGapHint || ''}`}
 ${forceUpdateStatus ? `⚠️ **必须补全行程**：现在是${timeOfDay}${hour}点，距离上次状态已经很久了。` : ''}
 ${statusExpired ? `⚠️ **状态过期**：请先用 [状态:...] 补全行程再回复。` : ''}
 ${userInfoChangeContext}
+${momentsListPrompt}
 
 ${useCustomPrompt && customPromptSettings?.modules.commands ? replaceTemplateVars(customPromptSettings.modules.commands) : `【可用指令】
 
@@ -2422,22 +2424,8 @@ const callAIApiInternal = async (
       })))
     }
     
-    // 🔥 添加朋友圈速报到消息数组（作为系统消息插入，而非放在系统提示词中）
-    try {
-      const { formatMomentsNewsForPrompt } = await import('./momentsNewsManager')
-      const momentsNews = formatMomentsNewsForPrompt(10)
-      if (momentsNews) {
-        // 插入到消息数组的靠前位置（在系统提示之后）
-        processedMessages.splice(1, 0, {
-          role: 'system',
-          content: momentsNews
-        })
-        console.log('📰 [朋友圈速报] 已作为系统消息插入')
-      }
-    } catch (err) {
-      console.error('❌ 加载朋友圈速报失败:', err)
-    }
-    
+    // Each chat injects its own authorized moments; never broadcast a global private news log.
+
     // 规范化消息角色：仅保留首条 system（人设指令），其余 system 统一降级为 user，避免覆盖/稀释人设
     const normalizedMessages = processedMessages.map((m: any, idx: number) => {
       if (idx === 0) return m
@@ -2970,7 +2958,7 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
       return false
     }
     
-    return (isUserMoment || isAIMoment) && isRecent
+    return (isUserMoment || isAIMoment) && isRecent && canViewMoment(m, characterId)
   })
   const visibleMoments = visibleToAI.slice(0, momentsVisibleCount)
   
@@ -3019,7 +3007,7 @@ const buildMomentsListPrompt = async (characterId: string): Promise<string> => {
     const commentsText = m.comments.length > 0
       ? `\n  评论：\n${m.comments.map(c => `    ${c.userId === characterId ? '你' : c.userName}: ${c.content}`).join('\n')}` 
       : ''
-    return `${number}. ${author}: ${m.content}${imagesText}${likesText}${commentsText}`
+    return `${number}. [动态ID:${m.id}] ${author}: ${m.content}${imagesText}${likesText}${commentsText}`
   }).join('\n\n')
   
   return `

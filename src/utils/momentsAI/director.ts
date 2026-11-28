@@ -1,3 +1,4 @@
+import { canViewMoment } from '../momentVisibility'
 /**
  * AI导演主控制器
  * 协调各个模块，编排和执行朋友圈互动场景
@@ -73,7 +74,7 @@ export async function aiDirectorArrangeScene(
   console.log(`🔑 使用API: ${apiConfig.name}`)
   
   // 收集数据
-  const momentsHistory = formatMomentsHistory()
+  const momentsHistory = formatMomentsHistory(characters.map(c => c.id))
   console.log(`📱 读取朋友圈历史: ${momentsHistory.split('\n\n').length} 条`)
   
   const aiMemory = formatAIMemory()
@@ -124,7 +125,7 @@ export async function aiDirectorArrangeScene(
   
   // 获取朋友圈数据并触发图片收集逻辑
   const allMoments = loadMoments()
-  const visibleMoments = allMoments.filter(m => m.userId === 'user' || charactersInfo.some(c => c.id === m.userId))
+  const visibleMoments = allMoments.filter(m => characters.every(c => canViewMoment(m, c.id)) && (m.userId === 'user' || charactersInfo.some(c => c.id === m.userId)))
   
   // 初始化图片数组
   if (!(window as any).__momentImages) {

@@ -1,3 +1,5 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
+import SafeHtml from '../components/SafeHtml'
 /**
  * 群聊详情页面
  */
@@ -9,7 +11,7 @@ import { generateGroupChatReply, type GroupMember } from '../utils/groupChatApi'
 import { generateGroupChatSummary } from '../utils/groupChatSummary'
 import { groupChatManager, type GroupMessage, setBatchMode } from '../utils/groupChatManager'
 import { characterService } from '../services/characterService'
-import EmojiPanel from '../components/EmojiPanel'
+import EmojiPicker, { type EmojiPickerHandle } from '../components/EmojiPicker'
 import { getEmojis } from '../utils/emojiStorage'
 import { getUserInfo } from '../utils/userUtils'
 import { useChatBubbles } from '../hooks/useChatBubbles'
@@ -40,7 +42,7 @@ const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
     // 返回用户头像
     try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
       const avatar = userInfo.avatar || ''
       // 🔥 直接返回IndexedDB引用，在渲染时加载
       return avatar
@@ -56,6 +58,7 @@ const getMemberAvatar = (userId: string): string => {
 // ... (rest of the code remains the same)
 
 const GroupChatDetail = () => {
+  const emojiPickerRef = useRef<EmojiPickerHandle>(null)
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [messages, setMessages] = useState<GroupMessage[]>([])
@@ -83,7 +86,7 @@ const GroupChatDetail = () => {
     scrollToBottom,
     resetVirtualList,
     isNearBottom
-  } = useGroupVirtualList(messages)
+  } = useGroupVirtualList(messages, !isLoadingMessages && bubbleCssLoaded)
   
   // 🎨 使用自定义图标 Hook
   const { chatDecorations, customIcons, topBarAdjust } = useGroupCustomIcons()
@@ -144,8 +147,6 @@ const GroupChatDetail = () => {
   
   // 😊 表情和语音 Hook
   const {
-    showEmojiPanel,
-    setShowEmojiPanel,
     handleSelectEmoji,
     playingVoiceId,
     showVoiceTextMap,
@@ -205,6 +206,9 @@ const GroupChatDetail = () => {
   useEffect(() => {
     if (!id) return
     
+    let cancelled = false
+    setIsLoadingMessages(true)
+    setMessages([])
     // 🔥 重置虚拟列表状态
     resetVirtualList()
     
@@ -229,11 +233,11 @@ const GroupChatDetail = () => {
         // 使用异步方法加载消息，确保 IndexedDB 数据加载完成
         const allMsgs = await groupChatManager.loadMessagesAsync(id)
         console.log(`📦 GroupChatDetail 加载消息: ${id}, 总数=${allMsgs.length}`)
-        setMessages(allMsgs)
+        if (!cancelled) setMessages(allMsgs)
       } catch (error) {
         console.error('加载消息失败:', error)
       } finally {
-        setIsLoadingMessages(false)
+        if (!cancelled) setIsLoadingMessages(false)
       }
       // 🔥 滚动由 callback ref 自动处理，这里不需要手动滚动
     }
@@ -258,7 +262,7 @@ const GroupChatDetail = () => {
     }
     
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+    return () => { cancelled = true; window.removeEventListener('storage', handleStorageChange) }
   }, [id, resetVirtualList])
 
   // 获取当前群聊信息，用于渲染成员头衔/角色
@@ -618,26 +622,12 @@ const GroupChatDetail = () => {
       
       // 🔥 关键优化：只取最近30条，减少处理时间
       const recentMessages = latestMessages.slice(-30)
-      const chatMessages = recentMessages.map(msg => {
-        // 如果是表情包消息，标注出来
-        if (msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl) {
-          const description = msg.emojiDescription || msg.content || '表情包'
-          console.log(`📦 检测到表情包消息: ${msg.userName} - ${description} (type=${msg.type})`)
-          return {
-            userId: msg.userId,
-            userName: msg.userName,
-            content: `[发送了表情包：${description}]`,
-            id: msg.id  // 包含消息ID用于引用
-          }
-        }
-        return {
-          userId: msg.userId,
-          userName: msg.userName,
-          content: msg.content,
-          id: msg.id  // 包含消息ID用于引用
-        }
-      })
-      
+      const chatMessages = recentMessages.map(msg => ({
+        ...msg,
+        content: msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl
+          ? `[发送了表情包：${msg.emojiDescription || msg.content || '表情包'}]` : msg.content
+      }))
+
       console.log(`📝 传给AI的消息历史: ${chatMessages.length}条`)
       
       // 🎨 加载表情包列表
@@ -963,7 +953,7 @@ const GroupChatDetail = () => {
           // 查找目标成员
           const targetMember = members.find(m => m.name === targetName)
           if (targetMember && targetMember.type === 'character') {
-            groupChatManager.removeMember(id, targetMember.id, true, member.name)
+            await groupChatManager.removeMember(id, targetMember.id, true, member.name)
           } else {
             console.warn('找不到目标成员或无法踢出:', targetName)
           }
@@ -978,7 +968,7 @@ const GroupChatDetail = () => {
           console.log(`🚪 [AI指令] ${member.name} 主动退群`)
           
           // 移除该成员（isKicked=false表示主动退出）
-          groupChatManager.removeMember(id, member.id, false, member.name)
+          await groupChatManager.removeMember(id, member.id, false, member.name)
           
           // 从内容中移除指令部分
           content = content.replace(/\[退群\]/, '').trim()
@@ -990,7 +980,7 @@ const GroupChatDetail = () => {
         if (announcementMatch) {
           const newAnnouncement = announcementMatch[1]
           console.log(`📢 [AI指令] ${member.name} 修改群公告: ${newAnnouncement}`)
-          groupChatManager.updateAnnouncement(id, newAnnouncement, member.name)
+          await groupChatManager.updateAnnouncement(id, newAnnouncement, member.name)
           
           // 从内容中移除指令部分
           content = content.replace(/\[群公告:.+?\]/, '').trim()
@@ -1007,7 +997,7 @@ const GroupChatDetail = () => {
           // 查找目标成员
           const targetMember = members.find(m => m.name === targetName)
           if (targetMember && targetMember.type === 'character') {
-            groupChatManager.setTitle(id, targetMember.id, newTitle, member.name)
+            await groupChatManager.setTitle(id, targetMember.id, newTitle, member.name)
           } else {
             console.warn('找不到目标成员或无法设置头衔:', targetName)
           }
@@ -1626,7 +1616,7 @@ const GroupChatDetail = () => {
           plot: script.plot || '',
           updatedAt: Date.now()
         }
-        groupChatManager.updateGroup(id, { plotSummary })
+        await groupChatManager.updateGroup(id, { plotSummary })
         console.log(`📝 [剧情摘要] 已保存: ${script.plot?.substring(0, 50)}...`)
       }
       
@@ -1669,11 +1659,11 @@ const GroupChatDetail = () => {
             members,
             messagesToSummarize,
             lastSummary  // 传入上次总结
-          ).then(newSummary => {
+          ).then(async newSummary => {
             if (newSummary && id) {
               console.log('📊 [后台任务] 总结生成成功，保存到群聊数据')
               const updatedGroup = groupChatManager.getGroup(id)
-              groupChatManager.updateGroup(id, {
+              await groupChatManager.updateGroup(id, {
                 smartSummary: {
                   ...updatedGroup?.smartSummary,
                   enabled: true,
@@ -1769,7 +1759,7 @@ const GroupChatDetail = () => {
       <div 
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 pb-2 -webkit-overflow-scrolling-touch"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{ WebkitOverflowScrolling: 'touch', overflowAnchor: 'none' }}
       >
         {/* 虚拟列表顶部占位 */}
         {virtualStyle.paddingTop > 0 && (
@@ -1803,7 +1793,7 @@ const GroupChatDetail = () => {
             if (msg.type === 'system' || msg.isRecalled) {
               const isRecalledWithContent = msg.isRecalled && (msg as any).recalledContent
               return (
-                <div key={msg.id}>
+                <div key={msg.id} data-message-id={msg.id} style={{ display: 'flow-root' }}>
                   {shouldShowTimestamp && msg.timestamp && (
                     <div className="flex justify-center my-3">
                       <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
@@ -1833,7 +1823,7 @@ const GroupChatDetail = () => {
               // 只渲染最后3条HTML，旧的HTML显示简化版
               if (!renderableHtmlIds.has(msg.id)) {
                 return (
-                  <div className="flex justify-center my-2" data-message-id={msg.id}>
+                  <div key={msg.id} className="flex justify-center my-2" data-message-id={msg.id}>
                     <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
                       小剧场
                     </span>
@@ -1842,10 +1832,7 @@ const GroupChatDetail = () => {
               }
               return (
                 <div key={msg.id} className="flex justify-center my-4 px-4" data-message-id={msg.id}>
-                  <div 
-                    className="w-full max-w-[310px]"
-                    dangerouslySetInnerHTML={{ __html: msg.content }}
-                  />
+                  <SafeHtml className="w-full max-w-[310px]" html={msg.content} />
                 </div>
               )
             }
@@ -2002,7 +1989,7 @@ const GroupChatDetail = () => {
             const displayName = [baseName, roleLabel, titleLabel].filter(Boolean).join(' ')
             
             return (
-              <div key={msg.id} data-message-id={msg.id}>
+              <div key={msg.id} data-message-id={msg.id} style={{ display: 'flow-root' }}>
                 {/* 时间戳 */}
                 {shouldShowTimestamp && msg.timestamp && (
                   <div className="flex justify-center my-3">
@@ -2091,7 +2078,7 @@ const GroupChatDetail = () => {
           onAIReply={handleAIReply}
           onCancelQuote={() => setQuotedMessage(null)}
           onOpenAddMenu={() => setShowAddMenu(true)}
-          onOpenEmojiPanel={() => setShowEmojiPanel(true)}
+          onOpenEmojiPanel={() => emojiPickerRef.current?.open()}
         />
       </>
 
@@ -2121,11 +2108,7 @@ const GroupChatDetail = () => {
       />
 
       {/* 表情包面板 */}
-      <EmojiPanel
-        show={showEmojiPanel}
-        onClose={() => setShowEmojiPanel(false)}
-        onSelect={handleSelectEmoji}
-      />
+      <EmojiPicker ref={emojiPickerRef} onSelect={handleSelectEmoji} />
 
       {/* 添加菜单 */}
       <GroupAddMenu

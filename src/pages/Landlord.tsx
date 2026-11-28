@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 /**
  * 斗地主 - 真实AI对战版
  * 
@@ -145,7 +146,7 @@ const Landlord = () => {
   // 选择角色
   const handleSelectCharacter = (charIndex: number) => {
     // 获取用户自己的信息
-    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
     const userName = userInfo.nickname || '玩家'
     const userAvatar = userInfo.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=user'
     

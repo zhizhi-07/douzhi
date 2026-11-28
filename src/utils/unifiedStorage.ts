@@ -53,7 +53,9 @@ export const saveToIndexedDB = async (
     const objectStore = transaction.objectStore(storeName)
     const request = objectStore.put(data, key)
     
-    request.onsuccess = () => resolve()
+    transaction.oncomplete = () => { db.close(); resolve() }
+    transaction.onabort = () => { db.close(); reject(transaction.error || new Error('事务中止')) }
+    transaction.onerror = () => { db.close(); reject(transaction.error || new Error('事务失败')) }
     request.onerror = () => reject(request.error)
   })
 }
@@ -73,7 +75,7 @@ export const getFromIndexedDB = async (
     const objectStore = transaction.objectStore(storeName)
     const request = objectStore.get(key)
     
-    request.onsuccess = () => resolve(request.result || null)
+    request.onsuccess = () => { db.close(); resolve(request.result || null) }
     request.onerror = () => reject(request.error)
   })
 }
@@ -93,7 +95,9 @@ export const deleteFromIndexedDB = async (
     const objectStore = transaction.objectStore(storeName)
     const request = objectStore.delete(key)
     
-    request.onsuccess = () => resolve()
+    transaction.oncomplete = () => { db.close(); resolve() }
+    transaction.onabort = () => { db.close(); reject(transaction.error || new Error('事务中止')) }
+    transaction.onerror = () => { db.close(); reject(transaction.error || new Error('事务失败')) }
     request.onerror = () => reject(request.error)
   })
 }
@@ -112,7 +116,7 @@ export const getAllKeysFromIndexedDB = async (
     const objectStore = transaction.objectStore(storeName)
     const request = objectStore.getAllKeys()
     
-    request.onsuccess = () => resolve(request.result as string[])
+    request.onsuccess = () => { db.close(); resolve(request.result as string[]) }
     request.onerror = () => reject(request.error)
   })
 }
@@ -131,7 +135,9 @@ export const clearIndexedDBStore = async (
     const objectStore = transaction.objectStore(storeName)
     const request = objectStore.clear()
     
-    request.onsuccess = () => resolve()
+    transaction.oncomplete = () => { db.close(); resolve() }
+    transaction.onabort = () => { db.close(); reject(transaction.error || new Error('事务中止')) }
+    transaction.onerror = () => { db.close(); reject(transaction.error || new Error('事务失败')) }
     request.onerror = () => reject(request.error)
   })
 }

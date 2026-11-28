@@ -124,33 +124,7 @@ export const switchAccount = (accountId: string): void => {
 /**
  * 创建小号（同步版本，不保存头像）
  */
-export const createSubAccount = (name: string, avatar?: string, signature?: string): Account => {
-  const accounts = getAccounts()
-  
-  const accountId = `sub_${Date.now()}`
-  const newAccount: Account = {
-    id: accountId,
-    name,
-    // 不在localStorage存储头像，只存标记
-    avatar: avatar ? `indexeddb:account_${accountId}` : undefined,
-    signature,
-    isMain: false,
-    createdAt: Date.now()
-  }
-  
-  accounts.push(newAccount)
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
-  
-  // 头像异步保存到IndexedDB
-  if (avatar && avatar.startsWith('data:')) {
-    saveAccountAvatar(accountId, avatar).catch(err => {
-      console.error('保存账号头像失败:', err)
-    })
-  }
-  
-  console.log('✨ 创建小号:', name)
-  return newAccount
-}
+export const createSubAccount = (name: string, avatar?: string, signature?: string): Promise<Account> => createSubAccountAsync(name, avatar, signature)
 
 /**
  * 创建小号（异步版本，确保头像保存完成）
@@ -158,11 +132,11 @@ export const createSubAccount = (name: string, avatar?: string, signature?: stri
 export const createSubAccountAsync = async (name: string, avatar?: string, signature?: string): Promise<Account> => {
   const accounts = getAccounts()
   
-  const accountId = `sub_${Date.now()}`
+  const accountId = `sub_${crypto.randomUUID()}`
   
   // 如果有头像，先保存到IndexedDB
   if (avatar && avatar.startsWith('data:')) {
-    await saveAccountAvatar(accountId, avatar)
+    (await saveAccountAvatar(accountId, avatar)) || (() => { throw new Error('头像保存失败，资料未更新') })()
   }
   
   const newAccount: Account = {
@@ -185,38 +159,20 @@ export const createSubAccountAsync = async (name: string, avatar?: string, signa
 /**
  * 更新账号信息
  */
-export const updateAccount = (accountId: string, updates: Partial<Account>): void => {
-  const accounts = getAccounts()
-  const index = accounts.findIndex(a => a.id === accountId)
-  if (index === -1) return
-  
-  // 如果更新头像，保存到IndexedDB
-  if (updates.avatar && updates.avatar.startsWith('data:')) {
-    saveAccountAvatar(accountId, updates.avatar).catch(err => {
-      console.error('保存账号头像失败:', err)
-    })
-    // 在localStorage中只存标记
-    updates.avatar = `indexeddb:account_${accountId}`
-  }
-  
-  accounts[index] = { ...accounts[index], ...updates }
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
-  
-  // 触发事件通知UI更新
-  window.dispatchEvent(new CustomEvent('accountUpdated', { detail: { accountId } }))
-}
+export const updateAccount = (accountId: string, updates: Partial<Account>): Promise<void> => updateAccountAsync(accountId, updates)
 
 /**
  * 更新账号信息（异步版本）
  */
 export const updateAccountAsync = async (accountId: string, updates: Partial<Account>): Promise<void> => {
+  updates = { ...updates }
   const accounts = getAccounts()
   const index = accounts.findIndex(a => a.id === accountId)
   if (index === -1) return
   
   // 如果更新头像，保存到IndexedDB
   if (updates.avatar && updates.avatar.startsWith('data:')) {
-    await saveAccountAvatar(accountId, updates.avatar)
+    (await saveAccountAvatar(accountId, updates.avatar)) || (() => { throw new Error('头像保存失败，资料未更新') })()
     // 在localStorage中只存标记
     updates.avatar = `indexeddb:account_${accountId}`
   }

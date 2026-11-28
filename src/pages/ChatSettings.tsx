@@ -423,7 +423,7 @@ const ChatSettings = () => {
   const savePokeSuffix = async (newSuffix: string) => {
     if (!character || !id) return
     const { characterService } = await import('../services/characterService')
-    const updatedCharacter = characterService.update(id, { pokeSuffix: newSuffix })
+    const updatedCharacter = await characterService.update(id, { pokeSuffix: newSuffix })
     if (updatedCharacter) {
       setCharacter(updatedCharacter)
       console.log('AI拍一拍后缀已保存:', newSuffix)
@@ -435,7 +435,7 @@ const ChatSettings = () => {
   const saveLanguageStyle = async (style: 'modern' | 'ancient' | 'noble' | 'fantasy' | 'auto') => {
     if (!character || !id) return
     const { characterService } = await import('../services/characterService')
-    const updatedCharacter = characterService.update(id, { languageStyle: style })
+    const updatedCharacter = await characterService.update(id, { languageStyle: style })
     if (updatedCharacter) {
       setCharacter(updatedCharacter)
       setLanguageStyle(style)

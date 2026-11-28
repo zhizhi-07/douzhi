@@ -12,9 +12,9 @@
  */
 
 import { characterService } from '../services/characterService'
-import { loadMessages } from './simpleMessageManager'
+import { ensureMessagesLoaded } from './simpleMessageManager'
 import { getAllMemos } from './aiMemoManager'
-import { loadMoments } from './momentsManager'
+import { ensureMomentsLoaded } from './momentsManager'
 import { lorebookManager } from './lorebookSystem'
 import { getEmojis } from './emojiStorage'
 import type { Character, Message } from '../types/chat'
@@ -124,7 +124,7 @@ export async function exportCharacterData(characterId: string): Promise<Exported
     console.log('✅ 聊天设置:', parsedSettings)
     
     // 3. 获取聊天记录
-    const messages = loadMessages(characterId)
+    const messages = await ensureMessagesLoaded(characterId)
     console.log('✅ 聊天记录:', messages.length, '条')
     
     // 4. 获取AI随笔
@@ -143,7 +143,7 @@ export async function exportCharacterData(characterId: string): Promise<Exported
     console.log('✅ 记忆数据:', memories.length, '条')
     
     // 6. 获取朋友圈（该角色发的）
-    const allMoments = loadMoments()
+    const allMoments = await ensureMomentsLoaded()
     const characterMoments = allMoments.filter(m => m.userId === characterId)
     console.log('✅ 朋友圈:', characterMoments.length, '条')
     
@@ -359,7 +359,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
     
     // 移除id让save方法自动生成
     const { id, ...characterData } = newCharacter
-    const savedCharacter = characterService.save(characterData as any)
+    const savedCharacter = await characterService.save(characterData as any)
     console.log('✅ 角色已创建:', savedCharacter.id, savedCharacter.realName)
     
     const newId = savedCharacter.id
@@ -378,7 +378,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
       // 保存到 IndexedDB
       // 使用simpleMessageManager保存
       const { saveMessages } = await import('./simpleMessageManager')
-      saveMessages(newId, jsonData.messages)
+      await saveMessages(newId, jsonData.messages)
       console.log('✅ 聊天记录已导入:', jsonData.messages.length, '条')
     }
     
@@ -420,7 +420,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
     if (jsonData.moments && jsonData.moments.length > 0) {
       try {
         const { saveMoments } = await import('./momentsManager')
-        const allMoments = loadMoments()
+        const allMoments = await ensureMomentsLoaded()
         const newMoments = jsonData.moments.map(m => ({
           ...m,
           id: `moment_${Date.now()}_${Math.random()}`,  // 新ID
@@ -431,7 +431,7 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
         
         // 使用saveMoments保存到IndexedDB（避免localStorage超限）
         const updatedMoments = [...allMoments, ...newMoments]
-        saveMoments(updatedMoments)
+        await saveMoments(updatedMoments)
         console.log('✅ 朋友圈已导入:', newMoments.length, '条')
       } catch (e) {
         console.warn('朋友圈导入失败，但不影响其他数据:', e)
@@ -441,8 +441,8 @@ export async function importCharacterData(jsonData: ExportedCharacterData): Prom
     // 7. 导入世界书
     if (jsonData.lorebook && jsonData.lorebook.entries && jsonData.lorebook.entries.length > 0) {
       // 保存世界书数据
-      const lorebookKey = `lorebook_${newId}`
-      localStorage.setItem(lorebookKey, JSON.stringify(jsonData.lorebook))
+      const { id: oldId, ...book } = jsonData.lorebook
+      lorebookManager.createLorebook({ ...book, character_ids: [newId], is_global: false })
       console.log('✅ 世界书已导入:', jsonData.lorebook.entries.length, '条')
     }
     

@@ -169,43 +169,49 @@ const CreateCharacter = () => {
     e.target.value = ''
   }
 
-  const handleSubmit = () => {
+  const [isSaving, setIsSaving] = useState(false)
+  const handleSubmit = async () => {
+    if (isSaving) return
     // 验证
     if (!formData.realName.trim()) {
       alert('请输入真实名字')
       return
     }
 
-    // 保存角色
-    const newCharacter = characterService.save({
-      ...formData
-    })
-    console.log('创建角色成功:', newCharacter)
-    
-    // 如果有导入的世界书，则创建并关联
-    if (importedCharacterBook && importedCharacterBook.entries?.length > 0) {
-      try {
-        const result = lorebookManager.importFromCharacterCard(
-          importedCharacterBook,
-          newCharacter.id,
-          newCharacter.realName
-        )
-        if (result && result.lorebook) {
-          console.log('✅ 世界书导入成功:', result.lorebook.name, '条目数:', result.lorebook.entries.length)
-          
-          // 如果有被禁用的条目，显示提示
-          if (result.disabledEntries.length > 0) {
-            const disabledList = result.disabledEntries.map(e => `• ${e.name}`).join('\n')
-            alert(`✅ 世界书导入成功！\n\n⚠️ 已自动禁用 ${result.disabledEntries.length} 个栏目：\n${disabledList}\n\n原因：${result.disabledEntries[0].reason}\n\n如需重新启用，请前往世界书管理页面编辑`)
+    setIsSaving(true)
+    try {
+      // 保存角色
+      const newCharacter = await characterService.save({
+        ...formData
+      })
+      console.log('创建角色成功:', newCharacter)
+
+      // 如果有导入的世界书，则创建并关联
+      if (importedCharacterBook && importedCharacterBook.entries?.length > 0) {
+        try {
+          const result = lorebookManager.importFromCharacterCard(
+            importedCharacterBook,
+            newCharacter.id,
+            newCharacter.realName
+          )
+          if (result && result.lorebook) {
+            console.log('✅ 世界书导入成功:', result.lorebook.name, '条目数:', result.lorebook.entries.length)
+
+            // 如果有被禁用的条目，显示提示
+            if (result.disabledEntries.length > 0) {
+              const disabledList = result.disabledEntries.map(e => `• ${e.name}`).join('\n')
+              alert(`✅ 世界书导入成功！\n\n⚠️ 已自动禁用 ${result.disabledEntries.length} 个栏目：\n${disabledList}\n\n原因：${result.disabledEntries[0].reason}\n\n如需重新启用，请前往世界书管理页面编辑`)
+            }
           }
+        } catch (error) {
+          console.error('世界书导入失败:', error)
         }
-      } catch (error) {
-        console.error('世界书导入失败:', error)
       }
-    }
-    
-    // 跳转到通讯录
-    navigate('/contacts')
+
+      // 跳转到通讯录
+      navigate('/contacts')
+    } catch (error) { alert('角色保存失败：' + (error instanceof Error ? error.message : String(error))) }
+    finally { setIsSaving(false) }
   }
 
   return (
@@ -255,7 +261,7 @@ const CreateCharacter = () => {
               完整数据
             </button>
             <button 
-              onClick={handleSubmit}
+              onClick={handleSubmit} disabled={isSaving}
               className="text-green-600 font-medium"
             >
               完成

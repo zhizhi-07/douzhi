@@ -34,6 +34,9 @@ const GroupChatSettings = () => {
 
   useEffect(() => {
     if (!id) return
+    let cancelled = false
+    const refresh = () => {
+    if (cancelled) return
     const group = groupChatManager.getGroup(id)
     if (group) {
       setGroupName(group.name)
@@ -62,6 +65,10 @@ const GroupChatSettings = () => {
       })
       setMembers(memberList)
     }
+    }
+    void Promise.all([groupChatManager.waitForLoad(), characterService.waitForLoad()]).then(refresh).catch(() => alert('群聊设置加载失败，请备份后重试'))
+    window.addEventListener('groups-updated', refresh)
+    return () => { cancelled = true; window.removeEventListener('groups-updated', refresh) }
   }, [id])
 
   return (
@@ -129,7 +136,7 @@ const GroupChatSettings = () => {
             ))}
             <div className="flex flex-col items-center">
               <button 
-                onClick={() => {
+                onClick={async () => {
                   // 获取所有角色，排除已在群里的
                   const allChars = characterService.getAll()
                   const memberIds = members.map(m => m.id)
@@ -159,10 +166,10 @@ const GroupChatSettings = () => {
                 type="text"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                onBlur={() => {
+                onBlur={async () => {
                   setIsEditing(false)
                   if (id) {
-                    groupChatManager.updateGroup(id, { name: groupName })
+                    await groupChatManager.updateGroup(id, { name: groupName })
                   }
                 }}
                 autoFocus
@@ -182,7 +189,7 @@ const GroupChatSettings = () => {
         {/* 群公告 */}
         <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
-            onClick={() => {
+            onClick={async () => {
               setTempAnnouncement(announcement)
               setShowAnnouncementModal(true)
             }}
@@ -242,7 +249,7 @@ const GroupChatSettings = () => {
                     {/* 所有成员都可以打开“管理”弹窗，用于修改头衔；具体权限在弹窗内部控制 */}
                     {member.id !== 'user' && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setManagingMember({
                             id: member.id,
                             name: member.name,
@@ -281,11 +288,11 @@ const GroupChatSettings = () => {
               <div className="text-xs text-gray-400">开启后每条回复都会插入HTML卡片（便利贴、聊天截图、账单等）</div>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (!id) return
                 const newValue = !enableTheatreCards
                 setEnableTheatreCards(newValue)
-                groupChatManager.updateGroup(id, {
+                await groupChatManager.updateGroup(id, {
                   enableTheatreCards: newValue
                 })
               }}
@@ -314,12 +321,12 @@ const GroupChatSettings = () => {
               </p>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const newEnabled = !smartSummaryEnabled
                 setSmartSummaryEnabled(newEnabled)
                 if (id) {
                   const group = groupChatManager.getGroup(id)
-                  groupChatManager.updateGroup(id, {
+                  await groupChatManager.updateGroup(id, {
                     smartSummary: {
                       ...group?.smartSummary,
                       enabled: newEnabled,
@@ -356,12 +363,12 @@ const GroupChatSettings = () => {
                   max="30"
                   step="5"
                   value={smartSummaryInterval}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const newInterval = parseInt(e.target.value)
                     setSmartSummaryInterval(newInterval)
                     if (id) {
                       const group = groupChatManager.getGroup(id)
-                      groupChatManager.updateGroup(id, {
+                      await groupChatManager.updateGroup(id, {
                         smartSummary: {
                           ...group?.smartSummary,
                           enabled: smartSummaryEnabled,
@@ -422,11 +429,11 @@ const GroupChatSettings = () => {
               max="50"
               step="5"
               value={minReplyCount}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const newCount = parseInt(e.target.value)
                 setMinReplyCount(newCount)
                 if (id) {
-                  groupChatManager.updateGroup(id, {
+                  await groupChatManager.updateGroup(id, {
                     minReplyCount: newCount
                   })
                 }
@@ -456,11 +463,11 @@ const GroupChatSettings = () => {
           </div>
           <select
             value={selectedLorebookId || ''}
-            onChange={(e) => {
+            onChange={async (e) => {
               const newId = e.target.value || undefined
               setSelectedLorebookId(newId)
               if (id) {
-                groupChatManager.updateGroup(id, { lorebookId: newId })
+                await groupChatManager.updateGroup(id, { lorebookId: newId })
               }
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-gray-900"
@@ -500,7 +507,7 @@ const GroupChatSettings = () => {
         {/* 清空聊天记录 */}
         <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (id && confirm('确定要清空聊天记录吗？')) {
                 groupChatManager.clearMessages(id)
                 alert('已清空')
@@ -515,9 +522,9 @@ const GroupChatSettings = () => {
         {/* 退出群聊 */}
         <div className="rounded-2xl p-4 bg-white/40 backdrop-blur-md border border-white/50 shadow-sm">
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (id && confirm('确定要退出群聊吗？')) {
-                groupChatManager.deleteGroup(id)
+                await groupChatManager.deleteGroup(id)
                 navigate('/wechat', { replace: true })
               }
             }}
@@ -572,10 +579,10 @@ const GroupChatSettings = () => {
                       <p className="text-xs text-gray-500 mt-0.5">管理员可以管理普通成员</p>
                     </div>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (id) {
                           const isAdmin = managingMember.role === 'admin'
-                          groupChatManager.setAdmin(id, managingMember.id, !isAdmin, '你')
+                          await groupChatManager.setAdmin(id, managingMember.id, !isAdmin, '你')
                           // 更新状态
                           setManagingMember({ ...managingMember, role: isAdmin ? 'member' : 'admin' })
                         }
@@ -604,9 +611,9 @@ const GroupChatSettings = () => {
               })() && (
                 <div className="mb-4">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (id && confirm(`确认将 ${managingMember.name} 移出群聊吗？`)) {
-                        groupChatManager.removeMember(id, managingMember.id, true, '你')
+                        await groupChatManager.removeMember(id, managingMember.id, true, '你')
                         setManagingMember(null)
                         // 刷新成员列表
                         const group = groupChatManager.getGroup(id)
@@ -641,7 +648,7 @@ const GroupChatSettings = () => {
               })() && (
                 <div className="mb-4">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (id && confirm(`确定将群主转让给 ${managingMember.name} 吗？`)) {
                         groupChatManager.transferOwner(id, managingMember.id, '你')
                         alert('已转让群主')
@@ -680,9 +687,9 @@ const GroupChatSettings = () => {
                   取消
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (id && managingMember) {
-                      groupChatManager.setTitle(id, managingMember.id, newTitle, '你')
+                      await groupChatManager.setTitle(id, managingMember.id, newTitle, '你')
                       alert('设置成功')
                       setManagingMember(null)
                       // 刷新成员列表
@@ -740,9 +747,9 @@ const GroupChatSettings = () => {
               />
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (id) {
-                    groupChatManager.updateAnnouncement(id, tempAnnouncement, '你')
+                    await groupChatManager.updateAnnouncement(id, tempAnnouncement, '你')
                     setAnnouncement(tempAnnouncement)
                   }
                   setShowAnnouncementModal(false)
@@ -832,9 +839,9 @@ const GroupChatSettings = () => {
                   {availableCharacters.map(char => (
                     <button
                       key={char.id}
-                      onClick={() => {
+                      onClick={async () => {
                         if (id) {
-                          groupChatManager.addMember(id, char.id)
+                          await groupChatManager.addMember(id, char.id)
                           // 更新成员列表
                           const group = groupChatManager.getGroup(id)
                           if (group) {

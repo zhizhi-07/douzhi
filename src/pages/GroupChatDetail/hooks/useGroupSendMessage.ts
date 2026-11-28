@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../../../utils/userProfileStorage'
 /**
  * 群聊发送消息 Hook
  * 🔥 优化：完全异步，零阻塞UI
@@ -12,7 +13,7 @@ const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
     if (cachedUserAvatar) return cachedUserAvatar
     try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
       cachedUserAvatar = userInfo.avatar || ''
       return cachedUserAvatar
     } catch {
@@ -24,9 +25,6 @@ const getMemberAvatar = (userId: string): string => {
 
 // 🔥 全局标志：是否正在发送消息（用于阻止 storage 事件）
 export let isSendingMessage = false
-
-// 🔥 消息ID计数器（避免同一毫秒内ID冲突）
-let msgIdCounter = 0
 
 interface UseGroupSendMessageProps {
   groupId: string | undefined
@@ -75,45 +73,15 @@ export const useGroupSendMessage = ({
     const currentQuote = quotedMessageRef.current
     setQuotedMessage(null)
 
-    // 🔥 生成唯一消息ID
-    const now = Date.now()
-    const uniqueId = `msg_${now}_${++msgIdCounter}`
-    
-    // 🔥 创建消息对象
-    const newMsg: GroupMessage = {
-      id: uniqueId,
-      groupId,
-      userId: 'user',
-      userName: '我',
-      userAvatar: getMemberAvatar('user'),
-      content: trimmedText,
-      type: 'text',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: now,
-      quotedMessage: currentQuote ? {
-        id: currentQuote.id,
-        content: currentQuote.content,
-        userName: currentQuote.userName
-      } : undefined
-    }
-
-    // 🔥 立即更新 UI（只追加新消息，不替换整个数组）
+    // Use the shared durable path; detached full-history writes race with AI updates/deletes.
+    const newMsg = groupChatManager.addMessage(groupId, {
+      userId: 'user', userName: '我', userAvatar: getMemberAvatar('user'),
+      content: trimmedText, type: 'text',
+      quotedMessage: currentQuote ? { id: currentQuote.id, content: currentQuote.content, userName: currentQuote.userName } : undefined
+    }, true)
     setMessages(prev => [...prev, newMsg])
-    
-    // 🔥 添加到缓存
-    const existingMessages = groupChatManager.getMessages(groupId)
-    if (!existingMessages.some(m => m.id === newMsg.id)) {
-      existingMessages.push(newMsg)
-    }
-    
-    // 🔥 异步保存到 IndexedDB（完全后台）
-    setTimeout(() => {
-      import('../../../utils/indexedDBManager').then(IDB => {
-        IDB.setItem(IDB.STORES.MESSAGES, `group_${groupId}`, existingMessages)
-      })
-      console.log('✅ [发送完成]', uniqueId)
-    }, 0)
-    
+    requestAnimationFrame(() => scrollToBottom(false))
+
     // 🔥 立即清除标志
     isSendingRef.current = false
     isSendingMessage = false

@@ -2,9 +2,10 @@
  * 表情包选择面板
  */
 
-import { useState, useEffect, useRef } from 'react'
-import { getEmojis, incrementUseCount, addEmoji, clearCache, getAllTags, addEmojisWithTag } from '../utils/emojiStorage'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { getEmojis, incrementUseCount, addEmoji, clearCache, addEmojisWithTag } from '../utils/emojiStorage'
 import { emitEmojiSizeChange } from './EmojiContentRenderer'
+import VirtualEmojiGrid from './VirtualEmojiGrid'
 import type { Emoji } from '../utils/emojiStorage'
 
 const LAST_TAB_KEY = 'emoji_panel_last_tab'
@@ -46,8 +47,7 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
 
   useEffect(() => {
     if (show) {
-      // 每次打开都强制重新加载
-      loadEmojis(true)
+      void loadEmojis()
     }
   }, [show])
 
@@ -64,7 +64,7 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     const loaded = await getEmojis()
     setEmojis(loaded)
     // 加载所有标签
-    const loadedTags = await getAllTags()
+    const loadedTags = [...new Set(loaded.map(emoji => emoji.tag).filter((tag): tag is string => !!tag))].sort()
     setTags(loadedTags)
     console.log('📦 表情包加载完成，共', loaded.length, '个，标签:', loadedTags)
   }
@@ -74,7 +74,7 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     onClose()
     
     // 异步更新使用次数
-    await incrementUseCount(emoji.id)
+    void incrementUseCount(emoji.id).catch(error => console.warn('使用次数保存失败:', error))
   }
 
   // 导入图片
@@ -232,19 +232,10 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
     }
   }
 
-  const frequentEmojis = emojis
-    .filter(e => e.useCount > 0)
-    .sort((a, b) => b.useCount - a.useCount)
-    .slice(0, 12)
-
-  // 根据当前选中的标签过滤表情包
-  const getDisplayEmojis = () => {
-    if (activeTab === 'frequent') return frequentEmojis
-    if (activeTab === 'all') return emojis
-    // 按标签过滤
-    return emojis.filter(e => e.tag === activeTab)
-  }
-  const displayEmojis = getDisplayEmojis()
+  const displayEmojis = useMemo(() => {
+    if (activeTab === 'frequent') return emojis.filter(emoji => emoji.useCount > 0).sort((a, b) => b.useCount - a.useCount).slice(0, 12)
+    return activeTab === 'all' ? emojis : emojis.filter(emoji => emoji.tag === activeTab)
+  }, [emojis, activeTab])
 
   // 批量导入图片处理
   const handleBatchImageImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,7 +360,7 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
       />
       
       {/* 表情包面板 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[60vh] flex flex-col shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="表情包" className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[60vh] flex flex-col shadow-2xl">
         {/* 顶部标签栏 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <div className="flex gap-2 overflow-x-auto flex-1 mr-2 scrollbar-hide">
@@ -416,56 +407,8 @@ const EmojiPanel = ({ show, onClose, onSelect }: EmojiPanelProps) => {
           </button>
         </div>
 
-        {/* 表情包网格 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {displayEmojis.length === 0 && activeTab === 'frequent' ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 py-8">
-              <svg className="w-12 h-12 mb-3" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" opacity="0.3"/>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                <circle cx="9" cy="9" r="1"/>
-                <circle cx="15" cy="9" r="1"/>
-              </svg>
-              <div className="text-sm">还没有常用表情包</div>
-              <div className="text-xs text-gray-300 mt-1">多发几次表情包就会出现在这里</div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-3">
-              {/* 添加按钮 */}
-              <div
-                onClick={() => setShowImportMenu(true)}
-                className="relative aspect-square rounded-xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-300 active:scale-95 cursor-pointer transition-all hover:border-blue-400 hover:bg-blue-50 flex items-center justify-center"
-              >
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              {displayEmojis.map((emoji) => (
-                <div
-                  key={emoji.id}
-                  onClick={() => handleSelectEmoji(emoji)}
-                  className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-md border border-gray-200 active:scale-95 cursor-pointer transition-transform"
-                >
-                  <img
-                    src={emoji.url}
-                    alt={emoji.description}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  {activeTab === 'frequent' && emoji.useCount > 0 && (
-                    <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                      {emoji.useCount}
-                    </div>
-                  )}
-                  {/* 描述文字 - 叠加在图片底部 */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5 text-center">
-                    <span className="text-[10px] text-white line-clamp-1">{emoji.description || emoji.name}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <VirtualEmojiGrid emojis={displayEmojis} category={activeTab} onSelect={handleSelectEmoji} onAdd={() => setShowImportMenu(true)} />
+        {displayEmojis.length === 0 && activeTab === 'frequent' && <div className="text-center p-2 text-sm text-gray-400">还没有常用表情包</div>}
 
         {/* 导入菜单 */}
         {showImportMenu && (

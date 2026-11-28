@@ -1,3 +1,4 @@
+import { nextMessageId } from './messageId'
 /**
  * 消息工厂函数 - 统一创建各种类型的消息
  * 消除重复的消息创建代码
@@ -6,7 +7,6 @@
 import type { Message } from '../types/chat'
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
-let messageIdCounter = 0
 
 /**
  * 基础消息配置
@@ -31,7 +31,7 @@ export const createSystemMessage = (config: SystemMessageConfig | string): Messa
   const messageConfig: BaseMessageConfig = typeof config === 'string' ? {} : config
   
   const now = messageConfig.timestamp || Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type: messageConfig.type || 'system',
@@ -62,7 +62,7 @@ export const createTransferMessage = (
     : ''
 
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type,
@@ -92,7 +92,7 @@ export const createIntimatePayMessage = (
   type: 'sent' | 'received'
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type,
@@ -119,7 +119,7 @@ export const createVoiceMessage = (
   type: 'sent' | 'received' = 'received'
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type,
@@ -142,7 +142,7 @@ export const createLocationMessage = (
   type: 'sent' | 'received' = 'received'
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type,
@@ -165,7 +165,7 @@ export const createPhotoMessage = (
   type: 'sent' | 'received' = 'received'
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type,
@@ -188,7 +188,7 @@ export const createVideoCallRecordMessage = (
   messages: any[]
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type: 'system',
@@ -214,7 +214,7 @@ export const createCoupleSpaceInviteMessage = (
   senderAvatar?: string
 ): Message => {
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   return {
     id: uniqueId,
     type: 'received',

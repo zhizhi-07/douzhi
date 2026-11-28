@@ -1,3 +1,4 @@
+import { nextMessageId } from '../messageId'
 /**
  * AI动作执行器
  * 负责执行AI导演编排的各种动作（点赞、评论、私聊）
@@ -11,7 +12,6 @@ import { recordAIInteraction } from '../aiInteractionMemory'
 import { addMessage } from '../simpleMessageManager'
 
 // 全局计数器，确保同一毫秒内生成的ID也是唯一的
-let messageIdCounter = 0
 
 /**
  * 执行点赞动作
@@ -122,7 +122,7 @@ export function executeDMAction(
   console.log(`💬 准备发送私聊消息到角色 ${action.characterId}`)
   
   const now = Date.now()
-  const uniqueId = now * 10000 + (messageIdCounter++ % 10000)
+  const uniqueId = nextMessageId()
   
   // 🔥 构建AI可读内容，包含朋友圈上下文
   let aiReadableContent = action.dmContent

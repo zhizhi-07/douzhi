@@ -1,3 +1,4 @@
+import { canViewMoment } from '../momentVisibility'
 /**
  * 朋友圈AI动作调度器
  * 持久化待执行的动作，防止页面刷新导致定时器丢失
@@ -56,7 +57,7 @@ export function scheduleAction(
 ): void {
   const executeAt = Date.now() + delaySeconds * 1000
   const scheduledAction: ScheduledAction = {
-    id: `${action.characterId}_${moment.id}_${Date.now()}`,
+    id: crypto.randomUUID(),
     action,
     momentId: moment.id,
     executeAt
@@ -85,17 +86,18 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
   console.log(`${'▶️'.repeat(20)}`)
 
   // 获取朋友圈数据
-  const { loadMoments } = await import('../momentsManager')
-  const moments = loadMoments()
+  const { ensureMomentsLoaded } = await import('../momentsManager')
+  const moments = await ensureMomentsLoaded()
   const moment = moments.find(m => m.id === momentId)
 
-  if (!moment) {
+  if (!moment || !canViewMoment(moment, action.characterId)) {
     console.error(`❌ 找不到朋友圈: ${momentId}`)
     return
   }
 
   // 重新获取角色数据（不从存储中读取，避免数据过大）
   const { characterService } = await import('../../services/characterService')
+  await characterService.waitForLoad()
   const characters = characterService.getAll()
 
   // 检查是否是NPC
@@ -166,35 +168,22 @@ async function executeScheduledAction(scheduledAction: ScheduledAction): Promise
 /**
  * 检查并执行到期的动作
  */
+let executing = false
 async function checkAndExecuteActions(): Promise<void> {
-  const actions = getScheduledActions()
-  if (actions.length === 0) return
-
-  const now = Date.now()
-  const dueActions = actions.filter(a => a.executeAt <= now)
-  const pendingActions = actions.filter(a => a.executeAt > now)
-
-  if (dueActions.length > 0) {
-    console.log(`\n⏰ 发现 ${dueActions.length} 个到期动作，开始执行...`)
-    
-    for (const action of dueActions) {
+  if (executing) return
+  executing = true
+  try {
+    const due = getScheduledActions().filter(a => a.executeAt <= Date.now())
+    for (const action of due) {
       try {
         await executeScheduledAction(action)
+        saveScheduledActions(getScheduledActions().filter(item => item.id !== action.id))
       } catch (error) {
-        console.error(`❌ 执行动作失败:`, error)
+        console.error('朋友圈动作未完成，将保留重试:', error)
       }
     }
-
-    // 保存剩余的待执行动作
-    saveScheduledActions(pendingActions)
-    
-    console.log(`✅ 已执行 ${dueActions.length} 个动作，剩余 ${pendingActions.length} 个`)
-  }
-
-  // 如果没有待执行的动作了，停止检查器
-  if (pendingActions.length === 0) {
-    stopScheduler()
-  }
+    if (getScheduledActions().length === 0) stopScheduler()
+  } finally { executing = false }
 }
 
 /**

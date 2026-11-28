@@ -14,30 +14,25 @@ let momentsCache: Moment[] | null = null
  */
 async function preloadMoments() {
   try {
-    const moments = await IDB.getItem<Moment[]>(IDB.STORES.MOMENTS, 'moments')
+    const moments = await IDB.getItem<Moment[]>(IDB.STORES.MOMENTS, 'moments', true)
     momentsCache = moments || []
     console.log(`📷 预加载朋友圈: ${momentsCache.length} 条`)
   } catch (error) {
     console.error('预加载朋友圈失败:', error)
-    momentsCache = []
+    throw error
   }
 }
 
 // 启动时预加载
-preloadMoments()
+const momentsReady = preloadMoments()
+void momentsReady.catch(() => {})
 
 /**
  * 加载所有朋友圈（同步，从缓存读取）
  */
 export function loadMoments(): Moment[] {
   try {
-    // 如果缓存为空，异步加载
-    if (!momentsCache) {
-      IDB.getItem<Moment[]>(IDB.STORES.MOMENTS, 'moments').then(moments => {
-        momentsCache = moments || []
-      })
-      return []
-    }
+    if (!momentsCache) return []
     return momentsCache
   } catch (error) {
     console.error('加载朋友圈失败:', error)
@@ -48,42 +43,22 @@ export function loadMoments(): Moment[] {
 /**
  * 保存朋友圈（同步更新缓存，异步保存到IndexedDB）
  */
-export function saveMoments(moments: Moment[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      // 立即更新缓存
-      momentsCache = moments
-      
-      // 异步保存到IndexedDB
-      IDB.setItem(IDB.STORES.MOMENTS, 'moments', moments).then(() => {
-        console.log(`💾 保存朋友圈到IndexedDB: ${moments.length} 条`)
-        
-        // 🔥 触发更新事件，让页面实时刷新
-        window.dispatchEvent(new CustomEvent('moments-updated'))
-        window.dispatchEvent(new Event('storage'))
-        
-        resolve()
-      }).catch(err => {
-        console.error('❌ IndexedDB保存失败:', err)
-        
-        // 检查是否是存储空间不足
-        if (err.name === 'QuotaExceededError' || err.message?.includes('quota')) {
-          const errorMsg = '存储空间不足！请删除一些旧朋友圈或清理浏览器数据。'
-          console.error('🚨', errorMsg)
-          alert(errorMsg)
-          reject(new Error(errorMsg))
-        } else {
-          const errorMsg = '保存朋友圈失败，请重试'
-          console.error('🚨', errorMsg, err)
-          alert(errorMsg)
-          reject(err)
-        }
-      })
-    } catch (error) {
-      console.error('❌ 保存朋友圈失败:', error)
-      reject(error)
-    }
-  })
+export async function ensureMomentsLoaded(): Promise<Moment[]> {
+  await momentsReady
+  return momentsCache || []
+}
+
+export async function updateMoments(update: (current: Moment[]) => Moment[]): Promise<Moment[]> {
+  await momentsReady
+  const saved = await IDB.updateItem<Moment[]>(IDB.STORES.MOMENTS, 'moments', current => update(current || []))
+  momentsCache = saved
+  window.dispatchEvent(new CustomEvent('moments-updated'))
+  window.dispatchEvent(new Event('storage'))
+  return saved
+}
+
+export async function saveMoments(moments: Moment[]): Promise<void> {
+  await updateMoments(() => structuredClone(moments))
 }
 
 /**
@@ -100,7 +75,7 @@ export async function publishMoment(
   groupId?: string
 ): Promise<Moment> {
   const newMoment: Moment = {
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     userId: user.id,
     userName: user.name,
     userAvatar: user.avatar,
@@ -119,37 +94,22 @@ export async function publishMoment(
   console.log('📱 准备发布朋友圈:', content.substring(0, 20) || '[纯图片]')
   console.log('📱 完整朋友圈对象:', newMoment)
   
-  const moments = loadMoments()
-  moments.unshift(newMoment)  // 添加到开头
-  
-  try {
-    await saveMoments(moments)
-    console.log('✅ 朋友圈发布成功')
-    return newMoment
-  } catch (error) {
-    console.error('❌ 朋友圈发布失败:', error)
-    // 恢复缓存（移除刚添加的朋友圈）
-    momentsCache = loadMoments().filter(m => m.id !== newMoment.id)
-    throw error
-  }
+  await updateMoments(current => [newMoment, ...current])
+  return newMoment
 }
 
 /**
  * 删除朋友圈
  */
 export async function deleteMoment(momentId: string): Promise<void> {
-  const moments = loadMoments()
-  const filtered = moments.filter(m => m.id !== momentId)
-  await saveMoments(filtered)
-  console.log('🗑️ 删除朋友圈:', momentId)
+  await updateMoments(current => current.filter(m => m.id !== momentId))
 }
 
 /**
  * 点赞朋友圈
  */
 export async function likeMoment(momentId: string, user: User): Promise<void> {
-  const moments = loadMoments()
-  const updated = moments.map(moment => {
+  await updateMoments(moments => moments.map(moment => {
     if (moment.id === momentId) {
       // 检查是否已点赞
       const hasLiked = moment.likes.some(like => like.userId === user.id)
@@ -162,7 +122,7 @@ export async function likeMoment(momentId: string, user: User): Promise<void> {
         likes: [
           ...moment.likes,
           {
-            id: `${Date.now()}-${user.id}`,
+            id: crypto.randomUUID(),
             userId: user.id,
             userName: user.name,
             userAvatar: user.avatar
@@ -171,9 +131,7 @@ export async function likeMoment(momentId: string, user: User): Promise<void> {
       }
     }
     return moment
-  })
-  
-  await saveMoments(updated)
+  }))
   console.log('👍 点赞朋友圈:', momentId)
   
   // 触发更新事件
@@ -184,8 +142,7 @@ export async function likeMoment(momentId: string, user: User): Promise<void> {
  * 取消点赞
  */
 export async function unlikeMoment(momentId: string, userId: string): Promise<void> {
-  const moments = loadMoments()
-  const updated = moments.map(moment => {
+  await updateMoments(moments => moments.map(moment => {
     if (moment.id === momentId) {
       return {
         ...moment,
@@ -193,9 +150,7 @@ export async function unlikeMoment(momentId: string, userId: string): Promise<vo
       }
     }
     return moment
-  })
-  
-  await saveMoments(updated)
+  }))
   console.log('👎 取消点赞:', momentId)
 }
 
@@ -208,17 +163,16 @@ export async function commentMoment(
   content: string,
   replyTo?: string  // 回复谁
 ): Promise<void> {
-  const moments = loadMoments()
   let updatedMoment: Moment | null = null
   
-  const updated = moments.map(moment => {
+  await updateMoments(moments => moments.map(moment => {
     if (moment.id === momentId) {
       const newMoment = {
         ...moment,
         comments: [
           ...moment.comments,
           {
-            id: `${Date.now()}-${user.id}`,
+            id: crypto.randomUUID(),
             userId: user.id,
             userName: user.name,
             userAvatar: user.avatar,
@@ -232,9 +186,7 @@ export async function commentMoment(
       return newMoment
     }
     return moment
-  })
-  
-  await saveMoments(updated)
+  }))
   console.log('💬 评论朋友圈:', content.substring(0, 20))
   
   // 触发更新事件
@@ -257,20 +209,9 @@ export async function commentMoment(
 /**
  * 删除评论
  */
-export function deleteComment(momentId: string, commentId: string): void {
-  const moments = loadMoments()
-  const updated = moments.map(moment => {
-    if (moment.id === momentId) {
-      return {
-        ...moment,
-        comments: moment.comments.filter(c => c.id !== commentId)
-      }
-    }
-    return moment
-  })
-  
-  saveMoments(updated)
-  console.log('🗑️ 删除评论:', commentId)
+export async function deleteComment(momentId: string, commentId: string): Promise<void> {
+  await updateMoments(moments => moments.map(moment => moment.id === momentId
+    ? { ...moment, comments: moment.comments.filter(c => c.id !== commentId) } : moment))
 }
 
 /**
@@ -295,52 +236,17 @@ export function getUserMoments(userId: string): Moment[] {
  * @param imageId 图片ID
  * @param description AI识别的描述
  */
-export function updateMomentImageDescription(
-  momentId: string,
-  imageId: string,
-  description: string
-): boolean {
-  const moments = loadMoments()
-  let updated = false
-  
-  const newMoments = moments.map(m => {
-    if (m.id === momentId && m.images) {
-      const newImages = m.images.map(img => {
-        if (img.id === imageId && !img.description) {
-          updated = true
-          console.log(`✅ [朋友圈图片识别] 保存描述: ${description.substring(0, 30)}...`)
-          return {
-            ...img,
-            description,
-            recognizedAt: Date.now()
-          }
-        }
-        return img
-      })
-      return { ...m, images: newImages }
-    }
-    return m
-  })
-  
-  if (updated) {
-    saveMoments(newMoments)
-    console.log(`💾 [朋友圈图片识别] 已保存图片描述到朋友圈 ${momentId}`)
-  }
-  
-  return updated
+export async function updateMomentImageDescription(momentId: string, imageId: string, description: string): Promise<boolean> {
+  return (await updateMomentImageDescriptions([{ momentId, imageId, description }])) > 0
 }
 
-/**
- * 🔥 批量更新朋友圈图片描述
- */
-export function updateMomentImageDescriptions(
-  updates: Array<{ momentId: string; imageId: string; description: string }>
-): number {
+export async function updateMomentImageDescriptions(updates: Array<{ momentId: string; imageId: string; description: string }>): Promise<number> {
   let count = 0
-  updates.forEach(({ momentId, imageId, description }) => {
-    if (updateMomentImageDescription(momentId, imageId, description)) {
-      count++
-    }
-  })
+  await updateMoments(moments => moments.map(moment => ({ ...moment, images: moment.images?.map(image => {
+    const update = updates.find(u => u.momentId === moment.id && u.imageId === image.id)
+    if (!update || image.description) return image
+    count++
+    return { ...image, description: update.description, recognizedAt: Date.now() }
+  }) })))
   return count
 }

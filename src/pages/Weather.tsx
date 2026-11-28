@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getCharacterById } from '../utils/characterManager'
@@ -469,7 +470,7 @@ ${worldbookContext || '无'}
 
     try {
       // 获取用户信息
-      const userInfoStr = localStorage.getItem('user_info')
+      const userInfoStr = getStoredUserProfileJSON()
       const userInfo = userInfoStr ? JSON.parse(userInfoStr) : {}
       
       console.log('📌 用户信息:', {

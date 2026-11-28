@@ -10,7 +10,7 @@ const SYNC_KEYS = [
   'apiConfigs',           // API配置列表（最重要！）
   'currentApiId',         // 当前使用的API ID
   'apiSettings',          // 当前API的详细设置
-  'summary_api_settings', // 总结API设置
+  'summary_api_config', // 总结API设置
 ]
 
 // 暂不同步IndexedDB（节省空间）

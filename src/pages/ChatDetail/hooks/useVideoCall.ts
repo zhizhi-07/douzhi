@@ -1,3 +1,4 @@
+import { nextMessageId } from '../../../utils/messageId'
 /**
  * 视频通话Hook
  * 管理视频通话状态和消息
@@ -51,7 +52,7 @@ export const useVideoCall = (
     
     // 🔥 生成绝对唯一的ID：时间戳 * 10000 + 计数器
     const now = Date.now()
-    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
+    const uniqueId = nextMessageId()
     
     console.log('🎯 [addAIMessage] 生成消息ID:', { uniqueId, now, counter: messageIdCounterRef.current - 1 })
     
@@ -153,9 +154,7 @@ export const useVideoCall = (
   const addNarratorMessage = useCallback((content: string) => {
     console.log('📺 [useVideoCall] 添加旁白消息:', content)
     
-    // 🔥 生成绝对唯一的ID
-    const now = Date.now()
-    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
+    const uniqueId = nextMessageId()
     
     const newMessage: CallMessage = {
       id: uniqueId,
@@ -451,9 +450,7 @@ export const useVideoCall = (
    * 发送用户消息
    */
   const sendMessage = useCallback((content: string) => {
-    // 🔥 生成绝对唯一的ID
-    const now = Date.now()
-    const uniqueId = now * 10000 + (messageIdCounterRef.current++)
+    const uniqueId = nextMessageId()
     
     console.log('💬 [sendMessage] 用户发送消息, ID:', uniqueId, 'content:', content.substring(0, 30))
     

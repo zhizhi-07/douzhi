@@ -1,9 +1,10 @@
+import { safeHtmlDocument, HTML_SANDBOX } from '../utils/safeHtmlDocument'
 /**
  * 聊天详情页面（重构版）
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { getUserInfo } from '../utils/userUtils'
 import { isMainAccount, getCurrentAccount } from '../utils/accountManager'
 import AddMenu from '../components/AddMenu'
@@ -20,7 +21,7 @@ import CoupleSpaceInputModal from '../components/CoupleSpaceInputModal'
 import Avatar from '../components/Avatar'
 import ForwardModal from '../components/ForwardModal'
 import ForwardedChatViewer from '../components/ForwardedChatViewer'
-import EmojiPanel from '../components/EmojiPanel'
+import EmojiPicker, { type EmojiPickerHandle } from '../components/EmojiPicker'
 import MusicInviteSelector from '../components/MusicInviteSelector'
 import AIMemoModal from '../components/AIMemoModal'
 import AIStatusModal from '../components/AIStatusModal'
@@ -33,14 +34,14 @@ import { TacitGameSelect, TacitTopicCard, TacitDrawPanel, TacitActPanel } from '
 import type { Message } from '../types/chat'
 import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
 import { correctAIMessageFormat } from '../utils/formatCorrector'
-import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useScrollControl, useJudgment, useTacitGame, useLogistics } from './ChatDetail/hooks'
+import { useChatState, useChatAI, useAddMenu, useMessageMenu, useLongPress, useTransfer, useVoice, useLocationMsg, usePhoto, useVideoCall, useChatNotifications, useCoupleSpace, useModals, useIntimatePay, useMultiSelect, useMusicInvite, useEmoji, useForward, usePaymentRequest, usePostGenerator, usePoke, useWallpaper, useOfflineRecord, useCustomIcons, useJudgment, useTacitGame, useLogistics } from './ChatDetail/hooks'
 import LogisticsModal from '../components/LogisticsModal'
 import ContactCardSelector from '../components/ContactCardSelector'
 import GomokuGame from '../components/GomokuGame'
 import ChatModals from './ChatDetail/components/ChatModals'
 import ChatHeader from './ChatDetail/components/ChatHeader'
 import IntimatePaySender from './ChatDetail/components/IntimatePaySender'
-import VirtualMessageList from './ChatDetail/components/VirtualMessageList'
+import { useMeasuredMessageWindow } from '../hooks/useMeasuredMessageWindow'
 import LoadingSkeleton from './ChatDetail/components/LoadingSkeleton'
 import OfflineRecordDialog from './ChatDetail/components/OfflineRecordDialog'
 import OfflineSummaryCard from './ChatDetail/components/OfflineSummaryCard'
@@ -67,6 +68,7 @@ const isGomokuOnlyMessage = (content?: string): boolean => {
 }
 
 const ChatDetail = () => {
+  const emojiPickerRef = useRef<EmojiPickerHandle>(null)
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
@@ -78,25 +80,21 @@ const ChatDetail = () => {
   const { showOfflineRecordDialog, setShowOfflineRecordDialog, editingOfflineRecord, setEditingOfflineRecord, handleSaveOfflineRecord, handleDeleteOfflineRecord } = useOfflineRecord(id, chatState.messages, chatState.setMessages, chatState.character?.realName)
   const { chatDecorations, customIcons, topBarScale, topBarX, topBarY, bottomBarScale, bottomBarX, bottomBarY } = useCustomIcons()
 
-  // 滚动控制
-  const { scrollContainerRef, scrollToBottom, isNearBottom } = useScrollControl(
-    chatState.messages,
-    false, // chatAI.isAiTyping will be set later
-    chatState.hasMoreMessages,
-    chatState.isLoadingMessages,
-    chatState.loadMoreMessages,
-    id // 🔥 传入chatId，确保切换聊天时重新滚动到底部
-  )
-
-  // 记录加载更多前的滚动位置，用于保持视口不跳动
-  const previousScrollHeightRef = useRef<number | null>(null)
-  const previousScrollTopRef = useRef<number | null>(null)
-
-  // 🔥 监听消息列表变化，恢复滚动位置（分页加载后）
-  // 注意：这个逻辑已经在 useScrollControl 中实现，这里移除以避免冲突
-
-  // 气泡样式
   const { cssLoaded: bubbleCssLoaded } = useChatBubbles(id)
+  const onlineMessages = useMemo(() => chatState.messages.filter(message => message.sceneMode !== 'offline' && message.messageType !== 'gomoku' && !isGomokuOnlyMessage(message.content)), [chatState.messages])
+  const paginationBusy = useRef(false)
+  const loadOlderMessages = useCallback(() => {
+    if (paginationBusy.current || chatState.isLoadingMessages || !chatState.hasMoreMessages) return
+    paginationBusy.current = true
+    void chatState.loadMoreMessages().finally(() => { paginationBusy.current = false })
+  }, [chatState.loadMoreMessages, chatState.isLoadingMessages, chatState.hasMoreMessages])
+  const onlineIndices = useMemo(() => new Map(onlineMessages.map((message, index) => [message.id, index])), [onlineMessages])
+  const { displayedMessages, virtualStyle, scrollContainerRef: attachScrollContainer, scrollToBottom, isNearBottom, resetVirtualList } = useMeasuredMessageWindow(onlineMessages, bubbleCssLoaded && !!chatState.character)
+  useEffect(() => {
+    resetVirtualList()
+    window.addEventListener('accountSwitched', resetVirtualList)
+    return () => window.removeEventListener('accountSwitched', resetVirtualList)
+  }, [id, resetVirtualList])
 
   // 隐藏时间戳设置
   const [hideTimestamp, setHideTimestamp] = useState(() => {
@@ -621,8 +619,7 @@ const ChatDetail = () => {
     messageMenu.setShowMessageMenu(true)
   })
 
-  // 🔥 禁用虚拟化，只使用分页加载（虚拟化有白屏BUG）
-  const shouldUseVirtualization = false
+  const shouldUseVirtualization = onlineMessages.length > 60
 
 
   // 🔥 优化：使用useCallback确保返回按钮始终可用
@@ -1024,10 +1021,11 @@ const ChatDetail = () => {
       )}
 
       <div
-        ref={scrollContainerRef}
+        ref={attachScrollContainer} data-testid="private-message-list" data-loaded-count={onlineMessages.length} onScroll={event => { if (event.currentTarget.scrollTop < 100) loadOlderMessages() }}
         className="flex-1 overflow-y-auto px-4 py-4 smooth-scroll"
         style={{
           WebkitOverflowScrolling: 'touch',
+          overflowAnchor: 'none',
           willChange: 'scroll-position',
           transform: 'translateZ(0)', // 🚀 GPU加速
           paddingTop: tacitGame.gameType ? '100px' : undefined // 给题目卡片留空间
@@ -1036,84 +1034,11 @@ const ChatDetail = () => {
         {/* 🔥 加载状态骨架屏 - 等待消息和气泡CSS都加载完成 */}
         {(chatState.isLoadingMessages && chatState.messages.length === 0) || !bubbleCssLoaded ? (
           <LoadingSkeleton />
-        ) : shouldUseVirtualization ? (
-          <VirtualMessageList
-            messages={chatState.messages.filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))}
-            character={character}
-            isAiTyping={chatAI.isAiTyping}
-            onMessageLongPress={longPress.handleLongPressStart}
-            onMessageLongPressMove={longPress.handleLongPressMove}
-            onMessageLongPressEnd={longPress.handleLongPressEnd}
-            onViewRecalledMessage={modals.setViewingRecalledMessage}
-            onViewCallRecord={modals.setViewingCallRecord}
-            onReceiveTransfer={transfer.handleReceiveTransfer}
-            onRejectTransfer={transfer.handleRejectTransfer}
-            onPlayVoice={(messageId) => voice.handlePlayVoice(messageId, 0)}
-            onToggleVoiceText={(messageId) => voice.handleToggleVoiceText(messageId)}
-            playingVoiceId={voice.playingVoiceId}
-            showVoiceTextMap={voice.showVoiceTextMap}
-            onUpdateIntimatePayStatus={async (messageId, newStatus) => {
-              // 🔥 获取用户名称
-              const userInfo = getUserInfo()
-              const userName = userInfo.nickname || userInfo.realName || '用户'
-              const characterName = chatState.character?.nickname || chatState.character?.realName || '对方'
-
-              let updatedMessages: Message[] = []
-              chatState.setMessages(prev => {
-                updatedMessages = prev.map(msg => {
-                  if (msg.id === messageId && msg.intimatePay) {
-                    // 🔥 根据状态生成AI可读内容
-                    const monthlyLimit = msg.intimatePay.monthlyLimit
-                    let aiReadableContent = ''
-                    if (msg.type === 'received') {
-                      // AI发给用户的亲密付
-                      if (newStatus === 'accepted') {
-                        aiReadableContent = `[${userName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                      } else if (newStatus === 'rejected') {
-                        aiReadableContent = `[${userName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                      }
-                    } else {
-                      // 用户发给AI的亲密付
-                      if (newStatus === 'accepted') {
-                        aiReadableContent = `[${characterName}接受了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                      } else if (newStatus === 'rejected') {
-                        aiReadableContent = `[${characterName}拒绝了你的亲密付邀请，额度¥${monthlyLimit.toFixed(2)}/月]`
-                      }
-                    }
-                    return {
-                      ...msg,
-                      intimatePay: { ...msg.intimatePay, status: newStatus },
-                      aiReadableContent
-                    }
-                  }
-                  return msg
-                })
-                return updatedMessages
-              })
-              // 🔥 保存到IndexedDB
-              if (id && updatedMessages.length > 0) {
-                await saveMessages(id, updatedMessages)
-                console.log('💾 [亲密付状态更新] 已保存到数据库，AI可读内容已添加')
-              }
-            }}
-            onAcceptCoupleSpace={coupleSpace.acceptInvite}
-            onRejectCoupleSpace={coupleSpace.rejectInvite}
-            onAcceptMusicInvite={musicInvite.acceptInvite}
-            onRejectMusicInvite={musicInvite.rejectInvite}
-            onEditOfflineRecord={(message) => {
-              setEditingOfflineRecord(message)
-              setShowOfflineRecordDialog(true)
-            }}
-            hasMoreMessages={chatState.hasMoreMessages}
-            isLoadingMessages={chatState.isLoadingMessages}
-            onLoadMore={chatState.loadMoreMessages}
-            timestampRefreshKey={timestampRefreshKey}
-          />
         ) : (
           <>
             {/* 🔥 加载更多按钮 - 显示在消息列表顶部 */}
             {chatState.hasMoreMessages && (
-              <div className="flex justify-center py-3 mb-2">
+              <div data-message-header className="flex justify-center py-3 mb-2">
                 {chatState.isLoadingMessages ? (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
@@ -1123,16 +1048,7 @@ const ChatDetail = () => {
                   <button
                     onClick={() => {
                       playLoadMoreSound() // 🎵 播放加载音效
-                      // 🔥 点击前记录当前滚动状态
-                      if (scrollContainerRef.current) {
-                        previousScrollHeightRef.current = scrollContainerRef.current.scrollHeight
-                        previousScrollTopRef.current = scrollContainerRef.current.scrollTop
-                        console.log('📜 [ChatDetail] 点击加载更多，记录状态', {
-                          scrollHeight: scrollContainerRef.current.scrollHeight,
-                          scrollTop: scrollContainerRef.current.scrollTop
-                        })
-                      }
-                      chatState.loadMoreMessages()
+                      loadOlderMessages()
                     }}
                     className="text-sm text-blue-500 hover:text-blue-600 px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors active:scale-95"
                   >
@@ -1142,13 +1058,12 @@ const ChatDetail = () => {
               </div>
             )}
 
-            {chatState.messages
-              .filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))  // 🔥 过滤掉线下模式和五子棋指令消息
-              .map((message, index) => {
-                // 获取过滤后的消息列表用于计算时间戳
-                const visibleMessages = chatState.messages.filter(m => m.sceneMode !== 'offline' && m.messageType !== 'gomoku' && !isGomokuOnlyMessage(m.content))
+            <div style={{ height: virtualStyle.paddingTop }} />
+            {displayedMessages.map((message) => {
+              const renderMessage = () => {
+                const index = onlineIndices.get(message.id) || 0
+                const prevMsg = onlineMessages[index - 1]
                 // 判断是否需要显示时间戳（两条消息间隔超过5分钟就显示）
-                const prevMsg = visibleMessages[index - 1]
                 let shouldShow5MinTimestamp = false
 
                 if (index === 0) {
@@ -1689,7 +1604,7 @@ const ChatDetail = () => {
                           ) ? (
                             <div className="html-message-content">
                               <iframe
-                                srcDoc={message.content || ''}
+                                srcDoc={safeHtmlDocument(message.content || '')}
                                 style={{
                                   width: '280px',
                                   height: '420px',
@@ -1697,7 +1612,7 @@ const ChatDetail = () => {
                                   borderRadius: '12px',
                                   background: '#fff'
                                 }}
-                                sandbox="allow-same-origin allow-scripts"
+                                sandbox={HTML_SANDBOX} referrerPolicy="no-referrer"
                                 title="HTML内容"
                               />
                             </div>
@@ -1920,7 +1835,10 @@ const ChatDetail = () => {
                     )}
                   </div>
                 )
+              }
+              return <div key={`${message.id}-${timestampRefreshKey}`} data-message-id={message.id} style={{ display: 'flow-root' }}>{renderMessage()}</div>
               })}
+            <div style={{ height: virtualStyle.paddingBottom }} />
           </>
         )}
 
@@ -2165,7 +2083,7 @@ const ChatDetail = () => {
               />
             </div>
             <button
-              onClick={() => emoji.setShowEmojiPanel(true)}
+              onClick={() => emojiPickerRef.current?.open()} aria-label="打开表情包"
               className="chat-emoji-btn w-9 h-9 flex items-center justify-center ios-button text-gray-700 btn-press-fast touch-ripple-effect flex-shrink-0"
             >
               {customIcons['chat-emoji'] ? (
@@ -2351,11 +2269,7 @@ const ChatDetail = () => {
       />
 
       {/* 表情包面板 */}
-      <EmojiPanel
-        show={emoji.showEmojiPanel}
-        onClose={() => emoji.setShowEmojiPanel(false)}
-        onSelect={emoji.sendEmoji}
-      />
+      <EmojiPicker ref={emojiPickerRef} onSelect={emoji.sendEmoji} />
 
       {/* 音乐选择器 */}
       {musicInvite.showMusicInviteSelector && (

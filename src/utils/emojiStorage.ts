@@ -16,6 +16,17 @@ export interface Emoji {
 }
 
 const STORAGE_KEY = 'custom_emojis'
+const USE_COUNTS_KEY = 'emoji_use_counts'
+const REVISION_KEY = 'emoji_library_revision'
+function notifyLibraryChanged() {
+  try { localStorage.setItem(REVISION_KEY, `${Date.now()}_${Math.random()}`) } catch {}
+}
+if (typeof window !== 'undefined') window.addEventListener('storage', event => {
+  if (event.key === REVISION_KEY || event.key === null) clearCache()
+})
+let loadPromise: Promise<Emoji[]> | null = null
+let useCounts: Record<string, number> = {}
+let countWrites: Promise<void> = Promise.resolve()
 
 // 用于缓存数据，减少IndexedDB访问
 let emojiCache: Emoji[] | null = null
@@ -42,7 +53,7 @@ export function clearCache(): void {
 /**
  * 获取所有表情包
  */
-export async function getEmojis(): Promise<Emoji[]> {
+async function loadEmojis(): Promise<Emoji[]> {
   try {
     // 如果有缓存，直接返回
     if (emojiCache !== null) {
@@ -98,6 +109,23 @@ export async function getEmojis(): Promise<Emoji[]> {
   }
 }
 
+/** Share the cold read among message bubbles and reuse decoded image strings on reopen. */
+export function getEmojis(): Promise<Emoji[]> {
+  if (loadPromise) return loadPromise
+  if (emojiCache !== null) return Promise.resolve(emojiCache)
+  loadPromise = loadEmojis().then(async emojis => {
+    let storedCounts: unknown = null
+    try {
+      storedCounts = IDB.isIndexedDBAvailable() ? await IDB.getItem(USE_COUNTS_KEY) : JSON.parse(localStorage.getItem(USE_COUNTS_KEY) || '{}')
+    } catch (error) { console.warn('使用次数无法读取，继续显示表情库:', error) }
+    useCounts = storedCounts && typeof storedCounts === 'object' && !Array.isArray(storedCounts)
+      ? Object.fromEntries(Object.entries(storedCounts).filter(([, count]) => Number.isSafeInteger(count) && Number(count) >= 0)) : {}
+    emojiCache = emojis.map(emoji => useCounts[emoji.id] > emoji.useCount ? { ...emoji, useCount: useCounts[emoji.id] } : emoji)
+    return emojiCache
+  }).finally(() => { loadPromise = null })
+  return loadPromise
+}
+
 /**
  * 保存表情包列表
  */
@@ -124,6 +152,7 @@ export async function saveEmojis(emojis: Emoji[]): Promise<boolean> {
     
     // 更新缓存
     emojiCache = emojis
+    notifyLibraryChanged()
     
     return true
   } catch (error) {
@@ -257,17 +286,20 @@ export async function updateEmoji(id: number, updates: Partial<Pick<Emoji, 'name
 /**
  * 增加使用次数
  */
-export async function incrementUseCount(id: number): Promise<void> {
-  try {
+export function incrementUseCount(id: number): Promise<void> {
+  // Serialize the metadata update as well as its write, so rapid taps retain every count.
+  countWrites = countWrites.catch(() => {}).then(async () => {
     const emojis = await getEmojis()
-    const emoji = emojis.find(e => e.id === id)
-    if (emoji) {
-      emoji.useCount = (emoji.useCount || 0) + 1
-      await saveEmojis(emojis)
-    }
-  } catch (error) {
-    console.error('更新使用次数失败:', error)
-  }
+    const emoji = emojis.find(item => item.id === id)
+    if (!emoji) return
+    const count = (emoji.useCount || 0) + 1
+    emojiCache = emojis.map(item => item.id === id ? { ...item, useCount: count } : item)
+    useCounts = { ...useCounts, [id]: count }
+    // Never rewrite the library's base64/GIF payload for a tap.
+    if (IDB.isIndexedDBAvailable()) await IDB.setItem(USE_COUNTS_KEY, useCounts)
+    else localStorage.setItem(USE_COUNTS_KEY, JSON.stringify(useCounts))
+  })
+  return countWrites
 }
 
 /**
@@ -378,16 +410,21 @@ export async function clearAllEmojis(): Promise<boolean> {
   try {
     // 尝试从IndexedDB删除
     if (IDB.isIndexedDBAvailable()) {
+      await countWrites.catch(() => {})
       await IDB.removeItem(STORAGE_KEY)
+      await IDB.removeItem(USE_COUNTS_KEY)
       console.log('已清空IndexedDB中的表情包')
     }
 
     // 同时清除localStorage（兼容性处理）
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(USE_COUNTS_KEY)
+    useCounts = {}
     console.log('已清空localStorage中的表情包')
     
     // 清除缓存（设为null而不是空数组，下次会重新加载）
     emojiCache = null
+    notifyLibraryChanged()
     
     return true
   } catch (error) {

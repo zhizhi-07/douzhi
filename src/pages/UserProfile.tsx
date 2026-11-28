@@ -5,28 +5,32 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
-import { getUserInfo, saveUserInfo, type UserInfo } from '../utils/userUtils'
-import { trackNicknameChange, trackSignatureChange, trackAvatarChange } from '../utils/userInfoChangeTracker'
-import { characterService } from '../services/characterService'
-import { loadMessages, saveMessages } from '../utils/simpleMessageManager'
-import type { Message } from '../types/chat'
+import { getUserInfo, getUserInfoWithAvatar, saveUserInfo, type UserInfo } from '../utils/userUtils'
+import { trackAvatarChange, getUserInfoChangeHistory } from '../utils/userInfoChangeTracker'
 import { compressAndConvertToBase64 } from '../utils/imageUtils'
 import { recognizeUserAvatar, setUserAvatarDescription } from '../utils/userAvatarManager'
-import { saveUserAvatar, getUserAvatar } from '../utils/avatarStorage'
+import { saveUserAvatar, deleteAvatar } from '../utils/avatarStorage'
 
 const UserProfile = () => {
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo>(getUserInfo())
   const [isSaving, setIsSaving] = useState(false)
+  const [avatarLoading, setAvatarLoading] = useState(true)
+  const [avatarProcessing, setAvatarProcessing] = useState(false)
+  const avatarEditedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // 🔥 从 IndexedDB 加载头像
   useEffect(() => {
-    getUserAvatar().then(avatar => {
-      if (avatar) {
-        setUserInfo(prev => ({ ...prev, avatar }))
+    let cancelled = false
+    getUserInfoWithAvatar().then(info => {
+      if (!cancelled && !avatarEditedRef.current) {
+        setUserInfo(prev => ({ ...prev, avatar: info.avatar }))
       }
+    }).finally(() => {
+      if (!cancelled) setAvatarLoading(false)
     })
+    return () => { cancelled = true }
   }, [])
 
   // 处理图片上传
@@ -46,13 +50,17 @@ const UserProfile = () => {
       }
       
       try {
+        setAvatarProcessing(true)
         // 压缩图片（头像使用较小尺寸：800x800，质量0.8）
         const base64 = await compressAndConvertToBase64(file, 800, 800, 0.8)
         const dataUrl = `data:image/jpeg;base64,${base64}`
-        setUserInfo({ ...userInfo, avatar: dataUrl })
+        avatarEditedRef.current = true
+        setUserInfo(prev => ({ ...prev, avatar: dataUrl }))
       } catch (error) {
         console.error('压缩头像失败:', error)
         alert('图片处理失败，请重试')
+      } finally {
+        setAvatarProcessing(false)
       }
     }
   }
@@ -60,7 +68,7 @@ const UserProfile = () => {
   // 保存到localStorage
   const handleSave = async () => {
     // 防止重复点击
-    if (isSaving) return
+    if (isSaving || avatarLoading || avatarProcessing) return
     
     // 验证必填项
     if (!userInfo.realName || !userInfo.realName.trim()) {
@@ -71,7 +79,8 @@ const UserProfile = () => {
     setIsSaving(true)
     
     // 获取旧的用户信息用于对比
-    const oldUserInfo = getUserInfo()
+    // 同步读取会隐藏 IndexedDB 标记，必须比较实际头像数据。
+    const oldUserInfo = await getUserInfoWithAvatar()
     
     // 如果没有填写网名，使用真实姓名
     const finalUserInfo = {
@@ -80,12 +89,10 @@ const UserProfile = () => {
     }
     
     // 检测修改
-    const nicknameChanged = oldUserInfo.nickname !== finalUserInfo.nickname
-    const signatureChanged = oldUserInfo.signature !== finalUserInfo.signature
     const avatarChanged = oldUserInfo.avatar !== finalUserInfo.avatar && finalUserInfo.avatar
     
     // 🔥 如果有头像，保存到 IndexedDB
-    if (finalUserInfo.avatar) {
+    if (avatarChanged && finalUserInfo.avatar) {
       try {
         const saved = await saveUserAvatar(finalUserInfo.avatar)
         if (!saved) {
@@ -109,86 +116,43 @@ const UserProfile = () => {
     }
     
     try {
-      saveUserInfo(infoToSave)
+      await saveUserInfo(infoToSave)
     } catch (error) {
+      if (avatarChanged) {
+        const restored = oldUserInfo.avatar ? await saveUserAvatar(oldUserInfo.avatar) : await deleteAvatar('user')
+        if (!restored) console.error('头像回滚失败，请保留原文件重试')
+      }
       console.error('❌ 保存用户信息失败:', error)
       alert('保存失败，请重试')
       setIsSaving(false)
       return
     }
     
-    // 🔥 追踪用户信息变更（用于提示词生成）
-    if (nicknameChanged) {
-      trackNicknameChange(finalUserInfo.nickname)
-    }
-    if (signatureChanged && finalUserInfo.signature) {
-      trackSignatureChange(finalUserInfo.signature)
-    }
+    // 网名、签名由 saveUserInfo 统一追踪。
     if (avatarChanged && finalUserInfo.avatar) {
+      if (!getUserInfoChangeHistory().avatar.current && oldUserInfo.avatar) trackAvatarChange(oldUserInfo.avatar)
       trackAvatarChange(finalUserInfo.avatar)
       
       // 🔥 只有开启了"允许AI看头像"才触发识别
       if (finalUserInfo.allowAvatarRecognition) {
         // 换头像时强制重新识别，不管之前是否有记录
         const avatarUrl = finalUserInfo.avatar
+        setUserAvatarDescription('头像待识别（无法看到具体内容）', avatarUrl, 'main')
         console.log('🔍 检测到头像变更，准备调用AI识别...')
-        recognizeUserAvatar(avatarUrl).then(description => {
+        recognizeUserAvatar(avatarUrl).then(async description => {
+          const latest = await getUserInfoWithAvatar()
+          if (!latest.allowAvatarRecognition || latest.avatar !== avatarUrl) return
           if (description) {
-            setUserAvatarDescription(description, avatarUrl)
+            setUserAvatarDescription(description, avatarUrl, 'main')
             console.log('✅ 头像识别完成:', description)
           } else {
-            // 🔥 即使识别失败，也更新URL（防止重复尝试）
-            setUserAvatarDescription('用户刚换了新头像（当前API不支持图片识别，无法看到具体内容）', avatarUrl)
-            console.log('⚠️ 头像识别失败，已设置占位描述')
+            console.log('⚠️ 头像识别失败，保留待识别状态')
           }
         }).catch(error => {
           console.error('❌ 头像识别失败:', error)
-          setUserAvatarDescription('用户刚换了新头像（识别失败，无法看到具体内容）', avatarUrl)
         })
       } else {
         console.log('📷 用户未开启头像识别，跳过AI识别')
-      }
-    }
-    
-    // 🔥 给所有AI聊天添加隐藏系统消息（AI能看见，用户看不见）
-    const changes: string[] = []
-    if (nicknameChanged && oldUserInfo.nickname) {
-      changes.push(`用户将网名从"${oldUserInfo.nickname}"改为"${finalUserInfo.nickname}"`)
-    }
-    if (signatureChanged) {
-      if (oldUserInfo.signature && finalUserInfo.signature) {
-        changes.push(`用户将个性签名从"${oldUserInfo.signature}"改为"${finalUserInfo.signature}"`)
-      } else if (finalUserInfo.signature) {
-        changes.push(`用户设置了个性签名："${finalUserInfo.signature}"`)
-      } else if (oldUserInfo.signature) {
-        changes.push(`用户清空了个性签名`)
-      }
-    }
-    if (avatarChanged) {
-      changes.push(`用户换了新头像`)
-    }
-    
-    // 如果有变更，给所有AI聊天添加隐藏消息
-    if (changes.length > 0) {
-      const allCharacters = characterService.getAll()
-      const changeText = changes.join('；')
-      
-      for (const char of allCharacters) {
-        const messages = loadMessages(char.id)
-        const now = Date.now()
-        const aiOnlyMessage: Message = {
-          id: now * 10000 + Math.floor(Math.random() * 10000),
-          type: 'system',
-          content: changeText,
-          aiReadableContent: `【用户信息变更】${changeText}`,
-          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          timestamp: now,
-          messageType: 'system',
-          aiOnly: true  // 🔥 只给AI看，用户界面不显示
-        }
-        messages.push(aiOnlyMessage)
-        saveMessages(char.id, messages)
-        console.log(`📝 已向 ${char.nickname || char.realName} 的聊天添加用户信息变更通知`)
       }
     }
     
@@ -212,8 +176,8 @@ const UserProfile = () => {
           <h1 className="text-base font-semibold">个人信息</h1>
           <button
             onClick={handleSave}
-            disabled={isSaving}
-            className={`text-sm font-medium ${isSaving ? 'text-gray-400' : 'text-green-600'}`}
+            disabled={isSaving || avatarLoading || avatarProcessing}
+            className={`text-sm font-medium ${isSaving || avatarLoading || avatarProcessing ? 'text-gray-400' : 'text-green-600'}`}
           >
             {isSaving ? '保存中...' : '保存'}
           </button>

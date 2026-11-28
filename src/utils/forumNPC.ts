@@ -4,7 +4,6 @@
 const DB_NAME = 'forum_db'
 const DB_VERSION = 1
 const POSTS_STORE = 'posts'
-const MAX_POSTS = 200 // 最多保存200条帖子
 
 let dbInstance: IDBDatabase | null = null
 let postsCache: ForumPost[] | null = null // 内存缓存
@@ -69,7 +68,7 @@ async function savePostsToDB(posts: ForumPost[]): Promise<void> {
     const db = await openDB()
     
     // 只保留最近的帖子
-    const recentPosts = posts.slice(0, MAX_POSTS)
+    const recentPosts = posts
     
     // 🔥 使用单个事务完成清空和写入，保证原子性
     // 如果写入失败，清空也会回滚
@@ -85,8 +84,9 @@ async function savePostsToDB(posts: ForumPost[]): Promise<void> {
         try {
           store.put(post)
         } catch (putError) {
-          console.warn(`⚠️ 帖子写入失败 (${post.id}):`, putError)
-          // 继续写入其他帖子，不中断
+          tx.abort()
+          reject(putError)
+          return
         }
       }
       
@@ -111,6 +111,7 @@ async function savePostsToDB(posts: ForumPost[]): Promise<void> {
     })
   } catch (e) {
     console.error('❌ 保存帖子到IndexedDB失败:', e)
+    throw e
     // 🔥 失败时不清空缓存，让用户至少能看到旧数据
   }
 }
@@ -126,7 +127,7 @@ async function addSinglePost(post: ForumPost): Promise<boolean> {
       
       const request = store.put(post)
       
-      request.onsuccess = () => {
+      tx.oncomplete = () => {
         // 更新缓存
         if (postsCache) {
           // 检查是否已存在
@@ -139,14 +140,13 @@ async function addSinglePost(post: ForumPost): Promise<boolean> {
           // 保持排序
           postsCache.sort((a, b) => b.timestamp - a.timestamp)
           // 限制数量
-          if (postsCache.length > MAX_POSTS) {
-            postsCache = postsCache.slice(0, MAX_POSTS)
-          }
+
         }
         console.log(`✅ 帖子已添加: ${post.id}`)
         resolve(true)
       }
       
+      tx.onabort = () => resolve(false)
       request.onerror = () => {
         console.error(`❌ 添加帖子失败: ${post.id}`, request.error)
         resolve(false)
@@ -169,7 +169,7 @@ async function deleteSinglePost(postId: string): Promise<boolean> {
       
       const request = store.delete(postId)
       
-      request.onsuccess = () => {
+      tx.oncomplete = () => {
         // 更新缓存
         if (postsCache) {
           postsCache = postsCache.filter(p => p.id !== postId)
@@ -178,6 +178,7 @@ async function deleteSinglePost(postId: string): Promise<boolean> {
         resolve(true)
       }
       
+      tx.onabort = () => resolve(false)
       request.onerror = () => {
         console.error(`❌ 删除帖子失败: ${postId}`, request.error)
         resolve(false)
@@ -191,22 +192,16 @@ async function deleteSinglePost(postId: string): Promise<boolean> {
 
 // 迁移 localStorage 到 IndexedDB
 async function migratePostsToIndexedDB(): Promise<void> {
-  const stored = localStorage.getItem('forum_posts')
-  if (!stored) return
-  
+  const raw = localStorage.getItem('forum_posts')
+  if (!raw) return
   try {
-    const posts = JSON.parse(stored)
-    if (Array.isArray(posts) && posts.length > 0) {
-      console.log(`🔄 迁移 ${posts.length} 条帖子到 IndexedDB...`)
-      await savePostsToDB(posts)
-      localStorage.removeItem('forum_posts') // 迁移成功后删除
-      console.log('✅ 帖子迁移完成')
-    } else {
-      localStorage.removeItem('forum_posts')
-    }
-  } catch (e) {
-    console.warn('迁移帖子失败，清理旧数据:', e)
-    localStorage.removeItem('forum_posts')
+    const posts = JSON.parse(raw)
+    if (!Array.isArray(posts) || posts.some(post => typeof post.npcId !== 'string')) return
+    const existing = await loadPostsFromDB(true)
+    await savePostsToDB([...new Map([...posts, ...existing].map(post => [post.id, post])).values()])
+    if (localStorage.getItem('forum_posts') === raw) localStorage.removeItem('forum_posts')
+  } catch (error) {
+    console.warn('迁移帖子失败，原始数据已保留:', error)
   }
 }
 

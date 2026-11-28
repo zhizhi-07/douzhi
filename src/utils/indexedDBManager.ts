@@ -147,78 +147,25 @@ function initDB(): Promise<IDBDatabase> {
  */
 export async function setItem(store: string, key: string, value: any): Promise<void> {
   try {
-    // 🔥 关键修复：在保存前先通过JSON序列化清理不可克隆的对象
-    // 这会移除：Event、PointerEvent、DOM元素、函数、循环引用等
-    let cleanedValue = value
+    // Structured clone preserves large histories without JSON string-size limits.
+    // Never truncate records or report success after a serialization failure.
+    let cleanedValue: any
     try {
-      const seen = new WeakSet()
-      const jsonString = JSON.stringify(value, (_key, val) => {
-        if (typeof val === 'object' && val !== null) {
-          // 检测循环引用
+      cleanedValue = structuredClone(value)
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'DataCloneError') throw error
+      const seen = new WeakSet<object>()
+      cleanedValue = JSON.parse(JSON.stringify(value, (_key, val) => {
+        if (typeof val === 'function') return undefined
+        if (val && typeof val === 'object') {
+          if (val instanceof Event || (typeof Node !== 'undefined' && val instanceof Node)) return undefined
           if (seen.has(val)) return undefined
           seen.add(val)
-          
-          // 移除Event对象和DOM元素
-          if (val instanceof Event || 
-              val instanceof Node || 
-              val instanceof Window || 
-              val instanceof Document) {
-            return undefined
-          }
-          
-          // 检查构造函数名称
-          if (val.constructor) {
-            const name = val.constructor.name
-            if (name.includes('Event') || 
-                name.includes('Element') ||
-                name === 'Window' ||
-                name === 'Document') {
-              return undefined
-            }
-          }
         }
-        
-        // 移除函数
-        if (typeof val === 'function') return undefined
-        
         return val
-      })
-      
-      cleanedValue = JSON.parse(jsonString)
-    } catch (cleanError) {
-      // 🔥 数据太大，尝试压缩后再保存
-      if (cleanError instanceof RangeError) {
-        console.warn('⚠️ [IndexedDB] 数据太大，尝试压缩...')
-        try {
-          // 如果是数组（消息列表），只保留最近300条，并移除大型数据
-          if (Array.isArray(value)) {
-            const compressed = value.slice(-300).map((item: any) => {
-              if (!item) return item
-              const copy = { ...item }
-              // 移除 base64 图片数据（太大）
-              if (copy.emojiUrl?.startsWith('data:')) {
-                copy.emojiUrl = '[图片数据已压缩]'
-              }
-              if (copy.content?.startsWith('data:image')) {
-                copy.content = '[图片]'
-              }
-              return copy
-            })
-            cleanedValue = compressed
-            console.log(`📦 [IndexedDB] 压缩后保存 ${compressed.length} 条`)
-          } else {
-            console.warn('⚠️ [IndexedDB] 无法压缩，跳过保存')
-            return
-          }
-        } catch {
-          console.warn('⚠️ [IndexedDB] 压缩失败，跳过保存')
-          return
-        }
-      } else {
-        console.warn('⚠️ [IndexedDB] 清理数据失败，使用原始数据:', cleanError)
-      }
+      }))
     }
-    
+
     const db = await initDB()
     const transaction = db.transaction([store], 'readwrite')
     const objectStore = transaction.objectStore(store)
@@ -226,10 +173,9 @@ export async function setItem(store: string, key: string, value: any): Promise<v
     return new Promise((resolve, reject) => {
       const request = objectStore.put(cleanedValue, key)
       
-      request.onsuccess = () => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(new Error('事务失败'))
-      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error || new Error('事务中止'))
+      transaction.onerror = () => reject(transaction.error || new Error('事务失败'))
       request.onerror = (event) => {
         const error = (event.target as IDBRequest).error
         console.error('❌ [IndexedDB] 保存失败:', error?.message || error)
@@ -242,10 +188,33 @@ export async function setItem(store: string, key: string, value: any): Promise<v
   }
 }
 
+/** Read/modify/write in one transaction, including across tabs. */
+export async function updateItem<T>(store: string, key: string, update: (current: T | null) => T): Promise<T> {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(store, 'readwrite')
+    const objectStore = transaction.objectStore(store)
+    let result: T
+    transaction.oncomplete = () => resolve(result)
+    transaction.onabort = () => reject(transaction.error || new Error('事务中止'))
+    transaction.onerror = () => reject(transaction.error || new Error('事务失败'))
+    const request = objectStore.get(key)
+    request.onsuccess = () => {
+      try {
+        result = update(request.result ?? null)
+        objectStore.put(result, key)
+      } catch (error) {
+        transaction.abort()
+        reject(error)
+      }
+    }
+  })
+}
+
 /**
  * 从IndexedDB读取数据
  */
-export async function getItem<T>(store: string, key: string): Promise<T | null> {
+export async function getItem<T>(store: string, key: string, throwOnError = false): Promise<T | null> {
   try {
     const db = await initDB()
     const transaction = db.transaction([store], 'readonly')
@@ -261,6 +230,7 @@ export async function getItem<T>(store: string, key: string): Promise<T | null> 
     })
   } catch (error) {
     console.error('IndexedDB getItem error:', error)
+    if (throwOnError) throw error
     return null
   }
 }
@@ -277,10 +247,9 @@ export async function removeItem(store: string, key: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = objectStore.delete(key)
       
-      request.onsuccess = () => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(new Error('事务失败'))
-      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error || new Error('事务中止'))
+      transaction.onerror = () => reject(transaction.error || new Error('事务失败'))
       request.onerror = () => reject(new Error('删除数据失败'))
     })
   } catch (error) {
@@ -324,10 +293,9 @@ export async function clearStore(store: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = objectStore.clear()
       
-      request.onsuccess = () => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(new Error('事务失败'))
-      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error || new Error('事务中止'))
+      transaction.onerror = () => reject(transaction.error || new Error('事务失败'))
       request.onerror = () => reject(new Error('清空store失败'))
     })
   } catch (error) {
@@ -399,4 +367,37 @@ export async function emergencyResetDB(): Promise<void> {
 // 🔥 暴露到全局，方便控制台调用
 if (typeof window !== 'undefined') {
   (window as any).emergencyResetDB = emergencyResetDB
+}
+
+/** Remove a contact and every account's history in the same commit. */
+export async function deleteCharacterRecords(characterId: string): Promise<any[]> {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORES.CHARACTERS, STORES.MESSAGES, STORES.SETTINGS, STORES.MISC], 'readwrite')
+    let saved: any[] = []
+    tx.oncomplete = () => resolve(saved)
+    tx.onabort = tx.onerror = () => reject(tx.error || new Error('删除角色事务失败'))
+    const characters = tx.objectStore(STORES.CHARACTERS)
+    const read = characters.get('all')
+    read.onsuccess = () => {
+      if (read.result !== undefined && !Array.isArray(read.result)) { tx.abort(); return }
+      saved = (read.result || []).filter((character: any) => character.id !== characterId)
+      characters.put(saved, 'all')
+      tx.objectStore(STORES.MISC).put({ characters: saved, timestamp: Date.now() }, 'characters_backup')
+    }
+    const cursor = tx.objectStore(STORES.MESSAGES).openCursor()
+    const accountIds: string[] = JSON.parse(localStorage.getItem('user_accounts') || '[]').map((account: any) => account.id)
+    cursor.onsuccess = () => {
+      const item = cursor.result
+      if (!item) return
+      const key = String(item.key)
+      if (key === characterId || key.startsWith(`${characterId}_sub_`) || accountIds.some(id => key === `${characterId}_${id}`)) item.delete()
+      item.continue()
+    }
+    const settings = tx.objectStore(STORES.SETTINGS)
+    const chats = settings.get('chat_list')
+    chats.onsuccess = () => {
+      if (Array.isArray(chats.result)) settings.put(chats.result.filter((chat: any) => chat.id !== characterId && chat.characterId !== characterId), 'chat_list')
+    }
+  })
 }

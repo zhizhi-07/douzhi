@@ -4,67 +4,7 @@
  */
 
 export function cleanupOldMessages(): void {
-  console.log('🧹 开始清理 localStorage 中的旧数据...')
-  
-  let cleanedCount = 0
-  let freedSpace = 0
-  
-  // 🔥 核心数据键（绝对不能删）
-  const criticalKeys = [
-    'api_settings', 'user_info', 'characters', 'chat_list', 
-    'app_settings', 'user_accounts', 'current_account'
-  ]
-  
-  // 遍历所有 localStorage 键
-  const keysToRemove: string[] = []
-  
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (!key) continue
-    
-    // 跳过核心数据
-    if (criticalKeys.some(k => key.includes(k))) continue
-    
-    const value = localStorage.getItem(key) || ''
-    const size = value.length * 2 // UTF-16
-    
-    // 清理以 chat_messages_ 开头的键（旧的消息存储）
-    if (key.startsWith('chat_messages_')) {
-      freedSpace += size
-      keysToRemove.push(key)
-      cleanedCount++
-    }
-    
-    // 清理以 group_messages_ 开头的键（旧的群聊消息存储）
-    if (key.startsWith('group_messages_')) {
-      freedSpace += size
-      keysToRemove.push(key)
-      cleanedCount++
-    }
-    
-    // 🔥 清理过大的 msg_backup_（超过100KB的备份）
-    if (key.startsWith('msg_backup_') && size > 100 * 1024) {
-      console.log(`  🗑️ 清理过大备份: ${key} (${(size / 1024).toFixed(1)}KB)`)
-      freedSpace += size
-      keysToRemove.push(key)
-      cleanedCount++
-    }
-  }
-  
-  // 删除找到的键
-  keysToRemove.forEach(key => {
-    try {
-      localStorage.removeItem(key)
-    } catch (e) {
-      // 静默失败
-    }
-  })
-  
-  if (cleanedCount > 0) {
-    console.log(`✅ 清理完成！删除了 ${cleanedCount} 个旧数据键，释放约 ${(freedSpace / 1024 / 1024).toFixed(2)} MB 空间`)
-  }
-  
-  // 打印清理后的使用情况
+  // Only the owning migration can prove that a legacy record was committed.
   printLocalStorageUsage()
 }
 
@@ -112,44 +52,7 @@ export function printLocalStorageUsage(): void {
  * 紧急清理 - 强制清理所有非核心数据
  */
 export function emergencyCleanup(): void {
-  console.warn('🚨 执行紧急清理...')
-  
-  // 🔥 核心数据键（绝对不能删）
-  const criticalKeys = [
-    'api_settings', 'user_info', 'characters', 'chat_list', 
-    'app_settings', 'user_accounts', 'current_account'
-  ]
-  
-  let totalCleaned = 0
-  const keysToRemove: string[] = []
-  
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (!key) continue
-    
-    // 跳过核心数据
-    if (criticalKeys.some(k => key.includes(k))) continue
-    
-    const value = localStorage.getItem(key) || ''
-    const size = value.length * 2
-    
-    // 清理旧消息、大文件
-    // 🔥🔥🔥 关键修复：不再删除 msg_backup_！这是数据恢复的最后手段
-    if (key.startsWith('chat_messages_') || 
-        key.startsWith('group_messages_') ||
-        (size > 200 * 1024 && !key.startsWith('msg_backup_'))) { // 超过200KB的清理，但不删除消息备份
-      totalCleaned += size
-      keysToRemove.push(key)
-    }
-  }
-  
-  console.log(`找到 ${keysToRemove.length} 个可清理项，总计 ${(totalCleaned / 1024 / 1024).toFixed(2)} MB`)
-  
-  keysToRemove.forEach(key => {
-    localStorage.removeItem(key)
-  })
-  
-  console.log(`✅ 紧急清理完成！释放了 ${(totalCleaned / 1024 / 1024).toFixed(2)} MB 空间`)
+  // Do not delete chat records, backups, settings or user media to make room.
   printLocalStorageUsage()
 }
 

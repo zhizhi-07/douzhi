@@ -75,3 +75,7 @@ todo.md
 # Example/test JSON
 预设示例.json
 【MoM】*.json
+
+# Browser test artifacts
+test-results/
+playwright-report/
