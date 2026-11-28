@@ -11,6 +11,8 @@ async function start() {
     window.location.replace('/data-manager.html')
     return
   }
+  const { initializeUserProfile } = await import('./utils/userProfileStorage')
+  await initializeUserProfile()
   const { mountApplication } = await import('./appRoot')
   mountApplication(root)
 }

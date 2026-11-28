@@ -3,8 +3,14 @@
  * 使用 fetch API 避免兼容性问题
  */
 export default async function handler(req, res) {
-  // 设置CORS
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  const origin = req.headers?.origin
+  const host = req.headers?.host
+  const trusted = new Set((process.env.TTS_ALLOWED_ORIGINS || '').split(',').filter(Boolean))
+  if (origin && origin !== `https://${host}` && origin !== `http://${host}` && !trusted.has(origin)) {
+    return res.status(403).json({ error: 'Origin not allowed' })
+  }
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Vary', 'Origin')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
@@ -12,18 +18,23 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST allowed' })
 
   try {
-    const { text, apiKey, groupId, voiceId, baseUrl = 'https://api.minimaxi.com/v1' } = req.body
+    const { text, apiKey, groupId, voiceId, baseUrl = 'https://api.minimaxi.com/v1' } = req.body || {}
 
     // 验证参数
-    if (!text || !apiKey || !groupId || !voiceId) {
+    if (![text, apiKey, groupId, voiceId].every(value => typeof value === 'string' && value.trim()) || text.length > 10000 || apiKey.length > 4096 || groupId.length > 200 || voiceId.length > 200) {
       return res.status(400).json({ error: '缺少必需参数' })
     }
 
-    const minimaxUrl = `${baseUrl}/text_to_speech?GroupId=${groupId}`
+    if (baseUrl !== 'https://api.minimaxi.com/v1') {
+      return res.status(400).json({ error: '不支持的语音服务地址' })
+    }
+    const minimaxUrl = `${baseUrl}/text_to_speech?GroupId=${encodeURIComponent(groupId)}`
     
     // 调用 MiniMax API
     const response = await fetch(minimaxUrl, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(30000),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`

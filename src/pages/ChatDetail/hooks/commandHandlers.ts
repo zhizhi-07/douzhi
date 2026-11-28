@@ -1924,7 +1924,7 @@ export const changeNicknameHandler: CommandHandler = {
     console.log(`✏️ AI修改网名: ${oldNickname} → ${newNickname}`)
 
     // 更新角色信息
-    characterService.update(character.id, { nickname: newNickname })
+    await characterService.update(character.id, { nickname: newNickname })
 
     // 🔥 立即刷新界面上的character，让名字立刻显示
     if (refreshCharacter) {
@@ -1969,7 +1969,7 @@ export const changeSignatureHandler: CommandHandler = {
     console.log(`✏️ AI修改个性签名: ${newSignature}`)
 
     // 更新角色信息
-    characterService.update(character.id, { signature: newSignature })
+    await characterService.update(character.id, { signature: newSignature })
 
     // 🔥 立即刷新界面上的character
     if (refreshCharacter) {
@@ -2612,7 +2612,7 @@ export const changeAvatarHandler: CommandHandler = {
 
     // 更新AI头像
     if (newAvatar) {
-      characterService.update(character.id, { avatar: newAvatar })
+      await characterService.update(character.id, { avatar: newAvatar })
       console.log('✅ [AI换头像] 头像更换成功')
 
       // 保存头像指纹（用于检测头像变化）
@@ -3731,7 +3731,7 @@ export const changePokeSuffixHandler: CommandHandler = {
     // 更新用户的拍一拍后缀（AI拍用户时显示）
     const { getUserInfo, saveUserInfo } = await import('../../../utils/userUtils')
     const userInfo = getUserInfo()
-    saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
+    await saveUserInfo({ ...userInfo, pokeSuffix: newSuffix })
 
     console.log('✅ AI修改了用户的拍一拍后缀:', newSuffix)
 

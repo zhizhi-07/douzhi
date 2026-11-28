@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 /**
  * AI对AI聊天服务
  * 让两个AI角色互相对话，读取双方人设和与用户的聊天记录
@@ -9,7 +10,7 @@ import { callAIApi, getApiSettings } from '../utils/chatApi'
 // 获取用户信息
 const getUserInfo = () => {
   try {
-    const stored = localStorage.getItem('user_info')
+    const stored = getStoredUserProfileJSON()
     if (stored) {
       return JSON.parse(stored)
     }

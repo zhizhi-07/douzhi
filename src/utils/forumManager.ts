@@ -36,7 +36,7 @@ export const createPost = (post: Omit<ForumPost, 'id' | 'createdAt' | 'updatedAt
   const posts = loadPosts()
   const newPost: ForumPost = {
     ...post,
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     views: 0,
     replies: 0,
     likes: 0,
@@ -124,7 +124,7 @@ export const createComment = (comment: Omit<ForumComment, 'id' | 'createdAt'>): 
   const comments = loadComments()
   const newComment: ForumComment = {
     ...comment,
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     createdAt: Date.now()
   }
   comments.push(newComment)
@@ -530,7 +530,7 @@ function getDefaultTopics(): ForumTopic[] {
 export const createTopic = (name: string, description?: string): ForumTopic => {
   const topics = loadTopics()
   const newTopic: ForumTopic = {
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     name,
     description,
     postCount: 0,
@@ -590,7 +590,7 @@ export const sendMessage = (toUser: string, content: string): ForumMessage => {
   const currentUser = '当前用户' // TODO: 从用户系统获取
   
   const newMessage: ForumMessage = {
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     fromUser: currentUser,
     toUser,
     content,
@@ -610,7 +610,7 @@ export const sendMessage = (toUser: string, content: string): ForumMessage => {
     conversations[convIndex].updatedAt = Date.now()
   } else {
     conversations.push({
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       user: toUser,
       lastMessage: content,
       lastTime: '刚刚',

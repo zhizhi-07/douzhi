@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 /**
  * 记忆提取服务
  * 使用 zhizhiapi 从对话中提取记忆
@@ -327,7 +328,7 @@ export async function extractMemoryFromChat(
   // 2. 获取用户名
   let userName = '对方'
   try {
-    const userInfoStr = localStorage.getItem('user_info')
+    const userInfoStr = getStoredUserProfileJSON()
     if (userInfoStr) {
       const userInfo = JSON.parse(userInfoStr)
       userName = userInfo.nickname || userInfo.realName || '对方'

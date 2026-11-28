@@ -1,3 +1,5 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
+import SafeHtml from '../components/SafeHtml'
 /**
  * 群聊详情页面
  */
@@ -40,7 +42,7 @@ const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
     // 返回用户头像
     try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
       const avatar = userInfo.avatar || ''
       // 🔥 直接返回IndexedDB引用，在渲染时加载
       return avatar
@@ -620,26 +622,12 @@ const GroupChatDetail = () => {
       
       // 🔥 关键优化：只取最近30条，减少处理时间
       const recentMessages = latestMessages.slice(-30)
-      const chatMessages = recentMessages.map(msg => {
-        // 如果是表情包消息，标注出来
-        if (msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl) {
-          const description = msg.emojiDescription || msg.content || '表情包'
-          console.log(`📦 检测到表情包消息: ${msg.userName} - ${description} (type=${msg.type})`)
-          return {
-            userId: msg.userId,
-            userName: msg.userName,
-            content: `[发送了表情包：${description}]`,
-            id: msg.id  // 包含消息ID用于引用
-          }
-        }
-        return {
-          userId: msg.userId,
-          userName: msg.userName,
-          content: msg.content,
-          id: msg.id  // 包含消息ID用于引用
-        }
-      })
-      
+      const chatMessages = recentMessages.map(msg => ({
+        ...msg,
+        content: msg.type === 'emoji' || msg.emojiDescription || msg.emojiUrl
+          ? `[发送了表情包：${msg.emojiDescription || msg.content || '表情包'}]` : msg.content
+      }))
+
       console.log(`📝 传给AI的消息历史: ${chatMessages.length}条`)
       
       // 🎨 加载表情包列表
@@ -965,7 +953,7 @@ const GroupChatDetail = () => {
           // 查找目标成员
           const targetMember = members.find(m => m.name === targetName)
           if (targetMember && targetMember.type === 'character') {
-            groupChatManager.removeMember(id, targetMember.id, true, member.name)
+            await groupChatManager.removeMember(id, targetMember.id, true, member.name)
           } else {
             console.warn('找不到目标成员或无法踢出:', targetName)
           }
@@ -980,7 +968,7 @@ const GroupChatDetail = () => {
           console.log(`🚪 [AI指令] ${member.name} 主动退群`)
           
           // 移除该成员（isKicked=false表示主动退出）
-          groupChatManager.removeMember(id, member.id, false, member.name)
+          await groupChatManager.removeMember(id, member.id, false, member.name)
           
           // 从内容中移除指令部分
           content = content.replace(/\[退群\]/, '').trim()
@@ -992,7 +980,7 @@ const GroupChatDetail = () => {
         if (announcementMatch) {
           const newAnnouncement = announcementMatch[1]
           console.log(`📢 [AI指令] ${member.name} 修改群公告: ${newAnnouncement}`)
-          groupChatManager.updateAnnouncement(id, newAnnouncement, member.name)
+          await groupChatManager.updateAnnouncement(id, newAnnouncement, member.name)
           
           // 从内容中移除指令部分
           content = content.replace(/\[群公告:.+?\]/, '').trim()
@@ -1009,7 +997,7 @@ const GroupChatDetail = () => {
           // 查找目标成员
           const targetMember = members.find(m => m.name === targetName)
           if (targetMember && targetMember.type === 'character') {
-            groupChatManager.setTitle(id, targetMember.id, newTitle, member.name)
+            await groupChatManager.setTitle(id, targetMember.id, newTitle, member.name)
           } else {
             console.warn('找不到目标成员或无法设置头衔:', targetName)
           }
@@ -1628,7 +1616,7 @@ const GroupChatDetail = () => {
           plot: script.plot || '',
           updatedAt: Date.now()
         }
-        groupChatManager.updateGroup(id, { plotSummary })
+        await groupChatManager.updateGroup(id, { plotSummary })
         console.log(`📝 [剧情摘要] 已保存: ${script.plot?.substring(0, 50)}...`)
       }
       
@@ -1671,11 +1659,11 @@ const GroupChatDetail = () => {
             members,
             messagesToSummarize,
             lastSummary  // 传入上次总结
-          ).then(newSummary => {
+          ).then(async newSummary => {
             if (newSummary && id) {
               console.log('📊 [后台任务] 总结生成成功，保存到群聊数据')
               const updatedGroup = groupChatManager.getGroup(id)
-              groupChatManager.updateGroup(id, {
+              await groupChatManager.updateGroup(id, {
                 smartSummary: {
                   ...updatedGroup?.smartSummary,
                   enabled: true,
@@ -1844,10 +1832,7 @@ const GroupChatDetail = () => {
               }
               return (
                 <div key={msg.id} className="flex justify-center my-4 px-4" data-message-id={msg.id}>
-                  <div 
-                    className="w-full max-w-[310px]"
-                    dangerouslySetInnerHTML={{ __html: msg.content }}
-                  />
+                  <SafeHtml className="w-full max-w-[310px]" html={msg.content} />
                 </div>
               )
             }

@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../../../utils/userProfileStorage'
 /**
  * 群聊发送消息 Hook
  * 🔥 优化：完全异步，零阻塞UI
@@ -12,7 +13,7 @@ const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
     if (cachedUserAvatar) return cachedUserAvatar
     try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
       cachedUserAvatar = userInfo.avatar || ''
       return cachedUserAvatar
     } catch {

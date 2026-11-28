@@ -22,6 +22,10 @@ const CharacterDetail = () => {
   })
 
   useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+    await characterService.waitForLoad()
+    if (cancelled) return
     if (id) {
       const data = characterService.getById(id)
       if (data) {
@@ -40,6 +44,9 @@ const CharacterDetail = () => {
         })
       }
     }
+    }
+    void load().catch(() => alert('角色加载失败'))
+    return () => { cancelled = true }
   }, [id])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,23 +60,23 @@ const CharacterDetail = () => {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.realName.trim()) {
       alert('请输入真实名字')
       return
     }
 
     if (id) {
-      characterService.update(id, formData)
+      try { await characterService.update(id, formData) } catch { alert('保存失败，原资料未更改，请备份后重试'); return }
       setCharacter({ ...character, ...formData })
       setIsEditing(false)
     }
   }
 
-  const handleDelete = () => {
-    if (confirm('确定要删除这个角色吗？')) {
+  const handleDelete = async () => {
+    if (confirm('删除角色及其全部账号的聊天记录，无法撤销，建议先导出备份。确定继续？')) {
       if (id) {
-        characterService.delete(id)
+        try { await characterService.delete(id) } catch { alert('删除失败，未完成，请备份后重试'); return }
         navigate('/contacts')
       }
     }

@@ -1,3 +1,4 @@
+import { loadAvatarFrameSettings } from '../utils/avatarFrameStorage'
 /**
  * 头像组件
  * 统一的头像显示组件，避免代码重复
@@ -9,6 +10,7 @@ import { getCurrentUserInfoWithAvatar } from '../utils/userUtils'
 
 // 🔥 模块级缓存：避免每个 Avatar 实例都从 IndexedDB 读取头像
 let cachedUserAvatar: string | undefined = undefined
+let avatarCacheGeneration = 0
 let avatarLoadPromise: Promise<string | undefined> | null = null
 
 // 获取缓存的用户头像（带去重）
@@ -22,20 +24,27 @@ async function getCachedUserAvatar(): Promise<string | undefined> {
     return avatarLoadPromise
   }
   
-  avatarLoadPromise = getCurrentUserInfoWithAvatar().then(info => {
-    cachedUserAvatar = info.avatar
-    avatarLoadPromise = null
-    return cachedUserAvatar
-  })
-  
+  const generation = avatarCacheGeneration
+  const promise = getCurrentUserInfoWithAvatar().then(info => {
+    if (generation === avatarCacheGeneration) cachedUserAvatar = info.avatar
+    return info.avatar
+  }).finally(() => { if (avatarLoadPromise === promise) avatarLoadPromise = null })
+  avatarLoadPromise = promise
+
   return avatarLoadPromise
 }
 
 // 清除缓存（切换账号/面具时调用）
 function clearUserAvatarCache() {
+  avatarCacheGeneration++
   cachedUserAvatar = undefined
   avatarLoadPromise = null
 }
+
+window.addEventListener('avatar-updated', clearUserAvatarCache)
+window.addEventListener('accountSwitched', clearUserAvatarCache)
+window.addEventListener('accountUpdated', clearUserAvatarCache)
+window.addEventListener('user-info-updated', clearUserAvatarCache)
 
 interface AvatarProps {
   type: 'sent' | 'received'
@@ -71,19 +80,24 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   useEffect(() => {
     if (!chatId) return
 
-    const loadFrameStyle = () => {
+    let generation = 0
+    const loadFrameStyle = async () => {
+      const request = ++generation
+      const values = await loadAvatarFrameSettings(chatId)
+      if (request !== generation) return
+      const readSetting = (key: string) => values[key] ?? null
       const prefix = type === 'sent' ? 'user' : 'ai'
       const cssKey = `${prefix}_avatar_frame_${chatId}`
-      const css = localStorage.getItem(cssKey) || ''
-      const avatarShape = localStorage.getItem(`avatar_shape_${chatId}`) || 'rounded'
+      const css = readSetting(cssKey) || ''
+      const avatarShape = readSetting(`avatar_shape_${chatId}`) || 'rounded'
       
       // 独立的头像框图片设置（用户和AI分开）
-      const image = localStorage.getItem(`${prefix}_avatar_frame_image_${chatId}`) || localStorage.getItem(`avatar_frame_image_${chatId}`) || ''
-      const size = parseInt(localStorage.getItem(`${prefix}_avatar_frame_size_${chatId}`) || localStorage.getItem(`avatar_frame_size_${chatId}`) || '120')
-      const offsetX = parseInt(localStorage.getItem(`${prefix}_avatar_frame_offset_x_${chatId}`) || localStorage.getItem(`avatar_frame_offset_x_${chatId}`) || '0')
-      const offsetY = parseInt(localStorage.getItem(`${prefix}_avatar_frame_offset_y_${chatId}`) || localStorage.getItem(`avatar_frame_offset_y_${chatId}`) || '0')
-      const avatarSizeSaved = parseInt(localStorage.getItem(`avatar_size_${chatId}`) || '100')
-      const hideAvatarSaved = localStorage.getItem(`hide_avatar_${chatId}`) === 'true'
+      const image = readSetting(`${prefix}_avatar_frame_image_${chatId}`) || readSetting(`avatar_frame_image_${chatId}`) || ''
+      const size = parseInt(readSetting(`${prefix}_avatar_frame_size_${chatId}`) || readSetting(`avatar_frame_size_${chatId}`) || '120')
+      const offsetX = parseInt(readSetting(`${prefix}_avatar_frame_offset_x_${chatId}`) || readSetting(`avatar_frame_offset_x_${chatId}`) || '0')
+      const offsetY = parseInt(readSetting(`${prefix}_avatar_frame_offset_y_${chatId}`) || readSetting(`avatar_frame_offset_y_${chatId}`) || '0')
+      const avatarSizeSaved = parseInt(readSetting(`avatar_size_${chatId}`) || '100')
+      const hideAvatarSaved = readSetting(`hide_avatar_${chatId}`) === 'true'
       
       setFrameCSS(css)
       setShape(avatarShape)
@@ -95,15 +109,16 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
       setHideAvatar(hideAvatarSaved)
     }
 
-    loadFrameStyle()
+    void loadFrameStyle().catch(console.error)
 
     // 监听头像框更新
     const handleFrameUpdate = () => {
-      loadFrameStyle()
+      void loadFrameStyle().catch(console.error)
     }
 
     window.addEventListener('avatarFrameUpdate', handleFrameUpdate)
     return () => {
+      generation++
       window.removeEventListener('avatarFrameUpdate', handleFrameUpdate)
     }
   }, [chatId, type])
@@ -116,7 +131,10 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
   
   useEffect(() => {
     if (type === 'sent') {
+      let generation = 0
+      let active = true
       const loadAvatar = async () => {
+        const request = ++generation
         // 🎭 检查是否使用面具
         if (chatId) {
           const chatSettingsRaw = localStorage.getItem(`chat_settings_${chatId}`)
@@ -129,7 +147,7 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
                 const masks = await getMasksWithAvatars()
                 const mask = masks.find(m => m.id === parsed.maskId)
                 if (mask?.avatar) {
-                  setUserAvatar(mask.avatar)
+                  if (active && request === generation) setUserAvatar(mask.avatar)
                   return
                 }
               }
@@ -141,21 +159,27 @@ const Avatar = ({ type, avatar, name, chatId, onPoke, size = 'md' }: AvatarProps
         
         // 🔥 使用缓存获取用户头像，避免重复读取 IndexedDB
         const avatar = await getCachedUserAvatar()
-        setUserAvatar(avatar)
+        if (active && request === generation) setUserAvatar(avatar)
       }
       
-      loadAvatar()
+      void loadAvatar().catch(console.error)
       
       // 监听账号切换事件和面具切换事件，清除缓存并重新加载头像
       const handleAvatarReload = () => {
         clearUserAvatarCache()  // 🔥 清除缓存
-        loadAvatar()
+        void loadAvatar().catch(console.error)
       }
+      window.addEventListener('avatar-updated', handleAvatarReload)
+      window.addEventListener('user-info-updated', handleAvatarReload)
       window.addEventListener('accountSwitched', handleAvatarReload)
       window.addEventListener('accountUpdated', handleAvatarReload)
       window.addEventListener('maskSwitched', handleAvatarReload)
       window.addEventListener('maskUpdated', handleAvatarReload)
       return () => {
+        active = false
+        generation++
+        window.removeEventListener('avatar-updated', handleAvatarReload)
+        window.removeEventListener('user-info-updated', handleAvatarReload)
         window.removeEventListener('accountSwitched', handleAvatarReload)
         window.removeEventListener('accountUpdated', handleAvatarReload)
         window.removeEventListener('maskSwitched', handleAvatarReload)

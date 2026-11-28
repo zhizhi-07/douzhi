@@ -121,36 +121,48 @@ const loadedGroups = new Set<string>()
 const retryWrites = new Map<string, Array<{ snapshot: GroupMessage[]; overwrite: boolean }>>()
 const messageRevisions = new Map<string, number>()
 
-// 启动时从 IndexedDB 加载群聊列表
-IDB.getItem<GroupChat[]>(IDB.STORES.MISC, 'group_chats').then(groups => {
-  if (groups && groups.length > 0) {
-    groupsCache = groups
-    console.log(`✅ 已从 IndexedDB 加载 ${groups.length} 个群聊`)
-  } else {
-    // 尝试从 localStorage 迁移
-    try {
-      const saved = localStorage.getItem(GROUP_CHATS_KEY)
-      if (saved) {
-        const localGroups = JSON.parse(saved)
-        console.log(`📦 从 localStorage 迁移 ${localGroups.length} 个群聊到 IndexedDB`)
-        groupsCache = localGroups
-        IDB.setItem(IDB.STORES.MISC, 'group_chats', localGroups).then(() => {
-          if (localStorage.getItem(GROUP_CHATS_KEY) === saved) localStorage.removeItem(GROUP_CHATS_KEY)
-        }).catch(e => console.error('迁移群聊失败，原数据已保留:', e))
-      } else {
-        groupsCache = []
-      }
-    } catch (e) {
-      console.error('迁移群聊失败:', e)
-      groupsCache = []
-    }
+// Loading is part of every metadata write; a cold cache is not an empty database.
+const groupsReady = (async () => {
+  const stored = await IDB.getItem<GroupChat[]>(IDB.STORES.MISC, 'group_chats', true)
+  if (stored !== null) { groupsCache = stored; return }
+  const raw = localStorage.getItem(GROUP_CHATS_KEY)
+  const legacy = raw ? JSON.parse(raw) : []
+  if (!Array.isArray(legacy)) throw new Error('群聊列表格式错误，原数据已保留')
+  if (raw) {
+    await IDB.setItem(IDB.STORES.MISC, 'group_chats', legacy)
+    if (localStorage.getItem(GROUP_CHATS_KEY) === raw) localStorage.removeItem(GROUP_CHATS_KEY)
   }
+  groupsCache = legacy
+})()
+void groupsReady.catch(error => {
+  console.error('群聊列表加载失败:', error)
+  window.dispatchEvent(new CustomEvent('message-save-error', { detail: { chatId: 'groups' } }))
 })
 
 class GroupChatManager {
+  async waitForLoad(): Promise<void> { await groupsReady }
+
+  private commitGroups(update: (groups: GroupChat[]) => GroupChat[]): Promise<void> {
+    const pending = groupsReady.then(async () => {
+      const saved = await IDB.updateItem<GroupChat[]>(IDB.STORES.MISC, 'group_chats', current => {
+        if (current !== null && !Array.isArray(current)) throw new Error('群聊列表格式错误')
+        return update(current || [])
+      })
+      groupsCache = saved
+      window.dispatchEvent(new Event('groups-updated'))
+      window.dispatchEvent(new Event('storage'))
+    })
+    void pending.catch(error => {
+      console.error('群聊设置未保存:', error)
+      window.dispatchEvent(new CustomEvent('message-save-error', { detail: { chatId: 'groups' } }))
+      window.dispatchEvent(new Event('groups-updated'))
+    })
+    return pending
+  }
+
   // 获取所有群聊（同步，使用缓存）
   getAllGroups(): GroupChat[] {
-    return groupsCache || []
+    return structuredClone(groupsCache || [])
   }
 
   // 获取单个群聊
@@ -165,16 +177,15 @@ class GroupChatManager {
         role: index === 0 ? 'owner' : 'member'
       }))
       group.owner = group.memberIds[0]
-      // 保存更新
-      this.updateGroup(groupId, { members: group.members, owner: group.owner })
+      // Legacy defaults are derived without writing during a read.
     }
     
     return group
   }
 
   // 创建群聊
-  createGroup(name: string, memberIds: string[], creatorName: string = '你', memberNames: string[] = []): GroupChat {
-    const groupId = `group_${Date.now()}`
+  async createGroup(name: string, memberIds: string[], creatorName: string = '你', memberNames: string[] = []): Promise<GroupChat> {
+    const groupId = `group_${crypto.randomUUID()}`
     
     // 初始化成员角色，第一个成员(user)为群主
     const members: GroupMember[] = memberIds.map((id, index) => ({
@@ -194,12 +205,8 @@ class GroupChatManager {
       lastMessageTimestamp: Date.now()
     }
     
-    if (!groupsCache) groupsCache = []
-    groupsCache.push(newGroup)
-    
-    // 后台异步保存到 IndexedDB
-    IDB.setItem(IDB.STORES.MISC, 'group_chats', groupsCache)
-    
+    await this.commitGroups(groups => [...groups, newGroup])
+
     // 🎉 添加系统消息：创建群聊
     const otherMembers = memberNames.filter((_, idx) => memberIds[idx] !== 'user')
     if (otherMembers.length > 0) {
@@ -220,20 +227,18 @@ class GroupChatManager {
   }
 
   // 更新群聊
-  updateGroup(groupId: string, updates: Partial<GroupChat>): void {
-    if (!groupsCache) return
-    const index = groupsCache.findIndex(g => g.id === groupId)
-    if (index !== -1) {
-      groupsCache[index] = { ...groupsCache[index], ...updates }
-      // 后台异步保存
-      IDB.setItem(IDB.STORES.MISC, 'group_chats', groupsCache)
-    }
+  updateGroup(groupId: string, updates: Partial<GroupChat>): Promise<void> {
+    const snapshot = structuredClone(updates)
+    return this.commitGroups(groups => {
+      if (!groups.some(g => g.id === groupId)) throw new Error('群聊不存在')
+      return groups.map(g => g.id === groupId ? { ...g, ...snapshot, id: groupId } : g)
+    })
   }
 
   // 更新群公告（带系统消息）
-  updateAnnouncement(groupId: string, announcement: string, userName: string = '你'): void {
+  async updateAnnouncement(groupId: string, announcement: string, userName: string = '你'): Promise<void> {
     // 更新群聊信息
-    this.updateGroup(groupId, { announcement })
+    await this.updateGroup(groupId, { announcement })
     
     // 添加系统消息
     this.addMessage(groupId, {
@@ -246,7 +251,8 @@ class GroupChatManager {
   }
 
   // 设置/取消管理员（带系统消息）
-  setAdmin(groupId: string, memberId: string, isAdmin: boolean, userName: string = '你'): void {
+  async setAdmin(groupId: string, memberId: string, isAdmin: boolean, userName: string = '你'): Promise<void> {
+    await groupsReady
     const group = this.getGroup(groupId)
     if (!group || !group.members) return
     
@@ -255,7 +261,7 @@ class GroupChatManager {
     
     // 更新成员角色
     group.members[memberIndex].role = isAdmin ? 'admin' : 'member'
-    this.updateGroup(groupId, { members: group.members })
+    await this.updateGroup(groupId, { members: group.members })
     
     // 获取成员名称
     const memberName = this.getMemberName(memberId)
@@ -275,7 +281,8 @@ class GroupChatManager {
   }
 
   // 设置头衔（带系统消息）
-  setTitle(groupId: string, memberId: string, title: string, userName: string = '你'): void {
+  async setTitle(groupId: string, memberId: string, title: string, userName: string = '你'): Promise<void> {
+    await groupsReady
     const group = this.getGroup(groupId)
     if (!group || !group.members) return
     
@@ -290,7 +297,7 @@ class GroupChatManager {
     } else {
       delete group.members[memberIndex].title
     }
-    this.updateGroup(groupId, { members: group.members })
+    await this.updateGroup(groupId, { members: group.members })
     
     // 获取成员名称
     const memberName = this.getMemberName(memberId)
@@ -317,7 +324,8 @@ class GroupChatManager {
   }
 
   // 转让群主（带系统消息）
-  transferOwner(groupId: string, newOwnerId: string, operatorName: string = '你'): void {
+  async transferOwner(groupId: string, newOwnerId: string, operatorName: string = '你'): Promise<void> {
+    await groupsReady
     const group = this.getGroup(groupId)
     if (!group || !group.members) return
 
@@ -340,7 +348,7 @@ class GroupChatManager {
     })
 
     group.owner = newOwnerId
-    this.updateGroup(groupId, { members: group.members, owner: group.owner })
+    await this.updateGroup(groupId, { members: group.members, owner: group.owner })
 
     // 系统消息
     const memberName = this.getMemberName(newOwnerId)
@@ -361,30 +369,26 @@ class GroupChatManager {
   }
 
   // 删除群聊
-  deleteGroup(groupId: string): void {
-    if (!groupsCache) return
-    groupsCache = groupsCache.filter(g => g.id !== groupId)
-    
-    // 删除群聊数据和消息
-    IDB.setItem(IDB.STORES.MISC, 'group_chats', groupsCache)
-    void this.persistMessages(groupId, [], true)
+  async deleteGroup(groupId: string): Promise<void> {
+    await groupsReady
+    await this.persistMessages(groupId, [], true)
+    await this.commitGroups(groups => groups.filter(g => g.id !== groupId))
     messagesCache.delete(groupId)
-    
-    // 触发更新事件
-    window.dispatchEvent(new Event('storage'))
   }
 
   // 添加成员
-  addMember(groupId: string, userId: string): void {
+  async addMember(groupId: string, userId: string): Promise<void> {
+    await groupsReady
     const group = this.getGroup(groupId)
     if (group && !group.memberIds.includes(userId)) {
       group.memberIds.push(userId)
-      this.updateGroup(groupId, { memberIds: group.memberIds })
+      await this.updateGroup(groupId, { memberIds: group.memberIds })
     }
   }
 
   // 移除成员（退出或被踢）
-  removeMember(groupId: string, memberId: string, isKicked: boolean = false, operatorName: string = '你'): void {
+  async removeMember(groupId: string, memberId: string, isKicked: boolean = false, operatorName: string = '你'): Promise<void> {
+    await groupsReady
     const group = this.getGroup(groupId)
     if (!group) return
     
@@ -397,7 +401,7 @@ class GroupChatManager {
     }
     
     // 保存更新
-    this.updateGroup(groupId, { 
+    await this.updateGroup(groupId, { 
       memberIds: group.memberIds,
       members: group.members
     })

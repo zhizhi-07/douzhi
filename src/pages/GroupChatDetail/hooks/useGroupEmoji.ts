@@ -3,27 +3,12 @@
  * 处理表情包发送和语音播放
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { groupChatManager, type GroupMessage } from '../../../utils/groupChatManager'
 import type { Emoji } from '../../../utils/emojiStorage'
 
-// 获取成员头像（缓存）
-let cachedUserAvatar: string = ''
-let avatarLoaded = false
-const getMemberAvatar = (userId: string): string => {
-  if (userId === 'user') {
-    if (avatarLoaded) return cachedUserAvatar
-    try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
-      cachedUserAvatar = userInfo.avatar || ''
-      avatarLoaded = true
-      return cachedUserAvatar
-    } catch {
-      return ''
-    }
-  }
-  return ''
-}
+import { getUserInfo } from '../../../utils/userUtils'
+const getMemberAvatar = (userId: string): string => userId === 'user' ? getUserInfo().avatar || '' : ''
 
 // 🔥 表情包消息ID计数器
 
@@ -59,14 +44,28 @@ export const useGroupEmoji = (
     }, 100)
   }, [groupId, setMessages, scrollToBottom])
 
-  // 语音播放
-  const handlePlayVoice = useCallback((messageId: number, duration: number) => {
-    console.log('🎤 播放语音:', messageId)
-    setPlayingVoiceId(messageId)
-    setTimeout(() => {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  useEffect(() => () => { audioRef.current?.pause(); audioRef.current = null }, [groupId])
+
+  const handlePlayVoice = useCallback((messageId: number, _duration: number) => {
+    if (!groupId) return
+    audioRef.current?.pause()
+    if (playingVoiceId === messageId) { setPlayingVoiceId(null); return }
+    const message = groupChatManager.getMessages(groupId).find(msg => msg.id === String(messageId) || msg.id === `msg_${messageId}`)
+    if (!message?.voiceUrl) {
       setPlayingVoiceId(null)
-    }, duration * 1000)
-  }, [])
+      setShowVoiceTextMap(prev => ({ ...prev, [messageId]: true }))
+      alert('这条语音只有文字，没有音频文件，已显示文字')
+      return
+    }
+    const audio = new Audio(message.voiceUrl)
+    audioRef.current = audio
+    const stop = () => { if (audioRef.current === audio) { setPlayingVoiceId(null); audioRef.current = null } }
+    audio.onended = stop
+    audio.onerror = () => { stop(); alert('语音播放失败，请检查音频文件') }
+    setPlayingVoiceId(messageId)
+    void audio.play().catch(() => { stop(); alert('无法播放音频，请重试') })
+  }, [groupId, playingVoiceId])
 
   // 语音转文字切换
   const handleToggleVoiceText = useCallback((messageId: number) => {

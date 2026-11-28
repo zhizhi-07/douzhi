@@ -62,7 +62,7 @@ export async function saveAvatar(type: AvatarType, id: string, data: string): Pr
     const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
     // 🔥 更新缓存
-    avatarCache.set(key, data)
+    // Cache is published only after the transaction commits.
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
@@ -76,10 +76,12 @@ export async function saveAvatar(type: AvatarType, id: string, data: string): Pr
       
       const request = store.put(record)
       
-      request.onsuccess = () => {
-        console.log(`✅ [头像存储] 保存成功: ${key}`)
+      transaction.oncomplete = () => {
+        avatarCache.set(key, data)
+        window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { type, id } }))
         resolve(true)
       }
+      transaction.onabort = transaction.onerror = () => resolve(false)
       
       request.onerror = () => {
         console.error(`❌ [头像存储] 保存失败: ${key}`, request.error)
@@ -143,18 +145,22 @@ export async function deleteAvatar(type: AvatarType, id: string = ''): Promise<b
     const key = type === 'user' ? 'user' : type === 'account' ? `account_${id}` : type === 'mask' ? `mask_${id}` : `character_${id}`
     
     // 🔥 删除缓存
-    avatarCache.delete(key)
+    // Keep the previous cache until commit.
     
     return new Promise((resolve) => {
       const transaction = db.transaction([STORE_NAME], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
       const request = store.delete(key)
       
-      request.onsuccess = () => {
+      transaction.oncomplete = () => {
+        avatarCache.delete(key)
+        window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { key } }))
         console.log(`✅ [头像存储] 删除成功: ${key}`)
         resolve(true)
       }
       
+      transaction.onabort = () => resolve(false)
+      transaction.onerror = () => resolve(false)
       request.onerror = () => {
         console.error(`❌ [头像存储] 删除失败: ${key}`, request.error)
         resolve(false)

@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../../../utils/userProfileStorage'
 /**
  * 群聊红包处理Hook
  * 处理红包打开、领取、转账接收/退还等
@@ -11,7 +12,7 @@ import { getUserInfo } from '../../../utils/userUtils'
 const getMemberAvatar = (userId: string): string => {
   if (userId === 'user') {
     try {
-      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
       return userInfo.avatar || ''
     } catch (e) {
       return ''

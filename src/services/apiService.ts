@@ -41,17 +41,17 @@ export const apiService = {
         const configs = JSON.parse(saved)
         // 如果本地没有保存任何配置，返回内置配置
         if (configs.length === 0) {
-          return BUILT_IN_CONFIGS
+          return [...BUILT_IN_CONFIGS]
         }
         // 返回本地保存的所有配置（包括已编辑的内置配置）
         return configs
       }
       // 首次使用，返回并保存内置配置
       localStorage.setItem(STORAGE_KEYS.API_CONFIGS, JSON.stringify(BUILT_IN_CONFIGS))
-      return BUILT_IN_CONFIGS
+      return [...BUILT_IN_CONFIGS]
     } catch (error) {
       console.error('读取API配置失败:', error)
-      return BUILT_IN_CONFIGS
+      return [...BUILT_IN_CONFIGS]
     }
   },
 
@@ -136,6 +136,9 @@ export const apiService = {
       const remaining = apiService.getAll()
       if (remaining.length > 0) {
         apiService.setCurrentId(remaining[0].id)
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_API_ID)
+        localStorage.removeItem(STORAGE_KEYS.API_SETTINGS)
       }
     }
   },

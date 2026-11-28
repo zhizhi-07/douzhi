@@ -368,3 +368,36 @@ export async function emergencyResetDB(): Promise<void> {
 if (typeof window !== 'undefined') {
   (window as any).emergencyResetDB = emergencyResetDB
 }
+
+/** Remove a contact and every account's history in the same commit. */
+export async function deleteCharacterRecords(characterId: string): Promise<any[]> {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORES.CHARACTERS, STORES.MESSAGES, STORES.SETTINGS, STORES.MISC], 'readwrite')
+    let saved: any[] = []
+    tx.oncomplete = () => resolve(saved)
+    tx.onabort = tx.onerror = () => reject(tx.error || new Error('删除角色事务失败'))
+    const characters = tx.objectStore(STORES.CHARACTERS)
+    const read = characters.get('all')
+    read.onsuccess = () => {
+      if (read.result !== undefined && !Array.isArray(read.result)) { tx.abort(); return }
+      saved = (read.result || []).filter((character: any) => character.id !== characterId)
+      characters.put(saved, 'all')
+      tx.objectStore(STORES.MISC).put({ characters: saved, timestamp: Date.now() }, 'characters_backup')
+    }
+    const cursor = tx.objectStore(STORES.MESSAGES).openCursor()
+    const accountIds: string[] = JSON.parse(localStorage.getItem('user_accounts') || '[]').map((account: any) => account.id)
+    cursor.onsuccess = () => {
+      const item = cursor.result
+      if (!item) return
+      const key = String(item.key)
+      if (key === characterId || key.startsWith(`${characterId}_sub_`) || accountIds.some(id => key === `${characterId}_${id}`)) item.delete()
+      item.continue()
+    }
+    const settings = tx.objectStore(STORES.SETTINGS)
+    const chats = settings.get('chat_list')
+    chats.onsuccess = () => {
+      if (Array.isArray(chats.result)) settings.put(chats.result.filter((chat: any) => chat.id !== characterId && chat.characterId !== characterId), 'chat_list')
+    }
+  })
+}

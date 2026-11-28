@@ -1,3 +1,4 @@
+import { saveSong } from '../utils/musicStorage'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
@@ -87,27 +88,24 @@ const UploadSong = () => {
 
       // 获取音频时长
       const audio = new Audio(audioUrl)
-      await new Promise((resolve) => {
-        audio.addEventListener('loadedmetadata', resolve)
+      await new Promise((resolve, reject) => {
+        audio.addEventListener('loadedmetadata', resolve, { once: true })
+        audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error('无法读取音频，请选择有效文件')) }
         audio.load()
       })
       const duration = Math.floor(audio.duration)
 
-      // 保存到localStorage
-      const customSongs = JSON.parse(localStorage.getItem('customSongs') || '[]')
-      const newSong = {
-        id: Date.now(),
-        title: formData.title,
-        artist: formData.artist,
-        album: formData.album || '未知专辑',
-        duration: duration,
-        cover: coverUrl,
-        audioUrl: audioUrl,
-        lyrics: lyrics || undefined
+      if (coverFile) {
+        coverUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(String(reader.result))
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(coverFile)
+        })
       }
-
-      customSongs.push(newSong)
-      localStorage.setItem('customSongs', JSON.stringify(customSongs))
+      await saveSong({ title: formData.title, artist: formData.artist, album: formData.album || '未知专辑',
+        duration, cover: coverUrl, audioBlob: audioFile, lyrics })
+      URL.revokeObjectURL(audioUrl)
 
       alert('上传成功！')
       navigate('/music-player')

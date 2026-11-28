@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import StatusBar from '../components/StatusBar'
@@ -108,7 +109,7 @@ const ShoppingCart = () => {
   const handleRequestAIPay = () => {
     const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
     const totalAmount = calculateTotal()
-    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
     const userName = userInfo.nickname || '用户'
 
     const paymentRequestMessage: Message = {
@@ -229,7 +230,7 @@ ${selectedCartItems.map(item => `- ${item.name} x${item.quantity} (¥${item.pric
     }
 
     const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
-    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
     const userName = userInfo.nickname || '用户'
     const currentCharacterName = getCurrentCharacterName()
 
@@ -386,7 +387,7 @@ ${itemsList}
   const handleBuyForAI = () => {
     const selectedCartItems = cartItems.filter(item => selectedItems.has(item.id))
     const totalAmount = calculateTotal()
-    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
     const userName = userInfo.nickname || '用户'
 
     // 复用代付卡片，状态设为已支付

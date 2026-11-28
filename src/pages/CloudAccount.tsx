@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 /**
  * 云端账号管理页面
  * 风格：简约高级（类 iOS 设置风格）
@@ -35,7 +36,7 @@ const CloudAccount = () => {
     const loadAvatar = async () => {
       try {
         // 从 user_info 读取用户信息
-        const userInfoStr = localStorage.getItem('user_info')
+        const userInfoStr = getStoredUserProfileJSON()
         if (userInfoStr) {
           const userInfo = JSON.parse(userInfoStr)
           setUserName(userInfo.nickname || userInfo.realName || '')

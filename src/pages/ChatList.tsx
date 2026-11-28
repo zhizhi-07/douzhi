@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from '../utils/userProfileStorage'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import StatusBar from '../components/StatusBar'
@@ -336,7 +337,7 @@ const ChatList = () => {
         saveMessages(chat.characterId, [])
       } else {
         // 群聊删除
-        groupChatManager.deleteGroup(chat.id)
+        await groupChatManager.deleteGroup(chat.id)
       }
 
       // 3. 刷新列表
@@ -823,7 +824,7 @@ const ChatList = () => {
                   if (!groupName || selectedMembers.size === 0) return
                   
                   // 获取用户信息
-                  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+                  const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
                   const creatorName = userInfo.nickname || userInfo.realName || '你'
                   
                   // 准备成员ID列表（包含用户自己）
@@ -837,7 +838,7 @@ const ChatList = () => {
                   })
                   
                   // 创建群聊
-                  const newGroup = groupChatManager.createGroup(
+                  const newGroup = await groupChatManager.createGroup(
                     groupName,
                     memberIds,
                     creatorName,
@@ -846,7 +847,7 @@ const ChatList = () => {
                   
                   // 如果有群头像，更新群聊
                   if (groupAvatar) {
-                    groupChatManager.updateGroup(newGroup.id, { avatar: groupAvatar })
+                    await groupChatManager.updateGroup(newGroup.id, { avatar: groupAvatar })
                   }
                   
                   // 关闭弹窗并重置状态

@@ -376,7 +376,9 @@ export async function restoreCharactersFromBackup(): Promise<{
   console.log('🔄 开始从备份恢复联系人...')
   
   try {
-    const backup = localStorage.getItem('characters_backup')
+    const storage = await import('./indexedDBManager')
+    const durableBackup = await storage.getItem(storage.STORES.MISC, 'characters_backup', true)
+    const backup = durableBackup ? JSON.stringify(durableBackup) : localStorage.getItem('characters_backup')
     if (!backup) {
       console.log('ℹ️ 没有找到联系人备份')
       return { restoredCount: 0, success: false }
@@ -586,18 +588,11 @@ export async function emergencyCleanup(): Promise<void> {
   console.log('⚠️ 跳过消息备份清理，保护用户聊天数据')
   
   // 1. 清理 localStorage 中的大数据（但保护消息备份）
-  const ls = analyzeLocalStorage()
-  ls.items.forEach(item => {
-    // 🔥 保护消息备份和关键设置
-    const criticalKeys = ['user_info', 'characters', 'chat_list', 'api_config', 'app_settings', 'msg_backup_']
-    if (item.size > 100 * 1024 && !criticalKeys.some(k => item.key.includes(k))) {
-      localStorage.removeItem(item.key)
-      console.log(`  🗑️ 已删除: ${item.key} (${item.sizeStr})`)
-    }
-  })
+  // Delete only known, rebuildable caches; never infer safety from size.
+  for (const key of ['image_search_cache', 'music_search_cache']) localStorage.removeItem(key)
 
   // 2. 只清理表情包，不删除消息！
-  await clearEmojis()
+  // Imported emojis are user data, not regenerable cache. Never clear them automatically.
   // 🔥🔥🔥 不再清理消息！用户的聊天记录是核心数据
   // await cleanupOldMessages(50) // 已禁用，防止数据丢失
   console.log('⚠️ 跳过消息清理，保护用户聊天数据')

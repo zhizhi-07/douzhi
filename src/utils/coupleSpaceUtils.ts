@@ -1,3 +1,4 @@
+import { getStoredUserProfileJSON } from './userProfileStorage'
 /**
  * 情侣空间工具函数
  * 使用 IndexedDB 存储，避免 localStorage 配额问题
@@ -141,7 +142,7 @@ export const createCoupleSpaceInvite = async (
   }
 
   // 获取用户头像
-  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+  const userInfo = JSON.parse(getStoredUserProfileJSON() || '{}')
   const userAvatar = userInfo.avatar
 
   const relation: CoupleSpaceRelation = {

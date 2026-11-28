@@ -1,3 +1,4 @@
+import { isStyleStorageKey } from './styleStorageKeys'
 /** Offline maintenance only: no app services, cached connections, AI timers or implicit reloads. */
 import { CORE_CHAT_DATABASES, OWNED_DATABASES, STYLE_DATABASES, encodeBackupValue, normalizeBackup } from './backupSchema'
 import type { DatabaseBackup, StoreBackup } from './backupSchema'
@@ -164,7 +165,7 @@ async function exportData(type: 'chat' | 'style', onProgress?: ProgressCallback)
     if (await hasPendingImport()) throw new Error('有未完成的导入，请先恢复导入前数据，再导出')
     const names = type === 'chat' ? OWNED_DATABASES : STYLE_DATABASES
     const chunks: BlobPart[] = ['{"type":', JSON.stringify(type), ',"version":"3.0","exportTime":', JSON.stringify(new Date().toISOString())]
-    if (type === 'chat') chunks.push(',"localStorage":', JSON.stringify(Object.fromEntries(Object.entries(localSnapshot()).filter(([key]) => !isAuthKey(key)))))
+    chunks.push(',"localStorage":', JSON.stringify(Object.fromEntries(Object.entries(localSnapshot()).filter(([key]) => type === 'chat' ? !isAuthKey(key) : isStyleStorageKey(key)))))
     chunks.push(',"indexedDB":{')
     let count = 0
     for (let index = 0; index < names.length; index++) {
@@ -233,6 +234,9 @@ export async function importAllData(file: File, onProgress?: ProgressCallback): 
         for (const [key, value] of Object.entries(plan.localStorage)) if (!isAuthKey(key)) localStorage.setItem(key, value)
         for (const [key, value] of auth) localStorage.setItem(key, value)
         localStorage.setItem('indexeddb_migration_completed', '1.0')
+      }
+      if (plan.type === 'style') {
+        for (const [key, value] of Object.entries(plan.localStorage)) if (isStyleStorageKey(key)) localStorage.setItem(key, value)
       }
       sessionStorage.clear()
       await deleteDatabase(JOURNAL, onProgress)

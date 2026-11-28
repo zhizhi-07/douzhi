@@ -1,3 +1,4 @@
+import { safeHtmlDocument, HTML_SANDBOX } from '../utils/safeHtmlDocument'
 /**
  * 聊天详情页面（重构版）
  */
@@ -1603,7 +1604,7 @@ const ChatDetail = () => {
                           ) ? (
                             <div className="html-message-content">
                               <iframe
-                                srcDoc={message.content || ''}
+                                srcDoc={safeHtmlDocument(message.content || '')}
                                 style={{
                                   width: '280px',
                                   height: '420px',
@@ -1611,7 +1612,7 @@ const ChatDetail = () => {
                                   borderRadius: '12px',
                                   background: '#fff'
                                 }}
-                                sandbox="allow-same-origin allow-scripts"
+                                sandbox={HTML_SANDBOX} referrerPolicy="no-referrer"
                                 title="HTML内容"
                               />
                             </div>

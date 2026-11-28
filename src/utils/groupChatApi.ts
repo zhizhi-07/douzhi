@@ -7,9 +7,8 @@ import { callAIApi, getApiSettings } from './chatApi'
 import { extractGroupChatScript, GroupChatScript } from './groupMessageParser'
 import type { ChatMessage } from '../types/chat'
 import type { Emoji } from './emojiStorage'
-import { loadMessages } from './simpleMessageManager'
+import { loadMessages, ensureMessagesLoaded } from './simpleMessageManager'
 import type { GroupChatSummary } from './groupChatSummary'
-import { getRecentAIInteractions } from './aiInteractionMemory'
 import { replaceVariables } from './variableReplacer'
 import { characterService } from '../services/characterService'
 import { getMemesSuggestion } from './memeRetrieval'
@@ -201,13 +200,13 @@ ${messages.slice(-20).map(msg => `${msg.userName}: ${msg.content}`).join('\n')}`
           else if (msg.content?.startsWith('data:audio')) content = '[语音]'
           else if ((msg as any).messageType === 'redPacket') {
              const rp = (msg as any).redPacket
-             content = `[红包: ${rp.totalAmount}元, ${rp.totalCount}份]: ${rp.wishing}`
+             content = `[红包: ${rp.totalAmount}元, ${rp.count}份]: ${rp.blessing}`
           }
           else if ((msg as any).messageType === 'poll') {
              const poll = (msg as any).poll
              content = `[投票: ${poll.title}] 选项: ${poll.options.map((o:any)=>o.text).join('/')}`
           }
-          else if ((msg as any).messageType === 'transfer') content = `[转账: ¥${(msg as any).transferAmount || ''}]`
+          else if ((msg as any).messageType === 'transfer') content = `[转账: ¥${(msg as any).transfer?.amount ?? ''}]`
           else if (msg.content?.includes('[视频通话]')) content = '[视频通话]'
           
           return `${msg.userName}: ${content}${msgId}`
@@ -310,7 +309,7 @@ ${rpList}
         if (msg.messageType === 'voice') content = '[语音消息]'
         else if (msg.messageType === 'photo') content = `[图片: ${msg.photoDescription || '照片'}]`
         else if (msg.messageType === 'location') content = '[位置消息]'
-        else if (msg.messageType === 'transfer') content = `[转账: ¥${(msg as any).transferAmount || ''}]`
+        else if (msg.messageType === 'transfer') content = `[转账: ¥${(msg as any).transfer?.amount ?? ''}]`
         else if (msg.content?.includes('[视频通话]')) content = '[视频通话]'
         
         return `${sender}: ${content}`
@@ -539,7 +538,7 @@ ${aiMembersInfo}
 
 ${lorebookContext ? `【世界书设定】\n${lorebookContext}\n\n` : ''}
 ${plotContext}${syncedPrivateChatContent}### AI朋友圈互动
-${getRecentAIInteractions(30)}
+
 
 ### 群聊历史
 ${contextInfo.replace('### 聊天记录\n', '')}
@@ -669,6 +668,11 @@ export async function generateGroupChatReply(
     console.groupEnd()
 
     // 构建提示词
+    await characterService.waitForLoad()
+    await Promise.all(members.filter(member => {
+      if (member.type !== 'character') return false
+      try { return JSON.parse(localStorage.getItem(`chat_settings_${member.id}`) || '{}').groupChatSync?.enabled === true } catch { return false }
+    }).map(member => ensureMessagesLoaded(member.id)))
     const prompt = buildGroupChatPrompt(groupName, members, messages, userMessage, emojis, announcement, summary, minReplyCount, lorebookContext, enableHtmlTheatre, plotSummary)
 
     // 🔥 输出完整提示词

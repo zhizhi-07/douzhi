@@ -1,3 +1,4 @@
+import { localDateKey } from './localDateKey'
 /**
  * 情侣打卡功能工具函数
  */
@@ -55,7 +56,7 @@ export const getCheckIns = async (): Promise<CheckInRecord[]> => {
  */
 export const hasCheckedInToday = async (): Promise<boolean> => {
   const records = await getCheckIns()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateKey(new Date())
   return records.some(r => r.date === today)
 }
 
@@ -64,7 +65,7 @@ export const hasCheckedInToday = async (): Promise<boolean> => {
  */
 export const doCheckIn = async (mood?: string, content?: string, customFortune?: { content: string, type: 'fortune' | 'task' }): Promise<{ record: CheckInRecord, stats: CheckInStats }> => {
   const records = await getCheckIns()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateKey(new Date())
   
   if (records.some(r => r.date === today)) {
     throw new Error('今天已经打过卡啦')
@@ -120,8 +121,8 @@ function calculateStats(records: CheckInRecord[]): CheckInStats {
 
   // 按日期排序（降序）
   const sorted = [...records].sort((a, b) => b.timestamp - a.timestamp)
-  const today = new Date().toISOString().split('T')[0]
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  const today = localDateKey(new Date())
+  const yesterday = localDateKey(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 1))
   
   const lastDate = sorted[0].date
   
@@ -135,16 +136,16 @@ function calculateStats(records: CheckInRecord[]): CheckInStats {
   }
 
   let streak = 1
-  let currentDate = new Date(lastDate)
+  let currentDate = new Date(lastDate + 'T12:00:00')
 
   for (let i = 1; i < sorted.length; i++) {
-    const prevDate = new Date(currentDate.getTime() - 86400000).toISOString().split('T')[0]
+    const prevDate = localDateKey(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1))
     // 查找前一天是否有记录
     const hasPrev = sorted.some(r => r.date === prevDate)
     
     if (hasPrev) {
       streak++
-      currentDate = new Date(prevDate)
+      currentDate = new Date(prevDate + 'T12:00:00')
     } else {
       break
     }

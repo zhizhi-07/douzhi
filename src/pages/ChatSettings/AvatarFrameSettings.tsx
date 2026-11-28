@@ -1,8 +1,9 @@
+import { loadAvatarFrameSettings, saveAvatarFrameSettings } from '../../utils/avatarFrameStorage'
 /**
  * 头像框设置组件
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { compressAndConvertToBase64, fileToBase64 } from '../../utils/imageUtils'
 
 interface AvatarFrameSettingsProps {
@@ -70,6 +71,31 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
     parseInt(localStorage.getItem(`ai_avatar_frame_offset_y_${chatId}`) || localStorage.getItem(`avatar_frame_offset_y_${chatId}`) || '0')
   )
 
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    setSettingsLoaded(false)
+    loadAvatarFrameSettings(chatId).then(values => {
+      if (cancelled) return
+      const get = (key: string, fallback = '') => values[`${key}_${chatId}`] ?? fallback
+      setUserFrameCSS(get('user_avatar_frame')); setPreviewUserCSS(get('user_avatar_frame'))
+      setAiFrameCSS(get('ai_avatar_frame')); setPreviewAiCSS(get('ai_avatar_frame'))
+      setAvatarShape(get('avatar_shape', 'rounded')); setAvatarSize(Number(get('avatar_size', '100')))
+      setHideAvatar(get('hide_avatar') === 'true')
+      setUserFrameImage(get('user_avatar_frame_image', get('avatar_frame_image')))
+      setAiFrameImage(get('ai_avatar_frame_image', get('avatar_frame_image')))
+      setUserFrameSize(Number(get('user_avatar_frame_size', get('avatar_frame_size', '150'))))
+      setAiFrameSize(Number(get('ai_avatar_frame_size', get('avatar_frame_size', '150'))))
+      setUserFrameOffsetX(Number(get('user_avatar_frame_offset_x', get('avatar_frame_offset_x', '0'))))
+      setUserFrameOffsetY(Number(get('user_avatar_frame_offset_y', get('avatar_frame_offset_y', '0'))))
+      setAiFrameOffsetX(Number(get('ai_avatar_frame_offset_x', get('avatar_frame_offset_x', '0'))))
+      setAiFrameOffsetY(Number(get('ai_avatar_frame_offset_y', get('avatar_frame_offset_y', '0'))))
+      setSettingsLoaded(true)
+    }).catch(() => { if (!cancelled) alert('头像框设置加载失败，未修改现有设置') })
+    return () => { cancelled = true }
+  }, [chatId])
+
   // 处理图片上传（支持GIF动图）
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'user' | 'ai') => {
     const file = e.target.files?.[0]
@@ -99,26 +125,31 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
   }
 
   // 保存设置
-  const saveFrameSettings = () => {
-    localStorage.setItem(`user_avatar_frame_${chatId}`, userFrameCSS)
-    localStorage.setItem(`ai_avatar_frame_${chatId}`, aiFrameCSS)
-    localStorage.setItem(`avatar_shape_${chatId}`, avatarShape)
-    localStorage.setItem(`avatar_size_${chatId}`, avatarSize.toString())
-    localStorage.setItem(`hide_avatar_${chatId}`, hideAvatar.toString())
-    
-    localStorage.setItem(`user_avatar_frame_image_${chatId}`, userFrameImage)
-    localStorage.setItem(`user_avatar_frame_size_${chatId}`, userFrameSize.toString())
-    localStorage.setItem(`user_avatar_frame_offset_x_${chatId}`, userFrameOffsetX.toString())
-    localStorage.setItem(`user_avatar_frame_offset_y_${chatId}`, userFrameOffsetY.toString())
-    
-    localStorage.setItem(`ai_avatar_frame_image_${chatId}`, aiFrameImage)
-    localStorage.setItem(`ai_avatar_frame_size_${chatId}`, aiFrameSize.toString())
-    localStorage.setItem(`ai_avatar_frame_offset_x_${chatId}`, aiFrameOffsetX.toString())
-    localStorage.setItem(`ai_avatar_frame_offset_y_${chatId}`, aiFrameOffsetY.toString())
-    
-    window.dispatchEvent(new Event('avatarFrameUpdate'))
-    onSaved()
-    alert('✅ 头像框已应用！')
+  const saveFrameSettings = async () => {
+    if (!settingsLoaded || saving) return
+    setSaving(true)
+    try {
+      await saveAvatarFrameSettings(chatId, {
+        [`user_avatar_frame_${chatId}`]: userFrameCSS,
+        [`ai_avatar_frame_${chatId}`]: aiFrameCSS,
+        [`avatar_shape_${chatId}`]: avatarShape,
+        [`avatar_size_${chatId}`]: avatarSize.toString(),
+        [`hide_avatar_${chatId}`]: hideAvatar.toString(),
+        [`user_avatar_frame_image_${chatId}`]: userFrameImage,
+        [`user_avatar_frame_size_${chatId}`]: userFrameSize.toString(),
+        [`user_avatar_frame_offset_x_${chatId}`]: userFrameOffsetX.toString(),
+        [`user_avatar_frame_offset_y_${chatId}`]: userFrameOffsetY.toString(),
+        [`ai_avatar_frame_image_${chatId}`]: aiFrameImage,
+        [`ai_avatar_frame_size_${chatId}`]: aiFrameSize.toString(),
+        [`ai_avatar_frame_offset_x_${chatId}`]: aiFrameOffsetX.toString(),
+        [`ai_avatar_frame_offset_y_${chatId}`]: aiFrameOffsetY.toString()
+      })
+      onSaved()
+      alert('✅ 头像框已应用！')
+    } catch (error) {
+      console.error('头像框保存失败:', error)
+      alert('头像框保存失败，原设置未更改，请备份后重试')
+    } finally { setSaving(false) }
   }
 
   // 渲染参数滑块组件
@@ -419,6 +450,7 @@ const AvatarFrameSettings = ({ chatId, onSaved }: AvatarFrameSettingsProps) => {
           </button>
           <button
             onClick={saveFrameSettings}
+            disabled={!settingsLoaded || saving}
             className="px-6 py-2 bg-gray-900 hover:bg-black text-white text-xs font-medium rounded-lg shadow-lg shadow-gray-900/20 active:scale-95 transition-all flex items-center gap-2"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

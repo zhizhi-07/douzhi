@@ -28,7 +28,7 @@ import { blacklistManager } from '../../../utils/blacklistManager'
 import { buildBlacklistPrompt, buildAIBlockedUserPrompt } from '../../../utils/prompts'
 import { parseMomentsInteractions, executeMomentsInteractions } from '../../../utils/momentsInteractionParser'
 import { getSummariesByCharacter } from '../../../utils/subAccountSummary'
-import { isMainAccount } from '../../../utils/accountManager'
+import { isMainAccount, getCurrentAccountId } from '../../../utils/accountManager'
 import { parseAIMomentsPost, executeAIMomentsPost, parseAIMomentsDelete, executeAIMomentsDelete } from '../../../utils/aiMomentsPostParser'
 import { triggerAIMomentsInteraction } from '../../../utils/momentsAI'
 import { loadMoments } from '../../../utils/momentsManager'
@@ -64,6 +64,13 @@ export const useChatAI = (
     responseTime: 0,
     outputTokens: 0
   })
+  const requestGeneration = useRef(0)
+  useEffect(() => {
+    const cancel = () => { requestGeneration.current++ }
+    window.addEventListener('accountSwitched', cancel)
+    window.addEventListener('character-deleted', cancel)
+    return () => { cancel(); window.removeEventListener('accountSwitched', cancel); window.removeEventListener('character-deleted', cancel) }
+  }, [chatId])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const conversationCountRef = useRef<number>(0)  // 对话轮数计数器
@@ -194,6 +201,9 @@ export const useChatAI = (
     // 🔥 设置AI回复标志，阻止messages-loaded事件触发重新加载
     ;(window as any).__AI_REPLYING__ = true
 
+    const requestAccount = getCurrentAccountId()
+    const requestVersion = ++requestGeneration.current
+    const isCurrentRequest = () => requestVersion === requestGeneration.current && requestAccount === getCurrentAccountId()
     try {
       const settings = getApiSettings()
       if (!settings) {
@@ -202,16 +212,13 @@ export const useChatAI = (
 
       // 🔥 获取用户信息（考虑小号）
       const { getCurrentUserInfoWithAvatar } = await import('../../../utils/userUtils')
-      const { getUserAvatarInfo } = await import('../../../utils/userAvatarManager')
+      const { hasAvatarChanged, addAvatarRecognitionRequest } = await import('../../../utils/userAvatarManager')
       const userInfo = await getCurrentUserInfoWithAvatar()
       
-      // 🔥 头像识别逻辑：只在没有描述时识别，有描述就不再识别（除非用户手动清除）
-      const avatarInfo = getUserAvatarInfo()
-      const hasValidDescription = avatarInfo.current?.description && 
-        !avatarInfo.current.description.includes('待识别') && 
-        !avatarInfo.current.description.includes('无法看到')
-      
-      const needsAvatarRecognition = userInfo.avatar && userInfo.allowAvatarRecognition && !hasValidDescription
+      // 描述必须属于当前头像；首次识别和失败重试都不是变更通知。
+      const needsAvatarRecognition = settings.supportsVision && userInfo.avatar &&
+        userInfo.allowAvatarRecognition && hasAvatarChanged(userInfo.avatar)
+      let avatarRecognitionRequested = false
       
       // 检查用户是否拉黑了AI
       const isBlocked = blacklistManager.isBlockedByMe('user', `character_${chatId}`)
@@ -548,47 +555,11 @@ export const useChatAI = (
       })
       console.groupEnd()
 
-      // 🖼️ 如果需要识别头像，在系统提示词中添加识别请求，并在最后一条用户消息中附加头像图片
+      // 保留用户消息中的文字、照片，并明确标注系统附加的头像。
       if (needsAvatarRecognition && userInfo.avatar) {
-        // 🔥 降级处理：检查API是否支持视觉识别
-        if (!settings.supportsVision) {
-          // 跳过头像识别
-        } else {
-
-        // 在系统提示词末尾添加识别请求
-        systemPrompt += `
-
-🖼️ 用户换了头像，回复时用[头像描述:xxx]记录你看到的内容。描述30字左右，说说主体是什么、有什么特征、整体感觉。例：[头像描述:一只橘猫趴在窗台上晒太阳，毛茸茸的，眯着眼睛很惬意]`
-
-        // 找到最后一条用户消息，附加头像图片
-        if (apiMessages.length > 0) {
-          const lastUserMsgIndex = apiMessages.map((m, i) => ({ msg: m, index: i }))
-            .filter(item => item.msg.role === 'user')
-            .pop()?.index
-
-          if (lastUserMsgIndex !== undefined) {
-            const lastUserMsg = apiMessages[lastUserMsgIndex]
-
-            // 将文本消息转换为多模态消息
-            apiMessages[lastUserMsgIndex] = {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: typeof lastUserMsg.content === 'string' ? lastUserMsg.content : ''
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: userInfo.avatar
-                  }
-                }
-              ]
-            }
-
-          }
-        }
-        }
+        const request = addAvatarRecognitionRequest(apiMessages, userInfo.avatar)
+        systemPrompt += request
+        avatarRecognitionRequested = Boolean(request)
       }
 
       // ⏱ 开始计时
@@ -609,12 +580,14 @@ export const useChatAI = (
       }
       
 
+      const momentSnapshot = [...systemPrompt.matchAll(/\[动态ID:([^\]]+)\]/g)].map(match => match[1])
       const apiResult = await callAIApi(
         [{ role: 'system', content: systemPrompt }, ...apiMessages],
         settings,
         enableTheatreCards
       )
       
+      if (!isCurrentRequest()) return
       let aiReply = apiResult.content
       
       console.group('━━━━━━ 📥 AI原始回复 ━━━━━━')
@@ -1108,10 +1081,11 @@ export const useChatAI = (
       const { removeAvatarDescriptionCommand, extractAvatarDescription, setUserAvatarDescription } = await import('../../../utils/userAvatarManager')
       
       // 如果需要识别头像，先提取头像描述（在移除之前）
-      if (needsAvatarRecognition && userInfo.avatar) {
+      if (avatarRecognitionRequested && userInfo.avatar) {
         const avatarDesc = extractAvatarDescription(messageAfterDelete)
 
-        if (avatarDesc) {
+        const latestUserInfo = await getCurrentUserInfoWithAvatar()
+        if (avatarDesc && latestUserInfo.allowAvatarRecognition && latestUserInfo.avatar === userInfo.avatar) {
           setUserAvatarDescription(avatarDesc, userInfo.avatar)
           console.log('✅ [头像识别] 从AI回复中提取并保存头像描述:', avatarDesc)
         } else {
@@ -1136,7 +1110,7 @@ export const useChatAI = (
       
       if (imageUpdates.length > 0) {
         const { updateMomentImageDescriptions } = await import('../../../utils/momentsManager')
-        const savedCount = updateMomentImageDescriptions(imageUpdates)
+        const savedCount = await updateMomentImageDescriptions(imageUpdates)
         console.log(`✅ [朋友圈图片识别] 保存了 ${savedCount} 张图片的描述`)
       }
       
@@ -1352,7 +1326,7 @@ export const useChatAI = (
       // 如果有朋友圈互动指令，执行它们
       if (interactions.length > 0) {
         console.log('📱 检测到朋友圈互动指令:', interactions)
-        const interactionResults = await executeMomentsInteractions(interactions)
+        const interactionResults = await executeMomentsInteractions(interactions, momentSnapshot)
         console.log('✅ 朋友圈互动执行结果:', interactionResults)
         
         // 为每个成功的互动创建系统消息
@@ -1530,6 +1504,7 @@ export const useChatAI = (
       let pendingQuotedMsg: Message['quotedMessage'] | undefined // 保存跨消息的引用
       
       for (let i = 0; i < aiMessagesList.length; i++) {
+        if (!isCurrentRequest()) return
         const content = aiMessagesList[i]
         console.log(`🔄 处理消息 [${i+1}/${aiMessagesList.length}]: "${content}"`)
         
@@ -1652,6 +1627,7 @@ export const useChatAI = (
           // 🔥🔥🔥 关键修复：使用 addMessage（带锁机制）防止多条消息保存时的竞态条件
           // 之前的问题：多条AI消息快速保存时，loadMessages 可能读到旧数据，导致消息丢失
           console.log(`📱 [useChatAI] 保存AI消息, id=${aiMessage.id}`)
+          if (!isCurrentRequest()) return
           saveMessageToStorage(chatId, aiMessage)
           
           // 🔥 不再手动更新React状态，saveMessageToStorage 会触发 new-message 事件
@@ -1682,6 +1658,8 @@ export const useChatAI = (
         console.log('✅ [AI回复] 结束，清除全局标志')
       }, 500)
       
+      if (!isCurrentRequest()) return
+
       // 🧠 全局记忆提取：每15次互动自动提取一次
       try {
         const { recordInteraction } = await import('../../../services/memoryExtractor')
@@ -1714,6 +1692,7 @@ export const useChatAI = (
               // 异步生成总结，不阻塞UI
               setTimeout(async () => {
                 try {
+                  if (!isCurrentRequest()) return
                   const msgs = loadMessages(chatId)
 
                   // 从 localStorage 读取上次记忆/时间线已经处理到的时间戳
@@ -1738,6 +1717,7 @@ export const useChatAI = (
                   const conversationPairs: Array<{userMsg: string, aiMsg: string, timestamp: number}> = []
                   
                   for (let i = 0; i < newMessages.length - 1; i++) {
+        if (!isCurrentRequest()) return
                     const msg1 = newMessages[i]
                     const msg2 = newMessages[i + 1]
                     

@@ -1,3 +1,4 @@
+import SafeHtml from '../../../components/SafeHtml'
 import React from 'react'
 import { Message } from '../../../types/chat'
 
@@ -89,10 +90,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onMouseUp={onLongPressEnd}
         onMouseLeave={onLongPressEnd}
       >
-        <div 
-          dangerouslySetInnerHTML={{ __html: displayContent }}
-          style={{ maxWidth: '280px' }}
-        />
+        <SafeHtml html={displayContent} style={{ width: '280px', maxWidth: '100%' }} />
       </div>
     )
   }

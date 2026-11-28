@@ -205,3 +205,13 @@ export function createTextMessage(content: string, type: 'sent' | 'received'): M
   return { id: nextMessageId(), type, content, timestamp: now,
     time: new Date(now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), messageType: 'text' }
 }
+
+export async function flushCharacterMessages(characterId: string): Promise<void> {
+  await Promise.all([...writes].filter(([key]) => key === characterId || key.startsWith(`${characterId}_`)).map(([, pending]) => pending))
+}
+export function forgetCharacterMessages(characterId: string): void {
+  cacheGeneration++
+  for (const key of messageCache.keys()) if (key === characterId || key.startsWith(`${characterId}_`)) {
+    messageCache.delete(key); loaded.delete(key); loading.delete(key); retryWrites.delete(key)
+  }
+}

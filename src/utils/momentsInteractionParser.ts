@@ -1,9 +1,10 @@
+import { canViewMoment } from './momentVisibility'
 /**
  * 朋友圈互动指令解析器
  * 解析AI在聊天中发送的朋友圈互动指令（评论、点赞等）
  */
 
-import { loadMoments, saveMoments } from './momentsManager'
+import { updateMoments } from './momentsManager'
 import { addMomentsNews } from './momentsNewsManager'
 
 /**
@@ -117,19 +118,20 @@ export interface InteractionResult {
  * @param interactions 互动指令数组
  * @returns 执行结果数组
  */
-export async function executeMomentsInteractions(interactions: MomentsInteraction[]): Promise<InteractionResult[]> {
+export async function executeMomentsInteractions(interactions: MomentsInteraction[], snapshotIds: string[] = []): Promise<InteractionResult[]> {
   if (interactions.length === 0) {
     return []
   }
 
-  const moments = loadMoments()
   const results: InteractionResult[] = []
+  const news: Parameters<typeof addMomentsNews>[0][] = []
+  await updateMoments(moments => {
 
   for (const interaction of interactions) {
     // 朋友圈序号从1开始，数组索引从0开始
     const momentIndex = interaction.momentIndex - 1
 
-    if (momentIndex < 0 || momentIndex >= moments.length) {
+    if (momentIndex < 0 || momentIndex >= (snapshotIds ? snapshotIds.length : moments.length)) {
       results.push({
         success: false,
         type: interaction.type,
@@ -140,7 +142,8 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
       continue
     }
 
-    const moment = moments[momentIndex]
+    const moment = snapshotIds ? moments.find(m => m.id === snapshotIds[momentIndex]) : moments[momentIndex]
+    if (!moment || !canViewMoment(moment, interaction.aiId)) continue
     const momentContentPreview = moment.content.substring(0, 20) + (moment.content.length > 20 ? '...' : '')
 
     switch (interaction.type) {
@@ -157,7 +160,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           })
         } else {
           moment.likes.push({
-            id: Date.now().toString(),
+            id: crypto.randomUUID(),
             userId: interaction.aiId,
             userName: interaction.aiName,
             userAvatar: '🤖'  // AI默认头像
@@ -170,7 +173,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
             message: `👍 ${interaction.aiName} 点赞了第 ${interaction.momentIndex} 条朋友圈`
           })
           // 添加速报
-          addMomentsNews({
+          news.push({
             type: 'like',
             actorId: interaction.aiId,
             actorName: interaction.aiName,
@@ -193,7 +196,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           continue
         }
         moment.comments.push({
-          id: Date.now().toString(),
+          id: crypto.randomUUID(),
           userId: interaction.aiId,
           userName: interaction.aiName,
           userAvatar: '🤖',  // AI默认头像
@@ -209,7 +212,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           message: `💬 ${interaction.aiName} 评论了第 ${interaction.momentIndex} 条朋友圈：${interaction.content}`
         })
         // 添加速报
-        addMomentsNews({
+        news.push({
           type: 'comment',
           actorId: interaction.aiId,
           actorName: interaction.aiName,
@@ -232,7 +235,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           continue
         }
         moment.comments.push({
-          id: Date.now().toString(),
+          id: crypto.randomUUID(),
           userId: interaction.aiId,
           userName: interaction.aiName,
           userAvatar: '🤖',  // AI默认头像
@@ -250,7 +253,7 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
           message: `💬 ${interaction.aiName} 回复了 ${interaction.replyTo}（第 ${interaction.momentIndex} 条）：${interaction.content}`
         })
         // 添加速报
-        addMomentsNews({
+        news.push({
           type: 'reply',
           actorId: interaction.aiId,
           actorName: interaction.aiName,
@@ -265,7 +268,9 @@ export async function executeMomentsInteractions(interactions: MomentsInteractio
   }
 
   // 保存更新后的朋友圈
-  await saveMoments(moments)
+    return moments
+  })
+  news.forEach(addMomentsNews)
 
   // 触发朋友圈更新事件
   window.dispatchEvent(new Event('storage'))

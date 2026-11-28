@@ -250,6 +250,7 @@ export function trackAvatarChange(newAvatar: string): boolean {
  * @param allowAvatarRecognition 是否开启了头像识别（如果没开启，不提示头像变更）
  */
 export function getUserInfoChangeContext(allowAvatarRecognition: boolean = false): string {
+  if ((localStorage.getItem('current_account_id') || 'main') !== 'main') return ''
   const history = getUserInfoChangeHistory()
   const changes: string[] = []
   let shouldSave = false
@@ -322,11 +323,6 @@ export function getUserInfoChangeContext(allowAvatarRecognition: boolean = false
 ⚠️ **【重要】检测到用户更改了个人信息**：
 ${changes.join('\n')}
 
-**建议行动（不仅是聊天，要有实际行动）：**
-1. **换个情侣名？** 如果你们关系亲密，且用户改的名字看起来像情侣名的一半，你可以**直接使用 [网名:xxx] 指令**把自己的名字也改了，跟TA凑一对！
-2. **调侃一下？** 如果用户的新签名很有趣，你可以改一个呼应的签名，使用 **[个性签名:xxx]** 指令。
-3. **换个头像？** 如果用户换了新头像，你也可以说"那我也换一个"，然后使用 **[换头像:描述:关键词]** 或 **[换头像:标签:标签名]** 换个新的。
-
-**💡 记住：你是独立的个体，看到朋友/恋人换了新形象，你完全可以一时兴起也跟着换！不要只会在嘴上说"你换头像了"，要用行动回应！**
+以上仅为所列时间发生的变更记录，不代表本轮刚刚发生，也不代表其他资料发生变化。只有对话相关时才自然回应，不必主动提起或跟随修改自己的资料。
 `
 }

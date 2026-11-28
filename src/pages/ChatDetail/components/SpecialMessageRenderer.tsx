@@ -1,3 +1,4 @@
+import SafeHtml from '../../../components/SafeHtml'
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Message } from '../../../types/chat'
@@ -887,7 +888,7 @@ export const SpecialMessageRenderer: React.FC<SpecialMessageRendererProps> = ({
             line-height: 1.6;
           }
         `}</style>
-        <div className="theatre-html-wrapper" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+        <SafeHtml className="theatre-html-wrapper" html={safeHtml} />
       </div>
     )
   }

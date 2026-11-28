@@ -3,6 +3,8 @@
  * 全局管理用户头像的AI识别、存储和变更历史
  */
 
+import type { ChatMessage } from '../types/chat'
+
 export interface UserAvatarInfo {
   description: string  // AI识别的头像描述
   identifiedAt: number  // 识别时间戳
@@ -19,6 +21,9 @@ export interface UserAvatarHistory {
 }
 
 const STORAGE_KEY = 'user_avatar_info'
+function storageKey(accountId = localStorage.getItem('current_account_id') || 'main') {
+  return accountId === 'main' ? STORAGE_KEY : `${STORAGE_KEY}_${accountId}`
+}
 
 /**
  * 生成头像指纹（用于快速比较，避免存储完整base64）
@@ -35,9 +40,9 @@ function getAvatarFingerprint(avatarUrl: string): string {
 /**
  * 获取用户头像信息
  */
-export function getUserAvatarInfo(): UserAvatarHistory {
+export function getUserAvatarInfo(accountId?: string): UserAvatarHistory {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = localStorage.getItem(storageKey(accountId))
     if (saved) {
       const data = JSON.parse(saved)
       
@@ -66,9 +71,9 @@ export function getUserAvatarInfo(): UserAvatarHistory {
 /**
  * 保存用户头像信息
  */
-export function saveUserAvatarInfo(info: UserAvatarHistory): void {
+export function saveUserAvatarInfo(info: UserAvatarHistory, accountId?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(info))
+    localStorage.setItem(storageKey(accountId), JSON.stringify(info))
     console.log('💾 用户头像信息已保存')
   } catch (error) {
     console.error('保存用户头像信息失败:', error)
@@ -80,9 +85,10 @@ export function saveUserAvatarInfo(info: UserAvatarHistory): void {
  */
 export function setUserAvatarDescription(
   description: string,
-  avatarUrl: string
+  avatarUrl: string,
+  accountId?: string
 ): void {
-  const info = getUserAvatarInfo()
+  const info = getUserAvatarInfo(accountId)
   const now = Date.now()
   
   // 使用指纹而不是完整URL
@@ -98,12 +104,16 @@ export function setUserAvatarDescription(
     console.log('✨ 首次识别用户头像:', description)
     console.log('💾 头像指纹已保存')
   } else {
-    // 如果是更新（头像变化）
-    info.history.push({
-      description,
-      changedAt: now,
-      previousDescription: info.current.description
-    })
+    // 重新识别同一张图片只更新描述，不代表用户换过头像。
+    if (info.current.avatarUrl !== fingerprint) {
+      info.history.push({
+        description,
+        changedAt: now,
+        previousDescription: info.current.description
+      })
+    } else if (info.history.length > 0) {
+      info.history[info.history.length - 1].description = description
+    }
     
     info.current = {
       description,
@@ -111,13 +121,32 @@ export function setUserAvatarDescription(
       avatarUrl: fingerprint  // 存储指纹
     }
     
-    console.log('🔄 用户头像已更新:', {
-      from: info.history[info.history.length - 1].previousDescription,
-      to: description
-    })
+    console.log('🔄 用户头像描述已更新:', description)
   }
   
-  saveUserAvatarInfo(info)
+  saveUserAvatarInfo(info, accountId)
+}
+
+/** 附加当前头像用于识别，不把识别请求当作头像变更事件。 */
+export function addAvatarRecognitionRequest(messages: ChatMessage[], avatarUrl: string): string {
+  const index = messages.map(message => message.role).lastIndexOf('user')
+  if (index < 0 || !avatarUrl) return ''
+  const message = messages[index]
+  // 照片转换器使用 imageUrl；在这里合并，避免 API 层把数组再次包成 text。
+  const { imageUrl, ...rest } = message
+  const content = typeof message.content === 'string'
+    ? [{ type: 'text' as const, text: message.content }]
+    : message.content
+  messages[index] = {
+    ...rest,
+    content: [
+      ...content,
+      ...(imageUrl ? [{ type: 'image_url' as const, image_url: { url: imageUrl } }] : []),
+      { type: 'text', text: '【系统附加图片：用户当前头像，非用户本次发送的照片】' },
+      { type: 'image_url', image_url: { url: avatarUrl } }
+    ]
+  }
+  return `\n\n🖼️ 系统附加的图片是用户当前头像，仅供识别，不代表用户刚刚更换头像。请用[头像描述:xxx]客观记录其内容，约30字；无法识别时不要猜测。不要把这张图片当作用户本次发送的照片，也不要仅因本次识别而主动提起头像变化。`
 }
 
 /**
@@ -209,7 +238,7 @@ export function getAvatarHistoryText(): string {
  * 清除用户头像信息（用于测试或重置）
  */
 export function clearUserAvatarInfo(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(storageKey())
   console.log('🗑️ 用户头像信息已清除')
 }
 
@@ -243,16 +272,14 @@ export async function recognizeUserAvatar(avatarBase64: string): Promise<string 
     console.log('🔍 [头像识别] 开始调用AI识别用户头像...')
 
     // 动态导入chatApi避免循环依赖
-    const { callAIApi } = await import('./chatApi')
+    const { callAIApi, getApiSettings } = await import('./chatApi')
 
     // 获取API设置
-    const settings = localStorage.getItem('api_settings')
-    if (!settings) {
+    const apiSettings = getApiSettings()
+    if (!apiSettings) {
       console.error('❌ [头像识别] 未配置API设置')
       return null
     }
-
-    const apiSettings = JSON.parse(settings)
 
     // 🔥 降级处理：检查API是否支持视觉识别
     if (!apiSettings.supportsVision) {

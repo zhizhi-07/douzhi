@@ -67,7 +67,8 @@ export const saveSong = async (song: Omit<StoredSong, 'id'> & { id?: number }): 
     }
     
     const request = store.put(songWithId)
-    request.onsuccess = () => resolve(songWithId.id)
+    transaction.oncomplete = () => resolve(songWithId.id)
+    transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('歌曲保存事务失败'))
     request.onerror = () => reject(request.error)
   })
 }
@@ -135,43 +136,35 @@ export const deleteSong = async (id: number): Promise<void> => {
     const transaction = db.transaction(STORE_NAME, 'readwrite')
     const store = transaction.objectStore(STORE_NAME)
     const request = store.delete(id)
-    request.onsuccess = () => resolve()
+    transaction.oncomplete = () => resolve()
+    transaction.onabort = () => reject(transaction.error || new Error('音乐删除事务中止'))
     request.onerror = () => reject(request.error)
   })
 }
 
 // 迁移 localStorage 中的旧数据到 IndexedDB
 export const migrateFromLocalStorage = async (): Promise<void> => {
-  const oldData = localStorage.getItem('customSongs')
-  if (!oldData) return
-
-  try {
-    const oldSongs = JSON.parse(oldData)
-    if (!Array.isArray(oldSongs) || oldSongs.length === 0) return
-
-    for (const song of oldSongs) {
-      if (song.audioUrl && song.audioUrl.startsWith('data:')) {
-        // 将 base64 转换为 Blob
+  const raw = localStorage.getItem('customSongs')
+  if (!raw) return
+  const songs = JSON.parse(raw)
+  if (!Array.isArray(songs)) throw new Error('旧音乐列表格式错误，原数据已保留')
+  const remaining = []
+  const links = JSON.parse(localStorage.getItem('customSongs_url') || '[]')
+  for (const song of songs) {
+    try {
+      if (/^https?:/.test(song.audioUrl || '')) {
+        if (!links.some((s: Song) => s.id === song.id)) links.push(song)
+      } else if (/^(data:|blob:)/.test(song.audioUrl || '')) {
         const response = await fetch(song.audioUrl)
-        const blob = await response.blob()
-        
-        await saveSong({
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          album: song.album || '',
-          duration: song.duration,
-          cover: song.cover,
-          audioBlob: blob,
-          lyrics: song.lyrics
-        })
-      }
+        if (!response.ok) throw new Error('原音频不可用，请重新选择文件')
+        await saveSong({ ...song, audioBlob: await response.blob() })
+      } else remaining.push(song)
+    } catch (error) {
+      remaining.push(song)
+      console.warn('旧歌曲未迁移，原条目已保留:', error)
     }
-    
-    // 迁移成功后删除 localStorage 数据
-    localStorage.removeItem('customSongs')
-    console.log('音乐数据已迁移到 IndexedDB')
-  } catch (error) {
-    console.error('迁移失败:', error)
   }
+  localStorage.setItem('customSongs_url', JSON.stringify(links))
+  if (remaining.length) localStorage.setItem('customSongs', JSON.stringify(remaining))
+  else if (localStorage.getItem('customSongs') === raw) localStorage.removeItem('customSongs')
 }

@@ -15,38 +15,30 @@ let characterCache: Character[] | null = null
 const BACKUP_KEY = 'characters_backup'
 
 /**
- * 🔥 备份角色到 localStorage
+ * 🔥 备份角色到 IndexedDB，旧 localStorage 副本保留至提交成功
  */
-function backupCharactersToLocalStorage(characters: Character[]): void {
+async function backupCharacters(characters: Character[]): Promise<void> {
+  const legacy = localStorage.getItem(BACKUP_KEY)
   try {
-    // 保留完整头像；空间不足时报告备份失败，不生成损坏的截断URL。
-    const backup = {
-      characters,
-      timestamp: Date.now()
-    }
-    localStorage.setItem(BACKUP_KEY, JSON.stringify(backup))
-    console.log(`💾 [角色备份] 已备份 ${characters.length} 个角色到 localStorage`)
-  } catch (e) {
-    // localStorage 可能已满，静默失败
-    console.warn('⚠️ [角色备份] 备份失败:', e)
+    await IDB.setItem(IDB.STORES.MISC, BACKUP_KEY, { characters, timestamp: Date.now() })
+    if (localStorage.getItem(BACKUP_KEY) === legacy) localStorage.removeItem(BACKUP_KEY)
+  } catch (error) {
+    console.warn('角色主数据已保存，备份更新失败，旧备份已保留:', error)
   }
 }
 
 /**
  * 🔥 从 localStorage 恢复角色
  */
-function restoreCharactersFromBackup(): Character[] | null {
+async function restoreCharactersFromBackup(): Promise<Character[] | null> {
   try {
-    const backup = localStorage.getItem(BACKUP_KEY)
-    if (!backup) return null
-    
-    const parsed = JSON.parse(backup)
-    if (!parsed.characters || !Array.isArray(parsed.characters)) return null
-    
-    console.log(`🔄 [角色恢复] 从 localStorage 恢复 ${parsed.characters.length} 个角色`)
-    return parsed.characters
-  } catch (e) {
-    console.warn('⚠️ [角色恢复] 恢复失败:', e)
+    const saved = await IDB.getItem<{ characters: Character[] }>(IDB.STORES.MISC, BACKUP_KEY, true)
+    if (Array.isArray(saved?.characters)) return saved.characters
+    const raw = localStorage.getItem(BACKUP_KEY)
+    const legacy = raw ? JSON.parse(raw) : null
+    return Array.isArray(legacy?.characters) ? legacy.characters : null
+  } catch (error) {
+    console.warn('角色备份不可读，原数据已保留:', error)
     return null
   }
 }
@@ -74,8 +66,8 @@ export async function getAllCharacters(): Promise<Character[]> {
     let characters = await IDB.getItem<Character[]>(IDB.STORES.CHARACTERS, 'all')
     
     // 🔥 如果 IndexedDB 为空，尝试从 localStorage 备份恢复
-    if (!characters || characters.length === 0) {
-      const restored = restoreCharactersFromBackup()
+    if (characters === null) {
+      const restored = await restoreCharactersFromBackup()
       if (restored && restored.length > 0) {
         console.log(`✅ [角色恢复] 从备份恢复了 ${restored.length} 个角色`)
         // 恢复到 IndexedDB
@@ -90,7 +82,7 @@ export async function getAllCharacters(): Promise<Character[]> {
     console.error('读取角色失败:', error)
     
     // 🔥 IndexedDB 失败时，尝试从备份恢复
-    const restored = restoreCharactersFromBackup()
+    const restored = await restoreCharactersFromBackup()
     if (restored && restored.length > 0) {
       characterCache = restored
       return characterCache
@@ -111,7 +103,7 @@ export async function saveAllCharacters(characters: Character[]): Promise<void> 
     characterCache = characters
     
     // 🔥 同时备份到 localStorage
-    backupCharactersToLocalStorage(characters)
+    await backupCharacters(characters)
     
     console.log('✅ 角色数据已保存到 IndexedDB')
   } catch (error) {
@@ -131,51 +123,38 @@ export async function addCharacter(character: Character): Promise<void> {
     return [...characters, character]
   })
   characterCache = saved
-  backupCharactersToLocalStorage(saved)
+  await backupCharacters(saved)
 }
 
 /**
  * 更新角色
  */
 export async function updateCharacter(id: string, updates: Partial<Character>): Promise<Character | null> {
-  const characters = await getAllCharacters()
-  const index = characters.findIndex(c => c.id === id)
-  
-  if (index === -1) return null
-  
-  characters[index] = { ...characters[index], ...updates }
-  await saveAllCharacters(characters)
-  
-  return characters[index]
+  await getAllCharacters()
+  const saved = await IDB.updateItem<Character[]>(IDB.STORES.CHARACTERS, 'all', current => {
+    if (!Array.isArray(current)) throw new Error('角色存储格式错误')
+    return current.map(character => character.id === id ? { ...character, ...updates, id } : character)
+  })
+  characterCache = saved
+  await backupCharacters(saved)
+  return saved.find(character => character.id === id) || null
 }
 
 /**
  * 删除角色及其所有相关数据
  */
 export async function deleteCharacter(id: string): Promise<void> {
-  // 1. 删除角色本身
-  const characters = await getAllCharacters()
-  const filtered = characters.filter(c => c.id !== id)
-  await saveAllCharacters(filtered)
-  
-  // 2. 删除聊天记录（IndexedDB）
-  try {
-    await IDB.removeItem(IDB.STORES.MESSAGES, id)
-    console.log(`✅ 已删除角色 ${id} 的聊天记录`)
-  } catch (error) {
-    console.error('删除聊天记录失败:', error)
+  const messages = await import('./simpleMessageManager')
+  await messages.flushCharacterMessages(id)
+  characterCache = await IDB.deleteCharacterRecords(id)
+  localStorage.removeItem(BACKUP_KEY)
+  messages.forgetCharacterMessages(id)
+  const legacyPrefixes = [`msg_backup_${id}`, `chat_messages_${id}`, `messages_${id}`]
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i)
+    if (key && legacyPrefixes.some(prefix => key === prefix || key.startsWith(`${prefix}_sub_`))) localStorage.removeItem(key)
   }
-  
-  // 3. 删除聊天列表中的条目
-  try {
-    const chatList = await IDB.getItem<any[]>(IDB.STORES.SETTINGS, 'chat_list') || []
-    const filteredChatList = chatList.filter(chat => chat.id !== id)
-    await IDB.setItem(IDB.STORES.SETTINGS, 'chat_list', filteredChatList)
-    console.log(`✅ 已从聊天列表中移除角色 ${id}`)
-  } catch (error) {
-    console.error('更新聊天列表失败:', error)
-  }
-  
+
   // 4. 删除 localStorage 中的相关数据
   const keysToRemove: string[] = []
   for (let i = 0; i < localStorage.length; i++) {
